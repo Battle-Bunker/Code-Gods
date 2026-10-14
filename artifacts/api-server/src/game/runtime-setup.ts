@@ -23,7 +23,7 @@ export function initializeRuntimeAdapters(): Promise<void> {
       candidates[language] = pool;
       try {
         for (const objectType of ["Int", "string"] as const) {
-          const settings = { ...DEFAULT_SETTINGS, language, objectType };
+          const settings = { ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1` };
           const source = language === "python" ? "lambda x: x"
             : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
           const input = objectType === "Int" ? 37 : "identity\0\n";

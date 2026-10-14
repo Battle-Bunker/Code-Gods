@@ -153,6 +153,15 @@ export const CreateRoomBody = zod.object({
 
 })
 
+export const createRoomResponseSettingsInteractionRateHzDefault = 100;
+export const createRoomResponseSettingsInteractionRateHzMin = 0;
+export const createRoomResponseSettingsInteractionRateHzMax = 1000;
+
+export const createRoomResponseSettingsInteractionComputeMsDefault = 5;
+export const createRoomResponseSettingsInteractionComputeMsMax = 1000;
+
+
+
 export const CreateRoomResponse = zod.object({
   "id": zod.string(),
   "shortCode": zod.string(),
@@ -172,7 +181,8 @@ export const CreateRoomResponse = zod.object({
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(createRoomResponseSettingsInteractionRateHzMin).max(createRoomResponseSettingsInteractionRateHzMax).default(createRoomResponseSettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsInteractionComputeMsMax).default(createRoomResponseSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()
@@ -224,6 +234,15 @@ export const GetRoomParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const getRoomResponseSettingsInteractionRateHzDefault = 100;
+export const getRoomResponseSettingsInteractionRateHzMin = 0;
+export const getRoomResponseSettingsInteractionRateHzMax = 1000;
+
+export const getRoomResponseSettingsInteractionComputeMsDefault = 5;
+export const getRoomResponseSettingsInteractionComputeMsMax = 1000;
+
+
+
 export const GetRoomResponse = zod.object({
   "id": zod.string(),
   "shortCode": zod.string(),
@@ -243,7 +262,8 @@ export const GetRoomResponse = zod.object({
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(getRoomResponseSettingsInteractionRateHzMin).max(getRoomResponseSettingsInteractionRateHzMax).default(getRoomResponseSettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsInteractionComputeMsMax).default(getRoomResponseSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()
@@ -295,6 +315,13 @@ export const RoomActionParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const roomActionBodySettingsInteractionRateHzDefault = 100;
+export const roomActionBodySettingsInteractionRateHzMin = 0;
+export const roomActionBodySettingsInteractionRateHzMax = 1000;
+
+export const roomActionBodySettingsInteractionComputeMsDefault = 5;
+export const roomActionBodySettingsInteractionComputeMsMax = 1000;
+
 export const roomActionBodyTextMax = 4000;
 
 export const roomActionBodyAiBudgetMin = 0;
@@ -320,7 +347,8 @@ export const RoomActionBody = zod.object({
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(roomActionBodySettingsInteractionRateHzMin).max(roomActionBodySettingsInteractionRateHzMax).default(roomActionBodySettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()
@@ -331,6 +359,15 @@ export const RoomActionBody = zod.object({
   "aiBudget": zod.number().int().min(roomActionBodyAiBudgetMin).max(roomActionBodyAiBudgetMax).optional(),
   "aiAgentId": zod.string().optional()
 })
+
+export const roomActionResponseSettingsInteractionRateHzDefault = 100;
+export const roomActionResponseSettingsInteractionRateHzMin = 0;
+export const roomActionResponseSettingsInteractionRateHzMax = 1000;
+
+export const roomActionResponseSettingsInteractionComputeMsDefault = 5;
+export const roomActionResponseSettingsInteractionComputeMsMax = 1000;
+
+
 
 export const RoomActionResponse = zod.object({
   "id": zod.string(),
@@ -351,7 +388,8 @@ export const RoomActionResponse = zod.object({
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(roomActionResponseSettingsInteractionRateHzMin).max(roomActionResponseSettingsInteractionRateHzMax).default(roomActionResponseSettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsInteractionComputeMsMax).default(roomActionResponseSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()
@@ -413,6 +451,15 @@ export const ApproveDeviceResponse = zod.object({
 })
 
 
+export const getManifestResponseDefaultsInteractionRateHzDefault = 100;
+export const getManifestResponseDefaultsInteractionRateHzMin = 0;
+export const getManifestResponseDefaultsInteractionRateHzMax = 1000;
+
+export const getManifestResponseDefaultsInteractionComputeMsDefault = 5;
+export const getManifestResponseDefaultsInteractionComputeMsMax = 1000;
+
+
+
 export const GetManifestResponse = zod.object({
   "protocolVersion": zod.number().int(),
   "minimumPlayers": zod.number().int(),
@@ -430,7 +477,8 @@ export const GetManifestResponse = zod.object({
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(getManifestResponseDefaultsInteractionRateHzMin).max(getManifestResponseDefaultsInteractionRateHzMax).default(getManifestResponseDefaultsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()

@@ -16,10 +16,47 @@ test("requested defaults and settings validation", () => {
   assert.equal(DEFAULT_SETTINGS.energyPerSecond, 1);
   assert.equal(DEFAULT_SETTINGS.startingObjectCount, 10);
   assert.equal(DEFAULT_SETTINGS.spawnRateHz, 0.1);
-  assert.equal(DEFAULT_SETTINGS.interactionRateHz, 10);
+  assert.equal(DEFAULT_SETTINGS.interactionRateHz, 100);
+  assert.equal(DEFAULT_SETTINGS.interactionComputeMs, 5);
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, halfLifeSeconds: 0 }));
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, intMin: 10, intMax: 1 }));
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, spawnRateHz: NaN }));
+});
+
+test("interaction compute budget is a finite integer from 1 to 1000 ms", () => {
+  for (const interactionComputeMs of [1, 5, 1000]) {
+    assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, interactionComputeMs }));
+  }
+  for (const interactionComputeMs of [0, -1, 1.5, 1001, NaN, Infinity, -Infinity]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, interactionComputeMs }), /interactionComputeMs/);
+  }
+  const { interactionComputeMs: _budget, ...legacy } = DEFAULT_SETTINGS;
+  assert.throws(() => validateSettings(legacy as typeof DEFAULT_SETTINGS), /interactionComputeMs/);
+});
+
+test("product interaction cap is 1000 Hz with a 100 Hz default", () => {
+  assert.equal(DEFAULT_SETTINGS.interactionRateHz, 100);
+  for (const interactionRateHz of [0, 10, 100, 999.5, 1000]) {
+    assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, interactionRateHz }));
+  }
+  for (const interactionRateHz of [1000.1, 10000, -1, Infinity, NaN]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, interactionRateHz }), /interactionRateHz/);
+  }
+});
+
+test("legacy JSON settings hydrate with the budget default without overwriting saved settings", () => {
+  const { interactionComputeMs: _budget, ...legacy } = DEFAULT_SETTINGS;
+  const persisted = JSON.parse(JSON.stringify({ ...legacy, interactionRateHz: 50, startingEnergy: 123 }));
+  const hydrated = { ...DEFAULT_SETTINGS, ...persisted };
+  assert.equal(hydrated.interactionComputeMs, 5);
+  assert.equal(hydrated.interactionRateHz, 50);
+  assert.equal(hydrated.startingEnergy, 123);
+  assert.equal(({ ...DEFAULT_SETTINGS, ...hydrated, interactionComputeMs: 77 }).interactionComputeMs, 77);
+  assert.doesNotThrow(() => validateSettings(hydrated));
+  const { interactionRateHz: _rate, ...missingRate } = persisted;
+  assert.equal(({ ...DEFAULT_SETTINGS, ...missingRate }).interactionRateHz, 100);
+  assert.equal(({ ...DEFAULT_SETTINGS, ...legacy }).interactionRateHz, 100);
+  assert.equal(({ ...DEFAULT_SETTINGS, ...legacy, interactionRateHz: 10 }).interactionRateHz, 10);
 });
 
 test("object contracts reject coercion and permit empty/control ASCII strings", () => {

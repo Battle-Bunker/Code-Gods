@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 
-// No database credentials or live providers are used. All SQL terminates in a
-// fresh in-memory fixture inside the isolated test process.
+// No database credentials or live providers are used. The isolated SQL fixture
+// fsyncs a temporary snapshot on COMMIT; this is NOT a PostgreSQL benchmark.
 const here = dirname(fileURLToPath(import.meta.url));
 const temp = await mkdtemp(join(here, ".integration-"));
 try {
@@ -33,9 +33,62 @@ try {
         }));
         build.onLoad({ filter: /^db$/, namespace: "fixture" }, () => ({
           contents: `
-            export const fixtureRooms = new Map(), fixtureGames = new Map(), fixtureAgents = new Map();
+            import {openSync,writeFileSync,readFileSync,fsyncSync,closeSync} from "node:fs";
+            export const fixtureRooms = new Map(), fixtureGames = new Map(), fixtureAgents = new Map(), fixtureBatches = new Map();
+            export function fixtureDurableRoom(id) {
+              let room;
+              for(const line of readFileSync(${JSON.stringify(join(temp, "durable.json"))},"utf8").trim().split("\\n")) {
+                for(const [key,value] of JSON.parse(line).rooms) if(key===id)room=value;
+              }
+              return room;
+            }
+            export function fixtureDurableBatches() {
+              const lines=readFileSync(${JSON.stringify(join(temp, "durable.json"))},"utf8").trim().split("\\n");
+              return JSON.parse(lines.at(-1)).batches??[];
+            }
+            export const fixtureControl = {failCommit:false,failCheckpoint:false,loseAppendAck:false, commits:0, interactionWrites:0};
+            let prior;
             async function query(sql,args=[]) {
-              if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql)) return {rows:[]};
+              if (sql==="BEGIN") {prior=[new Map(fixtureRooms),new Map(fixtureGames),new Map(fixtureBatches)];return {rows:[]};}
+              if (sql==="ROLLBACK") {
+                if(prior) {fixtureRooms.clear();fixtureGames.clear();fixtureBatches.clear();for(const [k,v] of prior[0])fixtureRooms.set(k,v);for(const [k,v] of prior[1])fixtureGames.set(k,v);for(const [k,v] of prior[2])fixtureBatches.set(k,v);}
+                prior=undefined;return {rows:[]};
+              }
+              if (sql==="COMMIT") {
+                if(fixtureControl.failCommit) throw new Error("fixture commit failure");
+                if(fixtureControl.failCheckpoint&&[...fixtureRooms].some(([id,value])=>prior?.[0].get(id)!==value))
+                  throw new Error("fixture checkpoint failure");
+                const fd=openSync(${JSON.stringify(join(temp, "durable.json"))},"a");
+                try {
+                  writeFileSync(fd,JSON.stringify({
+                    rooms:[...fixtureRooms].filter(([id,value])=>prior?.[0].get(id)!==value),
+                    games:[...fixtureGames].filter(([id,value])=>prior?.[1].get(id)!==value),
+                    batches:[...fixtureBatches.values()]
+                  })+"\\n");fsyncSync(fd);
+                } finally{closeSync(fd);}
+                fixtureControl.commits++;prior=undefined;return {rows:[]};
+              }
+              if(sql.startsWith("INSERT INTO cg_interaction_batches")) {
+                if(!prior) {
+                  await query("BEGIN");
+                  try {
+                    const result=await query(sql,args);await query("COMMIT");
+                    if(fixtureControl.loseAppendAck){fixtureControl.loseAppendAck=false;throw new Error("fixture lost append acknowledgement");}
+                    return result;
+                  }
+                  catch(error){await query("ROLLBACK");throw error;}
+                }
+                const key=args[0]+":"+args[2];
+                if(!fixtureBatches.has(key))fixtureBatches.set(key,{room_id:args[0],game_id:args[1],end_seq:args[2],events:JSON.parse(args[3])});
+                fixtureControl.interactionWrites++;
+                return {rows:[],rowCount:1};
+              }
+              if(sql.startsWith("DELETE FROM cg_interaction_batches")) {
+                for(const [key,batch] of fixtureBatches)if(batch.room_id===args[0]&&batch.end_seq<=args[1])fixtureBatches.delete(key);
+                return {rows:[]};
+              }
+              if(sql.startsWith("SELECT room_id,game_id,end_seq,events FROM cg_interaction_batches"))
+                return {rows:[...fixtureBatches.values()].filter(b=>b.room_id===args[0]&&b.end_seq>args[1]).sort((a,b)=>a.end_seq-b.end_seq)};
               if (sql==="SELECT * FROM cg_ai_agents WHERE id=$1") return {rows:fixtureAgents.has(args[0])?[fixtureAgents.get(args[0])]:[]};
               if (sql.startsWith("SELECT id")) return {rows:[...fixtureGames.values()].map(g=>({id:g.id,prefix_length:g.shortCode.length}))};
               if (sql.startsWith("INSERT INTO cg_rooms")) {fixtureRooms.set(args[0],JSON.parse(args[3]));return {rows:[]};}

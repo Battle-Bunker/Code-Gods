@@ -68,6 +68,7 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
     },
     async execute(source, input, settings) {
       const selected = pool(settings);
+      // Pass the complete room snapshot, including interactionComputeMs, to the guest runtime.
       return (await admitted(() => selected.execute(source, input, settings))).value;
     },
   };

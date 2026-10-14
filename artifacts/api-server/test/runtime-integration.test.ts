@@ -1,10 +1,47 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
+import { RoomActionBody } from "../../../lib/api-zod/src/generated/api.ts";
+import type { GameRuntime } from "@workspace/game-runtime";
 import { generate, evaluatePreference, type Domain, type Preference } from "@workspace/game-values";
 import { createHash } from "node:crypto";
-import { createValuesAdapter, requireAdapters } from "../src/game/adapters.ts";
+import { createRuntimeAdapter, createValuesAdapter, requireAdapters } from "../src/game/adapters.ts";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup.ts";
+
+test("room mutation schema validates compute budgets and the product dispatch ceiling", () => {
+  const action = (settings: unknown) => ({ action: "settings", requestId: "settings-budget", revision: 0, settings });
+  for (const interactionComputeMs of [1, 5, 1000]) {
+    const parsed = RoomActionBody.parse(action({ ...DEFAULT_SETTINGS, interactionComputeMs }));
+    assert.equal(parsed.settings?.interactionComputeMs, interactionComputeMs);
+  }
+  for (const interactionComputeMs of [0, -1, 1.5, 1001, NaN, Infinity, -Infinity, "5", null]) {
+    assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, interactionComputeMs })).success, false);
+  }
+  assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, interactionRateHz: 1000 })).success, true);
+  assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, interactionRateHz: 1000.1 })).success, false);
+  const { interactionRateHz: _rate, ...missingRate } = DEFAULT_SETTINGS;
+  assert.equal(RoomActionBody.parse(action(missingRate)).settings?.interactionRateHz, 100);
+});
+
+test("runtime adapter propagates the per-room compute budget without dropping settings", async () => {
+  const settings = { ...DEFAULT_SETTINGS, interactionComputeMs: 37 };
+  const calls: GameSettings[] = [];
+  const pool = {
+    async inspect(_source: string, received: GameSettings) {
+      calls.push(received);
+      return { cost: 6 };
+    },
+    async execute(_source: string, input: number, received: GameSettings) {
+      calls.push(received);
+      return { value: input };
+    },
+  } as unknown as GameRuntime;
+  const adapter = createRuntimeAdapter({ python: pool });
+  assert.deepEqual(await adapter.inspect("lambda x: x", settings), { cost: 6 });
+  assert.equal(await adapter.execute("lambda x: x", 42, settings), 42);
+  assert.deepEqual(calls.map(s => s.interactionComputeMs), [37, 37]);
+  assert.ok(calls.every(s => s === settings));
+});
 
 test("isolated adapters: both languages, domain identities, structural source cost and shutdown", { timeout: 90000 }, async t => {
   try {

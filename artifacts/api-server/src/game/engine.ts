@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { uniformObject, lifetimeSeconds, poissonIntervalSeconds, assertObjectValue, uniquePrefixes } from "@workspace/game-core";
 import type { Room, Actor, Game, WorldEvent } from "./types";
-import { allRooms, mutate, member, owner } from "./store";
+import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
 import { requireAdapters } from "./adapters";
 import { hash } from "../lib/identity";
 import { logger } from "../lib/logger";
@@ -152,7 +152,7 @@ export function startTicker() {
       return allRooms().filter(r => r.game?.phase === "running").map(r => r.id);
     },
     (roomId, available) => {
-      if (stopped || isLocallyIdle()) return;
+      if (stopped || isLocallyIdle() || !interactionCapacity(roomId)) return;
       const room = allRooms().find(r => r.id === roomId), game = room?.game;
       if (!game || game.phase !== "running" || !game.agents.length || game.settings.interactionRateHz <= 0) return;
       // Do not admit work past the lifetime while waiting for the next persisted clock snapshot.
@@ -172,28 +172,40 @@ export function startTicker() {
         execute: () => requireAdapters().runtime.execute(snapshot.source, snapshot.before, snapshot.settings),
         commit: async (result: unknown, current: () => boolean) => {
           if (!current() || stopped || isLocallyIdle()) return;
-          await mutate(roomId, async draft => {
+          await mutateInteraction(roomId, snapshot.objectId, draft => {
             const g = draft.game;
-            if (!current() || stopped || isLocallyIdle() || !g) return;
+            if (!current() || stopped || isLocallyIdle() || !g) return false;
             const target = completionTarget(g, snapshot, Date.now());
-            if (!target) return;
+            if (!target) return false;
             assertObjectValue(result, snapshot.settings);
             const value = result as number | string;
             const values = valuate(g, value);
             target.value = value; target.version++; target.values = values;
             recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
               object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
+            return true;
           });
         },
       };
     },
     error => logger.info({ errorName: error instanceof Error ? error.name : "Error" }, "Agent execution failed without changing the object"),
-    () => scheduler.pump(),
+    () => wakeDispatch(),
     roomId => allRooms().find(r => r.id === roomId)?.game?.id,
   );
-  // Room settings enforce <=100Hz, so 10ms polling covers the highest supported cap.
-  // Completion also wakes admission immediately; polling never creates rate debt.
-  const dispatchTimer = setInterval(() => scheduler.pump(), 10).unref();
+  let dispatchTimer: ReturnType<typeof setTimeout> | undefined;
+  let dispatchImmediate: ReturnType<typeof setImmediate> | undefined;
+  function wakeDispatch() {
+    if (stopped || dispatchImmediate) return;
+    if (dispatchTimer) { clearTimeout(dispatchTimer); dispatchTimer = undefined; }
+    dispatchImmediate = setImmediate(() => {
+      dispatchImmediate = undefined;
+      scheduler.pump();
+      const delay = scheduler.nextDelay();
+      if (delay < 1) wakeDispatch();
+      else dispatchTimer = setTimeout(() => { dispatchTimer = undefined; wakeDispatch(); }, delay).unref();
+    });
+  }
+  wakeDispatch();
   const timer = setInterval(() => {
     if (pending || stopped) return;
     // Only one transition is persisted when idle; do not simulate unseen time.
@@ -224,11 +236,13 @@ export function startTicker() {
           if (g.phase === "recovery") g.executionEpoch = (g.executionEpoch ?? 0) + 1;
         });
       }
-      scheduler.pump();
+      wakeDispatch();
     })().catch(error => logger.error({ errorName: error.name }, "World tick failed")).finally(() => { pending = undefined; });
   }, 100).unref();
   return async () => {
-    stopped = true; clearInterval(timer); clearInterval(dispatchTimer);
+    stopped = true; clearInterval(timer);
+    if (dispatchTimer) clearTimeout(dispatchTimer);
+    if (dispatchImmediate) clearImmediate(dispatchImmediate);
     await Promise.all([pending, scheduler.stop()]);
   };
 }

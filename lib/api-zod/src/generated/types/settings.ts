@@ -23,7 +23,17 @@ export interface Settings {
   halfLifeSeconds: number;
   startingObjectCount: number;
   spawnRateHz: number;
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
   interactionRateHz: number;
+  /**
+     * Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.
+     * @minimum 1
+     * @maximum 1000
+     */
+  interactionComputeMs: number;
   pauseSeconds: number;
   startingEnergy: number;
   energyPerSecond: number;

@@ -16,6 +16,8 @@ export interface GameSettings {
   startingObjectCount: number;
   spawnRateHz: number;
   interactionRateHz: number;
+  /** Guest execution CPU budget per interaction; excludes compilation and startup. */
+  interactionComputeMs: number;
   pauseSeconds: number;
   startingEnergy: number;
   energyPerSecond: number;
@@ -36,7 +38,8 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   halfLifeSeconds: 300,
   startingObjectCount: 10,
   spawnRateHz: 0.1,
-  interactionRateHz: 10,
+  interactionRateHz: 100,
+  interactionComputeMs: 5,
   pauseSeconds: 180,
   startingEnergy: 100,
   energyPerSecond: 1,
@@ -86,6 +89,11 @@ export function validateSettings(settings: GameSettings): void {
     }
   }
   if (settings.halfLifeSeconds === 0) throw new Error("Half-life must be positive");
+  if (settings.interactionRateHz > 1000) throw new Error("interactionRateHz must not exceed 1000 Hz");
+  if (!Number.isInteger(settings.interactionComputeMs) ||
+      settings.interactionComputeMs < 1 || settings.interactionComputeMs > 1000) {
+    throw new Error("interactionComputeMs must be an integer from 1 to 1000 milliseconds");
+  }
   if (settings.pauseSeconds === 0) throw new Error("Pause duration must be positive");
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
   for (const key of ["grammarId", "valueGeneratorId", "complexityFunctionId"] as const) {

@@ -3,6 +3,15 @@
 ## Interaction throughput
 
 `interactionRateHz` is a per-room dispatch ceiling, not a fixed-rate work quota.
+It defaults to 100 Hz and accepts ceilings up to 1000 Hz; a high cap does not
+guarantee that rate on the deployed hardware.
+`interactionComputeMs` is the per-interaction guest CPU budget: an integer
+from 1 to 1000 milliseconds, defaulting to 5. It excludes compilation and worker
+startup, and is independent of the dispatch cap. The owner can change it only
+between games; each game retains its settings snapshot. Legacy persisted room
+and game settings missing the budget hydrate to 5 without a database migration.
+Missing legacy interaction caps hydrate to 100 Hz; saved room and game settings
+retain their existing chosen caps.
 The single server admits up to four interactions concurrently across rooms.
 Missed opportunities are not queued or replayed; slow execution lowers achieved
 throughput rather than putting the game into recovery. Running world time and
@@ -13,6 +22,15 @@ outside the state-mutation lock; completion commits only if the game, phase,
 execution epoch and object version still match. Pauses, idle shutdown and game
 replacement invalidate obsolete results. Runtime admission is also bounded
 across both languages, including validation requests.
+
+Interaction persistence uses a bounded asynchronous buffer (64 changes per room,
+256 across the server), flushing after 100 ms or earlier at batch thresholds.
+Failures retain queued changes and stop new interaction admission until writes
+can resume. Object changes, appended events and room sequence commit atomically.
+Commands flush pending interactions before their own transaction, so acknowledged
+summons and energy charges remain durable. Graceful shutdown drains the queue.
+Socket change notifications follow commit; HTTP observations can include the
+short uncommitted interaction window. An abrupt process kill can lose that window.
 
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
 The current display uses generated OpenAPI hooks and one-second polling. It never
@@ -181,3 +199,40 @@ rather than assuming a hardware tier. A deployment smoke must verify both
 languages after image creation, including Python/Nix retention. The existing
 startup language fallback may permit TypeScript-only startup; a healthy HTTP
 endpoint alone is not proof that published Python is usable.
+
+### Interaction event log and checkpoints
+
+`cg_interaction_batches` is an additive development schema change; deploy it through
+the normal Replit Publish schema-diff flow. There is no startup DDL or production
+migration script. The table contains room/game IDs, an end sequence, and existing
+transformation events (including resulting object values, versions and valuations).
+It contains no agent source or additional identity metadata.
+
+Interaction completion changes the local cache first. Buffers hold at most 64
+events per room and 256 globally, flushing after 100ms or at 32 events in a room
+(128 globally). A flush inserts one compact batch rather than rewriting worlds.
+`(room_id, end_seq)` is the idempotency key. An uncertain append acknowledgement
+freezes admission until that exact batch succeeds on retry. Socket notifications
+follow durable append; reads of the live cache may expose the bounded uncommitted
+window. Abrupt termination can lose only that uncommitted interaction window.
+The 100ms interval is a flush target, not a durability SLA during database stalls;
+capacity limits bound retained changes and prevent unlimited backlog.
+
+Clock checkpoints and commands write complete room/game snapshots and delete
+covered batches in the **same transaction**. Commands acknowledge energy spending
+and receipts only after that transaction commits. New-game/end/pause commands
+therefore cannot discard committed transformations. Graceful shutdown drains
+pending appends. Startup replays batches newer than each room checkpoint in sequence
+order, validates object versions and previous values, then checkpoints the recovered
+world in recovery mode. A sequence gap or invalid transition fails startup rather
+than silently substituting incomplete state. Historical `cg_games.state` is a
+checkpoint, not a continuously updated interaction feed.
+
+Isolated PostgreSQL pipeline verification (random temporary schema, dropped in
+`finally`, no user table writes):
+`RUN_ISOLATED_POSTGRES_BENCHMARK=1 node artifacts/api-server/test/pipeline-postgres-benchmark.mjs`.
+It exercises real TypeScript Wasm and a clearly labeled synthetic runtime, with
+10/100/2000 objects, actual append/checkpoint durability and bounded teardown.
+The benchmark-only 4000Hz setting measures infrastructure headroom; production
+settings still default to 100Hz and allow at most 1000Hz. Measurements include
+drain/checkpoint time and are not a guarantee of achieved speed for every game.

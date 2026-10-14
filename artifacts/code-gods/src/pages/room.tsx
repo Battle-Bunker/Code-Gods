@@ -225,7 +225,8 @@ function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; me
 const numFields: [keyof Settings, string, number?][] = [
   ["intMin", "Int min", 1], ["intMax", "Int max", 1], ["stringMaxLength", "String max length", 1],
   ["planningSeconds", "Planning (s)"], ["halfLifeSeconds", "Game Half-life (s)"], ["startingObjectCount", "Starting objects", 1],
-  ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction cap (Hz)"], ["pauseSeconds", "Pause (s)"],
+  ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction cap (Hz)"],
+  ["interactionComputeMs", "Compute budget / interaction (ms)", 1], ["pauseSeconds", "Pause (s)"],
   ["startingEnergy", "Starting energy"], ["energyPerSecond", "Power (energy / s)"],
 ];
 const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["valueGeneratorId", "Value generator"], ["complexityFunctionId", "Complexity function"]];
@@ -239,8 +240,10 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
   const [confirmBudget, setConfirmBudget] = useState(false);
   const baseRev = useRef(room.revision);
   const dirty = Object.keys(draft).length > 0;
+  const frozen = !!room.game && room.game.phase !== "ended";
   useEffect(() => { if (!dirty) baseRev.current = room.revision; }, [room.revision, dirty]);
-  const val = (k: keyof Settings) => draft[k] ?? String(room.settings[k]);
+  const sourceSettings = { ...defaults, ...room.settings };
+  const val = (k: keyof Settings) => draft[k] ?? String(sourceSettings[k]);
   const visibleNumFields = numFields.filter(([key]) => relevantToType(key, val("objectType")));
   const available = (k: keyof SettingsOptions, language = val("language"), objectType = val("objectType")) =>
     (options?.[k] ?? []).filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
@@ -255,7 +258,7 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
     return next;
   });
   const build = (): Settings => {
-    const s = { ...room.settings } as Record<string, unknown>;
+    const s = { ...sourceSettings } as Record<string, unknown>;
     for (const [k, v] of Object.entries(draft)) {
       // Hidden type drafts are retained for switching back, but never submitted.
       if (!relevantToType(k, val("objectType"))) continue;
@@ -264,6 +267,9 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
     return s as unknown as Settings;
   };
   const invalid = visibleNumFields.some(([k]) => draft[k] !== undefined && (draft[k] === "" || !Number.isFinite(Number(draft[k])))) ||
+    Number(val("interactionRateHz")) < 0 || Number(val("interactionRateHz")) > 1000 ||
+    !Number.isInteger(Number(val("interactionComputeMs"))) ||
+    Number(val("interactionComputeMs")) < 1 || Number(val("interactionComputeMs")) > 1000 ||
     optionFields.some(([k]) => !available(k).some(o => o.id === val(k)));
   const conflict = dirty && baseRev.current !== room.revision;
   const b = Number(budget);
@@ -271,6 +277,8 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
   const field = "w-full border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
   return (
     <Panel title="Owner / world settings" meta={conflict ? "changed by another edit" : dirty ? "unsaved" : `rev ${room.revision}`}>
+      {frozen && <p className="px-4 pt-3 text-xs text-muted-foreground">World settings are frozen until this game ends.</p>}
+      <fieldset disabled={frozen} className="min-w-0">
       <div className="p-4 grid grid-cols-2 gap-3">
         <label className="space-y-1 col-span-2"><span className="label-mono">Language</span>
           <select value={val("language")} onChange={(e) => set("language", e.target.value)} className={field} data-testid="select-language"><option value="python">python</option><option value="typescript">typescript</option></select></label>
@@ -295,9 +303,10 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
         ))}
         {numFields.filter(([k]) => !typeKeys.includes(k)).map(([k, l, step]) => (
           <label key={k} className="space-y-1"><span className="label-mono">{l}</span>
-            <input type="number" step={step ?? "any"} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
+            <input type="number" step={step ?? "any"} min={k === "interactionComputeMs" ? 1 : k === "interactionRateHz" ? 0 : undefined} max={k === "interactionComputeMs" || k === "interactionRateHz" ? 1000 : undefined} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
         ))}
       </div>
+      <p className="px-4 pb-3 text-xs text-muted-foreground">Compute budget: 1–1000 ms of guest CPU per interaction (default 5 ms), not compilation or worker startup. Interaction cap: 0–1000 Hz (default 100 Hz), a ceiling, not guaranteed throughput.</p>
       <div className="border-t p-3 flex flex-wrap gap-2">
         <button disabled={!dirty || invalid || act.pending} onClick={() => act.run({ action: "settings", revision: baseRev.current, settings: build() }, () => setDraft({}))} className="flex-1 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-40" data-testid="button-save-settings">Save settings</button>
         <button disabled={!dirty} onClick={() => setDraft({})} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-discard-settings">Discard</button>
@@ -322,8 +331,9 @@ function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: Room
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
           I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.
         </label>
-        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: room.settings, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
+        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: sourceSettings, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
+      </fieldset>
     </Panel>
   );
 }

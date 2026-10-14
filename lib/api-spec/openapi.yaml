@@ -331,7 +331,7 @@ components:
         aiAgentId: { type: string }
     Settings:
       type: object
-      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, valueGeneratorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, pauseSeconds, startingEnergy, energyPerSecond]
+      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, valueGeneratorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
       properties:
         language: { type: string, enum: [python, typescript] }
         objectType: { type: string, enum: [Int, string] }
@@ -346,7 +346,13 @@ components:
         halfLifeSeconds: { type: number }
         startingObjectCount: { type: integer }
         spawnRateHz: { type: number }
-        interactionRateHz: { type: number }
+        interactionRateHz: { type: number, minimum: 0, maximum: 1000, default: 100 }
+        interactionComputeMs:
+          description: Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 5
         pauseSeconds: { type: number }
         startingEnergy: { type: number }
         energyPerSecond: { type: number }

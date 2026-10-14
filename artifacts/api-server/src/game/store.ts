@@ -1,15 +1,130 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { DEFAULT_SETTINGS, uniquePrefixes, resolveIdentifier } from "@workspace/game-core";
-import type { Room, Actor } from "./types";
+import type { Room, Actor, WorldEvent } from "./types";
 
 const rooms = new Map<string, Room>();
 const tails = new Map<string, Promise<unknown>>();
 let closing = false;
+type InteractionBuffer = { latest: Room; events: WorldEvent[] };
+const interactionBuffers = new Map<string, InteractionBuffer>();
+let bufferedInteractions = 0;
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
+let flushFailure: unknown;
+const MAX_BUFFERED_INTERACTIONS = 256;
+const MAX_ROOM_INTERACTIONS = 64;
+
+/** Bounded speculative window. Commands always drain this window before acknowledging. */
+export function interactionCapacity(roomId: string) {
+  return !closing && !flushFailure && bufferedInteractions < MAX_BUFFERED_INTERACTIONS &&
+    (interactionBuffers.get(roomId)?.events.length ?? 0) < MAX_ROOM_INTERACTIONS;
+}
+
+function scheduleInteractionFlush(delay = 100) {
+  if (delay === 0 && flushTimer) { clearTimeout(flushTimer); flushTimer = undefined; }
+  if (flushTimer || closing) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = undefined;
+    void serialized("interaction-flush", flushInteractions).catch(error => {
+      flushFailure = error;
+      console.error("Interaction persistence failed; admission suspended until retry succeeds", error);
+      scheduleInteractionFlush();
+    });
+  }, delay).unref();
+}
+
+/** Called only while holding the authority lock. Failed transactions retain the bounded buffer. */
+async function flushInteractions() {
+  for (const [id, buffer] of interactionBuffers) {
+    // One small implicit transaction; neither world snapshot is rewritten here.
+    // Retrying an uncertain acknowledgement is safe: a room sequence is unique.
+    try {
+      await pool.query(`INSERT INTO cg_interaction_batches(room_id,game_id,end_seq,events) VALUES($1,$2,$3,$4)
+        ON CONFLICT(room_id,end_seq) DO NOTHING`,
+      [id, buffer.latest.game!.id, buffer.latest.seq, JSON.stringify(buffer.events)]);
+    } catch (error) {
+      // Freeze this exact batch even if COMMIT succeeded but its acknowledgement
+      // was lost; retry the same idempotency key before admitting more changes.
+      flushFailure = error;
+      throw error;
+    }
+    interactionBuffers.delete(id);
+    bufferedInteractions -= buffer.events.length;
+    for (const listener of listeners) {
+      try { listener(buffer.latest, "room.snapshot"); }
+      catch (error) { console.error("Committed interaction notification failed", error); }
+    }
+  }
+  flushFailure = undefined;
+}
+
+/** Work must only transform objects and append events; no receipts, energy or commands. */
+export function mutateInteraction(id: string, objectId: string, work: (room: Room) => boolean): Promise<void> {
+  return serialized(id, async () => {
+    if (!interactionCapacity(id)) return;
+    const original = resolveRoom(id);
+    if (!original.game) return;
+    const targetIndex = original.game.objects.findIndex(object => object.id === objectId);
+    if (targetIndex < 0) return;
+    const objects = original.game.objects.slice();
+    objects[targetIndex] = { ...objects[targetIndex] };
+    // Historical events, agents and descriptors are immutable here: avoid cloning the entire world.
+    const draft: Room = { ...original, game: { ...original.game,
+      objects,
+      events: original.game.events.slice(),
+    } };
+    if (!work(draft)) return;
+    const added = draft.game!.events.at(-1)!;
+    const index = draft.game!.objects.findIndex(object => object.id === added.object.id);
+    if (index < 0 || added.id === original.game.events.at(-1)?.id) throw new Error("Invalid interaction mutation");
+    draft.seq++;
+    const buffer: InteractionBuffer = interactionBuffers.get(id) ?? { latest: draft, events: [] };
+    buffer.latest = draft;
+    buffer.events.push(added);
+    interactionBuffers.set(id, buffer);
+    bufferedInteractions++;
+    rooms.set(id, draft);
+    scheduleInteractionFlush(buffer.events.length >= 32 || bufferedInteractions >= 128 ? 0 : 100);
+  });
+}
 export async function refreshStore() { /* Single-instance cache is authoritative. */ }
+
+export type InteractionBatch = { room_id: string; game_id: string; end_seq: number | string; events: WorldEvent[] };
+
+/** Reconstruct committed state without mutating a stored checkpoint. Fail closed on gaps/corruption. */
+export function rehydrateInteractions(checkpoint: Room, batches: InteractionBatch[]): Room {
+  const room = structuredClone(checkpoint);
+  const game = room.game;
+  if (!game) return room;
+  game.events ??= [];
+  const byId = new Map(game.objects.map((object, index) => [object.id, index]));
+  for (const batch of [...batches].sort((a, b) => Number(a.end_seq) - Number(b.end_seq))) {
+    if (batch.room_id !== room.id || batch.game_id !== game.id) continue;
+    const end = Number(batch.end_seq);
+    if (!Number.isSafeInteger(end) || !Array.isArray(batch.events) || !batch.events.length)
+      throw new Error("Invalid durable interaction batch");
+    if (end <= room.seq) continue;
+    const start = end - batch.events.length;
+    if (start > room.seq) throw new Error("Durable interaction sequence gap");
+    for (const event of batch.events.slice(room.seq - start)) {
+      const index = byId.get(event.object.id);
+      if (event.type !== "object.transformed" || event.gameId !== game.id || index === undefined ||
+          event.object.version !== game.objects[index].version + 1 || event.before !== game.objects[index].value)
+        throw new Error("Invalid durable interaction object transition");
+      game.objects[index] = structuredClone(event.object);
+      game.events.push(structuredClone(event));
+      room.seq++;
+    }
+    if (room.seq !== end) throw new Error("Invalid durable interaction end sequence");
+  }
+  if (game.events.length > 5000) game.events = game.events.slice(-5000);
+  return room;
+}
 export async function closeStore() {
   closing = true;
+  if (flushTimer) clearTimeout(flushTimer);
   await Promise.allSettled([...tails.values()]);
+  await flushInteractions();
 }
 export const listeners = new Set<(room: Room, event: string, payload?: unknown) => void>();
 export const allRooms = () => [...rooms.values()];
@@ -29,9 +144,6 @@ export async function persist(room: Room) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(`INSERT INTO cg_rooms(id,owner_id,prefix_length,state) VALUES($1,$2,$3,$4)
-      ON CONFLICT(id) DO UPDATE SET state=$4,prefix_length=$3,updated_at=now()`,
-    [room.id, room.ownerId, room.shortCode.length, JSON.stringify(room)]);
     const changedAliases: { id: string; shortCode: string }[] = [];
     if (room.game) {
       const existing = await client.query("SELECT id,prefix_length FROM cg_games");
@@ -51,8 +163,14 @@ export async function persist(room: Room) {
       await client.query(`INSERT INTO cg_games(id,room_id,prefix_length,state) VALUES($1,$2,$3,$4)
         ON CONFLICT(id) DO UPDATE SET state=$4,prefix_length=$3`,
       [room.game.id, room.id, room.game.shortCode.length, JSON.stringify(room.game)]);
-      await client.query("UPDATE cg_rooms SET state=$2 WHERE id=$1", [room.id, JSON.stringify(room)]);
     }
+    // Resolve the game alias first, then write the room exactly once.
+    await client.query(`INSERT INTO cg_rooms(id,owner_id,prefix_length,state) VALUES($1,$2,$3,$4)
+      ON CONFLICT(id) DO UPDATE SET state=$4,prefix_length=$3,updated_at=now()`,
+    [room.id, room.ownerId, room.shortCode.length, JSON.stringify(room)]);
+    // Snapshot and log compaction are one transaction: crash sees either old
+    // snapshot + replayable log, or new snapshot with covered batches removed.
+    await client.query("DELETE FROM cg_interaction_batches WHERE room_id=$1 AND end_seq <= $2", [room.id, room.seq]);
     await client.query("COMMIT");
     for (const alias of changedAliases) {
       for (const live of rooms.values()) if (live.game?.id === alias.id) live.game.shortCode = alias.shortCode;
@@ -72,6 +190,7 @@ export function serialized<T>(id: string, work: () => Promise<T>): Promise<T> {
 }
 export async function mutate<T>(id: string, work: (room: Room) => Promise<T>, event = "room.snapshot"): Promise<T> {
   return serialized(id, async () => {
+    await flushInteractions();
     const original = resolveRoom(id);
     const draft = structuredClone(original);
     const result = await work(draft);
@@ -85,6 +204,7 @@ export async function mutate<T>(id: string, work: (room: Room) => Promise<T>, ev
 export async function createRoom(actor: Actor): Promise<Room> {
   if (actor.scope !== "browser") throw Object.assign(new Error("Browser login required"), { status: 403 });
   return serialized("room-creation", async () => {
+    await flushInteractions();
     const id = randomUUID();
     const room: Room = {
       id, shortCode: "", ownerId: actor.id, createdAt: Date.now(), revision: 0, settings: { ...DEFAULT_SETTINGS },
@@ -103,6 +223,7 @@ export async function createRoom(actor: Actor): Promise<Room> {
         await client.query(`INSERT INTO cg_rooms(id,owner_id,prefix_length,state) VALUES($1,$2,$3,$4)
           ON CONFLICT(id) DO UPDATE SET prefix_length=$3,state=$4`,
         [next.id, next.ownerId, next.shortCode.length, JSON.stringify(next)]);
+        await client.query("DELETE FROM cg_interaction_batches WHERE room_id=$1 AND end_seq <= $2", [next.id, next.seq]);
       }
       await client.query("COMMIT");
       for (const next of nextRooms) rooms.set(next.id, next);
@@ -115,7 +236,13 @@ export async function initializeStore() {
   // Deployment is constrained to one instance; no session-long DB connection.
   const data = await pool.query("SELECT state FROM cg_rooms");
   for (const row of data.rows) {
-    const room = row.state as Room;
+    const checkpoint = row.state as Room;
+    const batches = await pool.query("SELECT room_id,game_id,end_seq,events FROM cg_interaction_batches WHERE room_id=$1 AND end_seq > $2 ORDER BY end_seq",
+      [checkpoint.id, checkpoint.seq]);
+    const room = rehydrateInteractions(checkpoint, batches.rows);
+    // JSON settings predate per-interaction budgets; no database migration needed.
+    room.settings = { ...DEFAULT_SETTINGS, ...room.settings };
+    if (room.game) room.game.settings = { ...DEFAULT_SETTINGS, ...room.game.settings };
     // Legacy rooms did not record creation time; do not mislabel last-update time as creation.
     room.createdAt ??= null;
     room.aiReservedUsd ??= 0;

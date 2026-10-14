@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 // These exports exist ONLY in the runner's in-memory DB fixture.
 // @ts-expect-error isolated test fixture
-import { fixtureRooms, fixtureGames, fixtureAgents } from "@workspace/db";
+import { fixtureRooms, fixtureGames, fixtureAgents, fixtureControl, fixtureDurableRoom, fixtureDurableBatches, fixtureBatches } from "@workspace/db";
 // @ts-expect-error isolated test fixture
 import { fixtureActors } from "../src/lib/identity";
 import express from "express";
@@ -13,7 +13,7 @@ import WebSocket from "ws";
 import roomsRouter from "../src/routes/rooms";
 import playerRouter from "../src/routes/player";
 import { attachSockets } from "../src/game/socket";
-import { createRoom, mutate, resolveRoom } from "../src/game/store";
+import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions } from "../src/game/store";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
 import { registerAdapters, requireAdapters } from "../src/game/adapters";
@@ -24,6 +24,92 @@ import { reserveAI } from "../src/game/ai-service";
 import { AIController, SYSTEM } from "@workspace/ai-player";
 import { VERSION } from "@workspace/player-client";
 import type { Actor } from "../src/game/types";
+
+test("bounded queued interactions preserve command durability and retry failed writes", async () => {
+  const host: Actor = { id: randomUUID(), name: "Queue test", kind: "human", scope: "browser" };
+  const room = await createRoom(host);
+  await mutate(room.id, async draft => {
+    draft.game = { id: randomUUID(), shortCode: "fixture", phase: "ended", objects: [
+      { id: "object", value: 0, version: 0, values: {} },
+    ], events: [], deities: [{ id: host.id, spent: 0 }] } as any;
+  });
+  const beforeInteractions = resolveRoom(room.id);
+  const transform = () => mutateInteraction(room.id, "object", draft => {
+    const g = draft.game!, object = g.objects[0];
+    const before = object.value;
+    object.version++; object.value = object.version;
+    g.events.push({ id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(), before, object: { ...object } });
+    return true;
+  });
+  const writes = fixtureControl.interactionWrites;
+  for (let i = 0; i < 64; i++) await transform();
+  assert.equal(resolveRoom(room.id).game!.objects[0].version, 64);
+  assert.equal(beforeInteractions.game!.objects[0].version, 0, "copy-on-write preserves prior snapshots");
+  assert.equal(fixtureRooms.get(room.id).game.objects[0].version, 0, "queued state is explicitly not yet durable");
+  assert.equal(interactionCapacity(room.id), false);
+  await transform();
+  assert.equal(resolveRoom(room.id).game!.objects[0].version, 64, "saturation applies backpressure");
+  fixtureControl.failCommit = true;
+  await assert.rejects(mutate(room.id, async draft => { draft.receipts.spend = { hash: "hash", result: true }; }), /fixture commit failure/);
+  assert.equal(fixtureRooms.get(room.id).game.objects[0].version, 0, "failed transaction rolls back");
+  assert.equal(resolveRoom(room.id).receipts.spend, undefined, "no command acknowledgement before durability");
+  fixtureControl.failCommit = false;
+  await mutate(room.id, async draft => {
+    draft.game!.deities[0].spent = 9;
+    draft.receipts.spend = { hash: "hash", result: true };
+  });
+  assert.equal(fixtureRooms.get(room.id).game.objects[0].version, 64);
+  assert.equal(fixtureRooms.get(room.id).game.events.length, 64);
+  assert.equal(fixtureRooms.get(room.id).game.deities[0].spent, 9);
+  assert.equal(fixtureRooms.get(room.id).receipts.spend.result, true);
+  assert.equal(fixtureControl.interactionWrites - writes, 2, "one failed attempt plus one coalesced commit");
+  assert.equal([...fixtureBatches.values()].filter((b: any) => b.room_id === room.id).length, 0, "checkpoint compacts covered batches");
+  await transform();
+  fixtureControl.loseAppendAck = true;
+  await assert.rejects(mutate(room.id, async () => {}), /lost append acknowledgement/);
+  assert.equal(interactionCapacity(room.id), false, "uncertain append freezes its exact idempotency key");
+  await transform();
+  assert.equal(resolveRoom(room.id).game!.objects[0].version, 65);
+  assert.equal(fixtureRooms.get(room.id).game.objects[0].version, 64);
+  assert.equal(rehydrateInteractions(fixtureDurableRoom(room.id), fixtureDurableBatches()).game!.objects[0].version, 65,
+    "a committed append survives loss of its network acknowledgement");
+  fixtureControl.failCheckpoint = true;
+  await assert.rejects(mutate(room.id, async draft => {
+    draft.receipts.failedSpend = { hash: "hash", result: true };
+  }), /checkpoint failure/);
+  assert.equal(resolveRoom(room.id).receipts.failedSpend, undefined);
+  assert.equal([...fixtureBatches.values()].filter((b: any) => b.room_id === room.id).length, 1,
+    "retry does not duplicate the batch; failed compaction retains it");
+  assert.equal(rehydrateInteractions(fixtureDurableRoom(room.id), fixtureDurableBatches()).game!.objects[0].version, 65);
+  fixtureControl.failCheckpoint = false;
+  await mutate(room.id, async () => {});
+  assert.equal(fixtureRooms.get(room.id).game.objects[0].version, 65);
+  assert.equal([...fixtureBatches.values()].filter((b: any) => b.room_id === room.id).length, 0);
+});
+
+test("replay survives 1000 committed interactions, duplicate batches, partial checkpoints and rejects gaps", () => {
+  const checkpoint = {
+    id: "room", seq: 8, game: { id: "game", objects: [{ id: "object", value: 0, version: 0, values: {} }], events: [] },
+  } as any;
+  const events = Array.from({ length: 1000 }, (_, i) => ({
+    id: `event-${i}`, gameId: "game", type: "object.transformed" as const, timestamp: i,
+    before: i, object: { id: "object", value: i + 1, version: i + 1, values: { deity: 0.5 } },
+  }));
+  const batches = Array.from({ length: 20 }, (_, i) => ({
+    room_id: "room", game_id: "game", end_seq: 8 + (i + 1) * 50, events: events.slice(i * 50, (i + 1) * 50),
+  }));
+  const recovered = rehydrateInteractions(checkpoint, [...batches, batches[0]]);
+  assert.equal(recovered.seq, 1008);
+  assert.equal(recovered.game!.objects[0].version, 1000);
+  assert.equal(recovered.game!.events.length, 1000);
+  assert.equal(checkpoint.game.objects[0].version, 0);
+  const partial = rehydrateInteractions(checkpoint, [{ ...batches[0], end_seq: 33, events: events.slice(0, 25) }]);
+  assert.deepEqual(rehydrateInteractions(partial, batches), recovered);
+  assert.deepEqual(rehydrateInteractions(recovered, batches), recovered);
+  assert.throws(() => rehydrateInteractions(checkpoint, batches.slice(1)), /sequence gap/);
+  assert.throws(() => rehydrateInteractions(checkpoint, [{ ...batches[0], events: batches[0].events.map((e, i) => i ? e : { ...e, before: -1 }) }]), /object transition/);
+  assert.deepEqual(rehydrateInteractions(checkpoint, [{ ...batches[0], game_id: "old-game" }]), checkpoint);
+});
 
 test("three-player authority: exact costs, receipts, pause energy, privacy and persistent AI reservations", { timeout: 30000 }, async (t) => {
   const host: Actor = { id: randomUUID(), name: "Test Host", kind: "human", scope: "browser" };
@@ -268,4 +354,73 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     await stopTicker?.();
     shutdownRuntimeAdapters();
   }
+});
+
+test("opt-in interaction pipeline benchmark: runtime, authority, events and fsynced fixture", {
+  skip: process.env.RUN_INTERACTION_BENCHMARK !== "1", timeout: 30000,
+}, async t => {
+  await initializeRuntimeAdapters();
+  const adapters = requireAdapters();
+  const host: Actor = { id: randomUUID(), name: "Benchmark", kind: "human", scope: "browser" };
+  const room = await createRoom(host);
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    for (const mode of ["wasm", "cheap-synthetic"] as const) {
+      registerAdapters(mode === "wasm" ? adapters : { ...adapters,
+        runtime: { ...adapters.runtime, execute: async (_source, value) => value },
+      });
+      for (const count of [10, 100, 2000]) {
+        await mutate(room.id, async draft => {
+          draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
+          draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-standard-v1",
+            startingObjectCount: count, spawnRateHz: 0, interactionRateHz: 1000 };
+          await startGame(draft, host);
+          const g = draft.game!;
+          g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
+          // Explicit synthetic-only headroom bypass; production validation is unchanged.
+          if (mode === "cheap-synthetic") g.settings.interactionRateHz = 4000;
+          g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => x", cost: 0, createdAt: Date.now() });
+        });
+        await recordHumanActivity();
+        const writes = fixtureControl.interactionWrites;
+        const started = performance.now();
+        stop = startTicker();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        await stop(); stop = undefined;
+        await mutate(room.id, async draft => { draft.game!.phase = "ended"; });
+        const elapsed = performance.now() - started;
+        const persisted = fixtureDurableRoom(room.id);
+        const countCommitted = persisted.game.objects.reduce((sum: number, object: any) => sum + object.version, 0);
+        assert.equal(countCommitted, resolveRoom(room.id).game!.objects.reduce((sum, object) => sum + object.version, 0));
+        assert.ok(countCommitted > 0);
+        t.diagnostic(`${mode}: objects=${count}, durable transformations=${countCommitted}, elapsedMs=${elapsed.toFixed(1)}, transformations/sec=${(countCommitted * 1000 / elapsed).toFixed(1)}, incremental transactions=${fixtureControl.interactionWrites - writes}. Temporary fsync SQL fixture, NOT PostgreSQL.`);
+      }
+    }
+  } finally {
+    await stop?.();
+    registerAdapters(adapters);
+    shutdownRuntimeAdapters();
+  }
+});
+
+test("graceful store shutdown flushes the bounded interaction window to disk", async () => {
+  const host: Actor = { id: randomUUID(), name: "Shutdown", kind: "human", scope: "browser" };
+  const room = await createRoom(host);
+  await mutate(room.id, async draft => {
+    draft.game = { id: randomUUID(), shortCode: "shutdown", phase: "ended",
+      objects: [{ id: "object", value: 0, version: 0, values: {} }], events: [] } as any;
+  });
+  await mutateInteraction(room.id, "object", draft => {
+    const g = draft.game!, object = g.objects[0];
+    object.version++;
+    g.events.push({ id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(), before: object.value, object: { ...object } });
+    return true;
+  });
+  assert.equal(fixtureDurableRoom(room.id).game.objects[0].version, 0);
+  await closeStore();
+  assert.equal(fixtureDurableRoom(room.id).game.objects[0].version, 0, "shutdown need not rewrite checkpoints");
+  assert.equal(rehydrateInteractions(fixtureDurableRoom(room.id), fixtureDurableBatches()).game!.objects[0].version, 1,
+    "committed log reconstructs the latest state after abrupt process loss");
+  assert.equal(interactionCapacity(room.id), false);
+  await assert.rejects(mutate(room.id, async () => {}), /shutting down/);
 });

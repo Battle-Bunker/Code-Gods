@@ -72,7 +72,7 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
       if (!input.settings) throw new Error("Settings are required");
       validateSettings(input.settings);
       if (input.settings.stringMaxLength > 1024 || input.settings.startingObjectCount > 1000 ||
-          input.settings.interactionRateHz > 100 || input.settings.spawnRateHz > 10 ||
+          input.settings.interactionRateHz > 1000 || input.settings.spawnRateHz > 10 ||
           input.settings.planningSeconds > 3600 || input.settings.pauseSeconds > 3600) throw new Error("Settings exceed server resource limits");
       room.settings = input.settings;
       if (input.aiBudget !== undefined) room.aiBudget = input.aiBudget;

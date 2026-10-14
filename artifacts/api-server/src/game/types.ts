@@ -11,6 +11,7 @@ export type WorldEvent = {
 };
 export type Game = {
   id: string; shortCode: string; phase: "planning" | "running" | "paused" | "recovery" | "ended";
+  // Snapshot includes interactionComputeMs; changing lobby settings cannot change this budget.
   settings: GameSettings; roster: Member[]; deities: Deity[]; objects: WorldObject[]; agents: Agent[];
   createdAt: number; planningEndsAt: number; pauseEndsAt: number; worldSeconds: number;
   endAtWorld: number; nextSpawn: number; nextInteraction: number; lastTick: number;

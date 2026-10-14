@@ -14,6 +14,7 @@ export class InteractionScheduler {
   private cursor = "";
   private stopped = false;
   private generation = 0;
+  private eligibleDeadline = Infinity;
 
   constructor(
     private readonly now: () => number,
@@ -27,7 +28,14 @@ export class InteractionScheduler {
   get inFlight() { return this.flights.size; }
   invalidate() { this.generation++; }
 
+  /** Sub-millisecond deadlines use an immediate; empty/saturated worlds sleep. */
+  nextDelay() {
+    if (this.stopped || this.flights.size >= 4) return 100;
+    return Math.min(100, Math.max(0, this.eligibleDeadline - this.now()));
+  }
+
   pump() {
+    this.eligibleDeadline = Infinity;
     if (this.stopped || this.flights.size >= 4) return;
     const rooms = this.candidates();
     const start = (rooms.indexOf(this.cursor) + 1) % (rooms.length || 1);
@@ -39,19 +47,26 @@ export class InteractionScheduler {
       const deadline = this.deadlines.get(roomId);
       // Cheap cache lookup before object selection, randomness and settings cloning.
       // Include game identity so a replacement game never inherits the old deadline.
-      if (deadline && now < deadline.at && this.currentGameId?.(roomId) === deadline.gameId) continue;
+      if (deadline && now < deadline.at && this.currentGameId?.(roomId) === deadline.gameId) {
+        this.eligibleDeadline = Math.min(this.eligibleDeadline, deadline.at);
+        continue;
+      }
       let job: InteractionJob | undefined;
       try {
         job = this.capture(roomId, (gameId, objectId) => !this.reserved.has(`${gameId}:${objectId}`));
       } catch (error) { this.onError(error); continue; }
       if (!job || !(job.rate > 0) || !Number.isFinite(job.rate)) continue;
-      if (deadline?.gameId === job.gameId && now < deadline.at) continue;
+      if (deadline?.gameId === job.gameId && now < deadline.at) {
+        this.eligibleDeadline = Math.min(this.eligibleDeadline, deadline.at);
+        continue;
+      }
       const key = `${job.gameId}:${job.objectId}`;
       if (this.reserved.has(key)) continue;
       this.reserved.add(key);
       this.cursor = roomId;
       // Set from actual dispatch, never from an old deadline (no catch-up burst).
       this.deadlines.set(roomId, { gameId: job.gameId, at: now + 1000 / job.rate });
+      this.eligibleDeadline = Math.min(this.eligibleDeadline, now + 1000 / job.rate);
       const generation = this.generation;
       const current = () => !this.stopped && generation === this.generation;
       const flight = Promise.resolve().then(() => job!.execute())

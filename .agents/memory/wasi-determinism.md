@@ -2,11 +2,11 @@
 name: WASI determinism
 description: Non-obvious WASI host-callback and deterministic-computation constraints.
 ---
-Virtualize clocks and entropy at the WASI import boundary, not only through Python module names. Normalize library file metadata as well.
+Enforce capabilities at the WASI import boundary, not only through Python module names. Real read-only clocks and randomness are explicitly permitted; filesystem metadata remains outside the intended user-agent API.
 
-**Why:** A capability-limited interpreter still inherits real time, entropy and inode/timestamp information from WASI. Guest introspection makes Python-level name hiding unsuitable as a security boundary.
+**Why:** The user later explicitly allowed time and randomness. Guest introspection still makes Python-level name hiding unsuitable as a security boundary for forbidden filesystem/network/process capabilities.
 
-**How to apply:** When extending runtime facilities, consider reproducibility separately from host authority. Directory traversal ordering is not a portable computational API; freeze dependency content.
+**How to apply:** Do not require deterministic agent execution or block approved clock/entropy queries. Keep imports capability-limited, freeze dependency content, and isolate mutable interpreter state between agents.
 
 Calls to original Wasmtime WASI functions from Python callbacks need a tiny Wasm shim exporting the guest memory.
 

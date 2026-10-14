@@ -139,6 +139,20 @@ test("cheap game eligibility avoids expensive captures before the dispatch deadl
   await scheduler.stop();
 });
 
+test("fractional deadlines support 1000Hz and benchmark headroom without timer rounding or debt", async () => {
+  for (const rate of [0.5, 1000, 4000]) {
+    const h = harness(["a"], 10, rate);
+    h.scheduler.pump(); await flush();
+    h.runs[0].resolve(1); await flush();
+    h.setTime(1000 / rate - 0.001); h.scheduler.pump(); await flush();
+    assert.equal(h.runs.length, 1);
+    assert.ok(h.scheduler.nextDelay() <= 100);
+    h.setTime(1000 / rate); h.scheduler.pump(); await flush();
+    assert.equal(h.runs.length, 2);
+    const stopping = h.scheduler.stop(); h.runs[1].resolve(1); await stopping;
+  }
+});
+
 function game(overrides: Partial<Game> = {}): Game {
   return {
     id: "game", phase: "running", worldSeconds: 0, lastTick: 0, endAtWorld: 100,

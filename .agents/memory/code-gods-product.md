@@ -96,4 +96,16 @@ Interaction speed is an upper limit; perform interactions as fast as available c
 
 **Why:** The user rejected recovery pauses caused by trying to catch up to a fixed interaction schedule during the pilot.
 
-**How to apply:** Do not accumulate interaction debt or stop the game for throughput overload. Keep concurrent transformations consistent, retain isolation, and distinguish the configured cap from achieved throughput.
+**How to apply:** Do not accumulate interaction debt or stop the game for throughput overload. The interaction cap defaults to 100 Hz and is configurable up to 1,000 Hz; the user explicitly corrected confusion between default and maximum. Keep concurrent transformations consistent and benchmark higher rates for headroom.
+
+Agent interactions have a configurable compute budget defaulting to 5 ms; compilation and interpreter startup must not be repeated inside that hot path.
+
+**Why:** The user rejected hundreds of milliseconds of isolation overhead per simple function call and wants thousands of interactions per second. Time and randomness are explicitly allowed read-only capabilities.
+
+**How to apply:** Measure whole-engine throughput, not only function timing; separate preparation cost from guest computation and retain enforced resource/capability limits rather than relying on Python-level name hiding.
+
+Queue database writes asynchronously with bounded buffering and batching rather than blocking every interaction on its own database write.
+
+**Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap.
+
+**How to apply:** Preserve write order, flush on graceful shutdown, apply backpressure instead of unbounded queues, and clearly distinguish acknowledged durable actions from any uncommitted interaction window.

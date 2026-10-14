@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, jsonb, integer, bigint, primaryKey } from "drizzle-orm/pg-core";
 
 // Snapshots contain private game state; only explicit projections leave the server.
 export const roomsTable = pgTable("cg_rooms", {
@@ -14,6 +14,13 @@ export const gamesTable = pgTable("cg_games", {
   prefixLength: integer("prefix_length").notNull().default(4),
   state: jsonb("state").notNull(),
 });
+// Append-only interaction batches between room checkpoints. No source or credentials.
+export const interactionBatchesTable = pgTable("cg_interaction_batches", {
+  roomId: text("room_id").notNull(),
+  gameId: text("game_id").notNull(),
+  endSeq: bigint("end_seq", { mode: "number" }).notNull(),
+  events: jsonb("events").notNull(),
+}, table => [primaryKey({ columns: [table.roomId, table.endSeq] })]);
 export const sessionsTable = pgTable("cg_sessions", {
   hash: text("hash").primaryKey(),
   data: jsonb("data").notNull(),
