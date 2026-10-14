@@ -3,8 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": { ".": { "types": "./index.d.ts", "default": "./index.mjs" } },
   "scripts": {
     "setup:python": "python3 python/setup.py",
-    "test:python": "python3 python/test_runner.py"
+    "test:python": "python3 python/test_runner.py",
+    "test": "node --test test/*.test.mjs",
+    "benchmark": "node test/benchmark.mjs"
+  },
+  "dependencies": {
+    "quickjs-emscripten": "0.31.0",
+    "typescript": "5.9.3"
   }
 }

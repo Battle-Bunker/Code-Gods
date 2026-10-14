@@ -41,10 +41,12 @@ else:
     result = fn(request["input"])
     if type(result) not in (int, str):
         raise TypeError("Result must be an integer or ASCII string")
-    if type(result) is int and not -(2**31) <= result <= 2**31 - 1:
-        raise ValueError("Integer output outside signed 32-bit domain")
-    if type(result) is str and (len(result) > 128 or not result.isascii()):
-        raise ValueError("String output must be ASCII, at most 128 characters")
+    domain = request.get("settings", {"intMin": -(2**31), "intMax": 2**31 - 1,
+                                      "stringMaxLength": 128})
+    if type(result) is int and not domain["intMin"] <= result <= domain["intMax"]:
+        raise ValueError("DOMAIN: Integer output outside configured domain")
+    if type(result) is str and (len(result) > domain["stringMaxLength"] or not result.isascii()):
+        raise ValueError("DOMAIN: String output outside configured domain")
     if type(result) is not type(request["input"]):
         raise TypeError("Transformation must preserve the input type")
     print(json.dumps({"value": result}, ensure_ascii=True))

@@ -24,7 +24,7 @@ class RunnerTests(unittest.TestCase):
             self.call("lambda x: open('/etc/passwd').read()", "")
 
     def test_no_environment(self):
-        self.assertEqual(self.call("lambda x: len(__import__('os').environ)"), {"value": 0})
+        self.assertEqual(self.call("lambda x: len(__import__('os').environ)"), {"value": 1})
 
     def test_stdio_cannot_forge_inspection_cost(self):
         with self.assertRaises(Exception):

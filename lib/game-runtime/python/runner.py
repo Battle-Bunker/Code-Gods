@@ -9,13 +9,15 @@ import json
 import pathlib
 import sys
 import threading
+import struct
 import wasmtime
+from domain import settings, check
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 CACHE = ROOT / ".cache" / "code-gods" / "python-3.15.0"
 ADAPTER = pathlib.Path(__file__).with_name("guest.py").read_text()
-MAX_REQUEST = 32768
-MAX_OUTPUT = 8192
+MAX_REQUEST = 131072
+MAX_OUTPUT = 65536
 
 
 class Runner:
@@ -33,14 +35,9 @@ class Runner:
         source = request.get("source")
         if not isinstance(source, str) or len(source.encode("utf-8")) > 16384:
             raise ValueError("Source must be a string of at most 16384 bytes")
+        domain = settings(request)
         if request["mode"] == "execute":
-            value = request.get("input")
-            if type(value) not in (int, str):
-                raise ValueError("Input must be an integer or string")
-            if type(value) is int and not -(2**31) <= value < 2**31:
-                raise ValueError("Input integer outside domain")
-            if type(value) is str and (len(value) > 128 or not value.isascii()):
-                raise ValueError("Input string outside domain")
+            check(request.get("input"), domain)
         output = bytearray()
         errors = bytearray()
 
@@ -55,22 +52,99 @@ class Runner:
 
         store = wasmtime.Store(self.engine)
         store.set_limits(memory_size=128 * 1024 * 1024, table_elements=100000,
-                         instances=1, tables=1, memories=1)
+                         instances=4, tables=1, memories=1)
         store.set_fuel(fuel)
         store.set_epoch_deadline(1)
         wasi = wasmtime.WasiConfig()
-        wasi.argv = ["python", "-I", "-S", "-B", "-c", ADAPTER, json.dumps(request)]
+        wasi.argv = ["python", "-S", "-B", "-c", ADAPTER, json.dumps(request)]
+        wasi.env = [("PYTHONHASHSEED", "0")]
         wasi.preopen_dir(str(CACHE / "lib"), "/lib", fs_mutable=False)
         wasi.stdout_custom = capture(output)
         wasi.stderr_custom = capture(errors)
         store.set_wasi(wasi)
         linker = wasmtime.Linker(self.engine)
         linker.define_wasi()
+        # Virtual facilities, not merely absent Python names: even recovered
+        # builtins or ctypes cannot restore clock/random authority.
+        linker.allow_shadowing = True
+        i32 = wasmtime.ValType.i32()
+        i64 = wasmtime.ValType.i64()
+        def clock(caller, clock_id, precision, pointer):
+            caller.get("memory").write(caller, struct.pack("<Q", 0), pointer)
+            return 0
+        def resolution(caller, clock_id, pointer):
+            caller.get("memory").write(caller, struct.pack("<Q", 1), pointer)
+            return 0
+        def random(caller, pointer, length):
+            # Fixed zero entropy is intentional, NEVER suitable for security.
+            if length < 0 or length > 128 * 1024 * 1024:
+                return 28
+            memory = caller.get("memory")
+            for offset in range(0, length, 4096):
+                memory.write(caller, bytes(min(4096, length - offset)), pointer + offset)
+            return 0
+        linker.define_func("wasi_snapshot_preview1", "clock_time_get",
+                           wasmtime.FuncType([i32, i64, i32], [i32]), clock, True)
+        linker.define_func("wasi_snapshot_preview1", "clock_res_get",
+                           wasmtime.FuncType([i32, i32], [i32]), resolution, True)
+        linker.define_func("wasi_snapshot_preview1", "random_get",
+                           wasmtime.FuncType([i32, i32], [i32]), random, True)
+        # File metadata otherwise reveals host inode numbers and timestamps.
+        stat_functions = {}
+        for name, args in [("fd_filestat_get", 2), ("path_filestat_get", 5)]:
+            def stat(caller, *values, name=name):
+                errno = stat_functions[name](caller, *values)
+                if errno == 0:
+                    memory = caller.get("memory")
+                    pointer = values[-1]
+                    memory.write(caller, bytes(16), pointer)  # device/inode
+                    memory.write(caller, struct.pack("<Q", 1), pointer + 24)
+                    memory.write(caller, bytes(24), pointer + 40)  # times
+                return errno
+            linker.define_func("wasi_snapshot_preview1", name,
+                               wasmtime.FuncType([i32] * args, [i32]), stat, True)
+        def readdir(caller, fd, pointer, length, cookie, used):
+            errno = stat_functions["fd_readdir"](caller, fd, pointer, length, cookie, used)
+            if errno == 0:
+                memory = caller.get("memory")
+                size = struct.unpack("<I", memory.read(caller, used, used + 4))[0]
+                offset = 0
+                while offset + 24 <= size:
+                    header = memory.read(caller, pointer + offset, pointer + offset + 24)
+                    name_length = struct.unpack_from("<I", header, 16)[0]
+                    memory.write(caller, bytes(8), pointer + offset + 8)
+                    offset += 24 + name_length
+            return errno
+        linker.define_func("wasi_snapshot_preview1", "fd_readdir",
+                           wasmtime.FuncType([i32, i32, i32, i64, i32], [i32]), readdir, True)
+        for name, args in [("poll_oneoff", [i32] * 4)]:
+            linker.define_func("wasi_snapshot_preview1", name,
+                               wasmtime.FuncType(args, [i32]), lambda *args: 63)
         timer = threading.Timer(seconds, self.engine.increment_epoch)
         timer.daemon = True
         timer.start()
         try:
             instance = linker.instantiate(store, self.module)
+            # WASI requires a Wasm caller with an exported memory; a direct
+            # Python-to-WASI call loses that caller. A tiny trusted shim supplies it.
+            for name, types in [("fd_filestat_get", ["i32"] * 2),
+                                ("path_filestat_get", ["i32"] * 5),
+                                ("fd_readdir", ["i32", "i32", "i32", "i64", "i32"])]:
+                args = len(types)
+                params = " ".join(types)
+                gets = " ".join(f"local.get {i}" for i in range(args))
+                shim_module = wasmtime.Module(self.engine, f'''(module
+                  (import "guest" "memory" (memory 0))
+                  (export "memory" (memory 0))
+                  (import "wasi_snapshot_preview1" "{name}" (func $f (param {params}) (result i32)))
+                  (func (export "call") (param {params}) (result i32) {gets} call $f))''')
+                shim_linker = wasmtime.Linker(self.engine)
+                shim_linker.define_wasi()
+                shim_linker.define(store, "guest", "memory", instance.exports(store)["memory"])
+                shim = shim_linker.instantiate(store, shim_module)
+                stat_functions[name] = shim.exports(store)["call"]
+                shim_linker.close()
+                shim_module.close()
             try:
                 instance.exports(store)["_start"](store)
             except wasmtime.ExitTrap as error:
@@ -88,12 +162,7 @@ class Runner:
                     raise ValueError("Invalid cost")
             else:
                 value = result["value"]
-                if type(value) is not type(request["input"]):
-                    raise ValueError("Invalid output type")
-                if type(value) is int and not -(2**31) <= value < 2**31:
-                    raise ValueError("Output outside domain")
-                if type(value) is str and (len(value) > 128 or not value.isascii()):
-                    raise ValueError("Output outside domain")
+                check(value, domain)
             return result
         finally:
             timer.cancel()
@@ -104,6 +173,7 @@ class Runner:
 
 if __name__ == "__main__":
     runner = Runner()
+    print(json.dumps({"ready": True}), flush=True)
     while True:
         line = sys.stdin.buffer.readline(MAX_REQUEST + 1)
         if not line:
@@ -116,4 +186,8 @@ if __name__ == "__main__":
             result = runner.run(json.loads(line))
             print(json.dumps({"ok": True, **result}), flush=True)
         except Exception as error:
-            print(json.dumps({"ok": False, "error": str(error)[-2000:]}), flush=True)
+            message = str(error)[-2000:]
+            code = "DOMAIN" if "DOMAIN:" in message else (
+                "LIMIT" if isinstance(error, wasmtime.Trap) else "COMPILE"
+                if "SyntaxError" in message else "EXECUTION")
+            print(json.dumps({"ok": False, "code": code, "error": message}), flush=True)
