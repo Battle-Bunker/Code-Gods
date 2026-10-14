@@ -6,11 +6,19 @@ import { publicRoom, personalRoom } from "./projection";
 import { playerCommand } from "./engine";
 import { observation, executePlayerEnvelope } from "./player-api";
 import { personalScore } from "@workspace/game-core";
+import { isServerActive, isLocallyIdle, recordHumanActivity, registerActivitySocket, closeIdleSocket } from "./activity";
 
 export function attachSockets(server: Server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
+  let closing = false;
+  const pending = new Set<Promise<unknown>>();
+  const track = (work: Promise<unknown>) => {
+    pending.add(work);
+    void work.finally(() => pending.delete(work)).catch(() => {});
+  };
   server.on("upgrade", (req, socket, head) => {
-    void (async () => {
+    if (closing) { socket.destroy(); return; }
+    track((async () => {
       const url = new URL(req.url!, "https://localhost");
       const match = url.pathname.match(/^\/api\/rooms\/([^/]+)\/ws$/);
       if (!match) { socket.destroy(); return; }
@@ -20,11 +28,20 @@ export function attachSockets(server: Server) {
       const token = bearer ?? cookie;
       if (!token) throw new Error("Unauthorized");
       const actor = await lookupSession(token);
+      if (closing) { socket.destroy(); return; }
       if (!actor) throw new Error("Unauthorized");
+      if (!await isServerActive()) {
+        wss.handleUpgrade(req, socket, head, ws => {
+          registerActivitySocket(ws);
+          closeIdleSocket(ws);
+        });
+        return;
+      }
       const room = resolveRoom(decodeURIComponent(match[1]));
       member(room, actor);
       wss.handleUpgrade(req, socket, head, ws => {
         const send = (type: string, payload: unknown, seq = resolveRoom(room.id).seq) => {
+          if (isLocallyIdle()) return;
           if (ws.bufferedAmount > 1048576) { ws.close(1013, "Reconnect to resync"); return; }
           if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ protocolVersion: 1, type, seq, serverTime: Date.now(), payload }));
         };
@@ -56,23 +73,30 @@ export function attachSockets(server: Server) {
         };
         listeners.add(listener);
         let busy = false;
+        registerActivitySocket(ws, () => busy);
         ws.on("message", data => {
+          if (closing) return;
           if (busy) { send("command.error", { error: "Previous command still pending" }); return; }
           busy = true;
-          void (async () => {
+          track((async () => {
             if (!await lookupSession(token)) { ws.close(1008, "Session expired"); return; }
+            if (!await isServerActive()) { closeIdleSocket(ws); return; }
             const input = JSON.parse(data.toString());
             if (input.version === "code-gods.player.v1") {
-              send("command.receipt", await executePlayerEnvelope(room.id, actor, input));
+              const receipt = await executePlayerEnvelope(room.id, actor, input);
+              if (receipt.accepted && actor.kind === "human") await recordHumanActivity();
+              send("command.receipt", receipt);
               return;
             }
             if (input.protocolVersion !== 1) throw new Error("Unsupported protocol");
             if (input.command === "subscribe" || input.command === "resume") { send("room.snapshot", project()); return; }
             const result = await mutate(room.id, draft => playerCommand(draft, actor, input));
+            if (actor.kind === "human") await recordHumanActivity();
             send("command.receipt", { requestId: input.requestId, result });
-          })().catch(error => send("command.error", { error: String(error.message) })).finally(() => { busy = false; });
+          })().catch(error => send("command.error", { error: String(error.message) })).finally(() => { busy = false; }));
         });
         const heartbeat = setInterval(() => {
+          if (isLocallyIdle()) return;
           void lookupSession(token).then(identity => {
             if (!identity) ws.close(1008, "Session expired");
             else ws.ping();
@@ -80,6 +104,12 @@ export function attachSockets(server: Server) {
         }, 15000);
         ws.on("close", () => { clearInterval(heartbeat); listeners.delete(listener); });
       });
-    })().catch(() => { socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n"); socket.destroy(); });
+    })().catch(() => { socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n"); socket.destroy(); }));
   });
+  return async () => {
+    closing = true;
+    await Promise.allSettled([...pending]);
+    for (const ws of wss.clients) ws.terminate();
+    await new Promise<void>(resolve => wss.close(() => resolve()));
+  };
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
-  isDaemonMode, loginUrl, subscribeObservation,
+  isDaemonMode, loginUrl, subscribeObservation, isServerIdle, resumeServer, trackHumanActivity,
   type Observation, type Command, type CommandResult,
 } from "@/player-api";
 
@@ -57,6 +57,15 @@ function Sigil() {
 }
 
 export default function Console() {
+  const [idle,setIdle]=useState(isServerIdle);
+  useEffect(()=>{
+    const sleep=()=>setIdle(true);
+    const expired=()=>{setIdle(false);setStage(isDaemonMode() ? "room" : "login");setApprovalError("Player credentials expired. Reapprove this player.");};
+    window.addEventListener("player-idle",sleep);
+    window.addEventListener("player-expired",expired);
+    const cleanup=trackHumanActivity();
+    return ()=>{window.removeEventListener("player-idle",sleep);window.removeEventListener("player-expired",expired);cleanup();};
+  },[]);
   const [stage, setStage] = useState<Stage>("connecting");
   const [sessionError, setSessionError] = useState("");
   const [roomId, setRoomId] = useState(() => new URLSearchParams(location.search).get("room") ?? "");
@@ -93,7 +102,7 @@ export default function Console() {
 
   // Approval polling
   useEffect(() => {
-    if (stage !== "approving" || !approval) return;
+    if (idle || stage !== "approving" || !approval) return;
     let alive = true; let t: ReturnType<typeof setTimeout>;
     const tick = async () => {
       try {
@@ -106,15 +115,15 @@ export default function Console() {
     };
     t = setTimeout(tick, 1200);
     return () => { alive = false; clearTimeout(t); };
-  }, [stage, approval]);
+  }, [stage, approval, idle]);
 
   // Observation polling
   useEffect(() => {
-    if (stage !== "live") return;
+    if (idle || stage !== "live") return;
     let alive = true; let t: ReturnType<typeof setTimeout>;
     const accept = (o:Observation) => {
       if(!alive) return;
-      setObs(previous => previous && previous.roomId === o.roomId && previous.revision > o.revision ? previous : o);
+      setObs(o);
       setObsError(""); setLastSync(Date.now());
       if(!langTouched.current) setLanguage(o.language);
     };
@@ -128,11 +137,11 @@ export default function Console() {
         if (!alive) return;
         setObs(null); setObsError(msg(e));
       }
-      if (alive) t = setTimeout(tick, POLL_MS);
+      if (alive && !isServerIdle()) t = setTimeout(tick, POLL_MS);
     };
-    void tick();
+    if(isDaemonMode()) void tick();
     return () => { alive = false; clearTimeout(t); unsubscribe(); };
-  }, [stage]);
+  }, [stage, idle]);
 
   const start = async () => {
     const id = roomId.trim(); if (!id) return;
@@ -172,7 +181,7 @@ export default function Console() {
     } finally { if(identityEpoch.current===epoch) {setBusy(null);commandBusy.current=false;} }
   };
 
-  const gameplay = !!obs && stage === "live" && !unknown && !obsError;
+  const gameplay = !!obs && stage === "live" && !idle && !unknown && !obsError;
   const currentValidation = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!currentValidation?.valid && currentValidation.cost <= (obs?.self.energy??0) && language===obs?.language && source.trim().length > 0;
 
@@ -292,9 +301,10 @@ export default function Console() {
         </div>
       </header>
 
+      {idle && <div role="status" className="p-4 border border-primary">Server idle after human inactivity. <button onClick={()=>void resumeServer().then(()=>{setObs(null);setIdle(false);setObsError("");}).catch(e=>setObsError(msg(e)))}>Resume / reconnect</button></div>}
       {obsError && (
         <div data-testid="banner-obs-error" className="bg-primary text-primary-foreground px-6 py-2 text-sm flex items-center gap-2">
-          <CircleDot size={12} className="beat" /> {obsError} Gameplay is disabled until observation resumes. Retrying every {POLL_MS / 1000}s.
+          <CircleDot size={12} className="beat" /> {obsError} Gameplay is disabled until observation resumes. {idle ? "Polling and reconnect are stopped." : `Retrying every ${POLL_MS / 1000}s.`}
         </div>
       )}
       {unknown && (

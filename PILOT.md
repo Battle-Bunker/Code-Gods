@@ -2,9 +2,17 @@
 
 ## Publish the authoritative server
 
-Use this project as the server. In Publishing, choose **Reserved VM**, not
-Autoscale: the world scheduler and authority lease expect one continuously
-running server. Do not run multiple replicas.
+Use this project as the server. In Publishing, choose **Autoscale** with
+**maximum instances = 1**. Do not run multiple replicas.
+
+After 30 minutes without authenticated human activity, the application becomes
+idle. Socket close `4008` and HTTP `503` with `code: SERVER_IDLE` stop client
+polling and reconnects; AI commands, pings and passive page visibility do not
+keep rooms awake. Choose **Resume / reconnect** to send `POST /api/activity`
+and fetch a full snapshot. A genuine authenticated page visit can also resume.
+Infrastructure scale-to-zero timing is controlled by the platform, not a
+guaranteed shutdown deadline. Transient disconnects retry with bounded jitter;
+expired player credentials require reapproval, not automatic renewal.
 
 Confirm the published environment includes the built-in PostgreSQL database,
 `CODE_GODS_ADMIN_EMAILS`, and the provider keys you want to use. The allowlist is

@@ -63,7 +63,11 @@ export function createPlayerDaemon(options:DaemonOptions) {
       const supplied = request.headers.get("cookie")?.split(";").map(v=>v.trim()).find(v=>v.startsWith(`${cookieName}=`))?.slice(cookieName.length+1)??"";
       if(!session || Date.now()>sessionExpiry || !equal(supplied,session)) return json({error:"Authentication required"},401);
       if(request.method==="POST" && !equal(request.headers.get("x-csrf-token")??"",csrf)) return json({error:"CSRF rejected"},403);
-      if(path==="/session" && request.method==="GET") return json({csrf,connected:approvedUntil>Date.now()});
+      if(path==="/session" && request.method==="GET") return json({csrf,connected:approvedUntil>Date.now(),idle:transport.idle});
+      if(path==="/wake" && request.method==="POST") {
+        await transport.wake(AbortSignal.timeout(15000));
+        return json({resumed:true});
+      }
       if(path==="/disconnect" && request.method==="POST") {
         transport.disconnect(); approvedUntil=0; pending=undefined; gameId=undefined;receipts.clear(); session=""; csrf="";
         return json({disconnected:true},200,{"Set-Cookie":cookie("",0)});
@@ -124,7 +128,7 @@ export function createPlayerDaemon(options:DaemonOptions) {
       return json({error:"Not found"},404);
     } catch(error) {
       // Never echo upstream errors, tokens, model payloads or private device codes.
-      return json({error:error instanceof z.ZodError ? "Invalid payload" : "Player service unavailable"},error instanceof z.ZodError?400:error instanceof TransportError?error.status:502);
+      return json({error:error instanceof z.ZodError ? "Invalid payload" : error instanceof TransportError && error.status===401 ? "Device approval expired. Reapprove this player." : "Player service unavailable",...(error instanceof TransportError && error.code ? {code:error.code}:{})},error instanceof z.ZodError?400:error instanceof TransportError?error.status:502);
     }
   }
   return {handle,launchUrl,close:()=>{transport.disconnect();session="";ticket="";csrf="";pending=undefined;receipts.clear();}};

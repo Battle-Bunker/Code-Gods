@@ -119,11 +119,16 @@ availability. Production restart/reconnect and capacity checks remain necessary.
 
 ## Deployment constraints
 
-Use one continuously running Reserved VM authority. The current `.replit`
-target is still `autoscale`; it is not a recommendation for this architecture.
-Extra replicas fail the PostgreSQL advisory lock, and scale-to-zero interrupts
-the ticker. Change deployment capacity/target deliberately before publishing;
-do not weaken the single-authority lease to make replicas start.
+Use Autoscale with maximum instances set to **1**. This is a single-authority
+pilot, not a distributed deployment. Keep the PostgreSQL authority lock.
+After 30 minutes of human inactivity, application idle stops background work.
+Clients stop polling/reconnecting on WebSocket close `4008` or HTTP `503`
+`SERVER_IDLE`. Explicit human Resume calls authenticated `POST /api/activity`
+before reconnecting and fetching a full snapshot. Passive traffic and AI
+commands must not wake an unattended room. Platform infrastructure shutdown
+has no guaranteed deadline. Transient disconnects retry with bounded jitter,
+retaining local credentials until expiry; expired device credentials need
+human reapproval. Never blindly retry non-idempotent commands with new IDs.
 
 The API build now performs `uv sync --frozen --no-dev` against the committed
 `pyproject.toml`/`uv.lock` (`wasmtime==49.0.0`), downloads the SHA-256-pinned CPython
@@ -156,7 +161,7 @@ the guest archive. The virtual environment's Python symlink targets a Nix
 store executable, so that module/closure must also exist in the published image.
 
 This is a local packaging check, not proof of an actual published image.
-There is no active deployment. Reserved VM target/capacity must be selected
+There is no active deployment. Autoscale capacity (maximum instances 1) must be selected
 before publishing; choose the paid capacity deliberately in Publishing settings
 rather than assuming a hardware tier. A deployment smoke must verify both
 languages after image creation, including Python/Nix retention. The existing

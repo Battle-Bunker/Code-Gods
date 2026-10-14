@@ -7,6 +7,7 @@ import { requireAdapters } from "./adapters";
 import { hash } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
+import { isLocallyIdle } from "./activity";
 
 const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
 function below(bound: bigint): bigint {
@@ -137,16 +138,25 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
   return result;
 }
 
-let ticking = false;
 export function startTicker() {
-  setInterval(() => {
-    if (ticking) return;
-    ticking = true;
-    void (async () => {
+  let pending: Promise<void> | undefined;
+  let stopped = false;
+  const timer = setInterval(() => {
+    if (pending || stopped) return;
+    // Only one transition is persisted when idle; do not simulate unseen time.
+    if (isLocallyIdle() && !allRooms().some(r => r.game && !["ended", "recovery"].includes(r.game.phase))) return;
+    pending = (async () => {
       for (const room of allRooms()) {
+        if (stopped) break;
         if (!room.game || ["ended", "recovery"].includes(room.game.phase)) continue;
         await mutate(room.id, async draft => {
           const g = draft.game!, now = Date.now();
+          if (["ended", "recovery"].includes(g.phase)) return;
+          if (isLocallyIdle()) {
+            g.phase = "recovery";
+            g.recoveryReason = "Server became idle. The owner must resume the game.";
+            return;
+          }
           if (g.phase === "planning" || g.phase === "paused") {
             const deadline = g.phase === "planning" ? g.planningEndsAt : g.pauseEndsAt;
             if (now < deadline) { g.lastTick = now; return; }
@@ -157,6 +167,9 @@ export function startTicker() {
           const target = g.worldSeconds + elapsed;
           let processed = 0;
           while (Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld) <= target) {
+            if (stopped || isLocallyIdle()) {
+              g.phase = "recovery"; g.recoveryReason = "World paused. The owner must resume the game."; return;
+            }
             if (++processed > 50) { g.phase = "recovery"; g.recoveryReason = "Execution backlog exceeded the per-tick safety limit."; logger.warn({ roomId: draft.id }, "World paused due to execution backlog"); return; }
             const next = Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld);
             g.worldSeconds = next;
@@ -183,6 +196,7 @@ export function startTicker() {
           g.worldSeconds = target;
         });
       }
-    })().catch(error => logger.error({ errorName: error.name }, "World tick failed")).finally(() => { ticking = false; });
+    })().catch(error => logger.error({ errorName: error.name }, "World tick failed")).finally(() => { pending = undefined; });
   }, 100).unref();
+  return async () => { stopped = true; clearInterval(timer); await pending; };
 }

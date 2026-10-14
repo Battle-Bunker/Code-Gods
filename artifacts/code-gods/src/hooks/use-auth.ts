@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { humanActivity, humanVisit } from "./use-server-idle";
 
 export interface AuthUser { id: string; name?: string; isAdmin?: boolean; firstName?: string | null; lastName?: string | null }
 
@@ -17,6 +19,12 @@ export function useAuth() {
     retry: 1,
   });
   const returnTo = () => encodeURIComponent(window.location.pathname + window.location.search || base || "/");
+  useEffect(()=>{
+    if(!q.data)return;
+    humanVisit();
+    window.addEventListener("pointerdown",humanActivity);window.addEventListener("keydown",humanActivity);
+    return ()=>{window.removeEventListener("pointerdown",humanActivity);window.removeEventListener("keydown",humanActivity);};
+  },[q.data?.id]);
   return {
     user: q.data ?? null,
     isLoading: q.isLoading,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
 import { useListRooms, getListRoomsQueryKey, useCreateRoom, useGetManifest } from "@workspace/api-client-react";
 import { Shell, Panel, Empty, ErrorLine, Sigil } from "@/components/shell";
 import { useAuth, displayName } from "@/hooks/use-auth";
@@ -77,10 +78,12 @@ function phaseTone(p: string) {
 }
 
 function Rooms() {
+  const idle=useServerIdle();
+  const activityReady=useActivityReady();
   const { user } = useAuth();
   const [, nav] = useLocation();
   const qc = useQueryClient();
-  const rooms = useListRooms({ query: { queryKey: getListRoomsQueryKey(), refetchInterval: 5000 } });
+  const rooms = useListRooms({ query: { queryKey: getListRoomsQueryKey(), enabled:!!user && activityReady && !idle, refetchInterval: idle || !activityReady ? false : 5000 } });
   const create = useCreateRoom();
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState("");

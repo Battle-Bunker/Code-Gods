@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { Shell, Panel, Empty, ErrorLine } from "@/components/shell";
 import { useAuth } from "@/hooks/use-auth";
+import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { errMsg, rid, fmt } from "@/lib/errors";
@@ -338,9 +339,11 @@ function ReadOnlySettings({ room }: { room: RoomState }) {
 }
 
 export default function Room() {
+  const idle=useServerIdle();
+  const activityReady=useActivityReady();
   const { id = "" } = useParams<{ id: string }>();
   const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
-  const q = useGetRoom(id, { query: { queryKey: getGetRoomQueryKey(id), enabled: !!id && isAuthenticated, refetchInterval: 1000, retry: 1 } });
+  const q = useGetRoom(id, { query: { queryKey: getGetRoomQueryKey(id), enabled: activityReady && !idle && !!id && isAuthenticated, refetchInterval: idle || !activityReady ? false : 1000 } });
   const manifest = useGetManifest();
   const act = useAct(id);
   const room = q.data;

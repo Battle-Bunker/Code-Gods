@@ -16,7 +16,7 @@ export const nodeSocketFactory:PlayerSocketFactory = (url,options) => {
     onopen:null,onclose:null,onerror:null,onmessage:null,
   };
   socket.on("open",()=>adapter.onopen?.());
-  socket.on("close",()=>adapter.onclose?.());
+  socket.on("close",code=>adapter.onclose?.({code}));
   socket.on("error",()=>adapter.onerror?.());
   socket.on("message",data=>adapter.onmessage?.({data:data.toString()}));
   return adapter;

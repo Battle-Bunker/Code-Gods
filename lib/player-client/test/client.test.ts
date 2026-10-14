@@ -34,6 +34,19 @@ test("transport credentials expire, bind identity and never follow redirects",as
   assert.throws(()=>new HttpPlayerTransport("https://user:password@game.test"));
   await assert.rejects(()=>transport.send({version:VERSION,commandId:crypto.randomUUID(),command:{type:"start"}} as never));
 });
+test("HTTP idle response latches until explicit wake and expired credentials never refresh",async()=>{
+  let requests=0;
+  const transport=new HttpPlayerTransport("https://game.test/api/player/v1",async()=>{
+    requests++;return Response.json({code:"SERVER_IDLE"},{status:503});
+  });
+  transport.approve({token:"PRIVATE",roomId:"room",godId:"god",expiresAt:Date.now()+60000});
+  await assert.rejects(()=>transport.observe(),/idle/);
+  await assert.rejects(()=>transport.observe(),/idle/);
+  assert.equal(requests,1);
+  transport.disconnect();
+  await assert.rejects(()=>transport.wake(),/401/);
+  assert.equal(requests,1);
+});
 test("WebSocket uses Authorization, private observations and commandId receipts",async()=>{
   let sent="";
   const socket:PlayerSocket={readyState:1,onopen:null,onclose:null,onerror:null,onmessage:null,close(){},send(data){sent=data;}};
@@ -57,6 +70,44 @@ test("WebSocket uses Authorization, private observations and commandId receipts"
   const pending=transport.send(new PlayerClient(transport).prepare({type:"pause"}));
   transport.disconnect();
   await assert.rejects(()=>pending,/same command ID/);
+});
+test("idle close stops reconnect and HTTP until explicit authenticated wake",async()=>{
+  let connects=0, requests=0;
+  const socket:PlayerSocket={readyState:1,onopen:null,onclose:null,onerror:null,onmessage:null,close(){},send(){}};
+  const transport=new WebSocketPlayerTransport("https://game.test/api/player/v1",()=>{connects++;return socket;},async(url,init)=>{
+    requests++;
+    if(String(url).endsWith("/api/activity")){assert.equal(init?.method,"POST");assert.equal((init?.headers as Record<string,string>).Authorization,"Bearer PRIVATE");return Response.json({});}
+    return Response.json(raw);
+  });
+  transport.approve({token:"PRIVATE",roomId:"room",godId:"god",expiresAt:Date.now()+60000});
+  socket.onclose?.({code:4008});
+  await assert.rejects(()=>transport.observe(),/idle/);
+  await new Promise(resolve=>setTimeout(resolve,1100));
+  assert.equal(connects,1);assert.equal(requests,0);
+  await transport.wake();
+  assert.equal(connects,2);assert.equal(requests,1);
+  transport.disconnect();
+});
+test("transient drop retries within jitter bound, rehydrates and rejects old socket snapshots",async()=>{
+  const sockets:PlayerSocket[]=[];
+  let snapshots=0;
+  const transport=new WebSocketPlayerTransport("https://game.test/api/player/v1",()=>{
+    const socket:PlayerSocket={readyState:1,onopen:null,onclose:null,onerror:null,onmessage:null,close(){},send(){}};
+    sockets.push(socket);return socket;
+  },async()=>{snapshots++;return Response.json({...raw,revision:1});});
+  const revisions:number[]=[];
+  transport.subscribe(o=>revisions.push(o.revision));
+  transport.approve({token:"PRIVATE",roomId:"room",godId:"god",expiresAt:Date.now()+60000});
+  sockets[0].onmessage?.({data:JSON.stringify({protocolVersion:1,type:"player.observation",payload:{...raw,revision:100}})});
+  sockets[0].onclose?.({code:1006});
+  assert.equal(sockets.length,1);
+  await new Promise(resolve=>setTimeout(resolve,1100));
+  assert.equal(sockets.length,2);
+  sockets[1].onopen?.();
+  await new Promise(resolve=>setTimeout(resolve,0));
+  sockets[0].onmessage?.({data:JSON.stringify({protocolVersion:1,type:"player.observation",payload:{...raw,revision:101}})});
+  assert.equal(snapshots,1);assert.deepEqual(revisions,[100,1]);
+  transport.disconnect();
 });
 test("stock daemon socket factory connects with bearer headers and receives real receipts",async()=>{
   const server=createServer((_request,response)=>{

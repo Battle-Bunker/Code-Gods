@@ -1,10 +1,11 @@
 import { VERSION, commandSchema, envelopeSchema, observationSchema, resultSchema, type Command, type Envelope, type Observation, type PlayerTransport } from "./protocol.ts";
 
 export class TransportError extends Error {
-  constructor(public status: number) { super(`Player service request failed (${status})`); }
+  constructor(public status: number, public code?: string) { super(code === "SERVER_IDLE" ? "Server idle. Resume explicitly to reconnect." : `Player service request failed (${status})`); }
 }
 export interface RoomCredential { token: string; roomId: string; godId: string; expiresAt: number }
 export class HttpPlayerTransport implements PlayerTransport {
+  idle = false;
   #credential: RoomCredential | undefined;
   constructor(private base: string, private fetcher: typeof fetch = fetch) {
     const url = new URL(base);
@@ -13,11 +14,22 @@ export class HttpPlayerTransport implements PlayerTransport {
     this.base=base.replace(/\/$/,"");
   }
   approve(credential: RoomCredential) {
+    this.idle = false;
     if (!credential.token || credential.expiresAt <= Date.now() || credential.expiresAt > Date.now()+4*60*60_000) throw new Error("Invalid room credential");
     this.#credential = { ...credential };
   }
   disconnect() { this.#credential = undefined; }
+  async wake(signal?: AbortSignal) {
+    const credential = this.#credential;
+    if (!credential || credential.expiresAt <= Date.now()) throw new TransportError(401);
+    const response = await this.fetcher(new URL("/api/activity", this.base), {
+      method:"POST", redirect:"error", signal, headers:{Authorization:`Bearer ${credential.token}`, "Content-Type":"application/json"}, body:"{}",
+    });
+    if (!response.ok) throw new TransportError(response.status);
+    this.idle = false;
+  }
   private async request(path: string, body?: unknown, signal?: AbortSignal) {
+    if (this.idle) throw new TransportError(503, "SERVER_IDLE");
     const credential = this.#credential;
     if (!credential || credential.expiresAt <= Date.now()) { this.disconnect(); throw new TransportError(401); }
     const response = await this.fetcher(`${this.base}/rooms/${encodeURIComponent(credential.roomId)}/${path}`, {
@@ -25,7 +37,12 @@ export class HttpPlayerTransport implements PlayerTransport {
       headers: { Authorization: `Bearer ${credential.token}`, "Content-Type":"application/json" },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    if (!response.ok) { if(response.status === 401) this.disconnect(); throw new TransportError(response.status); }
+    if (!response.ok) {
+      const data = await response.json().catch(()=>({}));
+      if(data.code === "SERVER_IDLE") this.idle = true;
+      if(response.status === 401) this.disconnect();
+      throw new TransportError(response.status, data.code);
+    }
     return response.json();
   }
   async observe(signal?: AbortSignal) {

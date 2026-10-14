@@ -2,10 +2,15 @@ import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { DEFAULT_SETTINGS, uniquePrefixes, resolveIdentifier } from "@workspace/game-core";
 import type { Room, Actor } from "./types";
-import { logger } from "../lib/logger";
 
 const rooms = new Map<string, Room>();
 const tails = new Map<string, Promise<unknown>>();
+let closing = false;
+export async function refreshStore() { /* Single-instance cache is authoritative. */ }
+export async function closeStore() {
+  closing = true;
+  await Promise.allSettled([...tails.values()]);
+}
 export const listeners = new Set<(room: Room, event: string, payload?: unknown) => void>();
 export const allRooms = () => [...rooms.values()];
 export function resolveRoom(id: string): Room {
@@ -56,6 +61,7 @@ export async function persist(room: Room) {
   finally { client.release(); }
 }
 export function serialized<T>(id: string, work: () => Promise<T>): Promise<T> {
+  if (closing) return Promise.reject(Object.assign(new Error("Server shutting down"), { status: 503 }));
   // One authoritative commit order also covers cross-room alias changes.
   id = "authority";
   const prior = tails.get(id) ?? Promise.resolve();
@@ -106,10 +112,7 @@ export async function createRoom(actor: Actor): Promise<Room> {
   });
 }
 export async function initializeStore() {
-  const lock = await pool.connect();
-  const result = await lock.query("SELECT pg_try_advisory_lock(773219150) AS locked");
-  if (!result.rows[0].locked) { lock.release(); throw new Error("Another authoritative game server is already running"); }
-  lock.on("error", () => { logger.fatal("Authority lock connection lost"); process.exit(1); });
+  // Deployment is constrained to one instance; no session-long DB connection.
   const data = await pool.query("SELECT state FROM cg_rooms");
   for (const row of data.rows) {
     const room = row.state as Room;
@@ -121,6 +124,7 @@ export async function initializeStore() {
     if (room.game && room.game.phase !== "ended") {
       room.game.phase = "recovery";
       room.game.recoveryReason = "Server restarted. The owner must resume the game.";
+      room.seq++;
       await persist(room);
     }
     rooms.set(room.id, room);

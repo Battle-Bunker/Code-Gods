@@ -4,11 +4,13 @@ import { getAIProvider } from "./ai-provider";
 import { observation, executePlayerEnvelope } from "./player-api";
 import type { Actor } from "./types";
 import { logger } from "../lib/logger";
+import { isLocallyIdle } from "./activity";
 
 // Shared host-key safety ceilings, in addition to explicit room-owner token approval.
 const DAILY_HOST_USD = 5, GAME_USD = 2, CALLS_PER_MINUTE = 6;
-export async function reserveAI(roomId: string, gameId: string, tokens: number, usd: number) {
+export async function reserveAI(roomId: string, gameId: string, tokens: number, usd: number, checkActive?: () => void) {
   return mutate(roomId, async room => {
+    checkActive?.();
     if (!room.game || room.game.id !== gameId || ["ended", "recovery"].includes(room.game.phase)) throw new Error("AI game inactive");
     const now = Date.now(), day = new Date(now).toISOString().slice(0, 10);
     const daily = allRooms().reduce((sum, r) => sum + (r.aiDaily.day === day ? r.aiDaily.usd : 0), 0);
@@ -24,12 +26,25 @@ export async function reserveAI(roomId: string, gameId: string, tokens: number, 
 export function startAIService() {
   const controllers = new Map<string, AIController>();
   const due = new Map<string, number>();
-  let busy = false;
-  setInterval(() => {
-    if (busy) return;
-    busy = true;
-    void (async () => {
+  let pending: Promise<void> | undefined;
+  let turn: AbortController | undefined;
+  let stopped = false;
+  const checkActive = () => {
+    if (stopped || isLocallyIdle()) throw new Error("AI service inactive");
+    turn?.signal.throwIfAborted();
+  };
+  const timer = setInterval(() => {
+    if (stopped || isLocallyIdle()) {
+      turn?.abort();
+      for (const controller of controllers.values()) controller.stop();
+      controllers.clear();
+      return;
+    }
+    if (pending) return;
+    turn = new AbortController();
+    pending = (async () => {
       for (const room of allRooms()) {
+        checkActive();
         const g = room.game;
         if (!g || ["ended", "recovery"].includes(g.phase)) continue;
         const bots = g.roster.filter(m => m.kind === "ai" && g.deities.some(d => d.id === m.id));
@@ -49,13 +64,14 @@ export function startAIService() {
           const actor: Actor = { ...bot, scope: "player", roomId: room.id };
           controller = new AIController({
             roomId: room.id, godId: bot.id, provider: getAIProvider(bot.aiAgent), customPrompt: bot.aiAgent.prompt,
-            budget: { reserve: (tokens, usd) => reserveAI(room.id, g.id, tokens, usd) },
+            budget: { reserve: (tokens, usd) => { checkActive(); return reserveAI(room.id, g.id, tokens, usd, checkActive); } },
             transport: {
-              observe: async () => observation(resolveRoom(room.id), actor),
-              send: async envelope => executePlayerEnvelope(room.id, actor, envelope),
+              observe: async () => { checkActive(); return observation(resolveRoom(room.id), actor); },
+              send: async envelope => { checkActive(); return executePlayerEnvelope(room.id, actor, envelope); },
             },
             onEvent: event => {
               if (event.type === "status" || event.type === "failure") {
+                if (stopped || isLocallyIdle()) return;
                 void mutate(room.id, async draft => {
                   const member = draft.members.find(m => m.id === bot.id);
                   if (member) member.status = event.type === "status" ? event.status : event.code;
@@ -65,13 +81,21 @@ export function startAIService() {
           });
           controllers.set(key, controller);
         }
-        await controller.step().catch(() => {}); // sanitized status is emitted by the controller
+        await controller.step(turn!.signal).catch(() => {}); // sanitized status is emitted by the controller
       }
       for (const [key, controller] of controllers) {
         if (!allRooms().some(r => r.game && key.startsWith(`${r.game.id}:`) && r.game.phase !== "ended")) {
           controller.stop(); controllers.delete(key);
         }
       }
-    })().catch(error => logger.error({ errorName: error.name }, "AI service turn unavailable")).finally(() => { busy = false; });
+    })().catch(error => {
+      if (!stopped && !isLocallyIdle()) logger.error({ errorName: error.name }, "AI service turn unavailable");
+    }).finally(() => { pending = undefined; });
   }, 1000).unref();
+  return async () => {
+    stopped = true; clearInterval(timer); turn?.abort();
+    for (const controller of controllers.values()) controller.stop();
+    controllers.clear();
+    await pending;
+  };
 }

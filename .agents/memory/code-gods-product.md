@@ -79,3 +79,9 @@ AI-player templates are persistent admin-editable named records with provider/mo
 **Why:** The user wants to author agents after deployment, not keep fixed code-only personalities.
 
 **How to apply:** Gate authoring by an environment-configured verified-email allowlist. Seed defaults once and preserve edits/deletions across restarts. Do not save allowlisted personal emails in memory.
+
+Deploy on Autoscale with at most one server instance. Close connections after 30 minutes without human activity.
+
+**Why:** The user requires Autoscale for affordable compute and explicitly ruled out multiple simultaneous instances.
+
+**How to apply:** Do not require Reserved VM or build distributed coordination. Centralize inactivity handling; heartbeats, bots, and passive polling must not prevent sleep. Preserve committed state across restarts and offer explicit wake after idle.
