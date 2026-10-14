@@ -67,3 +67,9 @@ Grammar, value-generator and complexity-function options are always pre-authored
 **Why:** The user explicitly requires dropdown choices rather than arbitrary identifier text inputs.
 
 **How to apply:** Populate selectors from the server's supported options, filter compatibility, and reject unknown identifiers server-side.
+
+Fund Code Gods AI players through a user-supplied Anthropic API key, not Replit-managed inference credits.
+
+**Why:** The user explicitly selected direct Anthropic billing for the game's autonomous players.
+
+**How to apply:** Keep the key in server-side Secrets, enforce room usage budgets, and do not silently fall back to a Replit-billed provider.
