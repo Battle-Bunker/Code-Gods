@@ -49,3 +49,9 @@ Show a room's creation date and owner prominently alongside its ID wherever room
 **Why:** The user explicitly requested these identifying details.
 
 **How to apply:** Preserve this information in any future room-list surfaces without introducing room names.
+
+Private development-preview access is separate from Code Gods authentication. The user confirmed that granting an additional account editor access allowed it through the preview gate.
+
+**Why:** Replit's preview permissions can block a player before the game's login runs.
+
+**How to apply:** Distinguish preview access failures from game authentication failures. Editor access is a development workaround, not a player permission model: it also grants source-code editing access.
