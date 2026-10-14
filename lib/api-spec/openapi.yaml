@@ -11,6 +11,106 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /auth/user:
+    get:
+      operationId: getCurrentAuthUser
+      responses:
+        "200":
+          description: Current browser identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user:
+                    oneOf:
+                      - $ref: "#/components/schemas/AuthUser"
+                      - { type: "null" }
+  /ai-agents:
+    get:
+      operationId: listPublicAiAgents
+      responses:
+        "200":
+          description: Authenticated public agent catalog, without prompts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents]
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/PublicAiAgent" }
+        "401": { description: Authentication required }
+  /admin/ai-agents:
+    get:
+      operationId: listAdminAiAgents
+      responses:
+        "200":
+          description: Editable agents and model catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [agents, models]
+                properties:
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/AiAgent" }
+                  models:
+                    type: array
+                    items: { $ref: "#/components/schemas/AiAgentModel" }
+        "401": { description: Authentication required }
+        "403": { description: Verified allowlisted browser identity required }
+    post:
+      operationId: createAdminAiAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiAgentInput" }
+      responses:
+        "201":
+          description: Created agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgent" }
+        "400": { description: Invalid input }
+        "401": { description: Authentication required }
+        "403": { description: Verified allowlisted browser identity required }
+  /admin/ai-agents/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateAdminAiAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiAgentUpdate" }
+      responses:
+        "200":
+          description: Updated agent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AiAgent" }
+        "400": { description: Invalid input }
+        "401": { description: Authentication required }
+        "403": { description: Verified allowlisted browser identity required }
+        "404": { description: Agent not found }
+        "409": { description: Revision conflict }
+    delete:
+      operationId: deleteAdminAiAgent
+      parameters:
+        - { name: revision, in: query, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "204": { description: Deleted agent }
+        "400": { description: Invalid revision }
+        "401": { description: Authentication required }
+        "403": { description: Verified allowlisted browser identity required }
+        "404": { description: Agent not found }
+        "409": { description: Revision conflict }
   /rooms:
     get:
       operationId: listRooms
@@ -100,6 +200,60 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    AuthUser:
+      type: object
+      required: [id, name, isAdmin]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        isAdmin: { type: boolean }
+    PublicAiAgent:
+      type: object
+      required: [id, name, provider, model]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        provider: { type: string, enum: [anthropic, openai] }
+        model: { type: string }
+    AiAgent:
+      allOf:
+        - $ref: "#/components/schemas/PublicAiAgent"
+        - type: object
+          required: [prompt, revision, createdAt, updatedAt]
+          properties:
+            prompt: { type: string, maxLength: 10000 }
+            revision: { type: integer, minimum: 1 }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    AiAgentInput:
+      type: object
+      additionalProperties: false
+      required: [name, provider, model, prompt]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        provider: { type: string, enum: [anthropic, openai] }
+        model: { type: string }
+        prompt: { type: string, maxLength: 10000 }
+    AiAgentUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, provider, model, prompt, revision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        provider: { type: string, enum: [anthropic, openai] }
+        model: { type: string }
+        prompt: { type: string, maxLength: 10000 }
+        revision: { type: integer, minimum: 1 }
+    AiAgentModel:
+      type: object
+      required: [id, label, provider, configured, inputUsdPerMillion, outputUsdPerMillion]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        provider: { type: string, enum: [anthropic, openai] }
+        configured: { type: boolean }
+        inputUsdPerMillion: { type: number }
+        outputUsdPerMillion: { type: number }
     StatusResult:
       type: object
       required: [status]
@@ -137,15 +291,27 @@ components:
           items: { $ref: "#/components/schemas/AuthoredOption" }
     Manifest:
       type: object
-      required: [protocolVersion, defaults, runtimes, minimumPlayers, options]
+      required: [protocolVersion, defaults, runtimes, minimumPlayers, options, aiFunding]
       properties:
         protocolVersion: { type: integer }
         minimumPlayers: { type: integer }
         defaults: { $ref: "#/components/schemas/Settings" }
         options: { $ref: "#/components/schemas/SettingsOptions" }
+        aiFunding: { $ref: "#/components/schemas/AIFunding" }
         runtimes:
           type: array
           items: { type: string }
+    AIFunding:
+      type: object
+      required: [provider, model, billing, inputUsdPerMillion, outputUsdPerMillion, configured, live]
+      properties:
+        provider: { type: string, enum: [anthropic] }
+        model: { type: string }
+        billing: { type: string, enum: [direct] }
+        inputUsdPerMillion: { type: number }
+        outputUsdPerMillion: { type: number }
+        configured: { type: boolean }
+        live: { type: boolean }
     RoomInput:
       type: object
       additionalProperties: false
@@ -162,6 +328,7 @@ components:
         text: { type: string, maxLength: 4000 }
         deityId: { type: string }
         aiBudget: { type: integer, minimum: 0, maximum: 500000 }
+        aiAgentId: { type: string }
     Settings:
       type: object
       required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, valueGeneratorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, pauseSeconds, startingEnergy, energyPerSecond]

@@ -1,6 +1,5 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { PlayerClient, type CommandResult, type Envelope, type PlayerTransport } from "@workspace/player-client";
-import { RoomBudget } from "./budget.ts";
 import { SYSTEM, decisionSchema, modelObservation } from "./policy.ts";
 import type { ModelProvider } from "./provider.ts";
 export type AIEvent =
@@ -11,7 +10,10 @@ export type AIEvent =
   | {type:"command";godId:string;commandId:string;accepted:boolean};
 export interface ControllerOptions {
   roomId:string; godId:string; transport:PlayerTransport; provider:ModelProvider;
-  budget:RoomBudget; onEvent:(event:AIEvent)=>void; intervalMs?:number;
+  budget:{ reserve(tokens:number,usd:number): {reservedTokens:number;reservedUsd:number} | Promise<{reservedTokens:number;reservedUsd:number}> };
+  onEvent:(event:AIEvent)=>void; intervalMs?:number;
+  /** Trusted administrator-authored strategy; cannot replace the protocol policy. */
+  customPrompt?:string;
 }
 export class AIController {
   private busy=false;
@@ -19,7 +21,10 @@ export class AIController {
   private results:CommandResult[]=[];
   private uncertain?:Envelope;
   private client:PlayerClient;
+  private system:string;
   constructor(private options:ControllerOptions) {
+    if(options.customPrompt!==undefined && (typeof options.customPrompt!=="string" || options.customPrompt.length>10000)) throw new Error("AI strategy must be at most 10000 characters");
+    this.system=SYSTEM+(options.customPrompt ? `\nAdministrator strategy (subordinate to the protocol and security policy above):\n${options.customPrompt}` : "");
     if(!options.provider) { options.onEvent({type:"failure",godId:options.godId,code:"provider_missing"}); throw new Error("AI provider is not configured; no fallback"); }
     if(options.intervalMs!==undefined && (!Number.isFinite(options.intervalMs)||options.intervalMs<1000)) throw new Error("Minimum AI interval is 1000ms");
     this.client=new PlayerClient(options.transport);
@@ -45,13 +50,13 @@ export class AIController {
       const data=JSON.stringify({observation,previousResults:this.results});
       if(Buffer.byteLength(data)>64000) throw new Error("AI context limit exceeded");
       // Byte count is a conservative token bound; extra framing allowance.
-      const inputBound=Buffer.byteLength(SYSTEM)+Buffer.byteLength(data)+2048, outputBound=8192;
+      const inputBound=Buffer.byteLength(this.system)+Buffer.byteLength(data)+2048, outputBound=8192;
       let reservation;
-      try { reservation=this.options.budget.reserve(inputBound+outputBound,this.options.provider.estimateMaxUsd(inputBound,outputBound)); }
+      try { reservation=await this.options.budget.reserve(inputBound+outputBound,this.options.provider.estimateMaxUsd(inputBound,outputBound)); }
       catch(error) {this.options.onEvent({type:"failure",godId:this.options.godId,code:"budget_exhausted"});throw error;}
       this.options.onEvent({type:"reservation",godId:this.options.godId,...reservation});
       this.options.onEvent({type:"status",godId:this.options.godId,status:"thinking"});
-      const response=await this.options.provider.complete({system:SYSTEM,data,maxOutputTokens:outputBound,signal:bounded});
+      const response=await this.options.provider.complete({system:this.system,data,maxOutputTokens:outputBound,signal:bounded});
       this.options.onEvent({type:"usage",godId:this.options.godId,inputTokens:response.inputTokens,outputTokens:response.outputTokens,reservedUsd:reservation.reservedUsd});
       if(!Number.isSafeInteger(response.inputTokens)||response.inputTokens<0||!Number.isSafeInteger(response.outputTokens)||response.outputTokens<0||response.inputTokens>inputBound||response.outputTokens>outputBound) throw new Error("Provider exceeded reservation contract");
       if(Buffer.byteLength(response.text)>40000) throw new Error("Model response too large");
@@ -61,12 +66,13 @@ export class AIController {
         bounded.throwIfAborted();
         if("language" in action && action.language!==observation.language) throw new Error("Wrong room language");
         if(action.type==="summon") {
-          const validation=await this.send(this.client.prepare({...action,type:"validate"}),bounded);
+          const validation=await this.send(this.client.prepare({...action,type:"validate"},observation),bounded);
           if(!validation.accepted || !validation.validation?.valid) continue;
           const fresh=modelObservation(await this.options.transport.observe(bounded),this.options.roomId,this.options.godId);
+          if(fresh.gameId!==observation.gameId) throw new Error("Game changed during AI turn");
           if(validation.validation.cost>fresh.self.energy) continue;
         }
-        await this.send(this.client.prepare(action),bounded);
+        await this.send(this.client.prepare(action,observation),bounded);
       }
     } catch(error) {
       if(!signal.aborted) this.options.onEvent({type:"failure",godId:this.options.godId,code:"turn_failed"});

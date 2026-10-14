@@ -4,6 +4,8 @@ import { lookupSession } from "../lib/identity";
 import { listeners, resolveRoom, member, mutate } from "./store";
 import { publicRoom, personalRoom } from "./projection";
 import { playerCommand } from "./engine";
+import { observation, executePlayerEnvelope } from "./player-api";
+import { personalScore } from "@workspace/game-core";
 
 export function attachSockets(server: Server) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 32768 });
@@ -28,9 +30,28 @@ export function attachSockets(server: Server) {
         };
         const project = () => actor.scope === "player" ? personalRoom(resolveRoom(room.id), actor.id) : publicRoom(resolveRoom(room.id));
         send("room.snapshot", project());
+        send("player.observation", observation(room, actor));
+        let gameId = room.game?.id;
+        let lastEvent = room.game?.events.at(-1)?.id;
         const listener: Parameters<typeof listeners.add>[0] = changed => {
           if (changed.id !== room.id) return;
           send("room.snapshot", project());
+          send("player.observation", observation(changed, actor));
+          if (gameId !== changed.game?.id) {
+            gameId = changed.game?.id;
+            lastEvent = undefined;
+            if (changed.game?.deities.some(d => d.id === actor.id)) send("game.preparing", personalRoom(changed, actor.id));
+          }
+          const events = changed.game?.events ?? [];
+          const start = lastEvent ? events.findIndex(e => e.id === lastEvent) + 1 : 0;
+          if (changed.game?.deities.some(d => d.id === actor.id)) {
+            for (const event of events.slice(start)) send(event.type, {
+              id: event.id, gameId: event.gameId, agentId: event.agentId, before: event.before,
+              object: { id: event.object.id, value: event.object.value, version: event.object.version,
+                ...personalScore(new Map(Object.entries(event.object.values)), actor.id) },
+            });
+          }
+          lastEvent = events.at(-1)?.id;
           send("leaderboard.updated", publicRoom(changed).game?.leaderboard ?? []);
         };
         listeners.add(listener);
@@ -41,6 +62,10 @@ export function attachSockets(server: Server) {
           void (async () => {
             if (!await lookupSession(token)) { ws.close(1008, "Session expired"); return; }
             const input = JSON.parse(data.toString());
+            if (input.version === "code-gods.player.v1") {
+              send("command.receipt", await executePlayerEnvelope(room.id, actor, input));
+              return;
+            }
             if (input.protocolVersion !== 1) throw new Error("Unsupported protocol");
             if (input.command === "subscribe" || input.command === "resume") { send("room.snapshot", project()); return; }
             const result = await mutate(room.id, draft => playerCommand(draft, actor, input));

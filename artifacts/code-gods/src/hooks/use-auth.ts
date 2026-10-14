@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-export interface AuthUser { id: string; name?: string; firstName?: string | null; lastName?: string | null }
+export interface AuthUser { id: string; name?: string; isAdmin?: boolean; firstName?: string | null; lastName?: string | null }
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 

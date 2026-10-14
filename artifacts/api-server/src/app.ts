@@ -7,6 +7,8 @@ import { authenticate, sameOrigin } from "./lib/identity";
 import authRouter from "./routes/auth";
 import roomsRouter from "./routes/rooms";
 import deviceRouter from "./routes/device";
+import playerRouter from "./routes/player";
+import adminAgentsRouter from "./routes/admin-agents";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -42,7 +44,8 @@ app.use((req, res, next) => {
   if (["/api/device/request", "/api/device/poll"].includes(req.path)) return next();
   sameOrigin(req, res, next);
 });
-app.use("/api", deviceRouter, roomsRouter);
+app.use("/api", deviceRouter, roomsRouter, playerRouter);
+app.use("/api", adminAgentsRouter);
 
 app.use("/api", router);
 app.use((error: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

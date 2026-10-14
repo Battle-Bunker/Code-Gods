@@ -3,7 +3,7 @@ import { pool } from "@workspace/db";
 import type { Request, Response, NextFunction } from "express";
 import * as oidc from "openid-client";
 
-export type Identity = { id: string; name: string; kind: "human"; scope: "browser" | "player"; roomId?: string };
+export type Identity = { id: string; name: string; kind: "human"; scope: "browser" | "player"; roomId?: string; email?: string; emailVerified?: boolean; issuer?: string };
 declare global {
   namespace Express { interface Request { identity?: Identity } }
 }
@@ -44,6 +44,19 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 export function requireIdentity(req: Request): Identity {
   if (!req.identity) throw Object.assign(new Error("Please log in"), { status: 401 });
   return req.identity;
+}
+// Only signed OIDC claims persisted by the callback qualify. Device/player
+// sessions and older sessions without verified email must sign in again.
+export function isAdmin(identity: Identity | undefined): boolean {
+  if (!identity || identity.scope !== "browser" || identity.issuer !== "https://replit.com/oidc" ||
+      identity.emailVerified !== true || typeof identity.email !== "string") return false;
+  const allowed = (process.env.CODE_GODS_ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(email => email.trim().toLowerCase()).filter(Boolean);
+  return allowed.includes(identity.email.trim().toLowerCase());
+}
+export function requireAdmin(req: Request): Identity {
+  const identity = requireIdentity(req);
+  if (!isAdmin(identity)) throw Object.assign(new Error("Administrator access required"), { status: 403 });
+  return identity;
 }
 export function sameOrigin(req: Request, _res: Response, next: NextFunction) {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method) || req.headers.authorization?.startsWith("Bearer ")) return next();

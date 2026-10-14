@@ -83,7 +83,8 @@ export async function createRoom(actor: Actor): Promise<Room> {
     const room: Room = {
       id, shortCode: "", ownerId: actor.id, createdAt: Date.now(), revision: 0, settings: { ...DEFAULT_SETTINGS },
       members: [{ id: actor.id, name: actor.name, kind: "human", ready: false }],
-      chat: [], game: null, aiBudget: 0, aiUsed: 0, receipts: {}, seq: 0,
+      chat: [], game: null, aiBudget: 0, aiUsed: 0, aiReservedUsd: 0,
+      aiDaily: { day: "", usd: 0, calls: [] }, receipts: {}, seq: 0,
     };
     // All affected aliases update together, never silently resolve an ambiguous old prefix.
     const nextRooms = [...rooms.values()].map(r => structuredClone(r)).concat(room);
@@ -114,8 +115,12 @@ export async function initializeStore() {
     const room = row.state as Room;
     // Legacy rooms did not record creation time; do not mislabel last-update time as creation.
     room.createdAt ??= null;
+    room.aiReservedUsd ??= 0;
+    room.aiDaily ??= { day: "", usd: 0, calls: [] };
+    if (room.game) room.game.events ??= [];
     if (room.game && room.game.phase !== "ended") {
       room.game.phase = "recovery";
+      room.game.recoveryReason = "Server restarted. The owner must resume the game.";
       await persist(room);
     }
     rooms.set(room.id, room);

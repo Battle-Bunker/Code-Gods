@@ -1,6 +1,6 @@
 export { generate, GenerationError } from "./generate.ts";
 export type { Pantheon } from "./generate.ts";
-export { GENERATOR_ID, payoffs } from "./model.ts";
+export { GENERATOR_ID, payoffs, evaluatePreference } from "./model.ts";
 export type { Options, Domain, ObjectValue, Language, Deity, Manifest, Preference } from "./model.ts";
 export type { ScreeningReport, Witness, PairWitness, Baseline, TransitionStats } from "./screen.ts";
 export { uniformAgentPayoffs, composeConstantAgents } from "./baselines.ts";

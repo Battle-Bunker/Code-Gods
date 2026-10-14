@@ -7,12 +7,17 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:integration": "node test/run-game-integration.mjs && node --experimental-transform-types --test test/runtime-integration.test.ts"
   },
   "dependencies": {
+    "@workspace/ai-player": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/game-core": "workspace:*",
+    "@workspace/game-runtime": "workspace:*",
+    "@workspace/game-values": "workspace:*",
+    "@workspace/player-client": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",

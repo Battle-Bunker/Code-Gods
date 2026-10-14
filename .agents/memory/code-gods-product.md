@@ -30,7 +30,7 @@ Use parallel subtasks for this project; the main agent should act as coordinator
 
 **Why:** The user explicitly requested this working arrangement.
 
-**How to apply:** Delegate isolated packages with clear contracts and retain authoritative-server integration and progress communication in the main session.
+**How to apply:** Delegate implementation aggressively with clear file ownership and contracts. The user reiterated this after the main agent took on too much implementation; retain coordination and final integration checks.
 
 Implement persistence with Replit's built-in PostgreSQL from the start.
 
@@ -68,8 +68,14 @@ Grammar, value-generator and complexity-function options are always pre-authored
 
 **How to apply:** Populate selectors from the server's supported options, filter compatibility, and reject unknown identifiers server-side.
 
-Fund Code Gods AI players through a user-supplied Anthropic API key, not Replit-managed inference credits.
+Fund Code Gods AI players through user-supplied Anthropic or OpenAI API keys, not Replit-managed inference credits.
 
-**Why:** The user explicitly selected direct Anthropic billing for the game's autonomous players.
+**Why:** The user selected direct provider billing and subsequently requested both Anthropic and OpenAI model choices.
 
 **How to apply:** Keep the key in server-side Secrets, enforce room usage budgets, and do not silently fall back to a Replit-billed provider.
+
+AI-player templates are persistent admin-editable named records with provider/model selection and prompts capped at 10,000 characters; Sonnet 5.5 is the requested default.
+
+**Why:** The user wants to author agents after deployment, not keep fixed code-only personalities.
+
+**How to apply:** Gate authoring by an environment-configured verified-email allowlist. Seed defaults once and preserve edits/deletions across restarts. Do not save allowlisted personal emails in memory.

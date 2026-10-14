@@ -14,7 +14,8 @@ import wasmtime
 from domain import settings, check
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-CACHE = ROOT / ".cache" / "code-gods" / "python-3.15.0"
+PACKAGED = pathlib.Path(__file__).resolve().parents[1] / "dist" / "python-3.15.0"
+CACHE = PACKAGED if PACKAGED.is_dir() else ROOT / ".cache" / "code-gods" / "python-3.15.0"
 ADAPTER = pathlib.Path(__file__).with_name("guest.py").read_text()
 MAX_REQUEST = 131072
 MAX_OUTPUT = 65536

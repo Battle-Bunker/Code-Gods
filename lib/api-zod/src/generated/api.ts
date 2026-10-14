@@ -8,6 +8,135 @@
 import * as zod from 'zod';
 
 
+export const GetCurrentAuthUserResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "isAdmin": zod.boolean()
+}),zod.null()])
+})
+
+
+export const ListPublicAiAgentsResponse = zod.object({
+  "agents": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string()
+}))
+})
+
+
+export const listAdminAiAgentsResponseAgentsItemTwoPromptMax = 10000;
+
+
+
+
+export const ListAdminAiAgentsResponse = zod.object({
+  "agents": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string()
+}).and(zod.object({
+  "prompt": zod.string().max(listAdminAiAgentsResponseAgentsItemTwoPromptMax),
+  "revision": zod.number().int().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))),
+  "models": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "configured": zod.boolean(),
+  "inputUsdPerMillion": zod.number(),
+  "outputUsdPerMillion": zod.number()
+}))
+})
+
+
+export const createAdminAiAgentBodyNameMax = 100;
+
+export const createAdminAiAgentBodyPromptMax = 10000;
+
+
+
+export const CreateAdminAiAgentBody = zod.object({
+  "name": zod.string().min(1).max(createAdminAiAgentBodyNameMax),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string(),
+  "prompt": zod.string().max(createAdminAiAgentBodyPromptMax)
+})
+
+export const createAdminAiAgentResponseTwoPromptMax = 10000;
+
+
+
+
+export const CreateAdminAiAgentResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string()
+}).and(zod.object({
+  "prompt": zod.string().max(createAdminAiAgentResponseTwoPromptMax),
+  "revision": zod.number().int().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const UpdateAdminAiAgentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const updateAdminAiAgentBodyNameMax = 100;
+
+export const updateAdminAiAgentBodyPromptMax = 10000;
+
+
+
+
+export const UpdateAdminAiAgentBody = zod.object({
+  "name": zod.string().min(1).max(updateAdminAiAgentBodyNameMax),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string(),
+  "prompt": zod.string().max(updateAdminAiAgentBodyPromptMax),
+  "revision": zod.number().int().min(1)
+})
+
+export const updateAdminAiAgentResponseTwoPromptMax = 10000;
+
+
+
+
+export const UpdateAdminAiAgentResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "provider": zod.enum(['anthropic', 'openai']),
+  "model": zod.string()
+}).and(zod.object({
+  "prompt": zod.string().max(updateAdminAiAgentResponseTwoPromptMax),
+  "revision": zod.number().int().min(1),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+}))
+
+
+export const DeleteAdminAiAgentParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const DeleteAdminAiAgentQueryParams = zod.object({
+  "revision": zod.coerce.number().int().min(1)
+})
+
+export const DeleteAdminAiAgentResponse = zod.void()
+
+
 export const ListRoomsResponseItem = zod.object({
   "id": zod.string(),
   "shortCode": zod.string(),
@@ -199,7 +328,8 @@ export const RoomActionBody = zod.object({
   "ready": zod.boolean().optional(),
   "text": zod.string().max(roomActionBodyTextMax).optional(),
   "deityId": zod.string().optional(),
-  "aiBudget": zod.number().int().min(roomActionBodyAiBudgetMin).max(roomActionBodyAiBudgetMax).optional()
+  "aiBudget": zod.number().int().min(roomActionBodyAiBudgetMin).max(roomActionBodyAiBudgetMax).optional(),
+  "aiAgentId": zod.string().optional()
 })
 
 export const RoomActionResponse = zod.object({
@@ -324,6 +454,15 @@ export const GetManifestResponse = zod.object({
   "languages": zod.array(zod.string()),
   "objectTypes": zod.array(zod.string())
 }))
+}),
+  "aiFunding": zod.object({
+  "provider": zod.enum(['anthropic']),
+  "model": zod.string(),
+  "billing": zod.enum(['direct']),
+  "inputUsdPerMillion": zod.number(),
+  "outputUsdPerMillion": zod.number(),
+  "configured": zod.boolean(),
+  "live": zod.boolean()
 }),
   "runtimes": zod.array(zod.string())
 })

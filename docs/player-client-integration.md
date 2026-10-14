@@ -7,14 +7,11 @@ and the secured per-player daemon. `lib/ai-player` owns the autonomous model pol
 budgets and injectable Replit AI Integrations adapter. `artifacts/player-web`
 is the customizable human console, separate from the common server display.
 
-The checked-in authoritative OpenAPI spec currently contains only healthz. No
-parent player DTO or routes were available in this branch. Accordingly,
-`code-gods.player.v1` in `lib/player-client/src/protocol.ts` is an explicit
-**integration contract**, not a claim these endpoints already exist. Coordinator
-must map its versioned observation/commands to this adapter or update this single
-contract in coordination. Do not pass raw engine state to a client or model.
-The preview deliberately reports that no daemon is configured. Contract tests use
-injected fixtures; they do not demonstrate live gameplay or successful model calls.
+The authoritative server implements the `code-gods.player.v1` adapter and device
+approval routes. The isolated integration test below exercises current routes
+and the daemon using real HTTP and WebSocket connections. The standalone Vite
+preview is not a daemon and reports that no daemon is configured.
+Never pass raw engine state to a client or model.
 
 ## Authoritative HTTP adapter assumptions
 
@@ -24,15 +21,17 @@ Paths below are relative to that base:
 
 | Method/path | Input | Output |
 |---|---|---|
-| POST /device/start | `{version:"code-gods.player.v1",roomId}` | `{deviceCode,userCode,verificationUri,expiresAt,intervalMs}` |
-| POST /device/poll | `{deviceCode}` | `{status:"pending"}` / `{status:"denied"}` / `{status:"approved",credential}` |
+| POST /api/device/request (origin-relative) | `{roomId,challenge}` (S256 PKCE) | `{deviceId,deviceSecret,userCode,verificationPath,expiresIn,interval}` |
+| POST /api/device/approve (origin-relative) | `{code}`, authenticated browser member | `{status:"approved"}` |
+| POST /api/device/poll (origin-relative) | `{deviceId,deviceSecret,verifier}` | `{status:"pending"}` / room credential |
 | GET /rooms/:roomId/observation | Bearer room credential | `Observation` |
 | POST /rooms/:roomId/commands | Bearer room credential; `Envelope` | `CommandResult` |
 
-Times are epoch milliseconds. Poll interval is 1–30 seconds. Device and room
-credential expiry is at most 15 minutes. Credential:
-`{token,roomId,godId,expiresAt}`. Browser approval URL must have exactly the
-configured authoritative origin. Device code is daemon-private; only user code
+Device expiry and poll interval are seconds; the server gives five-minute device
+approval and fifteen-minute room sessions. Wire credential:
+`{token,roomId,godId,expiresIn}`; the daemon converts expiry to epoch milliseconds.
+Browser approval URL must have exactly the configured authoritative origin.
+Device secret and PKCE verifier are daemon-private; only user code
 and verification URL reach the browser. Browser signs into the authoritative
 service and approves membership there; this package never issues membership or
 approves a request itself. No manually pasted static keys are supported.
@@ -64,10 +63,12 @@ daemon coalesces duplicate requests and remembers payload binding even after an
 uncertain failure. Lost responses may have applied: retry the same envelope.
 Neither transport nor provider silently retries chargeable work.
 
-No event transport is invented here. Human UI polls full snapshots every 1.5s;
-the transport-neutral interface permits coordinator SSE/WebSocket adapters later.
-Mutations refresh the projection immediately. Public chat persistence and
-delivery remain server-owned.
+The Node launcher uses `WebSocketPlayerTransport` with private Authorization
+upgrade headers at `/api/rooms/:roomId/ws`, reconnect/backoff, observation events
+and command receipts. Credentials never appear in socket URLs. Snapshot reads and
+commands while the socket is unavailable use HTTP. Human UI polls full snapshots
+every 1.5s; mutations refresh the projection immediately.
+Public chat persistence and delivery remain server-owned.
 
 ## Daemon and human browser
 
@@ -174,6 +175,91 @@ restart within a room or hide a failed controller behind another policy.
 
 ## Verification
 
+### Independent player-process acceptance
+
+From the repository root, with dependencies installed:
+
+```sh
+node artifacts/api-server/test/client-daemon-integration.runner.mjs
+```
+
+This bundles the actual authority routes and identity/session implementation with
+a fresh in-memory SQL fixture (not a live database). It launches two separate Node
+daemon processes, each using the current SDK's real HTTP/WebSocket transports.
+Synthetic browser members approve each daemon through the real device route;
+the daemon generates its own PKCE verifier and keeps room credentials in memory.
+The parent test acts as each local browser over HTTP. No paid model calls occur.
+Child environments are whitelisted, excluding inherited database/model keys.
+
+Assertions cover independent process IDs, origins, cookies and identities;
+single-use launch tickets; rejected invalid device proof; rejected unauthenticated
+WebSocket upgrades; WS command receipts; validation and summoning; receipt replay
+and changed-payload rejection; private agent projections; public chat; actual
+runtime transformations/events; forced socket disconnect, authenticated reconnect
+and resync; and disconnecting one daemon without disconnecting the other.
+The test exchanges launch capabilities privately over IPC and never logs secrets.
+
+This is **not** a test of creating two literal Replit cloud copies, OIDC login
+in a real browser, reverse-proxy hosting, or the rendered player UI. The two child
+processes use the same checked-out build, independently configured to the same
+isolated authority.
+
+### Replit copy startup (development preview)
+
+Each player should copy the repository into their own private Replit workspace,
+install dependencies, build `@workspace/player-web`, and point their daemon at
+the **same authoritative game's** `https://GAME_HOST/api/player/v1`, not a new
+authority in each copy. Each human must sign in and join that room at GAME_HOST;
+the owner must provide the required minimum three seats and start the game.
+Then each player opens their private one-use daemon launch URL, enters the room
+ID, follows the device verification link, approves as their own room member,
+and returns to their own console to validate/summon/ready.
+
+In the **client copy only**, stop the existing Player Vite service before using
+its port. Do not run two services on that port. The checked-in player artifact
+already maps `/player/` to port **22772**; reuse that mapping instead of creating
+an additional public port. The following commands are from the repository root:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @workspace/player-web build
+export GAME_PLAYER_API='https://YOUR_DEPLOYED_GAME_HOST/api/player/v1'
+: "${REPLIT_DEV_DOMAIN:?Run this in the client Replit development workspace}"
+PRIVATE_LAUNCH_DIR="$(mktemp -d /tmp/code-gods-player.XXXXXX)"
+chmod 700 "$PRIVATE_LAUNCH_DIR"
+env -i PATH="$PATH" HOME="$HOME" \
+  PORT=22772 PLAYER_ORIGIN="https://$REPLIT_DEV_DOMAIN" \
+  node --experimental-transform-types lib/player-client/src/serve.ts \
+  "$GAME_PLAYER_API" artifacts/player-web/dist/public \
+  "$PRIVATE_LAUNCH_DIR/launch"
+```
+
+This last command stays running. Use the workspace's private file access to open
+the newly created launch file's URL within 60 seconds; never paste it into chat,
+public logs or a shared terminal transcript. The random directory is visible in
+the process's launch arguments if needed; the URL itself is only in the 0600
+file. Remove the file after use. Restart with a fresh private directory if it
+expires. The launcher binds `0.0.0.0` when `PLAYER_ORIGIN` is configured and
+retains exact Host/Origin/CSRF validation; it does not trust forwarded headers.
+For repeated use, replace the **client copy's** Player development workflow
+command with this launcher rather than restarting Vite. No workflow changes or
+cloud copies were performed by the verification test.
+
+`REPLIT_DEV_DOMAIN` is for development preview only. A deployed client service
+must explicitly set `PLAYER_ORIGIN` to its actual HTTPS deployment origin and
+provide an authenticated owner-only launch delivery mechanism; the existing
+static player deployment is not that service. Keep the authoritative GAME_HOST
+separate. Each copy needs no database or model-provider secrets; `env -i` above
+prevents accidentally passing inherited keys to the daemon.
+
+The launch URL fragment establishes a Secure, HttpOnly cookie; it is not a room
+credential. The owner signs into GAME_HOST for approval, then uses the client
+console. A same-workspace Agent can use the daemon's local HTTP endpoints with
+the configured public Host and Origin headers, its private session cookie and
+CSRF token after that approval; never ask the user to paste a room token.
+Actual Replit proxy/browser behavior remains a manual pilot check, not an
+automated cloud-copy claim.
+
 ```sh
 pnpm --filter @workspace/player-client test
 pnpm --filter @workspace/ai-player test
@@ -187,4 +273,5 @@ command allowlists, identity mismatch, credential expiry bounds, session replay,
 CSRF/origin/authentication, approval token non-disclosure, receipt deduplication,
 autonomous validation/cost, uncertain outcome retries, room-shared budgets,
 cancel, missing provider and absence of admin/DM commands. They are independent
-adapter tests, not fabricated successful live matches.
+adapter tests. The additional process test above covers isolated authoritative
+gameplay, not a fabricated successful live cloud match.

@@ -5,6 +5,95 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AuthUser {
+  id: string;
+  name: string;
+  isAdmin: boolean;
+}
+
+export type PublicAiAgentProvider = typeof PublicAiAgentProvider[keyof typeof PublicAiAgentProvider];
+
+
+export const PublicAiAgentProvider = {
+  anthropic: 'anthropic',
+  openai: 'openai',
+} as const;
+
+export interface PublicAiAgent {
+  id: string;
+  name: string;
+  provider: PublicAiAgentProvider;
+  model: string;
+}
+
+export type AiAgent = PublicAiAgent & {
+  /** @maxLength 10000 */
+  prompt: string;
+  /** @minimum 1 */
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AiAgentInputProvider = typeof AiAgentInputProvider[keyof typeof AiAgentInputProvider];
+
+
+export const AiAgentInputProvider = {
+  anthropic: 'anthropic',
+  openai: 'openai',
+} as const;
+
+export interface AiAgentInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  provider: AiAgentInputProvider;
+  model: string;
+  /** @maxLength 10000 */
+  prompt: string;
+}
+
+export type AiAgentUpdateProvider = typeof AiAgentUpdateProvider[keyof typeof AiAgentUpdateProvider];
+
+
+export const AiAgentUpdateProvider = {
+  anthropic: 'anthropic',
+  openai: 'openai',
+} as const;
+
+export interface AiAgentUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  provider: AiAgentUpdateProvider;
+  model: string;
+  /** @maxLength 10000 */
+  prompt: string;
+  /** @minimum 1 */
+  revision: number;
+}
+
+export type AiAgentModelProvider = typeof AiAgentModelProvider[keyof typeof AiAgentModelProvider];
+
+
+export const AiAgentModelProvider = {
+  anthropic: 'anthropic',
+  openai: 'openai',
+} as const;
+
+export interface AiAgentModel {
+  id: string;
+  label: string;
+  provider: AiAgentModelProvider;
+  configured: boolean;
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+}
+
 export interface StatusResult {
   status: string;
 }
@@ -73,11 +162,36 @@ export interface Settings {
   energyPerSecond: number;
 }
 
+export type AIFundingProvider = typeof AIFundingProvider[keyof typeof AIFundingProvider];
+
+
+export const AIFundingProvider = {
+  anthropic: 'anthropic',
+} as const;
+
+export type AIFundingBilling = typeof AIFundingBilling[keyof typeof AIFundingBilling];
+
+
+export const AIFundingBilling = {
+  direct: 'direct',
+} as const;
+
+export interface AIFunding {
+  provider: AIFundingProvider;
+  model: string;
+  billing: AIFundingBilling;
+  inputUsdPerMillion: number;
+  outputUsdPerMillion: number;
+  configured: boolean;
+  live: boolean;
+}
+
 export interface Manifest {
   protocolVersion: number;
   minimumPlayers: number;
   defaults: Settings;
   options: SettingsOptions;
+  aiFunding: AIFunding;
   runtimes: string[];
 }
 
@@ -111,6 +225,7 @@ export interface RoomActionInput {
      * @maximum 500000
      */
   aiBudget?: number;
+  aiAgentId?: string;
 }
 
 export interface RoomSummary {
@@ -193,4 +308,24 @@ export interface RoomState {
 export interface HealthStatus {
   status: string;
 }
+
+export type GetCurrentAuthUser200 = {
+  user: AuthUser | null;
+};
+
+export type ListPublicAiAgents200 = {
+  agents: PublicAiAgent[];
+};
+
+export type ListAdminAiAgents200 = {
+  agents: AiAgent[];
+  models: AiAgentModel[];
+};
+
+export type DeleteAdminAiAgentParams = {
+/**
+ * @minimum 1
+ */
+revision: number;
+};
 

@@ -1,33 +1,36 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { envelopeSchema } from "./protocol.ts";
+import { envelopeSchema, type Envelope } from "./protocol.ts";
 import { HttpPlayerTransport, TransportError } from "./transport.ts";
+import { WebSocketPlayerTransport, type PlayerSocketFactory } from "./socket-transport.ts";
 
 const secret = () => randomBytes(32).toString("base64url");
 const equal = (a:string,b:string) => Buffer.byteLength(a)===Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
-const credentialSchema = z.object({token:z.string().min(1).max(8192),roomId:z.string(),godId:z.string(),expiresAt:z.number().finite()});
-const pendingSchema = z.object({deviceCode:z.string().min(1),userCode:z.string().max(64),verificationUri:z.string().url(),expiresAt:z.number(),intervalMs:z.number().min(1000).max(30000)});
-export interface DaemonOptions { origin:string; basePath:string; serverUrl:string; fetcher?:typeof fetch }
+const credentialSchema = z.object({token:z.string().min(1).max(8192),roomId:z.string(),godId:z.string(),expiresIn:z.number().positive().max(14400)});
+const pendingSchema = z.object({deviceId:z.string().min(1),deviceSecret:z.string().min(1),userCode:z.string().max(64),verificationPath:z.string(),expiresIn:z.number().positive().max(900),interval:z.number().min(1).max(30)});
+export interface DaemonOptions { origin:string; basePath:string; serverUrl:string; fetcher?:typeof fetch; socketFactory?:PlayerSocketFactory }
 
 /** One instance per player. Credentials, pending approval and session all stay in memory. */
 export function createPlayerDaemon(options:DaemonOptions) {
   const origin = new URL(options.origin).origin;
   const serverUrl = options.serverUrl.replace(/\/$/,"");
   const serverOrigin = new URL(serverUrl).origin;
+  const deviceBase = new URL("/api/device/", serverOrigin).href;
   const fetcher = options.fetcher ?? fetch;
-  const transport = new HttpPlayerTransport(serverUrl,fetcher);
+  const transport = options.socketFactory ? new WebSocketPlayerTransport(serverUrl,options.socketFactory,fetcher) : new HttpPlayerTransport(serverUrl,fetcher);
   const cookieName = "code_gods_player";
   const base = options.basePath.replace(/\/$/,"");
   let ticket = secret(), ticketExpiry = Date.now()+60_000;
   let session = "", csrf = "", sessionExpiry = 0;
   let approvedUntil = 0;
-  let pending: (z.infer<typeof pendingSchema> & {roomId:string; nextPoll:number}) | undefined;
+  let pending: (z.infer<typeof pendingSchema> & {roomId:string; verifier:string; expiresAt:number; intervalMs:number; nextPoll:number}) | undefined;
   let approvalBusy = false;
-  const receipts = new Map<string,{body:string;result:Promise<unknown>|undefined}>();
+  let gameId:string|undefined;
+  const receipts = new Map<string,{body:string;envelope:Envelope;result:Promise<unknown>|undefined}>();
   const json = (body:unknown,status=200,headers:Record<string,string>={}) => new Response(JSON.stringify(body),{status,headers:{"Content-Type":"application/json","Cache-Control":"no-store","X-Content-Type-Options":"nosniff",...headers}});
   const cookie = (value:string,maxAge:number) => `${cookieName}=${value}; HttpOnly; SameSite=Strict; Path=${base || "/"}; Max-Age=${maxAge}${origin.startsWith("https:")?"; Secure":""}`;
   async function upstream(path:string,body:unknown) {
-    const response = await fetcher(`${serverUrl}${path}`,{method:"POST",redirect:"error",signal:AbortSignal.timeout(15000),headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const response = await fetcher(`${deviceBase}${path}`,{method:"POST",redirect:"error",signal:AbortSignal.timeout(15000),headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(!response.ok) throw new TransportError(response.status);
     return response.json();
   }
@@ -62,7 +65,7 @@ export function createPlayerDaemon(options:DaemonOptions) {
       if(request.method==="POST" && !equal(request.headers.get("x-csrf-token")??"",csrf)) return json({error:"CSRF rejected"},403);
       if(path==="/session" && request.method==="GET") return json({csrf,connected:approvedUntil>Date.now()});
       if(path==="/disconnect" && request.method==="POST") {
-        transport.disconnect(); approvedUntil=0; pending=undefined; receipts.clear(); session=""; csrf="";
+        transport.disconnect(); approvedUntil=0; pending=undefined; gameId=undefined;receipts.clear(); session=""; csrf="";
         return json({disconnected:true},200,{"Set-Cookie":cookie("",0)});
       }
       if(path==="/approval" && request.method==="POST") {
@@ -71,12 +74,15 @@ export function createPlayerDaemon(options:DaemonOptions) {
         approvalBusy=true;
         const approvalSession=session;
         try {
-          const result=pendingSchema.parse(await upstream("/device/start",{version:"code-gods.player.v1",roomId:input.roomId}));
+          const verifier=secret();
+          const challenge=createHash("sha256").update(verifier).digest("base64url");
+          const result=pendingSchema.parse(await upstream("request",{roomId:input.roomId,challenge}));
           if(session!==approvalSession) return json({error:"Approval cancelled"},409);
-          if(new URL(result.verificationUri).origin!==serverOrigin || result.expiresAt<=Date.now() || result.expiresAt>Date.now()+15*60_000) throw new Error("Invalid approval response");
-          transport.disconnect(); approvedUntil=0; receipts.clear();
-          pending={...result,roomId:input.roomId,nextPoll:Date.now()+result.intervalMs};
-          return json({verificationUri:result.verificationUri,userCode:result.userCode});
+          const verificationUri=new URL(result.verificationPath,serverOrigin);
+          if(verificationUri.origin!==serverOrigin || verificationUri.username || verificationUri.password || verificationUri.protocol!=="https:" && !["localhost","127.0.0.1"].includes(verificationUri.hostname)) throw new Error("Invalid approval response");
+          transport.disconnect(); approvedUntil=0;gameId=undefined; receipts.clear();
+          pending={...result,verifier,roomId:input.roomId,expiresAt:Date.now()+result.expiresIn*1000,intervalMs:result.interval*1000,nextPoll:Date.now()+result.interval*1000};
+          return json({verificationUri:verificationUri.href,userCode:result.userCode});
         } finally { approvalBusy=false; }
       }
       if(path==="/approval/poll" && request.method==="POST") {
@@ -85,21 +91,21 @@ export function createPlayerDaemon(options:DaemonOptions) {
         approvalBusy=true;
         const active=pending; active.nextPoll=Date.now()+active.intervalMs;
         try {
-          const result=z.discriminatedUnion("status",[
-            z.object({status:z.literal("pending")}),
-            z.object({status:z.literal("approved"),credential:credentialSchema}),
-            z.object({status:z.literal("denied")}),
-          ]).parse(await upstream("/device/poll",{deviceCode:active.deviceCode}));
+          const result=z.union([z.object({status:z.literal("pending")}),credentialSchema]).parse(await upstream("poll",{deviceId:active.deviceId,deviceSecret:active.deviceSecret,verifier:active.verifier}));
           if(pending!==active || !session) return json({error:"Approval cancelled"},409);
-          if(result.status==="denied") {pending=undefined;return json({error:"Approval denied"},403);}
-          if(result.status==="approved") {
-            if(result.credential.roomId!==active.roomId) throw new Error("Room mismatch");
-            transport.approve(result.credential); approvedUntil=result.credential.expiresAt; pending=undefined;
+          if("token" in result) {
+            if(result.roomId!==active.roomId) throw new Error("Room mismatch");
+            const expiresAt=Date.now()+result.expiresIn*1000;
+            transport.approve({...result,expiresAt}); approvedUntil=expiresAt; pending=undefined;
+            return json({status:"approved"});
           }
-          return json({status:result.status});
+          return json({status:"pending"});
         } finally {approvalBusy=false;}
       }
-      if(path==="/observation" && request.method==="GET") return json(await transport.observe(AbortSignal.timeout(15000)));
+      if(path==="/observation" && request.method==="GET") {
+        const observation=await transport.observe(AbortSignal.timeout(15000));
+        gameId=observation.gameId;return json(observation);
+      }
       if(path==="/commands" && request.method==="POST") {
         const envelope=envelopeSchema.parse(body);
         const serialized=JSON.stringify(envelope);
@@ -108,8 +114,9 @@ export function createPlayerDaemon(options:DaemonOptions) {
         if(prior?.result) return json(await prior.result);
         // Bound memory without evicting uncertain outcomes. New session/approval clears cache.
         if(!prior && receipts.size>=2000) return json({error:"Session command limit; reconnect"},429);
-        const result=transport.send(envelope,AbortSignal.timeout(15000));
-        const entry={body:serialized,result:result as Promise<unknown>|undefined};
+        const prepared=prior?.envelope ?? {...envelope,...(!envelope.gameId && gameId && ["validate","summon","pause"].includes(envelope.command.type) ? {gameId} : {})};
+        const result=transport.send(prepared,AbortSignal.timeout(15000));
+        const entry={body:serialized,envelope:prepared,result:result as Promise<unknown>|undefined};
         receipts.set(envelope.commandId,entry);
         try {return json(await result);}
         catch(error) { entry.result=undefined; throw error; }

@@ -8,7 +8,10 @@ export function publicRoom(room: Room) {
   const game = room.game;
   return {
     id: room.id, shortCode: room.shortCode, ownerId: room.ownerId,
-    revision: room.revision, settings: room.settings, members: room.members, chat: room.chat.slice(-100),
+    revision: room.revision, settings: room.settings,
+    members: room.members.map(({ aiAgent, ...member }) => ({
+      ...member, ...(aiAgent ? { aiAgentId: aiAgent.id, aiAgentRevision: aiAgent.revision, provider: aiAgent.provider, model: aiAgent.model } : {}),
+    })), chat: room.chat.slice(-100),
     aiBudget: room.aiBudget, aiUsed: room.aiUsed, serverTime: Date.now(),
     game: !game ? null : {
       id: game.id, shortCode: game.shortCode, phase: game.phase, worldSeconds: game.worldSeconds,

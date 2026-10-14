@@ -6,13 +6,30 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiAgent';
+export * from './aiAgentInput';
+export * from './aiAgentInputProvider';
+export * from './aiAgentModel';
+export * from './aiAgentModelProvider';
+export * from './aiAgentUpdate';
+export * from './aiAgentUpdateProvider';
+export * from './aIFunding';
+export * from './aIFundingBilling';
+export * from './aIFundingProvider';
 export * from './authoredOption';
+export * from './authUser';
 export * from './chatMessage';
+export * from './deleteAdminAiAgentParams';
 export * from './deviceApprovalInput';
+export * from './getCurrentAuthUser200';
 export * from './healthStatus';
+export * from './listAdminAiAgents200';
+export * from './listPublicAiAgents200';
 export * from './manifest';
 export * from './member';
 export * from './memberKind';
+export * from './publicAiAgent';
+export * from './publicAiAgentProvider';
 export * from './publicGame';
 export * from './publicObject';
 export * from './roomActionInput';

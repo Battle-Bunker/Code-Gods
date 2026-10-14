@@ -3,7 +3,7 @@ import { z } from "zod";
 export const VERSION = "code-gods.player.v1" as const;
 const id = z.string().min(1).max(128);
 const finite = z.number().finite();
-const program = { language: z.enum(["python", "typescript"]), source: z.string().min(1).max(16384) };
+const program = { language: z.enum(["python", "typescript"]), source: z.string().min(1).max(16384).refine(source=>new TextEncoder().encode(source).length<=16384,"Source exceeds 16384 UTF-8 bytes") };
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("validate"), ...program }).strict(),
   z.object({ type: z.literal("summon"), ...program }).strict(),
@@ -14,14 +14,16 @@ export const commandSchema = z.discriminatedUnion("type", [
 export type Command = z.infer<typeof commandSchema>;
 export const envelopeSchema = z.object({
   version: z.literal(VERSION), commandId: z.string().uuid(), command: commandSchema,
+  gameId: id.optional(),
 }).strict();
 export type Envelope = z.infer<typeof envelopeSchema>;
 // Strip unknown fields at every level: never spread raw server state into model context.
 export const observationSchema = z.object({
   version: z.literal(VERSION), roomId: id, revision: z.number().int().nonnegative(),
+  gameId: id.optional(), planningEndsAt: finite.optional(), pauseEndsAt: finite.optional(),
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
   language: z.enum(["python", "typescript"]),
-  self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), valueSource: z.string().max(16384) }),
+  self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(), valueSource: z.string().max(16384) }),
   objects: z.array(z.object({ id, value: z.union([finite, z.string().max(1024)]), ownValue: finite, othersSum: finite, payoff: finite })).max(2000),
   agents: z.array(z.object({ id, source: z.string().max(16384), language: z.enum(["python", "typescript"]), cost: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: z.union([finite,z.string().max(1024)]), after: z.union([finite,z.string().max(1024)]) })).max(500),

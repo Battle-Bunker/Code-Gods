@@ -7,10 +7,12 @@ import { allRooms, createRoom, resolveRoom, mutate, member, owner } from "../gam
 import { publicRoom } from "../game/projection";
 import { playerCommand, startGame } from "../game/engine";
 import { runtime } from "../game/adapters";
+import { aiFundingStatus } from "../game/ai-provider";
+import { getAgentDefinition } from "../game/agent-library";
 
 const router = Router();
 router.get("/manifest", (_req, res) => res.json({
-  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS,
+  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
@@ -36,7 +38,10 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
   await mutate(id, async room => {
     if (input.action === "join") {
       if (actor.scope !== "browser") throw new Error("Browser login required to join");
-      if (!room.members.some(m => m.id === actor.id)) room.members.push({ id: actor.id, name: actor.name, kind: "human", ready: false });
+      if (!room.members.some(m => m.id === actor.id)) {
+        if (room.members.length >= 8) throw new Error("This room has reached its eight-player limit");
+        room.members.push({ id: actor.id, name: actor.name, kind: "human", ready: false });
+      }
       return;
     }
     member(room, actor);
@@ -57,7 +62,8 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     }
     if (input.action === "resume") {
       if (room.game?.phase !== "recovery") throw new Error("Game is not in recovery");
-      room.game.phase = "running"; room.game.lastTick = Date.now();
+      room.game.phase = room.game.worldSeconds === 0 && room.game.planningEndsAt > Date.now() ? "planning" : "running";
+      room.game.lastTick = Date.now();
       return;
     }
     if (room.game && room.game.phase !== "ended") throw new Error("Settings and seats are frozen during games");
@@ -72,8 +78,13 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
       if (input.aiBudget !== undefined) room.aiBudget = input.aiBudget;
       room.revision++;
     } else if (input.action === "addAi") {
-      if (room.members.length >= 32) throw new Error("Maximum 32 gods");
-      room.members.push({ id: `ai:${randomUUID()}`, name: `Oracle ${room.members.filter(m => m.kind === "ai").length + 1}`, kind: "ai", ready: true, status: "Awaiting controller integration" });
+      if (room.members.length >= 8) throw new Error("Maximum eight gods");
+      if (!input.aiAgentId) throw new Error("Choose an agent from the library");
+      const definition = await getAgentDefinition(input.aiAgentId);
+      if (!definition) throw Object.assign(new Error("AI agent not found"), { status: 404 });
+      const { id, name, provider, model, prompt, revision } = definition;
+      room.members.push({ id: `ai:${randomUUID()}`, name, kind: "ai", ready: true,
+        aiAgent: { id, name, provider, model, prompt, revision }, status: "Ready; awaiting game start" });
     } else if (input.action === "removeAi") {
       const target = room.members.find(m => m.id === input.deityId);
       if (!target || target.kind !== "ai") throw new Error("AI seat not found");

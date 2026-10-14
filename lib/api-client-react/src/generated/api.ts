@@ -20,8 +20,15 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AiAgent,
+  AiAgentInput,
+  AiAgentUpdate,
+  DeleteAdminAiAgentParams,
   DeviceApprovalInput,
+  GetCurrentAuthUser200,
   HealthStatus,
+  ListAdminAiAgents200,
+  ListPublicAiAgents200,
   Manifest,
   RoomActionInput,
   RoomInput,
@@ -56,6 +63,461 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetCurrentAuthUserUrl = () => {
+
+
+
+
+  return `/api/auth/user`
+}
+
+export const getCurrentAuthUser = async ( options?: Parameters<typeof customFetch>[1]): Promise<GetCurrentAuthUser200> => {
+
+  return customFetch<GetCurrentAuthUser200>(getGetCurrentAuthUserUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentAuthUserQueryKey = () => {
+    return [
+    `/api/auth/user`
+    ] as const;
+    }
+
+
+export const getGetCurrentAuthUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentAuthUser>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentAuthUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentAuthUserQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentAuthUser>>> = ({ signal }) => getCurrentAuthUser({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentAuthUser>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentAuthUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentAuthUser>>>
+export type GetCurrentAuthUserQueryError = ErrorType<unknown>
+
+
+
+export function useGetCurrentAuthUser<TData = Awaited<ReturnType<typeof getCurrentAuthUser>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentAuthUser>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentAuthUserQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListPublicAiAgentsUrl = () => {
+
+
+
+
+  return `/api/ai-agents`
+}
+
+export const listPublicAiAgents = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListPublicAiAgents200> => {
+
+  return customFetch<ListPublicAiAgents200>(getListPublicAiAgentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPublicAiAgentsQueryKey = () => {
+    return [
+    `/api/ai-agents`
+    ] as const;
+    }
+
+
+export const getListPublicAiAgentsQueryOptions = <TData = Awaited<ReturnType<typeof listPublicAiAgents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicAiAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPublicAiAgentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPublicAiAgents>>> = ({ signal }) => listPublicAiAgents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPublicAiAgents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPublicAiAgentsQueryResult = NonNullable<Awaited<ReturnType<typeof listPublicAiAgents>>>
+export type ListPublicAiAgentsQueryError = ErrorType<void>
+
+
+
+export function useListPublicAiAgents<TData = Awaited<ReturnType<typeof listPublicAiAgents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPublicAiAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPublicAiAgentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminAiAgentsUrl = () => {
+
+
+
+
+  return `/api/admin/ai-agents`
+}
+
+export const listAdminAiAgents = async ( options?: Parameters<typeof customFetch>[1]): Promise<ListAdminAiAgents200> => {
+
+  return customFetch<ListAdminAiAgents200>(getListAdminAiAgentsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminAiAgentsQueryKey = () => {
+    return [
+    `/api/admin/ai-agents`
+    ] as const;
+    }
+
+
+export const getListAdminAiAgentsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminAiAgents>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminAiAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminAiAgentsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminAiAgents>>> = ({ signal }) => listAdminAiAgents({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminAiAgents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAdminAiAgentsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminAiAgents>>>
+export type ListAdminAiAgentsQueryError = ErrorType<void>
+
+
+
+export function useListAdminAiAgents<TData = Awaited<ReturnType<typeof listAdminAiAgents>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAdminAiAgents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAdminAiAgentsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminAiAgentUrl = () => {
+
+
+
+
+  return `/api/admin/ai-agents`
+}
+
+export const createAdminAiAgent = async (aiAgentInput: AiAgentInput, options?: Parameters<typeof customFetch>[1]): Promise<AiAgent> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AiAgent>(getCreateAdminAiAgentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(aiAgentInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminAiAgentMutationKey = () => ['createAdminAiAgent'] as const;
+
+export const getCreateAdminAiAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminAiAgent>>, TError,CreateAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminAiAgent>>, TError,CreateAdminAiAgentMutationVariables, TContext> => {
+
+const mutationKey = getCreateAdminAiAgentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminAiAgent>>, CreateAdminAiAgentMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminAiAgent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminAiAgentMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminAiAgent>>>
+    export type CreateAdminAiAgentMutationBody = BodyType<AiAgentInput>
+    export type CreateAdminAiAgentMutationError = ErrorType<void>
+    export type CreateAdminAiAgentMutationVariables = {data: BodyType<AiAgentInput>}
+
+    export const useCreateAdminAiAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminAiAgent>>, TError,CreateAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminAiAgent>>,
+        TError,
+        CreateAdminAiAgentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAdminAiAgentMutationOptions(options));
+    }
+
+export const getUpdateAdminAiAgentUrl = (id: string,) => {
+
+
+
+
+  return `/api/admin/ai-agents/${id}`
+}
+
+export const updateAdminAiAgent = async (id: string,
+    aiAgentUpdate: AiAgentUpdate, options?: Parameters<typeof customFetch>[1]): Promise<AiAgent> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AiAgent>(getUpdateAdminAiAgentUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(aiAgentUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminAiAgentMutationKey = () => ['updateAdminAiAgent'] as const;
+
+export const getUpdateAdminAiAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminAiAgent>>, TError,UpdateAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminAiAgent>>, TError,UpdateAdminAiAgentMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAdminAiAgentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminAiAgent>>, UpdateAdminAiAgentMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAdminAiAgent(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminAiAgentMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminAiAgent>>>
+    export type UpdateAdminAiAgentMutationBody = BodyType<AiAgentUpdate>
+    export type UpdateAdminAiAgentMutationError = ErrorType<void>
+    export type UpdateAdminAiAgentMutationVariables = {id: string;data: BodyType<AiAgentUpdate>}
+
+    export const useUpdateAdminAiAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminAiAgent>>, TError,UpdateAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminAiAgent>>,
+        TError,
+        UpdateAdminAiAgentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAdminAiAgentMutationOptions(options));
+    }
+
+export const getDeleteAdminAiAgentUrl = (id: string,
+    params: DeleteAdminAiAgentParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/admin/ai-agents/${id}?${stringifiedParams}` : `/api/admin/ai-agents/${id}`
+}
+
+export const deleteAdminAiAgent = async (id: string,
+    params: DeleteAdminAiAgentParams, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteAdminAiAgentUrl(id,params),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteAdminAiAgentMutationKey = () => ['deleteAdminAiAgent'] as const;
+
+export const getDeleteAdminAiAgentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminAiAgent>>, TError,DeleteAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminAiAgent>>, TError,DeleteAdminAiAgentMutationVariables, TContext> => {
+
+const mutationKey = getDeleteAdminAiAgentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminAiAgent>>, DeleteAdminAiAgentMutationVariables> = (props) => {
+          const {id,params} = props ?? {};
+
+          return  deleteAdminAiAgent(id,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminAiAgentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminAiAgent>>>
+
+    export type DeleteAdminAiAgentMutationError = ErrorType<void>
+    export type DeleteAdminAiAgentMutationVariables = {id: string;params: DeleteAdminAiAgentParams}
+
+    export const useDeleteAdminAiAgent = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminAiAgent>>, TError,DeleteAdminAiAgentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminAiAgent>>,
+        TError,
+        DeleteAdminAiAgentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteAdminAiAgentMutationOptions(options));
+    }
 
 export const getListRoomsUrl = () => {
 

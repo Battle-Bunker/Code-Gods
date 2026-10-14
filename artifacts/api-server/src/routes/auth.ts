@@ -1,13 +1,13 @@
 import { Router } from "express";
 import * as oidc from "openid-client";
 import { pool } from "@workspace/db";
-import { getOidc, opaque, hash, origin, cookieOptions, safeReturn, issueSession } from "../lib/identity";
+import { getOidc, opaque, hash, origin, cookieOptions, safeReturn, issueSession, isAdmin } from "../lib/identity";
 import { profileName } from "../lib/profile-name";
 import { synchronizePlayerName } from "../game/store";
 
 const router = Router();
 router.get("/auth/user", (req, res) => {
-  const user = req.identity?.scope === "browser" ? { id: req.identity.id, name: req.identity.name } : null;
+  const user = req.identity?.scope === "browser" ? { id: req.identity.id, name: req.identity.name, isAdmin: isAdmin(req.identity) } : null;
   res.json({ user });
 });
 router.get("/login", async (req, res) => {
@@ -18,7 +18,7 @@ router.get("/login", async (req, res) => {
     [hash(key), JSON.stringify({ verifier, state, nonce, returnTo: safeReturn(req.query.returnTo), flow: "oidc" }), new Date(Date.now() + 600000)]);
   res.cookie("cg_oidc", key, { ...cookieOptions, maxAge: 600000 });
   res.redirect(oidc.buildAuthorizationUrl(config, {
-    redirect_uri: `${origin(req)}/api/callback`, scope: "openid profile",
+    redirect_uri: `${origin(req)}/api/callback`, scope: "openid profile email",
     state, nonce, code_challenge: await oidc.calculatePKCECodeChallenge(verifier), code_challenge_method: "S256",
   }).href);
 });
@@ -38,7 +38,12 @@ router.get("/callback", async (req, res) => {
   await synchronizePlayerName(claims.sub, name);
   await pool.query("UPDATE cg_sessions SET data=jsonb_set(data,'{name}',to_jsonb($2::text)) WHERE data->>'id'=$1", [claims.sub, name]);
   await pool.query("UPDATE cg_devices SET user_name=$2 WHERE user_id=$1", [claims.sub, name]);
-  const token = await issueSession({ id: claims.sub, name, kind: "human", scope: "browser" }, 86400000);
+   const token = await issueSession({
+     id: claims.sub, name, kind: "human", scope: "browser",
+     email: typeof claims.email === "string" ? claims.email : undefined,
+     emailVerified: claims.email_verified === true,
+     issuer: claims.iss,
+   }, 86400000);
   res.cookie("cg_session", token, { ...cookieOptions, maxAge: 86400000 });
   res.redirect(safeReturn(flow.returnTo));
 });

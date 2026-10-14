@@ -22,4 +22,5 @@ export interface RoomActionInput {
      * @maximum 500000
      */
   aiBudget?: number;
+  aiAgentId?: string;
 }

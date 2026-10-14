@@ -4,6 +4,9 @@ import { createServer } from "node:http";
 import { initializeStore } from "./game/store";
 import { startTicker } from "./game/engine";
 import { attachSockets } from "./game/socket";
+import { initializeRuntimeAdapters } from "./game/runtime-setup";
+import { startAIService } from "./game/ai-service";
+import { initializeAgentLibrary } from "./game/agent-library";
 
 const rawPort = process.env["PORT"];
 
@@ -20,9 +23,12 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 await initializeStore();
+await initializeAgentLibrary();
+await initializeRuntimeAdapters();
 const server = createServer(app);
 attachSockets(server);
 startTicker();
+startAIService();
 server.listen(port, (err?: Error) => {
   if (err) {
     logger.error({ err }, "Error listening on port");

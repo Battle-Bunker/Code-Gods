@@ -1,11 +1,12 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { uniformObject, lifetimeSeconds, poissonIntervalSeconds, assertObjectValue, uniquePrefixes } from "@workspace/game-core";
-import type { Room, Actor, Game } from "./types";
+import type { Room, Actor, Game, WorldEvent } from "./types";
 import { allRooms, mutate, member, owner } from "./store";
 import { requireAdapters } from "./adapters";
 import { hash } from "../lib/identity";
 import { logger } from "../lib/logger";
+import { getAIProvider } from "./ai-provider";
 
 const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
 function below(bound: bigint): bigint {
@@ -26,16 +27,28 @@ function valuate(game: Game, value: number | string) {
 }
 function spawn(game: Game) {
   const value = uniformObject(game.settings, below);
-  game.objects.push({ id: randomUUID(), value, version: 0, values: valuate(game, value) });
+  const object = { id: randomUUID(), value, version: 0, values: valuate(game, value) };
+  game.objects.push(object);
+  recordEvent(game, { id: randomUUID(), gameId: game.id, type: "object.spawned", object: structuredClone(object), timestamp: Date.now() });
+}
+function recordEvent(game: Game, event: WorldEvent) {
+  game.events.push(event);
+  if (game.events.length > 5000) game.events.splice(0, game.events.length - 5000);
 }
 export async function startGame(room: Room, actor: Actor) {
   owner(room, actor);
   if (room.game && room.game.phase !== "ended") throw new Error("There is already a live game");
   if (room.members.length < 3) throw new Error("At least three gods are required");
+  if (room.members.length > 8) throw new Error("Pantheon of Friction supports at most eight gods");
   if (room.members.some(m => m.kind === "ai")) {
-    throw Object.assign(new Error("AI controller integration is not yet available"), { status: 503 });
+    for (const bot of room.members.filter(m => m.kind === "ai")) {
+      if (!bot.aiAgent) throw new Error("Replace legacy AI seats with an agent from the library");
+      getAIProvider(bot.aiAgent);
+    }
+    if (room.aiBudget <= 0) throw new Error("Approve an AI token budget before starting with AI seats");
   }
-  const { values } = requireAdapters();
+  const { values, runtime } = requireAdapters();
+  if (!runtime.languages.includes(room.settings.language)) throw new Error("The selected isolated runtime is unavailable");
   const descriptors = values.generate(room.settings, room.members.length, opaqueSeed());
   if (descriptors.length !== room.members.length) throw new Error("Generator roster mismatch");
   const id = randomUUID(), now = Date.now();
@@ -47,7 +60,7 @@ export async function startGame(room: Room, actor: Actor) {
     roster: structuredClone(room.members), deities: room.members.map((m, i) => ({
       id: m.id, ...descriptors[i], spent: 0, pauseUsed: false,
     })),
-    objects: [], agents: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
+    objects: [], agents: [], events: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
     pauseEndsAt: 0, worldSeconds: 0, endAtWorld: lifetimeSeconds(room.settings.halfLifeSeconds, openUniform()),
     nextSpawn: poissonIntervalSeconds(room.settings.spawnRateHz, openUniform()),
     nextInteraction: poissonIntervalSeconds(room.settings.interactionRateHz, openUniform()),
@@ -58,6 +71,7 @@ export async function startGame(room: Room, actor: Actor) {
   if (!Number.isFinite(game.nextInteraction)) game.nextInteraction = Number.MAX_VALUE;
   for (let i = 0; i < game.settings.startingObjectCount; i++) spawn(game);
   room.game = game;
+  room.aiUsed = 0; room.aiReservedUsd = 0;
   room.members.forEach(m => { m.ready = false; });
 }
 const opaqueSeed = () => randomBytes(32).toString("hex");
@@ -75,7 +89,7 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
   let result: unknown;
   if (input.command === "chat.send") {
     const text = payload.text;
-    if (typeof text !== "string" || !text.trim() || text.length > 4000) throw new Error("Chat text must be 1–4000 characters");
+    if (typeof text !== "string" || !text.trim() || text.length > 2000) throw new Error("Chat text must be 1–2000 characters");
     const last = [...room.chat].reverse().find(m => m.authorId === actor.id);
     if (last && Date.now() - last.timestamp < 1000) throw Object.assign(new Error("Chat rate limit"), { status: 429 });
     const message = { id: randomUUID(), authorId: actor.id, authorName: room.members.find(m => m.id === actor.id)!.name, kind: actor.kind, text, timestamp: Date.now() };
@@ -96,7 +110,7 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
       game.phase = "paused";
       game.pauseEndsAt = Date.now() + game.settings.pauseSeconds * 1000;
       result = { pauseEndsAt: game.pauseEndsAt };
-    } else if (input.command === "agent.summon") {
+    } else if (input.command === "agent.summon" || input.command === "agent.validate") {
       const source = payload.source;
       if (typeof source !== "string" || Buffer.byteLength(source) > 16384) throw new Error("Source exceeds 16384 bytes");
       const { runtime } = requireAdapters();
@@ -105,8 +119,14 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
       const samples = game.objects.slice(0, 3).map(o => o.value);
       if (!samples.length) samples.push(game.settings.objectType === "Int" ? game.settings.intMin : "");
       for (const value of samples) assertObjectValue(await runtime.execute(source, value, game.settings), game.settings);
+      if (input.command === "agent.validate") {
+        result = { valid: true, cost: inspection.cost, diagnostics: [] };
+        room.receipts[key] = { hash: digest, result };
+        return result;
+      }
       const available = game.settings.startingEnergy + (Date.now() - game.createdAt) / 1000 * game.settings.energyPerSecond - deity.spent;
       if (available < inspection.cost) throw new Error("Insufficient energy");
+      if (game.agents.filter(a => a.ownerId === actor.id).length >= 200) throw new Error("This god has reached the 200-agent resource limit");
       const agent = { id: randomUUID(), ownerId: actor.id, source, cost: inspection.cost, createdAt: Date.now() };
       deity.spent += inspection.cost;
       game.agents.push(agent);
@@ -137,12 +157,12 @@ export function startTicker() {
           const target = g.worldSeconds + elapsed;
           let processed = 0;
           while (Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld) <= target) {
-            if (++processed > 50) { g.phase = "recovery"; logger.warn({ roomId: draft.id }, "World paused due to execution backlog"); return; }
+            if (++processed > 50) { g.phase = "recovery"; g.recoveryReason = "Execution backlog exceeded the per-tick safety limit."; logger.warn({ roomId: draft.id }, "World paused due to execution backlog"); return; }
             const next = Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld);
             g.worldSeconds = next;
             if (next === g.endAtWorld) { g.phase = "ended"; return; }
             if (next === g.nextSpawn) {
-              if (g.objects.length >= 10000) { g.phase = "recovery"; return; }
+              if (g.objects.length >= 2000) { g.phase = "recovery"; g.recoveryReason = "The world reached its 2,000-object safety limit."; return; }
               spawn(g);
               g.nextSpawn += poissonIntervalSeconds(g.settings.spawnRateHz, openUniform());
             } else {
@@ -151,15 +171,18 @@ export function startTicker() {
               const object = g.objects[Number(below(BigInt(g.objects.length)))];
               const agent = g.agents[Number(below(BigInt(g.agents.length)))];
               try {
+                const before = object.value;
                 const value = await requireAdapters().runtime.execute(agent.source, object.value, g.settings);
                 assertObjectValue(value, g.settings);
                 object.value = value; object.version++; object.values = valuate(g, value);
+                recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
+                  object: structuredClone(object), agentId: agent.id, ownerId: agent.ownerId, before });
               } catch { logger.info({ agentId: agent.id }, "Agent execution failed without changing the object"); }
             }
           }
           g.worldSeconds = target;
         });
       }
-    })().catch(error => logger.error({ err: error }, "World tick failed")).finally(() => { ticking = false; });
+    })().catch(error => logger.error({ errorName: error.name }, "World tick failed")).finally(() => { ticking = false; });
   }, 100).unref();
 }

@@ -7,6 +7,7 @@ import NotFound from '@/pages/not-found';
 import Home from '@/pages/home';
 import Room from '@/pages/room';
 import Device from '@/pages/device';
+import AdminAgents from '@/pages/admin-agents';
 import {
   Route,
   Switch,
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/" component={Home} />
         <Route path="/rooms/:id" component={Room} />
         <Route path="/device" component={Device} />
+        <Route path="/admin/agents" component={AdminAgents} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

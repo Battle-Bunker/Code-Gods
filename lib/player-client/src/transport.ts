@@ -1,4 +1,4 @@
-import { VERSION, commandSchema, envelopeSchema, observationSchema, resultSchema, type Command, type Envelope, type PlayerTransport } from "./protocol.ts";
+import { VERSION, commandSchema, envelopeSchema, observationSchema, resultSchema, type Command, type Envelope, type Observation, type PlayerTransport } from "./protocol.ts";
 
 export class TransportError extends Error {
   constructor(public status: number) { super(`Player service request failed (${status})`); }
@@ -13,7 +13,7 @@ export class HttpPlayerTransport implements PlayerTransport {
     this.base=base.replace(/\/$/,"");
   }
   approve(credential: RoomCredential) {
-    if (!credential.token || credential.expiresAt <= Date.now() || credential.expiresAt > Date.now()+15*60_000) throw new Error("Invalid short-lived room credential");
+    if (!credential.token || credential.expiresAt <= Date.now() || credential.expiresAt > Date.now()+4*60*60_000) throw new Error("Invalid room credential");
     this.#credential = { ...credential };
   }
   disconnect() { this.#credential = undefined; }
@@ -41,8 +41,13 @@ export class HttpPlayerTransport implements PlayerTransport {
   }
 }
 export class PlayerClient {
+  private observation:Observation|undefined;
   constructor(readonly transport: PlayerTransport) {}
-  prepare(command: Command): Envelope { return { version: VERSION, commandId: crypto.randomUUID(), command: commandSchema.parse(command) }; }
+  async observe(signal?:AbortSignal) {const observation=await this.transport.observe(signal);this.observation=observation;return observation;}
+  prepare(command: Command, observation:Observation|undefined=this.observation): Envelope {
+    return { version: VERSION, commandId: crypto.randomUUID(), command: commandSchema.parse(command),
+      ...(["validate","summon","pause"].includes(command.type) && observation?.gameId ? {gameId:observation.gameId} : {}) };
+  }
   // Retry the SAME envelope after an uncertain network failure; server deduplication is mandatory.
   execute(envelope: Envelope, signal?: AbortSignal) { return this.transport.send(envelope, signal); }
 }

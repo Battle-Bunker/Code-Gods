@@ -10,6 +10,9 @@
   },
   "include": ["src"],
   "references": [
+    { "path": "../../lib/player-client" },
+    { "path": "../../lib/game-values" },
+    { "path": "../../lib/ai-player" },
     { "path": "../../lib/game-core" },
     {
       "path": "../../lib/db"

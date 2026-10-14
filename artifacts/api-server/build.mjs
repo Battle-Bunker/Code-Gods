@@ -4,13 +4,55 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { createRuntime } from "@workspace/game-runtime";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const workspaceDir = path.resolve(artifactDir, "../..");
+
+async function provisionPythonRuntime() {
+  const environment = path.join(workspaceDir, ".pythonlibs");
+  const python = path.join(environment, "bin/python3");
+  function run(command, args) {
+    const result = spawnSync(command, args, {
+      cwd: workspaceDir, stdio: "inherit",
+      env: { ...process.env, UV_PROJECT_ENVIRONMENT: environment },
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) throw new Error(`Python runtime build step failed: ${command}`);
+  }
+  // Build-time only. Never install dependencies or run database migrations at startup.
+  run("uv", ["sync", "--frozen", "--no-dev"]);
+  run(python, ["-c", 'import importlib.metadata, wasmtime; assert importlib.metadata.version("wasmtime") == "49.0.0"']);
+  // Ship generated assets alongside the runtime package, not in an ignored dev cache.
+  run(python, ["lib/game-runtime/python/setup.py", "--destination",
+    path.join(workspaceDir, "lib/game-runtime/dist/python-3.15.0")]);
+  // Verify both external worker hosts against the assets just provisioned.
+  // No API server, database, or paid model provider is started by these probes.
+  for (const language of ["python", "typescript"]) {
+    const runtime = createRuntime({ language, python, workers: 1 });
+    try {
+      for (const objectType of ["Int", "string"]) {
+        const settings = { objectType, intMin: -100, intMax: 100, stringMaxLength: 1024 };
+        const input = objectType === "Int" ? 37 : "build\0\nprobe";
+        const source = language === "python" ? "lambda x: x"
+          : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
+        const { cost } = await runtime.inspect(source, settings);
+        const { value } = await runtime.execute(source, input, settings);
+        if (!Number.isSafeInteger(cost) || cost <= 0 || value !== input
+            || (language === "python" && cost !== 6)) {
+          throw new Error(`Packaged ${language} ${objectType} runtime build probe failed`);
+        }
+      }
+    } finally { runtime.close(); }
+  }
+}
 
 async function buildAll() {
+  await provisionPythonRuntime();
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
 
@@ -28,6 +70,8 @@ async function buildAll() {
     // - uses native modules and loads them dynamically (e.g. sharp)
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
+      // Runtime resolves sibling Wasm workers with import.meta.url; never bundle it.
+      "@workspace/game-runtime",
       "*.node",
       "sharp",
       "better-sqlite3",

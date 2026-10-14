@@ -45,8 +45,8 @@ router.post("/device/poll", async (req, res) => {
     const pending = await pool.query("SELECT id FROM cg_devices WHERE id=$1 AND secret_hash=$2 AND challenge=$3 AND expires>now()", [deviceId, hash(deviceSecret), challenge]);
     res.status(pending.rows.length ? 202 : 400).json({ status: pending.rows.length ? "pending" : "expired" }); return;
   }
-  const token = await issueSession({ id: row.user_id, name: row.user_name, kind: "human", scope: "player", roomId: row.room_id }, 4 * 3600000);
-  res.json({ token, expiresIn: 14400, roomId: row.room_id });
+  const token = await issueSession({ id: row.user_id, name: row.user_name, kind: "human", scope: "player", roomId: row.room_id }, 900000);
+  res.json({ token, expiresIn: 900, roomId: row.room_id, godId: row.user_id });
 });
 router.post("/device/revoke", async (req, res) => {
   requireIdentity(req);

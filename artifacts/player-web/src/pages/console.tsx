@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
+  isDaemonMode, loginUrl, subscribeObservation,
   type Observation, type Command, type CommandResult,
 } from "@/player-api";
 
 type Lang = "python" | "typescript";
 type UUID = ReturnType<typeof crypto.randomUUID>;
-type Stage = "connecting" | "session-error" | "room" | "approving" | "live";
+type Stage = "connecting" | "session-error" | "login" | "room" | "approving" | "live";
 type Validation = { source: string; language: Lang; result: CommandResult };
 type Unknown = { command: Command; commandId: UUID; error: string };
 
@@ -58,7 +59,7 @@ function Sigil() {
 export default function Console() {
   const [stage, setStage] = useState<Stage>("connecting");
   const [sessionError, setSessionError] = useState("");
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(() => new URLSearchParams(location.search).get("room") ?? "");
   const [approval, setApproval] = useState<{ verificationUri: string; userCode: string } | null>(null);
   const [approvalError, setApprovalError] = useState("");
   const [obs, setObs] = useState<Observation | null>(null);
@@ -84,7 +85,7 @@ export default function Console() {
 
   const connect = useCallback(async () => {
     setStage("connecting"); setSessionError("");
-    try { const session=await connectSession(); setStage(session.connected ? "live" : "room"); }
+    try { const session=await connectSession(); setStage(session.connected ? "live" : session.requiresLogin ? "login" : "room"); }
     catch (e) { setSessionError(msg(e)); setStage("session-error"); }
   }, []);
 
@@ -111,12 +112,18 @@ export default function Console() {
   useEffect(() => {
     if (stage !== "live") return;
     let alive = true; let t: ReturnType<typeof setTimeout>;
+    const accept = (o:Observation) => {
+      if(!alive) return;
+      setObs(previous => previous && previous.roomId === o.roomId && previous.revision > o.revision ? previous : o);
+      setObsError(""); setLastSync(Date.now());
+      if(!langTouched.current) setLanguage(o.language);
+    };
+    const unsubscribe = subscribeObservation(accept, error => {if(alive) setObsError(error);});
     const tick = async () => {
       try {
         const o = (await getObservation()) as Observation;
         if (!alive) return;
-        setObs(o); setObsError(""); setLastSync(Date.now());
-        if (!langTouched.current) setLanguage(o.language);
+        accept(o);
       } catch (e) {
         if (!alive) return;
         setObs(null); setObsError(msg(e));
@@ -124,13 +131,13 @@ export default function Console() {
       if (alive) t = setTimeout(tick, POLL_MS);
     };
     void tick();
-    return () => { alive = false; clearTimeout(t); };
+    return () => { alive = false; clearTimeout(t); unsubscribe(); };
   }, [stage]);
 
   const start = async () => {
     const id = roomId.trim(); if (!id) return;
     setApprovalError(""); setBusy("approval");
-    try { const a = await beginApproval(id); setApproval(a); setStage("approving"); }
+    try { const a = await beginApproval(id); setApproval(a); setStage(a ? "approving" : "live"); }
     catch (e) { setApprovalError(msg(e)); }
     finally { setBusy(null); }
   };
@@ -139,7 +146,8 @@ export default function Console() {
     setBusy("disconnect");
     resetIdentity(); setRoomId(""); setStage("connecting");
     try { await disconnect(); } catch { /* old responses cannot restore cleared state */ }
-    setSessionError("Disconnected. Open a new private daemon launch link to reconnect."); setStage("session-error");
+    if(isDaemonMode()) {setSessionError("Disconnected. Open a new private daemon launch link to reconnect."); setStage("session-error");}
+    else setStage("room");
   };
 
   const run = async (command: Command, commandId: UUID = crypto.randomUUID()) => {
@@ -155,7 +163,7 @@ export default function Console() {
       setNotice({ ok: r.accepted, text: r.message || (r.accepted ? "Accepted." : "Rejected.") });
       if (command.type === "validate" && r.validation) setValidation({ ...snapshot, source: command.source, language: command.language, result: r });
       if (command.type === "chat" && r.accepted) setChat("");
-      try { const fresh=await getObservation(); if(identityEpoch.current===epoch) {setObs(fresh);setLastSync(Date.now());} } catch { /* polling supplies the visible connection error */ }
+      try { const fresh=await getObservation(); if(identityEpoch.current===epoch) {setObs(previous=>previous && previous.revision>fresh.revision?previous:fresh);setLastSync(Date.now());} } catch { /* polling supplies the visible connection error */ }
       return r;
     } catch (e) {
       if(identityEpoch.current!==epoch) return;
@@ -164,7 +172,7 @@ export default function Console() {
     } finally { if(identityEpoch.current===epoch) {setBusy(null);commandBusy.current=false;} }
   };
 
-  const gameplay = !!obs && stage === "live" && !unknown;
+  const gameplay = !!obs && stage === "live" && !unknown && !obsError;
   const currentValidation = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!currentValidation?.valid && currentValidation.cost <= (obs?.self.energy??0) && language===obs?.language && source.trim().length > 0;
 
@@ -192,10 +200,10 @@ export default function Console() {
           <div className="flex items-center gap-3"><Sigil /><span className="label !text-sidebar-foreground/70">Code Gods / Player console</span></div>
           <div>
             <h1 className="font-serif text-5xl md:text-7xl leading-[0.95] rise">Rule by<br /><em className="text-primary">executable</em><br />decree.</h1>
-            <p className="mt-6 max-w-md text-sidebar-foreground/70 rise">Your private desk for a public pantheon. Approve this device, enter a room, write the transformation you want the world to obey, and argue for it out loud.</p>
+            <p className="mt-6 max-w-md text-sidebar-foreground/70 rise">Your private desk for a public pantheon. Sign in on the room’s server, join a room, write the transformation you want the world to obey, and argue for it out loud.</p>
           </div>
           <ol className="font-mono text-xs space-y-1.5 text-sidebar-foreground/60">
-            {["Session from launch link", "Room + device approval", "Observe, validate, summon"].map((s, i) => {
+            {["Replit sign-in or private daemon launch", "Join room / approve device", "Observe, validate, summon"].map((s, i) => {
               const idx = stage === "connecting" || stage === "session-error" ? 0 : stage === "room" ? 1 : 1;
               return <li key={s} className={i <= idx ? "text-sidebar-foreground" : ""}>{String(i + 1).padStart(2, "0")} — {s}</li>;
             })}
@@ -213,8 +221,17 @@ export default function Console() {
               <div className="space-y-5">
                 <p className="label !text-destructive">No session</p>
                 <p data-testid="text-session-error" className="font-serif text-2xl">{sessionError}</p>
-                <p className="text-sm text-muted-foreground">Sessions come only from the private launch link saved by your player daemon. Nothing is typed here.</p>
+                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Use the private launch link saved by your player daemon. Its upstream API host is configured when launching the daemon." : "Use a room link on this server and sign in with Replit. For an editable Replit client or Agent, launch the player daemon against the room server’s /api/player/v1 URL."}</p>
                 <Btn testId="button-retry-session" onClick={connect}><RotateCw size={14} /> Retry</Btn>
+                {!isDaemonMode() && <a className="block underline text-sm" href={loginUrl()}>Sign in with Replit</a>}
+              </div>
+            )}
+            {stage === "login" && (
+              <div className="space-y-5">
+                <p className="label">Verified human identity</p>
+                <h2 className="font-serif text-3xl">Sign in to the pantheon.</h2>
+                <p className="text-sm text-muted-foreground">Use Replit sign-in on this server. Your full identity name is shown in the room; chat is public. A room link from another host must be opened on that host.</p>
+                <a data-testid="link-login" href={loginUrl()} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Replit</a>
               </div>
             )}
             {stage === "room" && (
@@ -222,12 +239,13 @@ export default function Console() {
                 <p className="label">Session established</p>
                 <label className="block">
                   <span className="font-serif text-3xl">Which room?</span>
-                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={128} placeholder="room id"
+                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={2048} placeholder="Room UUID or room link"
                     className="mt-3 w-full bg-card border border-[hsl(var(--input))] px-3 py-3 font-mono text-lg outline-none focus:border-primary transition-colors" />
                 </label>
+                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Your daemon connects to its configured authoritative API host. Approve this device on that server with your Replit account." : "Paste a room UUID or a room link from this server. No room names or private chat are used."}</p>
                 {approvalError && <p data-testid="text-approval-error" className="text-sm text-destructive">{approvalError}</p>}
                 <Btn testId="button-begin-approval" type="submit" tone="fire" disabled={!roomId.trim() || busy === "approval"}>
-                  <ShieldCheck size={14} /> {busy === "approval" ? "Requesting" : "Request device approval"}
+                  <ShieldCheck size={14} /> {busy === "approval" ? "Connecting" : isDaemonMode() ? "Request device approval" : "Join room"}
                 </Btn>
               </form>
             )}
@@ -290,7 +308,7 @@ export default function Console() {
       <div className="flex-1 grid gap-3 p-3 md:p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)]">
         {/* Column 1: forge */}
         <div className="flex flex-col gap-3 min-w-0">
-          <Panel title="Forge" meta={`${source.length} / 16384`}>
+          <Panel title="Forge" meta={`${new TextEncoder().encode(source).length} / 16384 bytes`}>
             <div className="flex items-center gap-2 mb-3">
               {(["python", "typescript"] as const).map((l) => (
                 <button key={l} data-testid={`button-lang-${l}`} onClick={() => { langTouched.current = true; setLanguage(l); }}
@@ -397,7 +415,7 @@ export default function Console() {
               <Btn testId="button-toggle-ready" tone={self?.ready ? "ghost" : "ink"} disabled={!gameplay || !!busy} onClick={() => self && run({ type: "ready", ready: !self.ready })}>
                 <Hand size={14} /> {self?.ready ? "Withdraw ready" : "Declare ready"}
               </Btn>
-              <Btn testId="button-pause" tone="ghost" disabled={!gameplay || !!busy || obs?.phase === "ended"} onClick={() => run({ type: "pause" })}><Pause size={14} /> Pause</Btn>
+               <Btn testId="button-pause" tone="ghost" disabled={!gameplay || !!busy || obs?.phase !== "running" || self?.pauseUsed} onClick={() => run({ type: "pause" })}><Pause size={14} /> {self?.pauseUsed ? "Pause used" : "Pause"}</Btn>
             </div>
           </Panel>
           <Panel title="Leaderboard">
@@ -407,7 +425,7 @@ export default function Console() {
                   <li key={l.godId} data-testid={`row-leader-${l.godId}`} className={`flex items-center gap-2 px-2 py-1.5 text-sm ${l.godId === self?.godId ? "bg-secondary text-secondary-foreground" : ""}`}>
                     <span className="font-mono text-xs w-5 opacity-60">{i + 1}</span>
                     {l.isAI ? <Bot size={13} /> : <User size={13} />}
-                    <span className="truncate flex-1">{l.label}</span>
+                    <span className="break-words min-w-0 flex-1">{l.label}</span>
                     {l.isAI && <span className="font-mono text-[9px] px-1 border border-current">AI</span>}
                     <span className="font-mono">{fmt(l.score)}</span>
                   </li>

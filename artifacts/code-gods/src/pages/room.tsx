@@ -3,13 +3,14 @@ import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetRoom, getGetRoomQueryKey, useGetManifest, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput, type SettingsOptions,
+  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding,
 } from "@workspace/api-client-react";
 import { Shell, Panel, Empty, ErrorLine } from "@/components/shell";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { errMsg, rid, fmt } from "@/lib/errors";
+import { useAgentOptions } from "@/hooks/use-agents";
 import { Bot, Copy, Crown, Play, RotateCcw, Send, Trash2, User, Check, Circle } from "lucide-react";
 
 type Act = Omit<RoomActionInput, "requestId">;
@@ -169,6 +170,10 @@ function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; me
   const me = room.members.find((m) => m.id === meId);
   const ready = room.members.filter((m) => m.ready).length;
   const canStart = room.members.length >= minPlayers;
+  const agents = useAgentOptions(isOwner);
+  const [agentId, setAgentId] = useState("");
+  const list = agents.data?.agents ?? [];
+  const chosen = list.some((a) => a.id === agentId) ? agentId : list[0]?.id ?? "";
   const running = !!room.game && !/end|finish|over/i.test(room.game.phase);
   return (
     <Panel title="Deities" meta={`${ready}/${room.members.length} ready`}>
@@ -195,8 +200,16 @@ function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; me
         ) : (
           <button onClick={() => act.run({ action: "ready", ready: !me.ready })} disabled={act.pending} className={`py-2 text-sm border ${me.ready ? "" : "bg-foreground text-background"}`} data-testid="button-ready">{me.ready ? "Stand down (unready)" : "Declare ready"}</button>
         )}
+        <a href={`/player/?room=${encodeURIComponent(room.id)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><User className="h-4 w-4" /> Open player client</a>
         {isOwner && (<>
-          <button onClick={() => act.run({ action: "addAi" })} disabled={act.pending} className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" data-testid="button-add-ai"><Bot className="h-4 w-4" /> Add AI deity</button>
+          <div className="flex gap-2">
+            <select value={chosen} onChange={(e) => setAgentId(e.target.value)} disabled={!list.length} className="flex-1 min-w-0 border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary" data-testid="select-ai-agent">
+              {agents.isLoading ? <option>Loading agents…</option> : agents.isError ? <option>Agent list failed</option> : !list.length ? <option>No agents in library</option>
+                : list.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.model}</option>)}
+            </select>
+            <button onClick={() => act.run({ action: "addAi", aiAgentId: chosen })} disabled={act.pending || !chosen} className="border px-3 py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-40" data-testid="button-add-ai"><Bot className="h-4 w-4" /> Add AI</button>
+          </div>
+          {agents.isError && <ErrorLine message={errMsg(agents.error)} onRetry={() => agents.refetch()} />}
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => act.run({ action: "start" })} disabled={act.pending || !canStart || running} className="bg-accent text-accent-foreground py-2 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40" data-testid="button-start"><Play className="h-4 w-4" /> Start</button>
             <button onClick={() => act.run({ action: "resume" })} disabled={act.pending} className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" title="Recover and resume an interrupted game" data-testid="button-resume"><RotateCcw className="h-4 w-4" /> Resume</button>
@@ -219,7 +232,7 @@ const typeKeys = ["intMin", "intMax", "stringMaxLength"];
 const relevantToType = (key: string, type: string) =>
   type === "Int" ? key !== "stringMaxLength" : key !== "intMin" && key !== "intMax";
 
-function OwnerSettings({ room, act, defaults, options }: { room: RoomState; act: ReturnType<typeof useAct>; defaults?: Settings; options?: SettingsOptions }) {
+function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: RoomState; act: ReturnType<typeof useAct>; defaults?: Settings; options?: SettingsOptions; aiFunding?: AIFunding }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
@@ -291,6 +304,11 @@ function OwnerSettings({ room, act, defaults, options }: { room: RoomState; act:
       </div>
       {conflict && <p className="px-4 pb-3 text-xs text-accent">The room revision moved to {room.revision} since you began editing. Saving submits revision {baseRev.current}; the server may reject it. Discard to reload.</p>}
       <div className="border-t p-4 space-y-3">
+        <div className="text-xs space-y-1" data-testid="ai-funding-status">
+          <p className="font-medium">AI billing: direct provider APIs (per-agent model)</p>
+          <p className="text-muted-foreground">Each AI seat uses its library agent's provider and model. Credentials and per-model rates are listed in the AI library.</p>
+          {aiFunding && !aiFunding.live && <p className="text-accent">AI game control is not active yet. No inference is running.</p>}
+        </div>
         <div className="flex items-baseline justify-between">
           <span className="label-mono !text-foreground">AI token budget</span>
           <span className="font-mono text-xs" data-testid="text-ai-usage">{fmt(room.aiUsed)} / {fmt(room.aiBudget)} used</span>
@@ -301,7 +319,7 @@ function OwnerSettings({ room, act, defaults, options }: { room: RoomState; act:
         </div>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
-          I approve AI seats in this room spending up to {budgetOk ? fmt(b) : "?"} tokens, billed to the room.
+          I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.
         </label>
         <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: room.settings, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
@@ -354,7 +372,7 @@ export default function Room() {
           <Objects room={room} />
           <div className="space-y-6">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} /> : <ReadOnlySettings room={room} />}
+            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} aiFunding={manifest.data?.aiFunding} /> : <ReadOnlySettings room={room} />}
           </div>
         </div>
       </>)}
