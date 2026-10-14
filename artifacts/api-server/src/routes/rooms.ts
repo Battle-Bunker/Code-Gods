@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, validateSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings } from "@workspace/game-core";
 import { requireIdentity } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner } from "../game/store";
 import { publicRoom } from "../game/projection";
@@ -10,7 +10,7 @@ import { runtime } from "../game/adapters";
 
 const router = Router();
 router.get("/manifest", (_req, res) => res.json({
-  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [],
+  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS,
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);

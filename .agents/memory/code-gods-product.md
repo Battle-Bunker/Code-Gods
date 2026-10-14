@@ -61,3 +61,9 @@ Use full names from verified Replit identities to label human players, not just 
 **Why:** First names do not sufficiently distinguish the game's players.
 
 **How to apply:** Combine given and family names for display while preserving Replit subject IDs as the actual identity keys.
+
+Grammar, value-generator and complexity-function options are always pre-authored in deployed code.
+
+**Why:** The user explicitly requires dropdown choices rather than arbitrary identifier text inputs.
+
+**How to apply:** Populate selectors from the server's supported options, filter compatibility, and reject unknown identifiers server-side.

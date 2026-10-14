@@ -305,6 +305,26 @@ export const GetManifestResponse = zod.object({
   "startingEnergy": zod.number(),
   "energyPerSecond": zod.number()
 }),
+  "options": zod.object({
+  "grammarId": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "languages": zod.array(zod.string()),
+  "objectTypes": zod.array(zod.string())
+})),
+  "valueGeneratorId": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "languages": zod.array(zod.string()),
+  "objectTypes": zod.array(zod.string())
+})),
+  "complexityFunctionId": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "languages": zod.array(zod.string()),
+  "objectTypes": zod.array(zod.string())
+}))
+}),
   "runtimes": zod.array(zod.string())
 })
 

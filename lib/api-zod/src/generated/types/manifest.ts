@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Settings } from './settings';
+import type { SettingsOptions } from './settingsOptions';
 
 export interface Manifest {
   protocolVersion: number;
   minimumPlayers: number;
   defaults: Settings;
+  options: SettingsOptions;
   runtimes: string[];
 }

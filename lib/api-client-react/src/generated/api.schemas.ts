@@ -17,6 +17,19 @@ export interface DeviceApprovalInput {
   code: string;
 }
 
+export interface AuthoredOption {
+  id: string;
+  label: string;
+  languages: string[];
+  objectTypes: string[];
+}
+
+export interface SettingsOptions {
+  grammarId: AuthoredOption[];
+  valueGeneratorId: AuthoredOption[];
+  complexityFunctionId: AuthoredOption[];
+}
+
 export type SettingsLanguage = typeof SettingsLanguage[keyof typeof SettingsLanguage];
 
 
@@ -64,6 +77,7 @@ export interface Manifest {
   protocolVersion: number;
   minimumPlayers: number;
   defaults: Settings;
+  options: SettingsOptions;
   runtimes: string[];
 }
 

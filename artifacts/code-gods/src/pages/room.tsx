@@ -3,7 +3,7 @@ import { Link, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetRoom, getGetRoomQueryKey, useGetManifest, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput,
+  type RoomState, type Settings, type RoomActionInput, type SettingsOptions,
 } from "@workspace/api-client-react";
 import { Shell, Panel, Empty, ErrorLine } from "@/components/shell";
 import { useAuth } from "@/hooks/use-auth";
@@ -214,9 +214,12 @@ const numFields: [keyof Settings, string, number?][] = [
   ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction rate (Hz)"], ["pauseSeconds", "Pause (s)"],
   ["startingEnergy", "Starting energy"], ["energyPerSecond", "Energy / s"],
 ];
-const textFields: [keyof Settings, string][] = [["grammarId", "Grammar id"], ["valueGeneratorId", "Value generator id"], ["complexityFunctionId", "Complexity function id"]];
+const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["valueGeneratorId", "Value generator"], ["complexityFunctionId", "Complexity function"]];
+const typeKeys = ["intMin", "intMax", "stringMaxLength"];
+const relevantToType = (key: string, type: string) =>
+  type === "Int" ? key !== "stringMaxLength" : key !== "intMin" && key !== "intMax";
 
-function OwnerSettings({ room, act, defaults }: { room: RoomState; act: ReturnType<typeof useAct>; defaults?: Settings }) {
+function OwnerSettings({ room, act, defaults, options }: { room: RoomState; act: ReturnType<typeof useAct>; defaults?: Settings; options?: SettingsOptions }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
@@ -224,13 +227,30 @@ function OwnerSettings({ room, act, defaults }: { room: RoomState; act: ReturnTy
   const dirty = Object.keys(draft).length > 0;
   useEffect(() => { if (!dirty) baseRev.current = room.revision; }, [room.revision, dirty]);
   const val = (k: keyof Settings) => draft[k] ?? String(room.settings[k]);
-  const set = (k: keyof Settings, v: string) => setDraft((d) => ({ ...d, [k]: v }));
+  const visibleNumFields = numFields.filter(([key]) => relevantToType(key, val("objectType")));
+  const available = (k: keyof SettingsOptions, language = val("language"), objectType = val("objectType")) =>
+    (options?.[k] ?? []).filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
+  const set = (k: keyof Settings, v: string) => setDraft((d) => {
+    const next = { ...d, [k]: v };
+    if (k === "language" || k === "objectType") {
+      for (const [key] of optionFields) {
+        const choices = available(key, next.language ?? room.settings.language, next.objectType ?? room.settings.objectType);
+        if (!choices.some(o => o.id === (next[key] ?? room.settings[key]))) next[key] = choices[0]?.id ?? "";
+      }
+    }
+    return next;
+  });
   const build = (): Settings => {
     const s = { ...room.settings } as Record<string, unknown>;
-    for (const [k, v] of Object.entries(draft)) s[k] = numFields.some(([n]) => n === k) ? Number(v) : v;
+    for (const [k, v] of Object.entries(draft)) {
+      // Hidden type drafts are retained for switching back, but never submitted.
+      if (!relevantToType(k, val("objectType"))) continue;
+      s[k] = numFields.some(([n]) => n === k) ? Number(v) : v;
+    }
     return s as unknown as Settings;
   };
-  const invalid = numFields.some(([k]) => draft[k] !== undefined && (draft[k] === "" || !Number.isFinite(Number(draft[k]))));
+  const invalid = visibleNumFields.some(([k]) => draft[k] !== undefined && (draft[k] === "" || !Number.isFinite(Number(draft[k])))) ||
+    optionFields.some(([k]) => !available(k).some(o => o.id === val(k)));
   const conflict = dirty && baseRev.current !== room.revision;
   const b = Number(budget);
   const budgetOk = Number.isInteger(b) && b >= 0 && b <= 500000;
@@ -238,17 +258,28 @@ function OwnerSettings({ room, act, defaults }: { room: RoomState; act: ReturnTy
   return (
     <Panel title="Owner / world settings" meta={conflict ? "changed by another edit" : dirty ? "unsaved" : `rev ${room.revision}`}>
       <div className="p-4 grid grid-cols-2 gap-3">
-        <label className="space-y-1"><span className="label-mono">Language</span>
+        <label className="space-y-1 col-span-2"><span className="label-mono">Language</span>
           <select value={val("language")} onChange={(e) => set("language", e.target.value)} className={field} data-testid="select-language"><option value="python">python</option><option value="typescript">typescript</option></select></label>
-        <label className="space-y-1"><span className="label-mono">Object type</span>
+        <label className="space-y-1 col-span-2"><span className="label-mono">Object type</span>
           <select value={val("objectType")} onChange={(e) => set("objectType", e.target.value)} className={field} data-testid="select-objectType"><option value="Int">Int</option><option value="string">string</option></select></label>
+        <div className="col-span-2 grid grid-cols-2 gap-3 border-l-2 border-primary/25 pl-3" data-testid="type-parameters">
+          {visibleNumFields.filter(([k]) => typeKeys.includes(k)).map(([k, label, step]) => (
+            <label key={k} className={`space-y-1 ${val("objectType") === "string" ? "col-span-2" : ""}`}>
+              <span className="label-mono">{label}</span>
+              <input type="number" step={step} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} />
+            </label>
+          ))}
+        </div>
         <label className="space-y-1 col-span-2"><span className="label-mono">Spawn function</span>
           <select value={val("spawnFunctionId")} onChange={(e) => set("spawnFunctionId", e.target.value)} className={field} data-testid="select-spawnFunctionId"><option value="uniform">uniform</option></select></label>
-        {textFields.map(([k, l]) => (
+        {optionFields.map(([k, l]) => (
           <label key={k} className="space-y-1 col-span-2"><span className="label-mono">{l}</span>
-            <input value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
+            <select value={available(k).some(o => o.id === val(k)) ? val(k) : ""} disabled={!options} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`select-${k}`}>
+              {!available(k).some(o => o.id === val(k)) && <option value="" disabled>{options ? "Select a supported option" : "Loading options…"}</option>}
+              {available(k).map(o => <option key={o.id} value={o.id}>{o.label} ({o.id})</option>)}
+            </select></label>
         ))}
-        {numFields.map(([k, l, step]) => (
+        {numFields.filter(([k]) => !typeKeys.includes(k)).map(([k, l, step]) => (
           <label key={k} className="space-y-1"><span className="label-mono">{l}</span>
             <input type="number" step={step ?? "any"} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
         ))}
@@ -282,7 +313,7 @@ function ReadOnlySettings({ room }: { room: RoomState }) {
   return (
     <Panel title="World settings" meta="owner controls">
       <dl className="p-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-        {Object.entries(room.settings).map(([k, v]) => (<div key={k} className="contents"><dt className="text-muted-foreground font-mono truncate">{k}</dt><dd className="font-mono text-right truncate">{String(v)}</dd></div>))}
+        {Object.entries(room.settings).filter(([k]) => relevantToType(k, room.settings.objectType)).map(([k, v]) => (<div key={k} className="contents"><dt className="text-muted-foreground font-mono truncate">{k}</dt><dd className="font-mono text-right truncate">{String(v)}</dd></div>))}
       </dl>
     </Panel>
   );
@@ -323,7 +354,7 @@ export default function Room() {
           <Objects room={room} />
           <div className="space-y-6">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} /> : <ReadOnlySettings room={room} />}
+            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} /> : <ReadOnlySettings room={room} />}
           </div>
         </div>
       </>)}

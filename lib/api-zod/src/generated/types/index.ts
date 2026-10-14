@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './authoredOption';
 export * from './chatMessage';
 export * from './deviceApprovalInput';
 export * from './healthStatus';
@@ -22,6 +23,7 @@ export * from './roomSummary';
 export * from './settings';
 export * from './settingsLanguage';
 export * from './settingsObjectType';
+export * from './settingsOptions';
 export * from './settingsSpawnFunctionId';
 export * from './standing';
 export * from './statusResult';

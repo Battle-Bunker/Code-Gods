@@ -42,7 +42,20 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   energyPerSecond: 1,
 });
 
-/** Validate mathematical settings, independently of deployment resource limits. */
+export const SETTINGS_OPTIONS = {
+  grammarId: [
+    { id: "python-standard-v1", label: "Python computational standard library", languages: ["python"], objectTypes: ["Int", "string"] },
+    { id: "typescript-standard-v1", label: "TypeScript ECMAScript built-ins", languages: ["typescript"], objectTypes: ["Int", "string"] },
+  ],
+  valueGeneratorId: [
+    { id: "pantheon-of-friction-v1", label: "Pantheon of Friction", languages: ["python", "typescript"], objectTypes: ["Int", "string"] },
+  ],
+  complexityFunctionId: [
+    { id: "ast-bytes-v1", label: "AST nodes + literal bytes", languages: ["python", "typescript"], objectTypes: ["Int", "string"] },
+  ],
+};
+
+/** Validate mathematical settings and pre-authored options, independently of resource limits. */
 export function validateSettings(settings: GameSettings): void {
   if (!["python", "typescript"].includes(settings.language)) {
     throw new Error("Unsupported language");
@@ -76,8 +89,9 @@ export function validateSettings(settings: GameSettings): void {
   if (settings.pauseSeconds === 0) throw new Error("Pause duration must be positive");
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
   for (const key of ["grammarId", "valueGeneratorId", "complexityFunctionId"] as const) {
-    if (typeof settings[key] !== "string" || !settings[key].trim()) {
-      throw new Error(`${key} is required`);
+    if (!SETTINGS_OPTIONS[key].some(option => option.id === settings[key] &&
+        option.languages.includes(settings.language) && option.objectTypes.includes(settings.objectType))) {
+      throw new Error(`Unsupported ${key} for this language and object type`);
     }
   }
 }

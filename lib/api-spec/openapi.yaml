@@ -110,13 +110,39 @@ components:
       required: [code]
       properties:
         code: { type: string, minLength: 4, maxLength: 32 }
+    AuthoredOption:
+      type: object
+      required: [id, label, languages, objectTypes]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        languages:
+          type: array
+          items: { type: string }
+        objectTypes:
+          type: array
+          items: { type: string }
+    SettingsOptions:
+      type: object
+      required: [grammarId, valueGeneratorId, complexityFunctionId]
+      properties:
+        grammarId:
+          type: array
+          items: { $ref: "#/components/schemas/AuthoredOption" }
+        valueGeneratorId:
+          type: array
+          items: { $ref: "#/components/schemas/AuthoredOption" }
+        complexityFunctionId:
+          type: array
+          items: { $ref: "#/components/schemas/AuthoredOption" }
     Manifest:
       type: object
-      required: [protocolVersion, defaults, runtimes, minimumPlayers]
+      required: [protocolVersion, defaults, runtimes, minimumPlayers, options]
       properties:
         protocolVersion: { type: integer }
         minimumPlayers: { type: integer }
         defaults: { $ref: "#/components/schemas/Settings" }
+        options: { $ref: "#/components/schemas/SettingsOptions" }
         runtimes:
           type: array
           items: { type: string }
