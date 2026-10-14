@@ -13,3 +13,39 @@ Individual opponents' object valuations are not directly shared: clients receive
 **Why:** The user explicitly specified aggregate-only opponent information.
 
 **How to apply:** Preserve these disclosure boundaries throughout events, snapshots, history and analytics; do not claim aggregate values prevent mathematical inference.
+
+The user approved sandbox-compatible computational libraries for the MVP: supported Python computational modules and TypeScript's ECMAScript built-ins, with documented exclusions and no host access.
+
+**Why:** Full native standard-library compatibility would require additional isolated execution infrastructure.
+
+**How to apply:** Do not expose Node, browser or server capabilities to game agents. Publish the actual tested runtime/module contract rather than promise all standard-library APIs.
+
+Require at least three players per game; additional slots can be populated by autonomous AI players. All players, including AI, can participate in a global public chat channel; no private chats are allowed.
+
+**Why:** The user explicitly added these requirements.
+
+**How to apply:** Enforce the minimum on the server, distinguish AI identities from Replit human identities, and give bots the same information and action permissions as human players. Do not implement private messaging.
+
+Use parallel subtasks for this project; the main agent should act as coordinator and remain responsive.
+
+**Why:** The user explicitly requested this working arrangement.
+
+**How to apply:** Delegate isolated packages with clear contracts and retain authoritative-server integration and progress communication in the main session.
+
+Implement persistence with Replit's built-in PostgreSQL from the start.
+
+**Why:** The user explicitly requires this database for Code Gods.
+
+**How to apply:** Keep authoritative persistent state in the project's built-in PostgreSQL throughout server and client integration; do not substitute an in-memory-only or external database.
+
+Rooms do not have names. They are identified by a short code derived from their GUID.
+
+**Why:** The user explicitly corrected the room-name field and reiterated this requirement.
+
+**How to apply:** Do not introduce room-name inputs, API properties, or display titles; use the GUID-derived short code.
+
+Show a room's creation date and owner prominently alongside its ID wherever rooms are listed.
+
+**Why:** The user explicitly requested these identifying details.
+
+**How to apply:** Preserve this information in any future room-list surfaces without introducing room names.

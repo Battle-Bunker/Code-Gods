@@ -1,0 +1,10 @@
+{
+  "name": "@workspace/game-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup:python": "python3 python/setup.py",
+    "test:python": "python3 python/test_runner.py"
+  }
+}

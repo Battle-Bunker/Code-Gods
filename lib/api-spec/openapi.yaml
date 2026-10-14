@@ -11,6 +11,80 @@ tags:
   - name: health
     description: Health operations
 paths:
+  /rooms:
+    get:
+      operationId: listRooms
+      responses:
+        "200":
+          description: Rooms you have joined
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RoomSummary" }
+    post:
+      operationId: createRoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomInput" }
+      responses:
+        "201":
+          description: Created room
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomState" }
+  /rooms/{roomId}:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getRoom
+      responses:
+        "200":
+          description: Public room state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomState" }
+  /rooms/{roomId}/actions:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: roomAction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomActionInput" }
+      responses:
+        "200":
+          description: Updated public room state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomState" }
+  /device/approve:
+    post:
+      operationId: approveDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceApprovalInput" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+  /manifest:
+    get:
+      operationId: getManifest
+      responses:
+        "200":
+          description: Protocol and runtime capabilities
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Manifest" }
   /healthz:
     get:
       operationId: healthCheck
@@ -26,6 +100,148 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
 components:
   schemas:
+    StatusResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    DeviceApprovalInput:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, minLength: 4, maxLength: 32 }
+    Manifest:
+      type: object
+      required: [protocolVersion, defaults, runtimes, minimumPlayers]
+      properties:
+        protocolVersion: { type: integer }
+        minimumPlayers: { type: integer }
+        defaults: { $ref: "#/components/schemas/Settings" }
+        runtimes:
+          type: array
+          items: { type: string }
+    RoomInput:
+      type: object
+      additionalProperties: false
+      properties: {}
+    RoomActionInput:
+      type: object
+      required: [action, requestId]
+      properties:
+        action: { type: string, enum: [join, ready, settings, start, addAi, removeAi, chat, resume] }
+        requestId: { type: string }
+        revision: { type: integer }
+        settings: { $ref: "#/components/schemas/Settings" }
+        ready: { type: boolean }
+        text: { type: string, maxLength: 4000 }
+        deityId: { type: string }
+        aiBudget: { type: integer, minimum: 0, maximum: 500000 }
+    Settings:
+      type: object
+      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, valueGeneratorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, pauseSeconds, startingEnergy, energyPerSecond]
+      properties:
+        language: { type: string, enum: [python, typescript] }
+        objectType: { type: string, enum: [Int, string] }
+        intMin: { type: integer }
+        intMax: { type: integer }
+        stringMaxLength: { type: integer }
+        grammarId: { type: string }
+        valueGeneratorId: { type: string }
+        complexityFunctionId: { type: string }
+        spawnFunctionId: { type: string, enum: [uniform] }
+        planningSeconds: { type: number }
+        halfLifeSeconds: { type: number }
+        startingObjectCount: { type: integer }
+        spawnRateHz: { type: number }
+        interactionRateHz: { type: number }
+        pauseSeconds: { type: number }
+        startingEnergy: { type: number }
+        energyPerSecond: { type: number }
+    RoomSummary:
+      type: object
+      required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        ownerId: { type: string }
+        ownerName: { type: string }
+        createdAt:
+          description: Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+          oneOf:
+            - { type: number }
+            - { type: "null" }
+        memberCount: { type: integer }
+        phase: { type: string }
+    Member:
+      type: object
+      required: [id, name, kind, ready]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [human, ai] }
+        ready: { type: boolean }
+        status: { type: string }
+    ChatMessage:
+      type: object
+      required: [id, authorId, authorName, kind, text, timestamp]
+      properties:
+        id: { type: string }
+        authorId: { type: string }
+        authorName: { type: string }
+        kind: { type: string }
+        text: { type: string }
+        timestamp: { type: number }
+    PublicObject:
+      type: object
+      required: [id, value, version, totalValueSum]
+      properties:
+        id: { type: string }
+        value:
+          oneOf:
+            - { type: integer }
+            - { type: string }
+        version: { type: integer }
+        totalValueSum: { type: number }
+    Standing:
+      type: object
+      required: [deityId, name, kind, totalScore, rank]
+      properties:
+        deityId: { type: string }
+        name: { type: string }
+        kind: { type: string }
+        totalScore: { type: number }
+        rank: { type: integer }
+    PublicGame:
+      type: object
+      required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        phase: { type: string }
+        worldSeconds: { type: number }
+        planningEndsAt: { type: number }
+        pauseEndsAt: { type: number }
+        agentCount: { type: integer }
+        objects: { type: array, items: { $ref: "#/components/schemas/PublicObject" } }
+        leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
+    RoomState:
+      type: object
+      required: [id, shortCode, ownerId, revision, settings, members, chat, game, serverTime, aiBudget, aiUsed]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        ownerId: { type: string }
+        revision: { type: integer }
+        settings: { $ref: "#/components/schemas/Settings" }
+        members: { type: array, items: { $ref: "#/components/schemas/Member" } }
+        chat: { type: array, items: { $ref: "#/components/schemas/ChatMessage" } }
+        game:
+          oneOf:
+            - { $ref: "#/components/schemas/PublicGame" }
+            - { type: "null" }
+        serverTime: { type: number }
+        aiBudget: { type: integer }
+        aiUsed: { type: integer }
     HealthStatus:
       type: object
       properties:

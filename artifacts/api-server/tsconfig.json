@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "incremental": true,
     "tsBuildInfoFile": ".tsbuildinfo",
     "outDir": "dist",
@@ -9,6 +10,7 @@
   },
   "include": ["src"],
   "references": [
+    { "path": "../../lib/game-core" },
     {
       "path": "../../lib/db"
     },
