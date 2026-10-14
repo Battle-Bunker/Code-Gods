@@ -4,6 +4,12 @@
   "files": [],
   "references": [
     {
+      "path": "./lib/player-client"
+    },
+    {
+      "path": "./lib/ai-player"
+    },
+    {
       "path": "./lib/game-core"
     },
     {

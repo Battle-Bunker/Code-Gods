@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/player/"
+title = "Code Gods · Player"
+description = "Customizable player console for Code Gods, using a secured player daemon."
+version = "1.0.0"
+id = "artifacts/player-web"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/player/" ]
+localPort = 22772
+
+[services.development]
+run = "pnpm --filter @workspace/player-web run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/player-web", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/player-web/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22772"
+BASE_PATH = "/player/"
