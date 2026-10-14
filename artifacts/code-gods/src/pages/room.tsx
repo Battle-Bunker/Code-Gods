@@ -210,9 +210,9 @@ function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; me
 
 const numFields: [keyof Settings, string, number?][] = [
   ["intMin", "Int min", 1], ["intMax", "Int max", 1], ["stringMaxLength", "String max length", 1],
-  ["planningSeconds", "Planning (s)"], ["halfLifeSeconds", "Half-life (s)"], ["startingObjectCount", "Starting objects", 1],
+  ["planningSeconds", "Planning (s)"], ["halfLifeSeconds", "Game Half-life (s)"], ["startingObjectCount", "Starting objects", 1],
   ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction rate (Hz)"], ["pauseSeconds", "Pause (s)"],
-  ["startingEnergy", "Starting energy"], ["energyPerSecond", "Energy / s"],
+  ["startingEnergy", "Starting energy"], ["energyPerSecond", "Power (energy / s)"],
 ];
 const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["valueGeneratorId", "Value generator"], ["complexityFunctionId", "Complexity function"]];
 const typeKeys = ["intMin", "intMax", "stringMaxLength"];
