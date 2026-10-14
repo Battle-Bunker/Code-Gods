@@ -56,6 +56,12 @@ Private development-preview access is separate from Code Gods authentication. Th
 
 **How to apply:** Distinguish preview access failures from game authentication failures. Editor access is a development workaround, not a player permission model: it also grants source-code editing access.
 
+Private publishing can block headless client device approval before Code Gods authentication runs.
+
+**Why:** A live connection attempt was redirected to Replit's `__replshield`; following that redirect produced misleading header/referrer errors instead of a game API response.
+
+**How to apply:** Inspect redirects without following them when connecting a new published server. For the no-static-secret player protocol, use public deployment visibility with the app's own Replit login and room authorization; changing visibility requires the owner's decision.
+
 Use full names from verified Replit identities to label human players, not just first names.
 
 **Why:** First names do not sufficiently distinguish the game's players.
