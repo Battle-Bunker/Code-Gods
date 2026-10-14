@@ -55,3 +55,9 @@ Private development-preview access is separate from Code Gods authentication. Th
 **Why:** Replit's preview permissions can block a player before the game's login runs.
 
 **How to apply:** Distinguish preview access failures from game authentication failures. Editor access is a development workaround, not a player permission model: it also grants source-code editing access.
+
+Use full names from verified Replit identities to label human players, not just first names.
+
+**Why:** First names do not sufficiently distinguish the game's players.
+
+**How to apply:** Combine given and family names for display while preserving Replit subject IDs as the actual identity keys.

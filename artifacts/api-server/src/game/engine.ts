@@ -78,7 +78,7 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
     if (typeof text !== "string" || !text.trim() || text.length > 4000) throw new Error("Chat text must be 1–4000 characters");
     const last = [...room.chat].reverse().find(m => m.authorId === actor.id);
     if (last && Date.now() - last.timestamp < 1000) throw Object.assign(new Error("Chat rate limit"), { status: 429 });
-    const message = { id: randomUUID(), authorId: actor.id, authorName: actor.name, kind: actor.kind, text, timestamp: Date.now() };
+    const message = { id: randomUUID(), authorId: actor.id, authorName: room.members.find(m => m.id === actor.id)!.name, kind: actor.kind, text, timestamp: Date.now() };
     room.chat.push(message);
     result = message;
   } else if (input.command === "ready.set") {

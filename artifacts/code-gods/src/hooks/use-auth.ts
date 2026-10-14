@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-export interface AuthUser { id: string; firstName?: string | null; lastName?: string | null }
+export interface AuthUser { id: string; name?: string; firstName?: string | null; lastName?: string | null }
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -30,5 +30,5 @@ export function useAuth() {
 
 export function displayName(u: AuthUser | null) {
   if (!u) return "";
-  return [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unnamed deity";
+  return u.name || [u.firstName, u.lastName].filter(Boolean).join(" ") || "Unnamed deity";
 }

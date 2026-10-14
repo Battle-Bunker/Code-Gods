@@ -2,10 +2,12 @@ import { Router } from "express";
 import * as oidc from "openid-client";
 import { pool } from "@workspace/db";
 import { getOidc, opaque, hash, origin, cookieOptions, safeReturn, issueSession } from "../lib/identity";
+import { profileName } from "../lib/profile-name";
+import { synchronizePlayerName } from "../game/store";
 
 const router = Router();
 router.get("/auth/user", (req, res) => {
-  const user = req.identity?.scope === "browser" ? { id: req.identity.id, firstName: req.identity.name, lastName: null } : null;
+  const user = req.identity?.scope === "browser" ? { id: req.identity.id, name: req.identity.name } : null;
   res.json({ user });
 });
 router.get("/login", async (req, res) => {
@@ -32,7 +34,10 @@ router.get("/callback", async (req, res) => {
   });
   const claims = tokens.claims();
   if (!claims?.sub) throw new Error("Identity provider returned no subject");
-  const name = String(claims.name || claims.first_name || claims.preferred_username || "Deity").slice(0, 80);
+  const name = profileName(claims);
+  await synchronizePlayerName(claims.sub, name);
+  await pool.query("UPDATE cg_sessions SET data=jsonb_set(data,'{name}',to_jsonb($2::text)) WHERE data->>'id'=$1", [claims.sub, name]);
+  await pool.query("UPDATE cg_devices SET user_name=$2 WHERE user_id=$1", [claims.sub, name]);
   const token = await issueSession({ id: claims.sub, name, kind: "human", scope: "browser" }, 86400000);
   res.cookie("cg_session", token, { ...cookieOptions, maxAge: 86400000 });
   res.redirect(safeReturn(flow.returnTo));

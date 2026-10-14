@@ -121,3 +121,16 @@ export async function initializeStore() {
     rooms.set(room.id, room);
   }
 }
+
+/** Refresh existing room labels after a verified login, preserving stable subject IDs. */
+export async function synchronizePlayerName(id: string, name: string) {
+  for (const room of allRooms()) {
+    if (!room.members.some(m => m.id === id) && !room.chat.some(m => m.authorId === id) &&
+        !room.game?.roster.some(m => m.id === id)) continue;
+    await mutate(room.id, async draft => {
+      for (const member of draft.members) if (member.id === id) member.name = name;
+      for (const member of draft.game?.roster ?? []) if (member.id === id) member.name = name;
+      for (const message of draft.chat) if (message.authorId === id) message.authorName = name;
+    });
+  }
+}
