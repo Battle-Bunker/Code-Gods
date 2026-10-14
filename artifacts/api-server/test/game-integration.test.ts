@@ -14,7 +14,9 @@ import roomsRouter from "../src/routes/rooms";
 import playerRouter from "../src/routes/player";
 import { attachSockets } from "../src/game/socket";
 import { createRoom, mutate, resolveRoom } from "../src/game/store";
-import { startGame, playerCommand } from "../src/game/engine";
+import { startGame, playerCommand, startTicker } from "../src/game/engine";
+import { recordHumanActivity } from "../src/game/activity";
+import { registerAdapters, requireAdapters } from "../src/game/adapters";
 import { observation, executePlayerEnvelope } from "../src/game/player-api";
 import { publicRoom } from "../src/game/projection";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup";
@@ -23,10 +25,13 @@ import { AIController, SYSTEM } from "@workspace/ai-player";
 import { VERSION } from "@workspace/player-client";
 import type { Actor } from "../src/game/types";
 
-test("three-player authority: exact costs, receipts, pause energy, privacy and persistent AI reservations", { timeout: 90000 }, async () => {
+test("three-player authority: exact costs, receipts, pause energy, privacy and persistent AI reservations", { timeout: 30000 }, async (t) => {
   const host: Actor = { id: randomUUID(), name: "Test Host", kind: "human", scope: "browser" };
+  let stopTicker: (() => Promise<void>) | undefined;
+  let releaseExecutions: (() => void) | undefined;
   try {
     await initializeRuntimeAdapters();
+    await recordHumanActivity();
     const created = await createRoom(host), id = created.id;
     const second: Actor = { id: randomUUID(), name: "Second", kind: "human", scope: "browser" };
     const bot: Actor = { id: `ai:${randomUUID()}`, name: "Negotiator", kind: "ai", scope: "player", roomId: id };
@@ -70,12 +75,19 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const invalid = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: "export default (x: number) => x" }));
     assert.equal(invalid.accepted, false);
 
-    await mutate(id, async draft => { draft.game!.phase = "running"; draft.game!.createdAt = Date.now() - 10000; });
+    await mutate(id, async draft => {
+      draft.game!.phase = "running"; draft.game!.lastTick = Date.now() - 250;
+      draft.game!.endAtWorld = 3600; // Keep this clock/pause assertion independent of sampled early game death.
+      draft.game!.createdAt = Date.now() - 10000;
+    });
     assert.equal((await executePlayerEnvelope(id, host, envelope({ type: "pause" }))).accepted, true);
     assert.equal((await executePlayerEnvelope(id, host, envelope({ type: "pause" }))).accepted, false);
     room = resolveRoom(id);
     assert.equal(room.game!.phase, "paused");
-    assert.equal(room.game!.worldSeconds, 0);
+    assert.ok(room.game!.worldSeconds >= 0.25, "pausing accounts for elapsed running time before freezing");
+    const pausedWorldSeconds = room.game!.worldSeconds;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(resolveRoom(id).game!.worldSeconds, pausedWorldSeconds, "paused world time stays frozen");
     assert.ok(observation(room, host).self.energy >= 111, "energy accrues on wall clock even while paused");
     await executePlayerEnvelope(id, host, envelope({ type: "chat", text: "Public negotiation only" }));
     assert.equal(observation(resolveRoom(id), second).chat.at(-1)!.text, "Public negotiation only");
@@ -172,16 +184,21 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       definition.prompt = "Edited after selection";
       assert.equal(resolveRoom(otherRoom.id).members[1].aiAgent!.prompt, "Private admin strategy");
       ws = new WebSocket(`ws://127.0.0.1:${port}/api/rooms/${id}/ws`, { headers: { authorization: "Bearer player" } });
-      const snapshot = new Promise<any>((resolve, reject) => {
-        ws!.once("message", raw => resolve(JSON.parse(raw.toString())));
-        ws!.once("error", reject);
-      });
+      const snapshot = once(ws, "message", { signal: t.signal }).then(([raw]) => JSON.parse(raw.toString()));
       const message = await snapshot;
       assert.equal(message.type, "room.snapshot");
       assert.ok(!JSON.stringify(message).includes("Negotiate honestly."));
       const command = envelope({ type: "ready", ready: true });
       const received = new Promise<any>((resolve, reject) => {
-        ws!.on("message", raw => { const data = JSON.parse(raw.toString()); if (data.type === "command.receipt") resolve(data); });
+        const aborted = () => reject(new Error("Integration test deadline exceeded"));
+        t.signal.addEventListener("abort", aborted, { once: true });
+        ws!.on("message", raw => {
+          const data = JSON.parse(raw.toString());
+          if (data.type === "command.receipt") {
+            t.signal.removeEventListener("abort", aborted);
+            resolve(data);
+          }
+        });
         ws!.once("error", reject);
       });
       ws.send(JSON.stringify(command));
@@ -191,5 +208,64 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       if (ws) { ws.terminate(); await once(ws, "close"); }
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     }
-  } finally { shutdownRuntimeAdapters(); }
+    // Assemble the real ticker, serialized store and Wasm runtime against isolated SQL.
+    const waitUntil = async (check: () => boolean, label: string) => {
+      const deadline = Date.now() + 10000;
+      while (!check()) {
+        t.signal.throwIfAborted();
+        if (Date.now() >= deadline) assert.fail(`Timed out: ${label}`);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    };
+    await mutate(id, async draft => {
+      const g = draft.game!;
+      g.phase = "running"; g.lastTick = Date.now();
+      g.endAtWorld = g.worldSeconds + 3600;
+      g.nextSpawn = Number.MAX_VALUE;
+      g.settings.interactionRateHz = 100;
+      g.settings.pauseSeconds = 60;
+      // Keep transformations total over the full generated integer domain.
+      g.agents.forEach(agent => { agent.source = "(x: number) => x"; });
+    });
+    const adapters = requireAdapters();
+    let hold = false, held = 0, released = 0;
+    const gate = new Promise<void>(resolve => { releaseExecutions = resolve; });
+    registerAdapters({
+      values: adapters.values,
+      runtime: {
+        ...adapters.runtime,
+        async execute(source, value, settings) {
+          const result = await adapters.runtime.execute(source, value, settings);
+          if (hold) { held++; await gate; released++; }
+          return result;
+        },
+      },
+    });
+    await recordHumanActivity();
+    stopTicker = startTicker();
+    await waitUntil(() => fixtureGames.get(resolveRoom(id).game!.id).events.some((e: any) => e.type === "object.transformed"),
+      "real ticker persists a Wasm transformation");
+    const persisted = fixtureGames.get(resolveRoom(id).game!.id);
+    const transformation = persisted.events.find((e: any) => e.type === "object.transformed");
+    assert.ok(persisted.objects.find((o: any) => o.id === transformation.object.id).version >= 1);
+    assert.equal(transformation.before, transformation.object.value, "identity runtime result is persisted faithfully");
+    hold = true;
+    await waitUntil(() => held > 0, "runtime result deliberately held in flight");
+    assert.equal((await executePlayerEnvelope(id, second, envelope({ type: "pause" }))).accepted, true);
+    const paused = structuredClone(fixtureGames.get(resolveRoom(id).game!.id));
+    releaseExecutions!();
+    await waitUntil(() => released === held, "held runtime work drains");
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const after = fixtureGames.get(paused.id);
+    assert.equal(after.phase, "paused");
+    assert.equal(after.worldSeconds, paused.worldSeconds, "ticker does not advance paused clock");
+    assert.deepEqual(after.objects, paused.objects, "in-flight pre-pause completions cannot overwrite persisted objects");
+    assert.equal(after.events.length, paused.events.length, "stale completions do not append transformation events");
+    await stopTicker(); stopTicker = undefined;
+    registerAdapters(adapters);
+  } finally {
+    releaseExecutions?.();
+    await stopTicker?.();
+    shutdownRuntimeAdapters();
+  }
 });

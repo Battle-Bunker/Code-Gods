@@ -8,6 +8,7 @@ import { hash } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
 import { isLocallyIdle } from "./activity";
+import { advanceWorld, completionTarget, InteractionScheduler } from "./interaction-scheduler";
 
 const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
 function below(bound: bigint): bigint {
@@ -64,7 +65,7 @@ export async function startGame(room: Room, actor: Actor) {
     objects: [], agents: [], events: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
     pauseEndsAt: 0, worldSeconds: 0, endAtWorld: lifetimeSeconds(room.settings.halfLifeSeconds, openUniform()),
     nextSpawn: poissonIntervalSeconds(room.settings.spawnRateHz, openUniform()),
-    nextInteraction: poissonIntervalSeconds(room.settings.interactionRateHz, openUniform()),
+    nextInteraction: 0, // Legacy persisted field; interactions are now capacity-capped dispatches.
     lastTick: now,
   };
   // Infinity cannot be round-tripped in JSON; disabled sources use a finite sentinel.
@@ -107,7 +108,10 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
     if (!deity) throw new Error("You are observing until the next game");
     if (input.command === "pause.use") {
       if (game.phase !== "running" || deity.pauseUsed) throw new Error("Pause is unavailable");
+      advanceWorld(game, Date.now(), spawn, () => poissonIntervalSeconds(game.settings.spawnRateHz, openUniform()));
+      if (game.phase !== "running") throw new Error("Pause is unavailable");
       deity.pauseUsed = true;
+      game.executionEpoch = (game.executionEpoch ?? 0) + 1;
       game.phase = "paused";
       game.pauseEndsAt = Date.now() + game.settings.pauseSeconds * 1000;
       result = { pauseEndsAt: game.pauseEndsAt };
@@ -141,6 +145,55 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
 export function startTicker() {
   let pending: Promise<void> | undefined;
   let stopped = false;
+  const scheduler = new InteractionScheduler(
+    () => performance.now(),
+    () => {
+      if (isLocallyIdle()) { scheduler.invalidate(); return []; }
+      return allRooms().filter(r => r.game?.phase === "running").map(r => r.id);
+    },
+    (roomId, available) => {
+      if (stopped || isLocallyIdle()) return;
+      const room = allRooms().find(r => r.id === roomId), game = room?.game;
+      if (!game || game.phase !== "running" || !game.agents.length || game.settings.interactionRateHz <= 0) return;
+      // Do not admit work past the lifetime while waiting for the next persisted clock snapshot.
+      if (game.worldSeconds + Math.max(0, Date.now() - game.lastTick) / 1000 >= game.endAtWorld) return;
+      const objects = game.objects.filter(o => available(game.id, o.id));
+      if (!objects.length) return;
+      const object = objects[Number(below(BigInt(objects.length)))];
+      const agent = game.agents[Number(below(BigInt(game.agents.length)))];
+      // Copy every runtime input: cached rooms can be replaced during a serialized mutation.
+      const snapshot = {
+        gameId: game.id, objectId: object.id, version: object.version, before: object.value,
+        source: agent.source, settings: structuredClone(game.settings), agentId: agent.id,
+        ownerId: agent.ownerId, pauseEndsAt: game.pauseEndsAt, epoch: game.executionEpoch ?? 0,
+      };
+      return {
+        roomId, gameId: game.id, objectId: object.id, rate: game.settings.interactionRateHz,
+        execute: () => requireAdapters().runtime.execute(snapshot.source, snapshot.before, snapshot.settings),
+        commit: async (result: unknown, current: () => boolean) => {
+          if (!current() || stopped || isLocallyIdle()) return;
+          await mutate(roomId, async draft => {
+            const g = draft.game;
+            if (!current() || stopped || isLocallyIdle() || !g) return;
+            const target = completionTarget(g, snapshot, Date.now());
+            if (!target) return;
+            assertObjectValue(result, snapshot.settings);
+            const value = result as number | string;
+            const values = valuate(g, value);
+            target.value = value; target.version++; target.values = values;
+            recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
+              object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
+          });
+        },
+      };
+    },
+    error => logger.info({ errorName: error instanceof Error ? error.name : "Error" }, "Agent execution failed without changing the object"),
+    () => scheduler.pump(),
+    roomId => allRooms().find(r => r.id === roomId)?.game?.id,
+  );
+  // Room settings enforce <=100Hz, so 10ms polling covers the highest supported cap.
+  // Completion also wakes admission immediately; polling never creates rate debt.
+  const dispatchTimer = setInterval(() => scheduler.pump(), 10).unref();
   const timer = setInterval(() => {
     if (pending || stopped) return;
     // Only one transition is persisted when idle; do not simulate unseen time.
@@ -149,54 +202,33 @@ export function startTicker() {
       for (const room of allRooms()) {
         if (stopped) break;
         if (!room.game || ["ended", "recovery"].includes(room.game.phase)) continue;
+        const game = room.game, now = Date.now();
+        const deadline = game.phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
+        // Waiting phases need no clock writes. Running snapshots are persisted at least
+        // once a second, or earlier for spawn/end deadlines, rather than empty 100ms writes.
+        if (!isLocallyIdle() && (game.phase === "planning" || game.phase === "paused") && now < deadline) continue;
+        const target = game.worldSeconds + Math.max(0, now - game.lastTick) / 1000;
+        if (!isLocallyIdle() && game.phase === "running" && now - game.lastTick < 1000 &&
+            target < Math.min(game.nextSpawn, game.endAtWorld)) continue;
         await mutate(room.id, async draft => {
-          const g = draft.game!, now = Date.now();
-          if (["ended", "recovery"].includes(g.phase)) return;
+          const g = draft.game, now = Date.now();
+          if (stopped || !g || g.id !== game.id || ["ended", "recovery"].includes(g.phase)) return;
           if (isLocallyIdle()) {
+            scheduler.invalidate();
+            g.executionEpoch = (g.executionEpoch ?? 0) + 1;
             g.phase = "recovery";
             g.recoveryReason = "Server became idle. The owner must resume the game.";
             return;
           }
-          if (g.phase === "planning" || g.phase === "paused") {
-            const deadline = g.phase === "planning" ? g.planningEndsAt : g.pauseEndsAt;
-            if (now < deadline) { g.lastTick = now; return; }
-            g.phase = "running"; g.lastTick = deadline;
-          }
-          const elapsed = Math.max(0, now - g.lastTick) / 1000;
-          g.lastTick = now;
-          const target = g.worldSeconds + elapsed;
-          let processed = 0;
-          while (Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld) <= target) {
-            if (stopped || isLocallyIdle()) {
-              g.phase = "recovery"; g.recoveryReason = "World paused. The owner must resume the game."; return;
-            }
-            if (++processed > 50) { g.phase = "recovery"; g.recoveryReason = "Execution backlog exceeded the per-tick safety limit."; logger.warn({ roomId: draft.id }, "World paused due to execution backlog"); return; }
-            const next = Math.min(g.nextSpawn, g.nextInteraction, g.endAtWorld);
-            g.worldSeconds = next;
-            if (next === g.endAtWorld) { g.phase = "ended"; return; }
-            if (next === g.nextSpawn) {
-              if (g.objects.length >= 2000) { g.phase = "recovery"; g.recoveryReason = "The world reached its 2,000-object safety limit."; return; }
-              spawn(g);
-              g.nextSpawn += poissonIntervalSeconds(g.settings.spawnRateHz, openUniform());
-            } else {
-              g.nextInteraction += poissonIntervalSeconds(g.settings.interactionRateHz, openUniform());
-              if (!g.objects.length || !g.agents.length) continue;
-              const object = g.objects[Number(below(BigInt(g.objects.length)))];
-              const agent = g.agents[Number(below(BigInt(g.agents.length)))];
-              try {
-                const before = object.value;
-                const value = await requireAdapters().runtime.execute(agent.source, object.value, g.settings);
-                assertObjectValue(value, g.settings);
-                object.value = value; object.version++; object.values = valuate(g, value);
-                recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
-                  object: structuredClone(object), agentId: agent.id, ownerId: agent.ownerId, before });
-              } catch { logger.info({ agentId: agent.id }, "Agent execution failed without changing the object"); }
-            }
-          }
-          g.worldSeconds = target;
+          advanceWorld(g, now, spawn, () => poissonIntervalSeconds(g.settings.spawnRateHz, openUniform()));
+          if (g.phase === "recovery") g.executionEpoch = (g.executionEpoch ?? 0) + 1;
         });
       }
+      scheduler.pump();
     })().catch(error => logger.error({ errorName: error.name }, "World tick failed")).finally(() => { pending = undefined; });
   }, 100).unref();
-  return async () => { stopped = true; clearInterval(timer); await pending; };
+  return async () => {
+    stopped = true; clearInterval(timer); clearInterval(dispatchTimer);
+    await Promise.all([pending, scheduler.stop()]);
+  };
 }

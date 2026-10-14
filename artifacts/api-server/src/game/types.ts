@@ -14,7 +14,7 @@ export type Game = {
   settings: GameSettings; roster: Member[]; deities: Deity[]; objects: WorldObject[]; agents: Agent[];
   createdAt: number; planningEndsAt: number; pauseEndsAt: number; worldSeconds: number;
   endAtWorld: number; nextSpawn: number; nextInteraction: number; lastTick: number;
-  events: WorldEvent[]; recoveryReason?: string;
+  events: WorldEvent[]; recoveryReason?: string; executionEpoch?: number;
 };
 export type Room = {
   id: string; shortCode: string; ownerId: string; createdAt: number | null; revision: number;

@@ -17,7 +17,9 @@ export function initializeRuntimeAdapters(): Promise<void> {
     const failures: string[] = [];
     const usable: Partial<Record<Language, GameRuntime>> = {};
     await Promise.all(languages.map(async language => {
-      const pool = createRuntime({ language, workers: 1, queueLimit: 32 });
+      // Persistent workers grow lazily: identity probes start only one per
+      // language; concurrent interactions can use four independent CPU cores.
+      const pool = createRuntime({ language, workers: 4, queueLimit: 32 });
       candidates[language] = pool;
       try {
         for (const objectType of ["Int", "string"] as const) {

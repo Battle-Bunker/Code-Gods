@@ -1,5 +1,19 @@
 # Code Gods server integration contract
 
+## Interaction throughput
+
+`interactionRateHz` is a per-room dispatch ceiling, not a fixed-rate work quota.
+The single server admits up to four interactions concurrently across rooms.
+Missed opportunities are not queued or replayed; slow execution lowers achieved
+throughput rather than putting the game into recovery. Running world time and
+the sampled game lifetime continue independently of achieved interaction rate.
+
+Each in-flight transformation reserves its target object. Guest execution runs
+outside the state-mutation lock; completion commits only if the game, phase,
+execution epoch and object version still match. Pauses, idle shutdown and game
+replacement invalidate obsolete results. Runtime admission is also bounded
+across both languages, including validation requests.
+
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
 The current display uses generated OpenAPI hooks and one-second polling. It never
 receives private valuation descriptors, seeds, end deadlines, or opponent values.

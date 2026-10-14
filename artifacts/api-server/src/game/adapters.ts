@@ -28,6 +28,32 @@ export function unregisterAdapters() {
 }
 
 export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime>>): RuntimeAdapter {
+  // Shared admission across both languages, including summon validation.
+  // Language-specific workers remain persistent, but at most four requests
+  // execute at once. Bound waiting callers as well as the underlying pools.
+  let active = 0;
+  const waiting: Array<() => void> = [];
+  async function admitted<T>(run: () => Promise<T>): Promise<T> {
+    if (active < 4) active++;
+    else {
+      if (waiting.length >= 64) throw new RuntimeError("CAPACITY", "Runtime capacity exhausted; retry later");
+      await new Promise<void>((resolve, reject) => {
+        const resume = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(() => {
+          const index = waiting.indexOf(resume);
+          if (index >= 0) waiting.splice(index, 1);
+          reject(new RuntimeError("CAPACITY", "Queue wait expired"));
+        }, 34000);
+        waiting.push(resume);
+      });
+    }
+    try { return await run(); }
+    finally {
+      const next = waiting.shift();
+      if (next) next();
+      else active--;
+    }
+  }
   function pool(settings: GameSettings): GameRuntime {
     validateSettings(settings);
     const selected = pools[settings.language];
@@ -36,9 +62,13 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
   }
   return {
     languages: Object.keys(pools),
-    async inspect(source, settings) { return pool(settings).inspect(source, settings); },
+    async inspect(source, settings) {
+      const selected = pool(settings);
+      return admitted(() => selected.inspect(source, settings));
+    },
     async execute(source, input, settings) {
-      return (await pool(settings).execute(source, input, settings)).value;
+      const selected = pool(settings);
+      return (await admitted(() => selected.execute(source, input, settings))).value;
     },
   };
 }

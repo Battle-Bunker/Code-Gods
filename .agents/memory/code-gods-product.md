@@ -91,3 +91,9 @@ Deploy on Autoscale with at most one server instance. Close connections after 30
 **Why:** The user requires Autoscale for affordable compute and explicitly ruled out multiple simultaneous instances.
 
 **How to apply:** Do not require Reserved VM or build distributed coordination. Centralize inactivity handling; heartbeats, bots, and passive polling must not prevent sleep. Preserve committed state across restarts and offer explicit wake after idle.
+
+Interaction speed is an upper limit; perform interactions as fast as available capacity permits, parallelized over four cores.
+
+**Why:** The user rejected recovery pauses caused by trying to catch up to a fixed interaction schedule during the pilot.
+
+**How to apply:** Do not accumulate interaction debt or stop the game for throughput overload. Keep concurrent transformations consistent, retain isolation, and distinguish the configured cap from achieved throughput.
