@@ -1,0 +1,1 @@
+- [Code Gods intent](code-gods-product.md) — unrestricted AI, customizable Replit player clients, server display boundaries and aggregate-only opponent valuations.
