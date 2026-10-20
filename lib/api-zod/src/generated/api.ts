@@ -174,7 +174,7 @@ export const CreateRoomResponse = zod.object({
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
   "grammarId": zod.string(),
-  "valueGeneratorId": zod.string(),
+  "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
@@ -214,7 +214,7 @@ export const CreateRoomResponse = zod.object({
   "id": zod.string(),
   "value": zod.union([zod.number().int(),zod.string()]),
   "version": zod.number().int(),
-  "totalValueSum": zod.number()
+  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
 })),
   "leaderboard": zod.array(zod.object({
   "deityId": zod.string(),
@@ -225,6 +225,11 @@ export const CreateRoomResponse = zod.object({
 }))
 }),zod.null()]),
   "serverTime": zod.number(),
+  "utilityCatalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "theme": zod.string()
+})).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int()
 })
@@ -255,7 +260,7 @@ export const GetRoomResponse = zod.object({
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
   "grammarId": zod.string(),
-  "valueGeneratorId": zod.string(),
+  "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
@@ -295,7 +300,7 @@ export const GetRoomResponse = zod.object({
   "id": zod.string(),
   "value": zod.union([zod.number().int(),zod.string()]),
   "version": zod.number().int(),
-  "totalValueSum": zod.number()
+  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
 })),
   "leaderboard": zod.array(zod.object({
   "deityId": zod.string(),
@@ -306,6 +311,11 @@ export const GetRoomResponse = zod.object({
 }))
 }),zod.null()]),
   "serverTime": zod.number(),
+  "utilityCatalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "theme": zod.string()
+})).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int()
 })
@@ -340,7 +350,7 @@ export const RoomActionBody = zod.object({
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
   "grammarId": zod.string(),
-  "valueGeneratorId": zod.string(),
+  "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
@@ -381,7 +391,7 @@ export const RoomActionResponse = zod.object({
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
   "grammarId": zod.string(),
-  "valueGeneratorId": zod.string(),
+  "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
@@ -421,7 +431,7 @@ export const RoomActionResponse = zod.object({
   "id": zod.string(),
   "value": zod.union([zod.number().int(),zod.string()]),
   "version": zod.number().int(),
-  "totalValueSum": zod.number()
+  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
 })),
   "leaderboard": zod.array(zod.object({
   "deityId": zod.string(),
@@ -432,6 +442,11 @@ export const RoomActionResponse = zod.object({
 }))
 }),zod.null()]),
   "serverTime": zod.number(),
+  "utilityCatalog": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "theme": zod.string()
+})).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int()
 })
@@ -470,7 +485,7 @@ export const GetManifestResponse = zod.object({
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
   "grammarId": zod.string(),
-  "valueGeneratorId": zod.string(),
+  "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
@@ -490,7 +505,7 @@ export const GetManifestResponse = zod.object({
   "languages": zod.array(zod.string()),
   "objectTypes": zod.array(zod.string())
 })),
-  "valueGeneratorId": zod.array(zod.object({
+  "utilitySelectorId": zod.array(zod.object({
   "id": zod.string(),
   "label": zod.string(),
   "languages": zod.array(zod.string()),

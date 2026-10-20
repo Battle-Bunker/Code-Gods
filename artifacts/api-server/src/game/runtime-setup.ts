@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from "@workspace/game-core";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { createRuntimeAdapter, createValuesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};
@@ -48,7 +48,7 @@ export function initializeRuntimeAdapters(): Promise<void> {
     }
     for (const failure of failures) console.warn(`Isolated runtime unavailable (no fallback): ${failure}`);
     pools = usable;
-    registerAdapters({ runtime: createRuntimeAdapter(usable), values: createValuesAdapter() });
+    registerAdapters({ runtime: createRuntimeAdapter(usable), utilities: createUtilitiesAdapter() });
   })().catch(error => {
     if (currentGeneration === generation) {
       for (const pool of Object.values(candidates)) pool.close();

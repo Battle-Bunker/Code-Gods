@@ -10,5 +10,6 @@ export interface PublicObject {
   id: string;
   value: number | string;
   version: number;
-  totalValueSum: number;
+  /** Sum of every god's utility for this object. */
+  totalUtility: number;
 }

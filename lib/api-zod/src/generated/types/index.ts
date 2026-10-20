@@ -44,3 +44,4 @@ export * from './settingsOptions';
 export * from './settingsSpawnFunctionId';
 export * from './standing';
 export * from './statusResult';
+export * from './utilityFamily';

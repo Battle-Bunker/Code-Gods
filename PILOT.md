@@ -71,7 +71,7 @@ when requested.
 
 The client Agent may use the secured local daemon APIs described in
 `docs/player-client-integration.md` to observe and act as its human player.
-It has no room-owner permissions or access to opponents' individual values.
+It has no room-owner permissions or access to opponents' individual utilities.
 Client UI and analytics are freely editable. Pull subsequent Git changes into
 each copy and restart its client service.
 
@@ -79,10 +79,11 @@ each copy and restart its client service.
 
 Start with three humans or two humans and one AI. Use TypeScript, Int, a short
 planning phase and the default world rates. A valid first summon is
-`(x) => x` or `(x) => x + 1` (the latter can fail at the upper integer boundary).
-Python equivalents are `lambda x: x` and `lambda x: x + 1`.
+`(x) => x + 1` (it fails at the upper integer boundary). The Python equivalent is
+`lambda x: x + 1`. The identity `x => x` validates but never changes anything:
+every object value is unique, so a transformation onto an existing value fails.
 
-Check the private source, validate, summon, observe transformations, send a
+Read your utility card (summary first, then source), validate, summon, observe transformations, send a
 public message, and try one pause. Then try reconnecting the client.
 
 ## Verification boundary

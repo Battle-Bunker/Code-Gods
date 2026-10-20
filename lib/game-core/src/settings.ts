@@ -8,7 +8,8 @@ export interface GameSettings {
   intMax: number;
   stringMaxLength: number;
   grammarId: string;
-  valueGeneratorId: string;
+  /** How utility functions are dealt to gods; see @workspace/game-utilities. */
+  utilitySelectorId: string;
   complexityFunctionId: string;
   spawnFunctionId: "uniform";
   planningSeconds: number;
@@ -31,7 +32,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   intMax: 2147483647,
   stringMaxLength: 128,
   grammarId: "python-standard-v1",
-  valueGeneratorId: "pantheon-of-friction-v1",
+  utilitySelectorId: "divine-lottery",
   complexityFunctionId: "ast-bytes-v1",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
@@ -50,8 +51,8 @@ export const SETTINGS_OPTIONS = {
     { id: "python-standard-v1", label: "Python computational standard library", languages: ["python"], objectTypes: ["Int", "string"] },
     { id: "typescript-standard-v1", label: "TypeScript ECMAScript built-ins", languages: ["typescript"], objectTypes: ["Int", "string"] },
   ],
-  valueGeneratorId: [
-    { id: "pantheon-of-friction-v1", label: "Pantheon of Friction", languages: ["python", "typescript"], objectTypes: ["Int", "string"] },
+  utilitySelectorId: [
+    { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", languages: ["python", "typescript"], objectTypes: ["Int", "string"] },
   ],
   complexityFunctionId: [
     { id: "ast-bytes-v1", label: "AST nodes + literal bytes", languages: ["python", "typescript"], objectTypes: ["Int", "string"] },
@@ -96,7 +97,7 @@ export function validateSettings(settings: GameSettings): void {
   }
   if (settings.pauseSeconds === 0) throw new Error("Pause duration must be positive");
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
-  for (const key of ["grammarId", "valueGeneratorId", "complexityFunctionId"] as const) {
+  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
     if (!SETTINGS_OPTIONS[key].some(option => option.id === settings[key] &&
         option.languages.includes(settings.language) && option.objectTypes.includes(settings.objectType))) {
       throw new Error(`Unsupported ${key} for this language and object type`);

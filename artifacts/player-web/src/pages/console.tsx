@@ -15,6 +15,16 @@ type Unknown = { command: Command; commandId: UUID; error: string };
 const POLL_MS = 1500;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const fmt = (v: number | string) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(3)) : v);
+/** Object values: strings are JSON-quoted so spaces, quotes and control characters stay visible. */
+const show = (v: number | string) => (typeof v === "number" ? String(v) : JSON.stringify(v));
+
+function Countdown({ obs }: { obs: Observation }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
+  const until = obs.phase === "planning" ? obs.planningEndsAt : obs.phase === "paused" ? obs.pauseEndsAt : undefined;
+  if (!until || until <= now) return null;
+  return <span data-testid="text-countdown"><span className="opacity-50">{obs.phase === "planning" ? "world starts in " : "resumes in "}</span>{Math.ceil((until - now) / 1000)}s</span>;
+}
 
 function Panel({ title, meta, children, className = "" }: { title: string; meta?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -185,17 +195,17 @@ export default function Console() {
   const currentValidation = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!currentValidation?.valid && currentValidation.cost <= (obs?.self.energy??0) && language===obs?.language && source.trim().length > 0;
 
-  const ranked = useMemo(() => (obs ? [...obs.objects].sort((a, b) => b.payoff - a.payoff) : []), [obs]);
+  const ranked = useMemo(() => (obs ? [...obs.objects].sort((a, b) => b.score - a.score) : []), [obs]);
   const analytics = useMemo(() => {
     if (!obs) return [];
     const sum = (f: (o: Observation["objects"][number]) => number) => obs.objects.reduce((s, o) => s + f(o), 0);
-    const pay = sum((o) => o.payoff);
+    const total = sum((o) => o.score);
     const rank = obs.leaderboard.slice().sort((a, b) => b.score - a.score).findIndex((l) => l.godId === obs.self.godId);
     return [
       { k: "Energy", v: fmt(obs.self.energy) },
-      { k: "Total payoff", v: fmt(pay) },
-      { k: "Own value Σ", v: fmt(sum((o) => o.ownValue)) },
-      { k: "Others Σ", v: fmt(sum((o) => o.othersSum)) },
+      { k: "Total score", v: fmt(total) },
+      { k: "Own utility Σ", v: fmt(sum((o) => o.ownUtility)) },
+      { k: "Others' utility Σ", v: fmt(sum((o) => o.othersUtilitySum)) },
       { k: "Agent cost Σ", v: fmt(obs.agents.reduce((s, a) => s + a.cost, 0)) },
       { k: "Rank", v: rank >= 0 ? `${rank + 1} / ${obs.leaderboard.length}` : "—" },
     ];
@@ -290,7 +300,7 @@ export default function Console() {
         <div className="flex gap-5 font-mono text-xs">
           <span><span className="opacity-50">room </span><span data-testid="text-room">{obs?.roomId ?? roomId}</span></span>
           <span><span className="opacity-50">phase </span><span data-testid="text-phase" className="text-primary uppercase">{obs?.phase ?? "—"}</span></span>
-          <span><span className="opacity-50">rev </span>{obs?.revision ?? "—"}</span>
+          {obs && <Countdown obs={obs} />}
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span data-testid="status-connection" className="font-mono text-xs flex items-center gap-1.5">
@@ -377,25 +387,34 @@ export default function Console() {
               </dl>
             )}
           </Panel>
-          <Panel title="Your value function">
-            {obs ? <pre className="font-mono text-xs whitespace-pre-wrap break-all max-h-40 overflow-auto">{obs.self.valueSource}</pre> : <Empty>Available after room approval.</Empty>}
+          <Panel title="Your utility function" meta="private">
+            {!obs ? <Empty>Available after room approval.</Empty> : !obs.self.utility ? <Empty>Dealt when the next game starts.</Empty> : (
+              <div data-testid="panel-utility">
+                <p className="font-serif text-2xl leading-tight">{obs.self.utility.name}</p>
+                <p data-testid="text-utility-summary" className="mt-2 text-sm leading-relaxed">{obs.self.utility.summary}</p>
+                <p className="mt-2 text-xs text-muted-foreground">Each object scores <em>your utility × the sum of everyone else's</em>: it only pays if other gods value it too.</p>
+                <details className="mt-3">
+                  <summary className="label cursor-pointer hover:!text-primary">{obs.self.utility.language} source</summary>
+                  <pre data-testid="text-utility-source" className="mt-2 font-mono text-xs whitespace-pre-wrap break-all max-h-72 overflow-auto bg-muted p-2">{obs.self.utility.source}</pre>
+                </details>
+              </div>
+            )}
           </Panel>
-          <Panel title="Objects by payoff" meta={obs?.objects.length ?? 0} className="flex-1">
+          <Panel title="Objects by your score" meta={obs?.objects.length ?? 0} className="flex-1">
             {!obs ? <Empty>Waiting for observation.</Empty> : ranked.length === 0 ? <Empty>The world holds no objects yet.</Empty> : (
               <div className="overflow-auto max-h-[420px]">
                 <table className="w-full font-mono text-xs">
                   <thead className="sticky top-0 bg-card"><tr className="label text-left">
-                    <th className="py-1 pr-2">#</th><th className="pr-2">object</th><th className="pr-2">value</th><th className="text-right pr-2">own</th><th className="text-right pr-2">others Σ</th><th className="text-right">payoff</th>
+                    <th className="py-1 pr-2">#</th><th className="pr-2">object value</th><th className="text-right pr-2" title="Your utility for this object">yours</th><th className="text-right pr-2" title="Sum of every other god's utility">others Σ</th><th className="text-right" title="yours × others Σ">score</th>
                   </tr></thead>
                   <tbody>
                     {ranked.map((o, i) => (
                       <tr key={o.id} data-testid={`row-object-${o.id}`} className="border-t border-[hsl(var(--card-border))] hover:bg-muted transition-colors">
                         <td className="py-1.5 pr-2 opacity-50">{i + 1}</td>
-                        <td className="pr-2 truncate max-w-[90px]">{o.id}</td>
-                        <td className="pr-2 truncate max-w-[90px]">{fmt(o.value)}</td>
-                        <td className="text-right pr-2">{fmt(o.ownValue)}</td>
-                        <td className="text-right pr-2 opacity-70">{fmt(o.othersSum)}</td>
-                        <td className={`text-right font-semibold ${o.payoff >= 0 ? "text-[hsl(var(--accent))]" : "text-primary"}`}>{fmt(o.payoff)}</td>
+                        <td className="pr-2 max-w-[260px] truncate" title={show(o.value)}>{show(o.value)}</td>
+                        <td className="text-right pr-2">{fmt(o.ownUtility)}</td>
+                        <td className="text-right pr-2 opacity-70">{fmt(o.othersUtilitySum)}</td>
+                        <td className={`text-right font-semibold ${o.score > 0 ? "text-[hsl(var(--accent))]" : "opacity-50"}`}>{fmt(o.score)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -409,7 +428,7 @@ export default function Console() {
                 {obs.transformations.map((t) => (
                   <li key={t.id} data-testid={`row-transformation-${t.id}`} className="flex gap-2 items-center">
                     <span className="opacity-50 w-20 truncate">{t.agentId}</span>
-                    <span className="truncate">{fmt(t.before)}</span><span className="text-primary">→</span><span className="truncate font-semibold">{fmt(t.after)}</span>
+                    <span className="truncate">{show(t.before)}</span><span className="text-primary">→</span><span className="truncate font-semibold">{show(t.after)}</span>
                   </li>
                 ))}
               </ul>

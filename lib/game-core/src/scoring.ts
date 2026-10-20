@@ -1,32 +1,33 @@
 export interface PersonalScore {
-  ownValue: number;
-  othersValueSum: number;
+  ownUtility: number;
+  othersUtilitySum: number;
+  /** ownUtility × othersUtilitySum: an object only pays you if other gods also value it. */
   score: number;
 }
 
-function assertValue(value: number): void {
-  if (!Number.isFinite(value) || value < 0 || value > 1) {
-    throw new Error("A deity value must be finite and within [0, 1]");
+function assertUtility(utility: number): void {
+  if (!Number.isFinite(utility) || utility < 0 || utility > 1) {
+    throw new Error("A god's utility must be finite and within [0, 1]");
   }
 }
 
 /** Server-only input; never put the input map into a public or player event. */
-export function personalScore(values: ReadonlyMap<string, number>, deityId: string): PersonalScore {
-  const ownValue = values.get(deityId);
-  if (ownValue === undefined) throw new Error("Deity is not in this game's roster");
-  let othersValueSum = 0;
-  for (const [id, value] of values) {
-    assertValue(value);
-    if (id !== deityId) othersValueSum += value;
+export function personalScore(utilities: ReadonlyMap<string, number>, deityId: string): PersonalScore {
+  const ownUtility = utilities.get(deityId);
+  if (ownUtility === undefined) throw new Error("Deity is not in this game's roster");
+  let othersUtilitySum = 0;
+  for (const [id, utility] of utilities) {
+    assertUtility(utility);
+    if (id !== deityId) othersUtilitySum += utility;
   }
-  return { ownValue, othersValueSum, score: ownValue * othersValueSum };
+  return { ownUtility, othersUtilitySum, score: ownUtility * othersUtilitySum };
 }
 
-export function totalValue(values: ReadonlyMap<string, number>): number {
+export function totalUtility(utilities: ReadonlyMap<string, number>): number {
   let total = 0;
-  for (const value of values.values()) {
-    assertValue(value);
-    total += value;
+  for (const utility of utilities.values()) {
+    assertUtility(utility);
+    total += utility;
   }
   return total;
 }
@@ -38,7 +39,7 @@ export function leaderboard(
   if (new Set(roster).size !== roster.length) throw new Error("Duplicate deity in roster");
   const rows = roster.map(deityId => ({
     deityId,
-    totalScore: objects.reduce((sum, values) => sum + personalScore(values, deityId).score, 0),
+    totalScore: objects.reduce((sum, utilities) => sum + personalScore(utilities, deityId).score, 0),
     rank: 0,
   })).sort((a, b) => b.totalScore - a.totalScore || a.deityId.localeCompare(b.deityId));
   for (let i = 0; i < rows.length; i++) {

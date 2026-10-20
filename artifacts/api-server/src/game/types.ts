@@ -1,10 +1,12 @@
 import type { GameSettings, ObjectValue } from "@workspace/game-core";
+import type { UtilityDescriptor } from "@workspace/game-utilities";
 export type AISeatDefinition = { id: string; name: string; provider: "anthropic" | "openai"; model: string; prompt: string; revision: number };
 export type Member = { id: string; name: string; kind: "human" | "ai"; ready: boolean; status?: string; aiAgent?: AISeatDefinition };
 export type Chat = { id: string; authorId: string; authorName: string; kind: string; text: string; timestamp: number };
-export type WorldObject = { id: string; value: ObjectValue; version: number; values: Record<string, number> };
+/** `utilities` is server-private: each god's utility for this object. Only aggregates leave the server. */
+export type WorldObject = { id: string; value: ObjectValue; version: number; utilities: Record<string, number> };
 export type Agent = { id: string; ownerId: string; source: string; cost: number; createdAt: number };
-export type Deity = { id: string; source: string; descriptor: unknown; spent: number; pauseUsed: boolean };
+export type Deity = { id: string; utility: UtilityDescriptor; spent: number; pauseUsed: boolean };
 export type WorldEvent = {
   id: string; gameId: string; type: "object.transformed" | "object.spawned"; timestamp: number;
   object: WorldObject; agentId?: string; ownerId?: string; before?: ObjectValue;

@@ -20,16 +20,18 @@ function below(bound: bigint): bigint {
   }
 }
 function valuate(game: Game, value: number | string) {
-  const { values } = requireAdapters();
-  return Object.fromEntries(game.deities.map(d => {
-    const result = values.evaluate(d.descriptor, value);
-    if (!Number.isFinite(result) || result < 0 || result > 1) throw new Error("Invalid generated valuation");
-    return [d.id, result];
-  }));
+  const { utilities } = requireAdapters();
+  return Object.fromEntries(game.deities.map(d => [d.id, utilities.evaluate(d.utility, value)]));
 }
+/** Every object in a world is unique: spawns redraw, and transformations onto an existing value fail. */
+const occupied = (game: Game, value: number | string) => game.objects.some(o => o.value === value);
 function spawn(game: Game) {
-  const value = uniformObject(game.settings, below);
-  const object = { id: randomUUID(), value, version: 0, values: valuate(game, value) };
+  let value = uniformObject(game.settings, below);
+  for (let attempt = 0; occupied(game, value); attempt++) {
+    if (attempt >= 100) return; // Only a nearly-full tiny domain can get here; skip this spawn.
+    value = uniformObject(game.settings, below);
+  }
+  const object = { id: randomUUID(), value, version: 0, utilities: valuate(game, value) };
   game.objects.push(object);
   recordEvent(game, { id: randomUUID(), gameId: game.id, type: "object.spawned", object: structuredClone(object), timestamp: Date.now() });
 }
@@ -41,7 +43,7 @@ export async function startGame(room: Room, actor: Actor) {
   owner(room, actor);
   if (room.game && room.game.phase !== "ended") throw new Error("There is already a live game");
   if (room.members.length < 3) throw new Error("At least three gods are required");
-  if (room.members.length > 8) throw new Error("Pantheon of Friction supports at most eight gods");
+  if (room.members.length > 8) throw new Error("At most eight gods can play");
   if (room.members.some(m => m.kind === "ai")) {
     for (const bot of room.members.filter(m => m.kind === "ai")) {
       if (!bot.aiAgent) throw new Error("Replace legacy AI seats with an agent from the library");
@@ -49,10 +51,9 @@ export async function startGame(room: Room, actor: Actor) {
     }
     if (room.aiBudget <= 0) throw new Error("Approve an AI token budget before starting with AI seats");
   }
-  const { values, runtime } = requireAdapters();
+  const { utilities, runtime } = requireAdapters();
   if (!runtime.languages.includes(room.settings.language)) throw new Error("The selected isolated runtime is unavailable");
-  const descriptors = values.generate(room.settings, room.members.length, opaqueSeed());
-  if (descriptors.length !== room.members.length) throw new Error("Generator roster mismatch");
+  const dealt = utilities.deal(room.settings, room.members.length);
   const id = randomUUID(), now = Date.now();
   const gameIds = (await pool.query("SELECT id FROM cg_games")).rows.map(row => row.id as string);
   // Game UUIDs are canonical; aliases are resolved against the full namespace.
@@ -60,7 +61,7 @@ export async function startGame(room: Room, actor: Actor) {
   const game: Game = {
     id, shortCode: aliases.find(a => a.id === id)!.shortCode, phase: "planning", settings: { ...room.settings },
     roster: structuredClone(room.members), deities: room.members.map((m, i) => ({
-      id: m.id, ...descriptors[i], spent: 0, pauseUsed: false,
+      id: m.id, utility: dealt[i], spent: 0, pauseUsed: false,
     })),
     objects: [], agents: [], events: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
     pauseEndsAt: 0, worldSeconds: 0, endAtWorld: lifetimeSeconds(room.settings.halfLifeSeconds, openUniform()),
@@ -76,7 +77,6 @@ export async function startGame(room: Room, actor: Actor) {
   room.aiUsed = 0; room.aiReservedUsd = 0;
   room.members.forEach(m => { m.ready = false; });
 }
-const opaqueSeed = () => randomBytes(32).toString("hex");
 
 export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string; payload?: Record<string, unknown> }) {
   member(room, actor);
@@ -179,8 +179,8 @@ export function startTicker() {
             if (!target) return false;
             assertObjectValue(result, snapshot.settings);
             const value = result as number | string;
-            const values = valuate(g, value);
-            target.value = value; target.version++; target.values = values;
+            if (occupied(g, value)) return false; // Includes identity: the object already holds this value.
+            target.value = value; target.version++; target.utilities = valuate(g, value);
             recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
               object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
             return true;

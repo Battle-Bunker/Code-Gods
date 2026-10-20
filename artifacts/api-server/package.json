@@ -16,7 +16,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/game-core": "workspace:*",
     "@workspace/game-runtime": "workspace:*",
-    "@workspace/game-values": "workspace:*",
+    "@workspace/game-utilities": "workspace:*",
     "@workspace/player-client": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

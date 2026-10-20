@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_SETTINGS, validateSettings, assertObjectValue,
-  personalScore, totalValue, leaderboard, uniformObject,
+  personalScore, totalUtility, leaderboard, uniformObject,
   lifetimeSeconds, poissonIntervalSeconds, asciiStringAtRank,
   encodeUuid, uniquePrefixes, resolveIdentifier, settleEnergy, spendEnergy,
 } from "../src/index.ts";
@@ -73,7 +73,7 @@ test("two players have identical payoff regardless of opposed raw values", () =>
   for (const [a, b] of [[1, 0], [0.2, 0.8], [0.7, 0.3]]) {
     const values = new Map([["a", a], ["b", b]]);
     assert.equal(personalScore(values, "a").score, personalScore(values, "b").score);
-    assert.deepEqual(Object.keys(personalScore(values, "a")).sort(), ["othersValueSum", "ownValue", "score"]);
+    assert.deepEqual(Object.keys(personalScore(values, "a")).sort(), ["othersUtilitySum", "ownUtility", "score"]);
   }
 });
 
@@ -83,7 +83,7 @@ test("three players permit a genuine payoff conflict", () => {
   assert.equal(personalScore(before, "a").score, 0.75);
   assert.equal(personalScore(after, "a").score, 0.9375);
   assert.equal(personalScore(after, "b").score, 0.4375);
-  assert.equal(totalValue(before), 2);
+  assert.equal(totalUtility(before), 2);
   assert.equal(personalScore(new Map([["a", 1]]), "a").score, 0);
   assert.throws(() => personalScore(new Map([["a", NaN]]), "a"));
   assert.throws(() => personalScore(before, "missing"));

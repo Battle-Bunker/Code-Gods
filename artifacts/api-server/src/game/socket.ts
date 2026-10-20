@@ -5,6 +5,7 @@ import { listeners, resolveRoom, member, mutate } from "./store";
 import { publicRoom, personalRoom } from "./projection";
 import { playerCommand } from "./engine";
 import { observation, executePlayerEnvelope } from "./player-api";
+import { VERSION } from "@workspace/player-client";
 import { personalScore } from "@workspace/game-core";
 import { isServerActive, isLocallyIdle, recordHumanActivity, registerActivitySocket, closeIdleSocket } from "./activity";
 
@@ -65,7 +66,7 @@ export function attachSockets(server: Server) {
             for (const event of events.slice(start)) send(event.type, {
               id: event.id, gameId: event.gameId, agentId: event.agentId, before: event.before,
               object: { id: event.object.id, value: event.object.value, version: event.object.version,
-                ...personalScore(new Map(Object.entries(event.object.values)), actor.id) },
+                ...personalScore(new Map(Object.entries(event.object.utilities)), actor.id) },
             });
           }
           lastEvent = events.at(-1)?.id;
@@ -82,7 +83,7 @@ export function attachSockets(server: Server) {
             if (!await lookupSession(token)) { ws.close(1008, "Session expired"); return; }
             if (!await isServerActive()) { closeIdleSocket(ws); return; }
             const input = JSON.parse(data.toString());
-            if (input.version === "code-gods.player.v1") {
+            if (input.version === VERSION) {
               const receipt = await executePlayerEnvelope(room.id, actor, input);
               if (receipt.accepted && actor.kind === "human") await recordHumanActivity();
               send("command.receipt", receipt);

@@ -105,16 +105,29 @@ function Leaderboard({ room }: { room: RoomState }) {
   );
 }
 
-function Objects({ room }: { room: RoomState }) {
-  const objs = useMemo(() => [...(room.game?.objects ?? [])].sort((a, b) => b.totalValueSum - a.totalValueSum), [room.game?.objects]);
-  const max = Math.max(1, ...objs.map((o) => Math.abs(o.totalValueSum)));
+function Repertoire({ room }: { room: RoomState }) {
   return (
-    <Panel title="Objects / ranked by total value" meta={`${objs.length} live`}>
+    <Panel title="Possible gods" meta={`${room.utilityCatalog.length} families`}>
+      <p className="px-4 pt-3 text-sm text-muted-foreground">Each god privately draws one utility function at random from these families, with secret parameters. Who drew what is for you to work out.</p>
+      <ul className="px-4 py-3 space-y-2 max-h-[360px] overflow-auto">
+        {room.utilityCatalog.map((f) => (
+          <li key={f.id} data-testid={`row-family-${f.id}`} className="text-sm"><span className="font-medium">{f.name}</span> <span className="text-muted-foreground">· {f.theme}</span></li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
+
+function Objects({ room }: { room: RoomState }) {
+  const objs = useMemo(() => [...(room.game?.objects ?? [])].sort((a, b) => b.totalUtility - a.totalUtility), [room.game?.objects]);
+  const max = Math.max(1, ...objs.map((o) => Math.abs(o.totalUtility)));
+  return (
+    <Panel title="Objects / ranked by total utility" meta={`${objs.length} live`}>
       {objs.length === 0 ? <Empty title="The universe is empty" body="Objects spawn when a game is running. Nothing is invented here." /> : (
         <div className="max-h-[520px] overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-card"><tr className="label-mono text-left">
-              <th className="px-4 py-2 font-normal">#</th><th className="py-2 font-normal">object</th><th className="py-2 font-normal">value</th><th className="py-2 font-normal text-right">ver</th><th className="px-4 py-2 font-normal text-right">Σ value</th>
+              <th className="px-4 py-2 font-normal">#</th><th className="py-2 font-normal">object</th><th className="py-2 font-normal">value</th><th className="py-2 font-normal text-right">ver</th><th className="px-4 py-2 font-normal text-right">Σ utility</th>
             </tr></thead>
             <tbody>
               {objs.map((o, i) => (
@@ -125,8 +138,8 @@ function Objects({ room }: { room: RoomState }) {
                   <td className="py-1.5 font-mono text-right text-muted-foreground">v{o.version}</td>
                   <td className="px-4 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <div className="w-16 h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left transition-transform duration-700" style={{ transform: `scaleX(${Math.abs(o.totalValueSum) / max})` }} /></div>
-                      <span className="font-mono tabular-nums w-20">{fmt(o.totalValueSum, 2)}</span>
+                      <div className="w-16 h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left transition-transform duration-700" style={{ transform: `scaleX(${Math.abs(o.totalUtility) / max})` }} /></div>
+                      <span className="font-mono tabular-nums w-20">{fmt(o.totalUtility, 2)}</span>
                     </div>
                   </td>
                 </tr>
@@ -229,7 +242,7 @@ const numFields: [keyof Settings, string, number?][] = [
   ["interactionComputeMs", "Compute budget / interaction (ms)", 1], ["pauseSeconds", "Pause (s)"],
   ["startingEnergy", "Starting energy"], ["energyPerSecond", "Power (energy / s)"],
 ];
-const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["valueGeneratorId", "Value generator"], ["complexityFunctionId", "Complexity function"]];
+const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
 const typeKeys = ["intMin", "intMax", "stringMaxLength"];
 const relevantToType = (key: string, type: string) =>
   type === "Int" ? key !== "stringMaxLength" : key !== "intMin" && key !== "intMax";
@@ -386,6 +399,7 @@ export default function Room() {
           <div className="space-y-6">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
             {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} aiFunding={manifest.data?.aiFunding} /> : <ReadOnlySettings room={room} />}
+            <Repertoire room={room} />
           </div>
         </div>
       </>)}

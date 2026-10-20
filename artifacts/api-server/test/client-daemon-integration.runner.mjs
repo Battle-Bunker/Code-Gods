@@ -37,6 +37,8 @@ try {
               if (sql.startsWith("INSERT INTO cg_rooms")) {rooms.set(a[0],JSON.parse(a[3]));return rows([]);}
               if (sql.startsWith("INSERT INTO cg_games")) {games.set(a[0],JSON.parse(a[3]));return rows([]);}
               if (sql==="UPDATE cg_rooms SET state=$2 WHERE id=$1") {rooms.set(a[0],JSON.parse(a[1]));return rows([]);}
+              // Interaction batches are a write-ahead log; this fixture keeps whole-room snapshots only.
+              if (/^(INSERT INTO|DELETE FROM) cg_interaction_batches/.test(sql.trim())) return rows([]);
               throw new Error("Unexpected isolated fixture SQL");
             }
             export const pool={query,connect:async()=>({query,release(){}})};

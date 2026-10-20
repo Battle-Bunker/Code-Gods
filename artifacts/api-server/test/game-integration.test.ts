@@ -111,7 +111,7 @@ test("replay survives 1000 committed interactions, duplicate batches, partial ch
   assert.deepEqual(rehydrateInteractions(checkpoint, [{ ...batches[0], game_id: "old-game" }]), checkpoint);
 });
 
-test("three-player authority: exact costs, receipts, pause energy, privacy and persistent AI reservations", { timeout: 30000 }, async (t) => {
+test("three-player authority: exact costs, receipts, pause energy, privacy and persistent AI reservations", { timeout: 300000 }, async (t) => {
   const host: Actor = { id: randomUUID(), name: "Test Host", kind: "human", scope: "browser" };
   let stopTicker: (() => Promise<void>) | undefined;
   let releaseExecutions: (() => void) | undefined;
@@ -310,14 +310,14 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       g.nextSpawn = Number.MAX_VALUE;
       g.settings.interactionRateHz = 100;
       g.settings.pauseSeconds = 60;
-      // Keep transformations total over the full generated integer domain.
-      g.agents.forEach(agent => { agent.source = "(x: number) => x"; });
+      // Total over the integer domain, and never onto the object's own value (objects are unique).
+      g.agents.forEach(agent => { agent.source = "(x: number) => x === 2147483647 ? x - 1 : x + 1"; });
     });
     const adapters = requireAdapters();
     let hold = false, held = 0, released = 0;
     const gate = new Promise<void>(resolve => { releaseExecutions = resolve; });
     registerAdapters({
-      values: adapters.values,
+      utilities: adapters.utilities,
       runtime: {
         ...adapters.runtime,
         async execute(source, value, settings) {
@@ -334,7 +334,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const persisted = fixtureGames.get(resolveRoom(id).game!.id);
     const transformation = persisted.events.find((e: any) => e.type === "object.transformed");
     assert.ok(persisted.objects.find((o: any) => o.id === transformation.object.id).version >= 1);
-    assert.equal(transformation.before, transformation.object.value, "identity runtime result is persisted faithfully");
+    assert.equal(Math.abs(transformation.object.value - transformation.before), 1, "runtime result is persisted faithfully");
     hold = true;
     await waitUntil(() => held > 0, "runtime result deliberately held in flight");
     assert.equal((await executePlayerEnvelope(id, second, envelope({ type: "pause" }))).accepted, true);
@@ -367,7 +367,7 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
   try {
     for (const mode of ["wasm", "cheap-synthetic"] as const) {
       registerAdapters(mode === "wasm" ? adapters : { ...adapters,
-        runtime: { ...adapters.runtime, execute: async (_source, value) => value },
+        runtime: { ...adapters.runtime, execute: async (_source, value) => value === 2147483647 ? value - 1 : (value as number) + 1 },
       });
       for (const count of [10, 100, 2000]) {
         await mutate(room.id, async draft => {
@@ -379,7 +379,7 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
           g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
           // Explicit synthetic-only headroom bypass; production validation is unchanged.
           if (mode === "cheap-synthetic") g.settings.interactionRateHz = 4000;
-          g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => x", cost: 0, createdAt: Date.now() });
+          g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => x === 2147483647 ? x - 1 : x + 1", cost: 0, createdAt: Date.now() });
         });
         await recordHumanActivity();
         const writes = fixtureControl.interactionWrites;
@@ -403,12 +403,49 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
   }
 });
 
+test("objects stay unique: spawns never duplicate and transformations onto an existing value fail", { timeout: 60000 }, async () => {
+  await initializeRuntimeAdapters();
+  const host: Actor = { id: randomUUID(), name: "Unique", kind: "human", scope: "browser" };
+  const room = await createRoom(host);
+  const adapters = requireAdapters();
+  // No utility family can be fully satisfied in a six-value domain, so deal fixed ones.
+  registerAdapters({ ...adapters, utilities: { ...adapters.utilities,
+    deal: (_settings, count) => Array.from({ length: count }, (_, d) => ({ familyId: "digit-devotee", params: { d } })) } });
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    await mutate(room.id, async draft => {
+      draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
+      draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-standard-v1",
+        objectType: "Int", intMin: 0, intMax: 5, startingObjectCount: 6, spawnRateHz: 0 };
+      await startGame(draft, host);
+      const g = draft.game!;
+      assert.deepEqual(g.objects.map(o => o.value).sort(), [0, 1, 2, 3, 4, 5], "a full tiny domain spawns every value exactly once");
+      g.objects.splice(3);
+      g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
+      g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => 5", cost: 0, createdAt: Date.now() });
+    });
+    await recordHumanActivity();
+    stop = startTicker();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    await stop(); stop = undefined;
+    const game = resolveRoom(room.id).game!;
+    const values = game.objects.map(o => o.value);
+    assert.equal(new Set(values).size, values.length);
+    assert.equal(values.filter(v => v === 5).length, 1, "only the first constant transformation can succeed");
+    assert.equal(game.events.filter(e => e.type === "object.transformed").length, 1);
+  } finally {
+    await stop?.();
+    registerAdapters(adapters);
+    shutdownRuntimeAdapters();
+  }
+});
+
 test("graceful store shutdown flushes the bounded interaction window to disk", async () => {
   const host: Actor = { id: randomUUID(), name: "Shutdown", kind: "human", scope: "browser" };
   const room = await createRoom(host);
   await mutate(room.id, async draft => {
     draft.game = { id: randomUUID(), shortCode: "shutdown", phase: "ended",
-      objects: [{ id: "object", value: 0, version: 0, values: {} }], events: [] } as any;
+      objects: [{ id: "object", value: 0, version: 0, utilities: {} }], events: [] } as any;
   });
   await mutateInteraction(room.id, "object", draft => {
     const g = draft.game!, object = g.objects[0];

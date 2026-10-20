@@ -13,6 +13,9 @@
       "path": "./lib/game-core"
     },
     {
+      "path": "./lib/game-utilities"
+    },
+    {
       "path": "./lib/db"
     },
     {

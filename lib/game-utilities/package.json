@@ -1,12 +1,15 @@
 {
-  "name": "@workspace/game-values",
-  "version": "1.0.0",
+  "name": "@workspace/game-utilities",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --build",
-    "benchmark": "node --experimental-strip-types scripts/benchmark.ts"
+    "calibrate": "node --experimental-strip-types scripts/calibrate.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
   }
 }

@@ -7,7 +7,7 @@ and the secured per-player daemon. `lib/ai-player` owns the autonomous model pol
 budgets and injectable Replit AI Integrations adapter. `artifacts/player-web`
 is the customizable human console, separate from the common server display.
 
-The authoritative server implements the `code-gods.player.v1` adapter and device
+The authoritative server implements the `code-gods.player.v2` adapter and device
 approval routes. The isolated integration test below exercises current routes
 and the daemon using real HTTP and WebSocket connections. The standalone Vite
 preview is not a daemon and reports that no daemon is configured.
@@ -37,15 +37,15 @@ service and approves membership there; this package never issues membership or
 approves a request itself. No manually pasted static keys are supported.
 
 Observation requires version, roomId, monotonically increasing revision, phase,
-language, self (godId/label/isAI/energy/ready/valueSource), objects
-(id/value/ownValue/othersSum/payoff), own agents (id/source/language/cost),
+language, self (godId/label/isAI/energy/ready/utility{name,summary,language,source}),
+objects (id/value/ownUtility/othersUtilitySum/score), own agents (id/source/language/cost),
 own transformations (id/agentId/before/after), public leaderboard and public chat
 with visibly labelled AI identities. See schemas for caps. Arrays are bounded
 windows, not full world histories; coordinator must window larger rooms.
 Agents and transformation history must already be filtered to the requesting god.
-Only the player's value source and aggregate opponent values are allowed.
+Only the player's own utility function and aggregate opponent utilities are allowed.
 Unknown fields are stripped recursively before UI/model consumption.
-Aggregate values do not prevent mathematical inference.
+Aggregate utilities do not prevent mathematical inference.
 
 Commands are only validate, summon, ready, pause and public chat. There is no
 start, owner, admin, direct-message, arbitrary URL or file access command.
@@ -156,7 +156,7 @@ source/diagnostic data as untrusted user-message content. There are no LLM tools
 host execution or external URL commands. Prompt injection cannot be made
 mathematically impossible, but even a malicious model output cannot widen the
 command schema or obtain credentials it never received. Voluntary disclosure of
-the bot's own value source remains allowed.
+the bot's own utility function remains allowed.
 
 Model inputs are capped at 64KB; observations are windowed further for model
 context. Strict output schema allows at most four actions. Every summon is
@@ -168,7 +168,7 @@ Only one turn per controller runs at once. HTTP/SDK adapters must honor signals.
 
 `onEvent` is mandatory: wire usage, failure, thinking/acting/backoff/stopped and
 command acknowledgments to a visible usage/status surface and safe operational
-logging. Events do not contain chat, value source, provider errors or credentials.
+logging. Events do not contain chat, utility source, provider errors or credentials.
 The budget is process-local: if running multiple controller processes, coordinator
 must centralize reservations before starting them. Do not reset budgets on bot
 restart within a room or hide a failed controller behind another policy.

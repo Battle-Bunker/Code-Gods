@@ -1,7 +1,7 @@
 import { VERSION, envelopeSchema, observationSchema, type Envelope, type CommandResult } from "@workspace/player-client";
 import { personalScore } from "@workspace/game-core";
 import { member, mutate, resolveRoom } from "./store";
-import { standings } from "./projection";
+import { standings, utilityCard } from "./projection";
 import { playerCommand } from "./engine";
 import { hash } from "../lib/identity";
 import type { Actor, Room } from "./types";
@@ -16,11 +16,10 @@ export function observation(room: Room, actor: Actor) {
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: game?.settings.language ?? room.settings.language,
     self: { godId: actor.id, label: self.name, isAI: self.kind === "ai", ready: self.ready,
-      valueSource: deity?.source ?? "", pauseUsed: deity?.pauseUsed ?? false,
+      utility: game && deity ? utilityCard(game, actor.id) ?? undefined : undefined, pauseUsed: deity?.pauseUsed ?? false,
       energy: !game || !deity ? 0 : game.settings.startingEnergy + Math.max(0, Date.now() - game.createdAt) / 1000 * game.settings.energyPerSecond - deity.spent },
     objects: !game || !deity ? [] : game.objects.map(o => {
-      const score = personalScore(new Map(Object.entries(o.values)), actor.id);
-      return { id: o.id, value: o.value, ownValue: score.ownValue, othersSum: score.othersValueSum, payoff: score.score };
+      return { id: o.id, value: o.value, ...personalScore(new Map(Object.entries(o.utilities)), actor.id) };
     }),
     agents: game?.agents.filter(a => a.ownerId === actor.id).map(a => ({ ...a, language: game.settings.language })) ?? [],
     transformations: game?.events.filter(e => e.ownerId === actor.id && e.type === "object.transformed").slice(-500)

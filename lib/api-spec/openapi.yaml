@@ -278,12 +278,12 @@ components:
           items: { type: string }
     SettingsOptions:
       type: object
-      required: [grammarId, valueGeneratorId, complexityFunctionId]
+      required: [grammarId, utilitySelectorId, complexityFunctionId]
       properties:
         grammarId:
           type: array
           items: { $ref: "#/components/schemas/AuthoredOption" }
-        valueGeneratorId:
+        utilitySelectorId:
           type: array
           items: { $ref: "#/components/schemas/AuthoredOption" }
         complexityFunctionId:
@@ -331,7 +331,7 @@ components:
         aiAgentId: { type: string }
     Settings:
       type: object
-      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, valueGeneratorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
+      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
       properties:
         language: { type: string, enum: [python, typescript] }
         objectType: { type: string, enum: [Int, string] }
@@ -339,7 +339,7 @@ components:
         intMax: { type: integer }
         stringMaxLength: { type: integer }
         grammarId: { type: string }
-        valueGeneratorId: { type: string }
+        utilitySelectorId: { type: string }
         complexityFunctionId: { type: string }
         spawnFunctionId: { type: string, enum: [uniform] }
         planningSeconds: { type: number }
@@ -392,7 +392,7 @@ components:
         timestamp: { type: number }
     PublicObject:
       type: object
-      required: [id, value, version, totalValueSum]
+      required: [id, value, version, totalUtility]
       properties:
         id: { type: string }
         value:
@@ -400,7 +400,9 @@ components:
             - { type: integer }
             - { type: string }
         version: { type: integer }
-        totalValueSum: { type: number }
+        totalUtility:
+          type: number
+          description: Sum of every god's utility for this object.
     Standing:
       type: object
       required: [deityId, name, kind, totalScore, rank]
@@ -425,7 +427,7 @@ components:
         leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
     RoomState:
       type: object
-      required: [id, shortCode, ownerId, revision, settings, members, chat, game, serverTime, aiBudget, aiUsed]
+      required: [id, shortCode, ownerId, revision, settings, members, chat, game, serverTime, utilityCatalog, aiBudget, aiUsed]
       properties:
         id: { type: string }
         shortCode: { type: string }
@@ -439,8 +441,19 @@ components:
             - { $ref: "#/components/schemas/PublicGame" }
             - { type: "null" }
         serverTime: { type: number }
+        utilityCatalog:
+          type: array
+          description: Public list of utility-function families gods may have drawn for this object type.
+          items: { $ref: "#/components/schemas/UtilityFamily" }
         aiBudget: { type: integer }
         aiUsed: { type: integer }
+    UtilityFamily:
+      type: object
+      required: [id, name, theme]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        theme: { type: string }
     HealthStatus:
       type: object
       properties:
