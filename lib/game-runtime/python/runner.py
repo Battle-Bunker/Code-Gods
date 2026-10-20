@@ -239,7 +239,8 @@ class Runner:
         cost = self.call("PyLong_AsLong", price)
         # Only trusted compiler output reaches marshal. No submitted byte stream
         # is ever decoded, and no user expression has executed at this point.
-        marshalled = self.call("PyMarshal_WriteObjectToString", code, 4)
+        # Version 5 is required for the slice constants CPython 3.14+ folds from `s[1:]`.
+        marshalled = self.call("PyMarshal_WriteObjectToString", code, 5)
         if not marshalled or self.call("PyBytes_AsStringAndSize", marshalled,
                                       self.pointer_buffer, self.size_buffer):
             raise ValueError("Code serialization failed")
