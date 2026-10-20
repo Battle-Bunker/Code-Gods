@@ -49,7 +49,46 @@ def _price(source):
         raise ValueError('Unsupported constant')
     return sum(size(n.value) if isinstance(n, ast.Constant) else 1
                for n in ast.walk(ast.parse(source, mode='eval')))
+def _explain(source):
+    try:
+        compile(source, '<agent>', 'eval')
+    except SyntaxError as e:
+        try:
+            compile(source, '<agent>', 'exec')
+        except SyntaxError:
+            pass
+        else:
+            return ('SyntaxError: an agent must be one expression that evaluates to a function, '
+                    'like lambda x: x + 1. Statements such as def, return, import and '
+                    'assignments are not allowed (use nested lambdas instead).')
+        text = (e.text or '').split('\\n')[0]
+        column = max(min(e.offset or 1, len(text) + 1), 1)
+        start = max(column - 60, 0)
+        where = f' (line {e.lineno}, column {e.offset})' if e.lineno else ''
+        caret = f'\\n    {text[start:column + 20]}\\n    {" " * (column - 1 - start)}^' if text else ''
+        return f'SyntaxError: {e.msg}{where}{caret}'
+    except Exception as e:
+        return f'{type(e).__name__}: {e}'
+    return 'SyntaxError: invalid Python expression'
 """
+
+
+class Limit(Exception):
+    """A resource limit, reported to players in plain language instead of a wasm trap."""
+
+
+def describe_trap(trap, phase, budget):
+    text = str(trap)
+    if phase == "prepare":
+        return "Time limit exceeded: compiling the agent took longer than 3 seconds"
+    if any(sign in text for sign in ("all fuel consumed", "interrupt", "CPU budget", "watchdog")):
+        return (f"Time limit exceeded: the agent used more than its {budget:g} ms compute "
+                "budget for one interaction. Do less work per call.")
+    if "call stack exhausted" in text:
+        return "Recursion too deep: the agent exhausted the call stack"
+    if "out of bounds" in text or "memory" in text:
+        return "Memory limit exceeded: the agent used too much memory"
+    return "The agent crashed the sandbox: " + text.split("Caused by:")[-1].strip()[:200]
 
 
 class Runner:
@@ -197,6 +236,15 @@ class Runner:
         finally:
             self.call("free", pointer)
 
+    def main_string(self, name):
+        main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
+        value = self.call("PyDict_GetItemString", main_dict, self.cstring(name))
+        pointer = value and self.call("PyUnicode_AsUTF8AndSize", value, self.size_buffer)
+        if not pointer:
+            return "SyntaxError: invalid Python expression"
+        length = struct.unpack("<i", self.memory.read(self.store, self.size_buffer, self.size_buffer+4))[0]
+        return bytes(self.memory.read(self.store, pointer, pointer+min(length, 2000))).decode("utf-8", "replace")
+
     def snapshot(self):
         if self.memory.data_len(self.store) > 48 * 1024 * 1024:
             raise ValueError("Prepared snapshot exceeds 48 MiB limit")
@@ -229,7 +277,10 @@ class Runner:
         self.memory.write(self.store, source.encode() + b"\0", self.source_buffer)
         code = self.call("Py_CompileString", self.source_buffer, self.filename, 258)
         if not code:
-            raise ValueError("SyntaxError: Invalid Python expression")
+            self.call("PyErr_Clear")
+            # Recompiling inside the guest (never the host) recovers the real message.
+            self.simple(f"_compile_error = _explain({source!r})")
+            raise ValueError(self.main_string("_compile_error"))
         # Pricing uses its own compiled expression and never evaluates source.
         self.simple(f"_inspection_cost = _price({source!r})")
         # Obtain the price via trusted eval in __main__, using a small C API helper.
@@ -239,7 +290,8 @@ class Runner:
         cost = self.call("PyLong_AsLong", price)
         # Only trusted compiler output reaches marshal. No submitted byte stream
         # is ever decoded, and no user expression has executed at this point.
-        marshalled = self.call("PyMarshal_WriteObjectToString", code, 4)
+        # Version 5 is required for the slice constants CPython 3.14+ folds from `s[1:]`.
+        marshalled = self.call("PyMarshal_WriteObjectToString", code, 5)
         if not marshalled or self.call("PyBytes_AsStringAndSize", marshalled,
                                       self.pointer_buffer, self.size_buffer):
             raise ValueError("Code serialization failed")
@@ -272,6 +324,7 @@ class Runner:
         if request["mode"] == "execute":
             check(request.get("input"), domain)
         key = (source, json.dumps(domain, sort_keys=True))
+        phase = "prepare"
         try:
             with self.bounded(3):
                 blob, cost, _ = self.prepare(source, key)
@@ -297,6 +350,7 @@ class Runner:
             # Conservative instruction ceiling, not an instruction-to-time promise.
             # The independent process-CPU sampler enforces the configured time
             # budget; epoch interruption and the parent wall deadline back it up.
+            phase = "execute"
             self.store.set_fuel(fuel if fuel is not None else int(budget * 150000))
             if on_execute:
                 on_execute()
@@ -325,10 +379,10 @@ class Runner:
                 if type(output) is not type(value):
                     raise ValueError("Transformation must preserve input type")
                 return {"value": output}
-        except wasmtime.Trap:
+        except wasmtime.Trap as trap:
             # A trap can interrupt C stack unwinding. Never reuse that store.
             self.new_store()
-            raise
+            raise Limit(describe_trap(trap, phase, budget)) from None
 
 
 if __name__ == "__main__":
@@ -348,6 +402,6 @@ if __name__ == "__main__":
         except Exception as error:
             message = str(error)[-2000:]
             code = "DOMAIN" if "DOMAIN:" in message else (
-                "LIMIT" if isinstance(error, wasmtime.Trap) else "COMPILE"
+                "LIMIT" if isinstance(error, (wasmtime.Trap, Limit)) else "COMPILE"
                 if "SyntaxError" in message else "EXECUTION")
             print(json.dumps({"ok": False, "code": code, "error": message}), flush=True)
