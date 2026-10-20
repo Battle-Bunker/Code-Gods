@@ -115,7 +115,7 @@ export interface AuthoredOption {
 
 export interface SettingsOptions {
   grammarId: AuthoredOption[];
-  valueGeneratorId: AuthoredOption[];
+  utilitySelectorId: AuthoredOption[];
   complexityFunctionId: AuthoredOption[];
 }
 
@@ -149,7 +149,7 @@ export interface Settings {
   intMax: number;
   stringMaxLength: number;
   grammarId: string;
-  valueGeneratorId: string;
+  utilitySelectorId: string;
   complexityFunctionId: string;
   spawnFunctionId: SettingsSpawnFunctionId;
   planningSeconds: number;
@@ -278,7 +278,8 @@ export interface PublicObject {
   id: string;
   value: number | string;
   version: number;
-  totalValueSum: number;
+  /** Sum of every god's utility for this object. */
+  totalUtility: number;
 }
 
 export interface Standing {
@@ -301,6 +302,12 @@ export interface PublicGame {
   leaderboard: Standing[];
 }
 
+export interface UtilityFamily {
+  id: string;
+  name: string;
+  theme: string;
+}
+
 export interface RoomState {
   id: string;
   shortCode: string;
@@ -311,6 +318,8 @@ export interface RoomState {
   chat: ChatMessage[];
   game: PublicGame | null;
   serverTime: number;
+  /** Public list of utility-function families gods may have drawn for this object type. */
+  utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
 }

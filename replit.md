@@ -1,6 +1,6 @@
-# [Project name]
+# Code Gods
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A multiplayer political game where each player is a god with a secret utility function, summoning code agents that transform a shared world of objects.
 
 ## Run & Operate
 
@@ -22,7 +22,13 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/game-utilities`: utility-function families, selectors, catalog (`docs/catalog.md`)
+- `lib/game-core`: settings, scoring, spawning, identifiers
+- `lib/game-runtime`: sandboxed Python (WASI) and TypeScript (QuickJS) agent execution
+- `artifacts/api-server`: authoritative server (`src/game/engine.ts` is the world loop)
+- `artifacts/code-gods`: shared room display and owner controls
+- `artifacts/player-web` + `lib/player-client`: player console and daemon for Replit clients
+- `lib/api-spec/openapi.yaml`: HTTP contract (run codegen after editing)
 
 ## Architecture decisions
 

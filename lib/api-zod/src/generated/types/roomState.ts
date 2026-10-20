@@ -9,6 +9,7 @@ import type { ChatMessage } from './chatMessage';
 import type { Member } from './member';
 import type { PublicGame } from './publicGame';
 import type { Settings } from './settings';
+import type { UtilityFamily } from './utilityFamily';
 
 export interface RoomState {
   id: string;
@@ -20,6 +21,8 @@ export interface RoomState {
   chat: ChatMessage[];
   game: PublicGame | null;
   serverTime: number;
+  /** Public list of utility-function families gods may have drawn for this object type. */
+  utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
 }

@@ -8,10 +8,12 @@ import express from "express";
 import WebSocket from "ws";
 import deviceRouter from "../src/routes/device";
 import playerRouter from "../src/routes/player";
+import { VERSION } from "@workspace/player-client";
 import { authenticate, issueSession } from "../src/lib/identity";
 import { createRoom, mutate, resolveRoom } from "../src/game/store";
 import { startGame, startTicker } from "../src/game/engine";
 import { attachSockets } from "../src/game/socket";
+import { recordHumanActivity } from "../src/game/activity";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup";
 import type { Actor } from "../src/game/types";
 // @ts-expect-error isolated SQL fixture only
@@ -38,6 +40,8 @@ test("two independent daemon processes approve through PKCE and play via real HT
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
   try {
     await initializeRuntimeAdapters();
+    // A fresh process starts asleep until a human acts (see activity.ts).
+    await recordHumanActivity();
     const actors: Actor[] = ["Host fixture", "Independent A", "Independent B"].map(name => ({ id: randomUUID(), name, kind: "human", scope: "browser" }));
     const room = await createRoom(actors[0]);
     await mutate(room.id, async draft => {
@@ -96,7 +100,7 @@ test("two independent daemon processes approve through PKCE and play via real HT
       unauthorized.on("error", () => {});
     });
     assert.equal(await rejection, 401);
-    const command = (type: string, extra = {}) => ({ version: "code-gods.player.v1", commandId: randomUUID(), command: { type, ...extra } });
+    const command = (type: string, extra = {}) => ({ version: VERSION, commandId: randomUUID(), command: { type, ...extra } });
     for (const client of clients) {
       const observation = await (await client.request("/observation")).json();
       assert.equal(observation.self.godId, client.actor.id);

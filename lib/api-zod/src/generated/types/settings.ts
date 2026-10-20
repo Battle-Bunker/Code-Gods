@@ -16,7 +16,7 @@ export interface Settings {
   intMax: number;
   stringMaxLength: number;
   grammarId: string;
-  valueGeneratorId: string;
+  utilitySelectorId: string;
   complexityFunctionId: string;
   spawnFunctionId: SettingsSpawnFunctionId;
   planningSeconds: number;

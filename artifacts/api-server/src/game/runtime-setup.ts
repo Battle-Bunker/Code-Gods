@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from "@workspace/game-core";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { createRuntimeAdapter, createValuesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};
@@ -21,9 +21,11 @@ export function initializeRuntimeAdapters(): Promise<void> {
       // language; concurrent interactions can use four independent CPU cores.
       const pool = createRuntime({ language, workers: 4, queueLimit: 32 });
       candidates[language] = pool;
-      try {
+      const probe = async () => {
         for (const objectType of ["Int", "string"] as const) {
-          const settings = { ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1` };
+          // The probe checks availability, not speed: a cold worker on a busy host can
+          // exceed the 5 ms play budget, which must not disable a language until restart.
+          const settings = { ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1`, interactionComputeMs: 1000 };
           const source = language === "python" ? "lambda x: x"
             : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
           const input = objectType === "Int" ? 37 : "identity\0\n";
@@ -32,6 +34,12 @@ export function initializeRuntimeAdapters(): Promise<void> {
           if (!Number.isSafeInteger(cost) || cost <= 0 || value !== input) {
             throw new RuntimeError("UNAVAILABLE", `${language} identity probe failed`);
           }
+        }
+      };
+      try {
+        for (let attempt = 1; ; attempt++) {
+          try { await probe(); break; }
+          catch (error) { if (attempt >= 3) throw error; }
         }
         usable[language] = pool;
       } catch (error) {
@@ -48,7 +56,7 @@ export function initializeRuntimeAdapters(): Promise<void> {
     }
     for (const failure of failures) console.warn(`Isolated runtime unavailable (no fallback): ${failure}`);
     pools = usable;
-    registerAdapters({ runtime: createRuntimeAdapter(usable), values: createValuesAdapter() });
+    registerAdapters({ runtime: createRuntimeAdapter(usable), utilities: createUtilitiesAdapter() });
   })().catch(error => {
     if (currentGeneration === generation) {
       for (const pool of Object.values(candidates)) pool.close();

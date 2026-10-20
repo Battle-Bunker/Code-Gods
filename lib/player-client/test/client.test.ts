@@ -8,10 +8,10 @@ import { VERSION, commandSchema, observationSchema } from "../src/protocol.ts";
 import { HttpPlayerTransport, PlayerClient } from "../src/transport.ts";
 import { WebSocketPlayerTransport, type PlayerSocket } from "../src/socket-transport.ts";
 import { createPlayerDaemon } from "../src/daemon.ts";
-const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,valueSource:"own"},objects:[{id:"o",value:1,ownValue:1,othersSum:2,payoff:2,opponentValues:[1,1]}],agents:[],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
+const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,utility:{name:"Zebra",summary:"stripes",language:"python",source:"own"}},objects:[{id:"o",value:1,ownUtility:1,othersUtilitySum:2,score:2,opponentUtilities:[1,1]}],agents:[],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
 test("projection strips hidden fields and bounds commands",()=>{
   assert.equal(JSON.stringify(observationSchema.parse(raw)).includes("NEVER"),false);
-  assert.equal(JSON.stringify(observationSchema.parse(raw)).includes("opponentValues"),false);
+  assert.equal(JSON.stringify(observationSchema.parse(raw)).includes("opponentUtilities"),false);
   for(const command of [{type:"dm",text:"hi"},{type:"start"},{type:"chat",text:"hi",recipient:"god"},{type:"summon",language:"python",source:"x".repeat(16385)}]) assert.throws(()=>commandSchema.parse(command));
   assert.throws(()=>commandSchema.parse({type:"validate",language:"python",source:"é".repeat(9000)}));
   const extended=observationSchema.parse({...raw,gameId:"game",planningEndsAt:123,pauseEndsAt:456,self:{...raw.self,pauseUsed:true}});

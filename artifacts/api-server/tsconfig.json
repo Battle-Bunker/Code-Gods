@@ -11,7 +11,7 @@
   "include": ["src"],
   "references": [
     { "path": "../../lib/player-client" },
-    { "path": "../../lib/game-values" },
+    { "path": "../../lib/game-utilities" },
     { "path": "../../lib/ai-player" },
     { "path": "../../lib/game-core" },
     {

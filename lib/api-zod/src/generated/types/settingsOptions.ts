@@ -9,6 +9,6 @@ import type { AuthoredOption } from './authoredOption';
 
 export interface SettingsOptions {
   grammarId: AuthoredOption[];
-  valueGeneratorId: AuthoredOption[];
+  utilitySelectorId: AuthoredOption[];
   complexityFunctionId: AuthoredOption[];
 }

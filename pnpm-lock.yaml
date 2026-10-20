@@ -186,9 +186,9 @@ importers:
       '@workspace/game-runtime':
         specifier: workspace:*
         version: link:../../lib/game-runtime
-      '@workspace/game-values':
+      '@workspace/game-utilities':
         specifier: workspace:*
-        version: link:../../lib/game-values
+        version: link:../../lib/game-utilities
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../../lib/player-client
@@ -892,7 +892,11 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  lib/game-values: {}
+  lib/game-utilities:
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
 
   lib/player-client:
     dependencies:

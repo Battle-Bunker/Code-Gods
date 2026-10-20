@@ -8,7 +8,7 @@ Code Gods aims to elicit human technical understanding through political negotia
 
 **How to apply:** Keep server authority separate from freely customizable player clients in the same repo. The server UI is a common display and owner control panel, not a player gameplay editor. Video-call politics is external and out of scope.
 
-Individual opponents' object valuations are not directly shared: clients receive their own value, the sum of other values and their product. Public leaderboards show player total scores.
+Individual opponents' object utilities are not directly shared: clients receive their own utility, the sum of other gods' utilities and their product (the score). Public leaderboards show player total scores.
 
 **Why:** The user explicitly specified aggregate-only opponent information.
 
@@ -68,7 +68,7 @@ Use full names from verified Replit identities to label human players, not just 
 
 **How to apply:** Combine given and family names for display while preserving Replit subject IDs as the actual identity keys.
 
-Grammar, value-generator and complexity-function options are always pre-authored in deployed code.
+Grammar, utility-selector and complexity-function options are always pre-authored in deployed code.
 
 **Why:** The user explicitly requires dropdown choices rather than arbitrary identifier text inputs.
 
@@ -109,3 +109,21 @@ Queue database writes asynchronously with bounded buffering and batching rather 
 **Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap.
 
 **How to apply:** Preserve write order, flush on graceful shutdown, apply backpressure instead of unbounded queues, and clearly distinguish acknowledged durable actions from any uncommitted interaction window.
+
+Call them **utility functions**, never "value functions". "Value" means an object's value (the T instance).
+
+**Why:** The user explicitly wants the technical concept of utility invoked.
+
+**How to apply:** Use utility/ownUtility/othersUtilitySum/score in code, protocol, UI and docs.
+
+Utility functions must be heterogeneous, simple to state, and accompanied by a plain-language incentive summary. There is a large repertoire of unrelated families per object type (lib/game-utilities). Assignment is pure random per god for now ("Divine Lottery"), behind a selector interface for future balancing.
+
+**Why:** The user rejected a uniform schema with one varying parameter, and rejected complicated rule code with validation boilerplate. Fairness is meant to come from many games, not in-game balancing (for now). Beginners must understand their incentives without reading code.
+
+**How to apply:** New families need short Python/TypeScript bodies with no input validation, a summary, and an exemplar reaching ≥0.99. Random spawned objects must score near zero (mean <0.02); near-1 utility needs rare, structured values. The tests in lib/game-utilities enforce this.
+
+Every object in a world is unique. A transformation onto any existing value (including the object's own) fails entirely, and spawns redraw.
+
+**Why:** The user explicitly requires uniqueness.
+
+**How to apply:** Enforce it in the engine's commit path and spawner, not in clients.

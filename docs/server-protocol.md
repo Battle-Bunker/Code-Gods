@@ -34,7 +34,7 @@ short uncommitted interaction window. An abrupt process kill can lose that windo
 
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
 The current display uses generated OpenAPI hooks and one-second polling. It never
-receives private valuation descriptors, seeds, end deadlines, or opponent values.
+receives private utility descriptors, seeds, end deadlines, or opponent utilities.
 
 ## Identity
 
@@ -72,11 +72,14 @@ roster freezes that snapshot at start. Strategy text is not public room data.
 All writes use a single authoritative commit order. A PostgreSQL advisory lease
 prevents two server processes from operating the universe simultaneously. Startup
 loads persisted state and places interrupted games in recovery rather than
-simulating unobserved downtime. Schema migrations are separate from server startup.
+simulating unobserved downtime. World time is frozen in recovery. Games frozen by a
+restart or by idling resume on their own once a human is active again; the
+2,000-object safety stop waits for the owner's Resume. Schema migrations are
+separate from server startup.
 
 ## Player API and WebSocket
 
-The companion/AI client protocol is `code-gods.player.v1`:
+The companion/AI client protocol is `code-gods.player.v2`:
 
 - `GET /api/player/v1/rooms/:roomId/observation`
 - `POST /api/player/v1/rooms/:roomId/commands`
@@ -87,8 +90,8 @@ Commands use `{version,commandId,gameId?,command}`; `commandId` is a UUID.
 Examples:
 
 ```json
-{"version":"code-gods.player.v1","commandId":"UUID","gameId":"GAME_UUID","command":{"type":"validate","language":"python","source":"lambda x: x"}}
-{"version":"code-gods.player.v1","commandId":"UUID","command":{"type":"chat","text":"Public message"}}
+{"version":"code-gods.player.v2","commandId":"UUID","gameId":"GAME_UUID","command":{"type":"validate","language":"python","source":"lambda x: x"}}
+{"version":"code-gods.player.v2","commandId":"UUID","command":{"type":"chat","text":"Public message"}}
 ```
 
 Other commands are `summon` (same fields as validate), `pause`, and `ready`
@@ -127,15 +130,21 @@ window. Older public chat is paged through `/api/rooms/:roomId/chat?before=TIMES
 Successful player command receipts are persistent and deduplicated by identity,
 game and request ID. Reusing an ID with changed content fails.
 
-Private player snapshots have `self` with the player's `valueSource`, current
-energy, own agent source list and pause status. Personal object rows contain
-`ownValue`, `othersValueSum` and their product `score`. There is no per-opponent
-valuation endpoint and no private messaging.
+Private player snapshots have `self.utility` (the god's utility function: `name`,
+a plain-language `summary` of its incentives, and its `source` in the game language),
+current energy, own agent source list and pause status. Personal object rows contain
+`ownUtility`, `othersUtilitySum` and their product `score`. There is no per-opponent
+utility endpoint and no private messaging. Public room state includes
+`utilityCatalog`: the families any god might have drawn, never who drew what.
+
+Every object value in a world is unique. Spawns redraw on collision, and a
+transformation whose result equals any existing object's value (including the
+object's own current value) fails without changing anything.
 
 ## Integration and verification status
 
-The isolated runtimes, value generators, player protocol and autonomous AI
-controller are connected. `game/adapters.ts` is the runtime/valuation boundary.
+The isolated runtimes, utility functions, player protocol and autonomous AI
+controller are connected. `game/adapters.ts` is the runtime/utility boundary.
 Startup probes both languages, including string NUL/newline preservation, and
 advertises only usable languages. Missing adapters fail explicitly: no host-eval
 or placeholder-value fallback exists. AI calls use frozen library strategies,
@@ -205,7 +214,7 @@ endpoint alone is not proof that published Python is usable.
 `cg_interaction_batches` is an additive development schema change; deploy it through
 the normal Replit Publish schema-diff flow. There is no startup DDL or production
 migration script. The table contains room/game IDs, an end sequence, and existing
-transformation events (including resulting object values, versions and valuations).
+transformation events (including resulting object values, versions and utilities).
 It contains no agent source or additional identity metadata.
 
 Interaction completion changes the local cache first. Buffers hold at most 64

@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings } from "@workspace
 import { requireIdentity } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner } from "../game/store";
 import { publicRoom } from "../game/projection";
-import { playerCommand, startGame } from "../game/engine";
+import { playerCommand, resumeGame, startGame } from "../game/engine";
 import { runtime } from "../game/adapters";
 import { aiFundingStatus } from "../game/ai-provider";
 import { getAgentDefinition } from "../game/agent-library";
@@ -62,8 +62,7 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     }
     if (input.action === "resume") {
       if (room.game?.phase !== "recovery") throw new Error("Game is not in recovery");
-      room.game.phase = room.game.worldSeconds === 0 && room.game.planningEndsAt > Date.now() ? "planning" : "running";
-      room.game.lastTick = Date.now();
+      resumeGame(room.game);
       return;
     }
     if (room.game && room.game.phase !== "ended") throw new Error("Settings and seats are frozen during games");

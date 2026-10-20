@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const VERSION = "code-gods.player.v1" as const;
+export const VERSION = "code-gods.player.v2" as const;
 const id = z.string().min(1).max(128);
 const finite = z.number().finite();
 const program = { language: z.enum(["python", "typescript"]), source: z.string().min(1).max(16384).refine(source=>new TextEncoder().encode(source).length<=16384,"Source exceeds 16384 UTF-8 bytes") };
@@ -23,8 +23,11 @@ export const observationSchema = z.object({
   gameId: id.optional(), planningEndsAt: finite.optional(), pauseEndsAt: finite.optional(),
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
   language: z.enum(["python", "typescript"]),
-  self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(), valueSource: z.string().max(16384) }),
-  objects: z.array(z.object({ id, value: z.union([finite, z.string().max(1024)]), ownValue: finite, othersSum: finite, payoff: finite })).max(2000),
+  self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
+    // Your private utility function: a plain-language summary of its incentives, then its source.
+    utility: z.object({ name: z.string().max(128), summary: z.string().max(2000), language: z.enum(["python", "typescript"]), source: z.string().max(16384) }).optional() }),
+  // score = ownUtility × othersUtilitySum. Individual opponents' utilities are never disclosed.
+  objects: z.array(z.object({ id, value: z.union([finite, z.string().max(1024)]), ownUtility: finite, othersUtilitySum: finite, score: finite })).max(2000),
   agents: z.array(z.object({ id, source: z.string().max(16384), language: z.enum(["python", "typescript"]), cost: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: z.union([finite,z.string().max(1024)]), after: z.union([finite,z.string().max(1024)]) })).max(500),
   leaderboard: z.array(z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), score: finite })).max(100),

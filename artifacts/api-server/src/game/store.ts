@@ -248,13 +248,32 @@ export async function initializeStore() {
     room.aiReservedUsd ??= 0;
     room.aiDaily ??= { day: "", usd: 0, calls: [] };
     if (room.game) room.game.events ??= [];
+    migrateLegacyUtilities(room);
     if (room.game && room.game.phase !== "ended") {
       room.game.phase = "recovery";
-      room.game.recoveryReason = "Server restarted. The owner must resume the game.";
+      room.game.recoveryReason = "Server restarted. The game resumes when a player returns.";
+      room.game.autoResume = true;
       room.seq++;
       await persist(room);
     }
     rooms.set(room.id, room);
+  }
+}
+
+/** Rooms saved before value functions became utility functions (descriptors were incompatible). */
+function migrateLegacyUtilities(room: Room) {
+  type Legacy = { values?: Record<string, number>; utilities?: Record<string, number> };
+  const settings = (s: object) => { delete (s as { valueGeneratorId?: string }).valueGeneratorId; };
+  settings(room.settings);
+  const game = room.game;
+  if (!game) return;
+  settings(game.settings);
+  for (const object of [...game.objects, ...game.events.map(e => e.object)] as Legacy[]) {
+    if (object.values) { object.utilities ??= object.values; delete object.values; }
+  }
+  if (game.phase !== "ended" && game.deities.some(d => !d.utility)) {
+    game.phase = "ended";
+    game.recoveryReason = "This game used retired value functions and was closed by a server upgrade.";
   }
 }
 
