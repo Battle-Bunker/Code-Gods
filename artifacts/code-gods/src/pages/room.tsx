@@ -6,6 +6,7 @@ import {
   type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding,
 } from "@workspace/api-client-react";
 import { Shell, Panel, Empty, ErrorLine } from "@/components/shell";
+import { GameRules } from "@/components/game-rules";
 import { useAuth } from "@/hooks/use-auth";
 import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,6 +88,7 @@ function Leaderboard({ room }: { room: RoomState }) {
   const max = Math.max(1, ...rows.map((r) => Math.abs(r.totalScore)));
   return (
     <Panel title="Leaderboard" meta={room.game ? `${room.game.agentCount} agents` : undefined}>
+      <p className="px-4 py-2 text-xs text-muted-foreground">Total score = sum of your scores for all current objects.</p>
       {rows.length === 0 ? <Empty title="No standings yet" body="Scores appear once the owner starts a game and the world begins to run." /> : (
         <ol className="divide-y">
           {[...rows].sort((a, b) => a.rank - b.rank).map((s) => (
@@ -409,7 +411,7 @@ export default function Room() {
         <Header room={room} isOwner={isOwner} />
         {q.isError && <div className="mx-auto max-w-[1440px] px-4 md:px-6 pt-4"><ErrorLine message={`Showing last known state. ${errMsg(q.error)}`} onRetry={() => q.refetch()} /></div>}
         <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 lg:grid-cols-[1fr_1.35fr_360px] items-start">
-          <div className="space-y-6"><Leaderboard room={room} /><Chat room={room} canPost={isMember} act={act} /></div>
+          <div className="space-y-6"><Leaderboard room={room} /><GameRules room={room} /><Chat room={room} canPost={isMember} act={act} /></div>
           <Objects room={room} />
           <div className="space-y-6">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
