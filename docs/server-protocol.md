@@ -72,7 +72,10 @@ roster freezes that snapshot at start. Strategy text is not public room data.
 All writes use a single authoritative commit order. A PostgreSQL advisory lease
 prevents two server processes from operating the universe simultaneously. Startup
 loads persisted state and places interrupted games in recovery rather than
-simulating unobserved downtime. Schema migrations are separate from server startup.
+simulating unobserved downtime. World time is frozen in recovery. Games frozen by a
+restart or by idling resume on their own once a human is active again; the
+2,000-object safety stop waits for the owner's Resume. Schema migrations are
+separate from server startup.
 
 ## Player API and WebSocket
 

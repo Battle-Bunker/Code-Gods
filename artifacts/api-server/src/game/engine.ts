@@ -142,6 +142,14 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
   return result;
 }
 
+/** World time is frozen in recovery, so resuming never skips simulated time. */
+export function resumeGame(game: Game) {
+  game.phase = game.worldSeconds === 0 && game.planningEndsAt > Date.now() ? "planning" : "running";
+  game.lastTick = Date.now();
+  delete game.recoveryReason;
+  delete game.autoResume;
+}
+
 export function startTicker() {
   let pending: Promise<void> | undefined;
   let stopped = false;
@@ -213,6 +221,10 @@ export function startTicker() {
     pending = (async () => {
       for (const room of allRooms()) {
         if (stopped) break;
+        if (room.game?.phase === "recovery" && room.game.autoResume && !isLocallyIdle()) {
+          await mutate(room.id, async draft => { if (draft.game?.phase === "recovery") resumeGame(draft.game); });
+          continue;
+        }
         if (!room.game || ["ended", "recovery"].includes(room.game.phase)) continue;
         const game = room.game, now = Date.now();
         const deadline = game.phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
@@ -229,7 +241,8 @@ export function startTicker() {
             scheduler.invalidate();
             g.executionEpoch = (g.executionEpoch ?? 0) + 1;
             g.phase = "recovery";
-            g.recoveryReason = "Server became idle. The owner must resume the game.";
+            g.recoveryReason = "Server became idle. The game resumes when a player returns.";
+            g.autoResume = true;
             return;
           }
           advanceWorld(g, now, spawn, () => poissonIntervalSeconds(g.settings.spawnRateHz, openUniform()));

@@ -251,7 +251,8 @@ export async function initializeStore() {
     migrateLegacyUtilities(room);
     if (room.game && room.game.phase !== "ended") {
       room.game.phase = "recovery";
-      room.game.recoveryReason = "Server restarted. The owner must resume the game.";
+      room.game.recoveryReason = "Server restarted. The game resumes when a player returns.";
+      room.game.autoResume = true;
       room.seq++;
       await persist(room);
     }

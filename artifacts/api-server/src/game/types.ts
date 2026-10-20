@@ -18,6 +18,8 @@ export type Game = {
   createdAt: number; planningEndsAt: number; pauseEndsAt: number; worldSeconds: number;
   endAtWorld: number; nextSpawn: number; nextInteraction: number; lastTick: number;
   events: WorldEvent[]; recoveryReason?: string; executionEpoch?: number;
+  /** Recovery caused by a restart or idling resumes by itself once a human is active again. */
+  autoResume?: boolean;
 };
 export type Room = {
   id: string; shortCode: string; ownerId: string; createdAt: number | null; revision: number;

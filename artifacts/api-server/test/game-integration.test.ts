@@ -420,13 +420,18 @@ test("objects stay unique: spawns never duplicate and transformations onto an ex
       await startGame(draft, host);
       const g = draft.game!;
       assert.deepEqual(g.objects.map(o => o.value).sort(), [0, 1, 2, 3, 4, 5], "a full tiny domain spawns every value exactly once");
-      g.objects.splice(3);
+      g.objects = g.objects.filter(o => (o.value as number) < 3);
       g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
       g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => 5", cost: 0, createdAt: Date.now() });
     });
     await recordHumanActivity();
     stop = startTicker();
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const deadline = Date.now() + 20000;
+    while (!resolveRoom(room.id).game!.events.some(e => e.type === "object.transformed")) {
+      assert.ok(Date.now() < deadline, "a first constant transformation commits");
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    await new Promise(resolve => setTimeout(resolve, 500)); // Later attempts all collide with 5.
     await stop(); stop = undefined;
     const game = resolveRoom(room.id).game!;
     const values = game.objects.map(o => o.value);
@@ -436,6 +441,34 @@ test("objects stay unique: spawns never duplicate and transformations onto an ex
   } finally {
     await stop?.();
     registerAdapters(adapters);
+    shutdownRuntimeAdapters();
+  }
+});
+
+test("games frozen by a restart or idling resume once a human is active; safety stops do not", { timeout: 60000 }, async () => {
+  await initializeRuntimeAdapters();
+  const host: Actor = { id: randomUUID(), name: "Resume", kind: "human", scope: "browser" };
+  const rooms = [await createRoom(host), await createRoom(host)];
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    for (const [index, room] of rooms.entries()) {
+      await mutate(room.id, async draft => {
+        draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
+        await startGame(draft, host);
+        const g = draft.game!;
+        g.phase = "recovery"; g.worldSeconds = 12; g.endAtWorld = 3600; g.lastTick = Date.now() - 60000;
+        if (index === 0) g.autoResume = true;
+      });
+    }
+    await recordHumanActivity();
+    stop = startTicker();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const resumed = resolveRoom(rooms[0].id).game!;
+    assert.equal(resumed.phase, "running");
+    assert.ok(resumed.worldSeconds < 13, "downtime is not simulated");
+    assert.equal(resolveRoom(rooms[1].id).game!.phase, "recovery", "only restart/idle recoveries resume themselves");
+  } finally {
+    await stop?.();
     shutdownRuntimeAdapters();
   }
 });
