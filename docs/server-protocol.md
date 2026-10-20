@@ -33,6 +33,12 @@ Socket change notifications follow commit; HTTP observations can include the
 short uncommitted interaction window. An abrupt process kill can lose that window.
 
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
+Share rooms as `/rooms/{roomShortCode}`, games as `/games/{gameShortCode}`,
+and browser player links as `/player/?room={roomShortCode}`. Legacy GUID links
+still resolve. A game link opens only that game; historical links never silently
+display a replacement game. IDs inside authenticated protocol envelopes remain
+canonical GUIDs. Device approval request responses include the resolved `roomId`
+GUID, which the daemon pins before accepting credentials returned by polling.
 The current display uses generated OpenAPI hooks and one-second polling. It never
 receives private utility descriptors, seeds, end deadlines, or opponent utilities.
 

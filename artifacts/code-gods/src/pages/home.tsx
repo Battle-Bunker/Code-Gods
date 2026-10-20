@@ -91,7 +91,7 @@ function Rooms() {
   const submitCreate = (e: React.FormEvent) => {
     e.preventDefault();
     create.mutate({ data: {} }, {
-      onSuccess: (room) => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); nav(`/rooms/${room.id}`); },
+      onSuccess: (room) => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); nav(`/rooms/${room.shortCode}`); },
     });
   };
   const submitCode = (e: React.FormEvent) => {
@@ -122,7 +122,7 @@ function Rooms() {
             <ul className="divide-y">
               {rooms.data.map((r, i) => (
                 <li key={r.id} className="rise" style={{ animationDelay: `${i * 0.03}s` }}>
-                  <button onClick={() => nav(`/rooms/${r.id}`)} className="w-full grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-3 px-4 py-4 text-left hover:bg-muted/60 transition-colors" data-testid={`row-room-${r.id}`}>
+                  <button onClick={() => nav(`/rooms/${r.shortCode}`)} className="w-full grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-3 px-4 py-4 text-left hover:bg-muted/60 transition-colors" data-testid={`row-room-${r.id}`}>
                     <span className="font-mono text-lg font-semibold border px-2 py-1" title={r.id}>{r.shortCode}</span>
                     <span className="min-w-0 space-y-1">
                       <span className="block text-sm font-medium break-words">Owner: {r.ownerName}{r.ownerId === user?.id ? " (you)" : ""}</span>

@@ -25,6 +25,7 @@ import type {
   AiAgentUpdate,
   DeleteAdminAiAgentParams,
   DeviceApprovalInput,
+  GameLink,
   GetCurrentAuthUser200,
   HealthStatus,
   ListAdminAiAgents200,
@@ -671,6 +672,77 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getCreateRoomMutationOptions(options));
     }
+
+export const getGetGameLinkUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}`
+}
+
+export const getGameLink = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<GameLink> => {
+
+  return customFetch<GameLink>(getGetGameLinkUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGameLinkQueryKey = (code: string,) => {
+    return [
+    `/api/games/${code}`
+    ] as const;
+    }
+
+
+export const getGetGameLinkQueryOptions = <TData = Awaited<ReturnType<typeof getGameLink>>, TError = ErrorType<void>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGameLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGameLinkQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGameLink>>> = ({ signal }) => getGameLink(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGameLink>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGameLinkQueryResult = NonNullable<Awaited<ReturnType<typeof getGameLink>>>
+export type GetGameLinkQueryError = ErrorType<void>
+
+
+
+export function useGetGameLink<TData = Awaited<ReturnType<typeof getGameLink>>, TError = ErrorType<void>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGameLink>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGameLinkQueryOptions(code,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetRoomUrl = (roomId: string,) => {
 

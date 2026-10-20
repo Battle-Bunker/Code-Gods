@@ -22,7 +22,7 @@ router.post("/device/request", async (req, res) => {
   const code = randomBytes(5).toString("hex").toUpperCase();
   await pool.query("INSERT INTO cg_devices(id,code,secret_hash,challenge,room_id,expires) VALUES($1,$2,$3,$4,$5,$6)",
     [id, code, hash(secret), req.body.challenge, room.id, new Date(Date.now() + 300000)]);
-  res.json({ deviceId: id, deviceSecret: secret, userCode: code, verificationPath: `/device?code=${code}`, expiresIn: 300, interval: 2 });
+  res.json({ deviceId: id, deviceSecret: secret, roomId: room.id, userCode: code, verificationPath: `/device?code=${code}`, expiresIn: 300, interval: 2 });
 });
 router.post("/device/approve", async (req, res) => {
   const actor = requireIdentity(req);

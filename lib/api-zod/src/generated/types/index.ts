@@ -21,6 +21,8 @@ export * from './authUser';
 export * from './chatMessage';
 export * from './deleteAdminAiAgentParams';
 export * from './deviceApprovalInput';
+export * from './gameLink';
+export * from './gameLinkStatus';
 export * from './getCurrentAuthUser200';
 export * from './healthStatus';
 export * from './listAdminAiAgents200';

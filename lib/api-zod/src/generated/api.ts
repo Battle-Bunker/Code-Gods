@@ -235,6 +235,18 @@ export const CreateRoomResponse = zod.object({
 })
 
 
+export const GetGameLinkParams = zod.object({
+  "code": zod.coerce.string().describe('Game short code or legacy UUID')
+})
+
+export const GetGameLinkResponse = zod.object({
+  "id": zod.string(),
+  "shortCode": zod.string(),
+  "roomShortCode": zod.string().nullable(),
+  "status": zod.enum(['current', 'historical', 'unavailable'])
+})
+
+
 export const GetRoomParams = zod.object({
   "roomId": zod.coerce.string()
 })

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetRoom, getGetRoomQueryKey, useGetManifest, useRoomAction,
@@ -52,7 +52,7 @@ function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
   const g = room.game;
   const plan = g ? secsLeft(g.planningEndsAt, room.serverTime) : null;
   const pause = g ? secsLeft(g.pauseEndsAt, room.serverTime) : null;
-  const copy = () => { navigator.clipboard.writeText(window.location.href).then(() => toast({ title: "Room link copied" })); };
+  const copy = () => { navigator.clipboard.writeText(new URL(`/rooms/${room.shortCode}`, window.location.origin).href).then(() => toast({ title: "Room link copied" })); };
   return (
     <div className="border-b bg-card/70">
       <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid md:grid-cols-[1fr_auto] gap-6 items-end">
@@ -61,6 +61,7 @@ function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
             <button onClick={copy} className="font-mono text-sm border px-2 py-0.5 inline-flex items-center gap-1.5 hover:bg-muted" data-testid="button-copy-link">{room.shortCode}<Copy className="h-3 w-3" /></button>
             {isOwner && <span className="label-mono inline-flex items-center gap-1 !text-accent"><Crown className="h-3 w-3" /> owner</span>}
             <span className="label-mono">rev {room.revision}</span>
+            {g && <Link href={`/games/${g.shortCode}`} className="font-mono text-sm underline" data-testid="link-game">Game {g.shortCode}</Link>}
           </div>
           <h1 className="font-display text-5xl md:text-7xl leading-none mt-3" data-testid="text-room-code">{room.shortCode}</h1>
         </div>
@@ -214,7 +215,7 @@ function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; me
         ) : (
           <button onClick={() => act.run({ action: "ready", ready: !me.ready })} disabled={act.pending} className={`py-2 text-sm border ${me.ready ? "" : "bg-foreground text-background"}`} data-testid="button-ready">{me.ready ? "Stand down (unready)" : "Declare ready"}</button>
         )}
-        <a href={`/player/?room=${encodeURIComponent(room.id)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><User className="h-4 w-4" /> Open player client</a>
+        <a href={`/player/?room=${encodeURIComponent(room.shortCode)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><User className="h-4 w-4" /> Open player client</a>
         {isOwner && (<>
           <div className="flex gap-2">
             <select value={chosen} onChange={(e) => setAgentId(e.target.value)} disabled={!list.length} className="flex-1 min-w-0 border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary" data-testid="select-ai-agent">
@@ -365,11 +366,18 @@ export default function Room() {
   const idle=useServerIdle();
   const activityReady=useActivityReady();
   const { id = "" } = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
+  const requestedGame = new URLSearchParams(useSearch()).get("game");
   const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
   const q = useGetRoom(id, { query: { queryKey: getGetRoomQueryKey(id), enabled: activityReady && !idle && !!id && isAuthenticated, refetchInterval: idle || !activityReady ? false : 1000 } });
   const manifest = useGetManifest();
   const act = useAct(id);
   const room = q.data;
+  useEffect(() => {
+    if (room && id !== room.shortCode) {
+      navigate(`/rooms/${room.shortCode}${window.location.search}${window.location.hash}`, { replace: true });
+    }
+  }, [id, room?.shortCode, navigate]);
   const isOwner = !!room && room.ownerId === user?.id;
   const isMember = !!room && room.members.some((m) => m.id === user?.id);
   const minPlayers = manifest.data?.minimumPlayers ?? 3;
@@ -389,6 +397,13 @@ export default function Room() {
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
           <ErrorLine message={q.error ? errMsg(q.error) : "Room not found"} onRetry={() => q.refetch()} />
           <Link href="/" className="label-mono underline" data-testid="link-back">Back to rooms</Link>
+        </div>
+      ) : requestedGame && requestedGame.toUpperCase() !== room.game?.shortCode.toUpperCase() && requestedGame.toLowerCase() !== room.game?.id.toLowerCase() ? (
+        <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
+          <h1 className="font-display text-4xl">This is not the current game</h1>
+          <p className="text-muted-foreground">The linked game is no longer the game displayed in this room.</p>
+          <Link href={`/games/${encodeURIComponent(requestedGame)}`} className="underline">View linked game status</Link>
+          <Link href={`/rooms/${room.shortCode}`} className="block underline">Open current room</Link>
         </div>
       ) : (<>
         <Header room={room} isOwner={isOwner} />

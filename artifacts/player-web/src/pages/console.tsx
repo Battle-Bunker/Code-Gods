@@ -259,10 +259,10 @@ export default function Console() {
                 <p className="label">Session established</p>
                 <label className="block">
                   <span className="font-serif text-3xl">Which room?</span>
-                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={2048} placeholder="Room UUID or room link"
+                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={2048} placeholder="Room short code or room link"
                     className="mt-3 w-full bg-card border border-[hsl(var(--input))] px-3 py-3 font-mono text-lg outline-none focus:border-primary transition-colors" />
                 </label>
-                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Your daemon connects to its configured authoritative API host. Approve this device on that server with your Replit account." : "Paste a room UUID or a room link from this server. No room names or private chat are used."}</p>
+                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Your daemon connects to its configured authoritative API host. Approve this device on that server with your Replit account." : "Paste a room short code or a room link from this server. Existing UUID links also work. No room names or private chat are used."}</p>
                 {approvalError && <p data-testid="text-approval-error" className="text-sm text-destructive">{approvalError}</p>}
                 <Btn testId="button-begin-approval" type="submit" tone="fire" disabled={!roomId.trim() || busy === "approval"}>
                   <ShieldCheck size={14} /> {busy === "approval" ? "Connecting" : isDaemonMode() ? "Request device approval" : "Join room"}

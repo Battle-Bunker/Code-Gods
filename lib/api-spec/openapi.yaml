@@ -135,6 +135,20 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /games/{code}:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or legacy UUID }
+    get:
+      operationId: getGameLink
+      responses:
+        "200":
+          description: Canonical game link and whether the room still displays this game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameLink" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+        "404": { description: Game not found or identifier is ambiguous }
   /rooms/{roomId}:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -412,6 +426,14 @@ components:
         kind: { type: string }
         totalScore: { type: number }
         rank: { type: integer }
+    GameLink:
+      type: object
+      required: [id, shortCode, roomShortCode, status]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        roomShortCode: { type: [string, "null"] }
+        status: { type: string, enum: [current, historical, unavailable] }
     PublicGame:
       type: object
       required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount]

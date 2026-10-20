@@ -290,6 +290,23 @@ export interface Standing {
   rank: number;
 }
 
+export type GameLinkStatus = typeof GameLinkStatus[keyof typeof GameLinkStatus];
+
+
+export const GameLinkStatus = {
+  current: 'current',
+  historical: 'historical',
+  unavailable: 'unavailable',
+} as const;
+
+export interface GameLink {
+  id: string;
+  shortCode: string;
+  /** @nullable */
+  roomShortCode: string | null;
+  status: GameLinkStatus;
+}
+
 export interface PublicGame {
   id: string;
   shortCode: string;
