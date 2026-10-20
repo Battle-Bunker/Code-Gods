@@ -179,7 +179,8 @@ export default function Console() {
       const r = (await sendCommand(command, commandId)) as CommandResult;
       if(identityEpoch.current!==epoch) return;
       setUnknown(null);
-      setNotice({ ok: r.accepted, text: r.message || (r.accepted ? "Accepted." : "Rejected.") });
+      // A failed validation already lists its diagnostics; don't repeat them below.
+      if (!(command.type === "validate" && r.validation?.diagnostics.length)) setNotice({ ok: r.accepted, text: r.message || (r.accepted ? "Accepted." : "Rejected.") });
       if (command.type === "validate" && r.validation) setValidation({ ...snapshot, source: command.source, language: command.language, result: r });
       if (command.type === "chat" && r.accepted) setChat("");
       try { const fresh=await getObservation(); if(identityEpoch.current===epoch) {setObs(previous=>previous && previous.revision>fresh.revision?previous:fresh);setLastSync(Date.now());} } catch { /* polling supplies the visible connection error */ }
@@ -353,7 +354,7 @@ export default function Console() {
                 <div className={`border-l-4 pl-3 py-1 ${currentValidation.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
                   <p className="font-mono text-xs"><strong>{currentValidation.valid ? "VALID" : "INVALID"}</strong> · cost {fmt(currentValidation.cost)}</p>
                   {currentValidation.diagnostics.length > 0 ? (
-                    <ul className="mt-1 font-mono text-xs space-y-0.5 text-muted-foreground">{currentValidation.diagnostics.map((d, i) => <li key={i}>› {d}</li>)}</ul>
+                    <ul className="mt-1 font-mono text-xs space-y-0.5 text-muted-foreground">{currentValidation.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
                   ) : <p className="font-mono text-xs text-muted-foreground mt-1">no diagnostics</p>}
                 </div>
               ) : <p className="label">{validation ? "Source changed since validation. Validate again." : "Validate before summoning."}</p>}
