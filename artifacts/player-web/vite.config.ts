@@ -2,6 +2,7 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { engineToken } from './dev/engine-token';
 
 
 const isBuild = process.argv.includes("build");
@@ -23,7 +24,7 @@ if (Number.isNaN(port) || port <= 0) {
 const panelsDir = path.resolve(import.meta.dirname, 'src/panels') + path.sep;
 const registryFile = path.resolve(import.meta.dirname, 'src/shell/registry.ts');
 
-const basePath = process.env.BASE_PATH ?? (isBuild ? "/player/" : undefined);
+const basePath = process.env.BASE_PATH ?? (isBuild ? "/player/" : "/");
 
 if (!basePath) {
   throw new Error(
@@ -47,14 +48,10 @@ export default defineConfig({
       },
     },
     {
-      name: "unconfigured-player-daemon",
+      // A player app's engine token (dev/engine-token.ts): the credential stays in this server.
+      name: "code-gods-engine-token",
       configureServer(server) {
-        server.middlewares.use(`${basePath.replace(/\/$/, "")}/daemon`, (_req, res) => {
-          res.statusCode = 503;
-          res.setHeader("Content-Type", "application/json");
-          res.setHeader("Cache-Control", "no-store");
-          res.end(JSON.stringify({ error: "Use the authenticated local player daemon; authoritative wiring is coordinator-owned." }));
-        });
+        server.middlewares.use(`${basePath.replace(/\/$/, "")}/__codegods/token`, (req, res) => void engineToken(req, res));
       },
     },
     react(),
@@ -98,6 +95,8 @@ export default defineConfig({
     allowedHosts: true,
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
+    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211
+    ...(process.env.CODE_GODS_SITE_URL ? { proxy: { '/api': { target: process.env.CODE_GODS_SITE_URL, changeOrigin: true } } } : {}),
     fs: {
       strict: true,
     },

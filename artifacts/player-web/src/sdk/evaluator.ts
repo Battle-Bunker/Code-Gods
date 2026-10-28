@@ -14,7 +14,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { ActOutcome, MutatorCallWire } from "@workspace/game-types";
 
 /** Your score of one value: the ordinal, reward bits (surprisal), optional penalty bits, and net bits. */
-export type OwnScore = { ordinal: number | number[]; rewardBits: number; penaltyBits?: number; netBits: number };
+export type OwnScore = { ordinal: number | readonly number[]; rewardBits: number; penaltyBits?: number; netBits: number };
 
 export type Evaluator = {
   /** Your score of any value of this game's object type (wire form, as in `object.value`). */

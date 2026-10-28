@@ -48,7 +48,6 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@workspace/api-client-react": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",
@@ -75,8 +74,12 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@workspace/engine": "workspace:*",
+    "@workspace/game-core": "workspace:*",
+    "@workspace/game-types": "workspace:*",
+    "@workspace/game-utilities": "workspace:*",
     "@workspace/object-views": "workspace:*",
     "@workspace/player-client": "workspace:*",
-    "@workspace/game-types": "workspace:*"
+    "convex": "1.48.0"
   }
 }

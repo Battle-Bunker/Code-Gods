@@ -1,15 +1,11 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot } from "react-dom/client";
+import { App } from "./core/app";
+import { ErrorBoundary } from "./components/error-boundary";
+import "./index.css";
 
-import App from './App';
-import { ErrorBoundary } from '@/components/error-boundary';
-
-import './index.css';
-
-createRoot(document.getElementById('root')!, {
-  // Keeps caught errors off reportError(), which would raise the dev overlay.
-  onCaughtError: (error, errorInfo) => {
-    console.error(error, errorInfo.componentStack);
-  },
+createRoot(document.getElementById("root")!, {
+  // Panel errors are shown inside their frames; keep caught errors off reportError().
+  onCaughtError: (error, errorInfo) => console.error(error, errorInfo.componentStack),
 }).render(
   <ErrorBoundary>
     <App />
