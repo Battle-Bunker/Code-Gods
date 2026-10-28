@@ -11,9 +11,10 @@ the *worst* grid. Its `theme` is the comparative the kid sees on a grid ("redder
 from __future__ import annotations
 
 from collections import Counter
+from functools import lru_cache
 
 from ._util import *  # noqa: F401,F403
-from ._util import sym_for_value
+from ._util import sym_for_value, plateau_search
 from ..family import with_defence
 from . import seeds, strategy, arithmetic, colour as colour_lens
 
@@ -214,62 +215,118 @@ def comparative(pdraw, gtype) -> str:
 # ================================================================================================
 # Reward channels of the protector families (never dealt alone)
 # ================================================================================================
+def _fair_line(cnt, gt):
+    """A line is fair when no colour fills more than its share ⌈N/C⌉ of it."""
+    return max(cnt) <= -(-gt.N // gt.C)
+
+
 def rc_ord(g, p, gt):
     cnt = Counter(g.col.ravel().tolist())
-    return min(cnt.get(k, 0) for k in range(gt.C))
+    col = g.col.tolist()
+    lines = col + [list(x) for x in zip(*col)]
+    fair = sum(_fair_line([ln.count(k) for k in range(gt.C)], gt) for ln in lines)
+    return lex((min(cnt.get(k, 0) for k in range(gt.C)), gt.N ** 2 + 1), (fair, 2 * gt.N + 1))
 
 
 def rc_batch(s, c, p, gt):
-    return np.stack([(c == k).sum((1, 2)) for k in range(gt.C)]).min(0)
+    mn = np.stack([(c == k).sum((1, 2)) for k in range(gt.C)]).min(0)
+    share = -(-gt.N // gt.C)
+    rows = np.stack([(c == k).sum(2) for k in range(gt.C)]).max(0) <= share
+    cols = np.stack([(c == k).sum(1) for k in range(gt.C)]).max(0) <= share
+    return lexb((mn, gt.N ** 2 + 1), (rows.sum(1) + cols.sum(1), 2 * gt.N + 1))
+
+
+@lru_cache(maxsize=None)
+def rc_exemplar(gt, iters: int = 300, k: int = 128):
+    """Balanced colour totals by construction, then a seeded search over cell swaps (which keep the totals)
+    for fair lines; the construction alone is unfair in columns when gcd(N, C) > 1."""
+    rng = np.random.default_rng(0)
+    N = gt.N
+    col = (np.arange(N * N) % gt.C).reshape(N, N).astype(np.uint8)
+    sym = np.zeros((N, N), np.uint8)
+    cur = int(rc_batch(sym[None], col[None], {}, gt)[0])
+    for _ in range(iters):
+        C_ = np.repeat(col.reshape(1, -1), k, 0)
+        a, b = rng.integers(0, N * N, k), rng.integers(0, N * N, k)
+        ar = np.arange(k)
+        C_[ar, a], C_[ar, b] = C_[ar, b], C_[ar, a]
+        C_ = C_.reshape(k, N, N)
+        v = rc_batch(np.zeros_like(C_), C_, {}, gt)
+        i = int(np.argmax(v))
+        if v[i] >= cur:
+            cur, col = int(v[i]), C_[i].copy()
+    return grid(sym, col)
 
 
 RAREST_COLOUR = mk(
     id="rarest_colour", name="No Takeover", theme="Every colour gets a fair share",
     requires=req(), layers={"colour"}, camp="neutral", sample=lambda rng, gt: {},
-    summary=lambda p, gt: "+1 for each cell of whichever colour is rarest (so every colour needs its share)",
+    summary=lambda p, gt: ("+1 for each cell of whichever colour is rarest (so every colour needs its share), "
+                           "then +1 for each row or column where no colour has more than its share"),
     ordinal=rc_ord, batch=rc_batch,
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.arange(gt.N ** 2).reshape(gt.N, gt.N) % gt.C),
-    source="protector reward: balanced colours", tags={"reward"})
+    exemplar=lambda p, gt: rc_exemplar(gt),
+    source="protector reward: balanced colours (tie-breaker: fair lines)", tags={"reward"})
 
 
 def cv_ord(g, p, gt):
     N = gt.N
     cs = [(0, 0), (0, N - 1), (N - 1, 0), (N - 1, N - 1)]
-    return lex((len({int(g.col[r, c]) for r, c in cs}), 5), (len({int(gt.rank[g.sym[r, c]]) for r, c in cs}), 5))
+    blocks = sum(len({int(g.col[r + a, c + b]) for a in (0, 1) for b in (0, 1)})
+                 for r, c in [(0, 0), (0, N - 2), (N - 2, 0), (N - 2, N - 2)])
+    return lex((len({int(g.col[r, c]) for r, c in cs}), 5), (blocks, 17),
+               (len({int(gt.rank[g.sym[r, c]]) for r, c in cs}), 5))
+
+
+def _distinct4(a):
+    """Number of distinct values along the last axis (length 4)."""
+    return (~np.triu(a[..., :, None] == a[..., None, :], 1).any(-2)).sum(-1)
 
 
 def cv_batch(s, c, p, gt):
-    cc, rr = _corners(c.astype(np.int64)), _corners(rank_key(s, gt))
-    first_c = ~np.triu(cc[..., :, None] == cc[..., None, :], 1).any(-2)   # not equal to an earlier corner
-    first_r = ~np.triu(rr[..., :, None] == rr[..., None, :], 1).any(-2)
-    return lexb((first_c.sum(-1), 5), (first_r.sum(-1), 5))
+    N = gt.N
+    c = c.astype(np.int64)
+    blocks = sum(_distinct4(np.stack([c[:, r, q], c[:, r, q + 1], c[:, r + 1, q], c[:, r + 1, q + 1]], -1))
+                 for r, q in [(0, 0), (0, N - 2), (N - 2, 0), (N - 2, N - 2)])
+    return lexb((_distinct4(_corners(c)), 5), (blocks, 17), (_distinct4(_corners(rank_key(s, gt))), 5))
 
 
 def cv_exemplar(p, gt):
-    N = gt.N
+    N, C = gt.N, gt.C
     s, c = np.zeros((N, N), np.int64), np.zeros((N, N), np.int64)
+    base = np.array([[0, 1], [2, 3]]) % C if C >= 4 else np.array([[0, 1], [2, 0]])
+    for k, (r, q) in enumerate([(0, 0), (0, N - 2), (N - 2, 0), (N - 2, N - 2)]):
+        blk = (base + k) % C
+        if r:   # the corner cell is the outer cell of each block: put colour k there
+            blk = blk[::-1]
+        if q:
+            blk = blk[:, ::-1]
+        c[r:r + 2, q:q + 2] = blk
     for k, (r, q) in enumerate([(0, 0), (0, N - 1), (N - 1, 0), (N - 1, N - 1)]):
-        c[r, q] = k % gt.C
         s[r, q] = k % gt.ranks
-    return grid(s, c)
+    # the construction is optimal for N >= 4; the search repairs N = 3, where the blocks share the centre
+    return plateau_search(cv_batch, grid(s, c), p, gt, layers=("colour", "symbol"), iters=60, k=64)
 
 
 CORNER_VARIETY = mk(
     id="corner_variety", name="Four Corners", theme="Four different corners",
     requires=req(), layers={"colour", "symbol", "position"}, camp="alternator", sample=lambda rng, gt: {},
-    summary=lambda p, gt: "+1 for each different colour among the four corners (then each different number)",
+    summary=lambda p, gt: ("+1 for each different colour among the four corners, then for each different colour "
+                           "inside each corner's 2×2 square, then each different number in the corners"),
     ordinal=cv_ord, batch=cv_batch, exemplar=cv_exemplar,
     source="protector reward: varied corners", tags={"reward"})
 
 
 def rw_ord(g, p, gt):
-    row = g.col[p["row"]].tolist()
-    return sum((b - a) % gt.C == 1 for a, b in zip(row, row[1:]))
+    steps = [sum((b - a) % gt.C == 1 for a, b in zip(row, row[1:])) for row in g.col.tolist()]
+    N = gt.N
+    return lex((steps[p["row"]], N), (sum(steps) - steps[p["row"]], N * (N - 1) + 1))
 
 
 def rw_batch(s, c, p, gt):
-    row = c[:, p["row"], :].astype(np.int64)
-    return ((row[:, 1:] - row[:, :-1]) % gt.C == 1).sum(1)
+    c = c.astype(np.int64)
+    steps = ((c[:, :, 1:] - c[:, :, :-1]) % gt.C == 1).sum(2)
+    N, mine = gt.N, steps[:, p["row"]]
+    return lexb((mine, N), (steps.sum(1) - mine, N * (N - 1) + 1))
 
 
 RAINBOW_ROW = mk(
@@ -277,10 +334,11 @@ RAINBOW_ROW = mk(
     requires=req("Spectral"), layers={"colour", "position"}, camp="alternator",
     sample=lambda rng, gt: {"row": int(rng.integers(gt.N))},
     summary=lambda p, gt: (f"+1 for each step along row {p['row'] + 1} that moves on one colour of the rainbow "
-                           f"({' → '.join(gt.colour_names)} → {gt.colour_names[0]})"),
+                           f"({' → '.join(gt.colour_names)} → {gt.colour_names[0]}), then for each such step "
+                           "in the other rows"),
     ordinal=rw_ord, batch=rw_batch, canonical=lambda p, gt: {"row": 0},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.tile(np.arange(gt.N) % gt.C, (gt.N, 1))),
-    source="protector reward: rainbow steps in one row", tags={"reward"})
+    source="protector reward: rainbow steps in one row (tie-breaker: the other rows)", tags={"reward"})
 
 
 def is_ord(g, p, gt):

@@ -42,12 +42,17 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 | Π_i = Σ_x π_i(x) | **total payoff** | `total_payoff` | Leaderboard value. | |
 | Σ_i s_i(x) | **salience** of x | `salience` | Total information all gods see in x. | Salience (Schelling focal points) |
 | s_i + s_j − s_ij, with s_ij = −log₂ μ(U_i ∩ U_j) | **synergy** (pointwise mutual information) | `synergy` | >0: i and j's goals co-occur more than chance (aligned); <0 conflict. | Pointwise mutual information |
+| d_i : T → ℤ | **penalty** (a defence goal; returns a badness ordinal, higher = worse) | `penalty` | Optional second utility function: what god i wants to stop. Calibrated like u_i. | Loss function |
+| h_i(x) = max(0, −log₂ μ{d_i ≥ d_i(x)} − 1) | **penalty bits** (⚠️) | `penalty_bits` | 0 unless x is worse than half of all grids. P(h ≥ k) ≤ 2^−(k+1) for every penalty. | Surprisal of the bad event |
+| K_i = Σ_{j≠i} E_μ[s_j] | **penalty rate** | `penalty_K` | bits² per penalty bit: what one reward bit earns on a typical spawn. | Prior-mean exchange rate |
+| −K_i (h_i(x) − E_μ h_i) | **defence term** | `defence_term` | Added to π_i for gods with a defence goal; private, zero-mean on spawns. See docs/defence-goals.md. | |
 | cost(m) | **action cost** (bits) | `cost` | Bespoke per-mutator charge, from energy. | MDL / Landauer erasure cost |
 | Δπ_i / cost | **yield** | `yield_` | Payoff gained per bit spent. | Efficiency |
 | — | **cooperative spiral** | `spiral` | Run of consecutive transformations of one object by ≥2 owners in which salience rises each step. | Positive feedback |
 | — | **tension** | `tension` | Share of transformations that raise someone's surprisal while lowering another's. | Zero-sum conflict |
 
-Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "points", salience = "🔥 hot object".
+Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "points", salience = "🔥 hot object",
+penalty bits = "⚠️" ("redder than 90% of grids").
 
 ## 3. Modules and owners
 

@@ -131,6 +131,13 @@ synergy (conflict). Identical draws give s_ij = s_i.
 Cost ≈ (2^16 + stages × N² × 1000) grid evaluations, and is dominated by `evaluate_batch`.
 Patchwork's component labelling is the outlier (noted in NOTES.md).
 
+### 1.6 Defence goals
+
+A family may carry a `penalty` family (a badness ordinal). `precompute` builds its table too, a variant's
+reward channel reuses its base family's table, and `Survival.prior_mean_bits(hinge)` gives the exact prior
+means used by the defence term. The scoring, policy and metric changes are described in
+`docs/defence-goals.md`; with no defence goal dealt, every number in this document is unchanged.
+
 ## 2. Simulation (`sim.py`)
 
 `run_game(GameConfig) -> GameLog`. Fixed-step interaction loop with event interleaving:
