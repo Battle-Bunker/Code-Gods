@@ -147,6 +147,7 @@ test("stock daemon socket factory connects with bearer headers and receives real
 });
 test("daemon rejects unauthenticated, cross-origin, CSRF and replay; approval keeps tokens private",async()=>{
   const origin="https://local.test",basePath="/player";
+  const roomId="12345678-1234-4234-8234-123456789abc";
   let commandCalls=0;
   let challenge="";
   const fetcher:typeof fetch=async(url,init)=>{
@@ -156,16 +157,16 @@ test("daemon rejects unauthenticated, cross-origin, CSRF and replay; approval ke
       challenge=body.challenge;
       assert.equal(typeof challenge,"string");assert.equal(challenge.length,43);
       assert.deepEqual(Object.keys(body).sort(),["challenge","roomId"]);
-      return Response.json({deviceId:"DEVICE",deviceSecret:"PRIVATE_DEVICE",userCode:"HUMAN",verificationPath:"/approve",expiresIn:60,interval:1});
+      return Response.json({deviceId:"DEVICE",deviceSecret:"PRIVATE_DEVICE",roomId,userCode:"HUMAN",verificationPath:"/approve",expiresIn:60,interval:1});
     }
     if(path.endsWith("/device/poll")) {
       assert.equal(body.deviceSecret,"PRIVATE_DEVICE");
       assert.equal(createHash("sha256").update(body.verifier).digest("base64url"),challenge);
-      return Response.json({token:"PRIVATE_ROOM",roomId:"room",godId:"god",expiresIn:14400});
+      return Response.json({token:"PRIVATE_ROOM",roomId,godId:"god",expiresIn:14400});
     }
     assert.equal((init?.headers as Record<string,string>).Authorization,"Bearer PRIVATE_ROOM");
     if(path.endsWith("/commands")) {commandCalls++;return Response.json({commandId:body.commandId,accepted:true,message:"ack"});}
-    return Response.json(raw);
+    return Response.json({...raw,roomId});
   };
   const daemon=createPlayerDaemon({origin,basePath,serverUrl:"https://game.test/api/player/v1",fetcher});
   let cookie="",csrf="";
@@ -180,8 +181,8 @@ test("daemon rejects unauthenticated, cross-origin, CSRF and replay; approval ke
   assert.match(session.headers.get("set-cookie")!,/HttpOnly; SameSite=Strict/);
   assert.equal((await request("/session",{ticket})).status,401);
   csrf=(await (await request("/session")).json()).csrf;
-  assert.equal((await request("/approval",{roomId:"room"},{"x-csrf-token":""})).status,403);
-  const approval=await request("/approval",{roomId:"room"});
+  assert.equal((await request("/approval",{roomId},{"x-csrf-token":""})).status,403);
+  const approval=await request("/approval",{roomId});
   assert.equal(approval.status,200);assert.equal((await approval.text()).includes("PRIVATE"),false);
   assert.deepEqual(await(await request("/approval/poll",{})).json(),{status:"pending"});
   await new Promise(resolve=>setTimeout(resolve,1010));
@@ -197,3 +198,67 @@ test("daemon rejects unauthenticated, cross-origin, CSRF and replay; approval ke
   await request("/disconnect",{});
   assert.equal((await request("/observation")).status,401);
 });
+for(const scenario of [
+  {name:"short code resolves to canonical room",input:"28t5cy",approved:true},
+  {name:"short code rejects credentials for another room",input:"28T5CY",wrongPoll:true},
+  {name:"GUID rejects credentials for another room",input:"12345678-1234-4234-8234-123456789abc",wrongPoll:true},
+  {name:"request must return a canonical room",input:"28T5CY",requestRoom:"28T5CY",requestStatus:400},
+  {name:"missing canonical room fails closed",input:"28T5CY",omitRoom:true,requestStatus:400},
+  {name:"GUID request cannot change rooms",input:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",requestStatus:502},
+]) {
+  test(`daemon approval: ${scenario.name}`,async()=>{
+    const origin="https://local.test",basePath="/player";
+    const roomId="12345678-1234-4234-8234-123456789abc";
+    const otherRoom="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    let challenge="",polls=0,observations=0;
+    const fetcher:typeof fetch=async(url,init)=>{
+      const body=JSON.parse(String(init?.body??"{}"));
+      assert.equal(init?.redirect,"error");
+      if(String(url).endsWith("/device/request")) {
+        assert.equal(body.roomId,scenario.input);
+        challenge=body.challenge;
+        return Response.json({deviceId:"DEVICE",deviceSecret:"PRIVATE_DEVICE",...(!scenario.omitRoom?{roomId:scenario.requestRoom??roomId}:{}),userCode:"HUMAN",verificationPath:"/device?code=HUMAN",expiresIn:60,interval:1});
+      }
+      if(String(url).endsWith("/device/poll")) {
+        polls++;
+        assert.equal(body.deviceSecret,"PRIVATE_DEVICE");
+        assert.equal(createHash("sha256").update(body.verifier).digest("base64url"),challenge);
+        return Response.json({token:"PRIVATE_TOKEN",roomId:scenario.wrongPoll?otherRoom:roomId,godId:"god",expiresIn:900});
+      }
+      observations++;
+      assert.match(String(url),new RegExp(`/rooms/${roomId}/observation$`));
+      assert.equal((init?.headers as Record<string,string>).Authorization,"Bearer PRIVATE_TOKEN");
+      return Response.json({...raw,roomId});
+    };
+    const daemon=createPlayerDaemon({origin,basePath,serverUrl:"https://game.test/api/player/v1",fetcher});
+    let cookie="",csrf="";
+    const request=(path:string,body?:unknown)=>daemon.handle(new Request(`${origin}${basePath}/daemon${path}`,{
+      method:body===undefined?"GET":"POST",
+      headers:{origin,cookie,"content-type":"application/json","x-csrf-token":csrf},
+      ...(body===undefined?{}:{body:JSON.stringify(body)}),
+    }));
+    try {
+      const ticket=new URL(daemon.launchUrl()).hash.slice("#launch=".length);
+      cookie=(await request("/session",{ticket})).headers.get("set-cookie")!.split(";")[0];
+      csrf=(await (await request("/session")).json()).csrf;
+      const response=await request("/approval",{roomId:scenario.input});
+      assert.equal(response.status,scenario.requestStatus??200);
+      const approval=await response.json();
+      assert.equal(JSON.stringify(approval).includes("PRIVATE"),false);
+      if(scenario.requestStatus) {
+        assert.equal((await request("/approval/poll",{})).status,410);
+        assert.equal(polls,0);
+      } else {
+        assert.deepEqual(Object.keys(approval).sort(),["userCode","verificationUri"]);
+        await new Promise(resolve=>setTimeout(resolve,1010));
+        const poll=await request("/approval/poll",{});
+        assert.equal(poll.status,scenario.approved?200:502);
+        assert.deepEqual(await poll.json(),scenario.approved?{status:"approved"}:{error:"Player service unavailable"});
+        assert.equal(polls,1);
+      }
+      assert.equal((await (await request("/session")).json()).connected,!!scenario.approved);
+      assert.equal((await request("/observation")).status,scenario.approved?200:401);
+      assert.equal(observations,scenario.approved?1:0);
+    } finally {daemon.close();}
+  });
+}

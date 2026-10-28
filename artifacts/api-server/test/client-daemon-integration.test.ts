@@ -69,10 +69,12 @@ test("two independent daemon processes approve through PKCE and play via real HT
       cookie = login.headers.get("set-cookie")!.split(";")[0];
       assert.equal((await request("/session", { ticket })).status, 401, "launch is single-use");
       csrf = (await (await request("/session")).json()).csrf;
-      const approval = await (await request("/approval", { roomId: room.id })).json();
+      // Exercise both canonical GUIDs and server-resolved Crockford aliases.
+      const approval = await (await request("/approval", { roomId: clients.length ? room.id : room.shortCode.toLowerCase() })).json();
       assert.deepEqual(Object.keys(approval).sort(), ["userCode", "verificationUri"]);
       assert.equal(new URL(approval.verificationUri).origin, base);
       const device = [...fixtureDevices.values()].find((d: any) => d.code === approval.userCode) as any;
+      assert.equal(device.room_id, room.id);
       assert.match(device.challenge, /^[A-Za-z0-9_-]{43}$/);
       const browser = await issueSession(actor as any, 60000);
       const approve = await fetch(`${base}/api/device/approve`, {

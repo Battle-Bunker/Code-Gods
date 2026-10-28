@@ -7,7 +7,7 @@ import { WebSocketPlayerTransport, type PlayerSocketFactory } from "./socket-tra
 const secret = () => randomBytes(32).toString("base64url");
 const equal = (a:string,b:string) => Buffer.byteLength(a)===Buffer.byteLength(b) && timingSafeEqual(Buffer.from(a),Buffer.from(b));
 const credentialSchema = z.object({token:z.string().min(1).max(8192),roomId:z.string(),godId:z.string(),expiresIn:z.number().positive().max(14400)});
-const pendingSchema = z.object({deviceId:z.string().min(1),deviceSecret:z.string().min(1),userCode:z.string().max(64),verificationPath:z.string(),expiresIn:z.number().positive().max(900),interval:z.number().min(1).max(30)});
+const pendingSchema = z.object({deviceId:z.string().min(1),deviceSecret:z.string().min(1),roomId:z.string().uuid(),userCode:z.string().max(64),verificationPath:z.string(),expiresIn:z.number().positive().max(900),interval:z.number().min(1).max(30)});
 export interface DaemonOptions { origin:string; basePath:string; serverUrl:string; fetcher?:typeof fetch; socketFactory?:PlayerSocketFactory }
 
 /** One instance per player. Credentials, pending approval and session all stay in memory. */
@@ -23,7 +23,7 @@ export function createPlayerDaemon(options:DaemonOptions) {
   let ticket = secret(), ticketExpiry = Date.now()+60_000;
   let session = "", csrf = "", sessionExpiry = 0;
   let approvedUntil = 0;
-  let pending: (z.infer<typeof pendingSchema> & {roomId:string; verifier:string; expiresAt:number; intervalMs:number; nextPoll:number}) | undefined;
+  let pending: (z.infer<typeof pendingSchema> & {verifier:string; expiresAt:number; intervalMs:number; nextPoll:number}) | undefined;
   let approvalBusy = false;
   let gameId:string|undefined;
   const receipts = new Map<string,{body:string;envelope:Envelope;result:Promise<unknown>|undefined}>();
@@ -82,10 +82,13 @@ export function createPlayerDaemon(options:DaemonOptions) {
           const challenge=createHash("sha256").update(verifier).digest("base64url");
           const result=pendingSchema.parse(await upstream("request",{roomId:input.roomId,challenge}));
           if(session!==approvalSession) return json({error:"Approval cancelled"},409);
+          // Aliases resolve on the authority, before polling. Never infer room scope
+          // from the eventual credential or weaken the poll-time equality check.
+          if(z.string().uuid().safeParse(input.roomId).success && input.roomId.toLowerCase()!==result.roomId.toLowerCase()) throw new Error("Room mismatch");
           const verificationUri=new URL(result.verificationPath,serverOrigin);
           if(verificationUri.origin!==serverOrigin || verificationUri.username || verificationUri.password || verificationUri.protocol!=="https:" && !["localhost","127.0.0.1"].includes(verificationUri.hostname)) throw new Error("Invalid approval response");
           transport.disconnect(); approvedUntil=0;gameId=undefined; receipts.clear();
-          pending={...result,verifier,roomId:input.roomId,expiresAt:Date.now()+result.expiresIn*1000,intervalMs:result.interval*1000,nextPoll:Date.now()+result.interval*1000};
+          pending={...result,verifier,expiresAt:Date.now()+result.expiresIn*1000,intervalMs:result.interval*1000,nextPoll:Date.now()+result.interval*1000};
           return json({verificationUri:verificationUri.href,userCode:result.userCode});
         } finally { approvalBusy=false; }
       }

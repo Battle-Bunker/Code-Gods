@@ -40,7 +40,7 @@ def discounts(gtypes) -> str:
             d = Draw(f, f.sample(rng, gt))
             u, r = cal.survival(d, gt), reachable_survival(d, gt)
             l0 = r.meta["body_top"]
-            camp[(gs, f.camp)].append(u.surprisal(int(l0)) - r.surprisal(int(l0)))
+            camp[(gs, f.camp)].append(u.surprisal(l0) - r.surprisal(l0))
     for (gs, c), v in sorted(camp.items()):
         rows.append([gs, c, len(v), f"{np.mean(v):.2f}", f"{np.max(v):.2f}"])
     return md_table(["GridType", "camp", "#families", "mean discount (bits)", "max"], rows)

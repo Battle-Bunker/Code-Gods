@@ -446,7 +446,7 @@ def draw_ceiling(log, i: int, table) -> float:
                 p = {kk: (tuple(tuple(x) if isinstance(x, list) else x for x in vv) if isinstance(vv, list) else vv)
                      for kk, vv in p.items()}
                 ex = f.exemplar(p, log.gtype)
-                v = max(v, float(table.surprisal(int(f.ordinal(ex, p, log.gtype)))))
+                v = max(v, float(table.surprisal(f.ordinal(ex, p, log.gtype))))
             except Exception:
                 pass
         _EXC[k] = v

@@ -6,14 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result.
+ */
 export type RoomActionInputAction = typeof RoomActionInputAction[keyof typeof RoomActionInputAction];
 
 
 export const RoomActionInputAction = {
   join: 'join',
+  leave: 'leave',
   ready: 'ready',
   settings: 'settings',
   start: 'start',
+  endGame: 'endGame',
   addAi: 'addAi',
   removeAi: 'removeAi',
   chat: 'chat',

@@ -17,7 +17,7 @@ const temp = await mkdtemp(join(here, ".postgres-benchmark-"));
 try {
   await admin.query(`CREATE SCHEMA "${schema}"`);
   await admin.query(`CREATE TABLE "${schema}".cg_rooms (id text PRIMARY KEY,owner_id text NOT NULL,prefix_length integer NOT NULL,state jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now());
-    CREATE TABLE "${schema}".cg_games (id text PRIMARY KEY,room_id text NOT NULL,prefix_length integer NOT NULL,state jsonb NOT NULL);
+    CREATE TABLE "${schema}".cg_games (id text PRIMARY KEY,room_id text NOT NULL,prefix_length integer NOT NULL,state jsonb NOT NULL,started_at timestamptz,ended_at timestamptz,summary jsonb);
     CREATE TABLE "${schema}".cg_interaction_batches (room_id text NOT NULL,game_id text NOT NULL,end_seq bigint NOT NULL,events jsonb NOT NULL,PRIMARY KEY(room_id,end_seq))`);
   await build({
     entryPoints: [join(here, "pipeline-postgres-benchmark.ts")], outfile: join(temp, "benchmark.mjs"),

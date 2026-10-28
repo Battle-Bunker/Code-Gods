@@ -13,14 +13,23 @@ Estimator (ESTIMATOR_VERSION below; see docs/engine.md for error behaviour):
     colour), (b) resample one cell's symbol, (c) resample one cell's colour, (d) swap two cells. All
     four are symmetric proposals under the product-uniform prior, so "accept iff u stays >= level"
     is exactly Metropolis on μ|{u >= level}. Stops at `target_bits` (default 64) or when no particle
-    can climb (the ordinal's maximum has been reached or is unreachable by the kernel).
+    can climb (the ordinal's maximum has been reached or is unreachable by the kernel). Retrying
+    with more MCMC steps when stuck was tried and does not help the rules that stop early (Robin
+    Hood, Lone Peak: their tops need coordinated multi-cell moves); exact tails and the strictly
+    increasing extrapolation below cover them instead.
   * Exact: if the family supplies `exact_log2_tail`, lookups use it (estimation still possible via
     `survival(..., use_exact=False)`, which the tests use for the cross-check).
-  * Lookup: `log2_tail(t)` uses the largest level <= t (conservative: never claims more bits than an
-    observed level supports). Below the smallest level: 0 bits.
-  * Extrapolation above the highest observed level: s(max level) + 1 bit per further *known*
-    distinct ordinal (the family's exemplar, if any) up to and including t, minimum 1, capped at
-    EXTRAP_CAP_BITS extra. Since s_max is usually >= 60 bits this almost never matters in play.
+  * Ordinals may be ints or fixed-length tuples (lexicographic). Internally every ordinal is
+    turned into its *key* (`family.ordinal_keys`: int64 for ints, an order-preserving byte string
+    for tuples), so levels are simply the observed key values, compared natively by numpy and
+    Python. No bounds or packing are involved; dense integer ranks are never stored.
+  * Surprisal is STRICTLY increasing in the ordinal, so "bigger is better" always earns more bits
+    (true in the maths: every grid has positive prior mass). The level estimates are cleaned by
+    weighted isotonic regression plus a MIN_STEP_BITS gap between levels (`strict_bits`). Unobserved
+    ordinals between two levels interpolate linearly in `ordinal_distance` (tuples: first component
+    in whole steps, the rest as a fraction). Below the lowest level: bits[0] / (1 + distance). Above
+    the highest: bits[-1] + slope × distance, slope fitted over the last SLOPE_LEVELS levels (at least
+    MIN_SLOPE_BITS per step), uncapped. Exact tails add a tiny strictly increasing term.
 
 Determinism: the RNG seed is sha256(family id, canonical params, gtype.key, ESTIMATOR_VERSION).
 Draws in one symmetry orbit (same `family.canonical(params)`) share a table. The cache key adds the
@@ -44,10 +53,14 @@ from typing import Callable, Optional, Sequence
 import numpy as np
 
 from .core import Grid, GridType
-from .family import Draw, Family
+from .family import Draw, Family, key_to_ordinal, ordinal_key, ordinal_keys
 
-ESTIMATOR_VERSION = 1
-EXTRAP_CAP_BITS = 4.0
+# 3: surprisal strictly increasing in the ordinal (isotonic clean-up, interpolation, uncapped
+#    extrapolation, deeper splitting when stuck). 2: tuple ordinals keyed by value. 1: lex-packed ints.
+ESTIMATOR_VERSION = 3
+MIN_STEP_BITS = 1e-6     # smallest gap between neighbouring levels after the isotonic clean-up
+MIN_SLOPE_BITS = 0.05    # extrapolation above the top level: at least this many bits per ordinal step
+SLOPE_LEVELS = 4         # the extrapolation slope is fitted over this many levels below the top
 LN2 = math.log(2.0)
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "survival"
 # Correlation between cloned AMS particles makes the ideal-mixing variance formula optimistic when
@@ -149,80 +162,203 @@ def rng_from(hexkey: str) -> np.random.Generator:
 # ------------------------------------------------------------------------------------------------
 # Survival table
 # ------------------------------------------------------------------------------------------------
-class Survival:
-    """Survival function G(t) = μ{u >= t} as a step table over observed ordinals.
+def _sq(x: float) -> float:
+    """Strictly increasing squash of any real into (0, 1)."""
+    return 0.5 + 0.5 * x / (1.0 + abs(x))
 
-    levels: strictly increasing int64 ordinals; log2p: log2 G(level), non-increasing, <= 0;
-    stderr_bits: standard error of -log2p in bits at each level (0 where exact)."""
+
+def _u(s) -> float:
+    """Strictly increasing (lexicographic) map of an unbounded int tuple into (0, 1); () -> 0.5."""
+    if not s:
+        return 0.5
+    lo, hi = _sq(s[0]), _sq(s[0] + 1)
+    return lo + (hi - lo) * _u(s[1:])
+
+
+def _tails(a, t) -> float:
+    """In (0, 1): strictly increasing in t and strictly decreasing in a (any int tuples)."""
+    return 0.5 * (_u(t) + 1.0 - _u(a))
+
+
+def _above(a, t) -> float:
+    """For tuples t > a of one length: a position in (0, 1), strictly increasing in t and strictly
+    decreasing in a. Differing earlier beats differing later; at one position a bigger gap is higher."""
+    m = next(i for i in range(len(a)) if a[i] != t[i])
+    e = t[m] - a[m]
+    r0, r1 = 1.0 - 1.0 / (e + 1), 1.0 - 1.0 / (e + 2)
+    w = 2.0 ** -(m + 1)
+    return w + w * (r0 + (r1 - r0) * _tails(a[m + 1:], t[m + 1:]))
+
+
+def ordinal_distance(a, t) -> float:
+    """How far ordinal t lies above ordinal a (t > a): a positive float, strictly increasing in t and
+    strictly decreasing in a. Ints: t - a. Tuples: whole steps of the first component, plus a fraction
+    in (0, 1) from the rest, so (5, 0) is 1-and-a-bit above (4, 9), and (4, 9) a fraction above (4, 2)."""
+    if not isinstance(a, tuple):
+        return float(t - a)
+    if t[0] > a[0]:
+        return (t[0] - a[0]) + _tails(a[1:], t[1:])
+    return _above(a[1:], t[1:])
+
+
+def _isotonic(y: np.ndarray, w: np.ndarray) -> np.ndarray:
+    """Weighted pool-adjacent-violators: the closest non-decreasing sequence to y."""
+    vals, wts, cnt = [], [], []
+    for yi, wi in zip(y.tolist(), w.tolist()):
+        vals.append(yi); wts.append(wi); cnt.append(1)
+        while len(vals) > 1 and vals[-2] > vals[-1]:
+            v2, w2, c2 = vals.pop(), wts.pop(), cnt.pop()
+            tw = wts[-1] + w2
+            vals[-1] = (vals[-1] * wts[-1] + v2 * w2) / tw
+            wts[-1], cnt[-1] = tw, cnt[-1] + c2
+    return np.repeat(vals, cnt)
+
+
+def strict_bits(log2p, stderr_bits) -> np.ndarray:
+    """Estimated surprisal per level, cleaned so it is STRICTLY increasing: weighted isotonic regression
+    of the noisy estimates, then at least MIN_STEP_BITS between neighbouring levels (and at the lowest
+    level, so ordinals below it can still score less)."""
+    b = -np.minimum(np.asarray(log2p, dtype=np.float64), 0.0)
+    w = 1.0 / np.maximum(np.asarray(stderr_bits, dtype=np.float64), 1e-3) ** 2
+    b = _isotonic(b, w) if len(b) > 1 else b
+    out = np.empty_like(b)
+    prev = 0.0
+    for i, x in enumerate(b.tolist()):
+        prev = max(x, prev + MIN_STEP_BITS)
+        out[i] = prev
+    return out
+
+
+class Survival:
+    """Survival function G(t) = μ{u >= t} as a table over observed ordinals, read so that surprisal is
+    STRICTLY increasing in the ordinal: a higher utility output always means more bits.
+
+    Lookups accept an ordinal (int or tuple), its key, or a batch: a (B,) / (B, k) array as returned
+    by `Family.evaluate_batch`, or a 1-D array of keys.
+    levels: strictly increasing ordinal keys (int64, or bytes for tuple ordinals); log2p: raw
+    log2 G(level) estimates; bits: the cleaned, strictly increasing surprisal at each level;
+    stderr_bits: standard error of each level's surprisal (0 where exact).
+    Between levels: linear in `ordinal_distance` from the level below. Below the lowest level:
+    bits[0] / (1 + distance), which stays positive. Above the highest: bits[-1] + slope * distance, with
+    the slope fitted over the last few levels (at least MIN_SLOPE_BITS per step), uncapped.
+    With an exact tail the bits are -exact(t) plus a tiny strictly increasing term (< MIN_STEP_BITS),
+    so ordinals that round to the same float still order strictly."""
 
     def __init__(self, key: str, levels, log2p, stderr_bits, extra_levels=(), meta=None,
                  exact: Optional[Callable[[int], float]] = None):
         self.key = key
-        self.levels = np.asarray(levels, dtype=np.int64)
-        self.log2p = np.minimum.accumulate(np.minimum(np.asarray(log2p, dtype=np.float64), 0.0))
+        levels = np.asarray(levels)
+        self.levels = levels if levels.dtype.kind == "S" else levels.astype(np.int64)
+        self.log2p = np.asarray(log2p, dtype=np.float64)
         self.stderr_bits = np.asarray(stderr_bits, dtype=np.float64)
-        self.extra_levels = np.asarray(sorted(int(x) for x in extra_levels if x > self.levels[-1]),
-                                       dtype=np.int64)
+        self.bits = strict_bits(self.log2p, self.stderr_bits)
+        self.extra_levels = np.asarray(sorted(ordinal_key(x) for x in extra_levels if ordinal_key(x) > self.levels[-1]),
+                                       dtype=self.levels.dtype)  # informational (e.g. the exemplar's ordinal)
         self.meta = dict(meta or {})
         self.exact = exact
-        self._exact_memo: dict[int, float] = {}
+        self._exact_memo: dict = {}
         self._lv = self.levels.tolist()
-        self._lp = self.log2p.tolist()
-        self._ex = self.extra_levels.tolist()
+        self._ord = [key_to_ordinal(x) for x in self._lv]
+        self._b = self.bits.tolist()
+        n, top = len(self._b), len(self._b) - 1
+        back = max(0, top - SLOPE_LEVELS)
+        fit = (self._b[top] - self._b[back]) / ordinal_distance(self._ord[back], self._ord[top]) if top > back else 0.0
+        self.slope = max(MIN_SLOPE_BITS, fit)
+        self._n = n
 
     # --- lookups ---------------------------------------------------------------------------------
     @property
     def max_observed_bits(self) -> float:
-        return float(-self.log2p[-1])
+        return float(self.bits[-1])
 
     @property
     def floor_bits(self) -> float:
         return self.max_observed_bits
 
-    def _scalar_log2(self, t: int) -> float:
-        if self.exact is not None:
-            v = self._exact_memo.get(t)
-            if v is None:
-                v = min(0.0, float(self.exact(t)))
-                self._exact_memo[t] = v
-            return v
-        lv = self._lv
-        if t > lv[-1]:
-            j = bisect_right(self._ex, t - 1) if self._ex else 0  # extras strictly below t
-            return self._lp[-1] - min(1.0 + j, EXTRAP_CAP_BITS)
-        i = bisect_right(lv, t) - 1
-        return 0.0 if i < 0 else self._lp[i]
+    def _signed(self, t) -> float:
+        """Strictly increasing signed distance of ordinal t from the lowest level."""
+        a = self._ord[0]
+        if t == a:
+            return 0.0
+        return ordinal_distance(a, t) if t > a else -ordinal_distance(t, a)
 
-    def log2_tail(self, t):
-        """log2 μ{u >= t}; scalar or array."""
-        if isinstance(t, int):
-            return self._scalar_log2(t)
-        if np.ndim(t) == 0:
-            return self._scalar_log2(int(t))
-        t = np.asarray(t, dtype=np.int64)
+    def _bits(self, key) -> float:
+        """Surprisal of one ordinal key (int or bytes)."""
         if self.exact is not None:
-            return np.array([self._scalar_log2(int(x)) for x in t.ravel()]).reshape(t.shape)
-        i = np.searchsorted(self.levels, t, side="right") - 1
-        out = np.where(i < 0, 0.0, self.log2p[np.clip(i, 0, None)])
-        above = t > self.levels[-1]
-        if above.any():
-            j = np.searchsorted(self.extra_levels, t[above], side="left")
-            out[above] = self.log2p[-1] - np.minimum(1.0 + j, EXTRAP_CAP_BITS)
-        return out
+            v = self._exact_memo.get(key)
+            if v is None:
+                t = key_to_ordinal(key)
+                v = -min(0.0, float(self.exact(t))) + MIN_STEP_BITS * 0.5 * _sq(self._signed(t))
+                self._exact_memo[key] = v
+            return v
+        lv, b = self._lv, self._b
+        i = bisect_right(lv, key) - 1
+        if i >= 0 and lv[i] == key:
+            return b[i]
+        t = key_to_ordinal(key)
+        if i < 0:
+            return b[0] / (1.0 + ordinal_distance(t, self._ord[0]))
+        if i == self._n - 1:
+            return b[i] + self.slope * ordinal_distance(self._ord[i], t)
+        a, c = self._ord[i], self._ord[i + 1]
+        return b[i] + (b[i + 1] - b[i]) * ordinal_distance(a, t) / ordinal_distance(a, c)
+
+    @staticmethod
+    def _is_scalar(t) -> bool:
+        return isinstance(t, (int, tuple, bytes, np.integer)) or (isinstance(t, np.ndarray) and t.ndim == 0)
 
     def surprisal(self, t):
-        """Bits, >= 0, non-decreasing in t; scalar or array."""
-        if isinstance(t, int):
-            return 0.0 - self._scalar_log2(t)
-        v = self.log2_tail(t)
-        return 0.0 - v if np.ndim(v) == 0 else 0.0 - np.asarray(v)
+        """Bits, >= 0, strictly increasing in t; scalar (an ordinal or key) or a batch."""
+        if self._is_scalar(t):
+            return self._bits(ordinal_key(t.item() if isinstance(t, np.ndarray) else t))
+        k = ordinal_keys(t)
+        if self.exact is not None or k.dtype.kind == "S":
+            # tuple keys: exact level hits vectorised, the (rare) in-between values one by one
+            i = np.searchsorted(self.levels, k, side="right") - 1
+            hit = (i >= 0) & (self.levels[np.clip(i, 0, None)] == k)
+            out = np.where(hit, self.bits[np.clip(i, 0, None)], 0.0)
+            if self.exact is not None:
+                hit[:] = False
+            for j in np.flatnonzero(~hit):
+                out[j] = self._bits(ordinal_key(k[j]))
+            return out
+        t = k.astype(np.float64)
+        L, b = self.levels.astype(np.float64), self.bits
+        i = np.searchsorted(self.levels, k, side="right") - 1
+        ic = np.clip(i, 0, len(L) - 1)
+        inext = np.clip(i + 1, 0, len(L) - 1)
+        span = np.where(inext > ic, L[inext] - L[ic], 1.0)
+        mid = b[ic] + (b[inext] - b[ic]) * (t - L[ic]) / span
+        out = np.where(i < 0, b[0] / (1.0 + np.maximum(L[0] - t, 0.0)), mid)
+        top = i >= len(L) - 1
+        out = np.where(top, b[-1] + self.slope * (t - L[-1]), out)
+        return out
+
+    def log2_tail(self, t):
+        """log2 of the tail mass this table assigns to t (= -surprisal)."""
+        s = self.surprisal(t)
+        return -s
 
     def stderr(self, t) -> float:
         """Standard error (bits) of the surprisal at ordinal t (0 when exact)."""
         if self.exact is not None:
             return 0.0
-        i = bisect_right(self._lv, int(t)) - 1
+        i = bisect_right(self._lv, ordinal_key(t)) - 1
         return 0.0 if i < 0 else float(self.stderr_bits[min(i, len(self._lv) - 1)])
+
+    def prior_mean_bits(self, hinge: float = 0.0, f: Optional[Callable] = None) -> float:
+        """E_μ[f(s(u(X)))] for X ~ prior, f(s) = max(0, s - hinge) unless given; exact for the step table:
+        an ordinal in [level_k, level_k+1) scores s_k and has mass G_k - G_k+1 (docs/defence-goals.md)."""
+        memo = self.__dict__.setdefault("_mean_memo", {})
+        key = (hinge, f)
+        if key not in memo:
+            s = np.asarray(self.surprisal(self.levels), dtype=np.float64)
+            G = np.exp2(-s)
+            mass = np.maximum(G - np.r_[G[1:], 0.0], 0.0)
+            v = np.maximum(0.0, s - hinge) if f is None else np.asarray(f(s), dtype=np.float64)
+            # ordinals below the lowest level score 0 bits
+            memo[key] = float((v * mass).sum() + (0.0 if f is None else float(f(0.0)) * max(0.0, 1.0 - G[0])))
+        return memo[key]
 
     def __repr__(self):
         return (f"Survival({self.meta.get('family', '?')}, {len(self.levels)} levels, "
@@ -344,19 +480,22 @@ def split(score: ScoreFn, sym: np.ndarray, col: np.ndarray, vals: np.ndarray, le
 # ------------------------------------------------------------------------------------------------
 def _score_fn(draw: Draw, gtype: GridType, params=None) -> ScoreFn:
     f, p = draw.family, (draw.params if params is None else params)
-    return lambda s, c: f.evaluate_batch(s, c, p, gtype)
+    return lambda s, c: f.evaluate_keys(s, c, p, gtype)
 
 
 def _mc_samples(score: ScoreFn, gtype: GridType, rng: np.random.Generator, n: int, chunk: int = 1 << 14):
     N = gtype.N
     S = np.empty((n, N, N), np.uint8)
     C = np.empty((n, N, N), np.uint8)
-    V = np.empty(n, np.int64)
+    V = None
     for a in range(0, n, chunk):
         b = min(n, a + chunk)
         S[a:b] = rng.integers(0, gtype.S, (b - a, N, N), dtype=np.uint8)
         C[a:b] = rng.integers(0, gtype.C, (b - a, N, N), dtype=np.uint8)
-        V[a:b] = score(S[a:b], C[a:b])
+        v = score(S[a:b], C[a:b])
+        if V is None:
+            V = np.empty(n, v.dtype)  # int64 keys, bytes keys (tuple ordinals) or float scores
+        V[a:b] = v
     return S, C, V
 
 
@@ -402,11 +541,11 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
     if draw.family.exemplar is not None:
         try:
             ex = draw.family.exemplar(params, gtype)
-            top = int(draw.family.ordinal(ex, params, gtype))
+            top = ordinal_key(draw.family.ordinal(ex, params, gtype))
             extra.append(top)
         except Exception:  # exemplar is optional and advisory
             pass
-    lv = np.asarray(levels, dtype=np.int64)
+    lv = np.asarray(levels, dtype=V.dtype)
     order = np.argsort(lv, kind="stable")
     lv, lp, se = lv[order], np.asarray(log2p)[order], np.sqrt(np.asarray(var)[order])
     keep = np.r_[lv[1:] != lv[:-1], True]  # dedupe (keep the deepest-stage estimate)
@@ -420,7 +559,7 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
             "stopped_early": bool(-fin[4] < budget.target_bits),
             # Whether the exemplar's ordinal (the family's claimed maximum) appears among the levels
             # (None without an exemplar). stopped_early and not top_reached = the kernel got stuck.
-            "top_reached": None if top is None else bool(top <= int(max(levels))),
+            "top_reached": None if top is None else bool(top <= lv[-1]),
             "seconds": time.perf_counter() - t0}
     return Survival(cache_key(draw, gtype, budget), lv, lp, se, extra, meta)
 
@@ -464,7 +603,9 @@ def _save(key: str, table: Survival) -> None:
 
 def survival(draw: Draw, gtype: GridType, use_exact: bool = True, budget: Budget | None = None,
              cache: bool = True) -> Survival:
-    """The draw's survival table (memory cache -> disk cache -> estimate)."""
+    """The draw's survival table (memory cache -> disk cache -> estimate). A defence variant's reward
+    channel is calibrated as its base family (Draw.reward_draw), so the tables are shared."""
+    draw = draw.reward_draw()
     key = cache_key(draw, gtype, budget)
     exact = _exact_fn(draw, gtype) if use_exact else None
     mk = key + (":exact" if exact else "")
@@ -487,6 +628,17 @@ def clear_memory_cache() -> None:
     _MEM.clear()
 
 
+def channel_draws(draws: Sequence[Draw]) -> list[Draw]:
+    """Every draw that needs a table: each reward channel (base family for variants) and each defence goal."""
+    out = []
+    for d in draws:
+        out.append(d.reward_draw())
+        pd = d.penalty_draw()
+        if pd is not None:
+            out.append(pd)
+    return out
+
+
 _POOL_JOBS: list = []
 
 
@@ -502,6 +654,7 @@ def precompute(draws: Sequence[Draw], gtype: GridType, processes: int = 4, budge
     Returns {"built": n, "cached": n, "seconds": [per-table build seconds]}."""
     global _POOL_JOBS
     todo, seen, cached = [], set(), 0
+    draws = channel_draws(draws)
     for d in draws:
         k = cache_key(d, gtype, budget)
         if k in seen:
@@ -540,7 +693,7 @@ def joint_surprisal(draw_i: Draw, draw_j: Draw, gtype: GridType, x: Grid, budget
     intersection indicator among the final particles (the φ >= 1 set contains the intersection)."""
     budget = budget or JOINT_BUDGET
     Ti, Tj = tables or (survival(draw_i, gtype), survival(draw_j, gtype))
-    ti, tj = draw_i.ordinal(x, gtype), draw_j.ordinal(x, gtype)
+    ti, tj = ordinal_key(draw_i.ordinal(x, gtype)), ordinal_key(draw_j.ordinal(x, gtype))
     si, sj = Ti.surprisal(ti), Tj.surprisal(tj)
     if si <= 0.0:
         return sj, Tj.stderr(tj)

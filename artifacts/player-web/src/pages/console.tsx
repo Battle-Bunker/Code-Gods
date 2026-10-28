@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
+import { AssistantGrants } from "@/components/assistant-grants";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
   isDaemonMode, loginUrl, subscribeObservation, isServerIdle, resumeServer, trackHumanActivity,
@@ -17,6 +18,16 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const fmt = (v: number | string) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(3)) : v);
 /** Object values: strings are JSON-quoted so spaces, quotes and control characters stay visible. */
 const show = (v: number | string) => (typeof v === "number" ? String(v) : JSON.stringify(v));
+
+/** Rooms are lobbies between games; say where this player stands in that cycle. */
+function LobbyStatus({ obs }: { obs: Observation }) {
+  const room = obs.roomShortCode ? `/rooms/${encodeURIComponent(obs.roomShortCode)}` : undefined;
+  const text = obs.phase === "lobby" ? "in the lobby · waiting for the owner to start a game"
+    : obs.phase === "ended" ? "game over · results are in the room's history; the next game starts from the lobby"
+    : obs.seated === false ? "spectating · you play in the next game" : undefined;
+  if (!text) return null;
+  return <span data-testid="text-lobby-status" className="opacity-70">{text}{obs.phase !== "lobby" && obs.gameShortCode && <> · <a className="underline" href={`/games/${encodeURIComponent(obs.gameShortCode)}`} target="_blank" rel="noreferrer">view game</a></>}{room && <> · <a className="underline" href={room} target="_blank" rel="noreferrer">room</a></>}</span>;
+}
 
 function Countdown({ obs }: { obs: Observation }) {
   const [now, setNow] = useState(Date.now());
@@ -259,10 +270,10 @@ export default function Console() {
                 <p className="label">Session established</p>
                 <label className="block">
                   <span className="font-serif text-3xl">Which room?</span>
-                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={2048} placeholder="Room UUID or room link"
+                  <input data-testid="input-room-id" value={roomId} onChange={(e) => setRoomId(e.target.value)} maxLength={2048} placeholder="Room short code or room link"
                     className="mt-3 w-full bg-card border border-[hsl(var(--input))] px-3 py-3 font-mono text-lg outline-none focus:border-primary transition-colors" />
                 </label>
-                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Your daemon connects to its configured authoritative API host. Approve this device on that server with your Replit account." : "Paste a room UUID or a room link from this server. No room names or private chat are used."}</p>
+                <p className="text-sm text-muted-foreground">{isDaemonMode() ? "Your daemon connects to its configured authoritative API host. Approve this device on that server with your Replit account." : "Paste a room short code or a room link from this server. Existing UUID links also work. No room names or private chat are used."}</p>
                 {approvalError && <p data-testid="text-approval-error" className="text-sm text-destructive">{approvalError}</p>}
                 <Btn testId="button-begin-approval" type="submit" tone="fire" disabled={!roomId.trim() || busy === "approval"}>
                   <ShieldCheck size={14} /> {busy === "approval" ? "Connecting" : isDaemonMode() ? "Request device approval" : "Join room"}
@@ -283,6 +294,9 @@ export default function Console() {
                 <Btn testId="button-cancel-approval" tone="ghost" onClick={leave}>Cancel and disconnect</Btn>
               </div>
             )}
+            {(stage === "room" || stage === "approving") && (
+              <div className="mt-8"><Panel title="Your assistant grants"><AssistantGrants /></Panel></div>
+            )}
           </div>
         </main>
       </div>
@@ -299,9 +313,11 @@ export default function Console() {
           <p className="label !text-sidebar-foreground/60">{self ? `${self.godId}${self.isAI ? " · AI" : " · human"}` : "identity unknown"}</p>
         </div></div>
         <div className="flex gap-5 font-mono text-xs">
-          <span><span className="opacity-50">room </span><span data-testid="text-room">{obs?.roomId ?? roomId}</span></span>
+          <span><span className="opacity-50">room </span><span data-testid="text-room">{obs?.roomShortCode ?? obs?.roomId ?? roomId}</span></span>
+          {obs?.gameShortCode && <span><span className="opacity-50">game </span><span data-testid="text-game">{obs.gameShortCode}</span></span>}
           <span><span className="opacity-50">phase </span><span data-testid="text-phase" className="text-primary uppercase">{obs?.phase ?? "—"}</span></span>
           {obs && <Countdown obs={obs} />}
+          {obs && <LobbyStatus obs={obs} />}
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span data-testid="status-connection" className="font-mono text-xs flex items-center gap-1.5">
@@ -448,6 +464,7 @@ export default function Console() {
                <Btn testId="button-pause" tone="ghost" disabled={!gameplay || !!busy || obs?.phase !== "running" || self?.pauseUsed} onClick={() => run({ type: "pause" })}><Pause size={14} /> {self?.pauseUsed ? "Pause used" : "Pause"}</Btn>
             </div>
           </Panel>
+          <Panel title="Your assistant grants"><AssistantGrants /></Panel>
           <Panel title="Leaderboard">
             {!obs ? <Empty>Waiting for observation.</Empty> : obs.leaderboard.length === 0 ? <Empty>No gods ranked yet.</Empty> : (
               <ol className="space-y-1">

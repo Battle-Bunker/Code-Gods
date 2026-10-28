@@ -9,6 +9,7 @@ import type { RoomActionInputAction } from './roomActionInputAction';
 import type { Settings } from './settings';
 
 export interface RoomActionInput {
+  /** Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result. */
   action: RoomActionInputAction;
   requestId: string;
   revision?: number;

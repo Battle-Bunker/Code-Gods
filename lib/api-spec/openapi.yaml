@@ -135,6 +135,20 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /games/{code}:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or legacy UUID }
+    get:
+      operationId: getGameLink
+      responses:
+        "200":
+          description: Canonical game link and whether the room still displays this game
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameLink" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+        "404": { description: Game not found or identifier is ambiguous }
   /rooms/{roomId}:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -146,6 +160,35 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /rooms/{roomId}/games:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listRoomGames
+      responses:
+        "200":
+          description: Finished games played in this room, newest first. Public results only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GameRecord" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+  /games/{code}/state:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or UUID }
+    get:
+      operationId: getGameState
+      responses:
+        "200":
+          description: One game's public state, live while it runs and final once it has ended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameView" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+        "404": { description: Game not found or identifier is ambiguous }
   /rooms/{roomId}/actions:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -162,9 +205,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /device/request:
+    post:
+      operationId: requestDevice
+      summary: Request room-bound delegated player authorization
+      description: Public S256 PKCE initiation. Labels are self-reported, not verified workspace or model identities. Permission defaults to act for existing clients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceRequestInput" }
+      responses:
+        "200":
+          description: Five-minute human approval request; keep deviceSecret and verifier private
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceRequestResult" }
+        "400": { description: "Invalid room, label, permission or challenge" }
+        "404": { description: Room not found or alias ambiguous }
+        "429": { description: Too many device requests }
+        "503": { description: Authority idle; a human must wake it }
+  /device/details:
+    get:
+      operationId: getDeviceDetails
+      description: Signed-in browser room members only. Once decided, only the deciding user may read the request.
+      security: [{ browserSession: [] }]
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Server-resolved room and self-reported requester label for explicit consent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceDetails" }
+        "401": { description: Browser login required }
+        "403": { description: Not a room member or request belongs to another user }
+        "404": { description: Unknown code }
   /device/approve:
     post:
       operationId: approveDevice
+      description: Explicit browser-only approval as an existing member of the requested room. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
       requestBody:
         required: true
         content:
@@ -176,6 +257,119 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: "Invalid, decided or expired code" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity and room membership required }
+        "409": { description: Request already decided concurrently }
+        "503": { description: Authority idle }
+  /device/deny:
+    post:
+      operationId: denyDevice
+      description: Browser-only denial by an existing room member. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceApprovalInput" }
+      responses:
+        "200":
+          description: Denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: "Invalid, decided or expired code" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity and room membership required }
+        "409": { description: Request already decided concurrently }
+  /device/poll:
+    post:
+      operationId: pollDevice
+      description: Public secret-and-verifier proof. Redemption is single-use and atomically issues a fifteen-minute opaque room-bound player bearer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceProofInput" }
+      responses:
+        "200":
+          description: Approved and redeemed; keep token private
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceCredential" }
+        "202":
+          description: Awaiting explicit human approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DevicePendingResult" }
+        "400":
+          description: Denied, expired, cancelled, invalid proof or already redeemed; malformed requests may return an error instead of status
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/DeviceEndedResult" }
+                  - { $ref: "#/components/schemas/ErrorResult" }
+        "429": { description: Too many device requests }
+  /device/cancel:
+    post:
+      operationId: cancelDevice
+      description: Public secret-and-verifier cancellation. Also revokes the session if this request was already redeemed. Remains reachable when idle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceProofInput" }
+      responses:
+        "200":
+          description: Cancelled, with any corresponding live session revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: Invalid proof or already cancelled request }
+        "429": { description: Too many device requests }
+  /device/grants:
+    get:
+      operationId: listDeviceGrants
+      description: List only the signed-in browser user's unexpired delegated sessions.
+      security: [{ browserSession: [] }]
+      responses:
+        "200":
+          description: Active grants belonging to this human, never bearer credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceGrantList" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity required }
+  /device/grants/{delegateId}/revoke:
+    parameters:
+      - { name: delegateId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: revokeDeviceGrant
+      description: Owner-only browser revocation. Closes this delegate's passive sockets promptly without revoking unrelated browser sessions. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity required }
+        "404": { description: Grant absent or owned by another user }
+  /device/revoke:
+    post:
+      operationId: revokeDevice
+      description: Revoke the authenticated player bearer itself, including read-only sessions. Does not accept browser-cookie identity and remains reachable when idle.
+      security: [{ playerBearer: [] }]
+      responses:
+        "200":
+          description: Revoked and corresponding sockets invalidated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "401": { description: Valid player bearer required }
+        "403": { description: Browser identity cannot be revoked through this endpoint }
   /manifest:
     get:
       operationId: getManifest
@@ -199,6 +393,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 components:
+  securitySchemes:
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: cg_session
+      description: Human browser session issued by Replit OIDC; delegated player sessions cannot approve, deny or manage grants.
+    playerBearer:
+      type: http
+      scheme: bearer
+      description: Opaque room-bound fifteen-minute player credential; never a host or admin identity.
   schemas:
     AuthUser:
       type: object
@@ -264,6 +468,92 @@ components:
       required: [code]
       properties:
         code: { type: string, minLength: 4, maxLength: 32 }
+    DevicePermission:
+      type: string
+      enum: [read, act]
+      description: read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+    DeviceRequestInput:
+      type: object
+      required: [roomId, challenge]
+      properties:
+        roomId: { type: string, description: Canonical room UUID or authority-resolved room alias }
+        challenge: { type: string, pattern: "^[A-Za-z0-9_-]{43}$", description: Base64url S256 digest of the private verifier }
+        clientLabel: { type: string, minLength: 1, maxLength: 120, default: "Room assistant", description: Self-reported printable label; not verified workspace or model identity }
+        permission:
+          allOf: [{ $ref: "#/components/schemas/DevicePermission" }]
+          default: act
+    DeviceRequestResult:
+      type: object
+      required: [deviceId, delegateId, deviceSecret, roomId, userCode, verificationPath, expiresIn, interval, permission]
+      properties:
+        deviceId: { type: string, format: uuid }
+        delegateId: { type: string, format: uuid, description: Unique generated delegated request/session identifier; equals deviceId }
+        deviceSecret: { type: string, description: Private proof material; never display in chat or logs }
+        roomId: { type: string, format: uuid }
+        userCode: { type: string }
+        verificationPath: { type: string }
+        expiresIn: { type: integer, enum: [300] }
+        interval: { type: integer, enum: [2] }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+    DeviceProofInput:
+      type: object
+      required: [deviceId, deviceSecret, verifier]
+      properties:
+        deviceId: { type: string, minLength: 1, maxLength: 256 }
+        deviceSecret: { type: string, minLength: 1, maxLength: 256 }
+        verifier: { type: string, minLength: 1, maxLength: 256, description: Private verifier whose S256 digest matches the request challenge }
+    DeviceCredential:
+      type: object
+      required: [token, expiresIn, roomId, godId, delegateId, permission]
+      properties:
+        token: { type: string, description: Private opaque bearer; do not display or persist to assistant output }
+        expiresIn: { type: integer, enum: [900] }
+        roomId: { type: string, format: uuid }
+        godId: { type: string }
+        delegateId: { type: string, format: uuid }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+    DevicePendingResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending] }
+    DeviceEndedResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [denied, expired] }
+    ErrorResult:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code: { type: string }
+    DeviceDetails:
+      type: object
+      required: [roomId, roomCode, clientLabel, permission, expiresAt, status]
+      properties:
+        roomId: { type: string, format: uuid }
+        roomCode: { type: string }
+        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+        expiresAt: { type: string, format: date-time, description: Approval-request deadline, not a redeemed grant's lifetime }
+        status: { type: string, enum: [pending, approved, denied, redeemed, expired] }
+    DeviceGrant:
+      type: object
+      required: [delegateId, roomId, clientLabel, permission, expiresAt]
+      properties:
+        delegateId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+        expiresAt: { type: string, format: date-time, description: Persisted player-session expiry }
+    DeviceGrantList:
+      type: object
+      required: [grants]
+      properties:
+        grants:
+          type: array
+          items: { $ref: "#/components/schemas/DeviceGrant" }
     AuthoredOption:
       type: object
       required: [id, label, languages, objectTypes]
@@ -320,7 +610,13 @@ components:
       type: object
       required: [action, requestId]
       properties:
-        action: { type: string, enum: [join, ready, settings, start, addAi, removeAi, chat, resume] }
+        action:
+          type: string
+          enum: [join, leave, ready, settings, start, endGame, addAi, removeAi, chat, resume]
+          description: >-
+            Settings and seats describe the NEXT game and can change only while no game is active.
+            `leave` is refused for the owner and for a member seated in the active game.
+            `endGame` (owner) ends the active game early and records its result.
         requestId: { type: string }
         revision: { type: integer }
         settings: { $ref: "#/components/schemas/Settings" }
@@ -358,7 +654,7 @@ components:
         energyPerSecond: { type: number }
     RoomSummary:
       type: object
-      required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase]
+      required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode]
       properties:
         id: { type: string }
         shortCode: { type: string }
@@ -370,7 +666,10 @@ components:
             - { type: number }
             - { type: "null" }
         memberCount: { type: integer }
-        phase: { type: string }
+        phase:
+          type: string
+          description: "`lobby` between games, otherwise the active game's phase."
+        activeGameShortCode: { type: [string, "null"] }
     Member:
       type: object
       required: [id, name, kind, ready]
@@ -412,6 +711,86 @@ components:
         kind: { type: string }
         totalScore: { type: number }
         rank: { type: integer }
+    GameLink:
+      type: object
+      required: [id, shortCode, roomShortCode, status]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        roomShortCode: { type: [string, "null"] }
+        status: { type: string, enum: [current, historical, unavailable] }
+    RosterEntry:
+      type: object
+      required: [id, name, kind]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [human, ai] }
+    Winner:
+      type: object
+      required: [deityId, name, kind]
+      properties:
+        deityId: { type: string }
+        name: { type: string }
+        kind: { type: string }
+    ActiveGameRef:
+      type: object
+      description: The room's single active (not yet ended) game.
+      required: [id, shortCode, phase, startedAt, roster]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        phase: { type: string }
+        startedAt: { type: number }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
+    GameRecord:
+      type: object
+      description: Public result of one finished game, kept in its room's history.
+      required: [id, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, agentCount]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        roomId: { type: string }
+        startedAt: { type: number }
+        endedAt:
+          description: Unix milliseconds; null for legacy games whose end time was not recorded.
+          type: [number, "null"]
+        endReason:
+          type: [string, "null"]
+          enum: [lifetime, owner, retired, null]
+        settings: { $ref: "#/components/schemas/Settings" }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
+        leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
+        winners:
+          description: Every god ranked first (ties share the win).
+          type: array
+          items: { $ref: "#/components/schemas/Winner" }
+        worldSeconds: { type: number }
+        objectCount: { type: integer }
+        agentCount: { type: integer }
+    GameView:
+      description: A game's own page. Public information only.
+      allOf:
+        - $ref: "#/components/schemas/PublicGame"
+        - type: object
+          required: [roomId, roomShortCode, ownerId, status, winners, chat, roomActiveGame, utilityCatalog, serverTime, startedAt, endedAt, endReason, recoveryReason, settings, roster]
+          properties:
+            roomId: { type: [string, "null"] }
+            roomShortCode: { type: [string, "null"] }
+            ownerId: { type: [string, "null"] }
+            status: { type: string, enum: [active, ended] }
+            winners: { type: array, items: { $ref: "#/components/schemas/Winner" } }
+            chat:
+              description: Public room chat sent while this game was played (most recent 100).
+              type: array
+              items: { $ref: "#/components/schemas/ChatMessage" }
+            roomActiveGame:
+              description: The room's active game now, which may be a newer one.
+              oneOf:
+                - { $ref: "#/components/schemas/ActiveGameRef" }
+                - { type: "null" }
+            utilityCatalog: { type: array, items: { $ref: "#/components/schemas/UtilityFamily" } }
+            serverTime: { type: number }
     PublicGame:
       type: object
       required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount]
@@ -425,18 +804,41 @@ components:
         agentCount: { type: integer }
         objects: { type: array, items: { $ref: "#/components/schemas/PublicObject" } }
         leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
+        startedAt: { type: number }
+        endedAt: { type: [number, "null"] }
+        endReason: { type: [string, "null"] }
+        recoveryReason: { type: [string, "null"] }
+        settings: { $ref: "#/components/schemas/Settings" }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
     RoomState:
       type: object
-      required: [id, shortCode, ownerId, revision, settings, members, chat, game, serverTime, utilityCatalog, aiBudget, aiUsed]
+      description: >-
+        A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game.
+        Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in
+        GET /rooms/{roomId}/games.
+      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, game, activeGame, serverTime, utilityCatalog, aiBudget, aiUsed]
       properties:
         id: { type: string }
         shortCode: { type: string }
         ownerId: { type: string }
+        ownerName: { type: string }
+        createdAt:
+          description: Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+          type: [number, "null"]
         revision: { type: integer }
-        settings: { $ref: "#/components/schemas/Settings" }
+        settings:
+          description: Settings for the next game. Each game keeps its own snapshot from launch.
+          allOf: [{ $ref: "#/components/schemas/Settings" }]
         members: { type: array, items: { $ref: "#/components/schemas/Member" } }
         chat: { type: array, items: { $ref: "#/components/schemas/ChatMessage" } }
+        activeGame:
+          oneOf:
+            - { $ref: "#/components/schemas/ActiveGameRef" }
+            - { type: "null" }
         game:
+          description: >-
+            Deprecated legacy view of the room's current game slot (the active game, or the most recent
+            one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.
           oneOf:
             - { $ref: "#/components/schemas/PublicGame" }
             - { type: "null" }

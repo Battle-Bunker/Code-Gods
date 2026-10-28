@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:integration": "node test/run-game-integration.mjs && node --experimental-transform-types --test test/runtime-integration.test.ts"
+    "test:integration": "node test/run-game-integration.mjs && node --experimental-transform-types --test test/runtime-integration.test.ts",
+    "test:device": "node test/client-daemon-integration.runner.mjs"
   },
   "dependencies": {
     "@workspace/ai-player": "workspace:*",
