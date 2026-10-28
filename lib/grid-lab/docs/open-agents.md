@@ -776,7 +776,8 @@ holding access, so each god is compared with itself:
   every object, the PR #10 finding for Programs. The search agents never do: they evaluate the
   owner's utility first.
 - **Per-application energy is a real cost.** Open-only worlds spend 620–750 energy on applications per
-  game, against about 1,200 earned. Owners who cannot pay see their agents idle.
+  game, out of the ≈ 1,840 the four gods receive (100 each at the start + 1 per second). Owners who
+  cannot pay see their agents idle.
 
 ## 7. Integration (`sim.py`)
 
