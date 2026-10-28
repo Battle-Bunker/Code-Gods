@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import {
-  useGetRoom, getGetRoomQueryKey, useGetManifest, useListRoomGames, getListRoomGamesQueryKey,
+  useGetRoom, getGetRoomQueryKey, useListRoomGames, getListRoomGamesQueryKey,
   type RoomState,
 } from "@workspace/api-client-react";
 import { Shell, ErrorLine } from "@/components/shell";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { errMsg } from "@/lib/errors";
 import { fmtWhen, isoWhen } from "@/lib/time";
+import { useManifest } from "@/hooks/use-manifest";
 import { ArrowRight, Copy, Crown, Radio } from "lucide-react";
 
 function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
@@ -79,7 +80,7 @@ export default function Room() {
   const q = useGetRoom(id, { query: { queryKey: getGetRoomQueryKey(id), enabled: live, refetchInterval: idle || !activityReady ? false : 1000 } });
   const room = q.data;
   const games = useListRoomGames(room?.id ?? "", { query: { queryKey: getListRoomGamesQueryKey(room?.id ?? ""), enabled: live && !!room, refetchInterval: idle || !activityReady ? false : 15000 } });
-  const manifest = useGetManifest();
+  const manifest = useManifest();
   const act = useAct(id);
   // Legacy links: /rooms/:id?game=CODE now belong to the game's own page.
   useEffect(() => {
@@ -140,7 +141,8 @@ export default function Room() {
             <GameRules settings={room.settings} roomCode={room.shortCode} note="Includes this room’s settings for the next game." />
           </div>
           <div className="space-y-6">
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} aiFunding={manifest.data?.aiFunding} />
+            {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => void manifest.refetch()} />}
+            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} />
               : <ReadOnlySettings settings={room.settings} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
             <Repertoire catalog={room.utilityCatalog} />
           </div>

@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
-import { useListRooms, getListRoomsQueryKey, useCreateRoom, useGetManifest } from "@workspace/api-client-react";
+import { useListRooms, getListRoomsQueryKey, useCreateRoom } from "@workspace/api-client-react";
+import { useManifest } from "@/hooks/use-manifest";
 import { Shell, Panel, Empty, ErrorLine, Sigil } from "@/components/shell";
 import { useAuth, displayName } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,7 +20,7 @@ const tenets = [
 
 function Landing() {
   const { login } = useAuth();
-  const manifest = useGetManifest();
+  const manifest = useManifest();
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       <section className="grid md:grid-cols-[1.4fr_1fr] gap-10 py-14 md:py-24 border-b">

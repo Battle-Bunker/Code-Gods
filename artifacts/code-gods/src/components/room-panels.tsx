@@ -108,7 +108,7 @@ const numFields: [keyof Settings, string, number?][] = [
 const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
 const typeKeys = ["intMin", "intMax", "stringMaxLength"];
 
-export function OwnerSettings({ room, act, defaults, options, aiFunding }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; aiFunding?: AIFunding }) {
+export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
@@ -172,7 +172,7 @@ export function OwnerSettings({ room, act, defaults, options, aiFunding }: { roo
         {optionFields.map(([k, l]) => (
           <label key={k} className="space-y-1 col-span-2"><span className="label-mono">{l}</span>
             <select value={available(k).some(o => o.id === val(k)) ? val(k) : ""} disabled={!options} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`select-${k}`}>
-              {!available(k).some(o => o.id === val(k)) && <option value="" disabled>{options ? "Select a supported option" : "Loading options…"}</option>}
+              {!available(k).some(o => o.id === val(k)) && <option value="" disabled>{options ? "Select a supported option" : optionsFailed ? "Options unavailable — retry above" : "Loading options…"}</option>}
               {available(k).map(o => <option key={o.id} value={o.id}>{o.label} ({o.id})</option>)}
             </select></label>
         ))}
