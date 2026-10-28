@@ -1,36 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import {
-  getGetRoomQueryKey, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type ObjectTypeInfo, type SettingsPreset,
-} from "@workspace/api-client-react";
+import { useAction, useMutation } from "convex/react";
 import { Panel, Empty, ErrorLine } from "@/components/shell";
 import { ObjectTypePicker, RuleShelf, catalogFor, changedParams, findOffered, sameArgs, snapToOffered, withExcluded, type TypeChoice } from "@workspace/object-views";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
 import { useAgentOptions } from "@/hooks/use-agents";
+import { useRun, type Run } from "@/hooks/use-run";
+import { api, useLive } from "@/lib/convex";
 import { errMsg, rid, fmt } from "@/lib/errors";
 import { fmtDuration, fmtWhen, isoWhen, endReasonLabel, toMs } from "@/lib/time";
-import { Bot, Crown, Play, Trash2, User, Check, Circle, LogOut, Trophy, ArrowRight, Eye } from "lucide-react";
+import { catalogOf, type RoomState, type Settings, type SettingsOptions, type GameRecord, type ObjectTypeInfo, type SettingsPreset, type Manifest, type Credential } from "@/lib/types";
+import { Bot, Crown, Play, Trash2, User, Check, Circle, LogOut, Trophy, ArrowRight, Eye, KeyRound, ExternalLink } from "lucide-react";
 
-type Act = Omit<RoomActionInput, "requestId">;
-
-/** Room actions. `after` runs on success with the fresh room (e.g. to refresh a game view). */
-export function useAct(roomId: string, after?: (room: RoomState) => void) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const m = useRoomAction();
-  const run = (data: Act, onOk?: () => void) =>
-    m.mutate({ roomId, data: { ...data, requestId: rid() } }, {
-      onSuccess: (room) => { qc.setQueryData(getGetRoomQueryKey(roomId), room); after?.(room); onOk?.(); },
-      onError: (e) => toast({ title: `Action "${data.action}" refused`, description: errMsg(e), variant: "destructive" }),
-    });
-  return { run, pending: m.isPending, variables: m.variables };
-}
-export type RoomAct = ReturnType<typeof useAct>;
-
-export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; act: RoomAct; minPlayers: number }) {
+export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; act: Run; minPlayers: number }) {
+  const join = useMutation(api.rooms.join);
+  const leave = useMutation(api.rooms.leave);
+  const setReady = useMutation(api.rooms.setReady);
+  const addAi = useMutation(api.rooms.addAi);
+  const removeAi = useMutation(api.rooms.removeAi);
+  const start = useAction(api.owner.start);
   const me = room.members.find((m) => m.id === meId);
   const ready = room.members.filter((m) => m.ready).length;
   const g = room.activeGame;
@@ -42,6 +30,7 @@ export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomSt
   const list = agents.data?.agents ?? [];
   const chosen = list.some((a) => a.id === agentId) ? agentId : list[0]?.id ?? "";
   const leaveBlocked = !me || isOwner || seated(meId);
+  const roomId = room.id;
   return (
     <Panel title="Members" meta={`${ready}/${room.members.length} ready`}>
       {room.members.length === 0 ? <Empty title="No seats taken" body="Join to claim the first seat." /> : (
@@ -52,43 +41,43 @@ export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomSt
               <span className="flex-1 min-w-0">
                 <span className="truncate block text-sm">{m.name}{m.id === meId && <span className="label-mono ml-2">you</span>}{m.id === room.ownerId && <Crown className="inline h-3 w-3 ml-1.5 text-accent" />}</span>
                 {running ? <span className="label-mono" data-testid={`text-member-seat-${m.id}`}>{seated(m.id) ? "in game" : "spectating · plays next game"}</span>
+                  : m.kind === "ai" ? <span className="label-mono">{m.provider} / {m.model}{m.status ? ` · ${m.status}` : ""}</span>
                   : m.status && <span className="label-mono">{m.status}</span>}
               </span>
               <span className={`label-mono inline-flex items-center gap-1 ${m.ready ? "!text-primary" : ""}`}>{m.ready ? <Check className="h-3 w-3" /> : <Circle className="h-3 w-3" />}{m.ready ? "ready" : "waiting"}</span>
               {isOwner && m.kind === "ai" && (
-                <button onClick={() => act.run({ action: "removeAi", deityId: m.id })} disabled={act.pending || running} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title={running ? "Seats are frozen while a game is running" : "Remove AI seat"} data-testid={`button-remove-ai-${m.id}`}><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => act.run("removeAi", () => removeAi({ roomId, godId: m.id }))} disabled={act.pending || running} className="text-muted-foreground hover:text-destructive disabled:opacity-40" title={running ? "Seats are frozen while a game is running" : "Remove AI seat"} data-testid={`button-remove-ai-${m.id}`}><Trash2 className="h-4 w-4" /></button>
               )}
             </li>
           ))}
         </ul>
       )}
-      <div className="border-t p-3 grid gap-2">
+      <div className="border-t p-3 grid grid-cols-[minmax(0,1fr)] gap-2">
         {!me ? (<>
-          <button onClick={() => act.run({ action: "join" })} disabled={act.pending} className="bg-primary text-primary-foreground py-2 text-sm disabled:opacity-50" data-testid="button-join">Join this room</button>
+          <button onClick={() => act.run("join", () => join({ room: room.shortCode }))} disabled={act.pending} className="bg-primary text-primary-foreground py-2 text-sm disabled:opacity-50" data-testid="button-join">Join this room</button>
           {running && <p className="label-mono text-center">a game is running: you will spectate it and play the next one</p>}
         </>) : (
           <div className="flex gap-2">
-            <button onClick={() => act.run({ action: "ready", ready: !me.ready })} disabled={act.pending} className={`flex-1 py-2 text-sm border ${me.ready ? "" : "bg-foreground text-background"}`} data-testid="button-ready">{me.ready ? "Stand down (unready)" : "Declare ready"}</button>
+            <button onClick={() => act.run("ready", () => setReady({ roomId, ready: !me.ready }))} disabled={act.pending} className={`flex-1 py-2 text-sm border ${me.ready ? "" : "bg-foreground text-background"}`} data-testid="button-ready">{me.ready ? "Stand down (unready)" : "Declare ready"}</button>
             {!isOwner && (
-              <button onClick={() => act.run({ action: "leave" })} disabled={act.pending || leaveBlocked} title={seated(meId) ? "You are seated in the running game; leave after it ends" : "Leave this room"} className="border px-3 py-2 text-sm inline-flex items-center gap-2 hover:bg-muted disabled:opacity-40" data-testid="button-leave"><LogOut className="h-4 w-4" /> Leave</button>
+              <button onClick={() => act.run("leave", () => leave({ roomId }))} disabled={act.pending || leaveBlocked} title={seated(meId) ? "You are seated in the running game; leave after it ends" : "Leave this room"} className="border px-3 py-2 text-sm inline-flex items-center gap-2 hover:bg-muted disabled:opacity-40" data-testid="button-leave"><LogOut className="h-4 w-4" /> Leave</button>
             )}
           </div>
         )}
         {me && !isOwner && seated(meId) && <p className="label-mono text-center">you can leave once the running game ends</p>}
-        <a href={`/player/?room=${encodeURIComponent(room.shortCode)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><User className="h-4 w-4" /> Open player client</a>
         {isOwner && (<>
           <div className="flex gap-2">
             <select value={chosen} onChange={(e) => setAgentId(e.target.value)} disabled={!list.length || running} className="flex-1 min-w-0 border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary disabled:opacity-50" data-testid="select-ai-agent">
-              {agents.isLoading ? <option>Loading agents…</option> : agents.isError ? <option>Agent list failed</option> : !list.length ? <option>No agents in library</option>
+              {agents.isLoading ? <option>Loading agents…</option> : agents.error ? <option>Agent list failed</option> : !list.length ? <option>No agents in library</option>
                 : list.map((a) => <option key={a.id} value={a.id}>{a.name} · {a.model}</option>)}
             </select>
-            <button onClick={() => act.run({ action: "addAi", aiAgentId: chosen })} disabled={act.pending || !chosen || running} title={running ? "Seats are frozen while a game is running" : undefined} className="border px-3 py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-40" data-testid="button-add-ai"><Bot className="h-4 w-4" /> Add AI</button>
+            <button onClick={() => act.run("addAi", () => addAi({ roomId, templateId: chosen }))} disabled={act.pending || !chosen || running} title={running ? "Seats are frozen while a game is running" : undefined} className="border px-3 py-2 text-sm inline-flex items-center justify-center gap-2 hover:bg-muted disabled:opacity-40" data-testid="button-add-ai"><Bot className="h-4 w-4" /> Add AI</button>
           </div>
-          {agents.isError && <ErrorLine message={errMsg(agents.error)} onRetry={() => agents.refetch()} />}
+          {agents.error && <ErrorLine message={errMsg(agents.error)} />}
           {running ? (
             <Link href={`/games/${g.shortCode}`} className="bg-accent text-accent-foreground py-2.5 text-sm inline-flex items-center justify-center gap-2" data-testid="link-running-game">Game {g.shortCode} running · open <ArrowRight className="h-4 w-4" /></Link>
           ) : (
-            <button onClick={() => act.run({ action: "start" })} disabled={act.pending || !canStart} className="bg-accent text-accent-foreground py-2.5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40" data-testid="button-start"><Play className="h-4 w-4" /> Start game</button>
+            <button onClick={() => act.run("start", () => start({ roomId, requestId: rid() }))} disabled={act.pending || !canStart} className="bg-accent text-accent-foreground py-2.5 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40" data-testid="button-start"><Play className="h-4 w-4" /> Start game</button>
           )}
           {!running && !canStart && <p className="label-mono text-center" data-testid="text-start-needs">needs {minPlayers - room.members.length} more participant{minPlayers - room.members.length === 1 ? "" : "s"} (min {minPlayers})</p>}
           {running && <p className="label-mono text-center">seats and settings are frozen until this game ends</p>}
@@ -133,7 +122,10 @@ const badNum = (f: NumField, raw: string) => {
   return raw.trim() === "" || !Number.isFinite(v) || (f.int && !Number.isInteger(v)) || (f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max);
 };
 
-export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, objectTypes, presets = [] }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; objectTypes?: ObjectTypeInfo[]; presets?: SettingsPreset[] }) {
+export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, objectTypes, presets = [] }: { room: RoomState; act: Run; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: Manifest["aiFunding"]; objectTypes?: ObjectTypeInfo[]; presets?: SettingsPreset[] }) {
+  const saveSettings = useAction(api.owner.settings);
+  const approveBudget = useMutation(api.rooms.approveAiBudget);
+  const roomCatalog = useMemo(() => catalogOf(room.utilityCatalog), [room.utilityCatalog]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [excludedDraft, setExcludedDraft] = useState<string[] | null>(null);
   const [typeDraft, setTypeDraft] = useState<TypeChoice | null>(null);
@@ -150,7 +142,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
   const choice: TypeChoice = typeDraft ?? { objectType: source.objectType, typeArgs: source.typeArgs };
   const val = (k: keyof Settings) => draft[k] ?? String(source[k] ?? "");
   const available = (k: keyof SettingsOptions, language = val("language"), objectType = choice.objectType) =>
-    (options?.[k] ?? []).filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
+    (options?.[k] ?? []).filter(o => (o.languages as readonly string[]).includes(language) && (o.objectTypes as readonly string[]).includes(objectType));
   const fixOptions = (next: Record<string, string>, language: string, objectType: string) => {
     for (const [key] of optionFields) {
       const choices = available(key, language, objectType);
@@ -201,8 +193,8 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
   const conflict = dirty && baseRev.current !== room.revision;
   const savedType = typeDraft === null || (typeDraft.objectType === source.objectType && sameArgs(typeDraft.typeArgs, source.typeArgs));
   const excluded = excludedDraft ?? source.excludedFamilies ?? [];
-  const shelf = useMemo(() => withExcluded(savedType ? room.utilityCatalog : catalogFor(choice.objectType, choice.typeArgs), excluded),
-    [savedType, room.utilityCatalog, choice.objectType, choice.typeArgs, excluded]);
+  const shelf = useMemo(() => withExcluded(savedType ? roomCatalog : catalogFor(choice.objectType, choice.typeArgs), excluded),
+    [savedType, roomCatalog, choice.objectType, choice.typeArgs, excluded]);
   const toggleExcluded = (id: string, out: boolean) => setExcludedDraft(() => out ? [...new Set([...excluded, id])] : excluded.filter(x => x !== id));
   const badges = useMemo(() => (currentType?.classes ?? []).map(c => c.badge), [currentType]);
   const b = Number(budget);
@@ -224,7 +216,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
             <div className="grid grid-cols-2 gap-1.5">
               {presets.map(p => (
                 <button key={p.id} type="button" disabled={!p.offered || act.pending} aria-pressed={currentPreset?.id === p.id}
-                  onClick={() => act.run({ action: "settings", revision: room.revision, preset: p.id }, discard)}
+                  onClick={() => act.run("preset", () => saveSettings({ roomId: room.id, revision: room.revision, preset: p.id }), discard)}
                   title={p.offered ? `${p.kid} Applies now; fine-tune below.` : "Not offered on this server yet"}
                   className={`text-left border px-2 py-1.5 min-w-0 disabled:opacity-40 ${currentPreset?.id === p.id ? "border-primary bg-primary/10" : "hover:bg-muted"}`} data-testid={`button-preset-${p.id}`}>
                   <span className="block text-xs font-medium truncate">{p.label}{currentPreset?.id === p.id && " ✓"}</span>
@@ -280,7 +272,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         ))}
       </div>
       <div className="border-t p-3 flex flex-wrap gap-2">
-        <button disabled={!dirty || invalid || act.pending} onClick={() => act.run({ action: "settings", revision: baseRev.current, settings: build() }, discard)} className="flex-1 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-40" data-testid="button-save-settings">Save settings</button>
+        <button disabled={!dirty || invalid || act.pending} onClick={() => act.run("settings", () => saveSettings({ roomId: room.id, revision: baseRev.current, settings: build() }), discard)} className="flex-1 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-40" data-testid="button-save-settings">Save settings</button>
         <button disabled={!dirty} onClick={discard} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-discard-settings">Discard</button>
         <button disabled={!defaults} onClick={() => { if (!defaults) return; setTypeDraft({ objectType: defaults.objectType, typeArgs: defaults.typeArgs }); setDraft(Object.fromEntries(Object.entries(defaults).filter(([k]) => k !== "typeArgs" && k !== "objectType").map(([k, v]) => [k, String(v)]))); }} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-load-defaults">Load defaults</button>
       </div>
@@ -290,6 +282,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
           <p className="font-medium">AI billing: direct provider APIs (per-agent model)</p>
           <p className="text-muted-foreground">Each AI seat uses its library agent's provider and model. Credentials and per-model rates are listed in the AI library.</p>
           {aiFunding && !aiFunding.live && <p className="text-accent">AI game control is not active yet. No inference is running.</p>}
+          {aiFunding?.mock && <p className="text-accent" data-testid="text-ai-mock">Mock AI provider (development): AI seats play scripted moves and no provider is billed.</p>}
         </div>
         <div className="flex items-baseline justify-between">
           <span className="label-mono !text-foreground">AI token budget</span>
@@ -305,7 +298,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
           I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.
         </label>
-        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: source, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
+        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run("budget", () => approveBudget({ roomId: room.id, aiBudget: b }), () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
       </fieldset>
     </Panel>
@@ -328,7 +321,7 @@ function HistoryRow({ g }: { g: GameRecord }) {
         <span>{g.winners.length ? g.winners.map((w) => w.name).join(", ") : "no winner recorded"}{g.winners.length > 1 && <span className="label-mono ml-2">tie</span>}</span>
       </div>
       <details className="text-xs">
-        <summary className="cursor-pointer label-mono">final leaderboard · {g.roster.length} gods · {s.language} / {s.objectType} {Object.values(s.typeArgs).join(",")} · {fmt(g.worldSeconds, 1)}s world · {g.objectCount} objects · {g.agentCount} agents</summary>
+        <summary className="cursor-pointer label-mono">final leaderboard · {g.roster.length} gods · {s.language} / {s.objectType} {Object.values(s.typeArgs).join(",")} · {fmt(g.worldSeconds, 1)}s world · {g.objectCount} objects</summary>
         <ol className="mt-2 space-y-0.5">
           {top.map((r) => <li key={r.deityId} className="flex gap-2 font-mono"><span className="w-6 text-muted-foreground">{r.rank}</span><span className="flex-1 truncate">{r.name} <span className="text-muted-foreground">{r.kind}</span></span><span className="tabular-nums" title="total payoff, bits²">{fmt(r.totalPayoff, 1)}</span></li>)}
           {top.length === 0 && <li className="text-muted-foreground">No standings were recorded.</li>}
@@ -338,13 +331,62 @@ function HistoryRow({ g }: { g: GameRecord }) {
   );
 }
 
-export function History({ games, loading, error, onRetry }: { games?: GameRecord[]; loading: boolean; error: unknown; onRetry: () => void }) {
+export function History({ games, loading, error }: { games?: GameRecord[]; loading: boolean; error: unknown }) {
   return (
     <Panel title="Game history" meta={games ? `${games.length} played` : undefined}>
       {loading && <div className="p-4 space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>}
-      {!!error && <div className="p-4"><ErrorLine message={errMsg(error)} onRetry={onRetry} /></div>}
+      {!!error && <div className="p-4"><ErrorLine message={errMsg(error)} /></div>}
       {games && games.length === 0 && <Empty title="No games played yet" body="Finished games, their winners and final leaderboards appear here." />}
       {games && games.length > 0 && <ul className="divide-y max-h-[560px] overflow-auto">{games.map((g) => <HistoryRow key={g.id} g={g} />)}</ul>}
+    </Panel>
+  );
+}
+
+/**
+ * "Your player apps": how to connect a Replit player app to this room, the caller's credentials
+ * (auth/credentials:list, revocable at once) and the hosted default player client.
+ */
+export function PlayerApps({ room }: { room: RoomState }) {
+  const creds = useLive(api.auth.credentials.list, {});
+  const revoke = useMutation(api.auth.credentials.revoke);
+  const act = useRun();
+  const origin = window.location.origin;
+  const here = (creds.data ?? []).filter(c => c.roomId === room.id);
+  const elsewhere = (creds.data ?? []).filter(c => c.roomId !== room.id);
+  const row = (c: Credential) => (
+    <li key={c.credentialId} className="px-4 py-2.5 flex items-start gap-3 text-sm" data-testid={`row-credential-${c.credentialId}`}>
+      <KeyRound className="h-4 w-4 text-accent mt-0.5 shrink-0" />
+      <span className="flex-1 min-w-0">
+        <span className="block break-words" title="Self-reported by the app; not a verified identity">{c.label || "Unlabelled app"}</span>
+        <span className="label-mono block">{c.permission} · room {c.roomCode ?? "gone"} · expires {fmtWhen(c.expiresAt)}</span>
+        <span className="label-mono block">{c.lastUsedAt ? `last used ${fmtWhen(c.lastUsedAt)}` : "never used"}</span>
+      </span>
+      <button onClick={() => act.run("revoke", () => revoke({ credentialId: c.credentialId }))} disabled={act.pending} className="border border-destructive/50 text-destructive px-2.5 py-1 text-xs hover:bg-destructive/5 disabled:opacity-40" data-testid={`button-revoke-${c.credentialId}`}>Revoke</button>
+    </li>
+  );
+  return (
+    <Panel title="Your player apps" meta={creds.data ? `${here.length} connected` : undefined}>
+      <div className="p-4 space-y-3 text-sm" data-testid="panel-player-apps">
+        <p>Connect your own Replit player app to room <b className="font-mono">{room.shortCode}</b>:</p>
+        <ol className="list-decimal pl-5 space-y-2">
+          <li>In your app, set the Secret <code className="font-mono text-xs">CODE_GODS_ENGINE_URL</code> to <code className="font-mono text-xs break-all" data-testid="text-engine-url">{origin}</code></li>
+          <li>Run <code className="font-mono text-xs break-all bg-muted px-1" data-testid="text-connect-command">pnpm player connect --room {room.shortCode}</code></li>
+          <li>Approve the code it prints on this site's <Link href="/device" className="underline" data-testid="link-device">device approval page</Link>, then save the credential it prints as the Secret <code className="font-mono text-xs">CODE_GODS_CREDENTIAL</code>.</li>
+        </ol>
+        <a href={`/player/?room=${encodeURIComponent(room.shortCode)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><ExternalLink className="h-4 w-4" /> Open the hosted player client</a>
+      </div>
+      <div className="border-t">
+        {creds.isLoading && <div className="p-4"><Skeleton className="h-10 w-full" /></div>}
+        {creds.error && <div className="p-4"><ErrorLine message={errMsg(creds.error)} /></div>}
+        {creds.data && here.length === 0 && <p className="px-4 py-3 text-xs text-muted-foreground" data-testid="text-no-credentials">No player app holds a credential for this room.</p>}
+        {here.length > 0 && <ul className="divide-y" data-testid="list-credentials">{here.map(row)}</ul>}
+        {elsewhere.length > 0 && (
+          <details className="border-t">
+            <summary className="px-4 py-2 cursor-pointer label-mono">{elsewhere.length} credential{elsewhere.length === 1 ? "" : "s"} for your other rooms</summary>
+            <ul className="divide-y">{elsewhere.map(row)}</ul>
+          </details>
+        )}
+      </div>
     </Panel>
   );
 }

@@ -1,4 +1,4 @@
-import type { InstanceInfo, Settings } from "@workspace/api-client-react";
+import type { InstanceInfo, Settings } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 
