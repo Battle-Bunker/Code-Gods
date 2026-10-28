@@ -1,55 +1,89 @@
-export type ObjectType = "Int" | "string";
-export type ObjectValue = number | string;
+import type { Constraint, Instantiation, InstanceInfo, ObjectValue, Rng } from "@workspace/game-types";
+
 export type Language = "python" | "typescript";
-export type Params = Readonly<Record<string, number | string | readonly number[] | readonly (readonly number[])[]>>;
+export type ParamScalar = number | string | boolean;
+export type Params = Readonly<Record<string, ParamScalar | readonly ParamScalar[] | Readonly<Record<string, unknown>>>>;
 
-/** Uniform integer in [0, bound). Generation never calls Math.random directly. */
-export type Rng = (bound: number) => number;
+/**
+ * An ordinal utility: a number, or a fixed-arity tuple compared lexicographically. Bigger is better.
+ * Only the order matters; magnitudes never reach scoring (lib/grid-lab/docs/kid-api.md §1).
+ */
+export type Ordinal = number | readonly number[];
+export type ScoreShape = { readonly kind: "scalar" } | { readonly kind: "tuple"; readonly arity: number };
 
-export interface Domain {
-  objectType: ObjectType;
-  intMin: number;
-  intMax: number;
-  stringMaxLength: number;
+/** What a family sees of the instantiation: the instance plus its display tables (names for summaries). */
+export interface FamilyContext {
+  readonly inst: Instantiation;
+  readonly info: InstanceInfo;
 }
 
 /**
- * A family of utility functions sharing one idea, e.g. "loves a digit".
- * Sampling parameters turns a family into one god's concrete utility function.
+ * A family of utility functions sharing one idea. Sampling params turns it into one god's draw.
  *
- * Utility functions are written for people first: no input validation (the engine
- * only ever passes legal objects), short bodies, and a plain-language summary.
+ * The TypeScript card is the host evaluator and the calibration target; the Python card must induce
+ * exactly the same ordinals (test/parity.py). Cards are complete kid-readable programs: a header
+ * comment (emoji, name, plain sentences), the dealt params as UPPER_CASE constants, and
+ * `def utility(grid):` / `function utility(grid)` written against the room's generated prelude.
  */
 export interface UtilityFamily<P extends Params = Params> {
   readonly id: string;
-  /** Display name. Public: the catalog of possible families is common knowledge. */
+  /** Public: the catalog of possible families is common knowledge. */
   readonly name: string;
-  readonly objectType: ObjectType;
-  /** Public, parameter-free description of what gods of this family care about. */
+  readonly emoji: string;
+  readonly objectType: string;
+  /** Public, parameter-free description. */
   readonly theme: string;
-  sample(rng: Rng): P;
-  /** Private: the incentive this exact utility function creates, in plain language. */
-  summary(p: P): string;
-  /** Lines of Python that precede `def utility` (helpers/imports), if any. */
-  pythonPrelude?(p: P): string;
-  /** Body of `def utility(x)`, indented four spaces. */
-  python(p: P): string;
-  /** Body of `function utility(x)`: plain JavaScript (no type syntax), indented two spaces. */
-  typescript(p: P): string;
-  /** A legal object with utility ≥ 0.99. Used to prove reachability; never shown to players. */
-  exemplar(p: P): ObjectValue;
+  readonly requires: readonly Constraint[];
+  readonly shape: ScoreShape;
+  /** "reward" families are dealt as utilities; "penalty" families only as defence goals (badness, higher = worse). */
+  readonly role: "reward" | "penalty";
+  readonly tags: readonly string[];
+  /** Finite parameter support in this instantiation; `sample` returns one of these. */
+  support(ctx: FamilyContext): readonly P[];
+  sample(rng: Rng, ctx: FamilyContext): P;
+  /** Representative of the params' symmetry orbit: draws in one orbit share a calibration table. */
+  canonical(params: P, ctx: FamilyContext): P;
+  /** Private: the incentive in plain language. */
+  summary(params: P, ctx: FamilyContext): string;
+  readonly card: {
+    python(params: P, ctx: FamilyContext): string;
+    typescript(params: P, ctx: FamilyContext): string;
+  };
+  /** Optional: a legal value reaching the family's best ordinal (reachability tests). */
+  exemplar?(params: P, ctx: FamilyContext): ObjectValue;
 }
 
-/** Persisted, server-private description of one god's utility function. */
+/** Persisted, server-private description of one god's utility function (and optional defence goal). */
 export interface UtilityDescriptor {
-  familyId: string;
-  params: Params;
+  readonly familyId: string;
+  readonly params: Params;
+  readonly penalty?: { readonly familyId: string; readonly params: Params };
 }
 
 /** What a god is told about their own utility function. */
 export interface UtilityCard {
-  familyId: string;
-  name: string;
-  summary: string;
-  source: Readonly<Record<Language, string>>;
+  readonly familyId: string;
+  readonly emoji: string;
+  readonly name: string;
+  readonly theme: string;
+  readonly summary: string;
+  readonly shape: ScoreShape;
+  readonly source: Readonly<Record<Language, string>>;
+  readonly penalty?: {
+    readonly familyId: string; readonly emoji: string; readonly name: string; readonly summary: string;
+    readonly source: Readonly<Record<Language, string>>;
+  };
+}
+
+/** One god's private evaluation of one object (server-private). */
+export interface GodScore {
+  readonly ordinal: Ordinal;
+  /** ✨ s⁺ = −log2 μ{u ≥ u(x)}: reward surprisal. */
+  readonly rewardBits: number;
+  /** The defence goal's badness ordinal, only with a defence goal. */
+  readonly penaltyOrdinal?: Ordinal;
+  /** ⚠️ h = softhinge(−log2 μ{d ≥ d(x)}), only with a defence goal. */
+  readonly penaltyBits?: number;
+  /** n = s⁺ − w(h − E_μh), or s⁺ without a defence goal. */
+  readonly netBits: number;
 }
