@@ -76,7 +76,7 @@ when requested.
 The client Agent uses the separate workspace-local assistant CLI described in
 `docs/room-assistant.md` to observe and act as its human player, without extracting
 browser cookies or copying tokens into chat.
-It has no room-owner permissions or access to opponents' individual utilities.
+Unless the human approves an owner grant, it has no room-owner permissions; it never sees opponents' individual scores.
 Client UI and analytics are freely editable. Pull subsequent Git changes into
 each copy and restart its client service.
 
@@ -94,7 +94,7 @@ HTTPS player URL with room code `4B9A` (or the current canonical room link).
    fifteen-minute grant lifetime; approve.
 3. Confirm CLI status distinguishes the local bridge from authenticated WSS.
    Observe personal data and bounded events through the intended Replit proxy.
-   Verify no individual opponent utilities and that an attempted mutation fails.
+   Verify no individual opponent scores and that an attempted mutation fails.
 4. Revoke in the authority's player console during a passive subscription.
    Confirm immediate disconnect/no further private delivery, while the human
    browser remains signed in. Repeat with an action grant and a normal player
@@ -130,14 +130,42 @@ to bypass the gate.
   needs a browser-approved human session and a separate player workspace without
   server/database credentials. This task branch was not published.
 
-Start with three humans or two humans and one AI. Use TypeScript, Int, a short
-planning phase and the default world rates. A valid first summon is
-`(x) => x + 1` (it fails at the upper integer boundary). The Python equivalent is
-`lambda x: x + 1`. The identity `x => x` validates but never changes anything:
-every object value is unique, so a transformation onto an existing value fails.
+Start with three humans or two humans and one AI. Use the "First steps" preset
+(Grid 4×4) or Int, a short planning phase and the default world rates. A valid
+first summon is an agent that returns mutator calls. Int, Python:
 
-Read your utility card (summary first, then source), validate, summon, observe transformations, send a
-public message, and try one pause. Then try reconnecting the client.
+```python
+def agent(x):
+    return [add(1)]
+```
+
+TypeScript: `function agent(x) { return [add(1)]; }`. On a Grid:
+`def agent(grid):\n    return [paint(row(2), "red")]`. The mutators and helpers of the
+room are listed in the observation's `instance` and in the player console. An agent
+that returns `[]`, or calls that change nothing, validates but every act fails: every
+object value is unique, so a change onto an existing value fails as well.
+
+Energy: summoning costs god energy (the source's description bits, shown as the
+validation `cost`). The new agent starts at 0 energy and earns 2 bits per second of
+world time (none during planning or pauses). It is **eligible** to act once its energy
+reaches its `expectedActCost` (shown by validation); each act pays its actual bits,
+and a failed act still pays its decision bits, so energy can go negative: a
+**cooldown** until income brings it back. Destroying an agent is free.
+
+Read your utility card (emoji, summary, then source; a ⚠️ defence goal if dealt),
+validate, summon, watch your agent's energy and eligibility, observe transformations
+and your payoff in bits, send a public message, and try one pause. Then try
+reconnecting the client.
+
+### Updating duplicated client copies (player protocol v3)
+
+The server speaks only `code-gods.player.v3`. A player workspace duplicated before
+this change must pull the repository, rebuild (`pnpm install --frozen-lockfile`,
+`pnpm --filter @workspace/player-web build`) and restart its daemon or assistant
+service; an old client gets a version error rather than wrong numbers. Custom
+analytics must read `own.netBits`, `peerNetBits`, `peerCare` and `payoff` instead of
+`ownUtility`, `othersUtilitySum` and `score`, and agents' `energy`/`eligible`. See the
+migration note in `docs/player-client-integration.md`.
 
 ## Verification boundary
 

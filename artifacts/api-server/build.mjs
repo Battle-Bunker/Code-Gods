@@ -32,19 +32,22 @@ async function provisionPythonRuntime() {
     path.join(workspaceDir, "lib/game-runtime/dist/python-3.15.0")]);
   // Verify both external worker hosts against the assets just provisioned.
   // No API server, database, or paid model provider is started by these probes.
+  // Same contract as runtime-setup.ts: every object type's default instantiation, an empty agent.
+  const { OBJECT_TYPES } = await import("@workspace/game-types");
   for (const language of ["python", "typescript"]) {
     const runtime = createRuntime({ language, python, workers: 1 });
     try {
-      for (const objectType of ["Int", "string"]) {
-        const settings = { objectType, intMin: -100, intMax: 100, stringMaxLength: 1024 };
-        const input = objectType === "Int" ? 37 : "build\0\nprobe";
-        const source = language === "python" ? "lambda x: x"
-          : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
+      for (const type of OBJECT_TYPES) {
+        const inst = type.instantiate(type.defaults), parts = type.prelude(inst), codec = type.codec(inst);
+        const settings = { objectType: type.id, wireMaxLength: codec.maxLength, interactionComputeMs: 1000,
+          prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts } };
+        let n = 0;
+        const input = codec.encode(type.spawn(inst, { int: bound => n++ % bound, big: bound => BigInt(n++) % bound }));
+        const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
         const { cost } = await runtime.inspect(source, settings);
-        const { value } = await runtime.execute(source, input, settings);
-        if (!Number.isSafeInteger(cost) || cost <= 0 || value !== input
-            || (language === "python" && cost !== 6)) {
-          throw new Error(`Packaged ${language} ${objectType} runtime build probe failed`);
+        const { calls } = await runtime.act(source, input, settings);
+        if (!Number.isSafeInteger(cost) || cost <= 0 || calls !== "[]") {
+          throw new Error(`Packaged ${language} ${type.id} runtime build probe failed`);
         }
       }
     } finally { runtime.close(); }

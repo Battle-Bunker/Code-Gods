@@ -15,7 +15,7 @@ import playerRouter from "../src/routes/player";
 import gamesRouter from "../src/routes/games";
 import { attachSockets } from "../src/game/socket";
 import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions, initializeStore } from "../src/game/store";
-import { codecOf } from "@workspace/game-core";
+import { codecOf, presetSettings, typeDefaults } from "@workspace/game-core";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
 import { registerAdapters, requireAdapters } from "../src/game/adapters";
@@ -669,6 +669,54 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
   }
 });
 
+test("settings: presets, tuned defaults follow the instantiation, excluded families", { timeout: 60000 }, async () => {
+  const host: Actor = { id: randomUUID(), name: "Settings Host", kind: "human", scope: "browser" };
+  fixtureActors.set("settings:host", host);
+  const app = express();
+  app.use(express.json(), roomsRouter);
+  app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? 400).json({ error: error.message }));
+  const server = createServer(app);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const headers = { authorization: "Bearer settings:host", "content-type": "application/json" };
+  const call = async (path: string, body?: unknown) => {
+    const r = await fetch(`${base}${path}`, body ? { method: "POST", headers, body: JSON.stringify(body) } : { headers });
+    return { status: r.status, body: await r.json() };
+  };
+  try {
+    const manifest = (await call("/manifest")).body;
+    assert.deepEqual(manifest.presets.map((p: any) => p.id), ["grid-first-steps", "grid-classic", "grid-big", "grid-master"]);
+    assert.ok(manifest.objectTypes.find((t: any) => t.id === "Grid").offered.every((o: any) => o.args.size !== 3), "3×3 is not offered");
+    const { id } = await createRoom(host);
+    let room = (await call(`/rooms/${id}`)).body;
+    const settings = (patch: Record<string, unknown>) => call(`/rooms/${id}/actions`, { action: "settings", requestId: randomUUID(), revision: room.revision, settings: { ...room.settings, ...patch } });
+    // Switching to Grid without touching the tuned fields applies the board's defaults.
+    let r = await settings({ objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    room = r.body;
+    const tuned = typeDefaults("Grid", { size: 5, symbols: "base10", colours: "rgby" });
+    for (const [key, value] of Object.entries(tuned)) assert.deepEqual(room.settings[key], value, key);
+    // A field the owner sets in the same request wins over the tuned default.
+    r = await settings({ typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, startingObjectCount: 7 });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    room = r.body;
+    assert.equal(room.settings.startingObjectCount, 7);
+    assert.deepEqual(room.settings.excludedFamilies, typeDefaults("Grid", { size: 4, symbols: "base10", colours: "rgb" }).excludedFamilies ?? []);
+    assert.ok(room.utilityCatalog.some((f: any) => f.excluded) === room.settings.excludedFamilies.length > 0);
+    // Excluded families must exist.
+    r = await settings({ excludedFamilies: ["no-such-family"] });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /Unknown Grid utility families/);
+    // A preset replaces the draft, keeping the room's language.
+    r = await call(`/rooms/${id}/actions`, { action: "settings", requestId: randomUUID(), revision: room.revision, preset: "grid-first-steps" });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    room = r.body;
+    assert.deepEqual(room.settings, presetSettings("grid-first-steps", "python"));
+    assert.equal(room.objectInstance.key, "Grid(4,base10,rgb)");
+  } finally { server.close(); }
+});
+
 const FULL_GAMES = [
   { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, unoffered: { min: 0, max: 5 },
     agents: { python: ADD_PY, typescript: ADD_TS } },
@@ -801,7 +849,8 @@ for (const spec of FULL_GAMES) {
         assert.equal(mine.summonCost, validation.validation.cost);
         near(mine.expectedActCost, validation.validation.expectedActCost, "the expected act cost is deterministic per source");
         assert.deepEqual([mine.energy, mine.eligible, mine.acts, mine.spent], [0, false, 0, 0]);
-        assert.ok(obs.self.energy <= before - mine.summonCost + 1, "summoning is paid from god energy");
+        assert.equal(resolveRoom(id).game!.deities.find(d => d.id === ada.id)!.spent, mine.summonCost, "summoning is paid from god energy");
+        assert.ok(obs.self.energy < before, "god energy dropped by the summon price (minus real-time income)");
         const bos = (await json(get(`/player/v1/rooms/${id}/observation`, bo))).agents;
         near(bos[0].expectedActCost, mine.expectedActCost, "same source, same expected cost");
 

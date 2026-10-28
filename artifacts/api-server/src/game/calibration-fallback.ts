@@ -90,7 +90,8 @@ export function hasTable(draw: Draw, inst: Instantiation): boolean {
 const OFFERED: Readonly<Record<string, readonly TypeArgs[]>> = {
   Int: INT_PRESETS,
   string: STRING_PRESETS,
-  Grid: [{ size: 5, symbols: "base10", colours: "rgby" }, { size: 4, symbols: "cards", colours: "rainbow6" }, { size: 3, symbols: "base10", colours: "rgb" }],
+  Grid: [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 5, symbols: "base10", colours: "rgby" },
+    { size: 6, symbols: "base16", colours: "rainbow6" }, { size: 7, symbols: "cards", colours: "rainbow6" }],
 };
 
 export function offeredInstantiations(objectTypeId: string): Instantiation[] {

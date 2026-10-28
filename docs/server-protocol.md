@@ -137,7 +137,13 @@ badges, its tuned `settingsDefaults`, and the `offered` instantiations: those wh
 every dealable utility function has a calibration table. The `settings` room action
 refuses any other instantiation. When the owner switches instantiation, tuned fields
 the request leaves untouched (absent, or still the room's current value) take the new
-instantiation's defaults (Grid: 80 starting objects, 0.5 spawns per second).
+instantiation's tuned defaults (`settingsDefaults`, e.g. Grid's object count, spawn rate,
+agent income scaled with the board and, on the beginner board, excluded families).
+`excludedFamilies` lists family ids never dealt in the game (validated against the
+type's catalog). `Manifest.presets` are named starting points in display order
+(`grid-first-steps`, `grid-classic`, `grid-big`, `grid-master`); the settings action
+`{action:"settings",revision,preset:"grid-first-steps"}` applies one, keeping the
+room's language.
 `RoomState.objectInstance` and `GameView.objectInstance` describe the instantiation
 (`InstanceInfo`: key, label, badges, display tables, codec, mutators and prelude
 helpers); `RoomState.utilityCatalog` lists the families any god might draw, with

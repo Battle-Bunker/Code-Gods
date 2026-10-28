@@ -65,6 +65,10 @@ requests last five minutes, credentials fifteen minutes; there is no renewal.
 ## Player commands
 
 Submit a full existing player-protocol envelope on stdin, never credentials.
+Envelopes are `code-gods.player.v3`. An agent source defines `agent(obj)` and returns
+mutator calls, e.g. `def agent(x):\n    return [add(1)]`; the room's mutators and
+helpers are listed in the observation's `instance`. `destroy {agentId}` removes one
+of the human's own agents for free.
 Choose a fresh UUID for each new intent and preserve it with the exact payload
 if the result is uncertain. Consult `lib/player-client/src/protocol.ts` for the
 current version and command schema; do not invent commands.
@@ -79,9 +83,9 @@ and the receipt command, then explicitly retry the **same** envelope using
 `command --retry-unknown` if appropriate. Never issue a fresh ID merely because
 the first response was lost.
 
-Read-only grants cannot mutate via HTTP, v2 sockets, or legacy sockets. Action
+Read-only grants cannot mutate via HTTP or sockets. Action
 grants still cannot host/administer a room, change identity or room, or access
-individual opponent utilities. Commands use the human's normal player rights.
+individual opponents' scores. Commands use the human's normal player rights.
 The server records separate delegated-session metadata.
 
 ## Owner commands
@@ -104,7 +108,7 @@ Owner commands are never automatically retried. A failed transport response
 may mean the action already happened: inspect room-state before retrying.
 Keep the original requestId for a retry of the same start intent.
 Owner grants cannot create other rooms, manage the global AI library, mint
-additional grants, or see individual opponents' utilities.
+additional grants, or see individual opponents' scores.
 
 ## Consent, revocation and safe use
 
