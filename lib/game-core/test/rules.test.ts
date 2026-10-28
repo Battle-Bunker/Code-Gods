@@ -89,6 +89,17 @@ test("three players permit a genuine payoff conflict", () => {
   assert.throws(() => personalScore(before, "missing"));
 });
 
+test("total score sums heterogeneous current objects, not averages or past states", () => {
+  const first = new Map([["a", 0.25], ["b", 0.5], ["c", 1]]);
+  const second = new Map([["a", 1], ["b", 0], ["c", 0.5]]);
+  const total = (objects: Map<string, number>[]) =>
+    leaderboard(["a", "b", "c"], objects).find(row => row.deityId === "a")!.totalScore;
+  assert.equal(total([first, second]), 0.875); // 0.25 * (0.5 + 1) + 1 * (0 + 0.5)
+  const replacement = new Map([["a", 0.25], ["b", 0.25], ["c", 0]]);
+  assert.equal(total([first, replacement]), 0.4375);
+  assert.equal(total([]), 0);
+});
+
 test("leaderboards sum objects and preserve tied ranks", () => {
   const values = new Map([["a", 0.5], ["b", 0.5]]);
   const rows = leaderboard(["b", "a"], [values, values]);

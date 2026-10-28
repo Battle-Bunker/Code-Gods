@@ -22,13 +22,15 @@ export class WebSocketPlayerTransport implements PlayerTransport {
   private attempt=0;
   private epoch=0;
   private revision=-1;
+  private opened=false;
+  get connected() { return this.opened && this.socket?.readyState===1; }
   get idle() { return this.http.idle; }
   async wake(signal?:AbortSignal) {
     await this.http.wake(signal);
     if (!this.socket) this.connect();
   }
   private sleep() {
-    this.http.idle=true; this.epoch++; clearTimeout(this.reconnect);
+    this.http.idle=true; this.opened=false;this.epoch++; clearTimeout(this.reconnect);
     const socket=this.socket;this.socket=undefined;socket?.close();
     for(const receipt of this.pending.values()){receipt.cleanup();receipt.reject(new TransportError(503,"SERVER_IDLE"));}
     this.pending.clear();this.report(new TransportError(503,"SERVER_IDLE"));
@@ -48,7 +50,7 @@ export class WebSocketPlayerTransport implements PlayerTransport {
     this.disconnect();this.http.approve(credential);this.credential={...credential};this.connect();
   }
   disconnect() {
-    this.epoch++;this.credential=undefined;clearTimeout(this.reconnect);
+    this.epoch++;this.opened=false;this.credential=undefined;clearTimeout(this.reconnect);
     const socket=this.socket;this.socket=undefined;socket?.close();this.http.disconnect();
     for(const receipt of this.pending.values()) {receipt.cleanup();receipt.reject(new Error("Connection closed; retry the same command ID."));}
     this.pending.clear();this.attempt=0;
@@ -69,6 +71,10 @@ export class WebSocketPlayerTransport implements PlayerTransport {
     url.protocol=url.protocol==="https:"?"wss:":"ws:";
     const retry=(event?:{code:number})=>{
       if(epoch!==this.epoch)return;
+      this.opened=false;
+      if(event?.code===1008 || event?.code===4401 || event?.code===4403) {
+        this.disconnect();this.report(new TransportError(401));return;
+      }
       if(event?.code===4008){this.sleep();return;}
       this.epoch++;
       this.socket=undefined;
@@ -83,6 +89,7 @@ export class WebSocketPlayerTransport implements PlayerTransport {
     this.socket=socket;
     socket.onopen=()=>{
       if(epoch!==this.epoch)return;
+      this.opened=true;
       void this.http.observe(AbortSignal.timeout(15000)).then(o=>{if(epoch===this.epoch){this.attempt=0;this.emit(o);}}).catch(e=>{if(epoch===this.epoch){if(this.http.idle)this.sleep();else this.report(e instanceof Error?e:new Error("Snapshot failed"));}});
     };
     socket.onmessage=event=>{

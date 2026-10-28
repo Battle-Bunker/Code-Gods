@@ -1,7 +1,7 @@
 import { Router } from "express";
 import * as oidc from "openid-client";
 import { pool } from "@workspace/db";
-import { getOidc, opaque, hash, origin, cookieOptions, safeReturn, issueSession, isAdmin } from "../lib/identity";
+import { getOidc, opaque, hash, origin, cookieOptions, safeReturn, issueSession, isAdmin, invalidateSession } from "../lib/identity";
 import { profileName } from "../lib/profile-name";
 import { synchronizePlayerName } from "../game/store";
 
@@ -50,6 +50,7 @@ router.get("/callback", async (req, res) => {
 router.get("/logout", async (req, res) => {
   if (typeof req.cookies?.cg_session === "string") {
     await pool.query("DELETE FROM cg_sessions WHERE hash=$1", [hash(req.cookies.cg_session)]);
+    invalidateSession(hash(req.cookies.cg_session), req.identity?.expiresAt);
   }
   res.clearCookie("cg_session", cookieOptions);
   res.redirect("/");

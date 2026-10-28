@@ -1,2 +1,3 @@
 - [Code Gods intent](code-gods-product.md) — unrestricted AI, customizable Replit player clients, server display boundaries and aggregate-only opponent valuations.
 - [WASI determinism](wasi-determinism.md) — capability isolation does not remove clocks, entropy or host file metadata; WASI wrappers need a Wasm caller.
+- [Room assistant boundary](room-assistant-boundary.md) — same-human delegation, trusted workspace editors and real OIDC pilot limitations.
