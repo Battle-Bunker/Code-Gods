@@ -52,3 +52,6 @@ Thumbs.db
 .local/
 artifacts/api-server/test/.integration-*/
 artifacts/api-server/test/.client-integration-*/
+
+# Claude Code agent worktrees (temporary)
+.claude/worktrees/
