@@ -108,9 +108,12 @@ class GameConfig:
     agent_half_life: Optional[float] = None
     max_agents: int = 200
     # rates
-    interaction_rate_hz: float = 20.0
-    spawn_rate_hz: float = 0.1
-    starting_objects: int = 10
+    # Defaults changed by the experiment worker (docs/experiments.md §5). Old values: interaction 20 Hz
+    # (the real engine runs 100 Hz), spawns 0.1 Hz, 10 starting objects. More objects dilute the
+    # per-object hit rate from ~3.6/s to ~0.55/s: memory 0.28 -> 0.63, held climbs 1.7 -> 13.8 per 100 s.
+    interaction_rate_hz: float = 100.0
+    spawn_rate_hz: float = 0.5
+    starting_objects: int = 80
     # length
     length: str = "exponential"                          # "exponential" | "fixed"
     half_life_seconds: float = 300.0

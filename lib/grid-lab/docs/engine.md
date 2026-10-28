@@ -185,7 +185,9 @@ means used by the defence term. The scoring, policy and metric changes are descr
   (exponential agent lifetimes).
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
-* **Rate scaling**: the real engine caps interactions at 100 Hz, and the default here is 20 Hz.
+* **Rate scaling**: the real engine runs interactions at 100 Hz, which is now the default here (it was 20 Hz;
+  the experiment worker also raised the default spawns to 0.5 Hz and starting objects to 80, see
+  docs/experiments.md §5).
   Dynamics depend on interactions per energy unit and per agent. To mimic 100 Hz at 20 Hz, divide
   energy income and starting energy by 5. Metrics normalised per commit do not depend on the rate.
 * **Determinism**: one `SeedSequence(seed)` is split into dealer, world (picks, spawns, `apply`),

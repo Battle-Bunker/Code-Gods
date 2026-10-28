@@ -73,7 +73,10 @@ COST_KNOBS: dict = {
     "erasure": "shannon",  # "shannon" (expected, default) | "hartley" (worst case, subadditive)
     "scope": {"local": 1.0, "line": 1.0, "block": 1.0, "region": 1.0, "global": 1.0},
     "kind": {"bijective": 1.0, "overwrite": 1.0},
-    "disabled": [],      # mutator ids removed from every GridType (experiments; e.g. ["flatten"] = pre-flatten set)
+    # mutator ids removed from every GridType. `flatten` (added by the experiment worker) is off by
+    # default: in play it mostly fed the low-entropy winners (Snap, Mirrormancer) rather than the starved
+    # peak rules it was meant for (docs/experiments.md §5). Enable with COST_KNOBS["disabled"] = [].
+    "disabled": ["flatten"],
 }
 
 SCOPES = ("local", "line", "block", "region", "global")

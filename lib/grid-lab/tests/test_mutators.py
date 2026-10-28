@@ -27,6 +27,16 @@ def orbit_returns(m, p, g, gt, cap=200) -> bool:
 
 
 def test_every_mutator_every_type(samples=6, grids=3):
+    # cover mutators that are off by default (COST_KNOBS["disabled"], e.g. flatten) too
+    old = list(COST_KNOBS.get("disabled", []))
+    COST_KNOBS["disabled"] = []
+    try:
+        return _every_mutator_every_type(samples, grids)
+    finally:
+        COST_KNOBS["disabled"] = old
+
+
+def _every_mutator_every_type(samples, grids):
     rng = np.random.default_rng(12345)
     n_types = 0
     for gt in all_grid_types():
