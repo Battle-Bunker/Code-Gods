@@ -174,7 +174,7 @@ test("Divine Lottery: available rewards only, distinct, deterministic, defence g
 test("fair-aligned deals like the Divine Lottery without a synergy matrix, and prefers friendly even tables with one", async () => {
   const { fairAligned, divineLottery, registerSynergy, fairAlignedScore } = await import("../src/selectors.ts");
   const { instantiate, seededRng } = await import("@workspace/game-types");
-  const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
+  const inst = instantiate("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }); // no shipped matrix
   const a = fairAligned.select(inst, 4, seededRng("x")), b = divineLottery.select(inst, 4, seededRng("x"));
   assert.deepEqual(a, b);
   const m = { instKey: inst.key, priorId: "uniform", families: ["f1", "f2", "f3"], w: [[0, 4, 4], [4, 0, 4], [4, 4, 0]] };
@@ -182,4 +182,7 @@ test("fair-aligned deals like the Divine Lottery without a synergy matrix, and p
   assert.ok(fairAlignedScore(["f1", "f2", "zz"], m) < 4); // unknown pairs count as orthogonal and uneven
   registerSynergy({ ...m, families: [...new Set(a.map(d => d.familyId))], w: a.map(() => a.map(() => 0)) });
   assert.equal(fairAligned.select(inst, 4, seededRng("y")).length, 4);
+  const { synergyFor } = await import("../src/selectors.ts");
+  const shipped = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
+  assert.equal(synergyFor(shipped)?.families.length, 82); // grid-lab synergy atlas, uniform prior
 });

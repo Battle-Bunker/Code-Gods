@@ -1,4 +1,5 @@
 import type { Instantiation, Rng } from "@workspace/game-types";
+import { MATRICES } from "../data/synergy/index.js";
 import type { UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
 
@@ -92,6 +93,8 @@ export function registerSynergy(matrix: SynergyMatrix): void {
   SYNERGY.set(`${matrix.instKey}|${matrix.priorId}`, matrix);
 }
 export const synergyFor = (inst: Instantiation, priorId = "uniform") => SYNERGY.get(`${inst.key}|${priorId}`);
+// Shipped matrices (scripts/import-synergy.mjs): exported by lib/grid-lab's synergy atlas.
+for (const m of MATRICES as readonly SynergyMatrix[]) registerSynergy(m);
 
 /** Friendly but even: mean pairwise W minus the spread of each god's mean W to the rest of the table. */
 export function fairAlignedScore(deal: readonly string[], m: SynergyMatrix): number {
