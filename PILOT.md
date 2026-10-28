@@ -145,12 +145,21 @@ room are listed in the observation's `instance` and in the player console. An ag
 that returns `[]`, or calls that change nothing, validates but every act fails: every
 object value is unique, so a change onto an existing value fails as well.
 
-Energy: summoning costs god energy (the source's description bits, shown as the
-validation `cost`). The new agent starts at 0 energy and earns 2 bits per second of
-world time (none during planning or pauses). It is **eligible** to act once its energy
-reaches its `expectedActCost` (shown by validation); each act pays its actual bits,
-and a failed act still pays its decision bits, so energy can go negative: a
-**cooldown** until income brings it back. Destroying an agent is free.
+Energy: summoning costs god energy: the source's description bits (Python ast-bits-v1,
+TypeScript ts-ast-bits-v1; a move helper on literal arguments is priced as that move),
+shown as the validation `cost`. Validation also runs the agent on a few hundred
+reference objects and reports `decisionBits` (the information its choices carry: an
+agent that always makes the same move pays about nothing for deciding) and
+`expectedActCost` with its breakdown. The new agent starts at 0 energy and earns 2 bits
+per second of world time (none during planning or pauses). It is **eligible** to act
+once its energy reaches its `expectedActCost`; each act pays decisionBits plus the
+information it erases and how much it moves, and a failed act still pays its
+decisionBits, so energy can go negative: a **cooldown** until income brings it back.
+Agents run with a frozen clock and a server-seeded `random`. Destroying an agent is free.
+
+Before publishing, set the secret `CODE_GODS_SEASON_SALT` (at least 16 characters):
+production refuses to start without it. Never share it during the season; game
+records carry its sha256 commitment.
 
 Read your utility card (emoji, summary, then source; a ⚠️ defence goal if dealt),
 validate, summon, watch your agent's energy and eligibility, observe transformations

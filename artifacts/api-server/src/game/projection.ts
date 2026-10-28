@@ -56,7 +56,8 @@ export function agentView(game: Game, agent: Agent, nowMs = Date.now()) {
   const status = agentStatus(game, agent, nowMs);
   return {
     id: agent.id, source: agent.source, createdAt: agent.createdAt, summonCost: agent.summonCost,
-    expectedActCost: agent.expectedActCost, energy: status.energy, eligible: status.eligible,
+    decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost, breakdown: agent.breakdown, randomized: agent.randomized,
+    energy: status.energy, eligible: status.eligible,
     acts: agent.acts, spent: agent.spent,
   };
 }
@@ -94,7 +95,7 @@ export function gameRecord(roomId: string, game: Game) {
     settings: game.settings, roster: game.roster.map(rosterEntry), leaderboard,
     winners: leaderboard.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: game.objects.length, agentCount: game.agents.length,
-    scoring: SCORING,
+    scoring: SCORING, seasonCommitment: game.seasonCommitment,
   };
 }
 export type GameRecord = ReturnType<typeof gameRecord>;

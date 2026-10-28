@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SettingsComplexityFunctionId } from './settingsComplexityFunctionId';
 import type { SettingsGrammarId } from './settingsGrammarId';
 import type { SettingsLanguage } from './settingsLanguage';
 import type { SettingsObjectType } from './settingsObjectType';
@@ -18,8 +19,10 @@ export interface Settings {
   /** Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted. */
   typeArgs: TypeArgs;
   grammarId: SettingsGrammarId;
+  /** fair-aligned (default) or divine-lottery. */
   utilitySelectorId: string;
-  complexityFunctionId: string;
+  /** The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language. */
+  complexityFunctionId: SettingsComplexityFunctionId;
   spawnFunctionId: SettingsSpawnFunctionId;
   planningSeconds: number;
   halfLifeSeconds: number;
@@ -31,11 +34,24 @@ export interface Settings {
      */
   interactionRateHz: number;
   /**
-     * Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.
+     * CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.
      * @minimum 1
      * @maximum 1000
      */
   interactionComputeMs: number;
+  /**
+     * Deterministic step budget per act.
+     * @minimum 1
+     * @maximum 10000000
+     */
+  stepBudget?: number;
+  /**
+     * Bits added to every act's charge, valid or not.
+     * @minimum 0
+     */
+  perActFloorBits?: number;
+  /** The rarity prior (Manifest.priors); uniform for now. */
+  priorId?: string;
   pauseSeconds: number;
   /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;

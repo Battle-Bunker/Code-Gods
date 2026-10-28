@@ -33,7 +33,7 @@ export function initializeRuntimeAdapters(): Promise<void> {
           const { cost } = await pool.inspect(source, act);
           const input = probeValue(settings);
           const { calls } = await pool.act(source, input, act, "0");
-          if (!Number.isSafeInteger(cost) || cost <= 0 || calls !== "[]") {
+          if (!Number.isFinite(cost) || cost <= 0 || calls !== "[]") {
             throw new RuntimeError("UNAVAILABLE", `${language} ${type.id} agent probe failed`);
           }
         }

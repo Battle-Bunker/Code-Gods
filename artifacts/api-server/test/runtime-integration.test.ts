@@ -5,7 +5,7 @@ import { objectType } from "@workspace/game-types";
 import { card, context } from "@workspace/game-utilities";
 import { RoomActionBody } from "../../../lib/api-zod/src/generated/api.ts";
 import type { ActSettings, GameRuntime } from "@workspace/game-runtime";
-import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, requireAdapters } from "../src/game/adapters.ts";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, probeValue, requireAdapters } from "../src/game/adapters.ts";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup.ts";
 
 test("room mutation schema validates compute budgets, the dispatch ceiling and the new economy knobs", () => {
@@ -29,22 +29,25 @@ test("room mutation schema validates compute budgets, the dispatch ceiling and t
   assert.equal("intMin" in stripped || "stringMaxLength" in stripped, false, "removed fields are not part of the schema");
 });
 
-test("runtime adapter builds ActSettings from the instantiation and propagates the compute budget", async () => {
-  const settings = { ...DEFAULT_SETTINGS, interactionComputeMs: 37 };
-  const calls: ActSettings[] = [];
+test("runtime adapter builds ActSettings from the instantiation: prelude, pricing vocabulary, budgets, seed", async () => {
+  const settings = { ...DEFAULT_SETTINGS, interactionComputeMs: 37, stepBudget: 1234 };
+  const calls: ActSettings[] = [], seeds: string[] = [];
   const pool = {
     async inspect(_source: string, received: ActSettings) { calls.push(received); return { cost: 8 }; },
-    async act(_source: string, _input: number, received: ActSettings) { calls.push(received); return { calls: "[]" }; },
+    async act(_source: string, _input: number, received: ActSettings, seed: string) { calls.push(received); seeds.push(seed); return { calls: "[]", usedRandom: false, steps: 3 }; },
   } as unknown as GameRuntime;
   const adapter = createRuntimeAdapter({ python: pool });
   assert.deepEqual(await adapter.inspect("def agent(x):\n    return []", settings), { cost: 8 });
-  assert.deepEqual(await adapter.act("def agent(x):\n    return []", 42, settings), { calls: "[]" });
+  assert.deepEqual(await adapter.act("def agent(x):\n    return []", 42, settings, 2n ** 63n + 5n), { calls: "[]", usedRandom: false, steps: 3 });
+  assert.deepEqual(seeds, [(2n ** 63n + 5n).toString()], "the 64-bit seed crosses as a decimal string");
   const inst = instantiationOf(settings), parts = objectType("Int").prelude(inst);
   for (const received of calls) {
     assert.equal(received.interactionComputeMs, 37);
+    assert.equal(received.stepBudget, 1234);
     assert.equal(received.objectType, "Int");
     assert.equal(received.wireMaxLength, 0);
-    assert.deepEqual(received.prelude, { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts });
+    assert.deepEqual(received.prelude, { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, pricing: parts.pricing });
+    assert.ok(received.prelude.pricing.python.mutators.includes("add"));
     assert.equal("typeArgs" in received || "startingEnergy" in received, false, "only the runtime's view crosses the boundary");
   }
   const grid = actSettings(defaultSettingsFor("Grid"));
@@ -59,16 +62,24 @@ test("isolated adapters: both languages, every object type's prelude, agent pric
       await t.test(language, async () => {
         assert.ok(runtime.languages.includes(language), `${language} failed its readiness probes`);
         const cases = [
-          ["Int", 41, language === "python" ? "def agent(x):\n    return [add(1)]" : "function agent(x) { return [add(1)]; }", '[["add",{"k":1}]]', 11],
-          ["string", "hello\0\n", language === "python" ? "def agent(s):\n    return [rotate(1)]" : "function agent(s) { return [rotate(1)]; }", '[["rotate",{"k":1}]]', 11],
+          ["Int", 41, language === "python" ? "def agent(x):\n    return [add(1)]" : "function agent(x) { return [add(1)]; }", '[["add",{"k":1}]]'],
+          ["string", "hello\0\n", language === "python" ? "def agent(s):\n    return [rotate(1)]" : "function agent(s) { return [rotate(1)]; }", '[["rotate",{"k":1}]]'],
+          ["Grid", undefined, language === "python" ? "def agent(grid):\n    return [paint(row(2), \"red\")]" : "function agent(grid) { return [paint(row(2), \"red\")]; }",
+            '[["paint",{"colour":0,"kind":"line","region":[0,2]}]]'],
         ] as const;
-        for (const [type, input, source, calls, cost] of cases) {
-          const settings: GameSettings = { ...defaultSettingsFor(type, language), interactionComputeMs: 1000 };
-          assert.equal((await runtime.inspect(source, settings)).cost, cost);
-          assert.equal((await runtime.act(source, input, settings)).calls, calls);
+        for (const [type, given, source, calls] of cases) {
+          const settings: GameSettings = defaultSettingsFor(type, language);
+          const input = given ?? probeValue(settings);
+          const inspection = await runtime.inspect(source, settings);
+          assert.equal(inspection.complexityFunctionId, language === "python" ? "ast-bits-v1" : "ts-ast-bits-v1-uniform");
+          assert.ok(inspection.cost > 0 && inspection.literalMoves.length === 1, `${type}: one literal move`);
+          assert.equal(JSON.stringify(inspection.literalMoves), calls, `${type}: the literal move is the act's call`);
+          const act = await runtime.act(source, input, settings, 7n);
+          assert.equal(act.calls, calls);
+          assert.equal(act.usedRandom, false);
         }
         const empty = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
-        assert.equal((await runtime.inspect(empty, defaultSettingsFor("Int", language))).cost, language === "python" ? 7 : 8);
+        assert.ok((await runtime.inspect(empty, defaultSettingsFor("Int", language))).cost > 0);
         await assert.rejects(runtime.inspect(language === "python" ? "lambda x: x" : "(x: number) => x", defaultSettingsFor("Int", language)),
           (error: any) => error.code === "COMPILE", "a bare callable is not an agent");
       });

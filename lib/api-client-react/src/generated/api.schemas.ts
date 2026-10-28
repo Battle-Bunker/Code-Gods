@@ -311,6 +311,17 @@ export const SettingsGrammarId = {
   'typescript-agent-v1': 'typescript-agent-v1',
 } as const;
 
+/**
+ * The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.
+ */
+export type SettingsComplexityFunctionId = typeof SettingsComplexityFunctionId[keyof typeof SettingsComplexityFunctionId];
+
+
+export const SettingsComplexityFunctionId = {
+  'ast-bits-v1': 'ast-bits-v1',
+  'ts-ast-bits-v1-uniform': 'ts-ast-bits-v1-uniform',
+} as const;
+
 export type SettingsSpawnFunctionId = typeof SettingsSpawnFunctionId[keyof typeof SettingsSpawnFunctionId];
 
 
@@ -325,8 +336,10 @@ export interface Settings {
   /** Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted. */
   typeArgs: TypeArgs;
   grammarId: SettingsGrammarId;
+  /** fair-aligned (default) or divine-lottery. */
   utilitySelectorId: string;
-  complexityFunctionId: string;
+  /** The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language. */
+  complexityFunctionId: SettingsComplexityFunctionId;
   spawnFunctionId: SettingsSpawnFunctionId;
   planningSeconds: number;
   halfLifeSeconds: number;
@@ -338,11 +351,24 @@ export interface Settings {
      */
   interactionRateHz: number;
   /**
-     * Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.
+     * CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.
      * @minimum 1
      * @maximum 1000
      */
   interactionComputeMs: number;
+  /**
+     * Deterministic step budget per act.
+     * @minimum 1
+     * @maximum 10000000
+     */
+  stepBudget?: number;
+  /**
+     * Bits added to every act's charge, valid or not.
+     * @minimum 0
+     */
+  perActFloorBits?: number;
+  /** The rarity prior (Manifest.priors); uniform for now. */
+  priorId?: string;
   pauseSeconds: number;
   /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;
@@ -506,6 +532,8 @@ export interface Manifest {
   runtimes: string[];
   /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
   objectTypes: ObjectTypeInfo[];
+  /** Rarity priors the calibration tables know. */
+  priors: string[];
   /** Named starting points, in display order. */
   presets: SettingsPreset[];
 }
@@ -699,16 +727,40 @@ export interface PersonalObject {
 }
 
 /**
+ * Expected bits per act, by term.
+ */
+export interface CostBreakdown {
+  /** Measured decision information I(X; A), charged on every act. */
+  decision: number;
+  erasure: number;
+  motion: number;
+  floor: number;
+}
+
+export interface SummonParts {
+  structure: number;
+  names: number;
+  literals: number;
+  moveFlags: number;
+  literalMoves: number;
+}
+
+/**
  * One of your own agents. It acts only while eligible (energy ≥ expectedActCost); negative energy is a cooldown.
  */
 export interface AgentInfo {
   id: string;
   source: string;
   createdAt: number;
-  /** Description bits paid once from god energy (ast-bytes-v1). */
+  /** Description bits paid once from god energy (ast-bits-v1 / ts-ast-bits-v1-uniform). */
   summonCost: number;
-  /** Mean act cost over 16 reference objects, measured at summon. */
+  /** Measured decision information, charged on every act. */
+  decisionBits: number;
+  /** Expected charge per act over the season's reference mixture. */
   expectedActCost: number;
+  breakdown: CostBreakdown;
+  /** The agent uses random (measured over several seeds). */
+  randomized: boolean;
   energy: number;
   eligible: boolean;
   acts: number;
@@ -842,6 +894,8 @@ export interface GameRecord {
   agentCount: number;
   /** Information scoring: payoffs in bits². */
   scoring: GameRecordScoring;
+  /** sha256 (hex) of the season salt behind this game's seeds; the salt is revealed after the season. */
+  seasonCommitment: string;
 }
 
 export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
@@ -1031,10 +1085,14 @@ export interface PlayerEnvelope {
 
 export interface AgentValidation {
   valid: boolean;
-  /** Summon price in bits (ast-bytes-v1). */
+  /** Summon price in bits. */
   cost: number;
-  /** Mean act cost over 16 reference objects. */
+  parts?: SummonParts;
+  decisionBits?: number;
+  /** Expected charge per act. */
   expectedActCost: number;
+  breakdown?: CostBreakdown;
+  randomized?: boolean;
   diagnostics: string[];
 }
 

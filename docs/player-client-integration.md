@@ -41,7 +41,8 @@ language, self (godId/label/isAI/energy/ready/pauseUsed and `utility`, the kid c
 familyId/emoji/name/theme/summary/language/source, plus an optional `penalty` defence
 goal with its own summary, comparative and source), objects
 (`{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare, payoff}`),
-own agents (id/source/language/summonCost/expectedActCost/energy/eligible/acts/spent),
+own agents (id/source/language/summonCost/decisionBits/expectedActCost/breakdown/randomized/
+energy/eligible/acts/spent),
 own transformations (id/agentId/before/after/calls/cost), the public leaderboard
 (`totalPayoff`) and public chat with visibly labelled AI identities. `instance` is the
 game's instantiation (game-types InstanceInfo: key, label, badges, display tables,
@@ -64,7 +65,10 @@ actions go through the assistant's owner grant, see room-assistant.md). An agent
 defines `agent(obj)` and returns a list of mutator calls built with the room's
 prelude (`def agent(x):\n    return [add(1)]`); validate/summon delegate to the
 authoritative runtime and never execute locally. A validation result has `valid`,
-`cost` (the summon price in bits), `expectedActCost` and diagnostics. Every receipt
+`cost` (the summon price in bits) and its `parts`, `decisionBits` (the measured decision
+information every act pays), `expectedActCost` with its `breakdown` (decision, erasure,
+motion, floor), `randomized` and diagnostics. Agents run with a frozen clock and a
+server-seeded `random`. Every receipt
 echoes commandId and contains accepted/message, plus validation when applicable.
 Source caps are client ceilings, not replacements for server/runtime limits.
 
@@ -101,7 +105,9 @@ copy, see PILOT.md):
 5. Programs: an agent now defines `agent(obj)` returning mutator calls
    (`def agent(grid):\n    return [paint(row(2), "red")]`); a bare `lambda x: ...` or
    `(x) => ...` is rejected. The mutators and helpers are in `observation.instance`.
-6. Validation results add `expectedActCost`. Add the `destroy {agentId}` command.
+6. Validation results add `parts`, `decisionBits`, `expectedActCost`, `breakdown` and
+   `randomized`; agents add `decisionBits`, `breakdown` and `randomized`. Add the
+   `destroy {agentId}` command.
 7. `self.utility` is the kid card (familyId, emoji, theme, shape, optional `penalty`).
    The removed `objectType`/`grid` fields: use `instance.objectType` and `instance.args`.
 

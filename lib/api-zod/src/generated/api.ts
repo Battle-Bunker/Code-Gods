@@ -154,13 +154,21 @@ export const CreateRoomBody = zod.object({
 
 })
 
+export const createRoomResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const createRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const createRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const createRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const createRoomResponseSettingsOneInteractionComputeMsDefault = 5;
+export const createRoomResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const createRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 
+export const createRoomResponseSettingsOneStepBudgetDefault = 500000;
+export const createRoomResponseSettingsOneStepBudgetMax = 10000000;
+
+export const createRoomResponseSettingsOnePerActFloorBitsDefault = 0;
+export const createRoomResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const createRoomResponseSettingsOnePriorIdDefault = `uniform`;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -195,15 +203,18 @@ export const CreateRoomResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(createRoomResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(createRoomResponseSettingsOneInteractionRateHzMin).max(createRoomResponseSettingsOneInteractionRateHzMax).default(createRoomResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsOneInteractionComputeMsMax).default(createRoomResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsOneInteractionComputeMsMax).default(createRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(createRoomResponseSettingsOneStepBudgetMax).default(createRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(createRoomResponseSettingsOnePerActFloorBitsMin).default(createRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(createRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -321,13 +332,21 @@ export const GetRoomParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const getRoomResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const getRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const getRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const getRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const getRoomResponseSettingsOneInteractionComputeMsDefault = 5;
+export const getRoomResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const getRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 
+export const getRoomResponseSettingsOneStepBudgetDefault = 500000;
+export const getRoomResponseSettingsOneStepBudgetMax = 10000000;
+
+export const getRoomResponseSettingsOnePerActFloorBitsDefault = 0;
+export const getRoomResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const getRoomResponseSettingsOnePriorIdDefault = `uniform`;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -362,15 +381,18 @@ export const GetRoomResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(getRoomResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getRoomResponseSettingsOneInteractionRateHzMin).max(getRoomResponseSettingsOneInteractionRateHzMax).default(getRoomResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsOneInteractionComputeMsMax).default(getRoomResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsOneInteractionComputeMsMax).default(getRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getRoomResponseSettingsOneStepBudgetMax).default(getRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getRoomResponseSettingsOnePerActFloorBitsMin).default(getRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(getRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -476,13 +498,21 @@ export const ListRoomGamesParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const listRoomGamesResponseSettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const listRoomGamesResponseSettingsInteractionRateHzDefault = 100;
 export const listRoomGamesResponseSettingsInteractionRateHzMin = 0;
 export const listRoomGamesResponseSettingsInteractionRateHzMax = 1000;
 
-export const listRoomGamesResponseSettingsInteractionComputeMsDefault = 5;
+export const listRoomGamesResponseSettingsInteractionComputeMsDefault = 1000;
 export const listRoomGamesResponseSettingsInteractionComputeMsMax = 1000;
 
+export const listRoomGamesResponseSettingsStepBudgetDefault = 500000;
+export const listRoomGamesResponseSettingsStepBudgetMax = 10000000;
+
+export const listRoomGamesResponseSettingsPerActFloorBitsDefault = 0;
+export const listRoomGamesResponseSettingsPerActFloorBitsMin = 0;
+
+export const listRoomGamesResponseSettingsPriorIdDefault = `uniform`;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondDefault = 2;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondMin = 0;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondMax = 1000;
@@ -517,15 +547,18 @@ export const ListRoomGamesResponseItem = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(listRoomGamesResponseSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(listRoomGamesResponseSettingsInteractionRateHzMin).max(listRoomGamesResponseSettingsInteractionRateHzMax).default(listRoomGamesResponseSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(listRoomGamesResponseSettingsInteractionComputeMsMax).default(listRoomGamesResponseSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(listRoomGamesResponseSettingsInteractionComputeMsMax).default(listRoomGamesResponseSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(listRoomGamesResponseSettingsStepBudgetMax).default(listRoomGamesResponseSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(listRoomGamesResponseSettingsPerActFloorBitsMin).default(listRoomGamesResponseSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(listRoomGamesResponseSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -556,7 +589,8 @@ export const ListRoomGamesResponseItem = zod.object({
   "worldSeconds": zod.number(),
   "objectCount": zod.number().int(),
   "agentCount": zod.number().int(),
-  "scoring": zod.enum(['information-v1']).describe('Information scoring: payoffs in bits².')
+  "scoring": zod.enum(['information-v1']).describe('Information scoring: payoffs in bits².'),
+  "seasonCommitment": zod.string().describe('sha256 (hex) of the season salt behind this game\'s seeds; the salt is revealed after the season.')
 }).describe('Public result of one finished game, kept in its room\'s history.')
 export const ListRoomGamesResponse = zod.array(ListRoomGamesResponseItem)
 
@@ -565,13 +599,21 @@ export const GetGameStateParams = zod.object({
   "code": zod.coerce.string().describe('Game short code or UUID')
 })
 
+export const getGameStateResponseOneSettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const getGameStateResponseOneSettingsInteractionRateHzDefault = 100;
 export const getGameStateResponseOneSettingsInteractionRateHzMin = 0;
 export const getGameStateResponseOneSettingsInteractionRateHzMax = 1000;
 
-export const getGameStateResponseOneSettingsInteractionComputeMsDefault = 5;
+export const getGameStateResponseOneSettingsInteractionComputeMsDefault = 1000;
 export const getGameStateResponseOneSettingsInteractionComputeMsMax = 1000;
 
+export const getGameStateResponseOneSettingsStepBudgetDefault = 500000;
+export const getGameStateResponseOneSettingsStepBudgetMax = 10000000;
+
+export const getGameStateResponseOneSettingsPerActFloorBitsDefault = 0;
+export const getGameStateResponseOneSettingsPerActFloorBitsMin = 0;
+
+export const getGameStateResponseOneSettingsPriorIdDefault = `uniform`;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondDefault = 2;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondMin = 0;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondMax = 1000;
@@ -624,15 +666,18 @@ export const GetGameStateResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(getGameStateResponseOneSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getGameStateResponseOneSettingsInteractionRateHzMin).max(getGameStateResponseOneSettingsInteractionRateHzMax).default(getGameStateResponseOneSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getGameStateResponseOneSettingsInteractionComputeMsMax).default(getGameStateResponseOneSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getGameStateResponseOneSettingsInteractionComputeMsMax).default(getGameStateResponseOneSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getGameStateResponseOneSettingsStepBudgetMax).default(getGameStateResponseOneSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getGameStateResponseOneSettingsPerActFloorBitsMin).default(getGameStateResponseOneSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(getGameStateResponseOneSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -742,13 +787,21 @@ export const RoomActionParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const roomActionBodySettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const roomActionBodySettingsInteractionRateHzDefault = 100;
 export const roomActionBodySettingsInteractionRateHzMin = 0;
 export const roomActionBodySettingsInteractionRateHzMax = 1000;
 
-export const roomActionBodySettingsInteractionComputeMsDefault = 5;
+export const roomActionBodySettingsInteractionComputeMsDefault = 1000;
 export const roomActionBodySettingsInteractionComputeMsMax = 1000;
 
+export const roomActionBodySettingsStepBudgetDefault = 500000;
+export const roomActionBodySettingsStepBudgetMax = 10000000;
+
+export const roomActionBodySettingsPerActFloorBitsDefault = 0;
+export const roomActionBodySettingsPerActFloorBitsMin = 0;
+
+export const roomActionBodySettingsPriorIdDefault = `uniform`;
 export const roomActionBodySettingsAgentEnergyPerSecondDefault = 2;
 export const roomActionBodySettingsAgentEnergyPerSecondMin = 0;
 export const roomActionBodySettingsAgentEnergyPerSecondMax = 1000;
@@ -785,15 +838,18 @@ export const RoomActionBody = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(roomActionBodySettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(roomActionBodySettingsInteractionRateHzMin).max(roomActionBodySettingsInteractionRateHzMax).default(roomActionBodySettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(roomActionBodySettingsStepBudgetMax).default(roomActionBodySettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(roomActionBodySettingsPerActFloorBitsMin).default(roomActionBodySettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(roomActionBodySettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -812,13 +868,21 @@ export const RoomActionBody = zod.object({
   "preset": zod.string().optional().describe('settings only: apply a Manifest.presets entry instead of `settings` (keeps the room\'s language unless settings.language is sent).')
 })
 
+export const roomActionResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const roomActionResponseSettingsOneInteractionRateHzDefault = 100;
 export const roomActionResponseSettingsOneInteractionRateHzMin = 0;
 export const roomActionResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const roomActionResponseSettingsOneInteractionComputeMsDefault = 5;
+export const roomActionResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const roomActionResponseSettingsOneInteractionComputeMsMax = 1000;
 
+export const roomActionResponseSettingsOneStepBudgetDefault = 500000;
+export const roomActionResponseSettingsOneStepBudgetMax = 10000000;
+
+export const roomActionResponseSettingsOnePerActFloorBitsDefault = 0;
+export const roomActionResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const roomActionResponseSettingsOnePriorIdDefault = `uniform`;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -853,15 +917,18 @@ export const RoomActionResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(roomActionResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(roomActionResponseSettingsOneInteractionRateHzMin).max(roomActionResponseSettingsOneInteractionRateHzMax).default(roomActionResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsOneInteractionComputeMsMax).default(roomActionResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsOneInteractionComputeMsMax).default(roomActionResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(roomActionResponseSettingsOneStepBudgetMax).default(roomActionResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(roomActionResponseSettingsOnePerActFloorBitsMin).default(roomActionResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(roomActionResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1128,13 +1195,21 @@ export const RevokeDeviceResponse = zod.object({
 })
 
 
+export const getManifestResponseDefaultsUtilitySelectorIdDefault = `fair-aligned`;
 export const getManifestResponseDefaultsInteractionRateHzDefault = 100;
 export const getManifestResponseDefaultsInteractionRateHzMin = 0;
 export const getManifestResponseDefaultsInteractionRateHzMax = 1000;
 
-export const getManifestResponseDefaultsInteractionComputeMsDefault = 5;
+export const getManifestResponseDefaultsInteractionComputeMsDefault = 1000;
 export const getManifestResponseDefaultsInteractionComputeMsMax = 1000;
 
+export const getManifestResponseDefaultsStepBudgetDefault = 500000;
+export const getManifestResponseDefaultsStepBudgetMax = 10000000;
+
+export const getManifestResponseDefaultsPerActFloorBitsDefault = 0;
+export const getManifestResponseDefaultsPerActFloorBitsMin = 0;
+
+export const getManifestResponseDefaultsPriorIdDefault = `uniform`;
 export const getManifestResponseDefaultsAgentEnergyPerSecondDefault = 2;
 export const getManifestResponseDefaultsAgentEnergyPerSecondMin = 0;
 export const getManifestResponseDefaultsAgentEnergyPerSecondMax = 1000;
@@ -1155,13 +1230,21 @@ export const getManifestResponseDefaultsDefenceRateMax = 1;
 export const getManifestResponseDefaultsExcludedFamiliesDefault = [];
 export const getManifestResponseDefaultsExcludedFamiliesMax = 200;
 
+export const getManifestResponsePresetsItemSettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const getManifestResponsePresetsItemSettingsInteractionRateHzDefault = 100;
 export const getManifestResponsePresetsItemSettingsInteractionRateHzMin = 0;
 export const getManifestResponsePresetsItemSettingsInteractionRateHzMax = 1000;
 
-export const getManifestResponsePresetsItemSettingsInteractionComputeMsDefault = 5;
+export const getManifestResponsePresetsItemSettingsInteractionComputeMsDefault = 1000;
 export const getManifestResponsePresetsItemSettingsInteractionComputeMsMax = 1000;
 
+export const getManifestResponsePresetsItemSettingsStepBudgetDefault = 500000;
+export const getManifestResponsePresetsItemSettingsStepBudgetMax = 10000000;
+
+export const getManifestResponsePresetsItemSettingsPerActFloorBitsDefault = 0;
+export const getManifestResponsePresetsItemSettingsPerActFloorBitsMin = 0;
+
+export const getManifestResponsePresetsItemSettingsPriorIdDefault = `uniform`;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault = 2;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin = 0;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax = 1000;
@@ -1193,15 +1276,18 @@ export const GetManifestResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(getManifestResponseDefaultsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getManifestResponseDefaultsInteractionRateHzMin).max(getManifestResponseDefaultsInteractionRateHzMax).default(getManifestResponseDefaultsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getManifestResponseDefaultsStepBudgetMax).default(getManifestResponseDefaultsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getManifestResponseDefaultsPerActFloorBitsMin).default(getManifestResponseDefaultsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(getManifestResponseDefaultsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1289,6 +1375,7 @@ export const GetManifestResponse = zod.object({
   "settingsDefaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.')
 }).describe('An instantiation the server offers (every utility function dealable in it has a calibration table).'))
 })).describe('Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.'),
+  "priors": zod.array(zod.string()).describe('Rarity priors the calibration tables know.'),
   "presets": zod.array(zod.object({
   "id": zod.string(),
   "label": zod.string(),
@@ -1300,15 +1387,18 @@ export const GetManifestResponse = zod.object({
   "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
   "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
   "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "utilitySelectorId": zod.string().default(getManifestResponsePresetsItemSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getManifestResponsePresetsItemSettingsInteractionRateHzMin).max(getManifestResponsePresetsItemSettingsInteractionRateHzMax).default(getManifestResponsePresetsItemSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsInteractionComputeMsMax).default(getManifestResponsePresetsItemSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsInteractionComputeMsMax).default(getManifestResponsePresetsItemSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsStepBudgetMax).default(getManifestResponsePresetsItemSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getManifestResponsePresetsItemSettingsPerActFloorBitsMin).default(getManifestResponsePresetsItemSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "priorId": zod.string().default(getManifestResponsePresetsItemSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1439,8 +1529,16 @@ export const GetPlayerObservationResponse = zod.object({
   "id": zod.string(),
   "source": zod.string(),
   "createdAt": zod.number(),
-  "summonCost": zod.number().describe('Description bits paid once from god energy (ast-bytes-v1).'),
-  "expectedActCost": zod.number().describe('Mean act cost over 16 reference objects, measured at summon.'),
+  "summonCost": zod.number().describe('Description bits paid once from god energy (ast-bits-v1 / ts-ast-bits-v1-uniform).'),
+  "decisionBits": zod.number().describe('Measured decision information, charged on every act.'),
+  "expectedActCost": zod.number().describe('Expected charge per act over the season\'s reference mixture.'),
+  "breakdown": zod.object({
+  "decision": zod.number().describe('Measured decision information I(X; A), charged on every act.'),
+  "erasure": zod.number(),
+  "motion": zod.number(),
+  "floor": zod.number()
+}).describe('Expected bits per act, by term.'),
+  "randomized": zod.boolean().describe('The agent uses random (measured over several seeds).'),
   "energy": zod.number(),
   "eligible": zod.boolean(),
   "acts": zod.number().int(),
@@ -1505,8 +1603,23 @@ export const SendPlayerCommandResponse = zod.object({
   "message": zod.string(),
   "validation": zod.object({
   "valid": zod.boolean(),
-  "cost": zod.number().describe('Summon price in bits (ast-bytes-v1).'),
-  "expectedActCost": zod.number().describe('Mean act cost over 16 reference objects.'),
+  "cost": zod.number().describe('Summon price in bits.'),
+  "parts": zod.object({
+  "structure": zod.number(),
+  "names": zod.number(),
+  "literals": zod.number(),
+  "moveFlags": zod.number(),
+  "literalMoves": zod.number()
+}).optional(),
+  "decisionBits": zod.number().optional(),
+  "expectedActCost": zod.number().describe('Expected charge per act.'),
+  "breakdown": zod.object({
+  "decision": zod.number().describe('Measured decision information I(X; A), charged on every act.'),
+  "erasure": zod.number(),
+  "motion": zod.number(),
+  "floor": zod.number()
+}).optional().describe('Expected bits per act, by term.'),
+  "randomized": zod.boolean().optional(),
   "diagnostics": zod.array(zod.string())
 }).optional()
 })

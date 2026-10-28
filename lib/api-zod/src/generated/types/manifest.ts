@@ -22,6 +22,8 @@ export interface Manifest {
   runtimes: string[];
   /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
   objectTypes: ObjectTypeInfo[];
+  /** Rarity priors the calibration tables know. */
+  priors: string[];
   /** Named starting points, in display order. */
   presets: SettingsPreset[];
 }

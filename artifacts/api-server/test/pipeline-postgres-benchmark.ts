@@ -17,14 +17,14 @@ const utilities = createUtilitiesAdapter();
 const ADD = "function agent(x) { return [add(1)]; }";
 /** Always eligible, so the benchmark measures the pipeline rather than agent income. */
 const richAgent = (ownerId: string, world: number) => ({ id: randomUUID(), ownerId, source: ADD, createdAt: Date.now(), summonCost: 0,
-  expectedActCost: 1, account: { balance: 1e6, settledWorldSeconds: world }, acts: 0, spent: 0 });
+  decisionBits: 1, perActFloorBits: 0, expectedActCost: 1, breakdown: { decision: 1, erasure: 0, motion: 0, floor: 0 }, randomized: false, account: { balance: 1e6, settledWorldSeconds: world }, acts: 0, spent: 0 });
 const host: Actor = { id: randomUUID(), name: "Isolated benchmark", kind: "human", scope: "browser" };
 let stop: (() => Promise<void>) | undefined;
 try {
   const settings: GameSettings = { ...defaultSettingsFor("Int", "typescript"), agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
   // Warm four workers before the measured interval.
   for (let round = 0; round < 10; round++)
-    await Promise.all(Array.from({ length: 4 }, () => runtime.act(ADD, 1, actSettings({ ...settings, interactionComputeMs: 50 }))));
+    await Promise.all(Array.from({ length: 4 }, () => runtime.act(ADD, 1, actSettings({ ...settings, interactionComputeMs: 50 }), "0")));
   // Only startup warmup uses 50ms; every measured game below retains the default 5ms.
   const room = await createRoom(host);
   registerAdapters({ runtime: base, utilities });
@@ -60,11 +60,11 @@ try {
     for (const count of [10, 100, 2000]) {
       let runtimeMs = 0, executions = 0, runtimeRejections = 0, scoringMs = 0;
       registerAdapters({
-        runtime: { ...base, async act(source, value, settings) {
+        runtime: { ...base, async act(source, value, settings, seed) {
           const started = performance.now();
           try {
             // Benchmark-only rate bypass; compute budget and instantiation remain unchanged.
-            return mode === "synthetic" ? { calls: '[["add",{"k":1}]]' } : await base.act(source, value, { ...settings, interactionRateHz: 1000 });
+            return mode === "synthetic" ? { calls: '[["add",{"k":1}]]', usedRandom: false, steps: 0 } : await base.act(source, value, { ...settings, interactionRateHz: 1000 }, seed);
           } catch (error) { runtimeRejections++; throw error; }
           finally { runtimeMs += performance.now() - started; executions++; }
         } },

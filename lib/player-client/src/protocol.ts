@@ -58,6 +58,8 @@ export const utilityCardSchema = z.object({
   }).optional(),
 });
 export type UtilityCardView = z.infer<typeof utilityCardSchema>;
+/** Expected bits per act: measured decision information + erasure + motion + the floor. */
+const breakdownSchema = z.object({ decision: finite, erasure: finite, motion: finite, floor: finite });
 // Strip unknown fields at every level: never spread raw server state into model context.
 export const observationSchema = z.object({
   version: z.literal(VERSION), roomId: id, revision: z.number().int().nonnegative(),
@@ -77,7 +79,8 @@ export const observationSchema = z.object({
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
   // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
-  agents: z.array(z.object({ id, source: z.string().max(16384), language, summonCost: finite, expectedActCost: finite,
+  agents: z.array(z.object({ id, source: z.string().max(16384), language, summonCost: finite, decisionBits: finite, expectedActCost: finite,
+    breakdown: breakdownSchema, randomized: z.boolean(),
     energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,
     calls: z.array(z.tuple([z.string().max(64), z.record(z.string(), z.unknown())])).max(16).optional(), cost: finite.optional() })).max(500),
@@ -88,7 +91,11 @@ export type Observation = z.infer<typeof observationSchema>;
 export const resultSchema = z.object({
   commandId: z.string().uuid(), accepted: z.boolean(),
   message: z.string().max(2000),
-  validation: z.object({ valid: z.boolean(), cost: finite.nonnegative(), expectedActCost: finite.nonnegative(), diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
+  // cost: the summon price (description bits, by part); every act then pays decisionBits + erasure + motion + floor.
+  validation: z.object({ valid: z.boolean(), cost: finite.nonnegative(), expectedActCost: finite.nonnegative(),
+    parts: z.object({ structure: finite, names: finite, literals: finite, moveFlags: finite, literalMoves: finite }).optional(),
+    decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
+    diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 export interface PlayerTransport {

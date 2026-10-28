@@ -5,9 +5,11 @@
 `interactionRateHz` is a per-room dispatch ceiling, not a fixed-rate work quota.
 It defaults to 100 Hz and accepts ceilings up to 1000 Hz; a high cap does not
 guarantee that rate on the deployed hardware.
-`interactionComputeMs` is the per-interaction guest CPU budget: an integer
-from 1 to 1000 milliseconds, defaulting to 5. It excludes compilation and worker
-startup, and is independent of the dispatch cap. The owner can change it only
+`stepBudget` is the deterministic per-act budget (default 500,000 steps; at most
+10,000,000): the same agent, input and seed always fit or never do.
+`interactionComputeMs` is only the CPU backstop behind it: an integer from 1 to
+1000 milliseconds, defaulting to 1000. Both exclude compilation and worker
+startup, and are independent of the dispatch cap. The owner can change it only
 between games; each game retains its settings snapshot.
 The single server admits up to four interactions concurrently across rooms.
 Missed opportunities are not queued or replayed; slow execution lowers achieved
@@ -170,23 +172,49 @@ object: Int `def agent(x):\n    return [add(1)]`, Grid
 `function agent(grid) { return [paint(row(2), "red")]; }`. The engine validates the
 calls against the instantiation's closed set of bit-priced mutators and applies them.
 
-- **God energy** (`startingEnergy`, `energyPerSecond` per real-time second) pays the
-  summon price: `ast-bytes-v1` description bits of the source, once.
-- **Validate** (free) returns `{valid, cost, expectedActCost, diagnostics}`. It runs the
-  agent on the live objects (diagnostics say what it would do and cost) and measures
-  `expectedActCost`: the mean act cost over 16 fixed reference spawns of the
-  instantiation, so it is deterministic per source.
+- **Summon price** (paid once from god energy, which accrues `energyPerSecond` per
+  real-time second from `startingEnergy`): the source's description bits,
+  `complexityFunctionId` `ast-bits-v1` (Python, corpus-weighted) or
+  `ts-ast-bits-v1-uniform` (TypeScript), one per language, plus each **literal move**
+  (a call of a move helper on literal arguments) priced as that move: 3 flag bits +
+  log2 #available mutators + its field bits if it is valid here, else its fallback
+  bits as an ordinary call. Each room's prelude carries the pricing vocabulary
+  (its API names, attributes, parameters, meaningful strings, mutators and areas).
+- **Measured per-act price.** At summon (and validation) the server RUNS the agent on
+  the season's reference mixture (128 uniform + 64 structured values of the
+  instantiation, salted by the season, plus up to 16 live objects as the "game"
+  component), once per value, or 8 times per value with different seeds if it used
+  `random`. `decisionBits` is the information its actions carry about the object,
+  I(X; A) (entropy of its actions for a deterministic agent, a jackknife estimate for
+  a randomized one); `expectedActCost` = decisionBits + mean erasure + mean motion +
+  `perActFloorBits`. Measurement runs outside the authority lock, four at a time
+  (about 200 runs for a deterministic agent, 1,600 for a randomized one).
+- **Validate** (free) returns `{valid, cost, parts, decisionBits, expectedActCost,
+  breakdown: {decision, erasure, motion, floor}, randomized, diagnostics}`.
 - **Agent energy.** A new agent starts at 0 and earns `agentEnergyPerSecond` bits per
   second of world time (nothing during planning, pauses or recovery), capped at
   `agentBatteryActs` × expectedActCost. It is **eligible** while energy ≥ expectedActCost.
 - **Interactions.** Each dispatch picks a uniform random object and a uniform random
-  eligible agent (one act per agent at a time). The act pays its actual cost
-  (decision + erasure + motion bits) whether it succeeds or not; a failed act
-  (runtime error, invalid call, no change) or a duplicate result (the value of any
-  existing object) changes nothing and pays its decision bits only (at least 1 bit).
-  Energy may go negative: a cooldown.
+  eligible agent (one act per agent at a time). Acts are deterministic: a frozen clock,
+  and `random` / `Math.random` seeded with `deriveSeed(seasonSalt, ["play", gameId,
+  agentId, actIndex])`. An act pays decisionBits + its pointwise erasure + its
+  whole-act motion + the floor. A failed act (runtime error, invalid call, no change)
+  or a duplicate result (the value of any existing object) changes nothing and pays
+  decisionBits + the floor. The calls' own naming bits are reported (`cost.naming`),
+  not charged. Energy may go negative: a cooldown.
 - **Destroy** (`agent.destroy`, owner only) is free and not refunded. Each god may keep
   `maxAgentsPerGod` live agents (at most 200).
+- **Season salt.** `CODE_GODS_SEASON_SALT` is a server secret behind every measurement
+  and play seed; production refuses to start without it, development and tests use a
+  random per-process salt (with a warning). It is never logged or returned; every game
+  and history record carries `seasonCommitment` = sha256(salt), so after the season the
+  salt can be revealed and every seed checked.
+
+Dealing: `utilitySelectorId` `fair-aligned` (default) keeps the friendliest even deal of
+32 Divine Lottery deals using the shipped synergy matrices of the instantiation and
+`priorId`; without a matrix it is the Divine Lottery (`divine-lottery`). `priorId`
+(default `uniform`, listed in `Manifest.priors`) is the rarity prior the calibration
+tables are keyed by.
 
 Every object value in a world is unique: spawns redraw on collision.
 
@@ -231,8 +259,8 @@ recent public chat window; older chat is paged through
 The observation carries `instance` (InstanceInfo: mutators, helpers, display tables),
 `economy` (energy rules and world time), `self.utility` (the kid card: emoji, name,
 summary, `def utility(...)` source in the game language, and an optional `penalty`
-defence goal), `self.energy`, own agents (`summonCost`, `expectedActCost`, `energy`,
-`eligible`, `acts`, `spent`), own objects' scores and peer aggregates, own
+defence goal), `self.energy`, own agents (`summonCost`, `decisionBits`, `expectedActCost`,
+`breakdown`, `randomized`, `energy`, `eligible`, `acts`, `spent`), own objects' scores and peer aggregates, own
 transformations (calls and cost), the public leaderboard (`totalPayoff`) and public chat.
 There is no per-opponent score endpoint and no private messaging.
 
@@ -242,7 +270,7 @@ The isolated runtimes, utility functions, calibration tables, player protocol an
 autonomous AI controller are connected. `game/adapters.ts` is the runtime/utility
 boundary (it builds the runtime's `ActSettings` from the instantiation's prelude;
 `CONFIG` runtime errors are server bugs, `COMPILE`/`DOMAIN`/`EXECUTION`/`LIMIT` are the
-agent's). `game/calibration.ts` is the calibration boundary. Startup probes both
+agent's); `game/pricing.ts` prices and measures agents; `game/season.ts` holds the salt. `game/calibration.ts` is the calibration boundary. Startup probes both
 languages on every object type's default instantiation with an empty agent
 (`def agent(x):\n    return []`, which must return `"[]"`) and advertises only usable
 languages. Missing adapters fail explicitly: no host-eval

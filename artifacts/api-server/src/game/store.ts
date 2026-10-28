@@ -286,7 +286,9 @@ export function readableGame(game: Game): boolean {
     validateSettings(game.settings);
     return Array.isArray(game.roster) && Array.isArray(game.deities) && Array.isArray(game.events) &&
       Array.isArray(game.objects) && game.objects.every(o => isObject(o) && isObject(o.scores)) &&
-      Array.isArray(game.agents) && game.agents.every(a => isObject(a) && isObject(a.account) && typeof a.expectedActCost === "number");
+      typeof game.seasonCommitment === "string" &&
+      Array.isArray(game.agents) && game.agents.every(a => isObject(a) && isObject(a.account) && typeof a.expectedActCost === "number" &&
+        typeof a.decisionBits === "number" && isObject(a.breakdown));
   } catch { return false; }
 }
 /** A stored room of the current design (its current game slot included). */

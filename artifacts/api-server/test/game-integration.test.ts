@@ -14,8 +14,13 @@ import roomsRouter from "../src/routes/rooms";
 import playerRouter from "../src/routes/player";
 import gamesRouter from "../src/routes/games";
 import { attachSockets } from "../src/game/socket";
-import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions, initializeStore } from "../src/game/store";
-import { codecOf, presetSettings, typeDefaults } from "@workspace/game-core";
+import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions, initializeStore, roomHistory } from "../src/game/store";
+import { codecOf, defaultSettingsFor, instantiationOf, presetSettings, typeDefaults } from "@workspace/game-core";
+import { actCharge, applyCalls, objectType } from "@workspace/game-types";
+import { createHash } from "node:crypto";
+import { examineAgent, summonPrice } from "../src/game/pricing";
+import { playSeed } from "../src/game/engine";
+import { seasonCommitment, seasonSalt } from "../src/game/season";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
 import { registerAdapters, requireAdapters } from "../src/game/adapters";
@@ -32,7 +37,8 @@ const ADD_TS = "function agent(x) { return [add(1)]; }";
 const ADD_PY = "def agent(x):\n    return [add(1)]";
 /** A test agent that is always eligible (expected cost 1 bit, energy to spare). */
 const richAgent = (ownerId: string, source: string, world = 0) => ({
-  id: randomUUID(), ownerId, source, createdAt: Date.now(), summonCost: 0, expectedActCost: 1,
+  id: randomUUID(), ownerId, source, createdAt: Date.now(), summonCost: 0, decisionBits: 1, perActFloorBits: 0,
+  expectedActCost: 1, breakdown: { decision: 1, erasure: 0, motion: 0, floor: 0 }, randomized: false,
   account: { balance: 1000, settledWorldSeconds: world }, acts: 0, spent: 0,
 });
 
@@ -135,6 +141,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     await mutate(id, async room => {
       room.settings.language = "typescript";
       room.settings.grammarId = "typescript-agent-v1";
+      room.settings.complexityFunctionId = "ts-ast-bits-v1-uniform";
       room.settings.objectType = "Int";
       room.settings.startingEnergy = 100;
       room.settings.energyPerSecond = 2;
@@ -158,24 +165,31 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const envelope = (command: any) => ({ version: VERSION, commandId: randomUUID(), gameId: resolveRoom(id).game!.id, command });
     const validate = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: EMPTY_TS }));
     assert.equal(validate.validation!.valid, true);
-    assert.equal(validate.validation!.cost, 8, "ast-bytes-v1 price of function agent(x) { return []; }");
-    assert.equal(validate.validation!.expectedActCost, 1, "an empty act fails and pays the 1-bit minimum");
-    assert.match(validate.validation!.diagnostics[0], /would fail \(no change\)/);
+    const emptyCost = validate.validation!.cost;
+    assert.ok(emptyCost > 0, "ts-ast-bits-v1 description bits of function agent(x) { return []; }");
+    assert.deepEqual(validate.validation!.breakdown, { decision: 0, erasure: 0, motion: 0, floor: 0 }, "an empty agent decides nothing and moves nothing");
+    assert.equal(validate.validation!.expectedActCost, 0);
+    assert.equal(validate.validation!.randomized, false);
+    assert.match(validate.validation!.diagnostics[0], /Summon price/);
     assert.equal(resolveRoom(id).game!.deities[0].spent, 0);
     const summon = envelope({ type: "summon", language: "typescript", source: ADD_TS });
+    const addValidation = (await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: ADD_TS }))).validation!;
     const receipt = await executePlayerEnvelope(id, host, summon);
     assert.equal(receipt.accepted, true, receipt.message);
-    assert.equal(resolveRoom(id).game!.deities[0].spent, 11);
+    const addCost = addValidation.cost;
+    assert.ok(addCost > emptyCost, "the literal move add(1) adds its bits");
+    assert.equal(resolveRoom(id).game!.deities[0].spent, addCost);
     assert.deepEqual(await executePlayerEnvelope(id, host, summon), receipt);
     assert.equal(resolveRoom(id).game!.agents.length, 1);
     const summoned = resolveRoom(id).game!.agents[0];
-    assert.equal(summoned.summonCost, 11);
-    assert.ok(summoned.expectedActCost > 1, "add(1) prices its decision and motion");
+    assert.equal(summoned.summonCost, addCost);
+    assert.equal(summoned.decisionBits, 0, "a constant act carries no decision information");
+    assert.ok(summoned.expectedActCost > 0 && summoned.breakdown.motion > 0, "add(1) still pays its motion");
     assert.deepEqual([summoned.account.balance, summoned.acts, summoned.spent], [0, 0, 0], "a new agent starts with no energy");
     await assert.rejects(executePlayerEnvelope(id, host, { ...summon, command: { ...summon.command, source: EMPTY_TS } }), /reused/);
     const saved = fixtureRooms.get(id);
     assert.deepEqual(saved.receipts[`client:${host.id}:${summon.commandId}`].result, receipt);
-    assert.equal(saved.game.deities[0].spent, 11);
+    assert.equal(saved.game.deities[0].spent, addCost);
     const invalid = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: "(x: number) => x" }));
     assert.equal(invalid.accepted, false, "a bare callable is not an agent: agent(x) must be declared");
     assert.equal(invalid.validation!.valid, false);
@@ -193,7 +207,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const pausedWorldSeconds = room.game!.worldSeconds;
     await new Promise(resolve => setTimeout(resolve, 30));
     assert.equal(resolveRoom(id).game!.worldSeconds, pausedWorldSeconds, "paused world time stays frozen");
-    assert.ok(observation(room, host).self.energy >= 109, "god energy accrues on wall clock even while paused");
+    assert.ok(observation(room, host).self.energy >= 120 - addCost - 0.5, "god energy accrues on wall clock even while paused");
     await executePlayerEnvelope(id, host, envelope({ type: "chat", text: "Public negotiation only" }));
     assert.equal(observation(resolveRoom(id), second).chat.at(-1)!.text, "Public negotiation only");
     const pub = JSON.stringify(publicRoom(resolveRoom(id)));
@@ -219,7 +233,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     await controller.step();
     assert.equal(calls, 1);
     assert.equal(resolveRoom(id).game!.agents.filter(a => a.ownerId === bot.id).length, 1, "AI uses game-scoped validation and summon commands");
-    assert.equal(resolveRoom(id).game!.deities.find(d => d.id === bot.id)!.spent, 8);
+    assert.equal(resolveRoom(id).game!.deities.find(d => d.id === bot.id)!.spent, emptyCost);
     assert.equal(fixtureRooms.get(id).aiReservedUsd, 0.2);
     // The reservation (input bound + 8192 output tokens) settles to the provider-reported usage.
     assert.equal(fixtureRooms.get(id).aiUsed, 110);
@@ -272,7 +286,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       assert.equal((await get(`/player/v1/rooms/${id}/observation`, "other")).status, 403);
       assert.equal((await get(`/rooms/${id}`, "missing")).status, 401);
       const validated = await (await post(`/player/v1/rooms/${id}/commands`, envelope({ type: "validate", source: EMPTY_TS, language: "typescript" }), "player")).json();
-      assert.equal(validated.validation.cost, 8);
+      assert.equal(validated.validation.cost, emptyCost);
       assert.equal(validated.accepted, true);
       const noGame = await (await post(`/player/v1/rooms/${id}/commands`, { version: VERSION, commandId: randomUUID(), command: { type: "pause" } }, "player")).json();
       assert.equal(noGame.accepted, false);
@@ -342,8 +356,8 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       utilities: adapters.utilities,
       runtime: {
         ...adapters.runtime,
-        async act(source, value, settings) {
-          const result = await adapters.runtime.act(source, value, settings);
+        async act(source, value, settings, seed) {
+          const result = await adapters.runtime.act(source, value, settings, seed);
           if (hold) { held++; await gate; released++; }
           return result;
         },
@@ -391,12 +405,12 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
   try {
     for (const mode of ["wasm", "cheap-synthetic"] as const) {
       registerAdapters(mode === "wasm" ? adapters : { ...adapters,
-        runtime: { ...adapters.runtime, act: async () => ({ calls: '[["add",{"k":1}]]' }) },
+        runtime: { ...adapters.runtime, act: async () => ({ calls: '[["add",{"k":1}]]', usedRandom: false, steps: 0 }) },
       });
       for (const count of [10, 100, 2000]) {
         await mutate(room.id, async draft => {
           draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
-          draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1",
+          draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
             startingObjectCount: count, spawnRateHz: 0, interactionRateHz: 1000, agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
           await startGame(draft, host);
           const g = draft.game!;
@@ -439,7 +453,7 @@ test("objects stay unique: spawns never duplicate; duplicate results fail but st
   try {
     await mutate(room.id, async draft => {
       draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
-      draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1",
+      draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
         objectType: "Int", typeArgs: { min: 0, max: 5 }, startingObjectCount: 6, spawnRateHz: 0,
         agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
       await startGame(draft, host);
@@ -557,7 +571,7 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
     assert.equal(room.activeGame, null, "a new room is a lobby");
     assert.equal(room.ownerName, "Lobby Host");
     assert.equal(typeof room.createdAt, "number");
-    const firstSettings = { ...room.settings, language: "typescript", grammarId: "typescript-agent-v1", objectType: "Int", startingObjectCount: 4, spawnRateHz: 0 };
+    const firstSettings = { ...room.settings, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", startingObjectCount: 4, spawnRateHz: 0 };
     room = await json(act(id, { action: "settings", revision: room.revision, settings: firstSettings }));
     await refused(act(id, { action: "start" }, ada), /owner/);
 
@@ -789,7 +803,8 @@ for (const spec of FULL_GAMES) {
         const source = spec.agents[language];
         room = await json(get(`/rooms/${id}`));
         const settings = { ...room.settings, objectType: spec.objectType, typeArgs: spec.typeArgs, language, grammarId: `${language}-agent-v1`,
-          startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, interactionComputeMs: 200, agentEnergyPerSecond: 100, agentBatteryActs: 2 };
+          complexityFunctionId: language === "python" ? "ast-bits-v1" : "ts-ast-bits-v1-uniform",
+          startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, agentBatteryActs: 2 };
         room = await act(id, { action: "settings", revision: room.revision, settings });
         assert.equal(room.objectInstance.key, offered.key);
         assert.ok(room.objectInstance.mutators.length > 0);
@@ -833,7 +848,9 @@ for (const spec of FULL_GAMES) {
         assert.equal(validation.accepted, true, validation.message);
         assert.ok(validation.validation.valid && Number.isSafeInteger(validation.validation.cost) && validation.validation.cost > 0);
         assert.ok(validation.validation.expectedActCost > 0);
-        assert.ok(validation.validation.diagnostics.some((d: string) => /mutator call/.test(d)), validation.validation.diagnostics.join(" | "));
+        assert.ok(validation.validation.diagnostics.some((d: string) => /^Each act/.test(d)), validation.validation.diagnostics.join(" | "));
+        assert.deepEqual(Object.keys(validation.validation.breakdown).sort(), ["decision", "erasure", "floor", "motion"]);
+        assert.ok(validation.validation.parts.structure > 0 && validation.validation.decisionBits >= 0);
         const broken = await command(id, game.id, { type: "validate", language, source: BROKEN[language] }, ada);
         assert.equal(broken.accepted, false);
         assert.equal(broken.validation.valid, false);
@@ -906,6 +923,117 @@ for (const spec of FULL_GAMES) {
     }
   });
 }
+
+test("open-agent pricing: summon price, measured decision bits, randomized vs deterministic, seeded acts, charges", { timeout: 300000 }, async t => {
+  await initializeRuntimeAdapters();
+  const { runtime } = requireAdapters();
+  try {
+    const settings = defaultSettingsFor("Int", "python");
+    const inst = instantiationOf(settings);
+    const live = [3, 10, 17, 24];
+    const constant = await examineAgent(settings, ADD_PY, live);
+    const chooser = await examineAgent(settings, "def agent(x):\n    return [add(x % 4 + 1)]", live);
+    const gambler = await examineAgent(settings, "import random\n\ndef agent(x):\n    return [add(random.randint(1, 4))]", live);
+    t.diagnostic(`measure: constant ${constant.runs} runs in ${constant.measureMs.toFixed(0)} ms; chooser ${chooser.runs} runs in ${chooser.measureMs.toFixed(0)} ms; randomized ${gambler.runs} runs in ${gambler.measureMs.toFixed(0)} ms`);
+    // Summon price: the description (ast-bits-v1) plus each literal move priced by the host.
+    const inspection = await runtime.inspect(ADD_PY, settings);
+    assert.equal(inspection.complexityFunctionId, "ast-bits-v1");
+    assert.deepEqual(inspection.literalMoves, [["add", { k: 1 }]]);
+    const priced = summonPrice(inspection, inst);
+    assert.equal(constant.cost, priced.cost);
+    assert.ok(priced.parts.literalMoves >= 3, "a valid literal move pays its flag, the tool and its fields");
+    assert.ok(Math.abs(constant.cost - (inspection.cost + priced.parts.literalMoves)) < 1e-9);
+    // Decision information: none for a constant act, about two bits for a choice of four.
+    assert.equal(constant.decisionBits, 0);
+    assert.equal(constant.randomized, false);
+    assert.equal(constant.runs, 192 + live.length, "one run per reference value (128 uniform + 64 structured + the live objects)");
+    assert.ok(chooser.decisionBits > 1.5 && chooser.decisionBits <= 2.01, `deterministic choice of 4: ${chooser.decisionBits}`);
+    assert.equal(chooser.randomized, false);
+    assert.equal(gambler.randomized, true);
+    assert.equal(gambler.runs, (192 + live.length) * 8, "a randomized agent is replicated over 8 seeds");
+    assert.ok(gambler.decisionBits < chooser.decisionBits, `coin flips carry less information about the object: ${gambler.decisionBits}`);
+    for (const e of [constant, chooser, gambler]) {
+      const b = e.breakdown;
+      assert.ok(Math.abs(e.expectedActCost - (b.decision + b.erasure + b.motion + b.floor)) < 1e-9);
+    }
+    // Measurement is deterministic for the season: the same agent prices the same.
+    assert.deepEqual((await examineAgent(settings, "def agent(x):\n    return [add(x % 4 + 1)]", live)).breakdown, chooser.breakdown);
+    // Play seeds: the same (game, agent, act index) replays exactly; different acts draw differently.
+    const source = "import random\n\ndef agent(x):\n    return [add(random.randint(1, 1000))]";
+    const seed = (n: number) => playSeed("game-1", "agent-1", n);
+    const first = await runtime.act(source, 5, settings, seed(0));
+    assert.equal(first.usedRandom, true);
+    assert.equal((await runtime.act(source, 5, settings, seed(0))).calls, first.calls);
+    const draws = new Set(await Promise.all([1, 2, 3, 4, 5].map(async n => (await runtime.act(source, 5, settings, seed(n))).calls)));
+    assert.ok(draws.size >= 3, "act seeds differ across act indices");
+    const clock = await runtime.act("import time\n\ndef agent(x):\n    return [add(int(time.time()) % 7 + 1)]", 5, settings, seed(0));
+    assert.equal(clock.calls, (await runtime.act("import time\n\ndef agent(x):\n    return [add(int(time.time()) % 7 + 1)]", 5, settings, seed(9))).calls, "the clock is frozen");
+    // Charges: decision + erasure + motion + floor; a failed or duplicate act pays decision + floor.
+    const agent = { decisionBits: 2, perActFloorBits: 0.5 };
+    const ok = applyCalls(objectType("Int"), inst, 5, '[["add",{"k":1}]]');
+    const charged = actCharge(agent, ok);
+    assert.equal(charged.total, 2 + 0.5 + charged.erasure + charged.motion);
+    assert.ok(ok.ok && charged.motion === ok.cost.motion && charged.erasure === ok.cost.erasure);
+    assert.equal(actCharge(agent, ok, { duplicate: true }).total, 2.5);
+    assert.equal(actCharge(agent, applyCalls(objectType("Int"), inst, 5, "[]")).total, 2.5);
+    assert.match(seasonCommitment(), /^[0-9a-f]{64}$/);
+    assert.equal(seasonCommitment(), createHash("sha256").update(seasonSalt()).digest("hex"));
+  } finally { shutdownRuntimeAdapters(); }
+});
+
+test("summons measure in the game, acts pay the measured price and the floor, games commit to the season salt", { timeout: 300000 }, async () => {
+  await initializeRuntimeAdapters();
+  await recordHumanActivity();
+  const host: Actor = { id: randomUUID(), name: "Pricing", kind: "human", scope: "browser" };
+  const room = await createRoom(host);
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    await mutate(room.id, async draft => {
+      draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
+      draft.settings = { ...defaultSettingsFor("Int", "python"), startingObjectCount: 6, spawnRateHz: 0, perActFloorBits: 0.25,
+        agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
+      await startGame(draft, host);
+    });
+    const game = resolveRoom(room.id).game!;
+    assert.equal(game.seasonCommitment, seasonCommitment());
+    const envelope = (command: any) => ({ version: VERSION, commandId: randomUUID(), gameId: game.id, command });
+    const source = "def agent(x):\n    return [add(x % 4 + 1)]";
+    const validation = (await executePlayerEnvelope(room.id, host, envelope({ type: "validate", language: "python", source }))).validation!;
+    assert.equal(validation.breakdown!.floor, 0.25);
+    assert.equal((await executePlayerEnvelope(room.id, host, envelope({ type: "summon", language: "python", source }))).accepted, true);
+    const agent = resolveRoom(room.id).game!.agents[0];
+    assert.equal(agent.decisionBits, validation.decisionBits);
+    assert.equal(agent.perActFloorBits, 0.25);
+    assert.equal(resolveRoom(room.id).game!.deities[0].spent, validation.cost);
+    await mutate(room.id, async draft => { const g = draft.game!; g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600; });
+    stop = startTicker();
+    const deadline = Date.now() + 60000;
+    while (resolveRoom(room.id).game!.events.filter(e => e.type !== "object.spawned").length < 5) {
+      assert.ok(Date.now() < deadline, "the agent acts");
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    await stop(); stop = undefined;
+    const g = resolveRoom(room.id).game!;
+    const acts = g.events.filter(e => e.type !== "object.spawned") as Exclude<typeof g.events[number], { type: "object.spawned" }>[];
+    for (const e of acts) {
+      assert.equal(e.cost!.decision, agent.decisionBits);
+      assert.equal(e.cost!.floor, 0.25);
+      assert.ok(Math.abs(e.cost!.total - (e.cost!.decision + e.cost!.erasure + e.cost!.motion + e.cost!.floor)) < 1e-12);
+      if (e.type === "agent.failed") assert.equal(e.cost.erasure + e.cost.motion, 0);
+      assert.ok(typeof e.cost!.naming === "number", "the calls' naming bits are reported");
+    }
+    const spent = acts.reduce((s, e) => s + e.cost!.total, 0);
+    assert.ok(Math.abs(g.agents[0].spent - spent) < 1e-9, "the agent paid exactly its acts' charges");
+    await mutate(room.id, async draft => { draft.game!.phase = "ended"; draft.game!.endReason = "owner"; });
+    const record = (await roomHistory(room.id)).find(r => r.id === g.id)!;
+    assert.equal(record.seasonCommitment, seasonCommitment());
+    assert.ok(!JSON.stringify(record).includes(seasonSalt()), "the salt itself never leaves");
+    assert.ok(!JSON.stringify(observation(resolveRoom(room.id), host)).includes(seasonSalt()));
+  } finally {
+    await stop?.();
+    shutdownRuntimeAdapters();
+  }
+});
 
 test("replay restores agent accounts from failed and successful acts, and fails closed on unknown agents", () => {
   const account = (balance: number, world: number) => ({ balance, settledWorldSeconds: world });

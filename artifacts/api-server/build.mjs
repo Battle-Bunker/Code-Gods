@@ -40,13 +40,13 @@ async function provisionPythonRuntime() {
       for (const type of OBJECT_TYPES) {
         const inst = type.instantiate(type.defaults), parts = type.prelude(inst), codec = type.codec(inst);
         const settings = { objectType: type.id, wireMaxLength: codec.maxLength, interactionComputeMs: 1000,
-          prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts } };
+          prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, pricing: parts.pricing } };
         let n = 0;
         const input = codec.encode(type.spawn(inst, { int: bound => n++ % bound, big: bound => BigInt(n++) % bound }));
         const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
         const { cost } = await runtime.inspect(source, settings);
-        const { calls } = await runtime.act(source, input, settings);
-        if (!Number.isSafeInteger(cost) || cost <= 0 || calls !== "[]") {
+        const { calls } = await runtime.act(source, input, settings, "0");
+        if (!Number.isFinite(cost) || cost <= 0 || calls !== "[]") {
           throw new Error(`Packaged ${language} ${type.id} runtime build probe failed`);
         }
       }

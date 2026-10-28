@@ -37,4 +37,6 @@ export interface GameRecord {
   agentCount: number;
   /** Information scoring: payoffs in bits². */
   scoring: GameRecordScoring;
+  /** sha256 (hex) of the season salt behind this game's seeds; the salt is revealed after the season. */
+  seasonCommitment: string;
 }

@@ -387,7 +387,7 @@ export default function Console() {
                 <div className={`border-l-4 pl-3 py-1 ${currentValidation.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
                   <p className="font-mono text-xs"><strong>{currentValidation.valid ? "VALID" : "INVALID"}</strong></p>
                   <div className="mt-1"><AgentCost summonCost={currentValidation.cost} expectedActCost={currentValidation.expectedActCost}
-                    breakdown={(currentValidation as { breakdown?: ActCostBreakdown }).breakdown}
+                    breakdown={currentValidation.breakdown as ActCostBreakdown | undefined}
                     agentEnergyPerSecond={obs?.economy?.agentEnergyPerSecond} godEnergy={obs?.self.energy} /></div>
                   {currentValidation.diagnostics.length > 0 ? (
                     <ul className="mt-1 font-mono text-xs space-y-0.5 text-muted-foreground">{currentValidation.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
@@ -410,7 +410,7 @@ export default function Console() {
                       <div className="flex flex-wrap justify-between gap-x-2 px-3 py-1.5 font-mono text-xs bg-muted"><span className="truncate">{a.id} · {a.language}</span><span>summoned for {formatBits(a.summonCost)} bits</span></div>
                       <div className="px-3 pt-2 space-y-1" data-testid={`text-agent-energy-${a.id}`}>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-2 font-mono text-[11px]">
-                          <span>⚡ {formatBits(a.energy)} bits · {formatBits(a.expectedActCost)} per act</span>
+                          <span>⚡ {formatBits(a.energy)} bits · {formatBits(a.expectedActCost)} per act (decision {formatBits(a.decisionBits)}{a.randomized ? ", uses random" : ""})</span>
                           <span data-testid={`text-agent-status-${a.id}`} className={a.energy < 0 ? "text-destructive font-semibold" : a.eligible ? "text-[hsl(var(--accent))] font-semibold" : ""}>{status}{wait !== null && wait > 0 ? ` · ~${formatBits(wait)}s` : ""}</span>
                         </div>
                         <div className="relative h-1.5 bg-muted overflow-hidden" aria-hidden>

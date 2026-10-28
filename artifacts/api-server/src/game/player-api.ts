@@ -2,7 +2,8 @@ import { GAME_COMMANDS, VERSION, envelopeSchema, observationSchema, type Envelop
 import { member, mutate, resolveRoom } from "./store";
 import { agentView, objectInstance, personalObject, standings, utilityCard } from "./projection";
 import { godEnergy, worldNow } from "./economy";
-import { playerCommand } from "./engine";
+import { liveSample, playerCommand } from "./engine";
+import { examineAgent } from "./pricing";
 import { hash, requireAct } from "../lib/identity";
 import type { Actor, Room } from "./types";
 
@@ -38,10 +39,34 @@ export function observation(room: Room, actor: Actor) {
     chat: room.chat.slice(-100).map(m => ({ id: m.id, godId: m.authorId, label: m.authorName, isAI: m.kind === "ai", text: m.text.slice(0, 2000) })),
   });
 }
+/**
+ * Measuring an agent runs it a few hundred times, so validate and summon measure BEFORE taking the
+ * authority lock (other rooms and interactions keep committing); the command itself re-checks everything
+ * inside the lock and uses the measurement only if the game and source still match.
+ */
+async function premeasure(room: Room, actor: Actor, envelope: Envelope) {
+  const command = envelope.command;
+  if (command.type !== "validate" && command.type !== "summon") return undefined;
+  const game = room.game;
+  if (!game || envelope.gameId !== game.id || command.language !== game.settings.language || room.receipts[`client:${actor.id}:${envelope.commandId}`] ||
+      !game.deities.some(d => d.id === actor.id) || ["ended", "recovery"].includes(game.phase)) return undefined;
+  try { return { gameId: game.id, source: command.source, result: await examineAgent(game.settings, command.source, liveSample(game)) }; }
+  catch (error) {
+    // Only the agent's own errors are a result; host failures surface as they are.
+    if ((error as { agentFault?: boolean }).agentFault) return { gameId: game.id, source: command.source, result: error as Error };
+    throw error;
+  }
+}
+
 export async function executePlayerEnvelope(roomId: string, actor: Actor, raw: unknown): Promise<CommandResult> {
   requireAct(actor);
   const envelope = envelopeSchema.parse(raw);
-  return mutate(resolveRoom(roomId).id, async room => {
+  const id = resolveRoom(roomId).id;
+  member(resolveRoom(id), actor);
+  let examined: Awaited<ReturnType<typeof premeasure>>;
+  try { examined = await premeasure(resolveRoom(id), actor, envelope); }
+  catch (error) { examined = { gameId: envelope.gameId ?? "", source: "source" in envelope.command ? envelope.command.source : "", result: error as Error }; }
+  return mutate(id, async room => {
     requireAct(actor);
     member(room, actor);
     const key = `client:${actor.id}:${envelope.commandId}`, digest = hash(JSON.stringify(envelope));
@@ -60,7 +85,7 @@ export async function executePlayerEnvelope(roomId: string, actor: Actor, raw: u
         destroy: "agent.destroy",
       };
       const result = await playerCommand(room, actor, {
-        command: names[command.type], requestId: envelope.commandId, gameId: room.game?.id, payload: command,
+        command: names[command.type], requestId: envelope.commandId, gameId: room.game?.id, payload: command, examined,
       });
       receipt = { commandId: envelope.commandId, accepted: true, message: "Accepted",
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}) };

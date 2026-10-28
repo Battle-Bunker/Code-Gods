@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CostBreakdown } from './costBreakdown';
 
 /**
  * One of your own agents. It acts only while eligible (energy ≥ expectedActCost); negative energy is a cooldown.
@@ -13,10 +14,15 @@ export interface AgentInfo {
   id: string;
   source: string;
   createdAt: number;
-  /** Description bits paid once from god energy (ast-bytes-v1). */
+  /** Description bits paid once from god energy (ast-bits-v1 / ts-ast-bits-v1-uniform). */
   summonCost: number;
-  /** Mean act cost over 16 reference objects, measured at summon. */
+  /** Measured decision information, charged on every act. */
+  decisionBits: number;
+  /** Expected charge per act over the season's reference mixture. */
   expectedActCost: number;
+  breakdown: CostBreakdown;
+  /** The agent uses random (measured over several seeds). */
+  randomized: boolean;
   energy: number;
   eligible: boolean;
   acts: number;

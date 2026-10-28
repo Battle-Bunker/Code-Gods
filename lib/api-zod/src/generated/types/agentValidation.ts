@@ -5,12 +5,18 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CostBreakdown } from './costBreakdown';
+import type { SummonParts } from './summonParts';
 
 export interface AgentValidation {
   valid: boolean;
-  /** Summon price in bits (ast-bytes-v1). */
+  /** Summon price in bits. */
   cost: number;
-  /** Mean act cost over 16 reference objects. */
+  parts?: SummonParts;
+  decisionBits?: number;
+  /** Expected charge per act. */
   expectedActCost: number;
+  breakdown?: CostBreakdown;
+  randomized?: boolean;
   diagnostics: string[];
 }
