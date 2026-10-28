@@ -14,5 +14,8 @@ export interface RoomSummary {
   /** Unix milliseconds; null for legacy rooms whose creation time was not recorded. */
   createdAt: number | null;
   memberCount: number;
+  /** `lobby` between games, otherwise the active game's phase. */
   phase: string;
+  /** @nullable */
+  activeGameShortCode: string | null;
 }

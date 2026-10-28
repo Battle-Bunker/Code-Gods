@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
 import { lookupSession } from "../lib/identity";
 import { listeners, resolveRoom, member, mutate } from "./store";
-import { publicRoom, personalRoom } from "./projection";
+import { publicRoom, personalRoom, gameRecord } from "./projection";
 import { playerCommand } from "./engine";
 import { observation, executePlayerEnvelope } from "./player-api";
 import { VERSION } from "@workspace/player-client";
@@ -50,6 +50,7 @@ export function attachSockets(server: Server) {
         send("room.snapshot", project());
         send("player.observation", observation(room, actor));
         let gameId = room.game?.id;
+        let gameEnded = room.game?.phase === "ended";
         let lastEvent = room.game?.events.at(-1)?.id;
         const listener: Parameters<typeof listeners.add>[0] = changed => {
           if (changed.id !== room.id) return;
@@ -57,6 +58,7 @@ export function attachSockets(server: Server) {
           send("player.observation", observation(changed, actor));
           if (gameId !== changed.game?.id) {
             gameId = changed.game?.id;
+            gameEnded = false;
             lastEvent = undefined;
             if (changed.game?.deities.some(d => d.id === actor.id)) send("game.preparing", personalRoom(changed, actor.id));
           }
@@ -71,6 +73,9 @@ export function attachSockets(server: Server) {
           }
           lastEvent = events.at(-1)?.id;
           send("leaderboard.updated", publicRoom(changed).game?.leaderboard ?? []);
+          // The room is back in its lobby; the public result is now in the room's history.
+          if (changed.game?.phase === "ended" && !gameEnded) send("game.ended", gameRecord(changed.id, changed.game));
+          gameEnded = changed.game?.phase === "ended";
         };
         listeners.add(listener);
         let busy = false;

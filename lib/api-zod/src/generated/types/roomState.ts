@@ -5,20 +5,33 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ActiveGameRef } from './activeGameRef';
 import type { ChatMessage } from './chatMessage';
 import type { Member } from './member';
 import type { PublicGame } from './publicGame';
 import type { Settings } from './settings';
 import type { UtilityFamily } from './utilityFamily';
 
+/**
+ * A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.
+ */
 export interface RoomState {
   id: string;
   shortCode: string;
   ownerId: string;
+  ownerName: string;
+  /**
+     * Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+     * @nullable
+     */
+  createdAt: number | null;
   revision: number;
+  /** Settings for the next game. Each game keeps its own snapshot from launch. */
   settings: Settings;
   members: Member[];
   chat: ChatMessage[];
+  activeGame: ActiveGameRef | null;
+  /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
   game: PublicGame | null;
   serverTime: number;
   /** Public list of utility-function families gods may have drawn for this object type. */

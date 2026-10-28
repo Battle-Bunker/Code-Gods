@@ -207,14 +207,19 @@ export interface Manifest {
 
 export interface RoomInput { [key: string]: unknown }
 
+/**
+ * Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result.
+ */
 export type RoomActionInputAction = typeof RoomActionInputAction[keyof typeof RoomActionInputAction];
 
 
 export const RoomActionInputAction = {
   join: 'join',
+  leave: 'leave',
   ready: 'ready',
   settings: 'settings',
   start: 'start',
+  endGame: 'endGame',
   addAi: 'addAi',
   removeAi: 'removeAi',
   chat: 'chat',
@@ -222,6 +227,7 @@ export const RoomActionInputAction = {
 } as const;
 
 export interface RoomActionInput {
+  /** Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result. */
   action: RoomActionInputAction;
   requestId: string;
   revision?: number;
@@ -246,7 +252,10 @@ export interface RoomSummary {
   /** Unix milliseconds; null for legacy rooms whose creation time was not recorded. */
   createdAt: number | null;
   memberCount: number;
+  /** `lobby` between games, otherwise the active game's phase. */
   phase: string;
+  /** @nullable */
+  activeGameShortCode: string | null;
 }
 
 export type MemberKind = typeof MemberKind[keyof typeof MemberKind];
@@ -307,6 +316,82 @@ export interface GameLink {
   status: GameLinkStatus;
 }
 
+export type RosterEntryKind = typeof RosterEntryKind[keyof typeof RosterEntryKind];
+
+
+export const RosterEntryKind = {
+  human: 'human',
+  ai: 'ai',
+} as const;
+
+export interface RosterEntry {
+  id: string;
+  name: string;
+  kind: RosterEntryKind;
+}
+
+export interface Winner {
+  deityId: string;
+  name: string;
+  kind: string;
+}
+
+/**
+ * The room's single active (not yet ended) game.
+ */
+export interface ActiveGameRef {
+  id: string;
+  shortCode: string;
+  phase: string;
+  startedAt: number;
+  roster: RosterEntry[];
+}
+
+/**
+ * @nullable
+ */
+export type GameRecordEndReason = typeof GameRecordEndReason[keyof typeof GameRecordEndReason] | null;
+
+
+export const GameRecordEndReason = {
+  lifetime: 'lifetime',
+  owner: 'owner',
+  retired: 'retired',
+} as const;
+
+/**
+ * Public result of one finished game, kept in its room's history.
+ */
+export interface GameRecord {
+  id: string;
+  shortCode: string;
+  roomId: string;
+  startedAt: number;
+  /**
+     * Unix milliseconds; null for legacy games whose end time was not recorded.
+     * @nullable
+     */
+  endedAt: number | null;
+  /** @nullable */
+  endReason: GameRecordEndReason;
+  settings: Settings;
+  roster: RosterEntry[];
+  leaderboard: Standing[];
+  /** Every god ranked first (ties share the win). */
+  winners: Winner[];
+  worldSeconds: number;
+  objectCount: number;
+  agentCount: number;
+}
+
+export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
+
+
+export const GameViewStatus = {
+  active: 'active',
+  ended: 'ended',
+} as const;
+
 export interface PublicGame {
   id: string;
   shortCode: string;
@@ -317,6 +402,15 @@ export interface PublicGame {
   agentCount: number;
   objects: PublicObject[];
   leaderboard: Standing[];
+  startedAt?: number;
+  /** @nullable */
+  endedAt?: number | null;
+  /** @nullable */
+  endReason?: string | null;
+  /** @nullable */
+  recoveryReason?: string | null;
+  settings?: Settings;
+  roster?: RosterEntry[];
 }
 
 export interface UtilityFamily {
@@ -325,14 +419,61 @@ export interface UtilityFamily {
   theme: string;
 }
 
+/**
+ * A game's own page. Public information only.
+ */
+export type GameView = PublicGame & ({
+  /** @nullable */
+  roomId: string | null;
+  /** @nullable */
+  roomShortCode: string | null;
+  /** @nullable */
+  ownerId: string | null;
+  status: GameViewStatus;
+  winners: Winner[];
+  /** Public room chat sent while this game was played (most recent 100). */
+  chat: ChatMessage[];
+  /** The room's active game now, which may be a newer one. */
+  roomActiveGame: ActiveGameRef | null;
+  utilityCatalog: UtilityFamily[];
+  serverTime: number;
+}) & Required<Pick<PublicGame & ({
+  /** @nullable */
+  roomId: string | null;
+  /** @nullable */
+  roomShortCode: string | null;
+  /** @nullable */
+  ownerId: string | null;
+  status: GameViewStatus;
+  winners: Winner[];
+  /** Public room chat sent while this game was played (most recent 100). */
+  chat: ChatMessage[];
+  /** The room's active game now, which may be a newer one. */
+  roomActiveGame: ActiveGameRef | null;
+  utilityCatalog: UtilityFamily[];
+  serverTime: number;
+}), 'startedAt' | 'endedAt' | 'endReason' | 'recoveryReason' | 'settings' | 'roster'>>;
+
+/**
+ * A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.
+ */
 export interface RoomState {
   id: string;
   shortCode: string;
   ownerId: string;
+  ownerName: string;
+  /**
+     * Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+     * @nullable
+     */
+  createdAt: number | null;
   revision: number;
+  /** Settings for the next game. Each game keeps its own snapshot from launch. */
   settings: Settings;
   members: Member[];
   chat: ChatMessage[];
+  activeGame: ActiveGameRef | null;
+  /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
   game: PublicGame | null;
   serverTime: number;
   /** Public list of utility-function families gods may have drawn for this object type. */

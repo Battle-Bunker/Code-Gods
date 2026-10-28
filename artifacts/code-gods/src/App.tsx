@@ -7,7 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import Home from '@/pages/home';
 import Room from '@/pages/room';
-import GameRedirect from '@/pages/game-redirect';
+import Game from '@/pages/game';
 import Device from '@/pages/device';
 import AdminAgents from '@/pages/admin-agents';
 import {
@@ -41,7 +41,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/rooms/:id" component={Room} />
-        <Route path="/games/:code" component={GameRedirect} />
+        <Route path="/games/:code" component={Game} />
         <Route path="/device" component={Device} />
         <Route path="/admin/agents" component={AdminAgents} />
         <Route component={NotFound} />

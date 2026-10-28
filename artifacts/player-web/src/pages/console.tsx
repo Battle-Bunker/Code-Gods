@@ -18,6 +18,16 @@ const fmt = (v: number | string) => (typeof v === "number" ? (Number.isInteger(v
 /** Object values: strings are JSON-quoted so spaces, quotes and control characters stay visible. */
 const show = (v: number | string) => (typeof v === "number" ? String(v) : JSON.stringify(v));
 
+/** Rooms are lobbies between games; say where this player stands in that cycle. */
+function LobbyStatus({ obs }: { obs: Observation }) {
+  const room = obs.roomShortCode ? `/rooms/${encodeURIComponent(obs.roomShortCode)}` : undefined;
+  const text = obs.phase === "lobby" ? "in the lobby · waiting for the owner to start a game"
+    : obs.phase === "ended" ? "game over · results are in the room's history; the next game starts from the lobby"
+    : obs.seated === false ? "spectating · you play in the next game" : undefined;
+  if (!text) return null;
+  return <span data-testid="text-lobby-status" className="opacity-70">{text}{obs.phase !== "lobby" && obs.gameShortCode && <> · <a className="underline" href={`/games/${encodeURIComponent(obs.gameShortCode)}`} target="_blank" rel="noreferrer">view game</a></>}{room && <> · <a className="underline" href={room} target="_blank" rel="noreferrer">room</a></>}</span>;
+}
+
 function Countdown({ obs }: { obs: Observation }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 250); return () => clearInterval(t); }, []);
@@ -299,9 +309,11 @@ export default function Console() {
           <p className="label !text-sidebar-foreground/60">{self ? `${self.godId}${self.isAI ? " · AI" : " · human"}` : "identity unknown"}</p>
         </div></div>
         <div className="flex gap-5 font-mono text-xs">
-          <span><span className="opacity-50">room </span><span data-testid="text-room">{obs?.roomId ?? roomId}</span></span>
+          <span><span className="opacity-50">room </span><span data-testid="text-room">{obs?.roomShortCode ?? obs?.roomId ?? roomId}</span></span>
+          {obs?.gameShortCode && <span><span className="opacity-50">game </span><span data-testid="text-game">{obs.gameShortCode}</span></span>}
           <span><span className="opacity-50">phase </span><span data-testid="text-phase" className="text-primary uppercase">{obs?.phase ?? "—"}</span></span>
           {obs && <Countdown obs={obs} />}
+          {obs && <LobbyStatus obs={obs} />}
         </div>
         <div className="ml-auto flex items-center gap-3">
           <span data-testid="status-connection" className="font-mono text-xs flex items-center gap-1.5">

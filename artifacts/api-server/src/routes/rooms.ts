@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
 import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings } from "@workspace/game-core";
 import { requireIdentity } from "../lib/identity";
-import { allRooms, createRoom, resolveRoom, mutate, member, owner } from "../game/store";
+import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
-import { playerCommand, resumeGame, startGame } from "../game/engine";
+import { endGame, playerCommand, resumeGame, startGame } from "../game/engine";
 import { runtime } from "../game/adapters";
 import { aiFundingStatus } from "../game/ai-provider";
 import { getAgentDefinition } from "../game/agent-library";
@@ -20,7 +20,10 @@ router.get("/rooms", (req, res) => {
     id: r.id, shortCode: r.shortCode, ownerId: r.ownerId,
     ownerName: r.members.find(m => m.id === r.ownerId)?.name ?? r.ownerId,
     createdAt: r.createdAt,
-    memberCount: r.members.length, phase: r.game?.phase ?? "lobby",
+    memberCount: r.members.length,
+    // A room is a lobby between games; "phase" is its active game's phase while one runs.
+    phase: r.game && r.game.phase !== "ended" ? r.game.phase : "lobby",
+    activeGameShortCode: r.game && r.game.phase !== "ended" ? r.game.shortCode : null,
   })));
 });
 router.post("/rooms", async (req, res) => {
@@ -45,6 +48,13 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
       return;
     }
     member(room, actor);
+    if (input.action === "leave") {
+      if (room.ownerId === actor.id) throw new Error("The owner cannot leave their room");
+      if (room.game && room.game.phase !== "ended" && room.game.roster.some(m => m.id === actor.id))
+        throw new Error("You are seated in the active game; leave after it ends");
+      room.members = room.members.filter(m => m.id !== actor.id);
+      return;
+    }
     if (input.action === "chat" || input.action === "ready") {
       await playerCommand(room, actor, {
         command: input.action === "chat" ? "chat.send" : "ready.set", requestId: input.requestId,
@@ -63,6 +73,10 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (input.action === "resume") {
       if (room.game?.phase !== "recovery") throw new Error("Game is not in recovery");
       resumeGame(room.game);
+      return;
+    }
+    if (input.action === "endGame") {
+      endGame(room, actor);
       return;
     }
     if (room.game && room.game.phase !== "ended") throw new Error("Settings and seats are frozen during games");
@@ -91,6 +105,12 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     }
   });
   res.json(publicRoom(resolveRoom(id)));
+});
+/** Finished games played in this room, newest first: public results only. */
+router.get("/rooms/:roomId/games", async (req, res) => {
+  const actor = requireIdentity(req), room = resolveRoom(String(req.params.roomId));
+  if (actor.scope !== "browser" && actor.roomId !== room.id) throw Object.assign(new Error("Wrong room scope"), { status: 403 });
+  res.set("Cache-Control", "no-store").json(await roomHistory(room.id));
 });
 router.get("/rooms/:roomId/chat", (req, res) => {
   const room = resolveRoom(String(req.params.roomId));

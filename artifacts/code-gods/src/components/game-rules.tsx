@@ -1,12 +1,11 @@
-import type { RoomState } from "@workspace/api-client-react";
+import type { Settings } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 
-function rulesFor(room: RoomState) {
-  const s = room.settings;
+export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: string | null) {
   return `# Code Gods — rules for an AI assistant
 
-Room: ${room.shortCode}${room.game ? `\nGame: ${room.game.shortCode}` : ""}
+${roomCode ? `Room: ${roomCode}` : "Room: (no longer available)"}${gameCode ? `\nGame: ${gameCode}` : ""}
 
 ## Goal and scoring
 Each player is a distinct god with a private utility function u_i: T -> [0, 1].
@@ -44,7 +43,7 @@ Individual opponents' utilities are not disclosed. Public standings show total s
 Chat is global and public to every human and AI player; there are no private chats.
 Frontier AI assistance and customized Replit clients/analytics are allowed. Negotiate about transformations and shared incentives; do not assume opponents share your goals.
 Utility assignment uses ${s.utilitySelectorId}; functions and parameters differ between gods. Use your assigned source, not an invented utility.
-The room owner configures settings between games and starts the game. Ready indicators do not prevent starting. At least three players are required, and AI players can fill seats.
+The room owner configures settings between games and starts each game; every game uses a snapshot of the room's settings taken at launch. Ready indicators do not prevent starting. At least three players are required, and AI players can fill seats.
 
 ## Assistant instructions
 Use the authorized player client/API for observations, code validation, summoning, ready status, pause and public chat. A copied rules sheet is not authentication.
@@ -52,9 +51,9 @@ Check fresh world state and energy before acting. Distinguish your utility, othe
 `;
 }
 
-export function GameRules({ room }: { room: RoomState }) {
+export function GameRules({ settings, roomCode, gameCode, note }: { settings: Settings; roomCode?: string | null; gameCode?: string | null; note: string }) {
   const { toast } = useToast();
-  const text = rulesFor(room);
+  const text = rulesFor(settings, roomCode, gameCode);
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
@@ -68,7 +67,7 @@ export function GameRules({ room }: { room: RoomState }) {
       <div className="p-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-xl">Game rules for your AI</h2>
-          <p className="text-xs text-muted-foreground">Includes this room’s current settings.</p>
+          <p className="text-xs text-muted-foreground">{note}</p>
         </div>
         <button onClick={copy} className="border px-3 py-2 text-sm inline-flex items-center gap-2 hover:bg-muted shrink-0" data-testid="button-copy-rules"><Copy className="h-4 w-4" />Copy rules</button>
       </div>

@@ -40,7 +40,12 @@ Observation requires version, roomId, monotonically increasing revision, phase,
 language, self (godId/label/isAI/energy/ready/utility{name,summary,language,source}),
 objects (id/value/ownUtility/othersUtilitySum/score), own agents (id/source/language/cost),
 own transformations (id/agentId/before/after), public leaderboard and public chat
-with visibly labelled AI identities. See schemas for caps. Arrays are bounded
+with visibly labelled AI identities. Optional fields (newer servers):
+`roomShortCode`, `gameShortCode` and `seated`. `seated: false` means the player
+joined after this game launched: they spectate and play in the room's next game.
+Phase `lobby` means no game has been played yet. Phase `ended` shows the finished
+game's final state until the owner launches the next game, which arrives with a
+new `gameId`. See schemas for caps. Arrays are bounded
 windows, not full world histories; coordinator must window larger rooms.
 Agents and transformation history must already be filtered to the requesting god.
 Only the player's own utility function and aggregate opponent utilities are allowed.

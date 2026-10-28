@@ -12,6 +12,7 @@ export function observation(room: Room, actor: Actor) {
   const self = room.members.find(m => m.id === actor.id)!;
   return observationSchema.parse({
     version: VERSION, roomId: room.id, revision: room.seq,
+    roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?.id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: game?.settings.language ?? room.settings.language,

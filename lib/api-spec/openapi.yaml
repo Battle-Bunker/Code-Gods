@@ -160,6 +160,35 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /rooms/{roomId}/games:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listRoomGames
+      responses:
+        "200":
+          description: Finished games played in this room, newest first. Public results only.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/GameRecord" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+  /games/{code}/state:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or UUID }
+    get:
+      operationId: getGameState
+      responses:
+        "200":
+          description: One game's public state, live while it runs and final once it has ended
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GameView" }
+        "401": { description: Authentication required }
+        "403": { description: Player token belongs to another room }
+        "404": { description: Game not found or identifier is ambiguous }
   /rooms/{roomId}/actions:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -334,7 +363,13 @@ components:
       type: object
       required: [action, requestId]
       properties:
-        action: { type: string, enum: [join, ready, settings, start, addAi, removeAi, chat, resume] }
+        action:
+          type: string
+          enum: [join, leave, ready, settings, start, endGame, addAi, removeAi, chat, resume]
+          description: >-
+            Settings and seats describe the NEXT game and can change only while no game is active.
+            `leave` is refused for the owner and for a member seated in the active game.
+            `endGame` (owner) ends the active game early and records its result.
         requestId: { type: string }
         revision: { type: integer }
         settings: { $ref: "#/components/schemas/Settings" }
@@ -372,7 +407,7 @@ components:
         energyPerSecond: { type: number }
     RoomSummary:
       type: object
-      required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase]
+      required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode]
       properties:
         id: { type: string }
         shortCode: { type: string }
@@ -384,7 +419,10 @@ components:
             - { type: number }
             - { type: "null" }
         memberCount: { type: integer }
-        phase: { type: string }
+        phase:
+          type: string
+          description: "`lobby` between games, otherwise the active game's phase."
+        activeGameShortCode: { type: [string, "null"] }
     Member:
       type: object
       required: [id, name, kind, ready]
@@ -434,6 +472,78 @@ components:
         shortCode: { type: string }
         roomShortCode: { type: [string, "null"] }
         status: { type: string, enum: [current, historical, unavailable] }
+    RosterEntry:
+      type: object
+      required: [id, name, kind]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [human, ai] }
+    Winner:
+      type: object
+      required: [deityId, name, kind]
+      properties:
+        deityId: { type: string }
+        name: { type: string }
+        kind: { type: string }
+    ActiveGameRef:
+      type: object
+      description: The room's single active (not yet ended) game.
+      required: [id, shortCode, phase, startedAt, roster]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        phase: { type: string }
+        startedAt: { type: number }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
+    GameRecord:
+      type: object
+      description: Public result of one finished game, kept in its room's history.
+      required: [id, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, agentCount]
+      properties:
+        id: { type: string }
+        shortCode: { type: string }
+        roomId: { type: string }
+        startedAt: { type: number }
+        endedAt:
+          description: Unix milliseconds; null for legacy games whose end time was not recorded.
+          type: [number, "null"]
+        endReason:
+          type: [string, "null"]
+          enum: [lifetime, owner, retired, null]
+        settings: { $ref: "#/components/schemas/Settings" }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
+        leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
+        winners:
+          description: Every god ranked first (ties share the win).
+          type: array
+          items: { $ref: "#/components/schemas/Winner" }
+        worldSeconds: { type: number }
+        objectCount: { type: integer }
+        agentCount: { type: integer }
+    GameView:
+      description: A game's own page. Public information only.
+      allOf:
+        - $ref: "#/components/schemas/PublicGame"
+        - type: object
+          required: [roomId, roomShortCode, ownerId, status, winners, chat, roomActiveGame, utilityCatalog, serverTime, startedAt, endedAt, endReason, recoveryReason, settings, roster]
+          properties:
+            roomId: { type: [string, "null"] }
+            roomShortCode: { type: [string, "null"] }
+            ownerId: { type: [string, "null"] }
+            status: { type: string, enum: [active, ended] }
+            winners: { type: array, items: { $ref: "#/components/schemas/Winner" } }
+            chat:
+              description: Public room chat sent while this game was played (most recent 100).
+              type: array
+              items: { $ref: "#/components/schemas/ChatMessage" }
+            roomActiveGame:
+              description: The room's active game now, which may be a newer one.
+              oneOf:
+                - { $ref: "#/components/schemas/ActiveGameRef" }
+                - { type: "null" }
+            utilityCatalog: { type: array, items: { $ref: "#/components/schemas/UtilityFamily" } }
+            serverTime: { type: number }
     PublicGame:
       type: object
       required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount]
@@ -447,18 +557,41 @@ components:
         agentCount: { type: integer }
         objects: { type: array, items: { $ref: "#/components/schemas/PublicObject" } }
         leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
+        startedAt: { type: number }
+        endedAt: { type: [number, "null"] }
+        endReason: { type: [string, "null"] }
+        recoveryReason: { type: [string, "null"] }
+        settings: { $ref: "#/components/schemas/Settings" }
+        roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
     RoomState:
       type: object
-      required: [id, shortCode, ownerId, revision, settings, members, chat, game, serverTime, utilityCatalog, aiBudget, aiUsed]
+      description: >-
+        A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game.
+        Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in
+        GET /rooms/{roomId}/games.
+      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, game, activeGame, serverTime, utilityCatalog, aiBudget, aiUsed]
       properties:
         id: { type: string }
         shortCode: { type: string }
         ownerId: { type: string }
+        ownerName: { type: string }
+        createdAt:
+          description: Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+          type: [number, "null"]
         revision: { type: integer }
-        settings: { $ref: "#/components/schemas/Settings" }
+        settings:
+          description: Settings for the next game. Each game keeps its own snapshot from launch.
+          allOf: [{ $ref: "#/components/schemas/Settings" }]
         members: { type: array, items: { $ref: "#/components/schemas/Member" } }
         chat: { type: array, items: { $ref: "#/components/schemas/ChatMessage" } }
+        activeGame:
+          oneOf:
+            - { $ref: "#/components/schemas/ActiveGameRef" }
+            - { type: "null" }
         game:
+          description: >-
+            Deprecated legacy view of the room's current game slot (the active game, or the most recent
+            one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.
           oneOf:
             - { $ref: "#/components/schemas/PublicGame" }
             - { type: "null" }
