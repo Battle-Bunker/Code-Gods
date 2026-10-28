@@ -19,3 +19,14 @@ synthetic claims. Fixture tests alone cannot demonstrate a real browser approval
 
 **How to apply:** Report the live-auth blocker honestly; do not extract cookies or
 weaken authentication to make a pilot pass.
+
+Run the in-memory assistant bridge under a persistent supervisor, never as a
+detached child of a one-off Agent shell.
+
+**Why:** Live approval attempts repeatedly lost their authorization because the
+detached process disappeared after the shell finished, despite Node unref().
+This was reproduced by checking the child PID in a subsequent shell call.
+
+**How to apply:** Keep the bridge workflow running across chat turns. A missing
+bridge must be reported, not silently recreated. Real restarts still require
+fresh consent; do not persist bearer tokens to work around process lifetime.

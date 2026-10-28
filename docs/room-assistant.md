@@ -9,6 +9,15 @@ discovered deployment. Do not extract browser cookies or ask for tokens in chat.
 
 Run from a trusted player workspace with this repository and dependencies:
 
+First run this as a persistent workflow (not a detached child of a one-off Agent
+shell). Keep it running across chat turns:
+
+```sh
+pnpm --filter @workspace/player-client assistant serve
+```
+
+Then, in separate shell commands:
+
 ```sh
 pnpm --filter @workspace/player-client assistant connect \
   'https://GAME_HOST/player/?room=4B9A' \
@@ -22,10 +31,12 @@ in their signed-in browser, check the code, resolved room, permission and expiry
 then approve or deny. Join the room on the authority first if necessary.
 The label is self-reported, **not a verified workspace or model identity**.
 
-The command starts a detached bridge with a sanitized environment. It needs no
+The foreground service starts a bridge with a sanitized environment. It needs no
 database, model-provider or server credentials. No player web server or public
 port is required. A private Unix socket is accessible only to the workspace OS
 owner; the upstream bearer, verifier and device secret stay in bridge memory.
+CLI commands never silently create a replacement bridge. If the service stops,
+restart it and obtain fresh approval; a restart intentionally loses authorization.
 Other editors/processes with that same OS identity are trusted. This is not a
 security boundary against them.
 

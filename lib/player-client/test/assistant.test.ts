@@ -301,3 +301,45 @@ test("CLI flag contract and approval JSON are usable without printing secrets or
     assert.equal(invalid.code,1);assert.doesNotMatch(invalid.stdout+invalid.stderr,/PRIVATE_SECRET|DO_NOT_PRINT/);
   } finally {await server.close();await rm(directory,{recursive:true,force:true});await rm(cwd,{recursive:true,force:true});}
 });
+
+test("foreground bridge survives separate CLI calls; missing service never silently replaces it",async()=>{
+  const cwd=await mkdtemp(join(tmpdir(),"cg-cli-service-test-"));
+  const directory=join(tmpdir(),`cg-assistant-${process.getuid?.()}-${createHash("sha256").update(cwd).digest("hex").slice(0,16)}`);
+  const cli=fileURLToPath(new URL("../src/cli.ts",import.meta.url));
+  const nodeArgs=["--disable-warning=ExperimentalWarning","--experimental-transform-types",cli];
+  async function status() {
+    const child=spawn(process.execPath,[...nodeArgs,"status"],{cwd,stdio:["ignore","pipe","ignore"]});
+    let text="";child.stdout.on("data",chunk=>{text+=chunk;});
+    const code=await new Promise(resolve=>child.on("close",resolve));
+    return {code,data:JSON.parse(text)};
+  }
+  const absent=await status();
+  assert.equal(absent.code,1);
+  assert.equal(absent.data.localBridge,"unavailable");
+  const service=spawn(process.execPath,[...nodeArgs,"serve"],{cwd,stdio:["ignore","pipe","pipe"]});
+  const stopped=new Promise(resolve=>service.on("close",resolve));
+  try {
+    await new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error("Bridge readiness timed out")),5000);
+      service.stdout.on("data",chunk=>{
+        if(String(chunk).includes('"localBridge":"available"')){clearTimeout(timer);resolve();}
+      });
+      service.on("error",error=>{clearTimeout(timer);reject(error);});
+    });
+    for(let i=0;i<2;i++){
+      const result=await status();
+      assert.equal(result.code,0);
+      assert.equal(result.data.localBridge,"available");
+      assert.equal(service.exitCode,null);
+    }
+    service.kill("SIGTERM");await stopped;
+    const result=await status();
+    assert.equal(result.code,1);
+    assert.equal(result.data.localBridge,"unavailable");
+  } finally {
+    if(service.exitCode===null)service.kill("SIGTERM");
+    await stopped;
+    await rm(directory,{recursive:true,force:true});
+    await rm(cwd,{recursive:true,force:true});
+  }
+});

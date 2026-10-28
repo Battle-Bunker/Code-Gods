@@ -13,21 +13,25 @@ const output=(value:unknown)=>process.stdout.write(JSON.stringify(value)+"\n");
 
 async function ensureBridge() {
   await ensurePrivateDirectory(directory);
-  try {await bridgeRequest(directory,{op:"status"});return;}catch {}
-  const child=spawn(process.execPath,["--experimental-transform-types",fileURLToPath(import.meta.url),"--bridge"],{
-    detached:true,stdio:"ignore",cwd:process.cwd(),
-    // Do not copy database/provider credentials, NODE_OPTIONS or browser identity.
-    env:bridgeEnvironment(process.env),
-  });
-  child.unref();
-  for(let n=0;n<50;n++){
-    await new Promise(resolve=>setTimeout(resolve,100));
-    try {await bridgeRequest(directory,{op:"status"});return;}catch {}
-  }
-  throw new Error("Bridge failed to start.");
+  await bridgeRequest(directory,{op:"status"});
 }
 
 async function main() {
+  if(operation==="serve") {
+    if(args.length)throw new Error("Invalid arguments");
+    // Foreground service: a workflow/supervisor owns its lifetime. Detached
+    // children of short-lived Agent shells can be reaped even with unref().
+    const child=spawn(process.execPath,["--experimental-transform-types",fileURLToPath(import.meta.url),"--bridge"],{
+      stdio:"inherit",cwd:process.cwd(),env:bridgeEnvironment(process.env),
+    });
+    process.on("SIGTERM",()=>child.kill("SIGTERM"));
+    process.on("SIGINT",()=>child.kill("SIGINT"));
+    process.exitCode=await new Promise<number>(resolve=>{
+      child.on("error",()=>resolve(1));
+      child.on("exit",code=>resolve(code??1));
+    });
+    return;
+  }
   if(operation==="--bridge") {
     // Socket is 0600 even in the instant between bind and chmod.
     process.umask(0o177);
@@ -35,6 +39,7 @@ async function main() {
     const server=await startLocalBridge(directory,assistant.handle);
     const stop=()=>{assistant.close();void server.close().finally(()=>process.exit(0));};
     process.on("SIGTERM",stop);process.on("SIGINT",stop);
+    output({localBridge:"available",service:"room-assistant"});
     return;
   }
   let request:unknown;
@@ -75,7 +80,12 @@ async function main() {
       output({usage:"pnpm --filter @workspace/player-client assistant <connect HTTPS_PLAYER_URL [--permission read|act] [--label SELF_REPORTED_LABEL] | status | observation | events [--after N] [--limit N] | command [--retry-unknown] < envelope.json | receipt UUID | disconnect | wake>"});
       process.exitCode=operation?1:0;return;
   }
-  await ensureBridge();
+  try {await ensureBridge();}
+  catch {
+    output({error:"Local assistant bridge is not running. Start `pnpm --filter @workspace/player-client assistant serve` as a persistent workflow, then connect. No new approval was requested.",localBridge:"unavailable"});
+    process.exitCode=1;
+    return;
+  }
   const result=await bridgeRequest(directory,request);
   output(result);
   if(result && typeof result==="object" && "error" in result)process.exitCode=1;
