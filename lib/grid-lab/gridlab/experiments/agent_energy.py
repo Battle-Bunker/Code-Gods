@@ -42,7 +42,7 @@ def _name(i, b, a):
 
 
 SETTINGS: dict = {"summon": BASE, "owner_pays": setting(config={"economy": "owner_pays"})}
-for _i in (0.25, 1.0, 4.0, 16.0):
+for _i in (0.25, 1.0, 2.0, 4.0, 16.0):
     SETTINGS[_name(_i, 2, 1)] = energy_setting(_i)
 for _b in (1.0, 8.0):
     SETTINGS[_name(1, _b, 1)] = energy_setting(1.0, _b)
@@ -51,7 +51,8 @@ for _i in (1.0, 4.0):
 SETTINGS["energy_I1_B2_A1_start1"] = energy_setting(1.0, agent_start="one")
 SETTINGS["energy_I1_B2_A1_naive"] = energy_setting(1.0, policy_kwargs={"energy_aware": False})
 MAIN = list(SETTINGS)
-SPAM = ["summon", "owner_pays", "energy_I1_B2_A1", "energy_I4_B2_A1", "energy_I1_B2_A0p5", "energy_I4_B2_A0p5"]
+FOCUS = ("energy_I1_B2_A1", "energy_I1_B2_A0p5")   # settings whose family moves vs summon are listed
+SPAM = ["summon", "owner_pays", "energy_I1_B2_A1", "energy_I2_B2_A1", "energy_I4_B2_A1", "energy_I1_B2_A0p5", "energy_I4_B2_A0p5"]
 
 
 def make_specs(types, n, seed0, mix=MIX) -> list[GameSpec]:
@@ -235,9 +236,15 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
     rows = []
     for n in names:
         rs = results[n]
+        wr = ""
+        if base:
+            lr = np.log(np.maximum([r["welfare"] for r in rs], 1) / np.maximum([b["welfare"] for b in base], 1))
+            wr = f"{math.exp(lr.mean()):.2f}"
         rows.append([n] + [ci([r[k] for r in rs]) for k in HEAD[5:]] +
-                    [f"{np.mean([r['idle_share'] for r in rs]):.2f}", f"{np.mean([r['attempt_share'] for r in rs]):.2f}"])
-    out.append("\n" + md_table(["setting"] + HEAD[5:] + ["idle tick share", "attempt share"], rows))
+                    [ci([r["final_salience_mean"] for r in rs]), wr,
+                     f"{np.mean([r['idle_share'] for r in rs]):.2f}", f"{np.mean([r['attempt_share'] for r in rs]):.2f}"])
+    out.append("\n" + md_table(["setting"] + HEAD[5:] + ["final salience (bits)", "welfare ratio vs summon (geo-mean)",
+                                                       "idle tick share", "attempt share"], rows))
     if base:
         rows = [[n] + [paired(base, results[n], k) for k in ("dynamism", "dynamism2", "tension_rate",
                                                            "spirals_per_100_commits", "lead_changes_per_100s",
@@ -261,6 +268,28 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
         rows.append([n, f"{ff['z_sd']:.3f}", f"{ff['z_sd_excess']:.3f}", f"{ff['share_unfair']:.2f}", ff["n_families"]])
     out.append("\n### Per-family fairness (policy-adjusted z; excess SD over sampling noise)\n")
     out.append(md_table(["setting", "family z SD", "excess SD", "share of families with CI excluding 0.5", "families"], rows))
+    rows = []
+    for n in names:
+        per = []
+        for t in TYPES:
+            rs = [r for r in results[n] if r["gtype"] == parse_type(t).key]
+            per.append(f"{policy_wins(rs).get('saver', 0):.2f}" if rs else "–")
+        rows.append([n] + per)
+    out.append("\n**Saver win share per GridType**\n")
+    out.append(md_table(["setting"] + TYPES, rows))
+    if base:
+        fb = family_fairness(god_rows(base), B=20, min_n=10)["families"]
+        for n in names:
+            if n not in FOCUS:
+                continue
+            fn = family_fairness(god_rows(results[n]), B=20, min_n=10)["families"]
+            common = [f for f in fb if f in fn and fb[f]["n"] >= 10 and fn[f]["n"] >= 10]
+            mv = sorted(common, key=lambda f: fn[f]["adj_z"] - fb[f]["adj_z"])
+            pick = mv[:5] + mv[-5:]
+            out.append(f"\n**Largest family moves, summon → {n}** (policy-adjusted z; n god-slots)\n")
+            out.append(md_table(["family", "summon z", f"{n} z", "Δ", "n"],
+                                [[f, f"{fb[f]['adj_z']:.2f}", f"{fn[f]['adj_z']:.2f}",
+                                  f"{fn[f]['adj_z'] - fb[f]['adj_z']:+.2f}", fn[f]["n"]] for f in pick]))
     # agents
     rows = []
     for n in names:

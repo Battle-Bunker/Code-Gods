@@ -118,7 +118,7 @@ class GameConfig:
     agent_half_life: Optional[float] = None
     max_agents: int = 200
     economy: str = "summon"                              # "summon" | "agent_energy" | "owner_pays"
-    agent_income: float = 2.0                            # bits/s per agent (agent_energy)
+    agent_income: float = 0.4                            # bits/s per agent; 0.4 at 20 Hz = the recommended 2 at 100 Hz
     agent_battery: float = 2.0                           # energy cap, in expected acts
     agent_income_alpha: float = 1.0                      # god with k agents: each earns income * k^(alpha-1)
     agent_start: str = "zero"                            # "zero" | "one" (one expected act, paid by the god)
