@@ -182,10 +182,11 @@ def main(argv=None):
     ap.add_argument("--processes", type=int, default=4)
     ap.add_argument("--only", default="", help="E1 or E2")
     ap.add_argument("--json", default="")
+    ap.add_argument("--weight", type=float, default=1.0, help="GameConfig.penalty_weight")
     a = ap.parse_args(argv)
     n, sym, col = a.type.split(",")
     gt = GridType(int(n), sym, col)
-    length = {}
+    length = {"penalty_weight": a.weight}
     jobs = []
     if a.only in ("", "E1"):
         jobs += e1_configs(gt, a.seeds, a.seed, length)
