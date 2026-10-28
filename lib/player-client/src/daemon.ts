@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { GAME_COMMANDS, envelopeSchema, type Envelope } from "./protocol.ts";
+import { GAME_COMMANDS, commandTimeoutMs, envelopeSchema, type Envelope } from "./protocol.ts";
 import { HttpPlayerTransport, TransportError } from "./transport.ts";
 import { WebSocketPlayerTransport, type PlayerSocketFactory } from "./socket-transport.ts";
 
@@ -122,7 +122,7 @@ export function createPlayerDaemon(options:DaemonOptions) {
         // Bound memory without evicting uncertain outcomes. New session/approval clears cache.
         if(!prior && receipts.size>=2000) return json({error:"Session command limit; reconnect"},429);
         const prepared=prior?.envelope ?? {...envelope,...(!envelope.gameId && gameId && GAME_COMMANDS.includes(envelope.command.type) ? {gameId} : {})};
-        const result=transport.send(prepared,AbortSignal.timeout(15000));
+        const result=transport.send(prepared,AbortSignal.timeout(commandTimeoutMs(prepared.command)));
         const entry={body:serialized,envelope:prepared,result:result as Promise<unknown>|undefined};
         receipts.set(envelope.commandId,entry);
         try {return json(await result);}

@@ -27,7 +27,7 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.grammarId, "python-agent-v1");
   assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bits-v1");
   assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
-  assert.equal(DEFAULT_SETTINGS.perActFloorBits, 0);
+  assert.equal(DEFAULT_SETTINGS.perActFloorBits, 2);
   assert.equal(defaultSettingsFor("Int", "typescript").complexityFunctionId, "ts-ast-bits-v1-uniform");
   assert.equal(DEFAULT_SETTINGS.objectType, "Int");
   assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { min: -2147483648, max: 2147483647 });
@@ -135,8 +135,9 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
   assert.ok(grid.excludedFamilies.includes("sudoku_scholar"));
-  assert.equal(grid.agentEnergyPerSecond, 1.28); // income scales with cells (2 bits/s at 5×5)
-  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 3.92);
+  assert.equal(grid.agentEnergyPerSecond, 16); // provisional flat Grid income (grid-lab PR #14)
+  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 16);
+  assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
   for (const p of SETTINGS_PRESETS) validateSettings(presetSettings(p.id));
   assert.equal(presetSettings("grid-first-steps").interactionRateHz, 25);
   assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));

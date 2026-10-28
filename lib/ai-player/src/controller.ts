@@ -40,7 +40,8 @@ export class AIController {
   async step(signal= new AbortController().signal) {
     if(this.busy) throw new Error("AI turn already in progress");
     this.busy=true;
-    const bounded=AbortSignal.any([signal,AbortSignal.timeout(60000)]);
+    // A turn may validate and summon: each measures the agent on the server (seconds; longer with random).
+    const bounded=AbortSignal.any([signal,AbortSignal.timeout(180000)]);
     try {
       bounded.throwIfAborted();
       const observation=modelObservation(await this.options.transport.observe(bounded),this.options.roomId,this.options.godId);

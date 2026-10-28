@@ -363,7 +363,7 @@ export interface Settings {
      */
   stepBudget?: number;
   /**
-     * Bits added to every act's charge, valid or not.
+     * Bits added to every attempted act's charge, valid or not (the Margolus–Levitin floor).
      * @minimum 0
      */
   perActFloorBits?: number;

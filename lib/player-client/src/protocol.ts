@@ -23,6 +23,11 @@ export const commandSchema = z.discriminatedUnion("type", [
 export type Command = z.infer<typeof commandSchema>;
 /** Commands that act on the current game and therefore need its gameId. */
 export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy"];
+/**
+ * Validate and summon measure the agent on the server (a few hundred sandboxed runs; a few seconds,
+ * longer for agents that use random), so they get a longer deadline than other commands.
+ */
+export const commandTimeoutMs = (command: Command) => (command.type === "validate" || command.type === "summon" ? 120000 : 15000);
 export const envelopeSchema = z.object({
   version: z.literal(VERSION), commandId: z.string().uuid(), command: commandSchema,
   gameId: id.optional(),

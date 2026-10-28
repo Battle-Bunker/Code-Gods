@@ -167,8 +167,9 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     assert.equal(validate.validation!.valid, true);
     const emptyCost = validate.validation!.cost;
     assert.ok(emptyCost > 0, "ts-ast-bits-v1 description bits of function agent(x) { return []; }");
-    assert.deepEqual(validate.validation!.breakdown, { decision: 0, erasure: 0, motion: 0, floor: 0 }, "an empty agent decides nothing and moves nothing");
-    assert.equal(validate.validation!.expectedActCost, 0);
+    assert.deepEqual(validate.validation!.breakdown, { decision: 0, erasure: 0, motion: 0, floor: 2 },
+      "an empty agent decides nothing and moves nothing: it pays only the 2-bit floor");
+    assert.equal(validate.validation!.expectedActCost, 2);
     assert.equal(validate.validation!.randomized, false);
     assert.match(validate.validation!.diagnostics[0], /Summon price/);
     assert.equal(resolveRoom(id).game!.deities[0].spent, 0);
@@ -448,7 +449,9 @@ test("objects stay unique: spawns never duplicate; duplicate results fail but st
   const adapters = requireAdapters();
   // A six-value domain: deal fixed draws rather than rely on the lottery's distinctness there.
   registerAdapters({ ...adapters, utilities: { ...adapters.utilities,
-    deal: (_settings, count) => Array.from({ length: count }, (_, d) => ({ familyId: "digit-devotee", params: { d } })) } });
+    deal: (_settings, count) => Array.from({ length: count }, (_, d) => ({ familyId: "digit-devotee", params: { d } })),
+    // Int(0,5) ships no calibration tables: this test is about uniqueness, so score flatly.
+    score: () => ({ ordinal: 0, rewardBits: 0, netBits: 0 }) } });
   let stop: (() => Promise<void>) | undefined;
   try {
     await mutate(room.id, async draft => {
@@ -846,7 +849,7 @@ for (const spec of FULL_GAMES) {
         // Validation: price, sample acts and the expected cost per act. Free.
         const validation = await command(id, game.id, { type: "validate", language, source }, ada);
         assert.equal(validation.accepted, true, validation.message);
-        assert.ok(validation.validation.valid && Number.isSafeInteger(validation.validation.cost) && validation.validation.cost > 0);
+        assert.ok(validation.validation.valid && Number.isFinite(validation.validation.cost) && validation.validation.cost > 0);
         assert.ok(validation.validation.expectedActCost > 0);
         assert.ok(validation.validation.diagnostics.some((d: string) => /^Each act/.test(d)), validation.validation.diagnostics.join(" | "));
         assert.deepEqual(Object.keys(validation.validation.breakdown).sort(), ["decision", "erasure", "floor", "motion"]);

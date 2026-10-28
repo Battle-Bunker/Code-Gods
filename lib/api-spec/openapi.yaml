@@ -825,7 +825,7 @@ components:
           maximum: 1000
           default: 1000
         stepBudget: { type: integer, minimum: 1, maximum: 10000000, default: 500000, description: "Deterministic step budget per act." }
-        perActFloorBits: { type: number, minimum: 0, default: 0, description: "Bits added to every act's charge, valid or not." }
+        perActFloorBits: { type: number, minimum: 0, default: 2, description: "Bits added to every attempted act's charge, valid or not (the Margolus–Levitin floor)." }
         priorId: { type: string, default: uniform, description: "The rarity prior (Manifest.priors); uniform for now." }
         pauseSeconds: { type: number }
         startingEnergy: { type: number, description: "God energy (bits) at the start; pays summon prices." }

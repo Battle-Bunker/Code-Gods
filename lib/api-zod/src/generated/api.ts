@@ -165,7 +165,7 @@ export const createRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 export const createRoomResponseSettingsOneStepBudgetDefault = 500000;
 export const createRoomResponseSettingsOneStepBudgetMax = 10000000;
 
-export const createRoomResponseSettingsOnePerActFloorBitsDefault = 0;
+export const createRoomResponseSettingsOnePerActFloorBitsDefault = 2;
 export const createRoomResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const createRoomResponseSettingsOnePriorIdDefault = `uniform`;
@@ -213,7 +213,7 @@ export const CreateRoomResponse = zod.object({
   "interactionRateHz": zod.number().min(createRoomResponseSettingsOneInteractionRateHzMin).max(createRoomResponseSettingsOneInteractionRateHzMax).default(createRoomResponseSettingsOneInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsOneInteractionComputeMsMax).default(createRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(createRoomResponseSettingsOneStepBudgetMax).default(createRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(createRoomResponseSettingsOnePerActFloorBitsMin).default(createRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(createRoomResponseSettingsOnePerActFloorBitsMin).default(createRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(createRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -343,7 +343,7 @@ export const getRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 export const getRoomResponseSettingsOneStepBudgetDefault = 500000;
 export const getRoomResponseSettingsOneStepBudgetMax = 10000000;
 
-export const getRoomResponseSettingsOnePerActFloorBitsDefault = 0;
+export const getRoomResponseSettingsOnePerActFloorBitsDefault = 2;
 export const getRoomResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const getRoomResponseSettingsOnePriorIdDefault = `uniform`;
@@ -391,7 +391,7 @@ export const GetRoomResponse = zod.object({
   "interactionRateHz": zod.number().min(getRoomResponseSettingsOneInteractionRateHzMin).max(getRoomResponseSettingsOneInteractionRateHzMax).default(getRoomResponseSettingsOneInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsOneInteractionComputeMsMax).default(getRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(getRoomResponseSettingsOneStepBudgetMax).default(getRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(getRoomResponseSettingsOnePerActFloorBitsMin).default(getRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(getRoomResponseSettingsOnePerActFloorBitsMin).default(getRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -509,7 +509,7 @@ export const listRoomGamesResponseSettingsInteractionComputeMsMax = 1000;
 export const listRoomGamesResponseSettingsStepBudgetDefault = 500000;
 export const listRoomGamesResponseSettingsStepBudgetMax = 10000000;
 
-export const listRoomGamesResponseSettingsPerActFloorBitsDefault = 0;
+export const listRoomGamesResponseSettingsPerActFloorBitsDefault = 2;
 export const listRoomGamesResponseSettingsPerActFloorBitsMin = 0;
 
 export const listRoomGamesResponseSettingsPriorIdDefault = `uniform`;
@@ -557,7 +557,7 @@ export const ListRoomGamesResponseItem = zod.object({
   "interactionRateHz": zod.number().min(listRoomGamesResponseSettingsInteractionRateHzMin).max(listRoomGamesResponseSettingsInteractionRateHzMax).default(listRoomGamesResponseSettingsInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(listRoomGamesResponseSettingsInteractionComputeMsMax).default(listRoomGamesResponseSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(listRoomGamesResponseSettingsStepBudgetMax).default(listRoomGamesResponseSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(listRoomGamesResponseSettingsPerActFloorBitsMin).default(listRoomGamesResponseSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(listRoomGamesResponseSettingsPerActFloorBitsMin).default(listRoomGamesResponseSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(listRoomGamesResponseSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -610,7 +610,7 @@ export const getGameStateResponseOneSettingsInteractionComputeMsMax = 1000;
 export const getGameStateResponseOneSettingsStepBudgetDefault = 500000;
 export const getGameStateResponseOneSettingsStepBudgetMax = 10000000;
 
-export const getGameStateResponseOneSettingsPerActFloorBitsDefault = 0;
+export const getGameStateResponseOneSettingsPerActFloorBitsDefault = 2;
 export const getGameStateResponseOneSettingsPerActFloorBitsMin = 0;
 
 export const getGameStateResponseOneSettingsPriorIdDefault = `uniform`;
@@ -676,7 +676,7 @@ export const GetGameStateResponse = zod.object({
   "interactionRateHz": zod.number().min(getGameStateResponseOneSettingsInteractionRateHzMin).max(getGameStateResponseOneSettingsInteractionRateHzMax).default(getGameStateResponseOneSettingsInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(getGameStateResponseOneSettingsInteractionComputeMsMax).default(getGameStateResponseOneSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(getGameStateResponseOneSettingsStepBudgetMax).default(getGameStateResponseOneSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(getGameStateResponseOneSettingsPerActFloorBitsMin).default(getGameStateResponseOneSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(getGameStateResponseOneSettingsPerActFloorBitsMin).default(getGameStateResponseOneSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getGameStateResponseOneSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -798,7 +798,7 @@ export const roomActionBodySettingsInteractionComputeMsMax = 1000;
 export const roomActionBodySettingsStepBudgetDefault = 500000;
 export const roomActionBodySettingsStepBudgetMax = 10000000;
 
-export const roomActionBodySettingsPerActFloorBitsDefault = 0;
+export const roomActionBodySettingsPerActFloorBitsDefault = 2;
 export const roomActionBodySettingsPerActFloorBitsMin = 0;
 
 export const roomActionBodySettingsPriorIdDefault = `uniform`;
@@ -848,7 +848,7 @@ export const RoomActionBody = zod.object({
   "interactionRateHz": zod.number().min(roomActionBodySettingsInteractionRateHzMin).max(roomActionBodySettingsInteractionRateHzMax).default(roomActionBodySettingsInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(roomActionBodySettingsStepBudgetMax).default(roomActionBodySettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(roomActionBodySettingsPerActFloorBitsMin).default(roomActionBodySettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(roomActionBodySettingsPerActFloorBitsMin).default(roomActionBodySettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(roomActionBodySettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -879,7 +879,7 @@ export const roomActionResponseSettingsOneInteractionComputeMsMax = 1000;
 export const roomActionResponseSettingsOneStepBudgetDefault = 500000;
 export const roomActionResponseSettingsOneStepBudgetMax = 10000000;
 
-export const roomActionResponseSettingsOnePerActFloorBitsDefault = 0;
+export const roomActionResponseSettingsOnePerActFloorBitsDefault = 2;
 export const roomActionResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const roomActionResponseSettingsOnePriorIdDefault = `uniform`;
@@ -927,7 +927,7 @@ export const RoomActionResponse = zod.object({
   "interactionRateHz": zod.number().min(roomActionResponseSettingsOneInteractionRateHzMin).max(roomActionResponseSettingsOneInteractionRateHzMax).default(roomActionResponseSettingsOneInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsOneInteractionComputeMsMax).default(roomActionResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(roomActionResponseSettingsOneStepBudgetMax).default(roomActionResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(roomActionResponseSettingsOnePerActFloorBitsMin).default(roomActionResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(roomActionResponseSettingsOnePerActFloorBitsMin).default(roomActionResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(roomActionResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -1206,7 +1206,7 @@ export const getManifestResponseDefaultsInteractionComputeMsMax = 1000;
 export const getManifestResponseDefaultsStepBudgetDefault = 500000;
 export const getManifestResponseDefaultsStepBudgetMax = 10000000;
 
-export const getManifestResponseDefaultsPerActFloorBitsDefault = 0;
+export const getManifestResponseDefaultsPerActFloorBitsDefault = 2;
 export const getManifestResponseDefaultsPerActFloorBitsMin = 0;
 
 export const getManifestResponseDefaultsPriorIdDefault = `uniform`;
@@ -1241,7 +1241,7 @@ export const getManifestResponsePresetsItemSettingsInteractionComputeMsMax = 100
 export const getManifestResponsePresetsItemSettingsStepBudgetDefault = 500000;
 export const getManifestResponsePresetsItemSettingsStepBudgetMax = 10000000;
 
-export const getManifestResponsePresetsItemSettingsPerActFloorBitsDefault = 0;
+export const getManifestResponsePresetsItemSettingsPerActFloorBitsDefault = 2;
 export const getManifestResponsePresetsItemSettingsPerActFloorBitsMin = 0;
 
 export const getManifestResponsePresetsItemSettingsPriorIdDefault = `uniform`;
@@ -1286,7 +1286,7 @@ export const GetManifestResponse = zod.object({
   "interactionRateHz": zod.number().min(getManifestResponseDefaultsInteractionRateHzMin).max(getManifestResponseDefaultsInteractionRateHzMax).default(getManifestResponseDefaultsInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(getManifestResponseDefaultsStepBudgetMax).default(getManifestResponseDefaultsStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(getManifestResponseDefaultsPerActFloorBitsMin).default(getManifestResponseDefaultsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(getManifestResponseDefaultsPerActFloorBitsMin).default(getManifestResponseDefaultsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getManifestResponseDefaultsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
@@ -1397,7 +1397,7 @@ export const GetManifestResponse = zod.object({
   "interactionRateHz": zod.number().min(getManifestResponsePresetsItemSettingsInteractionRateHzMin).max(getManifestResponsePresetsItemSettingsInteractionRateHzMax).default(getManifestResponsePresetsItemSettingsInteractionRateHzDefault),
   "interactionComputeMs": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsInteractionComputeMsMax).default(getManifestResponsePresetsItemSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
   "stepBudget": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsStepBudgetMax).default(getManifestResponsePresetsItemSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
-  "perActFloorBits": zod.number().min(getManifestResponsePresetsItemSettingsPerActFloorBitsMin).default(getManifestResponsePresetsItemSettingsPerActFloorBitsDefault).describe('Bits added to every act\'s charge, valid or not.'),
+  "perActFloorBits": zod.number().min(getManifestResponsePresetsItemSettingsPerActFloorBitsMin).default(getManifestResponsePresetsItemSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getManifestResponsePresetsItemSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),

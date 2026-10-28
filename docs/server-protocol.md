@@ -187,12 +187,12 @@ calls against the instantiation's closed set of bit-priced mutators and applies 
   `random`. `decisionBits` is the information its actions carry about the object,
   I(X; A) (entropy of its actions for a deterministic agent, a jackknife estimate for
   a randomized one); `expectedActCost` = decisionBits + mean erasure + mean motion +
-  `perActFloorBits`. Measurement runs outside the authority lock, four at a time
+  `perActFloorBits` (default 2 bits: the Margolus–Levitin floor of every attempted act). Measurement runs outside the authority lock, four at a time
   (about 200 runs for a deterministic agent, 1,600 for a randomized one).
 - **Validate** (free) returns `{valid, cost, parts, decisionBits, expectedActCost,
   breakdown: {decision, erasure, motion, floor}, randomized, diagnostics}`.
 - **Agent energy.** A new agent starts at 0 and earns `agentEnergyPerSecond` bits per
-  second of world time (nothing during planning, pauses or recovery), capped at
+  second of world time (default 2; Grid 16, provisional pending grid-lab PR #14's follow-up) (nothing during planning, pauses or recovery), capped at
   `agentBatteryActs` × expectedActCost. It is **eligible** while energy ≥ expectedActCost.
 - **Interactions.** Each dispatch picks a uniform random object and a uniform random
   eligible agent (one act per agent at a time). Acts are deterministic: a frozen clock,

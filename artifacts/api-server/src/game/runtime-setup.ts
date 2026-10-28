@@ -18,9 +18,9 @@ export function initializeRuntimeAdapters(): Promise<void> {
     const failures: string[] = [];
     const usable: Partial<Record<Language, GameRuntime>> = {};
     await Promise.all(languages.map(async language => {
-      // Persistent workers grow lazily: identity probes start only one per
-      // language; concurrent interactions can use four independent CPU cores.
-      const pool = createRuntime({ language, workers: 4, queueLimit: 32 });
+      // Four persistent workers per language (four CPU cores). Summon measurement runs four acts at
+      // once, so all four are started (warmed) here rather than cold inside a summon.
+      const pool = createRuntime({ language, workers: 4, queueLimit: 32, startupMs: 120000 });
       candidates[language] = pool;
       const probe = async () => {
         // Every object type's default instantiation: the prelude compiles and an empty agent round-trips.
@@ -43,6 +43,9 @@ export function initializeRuntimeAdapters(): Promise<void> {
           try { await probe(); break; }
           catch (error) { if (attempt >= 3) throw error; }
         }
+        const warm = defaultSettingsFor("Grid", language), act = actSettings(warm);
+        const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+        await Promise.all(Array.from({ length: 4 }, (_, i) => pool.act(source, probeValue(warm), act, String(i))));
         usable[language] = pool;
       } catch (error) {
         pool.close();

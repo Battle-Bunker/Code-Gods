@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import { GAME_COMMANDS, envelopeSchema, type Observation, type Envelope } from "./protocol.ts";
+import { GAME_COMMANDS, commandTimeoutMs, envelopeSchema, type Observation, type Envelope } from "./protocol.ts";
 import { WebSocketPlayerTransport, type PlayerSocketFactory } from "./socket-transport.ts";
 import { TransportError, type RoomCredential } from "./transport.ts";
 
@@ -272,7 +272,7 @@ export function createAssistant(options:AssistantOptions) {
           receipts.set(envelope.commandId,entry);
           const epoch=generation;
           try {
-            entry.receipt={commandId:envelope.commandId,status:"received",result:await active.send(prepared,AbortSignal.timeout(15000))};
+            entry.receipt={commandId:envelope.commandId,status:"received",result:await active.send(prepared,AbortSignal.timeout(commandTimeoutMs(prepared.command)))};
           } catch(error) {
             entry.receipt={commandId:envelope.commandId,status:"uncertain"};
             safeError(error);

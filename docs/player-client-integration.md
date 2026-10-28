@@ -203,7 +203,7 @@ Model inputs are capped at 64KB; observations are windowed further for model
 context. Strict output schema allows at most four actions. Every summon is
 validated using the same runtime endpoint as humans, then compared with fresh
 energy; the server remains final authority. Uncertain commands retain their IDs.
-Turn deadline is 60s; caller abort and stop() cancel in-flight SDK/transport calls.
+Turn deadline is 180s (validate and summon measure the agent on the server); caller abort and stop() cancel in-flight SDK/transport calls.
 Loop errors back off exponentially up to 60s and stop visibly after five failures.
 Only one turn per controller runs at once. HTTP/SDK adapters must honor signals.
 

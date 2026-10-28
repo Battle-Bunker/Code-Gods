@@ -41,7 +41,7 @@ export interface GameSettings {
   interactionComputeMs: number;
   /** Deterministic step budget per act (lib/game-runtime): the same agent, input and seed always fit or never do. */
   stepBudget: number;
-  /** Bits added to every act's charge, valid or not (open-agents §3). */
+  /** Bits added to every attempted act's charge, valid or not: the Margolus–Levitin floor (grid-lab PR #14). */
   perActFloorBits: number;
   pauseSeconds: number;
   /** God energy (bits) at the start of planning; accrues in real time. */
@@ -82,7 +82,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   interactionRateHz: 100,
   interactionComputeMs: 1000,
   stepBudget: 500000,
-  perActFloorBits: 0,
+  perActFloorBits: 2,
   pauseSeconds: 180,
   startingEnergy: 100,
   energyPerSecond: 1,
@@ -247,8 +247,8 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
   Grid: {
-    all: { spawnRateHz: 0.5, startingObjectCount: 80 },
-    of: inst => ({ agentEnergyPerSecond: Math.round(2 * inst.terms.cells / 25 * 100) / 100 }),
+    // TODO: agentEnergyPerSecond 16 is provisional (grid-lab PR #14 follow-up measuring 8–32 for the 80-object world).
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 16 },
     byKey: {
       "Grid(4,base10,rgb)": {
         excludedFamilies: ["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"],

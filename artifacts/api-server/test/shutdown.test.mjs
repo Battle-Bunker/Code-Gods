@@ -21,7 +21,7 @@ test("single-instance recovery and shutdown drain writes without session locks",
           const settings = defaultSettingsFor("Int");
           Object.assign(state, { revision: 0, createdAt: 1, settings, members: [], chat: [], receipts: {}, aiBudget: 0,
             aiReservedUsd: 0, aiDaily: { day: "", usd: 0, calls: [] } });
-          Object.assign(state.game, { scoring: "information-v1", settings, roster: [], deities: [], objects: [], agents: [], events: [] });
+          Object.assign(state.game, { scoring: "information-v1", seasonCommitment: "0".repeat(64), settings, roster: [], deities: [], objects: [], agents: [], events: [] });
           await initializeStore();
           assert.equal(resolveRoom(state.id).game.phase, "recovery");
           assert.equal(state.game.phase, "recovery");

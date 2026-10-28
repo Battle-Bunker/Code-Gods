@@ -151,10 +151,11 @@ shown as the validation `cost`. Validation also runs the agent on a few hundred
 reference objects and reports `decisionBits` (the information its choices carry: an
 agent that always makes the same move pays about nothing for deciding) and
 `expectedActCost` with its breakdown. The new agent starts at 0 energy and earns 2 bits
-per second of world time (none during planning or pauses). It is **eligible** to act
-once its energy reaches its `expectedActCost`; each act pays decisionBits plus the
-information it erases and how much it moves, and a failed act still pays its
-decisionBits, so energy can go negative: a **cooldown** until income brings it back.
+per second of world time on Int and string boards, 16 on Grid boards (none during
+planning or pauses). It is **eligible** to act once its energy reaches its
+`expectedActCost`; each act pays decisionBits plus the information it erases, how much
+it moves and a 2-bit floor, and a failed act still pays decisionBits + the floor, so
+energy can go negative: a **cooldown** until income brings it back.
 Agents run with a frozen clock and a server-seeded `random`. Destroying an agent is free.
 
 Before publishing, set the secret `CODE_GODS_SEASON_SALT` (at least 16 characters):
