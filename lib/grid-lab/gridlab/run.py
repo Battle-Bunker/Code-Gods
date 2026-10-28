@@ -6,6 +6,8 @@
 --policy takes one name (all gods) or a comma list (one per god). --trace prints an ASCII trace of
 the first game (leaderboard, the most salient objects rendered, their surprisal vectors).
 --toys uses the test stand-in families/mutators (tests/toys.py) instead of gridlab.rules/program.
+--defence adds the defence-goal families (gridlab.rules.DEFENCE_FAMILIES, docs/defence-goals.md) to the
+pool; --families a,b,c deals exactly those; --shadow-penalties logs defence goals without scoring them.
 """
 from __future__ import annotations
 
@@ -50,7 +52,15 @@ def build_configs(a) -> list[GameConfig]:
         from tests.toys import TOY_FAMILIES, toy_random_program
         extra = {"families": TOY_FAMILIES, "program_factory": toy_random_program}
     pk = json.loads(a.policy_kwargs) if a.policy_kwargs else {}
-    return [GameConfig(gtype=gt, n_gods=a.gods, dealer=a.dealer, policies=pol, seed=a.seed + k,
+    if a.defence or a.families:
+        from .rules import FAMILIES, DEFENCE_FAMILIES
+        extra.setdefault("families", FAMILIES + DEFENCE_FAMILIES)
+    if a.families:
+        extra.update(dealer="fixed", fixed_families=a.families.split(","))
+    extra.update(score_penalties=not a.shadow_penalties, penalty_weight=a.penalty_weight,
+                 penalty_rate=a.penalty_rate if a.penalty_rate == "prior" else float(a.penalty_rate))
+    extra.setdefault("dealer", a.dealer)
+    return [GameConfig(gtype=gt, n_gods=a.gods, policies=pol, seed=a.seed + k,
                        interaction_rate_hz=a.rate, length=a.length, fixed_seconds=a.seconds,
                        half_life_seconds=a.half_life, starting_energy=a.energy, energy_per_second=a.eps,
                        cost_scale=a.cost_scale, metabolic_cost=a.metabolic, agent_half_life=a.agent_half_life,
@@ -67,12 +77,13 @@ def trace(cfg: GameConfig, every: float = 30.0, n_objects: int = 3) -> None:
             return
         state["next"] = w.t + every
         S = w.S[:w.M]
-        P = (S * (S.sum(1, keepdims=True) - S)).sum(0)
+        P = w.total_payoff()
         print(f"\n=== t = {w.t:7.1f}s  objects {w.M}  agents {len(w.agents)}  ({ev}) ===")
         for i in np.argsort(-P):
             d = w.draws[i]
             print(f"  god {i}  {d.family.id:28s} {cfg.policy_list()[i]:18s} payoff {P[i]:10.1f}  "
-                  f"energy {w.energy(i):6.1f}  agents {w.own_count[i]:3d}")
+                  f"energy {w.energy(i):6.1f}  agents {w.own_count[i]:3d}"
+                  + (f"  ⚠️ mean {w.H[:w.M, i].mean():.2f} bits" if w.dc.has[i] else ""))
         sal = S.sum(1)
         for oi in np.argsort(-sal)[:n_objects]:
             print(f"  object #{w.obj_ids[oi]}  salience {sal[oi]:.1f}  s = [{', '.join(f'{x:.1f}' for x in S[oi])}]")
@@ -80,6 +91,10 @@ def trace(cfg: GameConfig, every: float = 30.0, n_objects: int = 3) -> None:
                 print("     " + line)
 
     print(f"Trace: {gt.key}, seed {cfg.seed}")
+    from .sim import draws_for
+    from .defence import card
+    for i, d in enumerate(draws_for(cfg)):
+        print(f"  card of god {i}:\n    " + card(d, gt).replace("\n", "\n    "))
     log = run_game(cfg, hook=hook)
     m = metrics(log)
     print(f"\nduration {log.duration:.1f}s  commits {m['commits']}  tension {m['tension_rate']:.2f}  "
@@ -118,6 +133,11 @@ def summarise(ms: list[dict]) -> None:
         print("per-policy final rank (mean, wins/games):")
         for p, rs in sorted(pr.items(), key=lambda kv: np.mean(kv[1])):
             print(f"  {p:30s} {np.mean(rs):5.2f}  {sum(r == 1 for r in rs)}/{len(rs)}")
+    dfs = [d for m in ms for d in m.get("defence", [])]
+    if dfs:
+        print("defence goals (mean over gods with one): " + ", ".join(
+            f"{k} {np.mean([d[k] for d in dfs]):.2f}" for k in
+            ("final_h_mean", "h_auc", "damage_bits", "repair_by_self", "undone_share", "repair_agents")))
     mu = defaultdict(float)
     for m in ms:
         for k, v in m["mutator_shares"].items():
@@ -150,6 +170,11 @@ def main(argv=None) -> None:
     ap.add_argument("--trace", action="store_true")
     ap.add_argument("--toys", action="store_true")
     ap.add_argument("--json", default="", help="write per-game metrics to this file")
+    ap.add_argument("--defence", action="store_true", help="add the defence-goal families to the pool")
+    ap.add_argument("--families", default="", help="deal exactly these family ids (comma list)")
+    ap.add_argument("--shadow-penalties", action="store_true", help="log defence goals without scoring them")
+    ap.add_argument("--penalty-weight", type=float, default=1.0)
+    ap.add_argument("--penalty-rate", default="prior", help='"prior" or bits per peer')
     a = ap.parse_args(argv)
     cfgs = build_configs(a)
     t0 = time.perf_counter()
