@@ -261,4 +261,143 @@ multiplier), `payoff_mode`. The SPEC table is updated.
 
 ## 9. Evidence
 
-RESULTS_PLACEHOLDER
+`python3 -m gridlab.experiments.defence --seeds 24` on Grid(5,base10,rgby): payoff mode floored, weight 1, 20 Hz,
+exponential game length (half-life 300 s), 912 games in 404 s on 4 cores after precomputing 160 tables. Intervals
+are 95% normal intervals of the mean; n = seeds per cell. The robustness repeat on Grid(4,base12,rgb) (8 seeds,
+304 games) is summarised at the end.
+
+**Design of the experiments.** *E1*: each of the 13 defence families sits in seat 0 against three random
+families from the 88-family pool, all `greedy_private`. Every table is played twice with common random numbers:
+penalty **scored**, and **shadow** (computed and logged, never scored). Differences are paired by seed. *E2*: mixed
+policies (random, greedy_private, saver, greedy_omniscient); A = deals from the 88-family pool; B = deals with at
+least one defence family, scored; B0 = the same deals, shadow. *E3*: ranks from E1.
+
+### 9.1 Do protectors defend? Yes.
+
+Pooled over 312 pairs (scored − shadow): **mean ⚠️ bits over the game −0.27 ± 0.10**, final ⚠️ bits −0.30 ± 0.12,
+**repair agents +2.22 ± 0.48** (own agents whose commits lower the god's penalty overall), damage done by others
+−78 ± 53 bits, damage undone later on the same object +1.3 ± 1.0 points of share. Protectors summon counter-agents,
+and the protected structure ends measurably less damaged. Per family:
+
+| family | n | ⚠️ mean h (scored) | (shadow) | Δ h | Δ final h | Δ self-repair bits | Δ repair agents | undone (scored / shadow) | rank (scored / shadow) |
+|---|---|---|---|---|---|---|---|---|---|
+| `seed3_green_ones+hate_colour` | 24 | 0.94 ± 0.27 | 1.18 ± 0.54 | -0.24 ± 0.39 | -0.07 ± 0.45 | -19 ± 162 | 2.1 ± 1.5 | 0.78 / 0.80 | 2.25 / 1.75 |
+| `seed1_line_painter+hate_blob` | 24 | 1.37 ± 0.94 | 1.42 ± 1.07 | -0.05 ± 0.23 | -0.39 ± 0.56 | 8 ± 79 | 2.7 ± 1.9 | 0.86 / 0.85 | 2.46 / 2.42 |
+| `seed2_patchwork+hate_takeover` | 24 | 2.59 ± 1.04 | 2.90 ± 1.23 | -0.31 ± 0.54 | -0.38 ± 0.52 | 79 ± 179 | 3.2 ± 2.0 | 0.81 / 0.77 | 3.75 / 2.92 |
+| `lucky_token+hate_colour` | 24 | 1.13 ± 0.36 | 1.73 ± 0.63 | -0.59 ± 0.39 | -0.75 ± 0.38 | 136 ± 191 | 5.0 ± 2.2 | 0.80 / 0.77 | 2.17 / 1.88 |
+| `kingdom+hate_value` | 24 | 0.70 ± 0.31 | 0.81 ± 0.33 | -0.10 ± 0.20 | -0.21 ± 0.24 | 44 ± 28 | 3.9 ± 1.4 | 0.63 / 0.56 | 2.21 / 2.12 |
+| `rainbow_road+hate_big_blob` | 24 | 1.91 ± 0.58 | 2.16 ± 0.62 | -0.25 ± 0.24 | -0.51 ± 0.25 | -21 ± 188 | 1.5 ± 1.7 | 0.87 / 0.85 | 3.54 / 2.71 |
+| `number_bonds+hate_colour` | 24 | 0.82 ± 0.21 | 1.32 ± 0.49 | -0.50 ± 0.37 | -0.69 ± 0.59 | 54 ± 90 | 3.9 ± 1.7 | 0.80 / 0.76 | 2.88 / 2.92 |
+| `magic_accountant+hate_value` | 24 | 0.58 ± 0.28 | 1.01 ± 0.61 | -0.44 ± 0.48 | -0.32 ± 0.35 | -77 ± 120 | 0.3 ± 1.3 | 0.69 / 0.69 | 2.54 / 2.71 |
+| `no_takeover` | 24 | 2.59 ± 1.01 | 2.93 ± 1.14 | -0.34 ± 0.44 | -0.33 ± 0.52 | 46 ± 169 | 2.1 ± 1.9 | 0.83 / 0.85 | 3.79 / 3.33 |
+| `four_corners` | 24 | 1.04 ± 0.19 | 1.10 ± 0.16 | -0.06 ± 0.08 | 0.01 ± 0.14 | 19 ± 86 | 1.3 ± 1.3 | 0.80 / 0.80 | 3.50 / 3.29 |
+| `rainbow_guardian` | 24 | 0.96 ± 0.17 | 1.04 ± 0.17 | -0.08 ± 0.09 | -0.14 ± 0.13 | 23 ± 54 | 1.4 ± 1.3 | 0.84 / 0.83 | 3.25 / 3.00 |
+| `blob_warden` | 24 | 2.27 ± 0.90 | 2.39 ± 0.89 | -0.12 ± 0.29 | 0.06 ± 0.55 | -54 ± 110 | 1.2 ± 1.8 | 0.87 / 0.87 | 3.58 / 3.17 |
+| `mixed_bag` | 24 | 2.02 ± 0.80 | 2.48 ± 0.98 | -0.46 ± 0.64 | -0.13 ± 0.64 | 32 ± 82 | 0.3 ± 1.2 | 0.69 / 0.69 | 3.83 / 3.46 |
+
+The effect is clearest where the penalty is a simple count that is cheap to repair (hated colour or number):
+`lucky_token+hate_colour` −0.59 ± 0.39 bits and +5.0 ± 2.2 repair agents, `number_bonds+hate_colour` −0.50 ± 0.37.
+Structure-hating goals (`hate_takeover`, `hate_big_blob`) respond too, but they face every clumper's agents.
+
+### 9.2 World dynamics: more tension, more lead changes, no loss of cooperation
+
+| metric | A: 88-family pool | B0: with a defence family, unscored | B: scored | B − B0 (paired) |
+|---|---|---|---|---|
+| tension_rate | 0.284 ± 0.018 | 0.322 ± 0.020 | 0.350 ± 0.019 | 0.027 ± 0.009 |
+| harmony_rate | 0.266 ± 0.008 | 0.254 ± 0.008 | 0.250 ± 0.009 | -0.004 ± 0.004 |
+| spirals_per_100_commits | 8.146 ± 0.249 | 8.287 ± 0.264 | 8.291 ± 0.270 | 0.004 ± 0.165 |
+| spiral_len_mean | 2.601 ± 0.023 | 2.616 ± 0.022 | 2.625 ± 0.021 | 0.008 ± 0.019 |
+| lead_changes_per_100s | 3.765 ± 0.708 | 3.781 ± 0.704 | 4.407 ± 0.683 | 0.626 ± 0.578 |
+| stagnation_frac | 1.000 ± 0.000 | 1.000 ± 0.000 | 1.000 ± 0.000 | 0.000 ± 0.000 |
+| late_activity | 0.207 ± 0.007 | 0.205 ± 0.007 | 0.203 ± 0.006 | -0.002 ± 0.006 |
+| payoff_gini | 0.256 ± 0.021 | 0.267 ± 0.020 | 0.608 ± 0.610 | 0.342 ± 0.608 |
+| dynamism | 0.687 ± 0.014 | 0.698 ± 0.014 | 0.722 ± 0.012 | 0.024 ± 0.010 |
+| commits | 7657.5 ± 1363.8 | 7686.4 ± 1366.4 | 7717.4 ± 1364.8 | 31.1 ± 62.1 |
+| agents | 101.0 ± 14.1 | 101.5 ± 14.2 | 101.4 ± 14.1 | -0.1 ± 0.7 |
+| floor_neg_share | 0.0000 ± 0.0000 | 0.2766 ± 0.0437 | 0.2631 ± 0.0462 | -0.0134 ± 0.0223 |
+| floor_veto_share | 0.0000 ± 0.0000 | 0.1773 ± 0.0360 | 0.1669 ± 0.0393 | -0.0104 ± 0.0195 |
+| floor_dead_share | 0.0000 ± 0.0000 | 0.0673 ± 0.0185 | 0.0633 ± 0.0225 | -0.0040 ± 0.0117 |
+| trash_rate | 0.0000 ± 0.0000 | 0.0177 ± 0.0037 | 0.0174 ± 0.0042 | -0.0003 ± 0.0016 |
+| flank_repair_rate | 0.0000 ± 0.0000 | 0.0285 ± 0.0041 | 0.0287 ± 0.0047 | 0.0002 ± 0.0023 |
+
+n = 96 deals per arm. Scoring the defence goals raises **tension** (+0.027 ± 0.009), **dynamism**
+(+0.024 ± 0.010) and **lead changes** (+0.63 ± 0.58 per 100 s). It leaves **cooperative spirals** unchanged
+(+0.004 ± 0.165 per 100 commits), and **stagnation** stays at 1.0 (worlds are still moving at the end). `payoff_gini`
+is not meaningful once totals can be negative: the B arm's ± 0.61 comes from a few games with a negative total.
+Rank fairness is reported in 9.3 instead.
+
+**Floor occupancy and trashing (the coordinator's questions).** At the end of a game, 26% of (object, defence god)
+pairs have negative net bits, 17% of objects have at least one god whose peer care is clipped to 0 (vetoed), and
+6% are dead (collective net ≤ 0). The flat zone of the *collective* floor is therefore real but minor. **Noise-trashing
+does not emerge**: 1.7% of commits are by a god with negative bits on the object and lower its peers' bits without
+raising its own, in scored and shadow games alike (−0.03 ± 0.16 points). The incentive exists, but private greedy
+policies hold peers fixed and cannot see it; only omniscient gods can, and they are one seat in four. Flank repair
+(own negative raised) is 2.9% of commits in both arms. No farming loophole was observed, and none exists by
+construction (π_i > 0 needs n_i > 0 and peer care > 0).
+
+**Mode comparison** (8 seeds, same experiment, 304 games per mode):
+
+| mode | Δ ⚠️ bits (pooled) | Δ repair agents | Δ tension | Δ lead changes /100 s | Δ dynamism | gini B |
+|---|---|---|---|---|---|---|
+| floored | −0.23 ± 0.18 | +2.57 ± 0.87 | +0.012 ± 0.012 | +0.53 ± 0.82 | +0.019 ± 0.016 | 0.28 |
+| gated | −0.34 ± 0.20 | +1.46 ± 0.79 | +0.015 ± 0.010 | +1.26 ± 1.02 | +0.026 ± 0.018 | 0.37 |
+| private | −0.21 ± 0.14 | +1.94 ± 0.67 | +0.019 ± 0.012 | +0.21 ± 0.52 | +0.004 ± 0.011 | 0.42 |
+
+All three make protectors defend. Gated is slightly livelier but has the self-destruction pathology of §4, and
+its protectors repair less themselves (self-repair −66 ± 68 bits). Floored gets the strongest counter-agent
+response and the least payoff inequality, and it is the user's narrative ("if nobody else cares, nobody scores"),
+so it is the default. Penalty weight 0.25, 0.5 and 1 give the same defence effect within noise (pooled Δ ⚠️
+−0.26, −0.20, −0.23 bits; repair agents +2.0, +2.0, +2.6).
+
+### 9.3 Fairness
+
+| family | n | mean rank scored | win rate scored | mean rank shadow | win rate shadow |
+|---|---|---|---|---|---|
+| `seed3_green_ones+hate_colour` | 24 | 2.25 ± 0.41 | 0.25 ± 0.18 | 1.75 ± 0.38 | 0.54 ± 0.20 |
+| `seed1_line_painter+hate_blob` | 24 | 2.46 ± 0.49 | 0.29 ± 0.19 | 2.42 ± 0.46 | 0.29 ± 0.19 |
+| `seed2_patchwork+hate_takeover` | 24 | 3.75 ± 0.27 | 0.00 ± 0.00 | 2.92 ± 0.47 | 0.21 ± 0.17 |
+| `lucky_token+hate_colour` | 24 | 2.17 ± 0.51 | 0.46 ± 0.20 | 1.88 ± 0.43 | 0.50 ± 0.20 |
+| `kingdom+hate_value` | 24 | 2.21 ± 0.39 | 0.29 ± 0.19 | 2.12 ± 0.45 | 0.38 ± 0.20 |
+| `rainbow_road+hate_big_blob` | 24 | 3.54 ± 0.39 | 0.08 ± 0.11 | 2.71 ± 0.34 | 0.08 ± 0.11 |
+| `number_bonds+hate_colour` | 24 | 2.88 ± 0.45 | 0.17 ± 0.15 | 2.92 ± 0.39 | 0.08 ± 0.11 |
+| `magic_accountant+hate_value` | 24 | 2.54 ± 0.37 | 0.12 ± 0.14 | 2.71 ± 0.40 | 0.17 ± 0.15 |
+| `no_takeover` | 24 | 3.79 ± 0.26 | 0.04 ± 0.08 | 3.33 ± 0.35 | 0.04 ± 0.08 |
+| `four_corners` | 24 | 3.50 ± 0.33 | 0.04 ± 0.08 | 3.29 ± 0.30 | 0.00 ± 0.00 |
+| `rainbow_guardian` | 24 | 3.25 ± 0.32 | 0.04 ± 0.08 | 3.00 ± 0.37 | 0.08 ± 0.11 |
+| `blob_warden` | 24 | 3.58 ± 0.35 | 0.04 ± 0.08 | 3.17 ± 0.37 | 0.04 ± 0.08 |
+| `mixed_bag` | 24 | 3.83 ± 0.15 | 0.00 ± 0.00 | 3.46 ± 0.35 | 0.08 ± 0.11 |
+
+* **Variants**: on average a scored defence goal costs a variant about 0.3 of a rank (variants scored 2.72, shadow
+  2.43). The cost is concentrated in the two structure-hating variants: `seed2_patchwork+hate_takeover` 3.75 vs 2.92
+  and `rainbow_road+hate_big_blob` 3.54 vs 2.71. Count-based goals (hated colour or number) are within noise of
+  their shadow rank. The cost is not by chance: the defence term is zero-mean on spawns, but play makes the world
+  *more structured* than the prior, so a goal that hates structure is pushed on by everyone.
+* **Protectors** rank 3.25–3.83 scored (mean 3.59) and 3.0–3.46 shadow (mean 3.25). Most of the gap is their reward channel: alternator-style
+  targets (balanced colours, varied corners) are destroyed by everyone's building. Their deeper tie-breakers
+  (in `rules/defence.py`) raised the reward ceilings from 4–8 to 10–40 bits, which helped, but not enough.
+* In E2's mixed deals, defence families rank 2.90 ± 0.23 against 2.35 ± 0.12 for the rest.
+
+So defence *works* and makes games livelier, but structure-hating defence goals and pure protectors are
+currently **underpowered**. Recommendations, not built here: (1) give every god a defence goal when any god has
+one (the cost is then symmetric); (2) deal structure-hating penalties only with a strong reward; (3) let the
+dealer balance camps (`balanced_camps`), since protectors are natural alternators. Weight changes alone do not fix
+it: weight 0.25 moves variants from 3.0 to 2.75 and protectors from 3.75 to 3.65, both within noise.
+
+### 9.4 Robustness: Grid(4,base12,rgb), 8 seeds
+
+Pooled over 104 pairs: Δ ⚠️ bits −0.11 ± 0.13 (smaller, since a 4×4 grid has fewer cells to damage) and **repair
+agents +2.21 ± 0.94**. Tension +0.017 ± 0.012, spirals +0.16 ± 0.32 per 100 commits, dynamism +0.004 ± 0.012. In E2,
+defence families rank 2.67 ± 0.42 against 2.44 ± 0.22 for the others. 26% of (object, defence god) pairs are
+negative, and trashing stays at 1.5% in both arms.
+
+### 9.5 Reproduce
+
+```
+cd lib/grid-lab
+python3 -m gridlab.experiments.defence --seeds 24                    # 9.1–9.3 (~7 min on 4 cores)
+python3 -m gridlab.experiments.defence --seeds 8 --mode gated        # mode comparison (also: private)
+python3 -m gridlab.experiments.defence --seeds 8 --only E1 --weight 0.5
+python3 -m gridlab.experiments.defence --seeds 8 --type 4,base12,rgb
+python3 -m gridlab.run --defence --families seed3_green_ones+hate_colour,blob_warden,kingdom,rainbow_road --trace
+```
+
