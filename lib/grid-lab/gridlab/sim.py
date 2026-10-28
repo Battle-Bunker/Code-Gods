@@ -18,6 +18,17 @@ up by 5 at fixed energy). Metrics normalised per commit are rate-free.
 
 Alternative economies (off by default): `metabolic_cost` charges the owner per application attempt
 (an agent whose owner cannot pay is skipped), `agent_half_life` gives agents exponential lifetimes.
+
+`economy` selects who pays for what (docs/agent-energy.md):
+  * "summon" (default): the god pays the whole Program.cost once, at summon;
+  * "agent_energy": the god pays only the description bits at summon (energy.summon_bits); each agent
+    has its own energy account, earning `agent_income` bits/s (× k^(agent_income_alpha − 1) for a god
+    with k agents), capped at `agent_battery` × its expected cost per act. Each interaction picks a
+    uniform object and a uniform agent among those whose energy ≥ expected cost per act (none: no
+    interaction); the act's pointwise cost (energy.act) is deducted from the agent: decision bits
+    always, erasure + motion only when the result is committed;
+  * "owner_pays": the time-split of the economy study: description bits at summon, and the owner pays
+    the analytic per-application bits on every commit (skipped while the owner cannot pay).
 """
 from __future__ import annotations
 
@@ -106,6 +117,11 @@ class GameConfig:
     metabolic_cost: float = 0.0
     agent_half_life: Optional[float] = None
     max_agents: int = 200
+    economy: str = "summon"                              # "summon" | "agent_energy" | "owner_pays"
+    agent_income: float = 2.0                            # bits/s per agent (agent_energy)
+    agent_battery: float = 2.0                           # energy cap, in expected acts
+    agent_income_alpha: float = 1.0                      # god with k agents: each earns income * k^(alpha-1)
+    agent_start: str = "zero"                            # "zero" | "one" (one expected act, paid by the god)
     # rates
     interaction_rate_hz: float = 20.0
     spawn_rate_hz: float = 0.1
@@ -234,6 +250,18 @@ class GameLog:
     final_energy: np.ndarray = None
     spent: np.ndarray = None
     counters: dict = None
+    # agent energy (economy != "summon"; one row per agent / per attempt)
+    a_summon_bits: np.ndarray = None   # float32 description bits paid by the god
+    a_act_exp: np.ndarray = None       # float32 expected cost per act (eligibility threshold)
+    a_commits: np.ndarray = None       # int32
+    a_income: np.ndarray = None        # float32 total income credited (before the battery cap)
+    a_charged: np.ndarray = None       # float32 total act bits deducted
+    a_wasted: np.ndarray = None        # float32 income lost to the battery cap
+    a_energy_end: np.ndarray = None    # float32 final balance (may be negative: debt)
+    a_start: np.ndarray = None         # float32 starting balance (paid by the god)
+    act_agent: np.ndarray = None       # int32 (attempts,) agent id
+    act_bits: np.ndarray = None        # float32 (attempts,) bits charged
+    act_commit: np.ndarray = None      # bool (attempts,)
 
     @property
     def n_gods(self) -> int:
@@ -276,6 +304,18 @@ class World:
         self.agent_attempts: list[int] = []
         self.own_count = [0] * self.G
         self.library = None                 # (programs, costs) or None
+        # agent energy accounts (economy == "agent_energy")
+        cap = cfg.max_agents * self.G + 1
+        self.a_energy = np.zeros(cap)
+        self.a_exp = np.zeros(cap)
+        self.a_rate = np.zeros(cap)
+        self.a_income = np.zeros(cap)
+        self.a_wasted = np.zeros(cap)
+        self.a_charged = np.zeros(cap)
+        self.a_start = np.zeros(cap)
+        self.e_t = -cfg.planning_seconds    # time the accounts were last accrued to
+        self.a_prof: list = []              # energy.ActProfile per agent
+        self.a_act_cost: list = []          # owner_pays: per-commit bits per agent
 
     # --- state helpers -------------------------------------------------------------------------
     @property
@@ -313,10 +353,48 @@ class World:
             if g.key not in self.keys:
                 return g
 
-    def summon(self, god: int, prog, cost: float) -> int | None:
-        if self.own_count[god] >= self.cfg.max_agents or self.energy(god) < cost:
+    # --- agent energy ------------------------------------------------------------------------------
+    def accrue(self, t: float) -> None:
+        """Credit every agent's income up to time t, clipping at its battery."""
+        dt = t - self.e_t
+        if dt <= 0:
+            return
+        self.e_t = t
+        n = len(self.agent_prog)
+        if not n:
+            return
+        E, r = self.a_energy[:n], self.a_rate[:n]
+        inc = r * dt
+        self.a_income[:n] += inc
+        E += inc
+        over = np.maximum(E - self.cfg.agent_battery * self.a_exp[:n], 0.0)
+        self.a_wasted[:n] += over
+        E -= over
+
+    def set_rates(self, god: int) -> None:
+        c = self.cfg
+        k = self.own_count[god]
+        mine = [a for a in self.agents if self.agent_owner[a] == god]
+        if mine:
+            self.a_rate[mine] = c.agent_income * k ** (c.agent_income_alpha - 1.0)
+
+    def eligible(self) -> np.ndarray:
+        ag = np.asarray(self.agents, dtype=np.int64)
+        return ag[self.a_energy[ag] >= self.a_exp[ag]] if len(ag) else ag
+
+    def summon(self, god: int, prog, cost: float, act_exp: float = 0.0, extra: float = 0.0) -> int | None:
+        """`extra`: energy the god pays into the new agent's account (agent_start = "one")."""
+        if self.own_count[god] >= self.cfg.max_agents or self.energy(god) < cost + extra:
             return None
         aid = len(self.agent_prog)
+        if aid >= len(self.a_energy):     # mortal agents: more summons than max_agents * G over a game
+            for k in ("a_energy", "a_exp", "a_rate", "a_income", "a_wasted", "a_charged", "a_start"):
+                setattr(self, k, np.concatenate([getattr(self, k), np.zeros(len(self.a_energy))]))
+        if self.cfg.economy == "agent_energy":
+            self.accrue(self.t)
+            self.a_exp[aid] = act_exp
+            self.a_energy[aid] = self.a_start[aid] = extra
+            self.spent[god] += extra
         self.spent[god] += cost
         self.agent_prog.append(prog)
         self.agent_owner.append(god)
@@ -325,15 +403,24 @@ class World:
         self.agent_attempts.append(0)
         self.agents.append(aid)
         self.own_count[god] += 1
+        if self.cfg.economy == "agent_energy":
+            self.set_rates(god)
         return aid
 
     def purge_dead(self) -> None:
         if self.cfg.agent_half_life:
             live = [a for a in self.agents if self.agent_death[a] > self.t]
+            dead = {self.agent_owner[a] for a in self.agents if self.agent_death[a] <= self.t}
+            if dead and self.cfg.economy == "agent_energy":
+                self.accrue(self.t)
             for a in self.agents:
                 if self.agent_death[a] <= self.t:
                     self.own_count[self.agent_owner[a]] -= 1
+                    self.a_rate[a] = 0.0
             self.agents = live
+            if self.cfg.economy == "agent_energy":
+                for god in dead:
+                    self.set_rates(god)
 
 
 def game_duration(cfg: GameConfig, rng: np.random.Generator) -> float:
@@ -370,12 +457,30 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     snap_time, snap_payoff, snap_objs, snap_s = [], [], [], []
     a_cost, a_time, a_mut, a_desc = [], [], [], []
     counters = {"attempts": 0, "none": 0, "duplicate": 0, "commits": 0, "metabolic_skips": 0,
-                "decisions": 0, "summons": 0}
+                "decisions": 0, "summons": 0, "idle_ticks": 0, "energy_skips": 0}
+
+    econ = cfg.economy
+    assert econ in ("summon", "agent_energy", "owner_pays"), f"unknown economy {econ}"
+    if econ != "summon":
+        from . import energy
+    act_agent, act_bits, act_commit, a_sbits, a_exp = [], [], [], [], []
 
     def do_summons(god: int):
         for prog in pols[god].decide() or ():
-            cost = float(prog.cost(gt)) * cfg.cost_scale
-            aid = world.summon(god, prog, cost)
+            if econ == "summon":
+                cost = float(prog.cost(gt)) * cfg.cost_scale
+                aid = world.summon(god, prog, cost)
+            else:
+                prof = energy.profile(prog, gt)
+                cost = prof.summon * cfg.cost_scale
+                ex = (prof.expected if econ == "agent_energy" else prof.analytic) * cfg.cost_scale
+                extra = ex if (econ == "agent_energy" and cfg.agent_start == "one") else 0.0
+                aid = world.summon(god, prog, cost, act_exp=ex, extra=extra)
+                if aid is not None:
+                    world.a_prof.append(prof)
+                    world.a_act_cost.append(ex)
+                    a_sbits.append(cost)
+                    a_exp.append(ex)
             if aid is None:
                 continue
             counters["summons"] += 1
@@ -395,6 +500,8 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     t = -cfg.planning_seconds
     while t < 0:
         world.t = t
+        if econ == "agent_energy":
+            world.accrue(t)
         for i in range(cfg.n_gods):
             counters["decisions"] += 1
             do_summons(i)
@@ -449,13 +556,19 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         A = len(world.agents)
         if not A:
             continue
+        if econ == "agent_energy":
+            world.accrue(t)
+            el = world.eligible()
+            if not len(el):
+                counters["idle_ticks"] += 1
+                continue
         if upos >= BLK:
             ublk, upos = rng.random((BLK, 2)), 0
         u1, u2 = ublk[upos]
         upos += 1
         M = len(world.objects)
         oi = int(u1 * M)
-        aid = world.agents[int(u2 * A)]
+        aid = world.agents[int(u2 * A)] if econ != "agent_energy" else int(el[int(u2 * len(el))])
         if world.agent_death[aid] <= t:
             world.purge_dead()
             continue
@@ -465,17 +578,43 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 counters["metabolic_skips"] += 1
                 continue
             world.spent[owner] += met
+        if econ == "owner_pays" and world.energy(owner) < world.a_act_cost[aid]:
+            counters["energy_skips"] += 1
+            continue
         counters["attempts"] += 1
         world.agent_attempts[aid] += 1
         old = world.objects[oi]
-        new = world.agent_prog[aid].apply(old, gt, rng)
-        if new is None:
-            counters["none"] += 1
-            continue
+        if econ == "agent_energy":
+            new, dec, er, mo = energy.act(world.agent_prog[aid], old, gt, world.a_prof[aid])
+            if new is not None and new.key in world.keys:
+                new = None
+                counters["duplicate"] += 1
+                dup = True
+            else:
+                dup = False
+            bits = (dec + (er + mo if new is not None else 0.0)) * cfg.cost_scale
+            world.a_energy[aid] -= bits
+            world.a_charged[aid] += bits
+            act_agent.append(aid); act_bits.append(bits); act_commit.append(new is not None)
+            if new is None:
+                if not dup:
+                    counters["none"] += 1
+                continue
+        else:
+            new = world.agent_prog[aid].apply(old, gt, rng)
+            if econ == "owner_pays":
+                ok = new is not None and new.key not in world.keys
+                bits = world.a_act_cost[aid] if ok else 0.0
+                world.spent[owner] += bits
+                act_agent.append(aid); act_bits.append(bits); act_commit.append(ok)
+            if new is None:
+                counters["none"] += 1
+                continue
+            nk = new.key
+            if nk in world.keys:
+                counters["duplicate"] += 1
+                continue
         nk = new.key
-        if nk in world.keys:
-            counters["duplicate"] += 1
-            continue
         world.keys.discard(old.key)
         world.keys.add(nk)
         world.objects[oi] = new
@@ -489,6 +628,8 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         pols[owner].on_commit(aid, oi, before, after)
 
     world.t = duration
+    if econ == "agent_energy":
+        world.accrue(duration)
     if hook:
         hook(world, "end")
     M = world.M
@@ -512,7 +653,21 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         final_payoff=payoffs(Sm).sum(axis=0).astype(f32),
         final_energy=np.array([world.energy(i) for i in range(G)], f32), spent=world.spent.astype(f32),
         counters=counters,
+        **(_energy_fields(world, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit) if econ != "summon" else {}),
     )
+
+
+def _energy_fields(world: World, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit) -> dict:
+    n = len(world.agent_prog)
+    f32 = np.float32
+    return dict(
+        a_summon_bits=np.array(a_sbits, f32), a_act_exp=np.array(a_exp, f32),
+        a_commits=np.bincount(np.array(c_agent, np.int64), minlength=n).astype(np.int32),
+        a_income=world.a_income[:n].astype(f32), a_charged=world.a_charged[:n].astype(f32),
+        a_wasted=world.a_wasted[:n].astype(f32), a_energy_end=world.a_energy[:n].astype(f32),
+        a_start=world.a_start[:n].astype(f32),
+        act_agent=np.array(act_agent, np.int32), act_bits=np.array(act_bits, f32),
+        act_commit=np.array(act_commit, bool))
 
 
 def draws_for(cfg: GameConfig) -> list[Draw]:

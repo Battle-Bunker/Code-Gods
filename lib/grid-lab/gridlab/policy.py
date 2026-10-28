@@ -15,6 +15,14 @@ value of a candidate program P is estimated over the object population:
 peer surprisal as fixed, Δπ = (s_i(y) - s_i(x)) * S_-i(x); omniscient ones evaluate every god's
 surprisal of y. All candidate results are evaluated in one `evaluate_batch` call per family.
 E[remaining] is the half-life mean (memoryless) for exponential games, the true remainder for fixed.
+
+Other economies (GameConfig.economy, docs/agent-energy.md). Candidates are priced at what the god pays at
+summon (energy.summon_bits). With `energy_aware` (default) the greedy family values them accordingly:
+
+    agent_energy:  acts/s = min(marginal own income / E[bits per act], rate / (A + 1))
+                   V(P) = d(P) * acts/s * E[remaining] * discount,   yield = V / summon_bits
+                   (marginal own income = income * ((k+1)^alpha - k^alpha) for a god with k agents)
+    owner_pays:    yield = d * apps * discount / (summon_bits + per-commit bits * apps * commit share)
 """
 from __future__ import annotations
 
@@ -128,9 +136,14 @@ class Policy:
         if lib is not None and not self.program_kwargs:
             progs, costs = lib
             idx = self.rng.integers(0, len(progs), k)
-            return [progs[i] for i in idx], costs[idx] * cs
-        ps = [self.factory(self.rng, self.world.gtype, **self.program_kwargs) for _ in range(k)]
-        return ps, np.array([p.cost(self.world.gtype) * cs for p in ps], float)
+            ps, cost = [progs[i] for i in idx], costs[idx] * cs
+        else:
+            ps = [self.factory(self.rng, self.world.gtype, **self.program_kwargs) for _ in range(k)]
+            cost = np.array([p.cost(self.world.gtype) * cs for p in ps], float)
+        if self.world.cfg.economy != "summon":
+            from .energy import profile
+            cost = np.array([profile(p, self.world.gtype).summon * cs for p in ps], float)
+        return ps, cost
 
     # --- hooks -------------------------------------------------------------------------------------
     def decide(self) -> list:
@@ -165,10 +178,12 @@ class GreedyPolicy(Policy):
     objective = "own"   # "own" | "total"
 
     def __init__(self, *a, K: int = 12, M_eval: int = 24, discount: float = 0.5, min_yield: float = 0.0,
-                 learn: bool = False, backoff: bool = True, **kw):
+                 learn: bool = False, backoff: bool = True, energy_aware: bool = True, **kw):
         super().__init__(*a, **kw)
         self.K, self.M_eval, self.discount, self.min_yield, self.learn = K, M_eval, discount, min_yield, learn
         self.backoff = backoff
+        self.energy_aware = energy_aware
+        self.commit_share = None               # per candidate of the last mean_delta: share of sampled objects changed
         self.skip = 0
         self.fails = 0
         self.pred: dict[int, float] = {}       # aid -> predicted mean Δ per application
@@ -177,10 +192,22 @@ class GreedyPolicy(Policy):
         self.best_yields: list[float] = []
 
     # --- value model -----------------------------------------------------------------------------
+    def remaining(self) -> float:
+        w, c = self.world, self.world.cfg
+        return c.half_life_seconds / math.log(2) if c.length != "fixed" else max(0.0, c.fixed_seconds - max(w.t, 0.0))
+
     def horizon_apps(self) -> float:
         w, c = self.world, self.world.cfg
-        rem = c.half_life_seconds / math.log(2) if c.length != "fixed" else max(0.0, c.fixed_seconds - max(w.t, 0.0))
-        return c.interaction_rate_hz * rem / (len(w.agents) + 1)
+        return c.interaction_rate_hz * self.remaining() / (len(w.agents) + 1)
+
+    def acts_per_second(self, progs: list) -> np.ndarray:
+        """agent_energy: expected acts/s of each candidate if summoned now (see module docstring)."""
+        from .energy import profile
+        w, c = self.world, self.world.cfg
+        k = w.own_count[self.god]
+        marg = c.agent_income * ((k + 1) ** c.agent_income_alpha - k ** c.agent_income_alpha)
+        per = np.array([profile(p, w.gtype).expected for p in progs]) * c.cost_scale
+        return np.minimum(marg / np.maximum(per, 1e-3), c.interaction_rate_hz / (len(w.agents) + 1))
 
     def scale(self) -> float:
         if not self.learn or not self.pred:
@@ -210,6 +237,7 @@ class GreedyPolicy(Policy):
                     continue
                 sym.append(y.sym); col.append(y.col); who.append(p_i); obj.append(oi)
         out = np.zeros(len(progs))
+        self.commit_share = np.bincount(np.array(who, np.int64), minlength=len(progs)) / max(len(idx), 1)
         if not who:
             return out
         sym, col = np.stack(sym), np.stack(col)
@@ -240,7 +268,17 @@ class GreedyPolicy(Policy):
         cands = [p for p, o in zip(cands, ok) if o]
         costs = costs[ok]
         d = self.mean_delta(cands)
-        y = d * self.horizon_apps() * self.discount * self.scale() / np.maximum(costs, 1e-9)
+        econ = self.world.cfg.economy
+        if econ == "summon" or not self.energy_aware:
+            y = d * self.horizon_apps() * self.discount * self.scale() / np.maximum(costs, 1e-9)
+        elif econ == "agent_energy":
+            y = d * self.acts_per_second(cands) * self.remaining() * self.discount * self.scale() / np.maximum(costs, 1e-9)
+        else:
+            from .energy import profile
+            apps = self.horizon_apps()
+            per = np.array([profile(p, self.world.gtype).analytic for p in cands]) * self.world.cfg.cost_scale
+            tco = costs + per * apps * self.commit_share
+            y = d * apps * self.discount * self.scale() / np.maximum(tco, 1e-9)
         b = int(np.argmax(y))
         return cands[b], float(y[b]), float(d[b])
 
@@ -306,8 +344,24 @@ class SaverPolicy(GreedyPolicy):
         return yield_ > bar
 
 
+class SpammerPolicy(Policy):
+    """spammer (adversarial baseline): every decision, summon the cheapest of K random programs (by the
+    price the god pays) if affordable, whatever it does. Tests whether flooding the world with cheap,
+    useless agents pays."""
+
+    def __init__(self, *a, K: int = 12, **kw):
+        super().__init__(*a, **kw)
+        self.K = K
+
+    def decide(self):
+        progs, costs = self.sample_programs(self.K)
+        b = int(np.argmin(costs))
+        return [progs[b]] if costs[b] <= self.energy() else []
+
+
 POLICIES = {
     "random": RandomPolicy,
+    "spammer": SpammerPolicy,
     "greedy_private": GreedyPolicy,
     "greedy_omniscient": OmniscientPolicy,
     "cooperative": CooperativePolicy,
