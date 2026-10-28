@@ -262,6 +262,7 @@ class GameLog:
     act_agent: np.ndarray = None       # int32 (attempts,) agent id
     act_bits: np.ndarray = None        # float32 (attempts,) bits charged
     act_commit: np.ndarray = None      # bool (attempts,)
+    act_energy: np.ndarray = None      # float64 (attempts,) agent balance just before the act (agent_energy)
 
     @property
     def n_gods(self) -> int:
@@ -463,7 +464,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     assert econ in ("summon", "agent_energy", "owner_pays"), f"unknown economy {econ}"
     if econ != "summon":
         from . import energy
-    act_agent, act_bits, act_commit, a_sbits, a_exp = [], [], [], [], []
+    act_agent, act_bits, act_commit, act_energy, a_sbits, a_exp = [], [], [], [], [], []
 
     def do_summons(god: int):
         for prog in pols[god].decide() or ():
@@ -593,6 +594,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
             else:
                 dup = False
             bits = (dec + (er + mo if new is not None else 0.0)) * cfg.cost_scale
+            act_energy.append(world.a_energy[aid])
             world.a_energy[aid] -= bits
             world.a_charged[aid] += bits
             act_agent.append(aid); act_bits.append(bits); act_commit.append(new is not None)
@@ -653,11 +655,11 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         final_payoff=payoffs(Sm).sum(axis=0).astype(f32),
         final_energy=np.array([world.energy(i) for i in range(G)], f32), spent=world.spent.astype(f32),
         counters=counters,
-        **(_energy_fields(world, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit) if econ != "summon" else {}),
+        **(_energy_fields(world, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit, act_energy) if econ != "summon" else {}),
     )
 
 
-def _energy_fields(world: World, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit) -> dict:
+def _energy_fields(world: World, c_agent, a_sbits, a_exp, act_agent, act_bits, act_commit, act_energy) -> dict:
     n = len(world.agent_prog)
     f32 = np.float32
     return dict(
@@ -667,7 +669,7 @@ def _energy_fields(world: World, c_agent, a_sbits, a_exp, act_agent, act_bits, a
         a_wasted=world.a_wasted[:n].astype(f32), a_energy_end=world.a_energy[:n].astype(f32),
         a_start=world.a_start[:n].astype(f32),
         act_agent=np.array(act_agent, np.int32), act_bits=np.array(act_bits, f32),
-        act_commit=np.array(act_commit, bool))
+        act_commit=np.array(act_commit, bool), act_energy=np.array(act_energy, np.float64))
 
 
 def draws_for(cfg: GameConfig) -> list[Draw]:
