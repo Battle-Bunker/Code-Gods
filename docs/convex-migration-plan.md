@@ -173,7 +173,7 @@ selection and spawns use `crypto.getRandomValues`. Agent execution itself is det
 invalidates them once per tick, so subscriptions update at the tick rate (1 Hz), never at the
 interaction rate. That is the server-side half of the Panel SDK's throttling (§8.3).
 
-### 3.2 Throughput estimate (to be confirmed by measurement)
+### 3.2 Throughput estimate (measured results in §11)
 
 From `lib/game-runtime/README.md`'s warm benchmarks: a TypeScript act takes ≈ 1.8 ms and a Python
 act ≈ 13–20 ms, in-process and sequential. Per tick action, single-threaded:
@@ -457,13 +457,69 @@ paused. The test provider `mock` is enabled only when the env var `CODE_GODS_AI_
 
 ## 11. Measured results
 
-| Measurement | Result |
+Everything was measured on the local Convex backend in this container (4 shared vCPUs). That backend
+enforces neither the cloud's 512 MiB limit nor its concurrency limits, so the cloud numbers will
+differ. The sandbox figures come from `lib/game-runtime/README.md` ("Convex measurements").
+
+**Engine throughput.** These come from `pnpm --filter @workspace/engine bench`: 12 agents (24 for the
+1,000 Hz rows), 20 s runs, ticks committed at most once a second, a 1.5 s window cap, and 4 parallel
+acts per wave.
+
+| Run | Cap | Sustained acts/s | Simulate per tick | Commit per tick | Discarded windows |
+|---|---|---|---|---|---|
+| TypeScript, Int | 100 Hz | 98 | 119 ms | 120 ms | 0 |
+| Python, Int | 100 Hz | 94 (with a 1.0 s window cap) | 255 ms | 113 ms | 0 |
+| TypeScript, Grid | 100 Hz | 94 (with a 1.0 s window cap) | 285 ms | 118 ms | 0 |
+| Python, Grid | 100 Hz | 98 | 364 ms | 118 ms | 0 |
+| TypeScript, Int | 1,000 Hz | 703 | 1,055 ms per 1,000 acts | 268 ms | 0 |
+| Python, Int | 1,000 Hz | 339 | 2,632 ms per 1,000 acts | 243 ms | 0 |
+
+The **default cap of 100 Hz is met** in both languages, on both Int and Grid. The **1,000 Hz maximum is
+not reached** on one tick action: about 700 acts/s in TypeScript and 340 in Python on Int, less on
+Grid, where scoring dominates. Above capacity the engine simply runs slower and skips the remainder,
+as specified. It accrues no debt and discards no windows. Both of the following would raise this
+ceiling:
+- larger runtime pools in the cloud's dedicated Node instance;
+- splitting a window across object shards in parallel tick actions.
+
+Neither is built.
+
+**Sandboxes** (a warm Grid agent with open-agent settings, in a Convex Node action):
+
+| | Python (CPython 3.15 WASI on Node's WebAssembly) | TypeScript (QuickJS) |
+|---|---|---|
+| Warm act p50 / p95 | 6.1 / 8.1 ms (2 workers) | 4.8 / 7.1 ms (2 executors) |
+| Parallel acts/s, production pools | 276 | 374 |
+| Cold start to ready | 2.3–2.6 s, including the 5.2 MB bundle fetch from file storage (122–171 ms) | 2.3–2.6 s, including the TypeScript compiler's first type-check |
+| Memory (whole process) | 312 MiB steady; 425–506 MiB with every pool warm and the TS compiler running | (shared) |
+| vs the deleted Wasmtime host | about 2× faster per act; bootstrap 0.57 s instead of 4.7–7 s | unchanged |
+
+**Clients.** At first commits ran at up to 4 Hz. With three player apps subscribed, re-running every
+client's queries on each commit left them tens of seconds behind on the local backend:
+- the observation query took about 170 ms uncached;
+- events took about 110 ms;
+- trajectories took about 190 ms.
+
+Commits at most once a second, plus an observation that scans 16 recent batches instead of 64, fixed
+this. The multi-client e2e (§10) passes with three apps, panels and a mock AI seat on one engine.
+
+**Tests** (all against live local backends):
+
+| Suite | Result |
 |---|---|
-| Local backend in this container | works via `npx convex dev` (backend `precompiled-2026-10-22-1447815`, CLI 1.48.0) |
-| TS act in tick action (warm / cold start) | _pending_ |
-| Python act in tick action (warm / cold start, memory) | _pending_ |
-| Commit mutation latency at 100 acts/tick | _pending_ |
-| Sustained acts/s per game (TS, Python) | _pending_ |
+| auth (`pnpm --filter @workspace/engine test:auth`) | 12/12 |
+| game (`… test:game`) | 16/16, Python and TypeScript |
+| runtime (`pnpm --filter @workspace/game-runtime test`) | 35/35, including Python parity with the old host |
+| player client and assistant (`pnpm --filter @workspace/player-client test`) | 15 |
+| engine UI e2e (`pnpm --filter @workspace/code-gods e2e`) | 23/23 |
+| multi-client e2e (`pnpm --filter @workspace/player-web e2e`) | 27/27 |
+
+The multi-client e2e covers:
+- full Int, string and Grid games in three worktree player apps;
+- live HMR of a new panel, contained compile errors, other apps unaffected;
+- the room assistant acting with act and owner credentials, and a read credential refused;
+- disclosure;
+- static hosting of both frontends, including the hosted client.
 
 ## 12. Connecting the real Convex account (checklist)
 

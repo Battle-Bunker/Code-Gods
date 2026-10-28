@@ -4,13 +4,19 @@
  */
 import { agentBattery, isEligible, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
-/** Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no tickSeconds. */
-export const TICK_SECONDS = 1.0;
+/**
+ * Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no
+ * tickSeconds. A tick simulates the interaction opportunities of the world time since the last commit, at
+ * most TICK_SECONDS of it: with commits about every 1.05–1.1 s (MIN_TICK_MS plus the tick's own work), a
+ * 1.5 s cap covers every interval in normal running (measured: 94 acts/s at a 100 Hz cap with a 1.0 s cap)
+ * while still bounding the catch-up after a stall: time beyond it is skipped, never owed.
+ */
+export const TICK_SECONDS = 1.5;
 /**
  * Ticks commit at most once a second. Every commit re-runs every client's subscriptions (observation,
  * events, panels), so the commit rate, not the interaction rate, sets the query load: measured on the
  * local backend, three player apps at 4 Hz commits fell tens of seconds behind; at 1 Hz they keep up.
- * The window (TICK_SECONDS) still covers every interaction opportunity of that second.
+ * The window (TICK_SECONDS) still covers every interaction opportunity of the interval.
  */
 export const MIN_TICK_MS = 1000;
 /** A tick action that has not committed within this time loses its lease to the watchdog. */
