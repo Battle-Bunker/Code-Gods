@@ -182,10 +182,17 @@ means used by the defence term. The scoring, policy and metric changes are descr
 * **Economy knobs**: `starting_energy`, `energy_per_second`, `cost_scale` (multiplies
   `Program.cost`), `max_agents` (200/god). Alternative designs: `metabolic_cost` (energy per
   application attempt; an agent whose owner cannot pay is skipped) and `agent_half_life`
-  (exponential agent lifetimes).
+  (exponential agent lifetimes). `economy` (default `"summon"`, unchanged) selects who pays: `"agent_energy"`
+  (the god pays the description bits at summon; each agent earns its own income and acts only once its
+  balance covers its expected per-act bits, paying each act's pointwise information cost) or `"owner_pays"`
+  (the owner pays per-application bits on each commit). Knobs `agent_income`, `agent_battery`,
+  `agent_start`, `agent_act_floor_bits`, `agent_act_naming`; gods can destroy their own agents for free
+  (`World.destroy`, `Policy.destroy`). See docs/agent-energy.md.
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
-* **Rate scaling**: the real engine caps interactions at 100 Hz, and the default here is 20 Hz.
+* **Rate scaling**: the real engine runs interactions at 100 Hz, which is now the default here (it was 20 Hz;
+  the experiment worker also raised the default spawns to 0.5 Hz and starting objects to 80, see
+  docs/experiments.md §5).
   Dynamics depend on interactions per energy unit and per agent. To mimic 100 Hz at 20 Hz, divide
   energy income and starting energy by 5. Metrics normalised per commit do not depend on the rate.
 * **Determinism**: one `SeedSequence(seed)` is split into dealer, world (picks, spawns, `apply`),
@@ -299,3 +306,20 @@ about 0.1 ms. Shared symmetry orbits (`canonical`) cut the table count further.
 
 **Rough budget for 1000 games on one GridType**: about 1–3 min to calibrate every reachable draw
 (a few hundred tables), plus about 1 min of simulation on 4 cores.
+
+## 7. Language agents (optional)
+
+`GameConfig.agent_language` (default `"off"`, which changes nothing) lets policies summon agents written
+in the agent language (`gridlab/agentlang`, docs/agent-language.md) next to, or instead of, Programs:
+
+| field | meaning |
+|---|---|
+| `agent_language` | `"off"` \| `"mix"` (each candidate is a language agent with probability `lang_share`, else a library Program) \| `"only"` |
+| `lang_templates` | template names from `agentlang.examples.TEMPLATES` (default: all), instantiated over the GridType's colours |
+| `lang_share` | share of language candidates in `"mix"` (default 0.5) |
+| `lang_gods` | gods allowed language agents (default: all); the others keep Programs only |
+| `lang_pricing` | overrides of `agentlang.pricing.PRICING` (reference sample sizes, step budget) |
+
+Agents that call `score(...)` are bound to their summoner's utility and priced for it. All others are
+priced once and shared. Prices are measured at game start and cached on disk. `GameLog.a_label` records
+`"program"` or `"<kind>:<template>"` for each agent.

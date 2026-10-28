@@ -157,7 +157,7 @@ def main(argv=None) -> None:
     ap.add_argument("--policy-kwargs", default="", help='JSON, e.g. \'{"K": 16, "saver": {"q": 0.9}}\'')
     ap.add_argument("--dealer", default="distinct", choices=["distinct", "uniform", "balanced_camps"])
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--rate", type=float, default=20.0, help="interaction rate Hz")
+    ap.add_argument("--rate", type=float, default=100.0, help="interaction rate Hz (real engine: 100; was 20)")
     ap.add_argument("--length", default="exponential", choices=["exponential", "fixed"])
     ap.add_argument("--seconds", type=float, default=300.0, help="fixed game length")
     ap.add_argument("--half-life", type=float, default=300.0)

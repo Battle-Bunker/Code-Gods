@@ -1,0 +1,46 @@
+## Grid(5,base10,rgby), seed 9, variant all_pay: 5 gods, 420 s, 5070 commits, 103 agents
+Gods (private rule; final payoff, rank):
+  g0 saver              set_spotter            Three cells in a line (across or down) are a SET if their colours are all the same or all different AND their numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores a point.  payoff 40214 (#1)
+  g1 greedy_omniscient  rooks_watch            Your token is a blue 1. Score a point for every row and every column that has at least one token in it.  payoff 8573 (#4)
+  g2 saver              uno_snake              Walk the grid like a Snakes & Ladders board (down, then back up, across the columns). Each step must match the colour or the number, like Uno. Score your longest unbroken walk.  payoff 38827 (#2)
+  g3 greedy_private     odds_evens             Every 2×2 square whose numbers go odd, even / even, odd like a chessboard scores a point; its odd numbers must be red.  payoff 694 (#5)
+  g4 saver              castle_keeper          Build walls of green. A cell is safe when water flowing in from the edge (not through green) can't reach it. Score a point for every safe cell.  payoff 9740 (#3)
+Featured: object 11, spiral of 14 commits over 31.9 s, salience 25.8 -> 126.8 (+100.9 bits), 4 contributing owners (3 major, top owner 51%), 3 gods gain >= 1 bit, accel -0.35, retention 1.00
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t= 235.30 g1 Δσ   -2.6 s=[  7.8   0.4   7.7   0.0   2.3]  In the 3x3 square at row 3, column 3, every number except the highest drops to the lowest one there, then turn every green cell in everything off the edge yellow.
+   t= 235.39 g2 Δσ   +6.6 s=[ 10.8   6.3   7.7   0.0   0.0]  Turn every green cell in the whole grid blue.
+   t= 236.32 g2 Δσ   +4.3 s=[ 10.8   6.3   7.7   0.0   4.3]  Turn every red cell in the whole grid green, then swap yellow and green in the whole grid.
+   t= 237.53 g4 Δσ   -3.2 s=[  5.1   6.3   4.3   0.0  10.1]  Write 8 in every cell of the 2x2 square at row 2, column 4, then paint row 4 green, blue, green, ... alternating.
+ * t= 238.31 g1 Δσ   +6.1 s=[  5.1  12.4   4.3   0.0  10.1]  Stamp 1 on every blue cell in row 1.
+ * t= 239.10 g4 Δσ   +3.8 s=[  5.1  17.9   1.2   0.0  11.5]  If some row or column has at least 4 green cells: paint the other diagonal blue.
+ * t= 240.27 g1 Δσ   +5.6 s=[  7.8  20.8   1.2   0.0  11.5]  Stamp 1 on every blue cell in row 1.
+ * t= 244.40 g2 Δσ  +25.9 s=[  7.8  20.8  38.7   0.0   0.0]  Turn every green cell in the whole grid blue.
+ * t= 246.89 g2 Δσ   +3.0 s=[ 10.8  20.8  38.7   0.0   0.0]  Slide the symbols of row 5 3 steps right, wrapping round.
+ * t= 249.06 g2 Δσ  +14.6 s=[ 33.1  13.1  38.7   0.0   0.0]  Treat red cells as mines: every other cell in the 3x3 square at row 2, column 3 shows how many mines touch it.
+ * t= 251.35 g1 Δσ   +9.0 s=[ 42.1  13.1  38.7   0.0   0.0]  Give the 2x2 square at row 3, column 1 a flip across the other diagonal.
+ * t= 251.96 g4 Δσ   -7.7 s=[ 42.1   0.2  38.7   0.0   5.2]  Turn every blue cell in the whole grid green, then in row 3, paint each cell by its number (colour = number + 2, round the rainbow).
+ * t= 252.47 g4 Δσ   +4.3 s=[ 46.4   0.2  38.7   0.0   5.2]  In the whole grid, every cell touching both yellow and blue turns green, then swap rows 1 and 4.
+ * t= 253.47 g0 Δσ   +9.6 s=[ 55.4   0.7  38.7   0.0   5.2]  Write 1 in every cell of column 1.
+ * t= 259.78 g0 Δσ  +10.3 s=[ 65.8   0.7  38.7   0.0   5.2]  Write 0 in every cell of everything off the edge.
+ * t= 261.04 g0 Δσ   +9.6 s=[ 75.7   0.4  38.7   0.0   5.2]  Stamp 0 on every green cell in column 5.
+ * t= 268.95 g1 Δσ   -9.6 s=[ 65.8   0.7  38.7   0.0   5.2]  Reverse row 1.
+ * t= 270.19 g2 Δσ  +16.4 s=[ 65.8  22.3  38.7   0.0   0.0]  Turn every green cell in the whole grid blue.
+   t= 280.94 g4 Δσ  -25.7 s=[ 55.4   1.7  38.7   0.0   5.2]  Turn every blue cell in the whole grid green, then in row 3, paint each cell by its number (colour = number + 2, round the rainbow).
+   t= 281.11 g4 Δσ  -31.1 s=[ 42.1   1.7  18.0   0.0   8.2]  Paint row 4 red, green, red, ... alternating.
+   t= 281.43 g0 Δσ  +26.2 s=[ 50.6   1.7  38.7   0.0   5.2]  Paint the 3x3 square at row 2, column 2 green.
+   t= 285.08 g2 Δσ   +2.5 s=[ 42.1  17.9  38.7   0.0   0.0]  Turn every green cell in the whole grid blue.
+
+t=237.5 σ=25.8        t=238.3 σ=31.9        t=246.9 σ=70.2        t=253.5 σ=100.1    
+ 9B  9B  9B  9B  9G    1B  1B  1B  1B  9G    1B  1B  1B  1B  1B    1G  4G  0G  0G  0G
+ 1B  4G  4G  8G  8G    1B  4G  4G  8G  8G    1B  4B  4B  8B  8B    1G  4G  0G  0G  0G
+ 4B  4G  1G  8G  8G    4B  4G  1G  8G  8G    4B  4B  1B  8B  8B    1G  4G  0G  0G  0G
+ 4G  8B  7G  1B  1G    4G  8B  7G  1B  1G    4B  8B  7B  1B  1B    1G  1G  1G  1G  1G
+ 1B  2G  1G  1G  1G    1B  2G  1G  1G  1G    1B  1B  1B  1B  2B    1G  1G  1G  1G  2G
+
+t=270.2 σ=126.8       t=285.1 σ=98.7     
+ 0B  0B  0B  4B  1B    0B  0B  0B  4B  1B
+ 1B  0B  0B  0B  0B    1B  0B  0B  0B  0B
+ 1B  0B  0B  0B  0B    1B  0B  0B  0B  0B
+ 1B  0B  0B  0B  0B    1R  0B  0B  0B  0R
+ 1B  1B  1B  1B  0B    1B  1B  1B  1B  0B
