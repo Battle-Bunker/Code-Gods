@@ -147,7 +147,9 @@ function choices(c: Constraint, inst: Instantiation): string[] {
   if (!def) return [];
   const out: string[] = [];
   for (const p of def.params) {
-    const ok = candidates(p, inst.args[p.id], [c]).filter(v => {
+    const cur = inst.args[p.id];
+    const pool = p.kind === "int" && p.presets ? p.presets.filter(v => v !== cur) : candidates(p, cur, [c]);
+    const ok = pool.filter(v => {
       const next = tryInstantiate(def, { ...inst.args, [p.id]: v });
       return next !== null && satisfied(c, next);
     });

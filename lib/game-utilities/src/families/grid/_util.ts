@@ -7,7 +7,7 @@
  * and cards.
  */
 import type { Constraint, ObjectValue, Rng } from "@workspace/game-types";
-import type { FamilyContext, Ordinal, Params, ParamScalar, ScoreShape, UtilityFamily } from "../../types.ts";
+import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
 
 // ------------------------------------------------------------------------------------------------
 // the instantiation, as grid-lab's GridType
@@ -160,50 +160,9 @@ export function recolour<P extends Params>(p: P, keys: readonly string[]): P {
 }
 
 // ------------------------------------------------------------------------------------------------
-// card rendering (grid-lab rules/cards.py `card`)
+// card rendering: ../card.ts (grid-lab rules/cards.py `card`)
 // ------------------------------------------------------------------------------------------------
-
-/** Python's textwrap.wrap for plain prose. */
-export function wrap(text: string, width = 96): string[] {
-  const lines: string[] = [];
-  let line = "";
-  for (const w of text.split(/\s+/).filter(Boolean)) {
-    if (line && line.length + 1 + w.length > width) { lines.push(line); line = w; }
-    else line = line ? `${line} ${w}` : w;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-export function dedent(s: string): string {
-  const lines = s.replace(/^\n+/, "").replace(/\s+$/, "").split("\n");
-  const ind = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^ */)![0].length));
-  return lines.map(l => l.slice(ind)).join("\n");
-}
-
-export type Const = readonly [name: string, value: ParamScalar | null | readonly ParamScalar[], comment?: string];
-
-const pyLit = (v: Const[1]): string =>
-  v === null ? "None" : typeof v === "boolean" ? (v ? "True" : "False") : typeof v === "string" ? `"${v}"`
-    : Array.isArray(v) ? `[${v.map(pyLit).join(", ")}]` : String(v);
-const jsLit = (v: Const[1]): string =>
-  v === null ? "null" : typeof v === "string" ? `"${v}"` : Array.isArray(v) ? `[${v.map(jsLit).join(", ")}]` : String(v);
-
-export interface CardText {
-  readonly emoji: string;
-  readonly name: string;
-  readonly about: string;
-  readonly consts: readonly Const[];
-}
-export function pyCard(t: CardText, body: string): string {
-  const out = [`# ${t.emoji} ${t.name}`, ...wrap(t.about).map(l => `# ${l}`)];
-  for (const [k, v, note] of t.consts) out.push(`${k} = ${pyLit(v)}${note ? `  # ${note}` : ""}`);
-  return `${out.join("\n")}\n\n${dedent(body)}\n`;
-}
-export function tsCard(t: CardText, body: string): string {
-  const out = [`// ${t.emoji} ${t.name}`, ...wrap(t.about).map(l => `// ${l}`)];
-  for (const [k, v, note] of t.consts) out.push(`const ${k} = ${jsLit(v)};${note ? `  // ${note}` : ""}`);
-  return `${out.join("\n")}\n\n${dedent(body)}\n`;
-}
+export { dedent, pyCard, tsCard, wrap, type CardText, type Const } from "../card.ts";
 export const an = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
 export const cap = (w: string) => w[0].toUpperCase() + w.slice(1);
 export const RANK_NAMES: Readonly<Record<number, string>> = { 1: "Ace", 11: "Jack", 12: "Queen", 13: "King" };
@@ -261,22 +220,12 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
 // search-based exemplars (grid-lab best_of / hill_climb / multi_climb), scored by the host evaluator
 // ------------------------------------------------------------------------------------------------
 
-type HostEval = (familyId: string, params: Params, ctx: FamilyContext) => (wire: ObjectValue) => Ordinal;
-let hostEval: HostEval | null = null;
-/** Installed by catalog.ts, so exemplars can score candidates with the family's own card. */
-export function setHostEval(f: HostEval): void { hostEval = f; }
-
-function cmp(a: Ordinal, b: Ordinal): number {
-  const x = typeof a === "number" ? [a] : a, y = typeof b === "number" ? [b] : b;
-  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
-  return 0;
-}
+import { cmp, hostEval as host } from "../define.ts";
 export interface Cand { readonly sym: Layer; readonly col: Layer }
 
 /** The first candidate with the highest ordinal. */
 export function bestOf(id: string, p: Params, ctx: FamilyContext, cands: readonly Cand[]): ObjectValue {
-  if (!hostEval) throw new Error("host evaluator not installed");
-  const g = gridSpec(ctx), u = hostEval(id, p, ctx);
+  const g = gridSpec(ctx), u = host(id, p, ctx);
   let best = wire(g, cands[0].sym, cands[0].col), bv = u(best);
   for (const c of cands.slice(1)) {
     const w = wire(g, c.sym, c.col), v = u(w);
@@ -301,8 +250,7 @@ function mulberry32(seed: number): () => number {
  * colourings; returns the best grid found ("best found" exemplars, as grid-lab's multi_climb).
  */
 export function climb(id: string, p: Params, ctx: FamilyContext, starts: readonly Cand[], restarts = 0): ObjectValue {
-  if (!hostEval) throw new Error("host evaluator not installed");
-  const g = gridSpec(ctx), u = hostEval(id, p, ctx), N = g.N;
+  const g = gridSpec(ctx), u = host(id, p, ctx), N = g.N;
   const rand = mulberry32(0x5eed);
   const all = [...starts];
   for (let i = 0; i < restarts; i++) {

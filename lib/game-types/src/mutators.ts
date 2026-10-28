@@ -14,37 +14,29 @@
  * E_pointwise = log2 |f⁻¹(f(x))| given the call (lib/grid-lab energy.py), so E over the spawn prior is
  * the Shannon erasure of mutators.py. motion = Σ_L Ē_L · B_L(x) / B_L,tot: Ē_L the call's expected
  * changed bits in layer L (its "speed", MutatorDef.expectedChange), B_L(x) the bits this call actually
- * changed, B_L,tot the layer's total bits (energy.py pointwise motion, per call). Calls that change
- * nothing pay decision only. A failed act (bad JSON, unknown or unavailable mutator, bad params, a null
+ * changed, B_L,tot the layer's total bits (energy.py pointwise motion, per call); without an
+ * expectedChange the call's own change is its speed, Σ_L B_L(x)² / B_L,tot (Int and string).
+ * Calls that change nothing pay decision only. A failed act (bad JSON, unknown or unavailable mutator, bad params, a null
  * apply, more than MAX_CALLS calls, or no change at all) pays the decision bits of the calls parsed so
  * far, at least MIN_FAILED_ACT_BITS. Uniqueness against other objects is the engine's job.
  *
- * ── COORDINATION NOTE for the Types worker (prelude generator, typeDefs) ─────────────────────────
- * Call shape. A guest constructor returns a call object: Python dict / JS plain object
- *   {"__m": "<mutator id>", <param>: <JSON value>, ...}   e.g. {"__m": "paint", "kind": "line", "region": [0, 2], "colour": 0}
- * and __encode_calls(calls) turns the agent's return value (a list of calls, one call, or None/null)
- * into the JSON text of [[id, params], ...] (ASCII). ENCODE_CALLS_GUEST below is the reference text
- * of __encode_calls for both languages; mutatorPrelude() includes it.
- * Wire params are plain JSON with integer indices (Grid colour/symbol/rank/suit indices as in
- * lib/grid-lab core.py; tuples as arrays). Guest constructors turn kid inputs ("red", "K♥", cell
- * objects with .row/.col, grid.rows[2]) into those indices.
- * Prelude. mutatorPrelude(mutators, inst, support) returns {python, js, dts, helpers} for the
- * mutators available in `inst`: support code (per-instantiation tables + region builders such as
- * row(i), exported by each type module as gridGuestSupport / intGuestSupport / stringGuestSupport),
- * __encode_calls, then each available mutator's guest constructor. Private names: _M_* (Python),
- * __M_* (JS). Agent preludes only (cards never need them).
- * Motion layers (ObjectTypeDef.changedBits / layerBits must use these keys; reference
- * implementations are exported as GRID_MOTION, INT_MOTION, STRING_MOTION):
- *   Grid   {col: changed cells · log2 C, sym: changed cells · log2 S}; totals N² · log2 C, N² · log2 S
- *   Int    {digits: changed decimal places · log2 10 (+1 if the sign changed)}; total P · log2 10 (+1 if min < 0)
- *   string {chars: changed positions · 7}; total maxLength · 7
- * Terms read by `requires` (instTerms falls back to these when inst.terms lacks them):
- *   Grid "size", "colours.count", "symbols.count"; Int "bounds.size" (max−min+1), "bounds.digits" (P);
- *   string "length.max". Classes: the core.py names (Valued, Ranked, Numeral, Suited, Spectral, Mixable).
+ * ── COORDINATION NOTE (Types worker: prelude generator and typeDefs) ─────────────────────────────
+ * Call shape: a guest constructor returns {"__m": "<mutator id>", <param>: <JSON>, ...}; prelude.ts
+ * __encode_calls turns the agent's calls into [[id, params], ...]. Wire params are plain JSON with
+ * integer indices (Grid: mutators.py params, tuples as arrays, colour/symbol/rank/suit indices of
+ * core.py); constructors turn kid inputs ("red", "K♥", cells, grid.rows[2]) into them.
+ * Guest text is static per mutator and reads the base prelude's private tables (Grid: _SIZE, _CODES,
+ * _SYMBOLS, _VALUES, _LETTERS, _COLOURS, _MIXES; JS with "__"). Shared Grid support (_M_* helpers and
+ * the region builders row(), column(), square(), ring(), edge(), middle(), everything(),
+ * busiest_line()) rides in the guest of `swap_cells`, the first and always-available Grid mutator,
+ * so assemblePrelude needs nothing extra. Private helper names: _M_* (Python), __M_* (JS).
+ * Motion uses ObjectTypeDef.changedBits / layerBits as they are: Grid {symbol, colour}, Int {value},
+ * string {text}. Availability is prelude.ts availableOf (constraints over inst.classes / inst.terms).
  */
+import { availableOf } from "./prelude.ts";
 import {
   MAX_CALLS, MIN_FAILED_ACT_BITS, MutatorError,
-  type ActCost, type ActOutcome, type Constraint, type CostKnobs, type HelperDoc, type Instantiation,
+  type ActCost, type ActOutcome, type CostKnobs, type HelperDoc, type Instantiation,
   type MutatorCallWire, type MutatorDef, type ObjectTypeDef, type ObjectValue, type Rng,
 } from "./types.ts";
 
@@ -63,42 +55,6 @@ export const mod = (a: number, m: number): number => ((a % m) + m) % m;
 
 export function fail(message: string): never {
   throw new MutatorError(message);
-}
-
-// ------------------------------------------------------------------------------------------------
-// availability
-// ------------------------------------------------------------------------------------------------
-
-/** inst.terms plus the fallback terms the mutator modules rely on (see the coordination note). */
-export function instTerms(inst: Instantiation): Readonly<Record<string, number>> {
-  const a = inst.args as Record<string, number | string>;
-  const derived: Record<string, number> = {};
-  if (inst.objectType === "Grid") {
-    derived.size = Number(a.size);
-    derived["colours.count"] = { rgb: 3, rgby: 4, rainbow6: 6 }[String(a.colours)] ?? 0;
-    derived["symbols.count"] = a.symbols === "cards" ? 52 : Number(String(a.symbols).slice(4));
-  } else if (inst.objectType === "Int") {
-    const lo = Number(a.min), hi = Number(a.max);
-    derived["bounds.size"] = hi - lo + 1;
-    derived["bounds.digits"] = String(Math.max(Math.abs(lo), Math.abs(hi))).length;
-  } else if (inst.objectType === "string") {
-    derived["length.max"] = Number(a.maxLength);
-  }
-  return { ...derived, ...inst.terms };
-}
-
-export function satisfies(c: Constraint, inst: Instantiation, terms = instTerms(inst)): boolean {
-  if ("not" in c) return !satisfies(c.not, inst, terms);
-  if ("has" in c) return inst.classes.includes(c.has);
-  const v = terms[c.term];
-  if (v === undefined) return false;
-  if ("parity" in c) return mod(v, 2) === (c.parity === "odd" ? 1 : 0);
-  return c.op === ">=" ? v >= c.value : c.op === "<=" ? v <= c.value : v === c.value;
-}
-
-export function availableMutators<M extends MutatorDef<any, any>>(mutators: readonly M[], inst: Instantiation): M[] {
-  const terms = instTerms(inst);
-  return mutators.filter(m => m.requires.every(c => satisfies(c, inst, terms)));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -181,7 +137,7 @@ const cost = (decision: number, erasure: number, motion: number): ActCost =>
  */
 export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, value: ObjectValue, wire: unknown,
   knobs: CostKnobs = DEFAULT_COST_KNOBS): ActOutcome {
-  const avail = availableMutators(typeDef.mutators, inst);
+  const avail = availableOf(typeDef.mutators, inst);
   const byId = new Map(avail.map(m => [m.id, m]));
   const codec = typeDef.codec(inst);
   const totals = typeDef.layerBits(inst);
@@ -227,67 +183,15 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
 // guest prelude pieces
 // ------------------------------------------------------------------------------------------------
 
-export interface GuestParts {
-  readonly python: string;
-  readonly js: string;
-  readonly dts: string;
-  readonly docs: readonly HelperDoc[];
-}
-
-/** Reference __encode_calls for both guests (the prelude generator may reuse it verbatim). */
-export const ENCODE_CALLS_GUEST: GuestParts = {
-  python: `import json as _M_JSON
-
-def __encode_calls(calls):
-    if calls is None:
-        calls = []
-    if isinstance(calls, dict):
-        calls = [calls]
-    out = []
-    for c in calls:
-        if not isinstance(c, dict) or not isinstance(c.get("__m"), str):
-            raise TypeError("agent must return a list of mutator calls, like [paint(row(0), 'red')], not " + repr(c))
-        out.append([c["__m"], {k: v for k, v in c.items() if k != "__m"}])
-    return _M_JSON.dumps(out, separators=(",", ":"), ensure_ascii=True)
-`,
-  js: `function __encode_calls(calls) {
-  if (calls == null) calls = [];
-  if (!Array.isArray(calls)) calls = [calls];
-  const out = calls.map(c => {
-    if (c === null || typeof c !== "object" || typeof c.__m !== "string") {
-      throw new TypeError("agent must return a list of mutator calls, like [paint(row(0), \\"red\\")]");
-    }
-    const { __m, ...params } = c;
-    return [__m, params];
-  });
-  return JSON.stringify(out).replace(/[\\u007f-\\uffff]/g, ch => "\\\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
-}
-`,
-  dts: `interface MutatorCall { readonly __m: string }
-`,
-  docs: [],
-};
-
-/** Support + __encode_calls + the guest constructors of the mutators available in `inst`. */
-export function mutatorPrelude(mutators: readonly MutatorDef<any, any>[], inst: Instantiation, support: GuestParts): GuestParts {
-  const parts = [support, ENCODE_CALLS_GUEST, ...availableMutators(mutators, inst).map(m => m.guest)];
-  return {
-    python: parts.map(p => p.python).join("\n"),
-    js: parts.map(p => p.js).join("\n"),
-    dts: parts.map(p => p.dts).join("\n"),
-    docs: parts.flatMap(p => p.docs),
-  };
-}
-
 /** HelperDoc for a mutator constructor. */
 export function mdoc(python: string, typescript: string, kid: string, cls?: string): HelperDoc {
   const name = (s: string) => s.slice(0, s.indexOf("("));
-  return { name: { python: name(python), typescript: name(typescript) }, signature: { python, typescript }, kid, class: cls, group: "mutator" };
+  return { name: { python: name(python), typescript: name(typescript) }, signature: { python, typescript }, kid, ...(cls ? { class: cls } : {}), group: "mutator" };
 }
 
 /** JSON literal that is valid ASCII Python and JS source (non-ASCII escaped as \uXXXX). */
 export function asciiJson(x: unknown): string {
-  return JSON.stringify(x).replace(/[\u007f-￿]/g, ch => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
+  return JSON.stringify(x).replace(/[\u007f-\uffff]/g, ch => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
 /** Uniform choice. */

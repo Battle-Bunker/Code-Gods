@@ -3,7 +3,9 @@ import type { Constraint, Instantiation, InstanceInfo, ObjectValue, Rng } from "
 export type Language = "python" | "typescript";
 /** Params are plain JSON. `null` marks an unset option (grid-lab `None`, e.g. Royal Court "any suit"). */
 export type ParamScalar = number | string | boolean | null;
-export type Params = Readonly<Record<string, ParamScalar | readonly ParamScalar[] | Readonly<Record<string, unknown>>>>;
+/** Any JSON value built from scalars (lists of lists are fine, e.g. Residue Oracle's omens). */
+export type ParamJson = ParamScalar | readonly ParamJson[] | { readonly [key: string]: ParamJson };
+export type Params = { readonly [key: string]: ParamJson };
 
 /**
  * An ordinal utility: a number, or a fixed-arity tuple compared lexicographically. Bigger is better.

@@ -1,38 +1,67 @@
-import type { Domain, Rng, UtilityDescriptor } from "./types.ts";
-import { familiesFor, legal } from "./catalog.ts";
+import type { Instantiation, Rng } from "@workspace/game-types";
+import type { UtilityDescriptor, UtilityFamily } from "./types.ts";
+import { available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
+
+export interface SelectOptions {
+  /** Probability that a god is also dealt a defence goal (a penalty family). Default 0: opt-in. */
+  readonly defenceRate?: number;
+  /**
+   * Only deal draws that have calibration tables. Called with the raw draw (the predicate canonicalises it, e.g.
+   * through `family.canonical`). Default: every draw has one.
+   */
+  readonly hasTable?: (draw: Draw) => boolean;
+}
 
 /**
- * Decides which utility function each god receives. Selectors are the hook for
- * future balancing (e.g. guaranteeing overlapping interests); the default is pure chance.
+ * Decides which utility function each god receives. Selectors are the hook for future balancing (e.g.
+ * guaranteeing overlapping interests); the default is pure chance.
  */
 export interface UtilitySelector {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  select(domain: Domain, godCount: number, rng: Rng): UtilityDescriptor[];
+  select(inst: Instantiation, godCount: number, rng: Rng, options?: SelectOptions): UtilityDescriptor[];
 }
 
-/** One independent draw per god; only draws that are perfectly reachable in this domain count. */
-function draw(domain: Domain, rng: Rng): UtilityDescriptor {
-  const candidates = familiesFor(domain.objectType);
-  for (let attempt = 0; attempt < 1000; attempt++) {
-    const family = candidates[rng(candidates.length)];
-    const params = family.sample(rng);
-    if (legal(family.exemplar(params), domain)) return { familyId: family.id, params };
+const ATTEMPTS = 1000;
+
+/** A uniform family among `candidates`, then its sampler; redrawn until it has a table. */
+function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean): Draw | null {
+  if (!candidates.length) return null;
+  const ctx = context(inst);
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    const f = candidates[rng.int(candidates.length)];
+    const d = { familyId: f.id, params: f.sample(rng, ctx) };
+    if (hasTable(d)) return d;
   }
-  throw new Error("No utility family can reach full utility in this domain; widen the domain");
+  return null;
 }
+
+/** The families of this instantiation that `resolve` makes available, of one role. */
+export const availableFamilies = (inst: Instantiation, role: "reward" | "penalty") =>
+  familiesFor(inst.objectType, role).filter(f => available(f, inst).ok);
 
 export const divineLottery: UtilitySelector = {
   id: "divine-lottery",
   name: "Divine Lottery",
-  description: "Every god independently draws a random utility function from the whole repertoire for the object type. Identical draws are redrawn; anything else, including two gods of the same family, can happen.",
-  select(domain, godCount, rng) {
+  description: "Every god independently draws a random utility function from the families available for this kind of "
+    + "object. Identical draws are redrawn; anything else, including two gods of the same family, can happen. With "
+    + "defence goals on, each god may also be dealt something to hate.",
+  select(inst, godCount, rng, options = {}) {
+    const hasTable = options.hasTable ?? (() => true);
+    const rate = Math.min(1, Math.max(0, options.defenceRate ?? 0));
+    const rewards = availableFamilies(inst, "reward");
+    const penalties = rate > 0 ? availableFamilies(inst, "penalty") : [];
     const chosen: UtilityDescriptor[] = [];
     const seen = new Set<string>();
-    while (chosen.length < godCount) {
-      const descriptor = draw(domain, rng);
-      const key = JSON.stringify(descriptor);
+    for (let attempt = 0; chosen.length < godCount; attempt++) {
+      if (attempt > ATTEMPTS * Math.max(1, godCount)) throw new Error(`Not enough distinct utility functions for ${inst.key}`);
+      const reward = drawFrom(rewards, inst, rng, hasTable);
+      if (!reward) throw new Error(`No calibrated utility family is available for ${inst.key}`);
+      // Defence goal with probability `rate` (resolution 1e-6).
+      const penalty = rate > 0 && rng.int(1_000_000) < Math.round(rate * 1_000_000) ? drawFrom(penalties, inst, rng, hasTable) : null;
+      const descriptor: UtilityDescriptor = penalty ? { ...reward, penalty } : reward;
+      const key = paramsKey(descriptor);
       if (seen.has(key)) continue;
       seen.add(key);
       chosen.push(descriptor);
