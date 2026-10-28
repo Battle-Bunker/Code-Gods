@@ -2,7 +2,8 @@
 
 Branch `claude/clean-implementation`. This document lists every structure on `main` that the current
 spec supersedes, what replaces it, who owns each piece, and the few compatibility shims we keep (each
-one justified by the protocol or the database, nothing else).
+one justified by the protocol or the database, nothing else). The server parts are superseded by
+`convex-migration-plan.md`.
 
 Sources of the spec: `lib/grid-lab/SPEC.md` (naming), `docs/research/grid/architecture.md` (types,
 capability classes, preludes, wire format, UX, API; §10 wins over §§3–5), `lib/grid-lab/docs/*.md`
@@ -30,6 +31,11 @@ the source of knob defaults, never imported by the product.
 
 ## 2. Package layout after the migration
 
+> **Superseded by [`convex-migration-plan.md`](convex-migration-plan.md) §1.1 for the server.** The engine,
+> persistence, auth and static hosting now live in one Convex deployment (`artifacts/engine`).
+> `artifacts/api-server`, `lib/db` (PostgreSQL), `lib/api-spec`, `lib/api-zod`, `lib/api-client-react` and the
+> player daemon have been deleted. The layout below is kept for the pure-TypeScript libraries it introduced.
+
 ```
 lib/game-types        NEW. Pure TS (no Node deps; UI imports it). Object-type registry:
   src/types.ts          ObjectTypeDef, Instantiation, Codec, Constraint, MutatorDef, PreludeParts (the contract)
@@ -42,8 +48,7 @@ lib/game-utilities    Families (ordinal, kid cards in Python + TS), host evaluat
   data/calibration/v1/*.json (shipped), test/parity*.{ts,py} (vs Python cards and lib/grid-lab)
 lib/game-core         settings (objectType + typeArgs), information scoring, god + agent energy, random, ids
 lib/game-runtime      sandboxes: inspect (ast-bytes-v1), act(source, input, prelude) -> encoded calls
-artifacts/api-server  engine (agent energy, mutator application, scoring), projection, routes
-lib/api-spec          OpenAPI (regenerated into lib/api-zod and lib/api-client-react with orval)
+artifacts/engine      the Convex engine (agent energy, mutator application, scoring, projection, auth)
 lib/object-views      renderer registry + shared kid-facing components
 artifacts/code-gods, artifacts/player-web, lib/player-client (protocol v3), lib/ai-player (prompts)
 ```
@@ -122,7 +127,7 @@ enumerate canonical params.
 | Families | `lib/game-utilities/src/families/**`, parity tests | Types prelude |
 | Calibration | `lib/game-utilities/{scripts,data,src/calibration.ts}`, Int/string ordinal families | Families |
 | Runtime | `lib/game-runtime/**` | contract |
-| Server | `lib/game-core/**`, `artifacts/api-server/**`, `lib/api-spec` + regenerated clients, `lib/db`, `lib/player-client`, `lib/ai-player` | all of the above |
+| Server | `lib/game-core/**`, the engine (now `artifacts/engine`), `lib/player-client`, `lib/ai-player` | all of the above |
 | UI | `lib/object-views/**`, `artifacts/code-gods/**`, `artifacts/player-web/**`, Playwright | API |
 
 ## 6. No compatibility shims for the old design
@@ -130,13 +135,10 @@ enumerate canonical params.
 Direction from the user: throw the old design away completely; keep nothing that exists only to support it.
 The hard constraints are deployment safety, not feature preservation:
 
-1. **Database.** No destructive migrations on live tables: schema changes are additive (nullable) or none.
-   Unused columns may stay in the schema, but no code reads them. Stored state is JSONB; on startup a stored
-   room whose state does not parse as the current schema is reset (default settings, no game, members and
-   chat kept), and games written by the old design are left out of history (no code reads their summaries).
-   This is a startup guard against unreadable rows, not a translation layer: no legacy settings are mapped.
-2. **Player clients.** `artifacts/player-web` and the daemon move to protocol v3 in the same PR; there is no
-   v2 path. PILOT.md has a short migration note for externally duplicated client copies.
+1. **Database.** (Historical: this applied to the PostgreSQL store, which the Convex migration removed. The
+   Convex deployment started empty; see `convex-migration-plan.md` §2 for its tables.)
+2. **Player clients.** `artifacts/player-web` and `lib/player-client` moved to protocol v3 in the same PR;
+   there is no v2 path. `docs/player-client-integration.md` has the v2 → v3 note.
 3. Removed outright: [0,1] scoring and its tests, the old families' [0,1] form, free-form agents, god-only
    energy, the old payoff code, `RoomState.game` and other deprecated fields, old rendering paths, the PR #12
    thin slice, and docs for removed features.
@@ -148,7 +150,7 @@ The hard constraints are deployment safety, not feature preservation:
 
 Ported or replaced suites per package; parity against Python cards and `lib/grid-lab`; mutator laws
 (idempotent or bijective, determinism, cost ≥ 0, bijections erase 0) for every mutator × instantiation;
-a full-game integration test per object type through the real routes (as PR #4's lifecycle test);
+a full-game integration test per object type through the engine's functions (`artifacts/engine/test/game-*.test.ts`);
 typecheck and builds; Playwright smoke tests of both UIs, including at phone width (390 px).
 
 ## 8. Checklist
