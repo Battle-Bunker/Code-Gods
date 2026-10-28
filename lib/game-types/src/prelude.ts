@@ -8,7 +8,7 @@
  * keys sorted, no spaces, non-ASCII escaped as \uXXXX, numbers must be whole and safe. Python and JS
  * emit byte-identical text for the same calls.
  */
-import { resolve } from "./constraints.ts";
+import { satisfied } from "./constraints.ts";
 import { MAX_CALLS, type HelperDoc, type Instantiation, type MutatorDef, type PreludeParts } from "./types.ts";
 import { sha256 } from "./util.ts";
 
@@ -161,7 +161,7 @@ export function helper(python: string, pySig: string, tsSig: string, kid: string
 }
 
 export function availableOf<V>(mutators: readonly MutatorDef<V, any>[], inst: Instantiation): MutatorDef<V, any>[] {
-  return mutators.filter(m => resolve(m.requires, inst).ok);
+  return mutators.filter(m => m.requires.every(c => satisfied(c, inst)));   // = resolve(m.requires, inst).ok
 }
 
 /** base prelude + call encoder + every available mutator's guest constructors. */

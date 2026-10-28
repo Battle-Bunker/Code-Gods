@@ -46,6 +46,7 @@ function assertSymmetric<V>(type: ObjectTypeDef<V>, inst: Instantiation, x: V, k
   for (const p of from.values()) total += p;
   for (const k of keys.filter((_, i) => i % step === 0)) {
     const p = from.get(k) ?? 0;
+    if (targets) assert.ok(p > 0, `${k} is reachable`);
     const rev = distribution(rng => type.propose(back(k), inst, rng), key).get(key(x)) ?? 0;
     assert.ok(Math.abs(p - rev) < 1e-12, `${inst.key}: q(${key(x)}→${k}) = ${p} but q(back) = ${rev}`);
     assert.ok(type.codec(inst).isValid(type.codec(inst).encode(back(k))));
