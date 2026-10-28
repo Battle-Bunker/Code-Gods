@@ -7,7 +7,7 @@
  */
 
 /**
- * Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore).
+ * Information scoring: payoffs in bits².
  */
 export type GameRecordScoring = typeof GameRecordScoring[keyof typeof GameRecordScoring];
 

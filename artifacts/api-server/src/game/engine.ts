@@ -120,7 +120,7 @@ export async function startGame(room: Room, actor: Actor) {
   if (room.members.length > 8) throw new Error("At most eight gods can play");
   if (room.members.some(m => m.kind === "ai")) {
     for (const bot of room.members.filter(m => m.kind === "ai")) {
-      if (!bot.aiAgent) throw new Error("Replace legacy AI seats with an agent from the library");
+      if (!bot.aiAgent) throw new Error("Every AI seat needs an agent from the library");
       getAIProvider(bot.aiAgent);
     }
     if (room.aiBudget <= 0) throw new Error("Approve an AI token budget before starting with AI seats");
@@ -142,12 +142,10 @@ export async function startGame(room: Room, actor: Actor) {
     objects: [], agents: [], events: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
     pauseEndsAt: 0, worldSeconds: 0, endAtWorld: lifetimeSeconds(room.settings.halfLifeSeconds, openUniform()),
     nextSpawn: poissonIntervalSeconds(room.settings.spawnRateHz, openUniform()),
-    nextInteraction: 0, // Legacy persisted field; interactions are now capacity-capped dispatches.
     lastTick: now,
   };
   // Infinity cannot be round-tripped in JSON; disabled sources use a finite sentinel.
   if (!Number.isFinite(game.nextSpawn)) game.nextSpawn = Number.MAX_VALUE;
-  if (!Number.isFinite(game.nextInteraction)) game.nextInteraction = Number.MAX_VALUE;
   for (let i = 0; i < game.settings.startingObjectCount; i++) spawn(game);
   room.game = game;
   room.aiUsed = 0; room.aiReservedUsd = 0;

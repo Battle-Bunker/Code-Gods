@@ -35,20 +35,20 @@ export type WorldEvent =
   };
 export type Game = {
   id: string; shortCode: string; phase: "planning" | "running" | "paused" | "recovery" | "ended";
-  /** Absent on games created before information scoring: those are legacy (retired or legacy history). */
-  scoring?: "information-v1";
+  /** Marks a game of this design; stored games without it are never read. */
+  scoring: "information-v1";
   // Snapshot includes interactionComputeMs; changing lobby settings cannot change this budget.
   settings: GameSettings; roster: Member[]; deities: Deity[]; objects: WorldObject[]; agents: Agent[];
   createdAt: number; planningEndsAt: number; pauseEndsAt: number; worldSeconds: number;
-  endAtWorld: number; nextSpawn: number; nextInteraction: number; lastTick: number;
+  endAtWorld: number; nextSpawn: number; lastTick: number;
   events: WorldEvent[]; recoveryReason?: string; executionEpoch?: number;
   /** Recovery caused by a restart or idling resumes by itself once a human is active again. */
   autoResume?: boolean;
-  /** Wall-clock end. Null for legacy games that ended before this was recorded. */
-  endedAt?: number | null;
+  /** Wall-clock end, stamped in the commit that ends the game. */
+  endedAt?: number;
   endReason?: GameEndReason;
 };
-export type GameEndReason = "lifetime" | "owner" | "retired";
+export type GameEndReason = "lifetime" | "owner";
 /**
  * A room is a persistent lobby: members, readiness and the owner's settings draft
  * for the NEXT game. `game` is the room's current game slot: the active game, or the

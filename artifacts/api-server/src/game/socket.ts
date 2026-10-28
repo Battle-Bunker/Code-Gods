@@ -1,9 +1,8 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
-import { lookupSession, assertSessionActive, watchSession, requireAct } from "../lib/identity";
-import { listeners, resolveRoom, member, mutate } from "./store";
-import { publicRoom, personalRoom, gameRecord, personalObject } from "./projection";
-import { playerCommand } from "./engine";
+import { lookupSession, assertSessionActive, watchSession } from "../lib/identity";
+import { listeners, resolveRoom, member } from "./store";
+import { publicRoom, gameRecord, personalObject, standings } from "./projection";
 import { observation, executePlayerEnvelope } from "./player-api";
 import { VERSION } from "@workspace/player-client";
 import { isServerActive, isLocallyIdle, recordHumanActivity, registerActivitySocket, closeIdleSocket } from "./activity";
@@ -55,7 +54,7 @@ export function attachSockets(server: Server) {
           if (ws.bufferedAmount > 1048576) { ws.close(1013, "Reconnect to resync"); return; }
           if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ protocolVersion: 1, type, seq, serverTime: Date.now(), payload }));
         };
-        const project = () => actor.scope === "player" ? personalRoom(resolveRoom(room.id), actor.id) : publicRoom(resolveRoom(room.id));
+        const project = () => publicRoom(resolveRoom(room.id));
         send("room.snapshot", project());
         send("player.observation", observation(room, actor));
         let gameId = room.game?.id;
@@ -69,7 +68,7 @@ export function attachSockets(server: Server) {
             gameId = changed.game?.id;
             gameEnded = false;
             lastEvent = undefined;
-            if (changed.game?.deities.some(d => d.id === actor.id)) send("game.preparing", personalRoom(changed, actor.id));
+            if (changed.game?.deities.some(d => d.id === actor.id)) send("game.preparing", observation(changed, actor));
           }
           const events = changed.game?.events ?? [];
           const start = lastEvent ? events.findIndex(e => e.id === lastEvent) + 1 : 0;
@@ -91,7 +90,7 @@ export function attachSockets(server: Server) {
             }
           }
           lastEvent = events.at(-1)?.id;
-          send("leaderboard.updated", publicRoom(changed).game?.leaderboard ?? []);
+          send("leaderboard.updated", changed.game ? standings(changed.game) : []);
           // The room is back in its lobby; the public result is now in the room's history.
           if (changed.game?.phase === "ended" && !gameEnded) send("game.ended", gameRecord(changed.id, changed.game));
           gameEnded = changed.game?.phase === "ended";
@@ -107,18 +106,11 @@ export function attachSockets(server: Server) {
             if (!await lookupSession(token)) { ws.close(1008, "Session expired"); return; }
             if (!await isServerActive()) { closeIdleSocket(ws); return; }
             const input = JSON.parse(data.toString());
-            if (input.version === VERSION) {
-              const receipt = await executePlayerEnvelope(room.id, actor, input);
-              if (receipt.accepted && actor.kind === "human") await recordHumanActivity();
-              send("command.receipt", receipt);
-              return;
-            }
-            if (input.protocolVersion !== 1) throw new Error("Unsupported protocol");
-            if (input.command === "subscribe" || input.command === "resume") { send("room.snapshot", project()); return; }
-            requireAct(actor);
-            const result = await mutate(room.id, draft => playerCommand(draft, actor, input));
-            if (actor.kind === "human") await recordHumanActivity();
-            send("command.receipt", { requestId: input.requestId, result });
+            // The only inbound messages are player-protocol envelopes of the current version.
+            if (input?.version !== VERSION) throw new Error(`Unsupported protocol: send ${VERSION} envelopes`);
+            const receipt = await executePlayerEnvelope(room.id, actor, input);
+            if (receipt.accepted && actor.kind === "human") await recordHumanActivity();
+            send("command.receipt", receipt);
           })().catch(error => send("command.error", { error: String(error.message) })).finally(() => { busy = false; }));
         });
         const heartbeat = setInterval(() => {

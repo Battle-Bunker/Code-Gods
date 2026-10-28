@@ -15,5 +15,4 @@ export type GameRecordEndReason = typeof GameRecordEndReason[keyof typeof GameRe
 export const GameRecordEndReason = {
   lifetime: 'lifetime',
   owner: 'owner',
-  retired: 'retired',
 } as const;

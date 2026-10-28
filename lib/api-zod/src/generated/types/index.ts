@@ -95,7 +95,6 @@ export * from './playerObservationVersion';
 export * from './publicAiAgent';
 export * from './publicAiAgentProvider';
 export * from './publicGame';
-export * from './publicGameScoring';
 export * from './publicObject';
 export * from './roomActionInput';
 export * from './roomActionInputAction';

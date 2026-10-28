@@ -2,7 +2,7 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
 import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, instantiationOf, validateSettings, type GameSettings } from "@workspace/game-core";
-import { OBJECT_TYPES, instanceInfo, objectType } from "@workspace/game-types";
+import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { offeredInstantiations } from "../game/calibration";
 import { requireIdentity, requireAct } from "../lib/identity";
@@ -111,10 +111,7 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (input.action === "settings") {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
       if (!input.settings) throw new Error("Settings are required");
-      // Clients that predate a setting omit it: keep its default rather than reject the whole form.
-      const settings = { ...DEFAULT_SETTINGS, ...input.settings } as GameSettings;
-      // A changed object type without arguments takes that type's defaults, not the previous type's.
-      if (!input.settings.typeArgs) settings.typeArgs = objectType(settings.objectType).defaults;
+      const settings = input.settings as GameSettings;
       validateSettings(settings);
       assertOffered(settings);
       if (settings.startingObjectCount > 1000 ||

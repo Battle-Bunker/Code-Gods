@@ -137,7 +137,7 @@ paths:
               schema: { $ref: "#/components/schemas/RoomState" }
   /games/{code}:
     parameters:
-      - { name: code, in: path, required: true, schema: { type: string }, description: "Game short code or legacy UUID" }
+      - { name: code, in: path, required: true, schema: { type: string }, description: "Game short code or UUID" }
     get:
       operationId: getGameLink
       responses:
@@ -812,7 +812,7 @@ components:
         ownerId: { type: string }
         ownerName: { type: string }
         createdAt:
-          description: Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+          description: Unix milliseconds; null when the creation time is unknown.
           oneOf:
             - { type: number }
             - { type: "null" }
@@ -861,7 +861,6 @@ components:
         name: { type: string }
         kind: { type: string }
         totalPayoff: { type: number, description: "Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits²." }
-        totalScore: { type: number, description: "Legacy summaries only (no `scoring` marker), from the old [0, 1] scoring." }
         rank: { type: integer }
     GodScore:
       type: object
@@ -964,18 +963,18 @@ components:
     GameRecord:
       type: object
       description: Public result of one finished game, kept in its room's history.
-      required: [id, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, agentCount]
+      required: [id, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, agentCount, scoring]
       properties:
         id: { type: string }
         shortCode: { type: string }
         roomId: { type: string }
         startedAt: { type: number }
         endedAt:
-          description: Unix milliseconds; null for legacy games whose end time was not recorded.
+          description: Unix milliseconds.
           type: [number, "null"]
         endReason:
           type: [string, "null"]
-          enum: [lifetime, owner, retired, null]
+          enum: [lifetime, owner, null]
         settings: { $ref: "#/components/schemas/Settings" }
         roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
         leaderboard: { type: array, items: { $ref: "#/components/schemas/Standing" } }
@@ -989,7 +988,7 @@ components:
         scoring:
           type: string
           enum: [information-v1]
-          description: Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore).
+          description: "Information scoring: payoffs in bits²."
     GameView:
       description: A game's own page. Public information only.
       allOf:
@@ -1015,7 +1014,7 @@ components:
             serverTime: { type: number }
     PublicGame:
       type: object
-      required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount]
+      required: [id, shortCode, phase, worldSeconds, planningEndsAt, pauseEndsAt, objects, leaderboard, agentCount, objectInstance]
       properties:
         id: { type: string }
         shortCode: { type: string }
@@ -1032,25 +1031,21 @@ components:
         recoveryReason: { type: [string, "null"] }
         settings: { $ref: "#/components/schemas/Settings" }
         roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
-        scoring: { type: [string, "null"], enum: [information-v1, null], description: "Null for legacy games." }
-        objectInstance:
-          oneOf:
-            - { $ref: "#/components/schemas/InstanceInfo" }
-            - { type: "null" }
+        objectInstance: { $ref: "#/components/schemas/InstanceInfo" }
     RoomState:
       type: object
       description: >-
         A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game.
         Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in
         GET /rooms/{roomId}/games.
-      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, game, activeGame, serverTime, objectInstance, utilityCatalog, aiBudget, aiUsed]
+      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, activeGame, serverTime, objectInstance, utilityCatalog, aiBudget, aiUsed]
       properties:
         id: { type: string }
         shortCode: { type: string }
         ownerId: { type: string }
         ownerName: { type: string }
         createdAt:
-          description: Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+          description: Unix milliseconds; null when the creation time is unknown.
           type: [number, "null"]
         revision: { type: integer }
         settings:
@@ -1062,19 +1057,10 @@ components:
           oneOf:
             - { $ref: "#/components/schemas/ActiveGameRef" }
             - { type: "null" }
-        game:
-          description: >-
-            Deprecated legacy view of the room's current game slot (the active game, or the most recent
-            one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.
-          oneOf:
-            - { $ref: "#/components/schemas/PublicGame" }
-            - { type: "null" }
         serverTime: { type: number }
         objectInstance:
-          description: The instantiation the next game will play; null if the stored settings are no longer valid.
-          oneOf:
-            - { $ref: "#/components/schemas/InstanceInfo" }
-            - { type: "null" }
+          description: The instantiation the next game will play.
+          allOf: [{ $ref: "#/components/schemas/InstanceInfo" }]
         utilityCatalog:
           type: array
           description: Public list of utility-function families gods may draw for these settings, with availability.

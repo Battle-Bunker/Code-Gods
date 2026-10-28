@@ -591,7 +591,7 @@ export interface RoomSummary {
   shortCode: string;
   ownerId: string;
   ownerName: string;
-  /** Unix milliseconds; null for legacy rooms whose creation time was not recorded. */
+  /** Unix milliseconds; null when the creation time is unknown. */
   createdAt: number | null;
   memberCount: number;
   /** `lobby` between games, otherwise the active game's phase. */
@@ -639,8 +639,6 @@ export interface Standing {
   kind: string;
   /** Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits². */
   totalPayoff: number;
-  /** Legacy summaries only (no `scoring` marker), from the old [0, 1] scoring. */
-  totalScore?: number;
   rank: number;
 }
 
@@ -780,11 +778,10 @@ export type GameRecordEndReason = typeof GameRecordEndReason[keyof typeof GameRe
 export const GameRecordEndReason = {
   lifetime: 'lifetime',
   owner: 'owner',
-  retired: 'retired',
 } as const;
 
 /**
- * Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore).
+ * Information scoring: payoffs in bits².
  */
 export type GameRecordScoring = typeof GameRecordScoring[keyof typeof GameRecordScoring];
 
@@ -802,7 +799,7 @@ export interface GameRecord {
   roomId: string;
   startedAt: number;
   /**
-     * Unix milliseconds; null for legacy games whose end time was not recorded.
+     * Unix milliseconds.
      * @nullable
      */
   endedAt: number | null;
@@ -816,8 +813,8 @@ export interface GameRecord {
   worldSeconds: number;
   objectCount: number;
   agentCount: number;
-  /** Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore). */
-  scoring?: GameRecordScoring;
+  /** Information scoring: payoffs in bits². */
+  scoring: GameRecordScoring;
 }
 
 export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
@@ -826,17 +823,6 @@ export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
 export const GameViewStatus = {
   active: 'active',
   ended: 'ended',
-} as const;
-
-/**
- * Null for legacy games.
- * @nullable
- */
-export type PublicGameScoring = typeof PublicGameScoring[keyof typeof PublicGameScoring] | null;
-
-
-export const PublicGameScoring = {
-  'information-v1': 'information-v1',
 } as const;
 
 export interface PublicGame {
@@ -858,12 +844,7 @@ export interface PublicGame {
   recoveryReason?: string | null;
   settings?: Settings;
   roster?: RosterEntry[];
-  /**
-     * Null for legacy games.
-     * @nullable
-     */
-  scoring?: PublicGameScoring;
-  objectInstance?: InstanceInfo | null;
+  objectInstance: InstanceInfo;
 }
 
 /**
@@ -943,7 +924,7 @@ export interface RoomState {
   ownerId: string;
   ownerName: string;
   /**
-     * Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+     * Unix milliseconds; null when the creation time is unknown.
      * @nullable
      */
   createdAt: number | null;
@@ -953,11 +934,9 @@ export interface RoomState {
   members: Member[];
   chat: ChatMessage[];
   activeGame: ActiveGameRef | null;
-  /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
-  game: PublicGame | null;
   serverTime: number;
-  /** The instantiation the next game will play; null if the stored settings are no longer valid. */
-  objectInstance: InstanceInfo | null;
+  /** The instantiation the next game will play. */
+  objectInstance: InstanceInfo;
   /** Public list of utility-function families gods may draw for these settings, with availability. */
   utilityCatalog: UtilityFamily[];
   aiBudget: number;

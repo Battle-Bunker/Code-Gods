@@ -14,7 +14,8 @@ import roomsRouter from "../src/routes/rooms";
 import playerRouter from "../src/routes/player";
 import gamesRouter from "../src/routes/games";
 import { attachSockets } from "../src/game/socket";
-import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions } from "../src/game/store";
+import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions, initializeStore } from "../src/game/store";
+import { codecOf } from "@workspace/game-core";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
 import { registerAdapters, requireAdapters } from "../src/game/adapters";
@@ -26,12 +27,21 @@ import { AIController, SYSTEM } from "@workspace/ai-player";
 import { VERSION } from "@workspace/player-client";
 import type { Actor } from "../src/game/types";
 
+const EMPTY_TS = "function agent(x) { return []; }";
+const ADD_TS = "function agent(x) { return [add(1)]; }";
+const ADD_PY = "def agent(x):\n    return [add(1)]";
+/** A test agent that is always eligible (expected cost 1 bit, energy to spare). */
+const richAgent = (ownerId: string, source: string, world = 0) => ({
+  id: randomUUID(), ownerId, source, createdAt: Date.now(), summonCost: 0, expectedActCost: 1,
+  account: { balance: 1000, settledWorldSeconds: world }, acts: 0, spent: 0,
+});
+
 test("bounded queued interactions preserve command durability and retry failed writes", async () => {
   const host: Actor = { id: randomUUID(), name: "Queue test", kind: "human", scope: "browser" };
   const room = await createRoom(host);
   await mutate(room.id, async draft => {
     draft.game = { id: randomUUID(), shortCode: "fixture", phase: "ended", objects: [
-      { id: "object", value: 0, version: 0, values: {} },
+      { id: "object", value: 0, version: 0, scores: {} },
     ], events: [], deities: [{ id: host.id, spent: 0 }] } as any;
   });
   const beforeInteractions = resolveRoom(room.id);
@@ -90,11 +100,11 @@ test("bounded queued interactions preserve command durability and retry failed w
 
 test("replay survives 1000 committed interactions, duplicate batches, partial checkpoints and rejects gaps", () => {
   const checkpoint = {
-    id: "room", seq: 8, game: { id: "game", objects: [{ id: "object", value: 0, version: 0, values: {} }], events: [] },
+    id: "room", seq: 8, game: { id: "game", objects: [{ id: "object", value: 0, version: 0, scores: {} }], agents: [], events: [] },
   } as any;
   const events = Array.from({ length: 1000 }, (_, i) => ({
     id: `event-${i}`, gameId: "game", type: "object.transformed" as const, timestamp: i,
-    before: i, object: { id: "object", value: i + 1, version: i + 1, values: { deity: 0.5 } },
+    before: i, object: { id: "object", value: i + 1, version: i + 1, scores: {} },
   }));
   const batches = Array.from({ length: 20 }, (_, i) => ({
     room_id: "room", game_id: "game", end_seq: 8 + (i + 1) * 50, events: events.slice(i * 50, (i + 1) * 50),
@@ -124,7 +134,7 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const bot: Actor = { id: `ai:${randomUUID()}`, name: "Negotiator", kind: "ai", scope: "player", roomId: id };
     await mutate(id, async room => {
       room.settings.language = "typescript";
-      room.settings.grammarId = "typescript-standard-v1";
+      room.settings.grammarId = "typescript-agent-v1";
       room.settings.objectType = "Int";
       room.settings.startingEnergy = 100;
       room.settings.energyPerSecond = 2;
@@ -146,21 +156,29 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     assert.equal(resolveRoom(id).game!.roster[2].aiAgent!.prompt, "Negotiate honestly.");
 
     const envelope = (command: any) => ({ version: VERSION, commandId: randomUUID(), gameId: resolveRoom(id).game!.id, command });
-    const validate = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: "(x: number) => x" }));
-    assert.deepEqual(validate.validation, { valid: true, cost: 6, diagnostics: [] });
+    const validate = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: EMPTY_TS }));
+    assert.equal(validate.validation!.valid, true);
+    assert.equal(validate.validation!.cost, 8, "ast-bytes-v1 price of function agent(x) { return []; }");
+    assert.equal(validate.validation!.expectedActCost, 1, "an empty act fails and pays the 1-bit minimum");
+    assert.match(validate.validation!.diagnostics[0], /would fail \(no change\)/);
     assert.equal(resolveRoom(id).game!.deities[0].spent, 0);
-    const summon = envelope({ type: "summon", language: "typescript", source: "(x: number) => x + 1" });
+    const summon = envelope({ type: "summon", language: "typescript", source: ADD_TS });
     const receipt = await executePlayerEnvelope(id, host, summon);
-    assert.equal(receipt.accepted, true);
-    assert.equal(resolveRoom(id).game!.deities[0].spent, 9);
+    assert.equal(receipt.accepted, true, receipt.message);
+    assert.equal(resolveRoom(id).game!.deities[0].spent, 11);
     assert.deepEqual(await executePlayerEnvelope(id, host, summon), receipt);
     assert.equal(resolveRoom(id).game!.agents.length, 1);
-    await assert.rejects(executePlayerEnvelope(id, host, { ...summon, command: { ...summon.command, source: "(x: number) => x" } }), /reused/);
+    const summoned = resolveRoom(id).game!.agents[0];
+    assert.equal(summoned.summonCost, 11);
+    assert.ok(summoned.expectedActCost > 1, "add(1) prices its decision and motion");
+    assert.deepEqual([summoned.account.balance, summoned.acts, summoned.spent], [0, 0, 0], "a new agent starts with no energy");
+    await assert.rejects(executePlayerEnvelope(id, host, { ...summon, command: { ...summon.command, source: EMPTY_TS } }), /reused/);
     const saved = fixtureRooms.get(id);
     assert.deepEqual(saved.receipts[`client:${host.id}:${summon.commandId}`].result, receipt);
-    assert.equal(saved.game.deities[0].spent, 9);
-    const invalid = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: "export default (x: number) => x" }));
-    assert.equal(invalid.accepted, false);
+    assert.equal(saved.game.deities[0].spent, 11);
+    const invalid = await executePlayerEnvelope(id, host, envelope({ type: "validate", language: "typescript", source: "(x: number) => x" }));
+    assert.equal(invalid.accepted, false, "a bare callable is not an agent: agent(x) must be declared");
+    assert.equal(invalid.validation!.valid, false);
 
     await mutate(id, async draft => {
       draft.game!.phase = "running"; draft.game!.lastTick = Date.now() - 250;
@@ -175,15 +193,15 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const pausedWorldSeconds = room.game!.worldSeconds;
     await new Promise(resolve => setTimeout(resolve, 30));
     assert.equal(resolveRoom(id).game!.worldSeconds, pausedWorldSeconds, "paused world time stays frozen");
-    assert.ok(observation(room, host).self.energy >= 111, "energy accrues on wall clock even while paused");
+    assert.ok(observation(room, host).self.energy >= 109, "god energy accrues on wall clock even while paused");
     await executePlayerEnvelope(id, host, envelope({ type: "chat", text: "Public negotiation only" }));
     assert.equal(observation(resolveRoom(id), second).chat.at(-1)!.text, "Public negotiation only");
     const pub = JSON.stringify(publicRoom(resolveRoom(id)));
     assert.ok(!pub.includes("Negotiate honestly") && !pub.includes("Changed lobby metadata"));
-    assert.ok(!pub.includes("descriptor") && !pub.includes("valueSource") && !pub.includes("(x: number)"));
+    assert.ok(!pub.includes("descriptor") && !pub.includes("scores") && !pub.includes("return [add(1)]"));
     const other = observation(resolveRoom(id), second);
     assert.equal(other.agents.length, 0);
-    assert.ok(!JSON.stringify(other).includes("(x: number) => x + 1"));
+    assert.ok(!JSON.stringify(other).includes("return [add(1)]"));
     await assert.rejects(playerCommand(resolveRoom(id), host, { command: "chat.private", requestId: randomUUID(), gameId: room.game!.id }), /Unknown command/);
 
     let calls = 0;
@@ -195,13 +213,13 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
         calls++;
         assert.ok(request.system.startsWith(SYSTEM));
         assert.ok(request.system.endsWith("Negotiate honestly."));
-        return { text: '{"actions":[{"type":"summon","language":"typescript","source":"(x: number) => x"}]}', inputTokens: 100, outputTokens: 10 };
+        return { text: JSON.stringify({ actions: [{ type: "summon", language: "typescript", source: EMPTY_TS }] }), inputTokens: 100, outputTokens: 10 };
       } }, onEvent: () => {},
     });
     await controller.step();
     assert.equal(calls, 1);
     assert.equal(resolveRoom(id).game!.agents.filter(a => a.ownerId === bot.id).length, 1, "AI uses game-scoped validation and summon commands");
-    assert.equal(resolveRoom(id).game!.deities.find(d => d.id === bot.id)!.spent, 6);
+    assert.equal(resolveRoom(id).game!.deities.find(d => d.id === bot.id)!.spent, 8);
     assert.equal(fixtureRooms.get(id).aiReservedUsd, 0.2);
     assert.ok(fixtureRooms.get(id).aiUsed > 8192);
     await mutate(id, async draft => { draft.aiBudget = draft.aiUsed; });
@@ -251,8 +269,8 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       assert.equal(projected.agents.length, 0);
       assert.equal((await get(`/player/v1/rooms/${id}/observation`, "other")).status, 403);
       assert.equal((await get(`/rooms/${id}`, "missing")).status, 401);
-      const validated = await (await post(`/player/v1/rooms/${id}/commands`, envelope({ type: "validate", source: "(x: number) => x", language: "typescript" }), "player")).json();
-      assert.equal(validated.validation.cost, 6);
+      const validated = await (await post(`/player/v1/rooms/${id}/commands`, envelope({ type: "validate", source: EMPTY_TS, language: "typescript" }), "player")).json();
+      assert.equal(validated.validation.cost, 8);
       assert.equal(validated.accepted, true);
       const noGame = await (await post(`/player/v1/rooms/${id}/commands`, { version: VERSION, commandId: randomUUID(), command: { type: "pause" } }, "player")).json();
       assert.equal(noGame.accepted, false);
@@ -311,8 +329,9 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       g.nextSpawn = Number.MAX_VALUE;
       g.settings.interactionRateHz = 100;
       g.settings.pauseSeconds = 60;
-      // Total over the integer domain, and never onto the object's own value (objects are unique).
-      g.agents.forEach(agent => { agent.source = "(x: number) => x === 2147483647 ? x - 1 : x + 1"; });
+      // add(1) wraps round the domain, so it is total; a rich, fast income keeps every agent eligible.
+      g.settings.agentEnergyPerSecond = 1000; g.settings.agentBatteryActs = 1000;
+      g.agents.forEach(agent => { agent.source = ADD_TS; agent.expectedActCost = 1; agent.account = { balance: 10, settledWorldSeconds: g.worldSeconds }; });
     });
     const adapters = requireAdapters();
     let hold = false, held = 0, released = 0;
@@ -321,8 +340,8 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
       utilities: adapters.utilities,
       runtime: {
         ...adapters.runtime,
-        async execute(source, value, settings) {
-          const result = await adapters.runtime.execute(source, value, settings);
+        async act(source, value, settings) {
+          const result = await adapters.runtime.act(source, value, settings);
           if (hold) { held++; await gate; released++; }
           return result;
         },
@@ -336,6 +355,8 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     const transformation = persisted.events.find((e: any) => e.type === "object.transformed");
     assert.ok(persisted.objects.find((o: any) => o.id === transformation.object.id).version >= 1);
     assert.equal(Math.abs(transformation.object.value - transformation.before), 1, "runtime result is persisted faithfully");
+    assert.deepEqual(transformation.calls, [["add", { k: 1 }]]);
+    assert.ok(transformation.cost.total > 0 && transformation.agent.acts >= 1, "the event carries the calls, the cost and the agent's account");
     hold = true;
     await waitUntil(() => held > 0, "runtime result deliberately held in flight");
     assert.equal((await executePlayerEnvelope(id, second, envelope({ type: "pause" }))).accepted, true);
@@ -368,19 +389,19 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
   try {
     for (const mode of ["wasm", "cheap-synthetic"] as const) {
       registerAdapters(mode === "wasm" ? adapters : { ...adapters,
-        runtime: { ...adapters.runtime, execute: async (_source, value) => value === 2147483647 ? value - 1 : (value as number) + 1 },
+        runtime: { ...adapters.runtime, act: async () => ({ calls: '[["add",{"k":1}]]' }) },
       });
       for (const count of [10, 100, 2000]) {
         await mutate(room.id, async draft => {
           draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
-          draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-standard-v1",
-            startingObjectCount: count, spawnRateHz: 0, interactionRateHz: 1000 };
+          draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1",
+            startingObjectCount: count, spawnRateHz: 0, interactionRateHz: 1000, agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
           await startGame(draft, host);
           const g = draft.game!;
           g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
           // Explicit synthetic-only headroom bypass; production validation is unchanged.
           if (mode === "cheap-synthetic") g.settings.interactionRateHz = 4000;
-          g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => x === 2147483647 ? x - 1 : x + 1", cost: 0, createdAt: Date.now() });
+          g.agents.push(richAgent(host.id, ADD_TS, g.worldSeconds));
         });
         await recordHumanActivity();
         const writes = fixtureControl.interactionWrites;
@@ -404,41 +425,47 @@ test("opt-in interaction pipeline benchmark: runtime, authority, events and fsyn
   }
 });
 
-test("objects stay unique: spawns never duplicate and transformations onto an existing value fail", { timeout: 60000 }, async () => {
+test("objects stay unique: spawns never duplicate; duplicate results fail but still pay their decision bits", { timeout: 60000 }, async () => {
   await initializeRuntimeAdapters();
   const host: Actor = { id: randomUUID(), name: "Unique", kind: "human", scope: "browser" };
   const room = await createRoom(host);
   const adapters = requireAdapters();
-  // No utility family can be fully satisfied in a six-value domain, so deal fixed ones.
+  // A six-value domain: deal fixed draws rather than rely on the lottery's distinctness there.
   registerAdapters({ ...adapters, utilities: { ...adapters.utilities,
     deal: (_settings, count) => Array.from({ length: count }, (_, d) => ({ familyId: "digit-devotee", params: { d } })) } });
   let stop: (() => Promise<void>) | undefined;
   try {
     await mutate(room.id, async draft => {
       draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
-      draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-standard-v1",
-        objectType: "Int", intMin: 0, intMax: 5, startingObjectCount: 6, spawnRateHz: 0 };
+      draft.settings = { ...draft.settings, language: "typescript", grammarId: "typescript-agent-v1",
+        objectType: "Int", typeArgs: { min: 0, max: 5 }, startingObjectCount: 6, spawnRateHz: 0,
+        agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
       await startGame(draft, host);
       const g = draft.game!;
       assert.deepEqual(g.objects.map(o => o.value).sort(), [0, 1, 2, 3, 4, 5], "a full tiny domain spawns every value exactly once");
       g.objects = g.objects.filter(o => (o.value as number) < 3);
       g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
-      g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => 5", cost: 0, createdAt: Date.now() });
+      g.agents.push(richAgent(host.id, "function agent(x) { return [setTo(5)]; }", g.worldSeconds));
     });
     await recordHumanActivity();
     stop = startTicker();
     const deadline = Date.now() + 20000;
-    while (!resolveRoom(room.id).game!.events.some(e => e.type === "object.transformed")) {
-      assert.ok(Date.now() < deadline, "a first constant transformation commits");
+    while (resolveRoom(room.id).game!.events.filter(e => e.type === "agent.failed").length < 2) {
+      assert.ok(Date.now() < deadline, "a first constant transformation commits, later ones collide");
       await new Promise(resolve => setTimeout(resolve, 20));
     }
-    await new Promise(resolve => setTimeout(resolve, 500)); // Later attempts all collide with 5.
     await stop(); stop = undefined;
     const game = resolveRoom(room.id).game!;
     const values = game.objects.map(o => o.value);
     assert.equal(new Set(values).size, values.length);
     assert.equal(values.filter(v => v === 5).length, 1, "only the first constant transformation can succeed");
     assert.equal(game.events.filter(e => e.type === "object.transformed").length, 1);
+    const failed = game.events.filter(e => e.type === "agent.failed");
+    assert.ok(failed.every(e => e.type === "agent.failed" && /already has this value/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision));
+    const agent = game.agents[0];
+    assert.equal(agent.acts, game.events.filter(e => e.type !== "object.spawned").length, "every act is charged, successful or not");
+    const transformed = game.events.find(e => e.type === "object.transformed")!;
+    assert.ok(transformed.type === "object.transformed" && agent.spent > transformed.cost!.total, "duplicates paid as well");
   } finally {
     await stop?.();
     registerAdapters(adapters);
@@ -528,7 +555,7 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
     assert.equal(room.activeGame, null, "a new room is a lobby");
     assert.equal(room.ownerName, "Lobby Host");
     assert.equal(typeof room.createdAt, "number");
-    const firstSettings = { ...room.settings, language: "typescript", grammarId: "typescript-standard-v1", objectType: "Int", startingObjectCount: 4, spawnRateHz: 0 };
+    const firstSettings = { ...room.settings, language: "typescript", grammarId: "typescript-agent-v1", objectType: "Int", startingObjectCount: 4, spawnRateHz: 0 };
     room = await json(act(id, { action: "settings", revision: room.revision, settings: firstSettings }));
     await refused(act(id, { action: "start" }, ada), /owner/);
 
@@ -580,14 +607,16 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
     assert.equal(record.leaderboard.length, 3);
     assert.ok(record.winners.length >= 1 && record.winners.every((w: any) => record.leaderboard.some((s: any) => s.deityId === w.deityId && s.rank === 1)));
     assert.deepEqual(record.roster.map((m: any) => Object.keys(m).sort()), [0, 1, 2].map(() => ["id", "kind", "name"]));
-    for (const leak of ["utilities", "utility", "deities", "aiAgent", "endAtWorld", "source", "prompt"]) {
+    assert.equal(record.scoring, "information-v1");
+    assert.ok(record.leaderboard.every((row: any) => typeof row.totalPayoff === "number"));
+    for (const leak of ["scores", "netBits", "utility", "deities", "aiAgent", "endAtWorld", "source", "prompt"]) {
       assert.ok(!JSON.stringify(history).includes(`"${leak}"`), `history never discloses ${leak}`);
     }
     view = await json(get(`/games/${first.shortCode}/state`));
     assert.equal(view.status, "ended");
     assert.deepEqual(view.winners, record.winners);
     assert.ok(view.chat.some((m: any) => m.text === "Treaty proposal during game one"), "the game page shows chat sent during play");
-    assert.ok(!JSON.stringify(view).includes('"utilities"'));
+    assert.ok(!JSON.stringify(view).includes('"scores"'));
 
     // Between games: members can leave/join, and the owner edits the next game's settings.
     await json(act(id, { action: "leave" }, cy));
@@ -638,116 +667,255 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
   }
 });
 
-test("Grid game through the real routes: scoring by rarity, mutator agents with their own energy, destroy, privacy", { timeout: 180000 }, async () => {
-  await initializeRuntimeAdapters();
-  await recordHumanActivity();
-  const actors = ["Grid Host", "Grid Ada", "Grid Bo"].map(name => ({ id: randomUUID(), name, kind: "human" as const, scope: "browser" as const }));
-  const [host, ada, bo] = actors;
-  for (const actor of actors) fixtureActors.set(`grid:${actor.name}`, actor);
+const FULL_GAMES = [
+  { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, unoffered: { min: 0, max: 5 },
+    agents: { python: ADD_PY, typescript: ADD_TS } },
+  { objectType: "string", typeArgs: { maxLength: 128 }, unoffered: { maxLength: 3 },
+    agents: { python: "def agent(s):\n    return [rotate(1)]", typescript: "function agent(s) { return [rotate(1)]; }" } },
+  { objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, unoffered: { size: 7, symbols: "base16", colours: "rgb" },
+    agents: { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }" } },
+] as const;
+const BROKEN = { python: "def agent(x):\n    return [", typescript: "function agent(x) { return [; }" } as const;
+
+for (const spec of FULL_GAMES) {
+  test(`full ${spec.objectType} games through the real routes: scores, agents in both languages, energy, destroy, history`, { timeout: 300000 }, async t => {
+    await initializeRuntimeAdapters();
+    await recordHumanActivity();
+    const actors = ["Host", "Ada", "Bo"].map(name => ({ id: randomUUID(), name: `${spec.objectType} ${name}`, kind: "human" as const, scope: "browser" as const }));
+    const [host, ada, bo] = actors;
+    for (const actor of actors) fixtureActors.set(`full:${actor.name}`, actor);
+    const app = express();
+    app.use(express.json(), roomsRouter, playerRouter, gamesRouter);
+    app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? 400).json({ error: error.message }));
+    const server = createServer(app);
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    const headers = (actor: Actor) => ({ authorization: `Bearer full:${actor.name}`, "content-type": "application/json" });
+    const get = (path: string, actor = host) => fetch(`${base}${path}`, { headers: headers(actor) });
+    const post = (path: string, body: unknown, actor = host) => fetch(`${base}${path}`, { method: "POST", headers: headers(actor), body: JSON.stringify(body) });
+    const json = async (response: Response | Promise<Response>) => {
+      const r = await response, body = await r.json();
+      assert.equal(r.status, 200, JSON.stringify(body));
+      return body;
+    };
+    const act = (id: string, body: Record<string, unknown>, actor = host) => json(post(`/rooms/${id}/actions`, { requestId: randomUUID(), ...body }, actor));
+    const command = (id: string, gameId: string, cmd: Record<string, unknown>, actor = host) =>
+      json(post(`/player/v1/rooms/${id}/commands`, { version: VERSION, commandId: randomUUID(), gameId, command: cmd }, actor));
+    const waitUntil = async (check: () => Promise<boolean> | boolean, label: string, ms = 90000) => {
+      const deadline = Date.now() + ms;
+      while (!await check()) {
+        t.signal.throwIfAborted();
+        if (Date.now() >= deadline) assert.fail(`Timed out: ${label}`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    };
+    const near = (a: number, b: number, label: string) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b)), `${label}: ${a} vs ${b}`);
+    let stop: (() => Promise<void>) | undefined;
+    try {
+      // The manifest lists the type, its parameters, classes and the offered (calibrated) instantiations.
+      const manifest = await json(get("/manifest"));
+      assert.equal(manifest.playerProtocol, VERSION);
+      const typeInfo = manifest.objectTypes.find((x: any) => x.id === spec.objectType);
+      assert.ok(typeInfo.params.length > 0 && Array.isArray(typeInfo.classes));
+      const offered = typeInfo.offered.find((o: any) => JSON.stringify(o.args) === JSON.stringify(spec.typeArgs));
+      assert.ok(offered, `${spec.objectType}${JSON.stringify(spec.typeArgs)} is offered`);
+      assert.ok(typeInfo.offered.every((o: any) => typeof o.key === "string" && Array.isArray(o.badges)));
+
+      const { id } = await createRoom(host);
+      await act(id, { action: "join" }, ada);
+      await act(id, { action: "join" }, bo);
+      let room = await json(get(`/rooms/${id}`));
+      assert.equal("game" in room, false, "the room carries no game: games have their own pages");
+      if (!typeInfo.offered.some((o: any) => JSON.stringify(o.args) === JSON.stringify(spec.unoffered))) {
+        const r = await post(`/rooms/${id}/actions`, { requestId: randomUUID(), action: "settings", revision: room.revision,
+          settings: { ...room.settings, objectType: spec.objectType, typeArgs: spec.unoffered } });
+        assert.equal(r.status, 400);
+        assert.match((await r.json()).error, /not offered/);
+      }
+
+      for (const language of ["python", "typescript"] as const) {
+        const other = language === "python" ? "typescript" : "python";
+        const source = spec.agents[language];
+        room = await json(get(`/rooms/${id}`));
+        const settings = { ...room.settings, objectType: spec.objectType, typeArgs: spec.typeArgs, language, grammarId: `${language}-agent-v1`,
+          startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, interactionComputeMs: 200, agentEnergyPerSecond: 100, agentBatteryActs: 2 };
+        room = await act(id, { action: "settings", revision: room.revision, settings });
+        assert.equal(room.objectInstance.key, offered.key);
+        assert.ok(room.objectInstance.mutators.length > 0);
+        assert.ok(room.utilityCatalog.length > 0 && room.utilityCatalog.every((f: any) =>
+          typeof f.available === "boolean" && Array.isArray(f.badges) && (f.available || typeof f.locked.reason === "string")));
+        room = await act(id, { action: "start" });
+        const game = room.activeGame;
+
+        // Public: values and salience only.
+        let view = await json(get(`/games/${game.shortCode}/state`));
+        assert.equal(view.objects.length, 5);
+        const codec = codecOf(settings as any);
+        assert.ok(view.objects.every((o: any) => codec.isValid(o.value) && typeof o.salience === "number"));
+        assert.equal(view.objectInstance.key, offered.key);
+        for (const leak of ["scores", "netBits", "rewardBits", "ordinal", "deities", "utility"]) assert.ok(!JSON.stringify(view).includes(`"${leak}"`), `public view hides ${leak}`);
+
+        // Personal: own score, peer aggregates and the kid card, nothing per opponent.
+        let obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+        assert.equal(obs.version, VERSION);
+        assert.equal(obs.instance.key, offered.key);
+        assert.ok(obs.instance.helpers.some((h: any) => h.group === "mutator"));
+        assert.equal(obs.economy.agentEnergyPerSecond, 100);
+        assert.ok(obs.self.utility.familyId && obs.self.utility.emoji && obs.self.utility.summary);
+        assert.match(obs.self.utility.source, language === "python" ? /def utility\(/ : /function utility\(/);
+        const g0 = resolveRoom(id).game!;
+        assert.equal(obs.objects.length, 5);
+        for (const o of obs.objects) {
+          const stored = g0.objects.find(x => x.id === o.id)!;
+          assert.deepEqual(Object.keys(o).sort(), ["id", "own", "payoff", "peerCare", "peerNetBits", "value"]);
+          assert.equal(o.own.netBits, stored.scores[ada.id].netBits);
+          assert.deepEqual(o.own.ordinal, stored.scores[ada.id].ordinal);
+          near(o.peerNetBits, stored.scores[host.id].netBits + stored.scores[bo.id].netBits, "peerNetBits is the sum over the other gods");
+          assert.equal(o.peerCare, Math.max(0, o.peerNetBits));
+          near(o.payoff, o.peerCare === 0 ? 0 : o.own.netBits * o.peerCare, "payoff");
+          near(view.objects.find((x: any) => x.id === o.id).salience, o.own.netBits + o.peerNetBits, "salience is Σ net bits");
+        }
+        assert.ok(!JSON.stringify(obs.objects).includes(bo.id) && !JSON.stringify(obs.objects).includes(host.id), "no per-opponent scores");
+
+        // Validation: price, sample acts and the expected cost per act. Free.
+        const validation = await command(id, game.id, { type: "validate", language, source }, ada);
+        assert.equal(validation.accepted, true, validation.message);
+        assert.ok(validation.validation.valid && Number.isSafeInteger(validation.validation.cost) && validation.validation.cost > 0);
+        assert.ok(validation.validation.expectedActCost > 0);
+        assert.ok(validation.validation.diagnostics.some((d: string) => /mutator call/.test(d)), validation.validation.diagnostics.join(" | "));
+        const broken = await command(id, game.id, { type: "validate", language, source: BROKEN[language] }, ada);
+        assert.equal(broken.accepted, false);
+        assert.equal(broken.validation.valid, false);
+        assert.equal((await command(id, game.id, { type: "validate", language: other, source: spec.agents[other] }, ada)).accepted, false);
+
+        // Summon: the god pays the description bits; the agent starts with no energy.
+        const before = (await json(get(`/player/v1/rooms/${id}/observation`, ada))).self.energy;
+        assert.equal((await command(id, game.id, { type: "summon", language, source }, ada)).accepted, true);
+        assert.equal((await command(id, game.id, { type: "summon", language, source }, bo)).accepted, true);
+        obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+        assert.equal(obs.agents.length, 1, "own agents only");
+        const [mine] = obs.agents;
+        assert.equal(mine.summonCost, validation.validation.cost);
+        near(mine.expectedActCost, validation.validation.expectedActCost, "the expected act cost is deterministic per source");
+        assert.deepEqual([mine.energy, mine.eligible, mine.acts, mine.spent], [0, false, 0, 0]);
+        assert.ok(obs.self.energy <= before - mine.summonCost + 1, "summoning is paid from god energy");
+        const bos = (await json(get(`/player/v1/rooms/${id}/observation`, bo))).agents;
+        near(bos[0].expectedActCost, mine.expectedActCost, "same source, same expected cost");
+
+        // Play: agents become eligible from world-time income, act and pay.
+        await mutate(id, async draft => { draft.game!.planningEndsAt = Date.now() - 1; draft.game!.endAtWorld = 3600; });
+        stop = startTicker();
+        await waitUntil(async () => (await json(get(`/player/v1/rooms/${id}/observation`, ada))).transformations.length >= 2, "Ada's agent transforms objects");
+        obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+        const mutatorIds = obs.instance.mutators.map((m: any) => m.id);
+        for (const tr of obs.transformations) {
+          assert.ok(tr.calls.length >= 1 && tr.calls.every((c: any) => mutatorIds.includes(c[0])) && tr.cost > 0);
+          assert.notEqual(tr.before, tr.after);
+        }
+        const acted = obs.agents[0];
+        assert.ok(acted.acts >= 2 && acted.spent > 0, "acts are charged to the agent's own account");
+        assert.equal(acted.eligible, acted.energy >= acted.expectedActCost);
+        await stop(); stop = undefined;
+
+        // Durability: replaying the committed batches over the checkpoint restores every agent account.
+        await waitUntil(() => interactionCapacity(id) && fixtureControl.interactionWrites > 0, "batches flushed", 5000);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const agentState = (r: any) => r.game.agents.map((a: any) => [a.id, a.acts, a.spent, a.account]);
+        assert.deepEqual(agentState(rehydrateInteractions(fixtureDurableRoom(id), fixtureDurableBatches())), agentState(resolveRoom(id)));
+
+        // Destroy: owner only, free.
+        assert.equal((await command(id, game.id, { type: "destroy", agentId: acted.id }, bo)).accepted, false);
+        const energyBefore = obs.self.energy;
+        assert.equal((await command(id, game.id, { type: "destroy", agentId: acted.id }, ada)).accepted, true);
+        obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+        assert.equal(obs.agents.length, 0);
+        assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
+        assert.equal(resolveRoom(id).game!.agents.length, 1, "Bo's agent lives on");
+
+        // End: the public result joins the room's history.
+        await act(id, { action: "endGame" });
+        const history = await json(get(`/rooms/${id}/games`));
+        const record = history.find((h: any) => h.id === game.id);
+        assert.equal(record.scoring, "information-v1");
+        assert.equal(record.endReason, "owner");
+        assert.equal(record.leaderboard.length, 3);
+        assert.ok(record.leaderboard.every((row: any) => typeof row.totalPayoff === "number" && row.rank >= 1));
+        view = await json(get(`/games/${game.shortCode}/state`));
+        assert.equal(view.status, "ended");
+        for (const leak of ["scores", "netBits", "source", "deities", "account"]) {
+          assert.ok(!JSON.stringify(history).includes(`"${leak}"`) && !JSON.stringify(view).includes(`"${leak}"`), `history hides ${leak}`);
+        }
+      }
+      assert.equal((await json(get(`/rooms/${id}/games`))).length, 2, "one game per language");
+    } finally {
+      await stop?.();
+      server.close();
+      shutdownRuntimeAdapters();
+    }
+  });
+}
+
+test("replay restores agent accounts from failed and successful acts, and fails closed on unknown agents", () => {
+  const account = (balance: number, world: number) => ({ balance, settledWorldSeconds: world });
+  const agent = { ...richAgent("god", ADD_TS), id: "agent", account: account(0, 0) };
+  const checkpoint = { id: "room", seq: 3, game: { id: "game", objects: [{ id: "object", value: 0, version: 0, scores: {} }], agents: [agent], events: [] } } as any;
+  const cost = (total: number) => ({ decision: total, erasure: 0, motion: 0, total });
+  const events = [
+    { id: "e1", gameId: "game", type: "agent.failed", timestamp: 1, objectId: "object", agentId: "agent", ownerId: "god", reason: "no change",
+      cost: cost(1), agent: { id: "agent", account: account(4, 2), acts: 1, spent: 1 } },
+    { id: "e2", gameId: "game", type: "object.transformed", timestamp: 2, before: 0, agentId: "agent", ownerId: "god",
+      object: { id: "object", value: 1, version: 1, scores: {} }, calls: [["add", { k: 1 }]], cost: cost(5),
+      agent: { id: "agent", account: account(-1, 3), acts: 2, spent: 6 } },
+  ];
+  const recovered = rehydrateInteractions(checkpoint, [{ room_id: "room", game_id: "game", end_seq: 5, events: events as any }]);
+  assert.equal(recovered.seq, 5);
+  assert.equal(recovered.game!.objects[0].value, 1);
+  assert.deepEqual(recovered.game!.agents[0].account, account(-1, 3), "a negative balance (cooldown) survives replay");
+  assert.deepEqual([recovered.game!.agents[0].acts, recovered.game!.agents[0].spent], [2, 6]);
+  assert.equal(checkpoint.game.agents[0].acts, 0, "the checkpoint itself is not mutated");
+  assert.throws(() => rehydrateInteractions(checkpoint, [{ room_id: "room", game_id: "game", end_seq: 4,
+    events: [{ ...events[0], agent: { ...events[0].agent, id: "ghost" } }] as any }]), /agent/);
+});
+
+test("startup guard: a stored room of the old design is reset; its games leave history", { timeout: 60000 }, async () => {
+  const host: Actor = { id: randomUUID(), name: "Old Host", kind: "human", scope: "browser" };
+  fixtureActors.set("old:host", host);
+  const roomId = randomUUID(), oldGameId = randomUUID();
+  const oldGame = { id: oldGameId, shortCode: "OLD", phase: "running", settings: { language: "python", objectType: "Int", intMin: 0, intMax: 9,
+    grammarId: "python-standard-v1" }, roster: [], deities: [], objects: [{ id: "o", value: 3, version: 0, utilities: { [host.id]: 0.5 } }],
+    agents: [{ id: "a", ownerId: host.id, source: "lambda x: x", cost: 6, createdAt: 1 }], events: [], createdAt: 1 };
+  fixtureRooms.set(roomId, { id: roomId, shortCode: "OLDR", ownerId: host.id, createdAt: 5, revision: 3, seq: 7,
+    settings: oldGame.settings, members: [{ id: host.id, name: host.name, kind: "human", ready: true }],
+    chat: [{ id: "c", authorId: host.id, authorName: host.name, kind: "human", text: "kept", timestamp: 1 }],
+    game: oldGame, aiBudget: 0, aiUsed: 0, receipts: {} });
+  fixtureGames.set(oldGameId, oldGame);
+  fixtureGameRows.set(oldGameId, { id: oldGameId, room_id: roomId, prefix_length: 3, started_at: 1, ended_at: 2,
+    summary: { id: oldGameId, leaderboard: [{ deityId: host.id, totalScore: 1, rank: 1 }] } });
+  fixtureBatches.set(`${roomId}:9`, { room_id: roomId, game_id: oldGameId, end_seq: 9, events: [{ type: "object.transformed" }] });
+  await initializeStore();
+  const reset = resolveRoom(roomId);
+  assert.equal(reset.game, null);
+  assert.deepEqual(reset.members.map(m => m.id), [host.id]);
+  assert.deepEqual(reset.chat.map(m => m.text), ["kept"]);
+  assert.equal(reset.settings.grammarId, "python-agent-v1");
+  assert.ok(reset.seq > 9, "the reset checkpoint covers (and deletes) the old batches");
+  assert.equal([...fixtureBatches.values()].filter((b: any) => b.room_id === roomId).length, 0);
+  assert.equal(fixtureRooms.get(roomId).game, null);
   const app = express();
-  app.use(express.json(), roomsRouter, playerRouter, gamesRouter);
+  app.use(express.json(), roomsRouter, gamesRouter);
   app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? 400).json({ error: error.message }));
   const server = createServer(app);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
-  const headers = (actor: Actor) => ({ authorization: `Bearer grid:${actor.name}`, "content-type": "application/json" });
-  const get = (path: string, actor = host) => fetch(`${base}${path}`, { headers: headers(actor) });
-  const post = (path: string, body: unknown, actor = host) => fetch(`${base}${path}`, { method: "POST", headers: headers(actor), body: JSON.stringify(body) });
-  const json = async (response: Response | Promise<Response>) => {
-    const r = await response, body = await r.json();
-    assert.equal(r.status, 200, JSON.stringify(body));
-    return body;
-  };
-  const act = (id: string, body: Record<string, unknown>, actor = host) => json(post(`/rooms/${id}/actions`, { requestId: randomUUID(), ...body }, actor));
-  const command = (id: string, gameId: string, cmd: Record<string, unknown>, actor = host) =>
-    json(post(`/player/v1/rooms/${id}/commands`, { version: "code-gods.player.v2", commandId: randomUUID(), gameId, command: cmd }, actor));
-  let stop: (() => Promise<void>) | undefined;
   try {
-    const manifest = await json(get("/manifest"));
-    assert.deepEqual(manifest.grid.types.map((t: any) => t.key).sort(),
-      ["Grid(3,base10,rgb)", "Grid(4,base12,rgb)", "Grid(5,base10,rgby)", "Grid(6,cards,rainbow6)"]);
-    assert.ok(manifest.grid.types.every((t: any) => t.badges.length >= 3 && t.familyCount >= 30));
-    const { id } = await createRoom(host);
-    await act(id, { action: "join" }, ada);
-    await act(id, { action: "join" }, bo);
-    let room = await json(get(`/rooms/${id}`));
-    // Old clients omit the Grid fields: their defaults fill in.
-    const { gridSize: _g, gridSymbols: _s, gridColours: _c, agentEnergyPerSecond: _e, agentBatteryActs: _b, ...legacy } = room.settings;
-    room = await act(id, { action: "settings", revision: room.revision, settings: legacy });
-    assert.equal(room.settings.gridSize, 5);
-    await assert.rejects(act(id, { action: "settings", revision: room.revision, settings: { ...room.settings, objectType: "Grid", gridSize: 7 } }), /Unsupported grid/);
-    const settings = { ...room.settings, objectType: "Grid", gridSize: 5, gridSymbols: "base10", gridColours: "rgby", language: "python",
-      grammarId: "python-standard-v1", startingObjectCount: 6, spawnRateHz: 0, interactionComputeMs: 200, agentEnergyPerSecond: 50 };
-    room = await act(id, { action: "settings", revision: room.revision, settings });
-    assert.ok(room.utilityCatalog.length >= 30 && room.utilityCatalog.every((f: any) => f.emoji && f.name && f.theme));
-    room = await act(id, { action: "start" });
-    const game = room.activeGame;
-    let view = await json(get(`/games/${game.shortCode}/state`));
-    assert.equal(view.objects.length, 6);
-    assert.ok(view.objects.every((o: any) => typeof o.value === "string" && /^([0-9][RYGB],){4}[0-9][RYGB](\/([0-9][RYGB],){4}[0-9][RYGB]){4}$/.test(o.value)));
-
-    let obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
-    assert.equal(obs.objectType, "Grid");
-    assert.deepEqual(obs.grid, { size: 5, symbols: "base10", colours: "rgby" });
-    assert.ok(obs.self.utility.emoji && obs.self.utility.source.includes("def utility(grid):"), "the kid card is the shown source");
-    for (const o of obs.objects) {
-      assert.match(o.rarity.text, /^Rarer than [\d,]+ of 1,000 random grids \(1 in [\d,]+\)$/);
-      assert.equal(o.score, o.ownUtility * Math.max(0, o.othersUtilitySum));
-    }
-
-    // Validation runs the agent on a sample grid and describes what it would do; it changes nothing.
-    const source = `lambda grid: [paint(row(0), grid.cell(4, 4).colour), write(at(2, 2), "7")]`;
-    await command(id, game.id, { type: "ready", ready: true }, ada);
-    await mutate(id, async draft => { draft.game!.planningEndsAt = Date.now() - 1; });
-    const validation = await command(id, game.id, { type: "validate", language: "python", source }, ada);
-    assert.equal(validation.accepted, true, validation.message);
-    assert.match(validation.validation.diagnostics[0], /would paint row 1 .* bits\)/);
-    const bad = await command(id, game.id, { type: "validate", language: "python", source: "lambda grid: [paint(row(9), 'red')]" }, ada);
-    assert.equal(bad.accepted, false);
-    assert.match(bad.message, /row 9/);
-    const summoned = await command(id, game.id, { type: "summon", language: "python", source }, ada);
-    assert.equal(summoned.accepted, true, summoned.message);
-
-    stop = startTicker();
-    const deadline = Date.now() + 60000;
-    for (;;) {
-      obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
-      if (obs.transformations.length >= 2) break;
-      assert.ok(Date.now() < deadline, "the agent transforms grids");
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    const [t1] = obs.transformations;
-    assert.match(t1.steps[0], /paint row 1/);
-    assert.ok(t1.bits > 0);
-    assert.ok(t1.after.split("/")[2].split(",")[2].startsWith("7"), "write(at(2, 2), '7') applied host-side");
-    const agent = obs.agents[0];
-    assert.ok(agent.energy.acts >= 2 && agent.energy.charged > 0, "each act is charged to the agent's own energy");
-    assert.equal(agent.energy.expectedCost > 0, true);
-
-    // Gods destroy their own agents, for free; never someone else's.
-    const refused = await command(id, game.id, { type: "destroy", agentId: agent.id }, bo);
-    assert.equal(refused.accepted, false);
-    const energyBefore = obs.self.energy;
-    assert.equal((await command(id, game.id, { type: "destroy", agentId: agent.id }, ada)).accepted, true);
-    obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
-    assert.equal(obs.agents.length, 0);
-    assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
-
-    // Privacy: public views carry only aggregates, never per-god utilities or rarity.
-    await act(id, { action: "endGame" });
-    view = await json(get(`/games/${game.shortCode}/state`));
-    const history = await json(get(`/rooms/${id}/games`));
-    for (const leak of ["utilities", "rarity", "penaltySurprisal", "deities", "source"]) {
-      assert.ok(!JSON.stringify(view).includes(`"${leak}"`) && !JSON.stringify(history).includes(`"${leak}"`), `public views never disclose ${leak}`);
-    }
-    const bobs = await json(get(`/player/v1/rooms/${id}/observation`, bo));
-    assert.ok(bobs.objects.every((o: any) => !("utilities" in o)));
-  } finally {
-    await stop?.();
-    server.close();
-    shutdownRuntimeAdapters();
-  }
+    const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+    const get = (path: string) => fetch(`${base}${path}`, { headers: { authorization: "Bearer old:host" } });
+    assert.deepEqual(await (await get(`/rooms/${roomId}/games`)).json(), [], "old-design games are not history");
+    assert.equal((await get(`/games/${oldGameId}/state`)).status, 404);
+    const room = await (await get(`/rooms/${roomId}`)).json();
+    assert.equal(room.objectInstance.key, "Int(-2147483648,2147483647)");
+  } finally { server.close(); }
 });
 
 test("graceful store shutdown flushes the bounded interaction window to disk", async () => {

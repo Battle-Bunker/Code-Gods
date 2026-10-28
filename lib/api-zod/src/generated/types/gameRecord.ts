@@ -21,7 +21,7 @@ export interface GameRecord {
   roomId: string;
   startedAt: number;
   /**
-     * Unix milliseconds; null for legacy games whose end time was not recorded.
+     * Unix milliseconds.
      * @nullable
      */
   endedAt: number | null;
@@ -35,6 +35,6 @@ export interface GameRecord {
   worldSeconds: number;
   objectCount: number;
   agentCount: number;
-  /** Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore). */
-  scoring?: GameRecordScoring;
+  /** Information scoring: payoffs in bits². */
+  scoring: GameRecordScoring;
 }
