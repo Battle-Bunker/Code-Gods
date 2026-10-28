@@ -1,15 +1,14 @@
 import { useEffect, useRef } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
-import {
-  useGetRoom, getGetRoomQueryKey, useListRoomGames, getListRoomGamesQueryKey,
-  type RoomState,
-} from "@workspace/api-client-react";
+import { api, useLive } from "@/lib/convex";
+import { catalogOf, type RoomState } from "@/lib/types";
+import { useRun } from "@/hooks/use-run";
+import { useSendChat } from "@/hooks/use-chat";
 import { Shell, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
 import { Chat, Conn, ReadOnlySettings, Repertoire, ScoringPanel } from "@/components/game-panels";
-import { History, Members, OwnerSettings, useAct } from "@/components/room-panels";
+import { History, Members, OwnerSettings, PlayerApps } from "@/components/room-panels";
 import { useAuth } from "@/hooks/use-auth";
-import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { errMsg } from "@/lib/errors";
@@ -39,9 +38,7 @@ function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
           </div>
           <div className="bg-card px-4 py-2 min-w-[160px]">
             <div className="label-mono">created</div>
-            <div className="text-lg" data-testid="text-room-created">{room.createdAt === null
-              ? <span title="This room predates creation-date tracking.">Not recorded</span>
-              : <time dateTime={isoWhen(room.createdAt)}>{fmtWhen(room.createdAt)}</time>}</div>
+            <div className="text-lg" data-testid="text-room-created"><time dateTime={isoWhen(room.createdAt)}>{fmtWhen(room.createdAt)}</time></div>
           </div>
         </div>
       </div>
@@ -70,18 +67,17 @@ function ActiveBanner({ room, meId }: { room: RoomState; meId?: string }) {
 }
 
 export default function Room() {
-  const idle=useServerIdle();
-  const activityReady=useActivityReady();
   const { id = "" } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const requestedGame = new URLSearchParams(useSearch()).get("game");
   const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
-  const live = activityReady && !idle && !!id && isAuthenticated && !requestedGame;
-  const q = useGetRoom(id, { query: { queryKey: getGetRoomQueryKey(id), enabled: live, refetchInterval: idle || !activityReady ? false : 1000 } });
+  const live = !!id && isAuthenticated && !requestedGame;
+  const q = useLive(api.rooms.get, live ? { room: id } : "skip");
   const room = q.data;
-  const games = useListRoomGames(room?.id ?? "", { query: { queryKey: getListRoomGamesQueryKey(room?.id ?? ""), enabled: live && !!room, refetchInterval: idle || !activityReady ? false : 15000 } });
+  const games = useLive(api.rooms.history, live && room ? { room: room.id } : "skip");
   const manifest = useManifest();
-  const act = useAct(id);
+  const act = useRun();
+  const sendChat = useSendChat(room?.id);
   // Legacy links: /rooms/:id?game=CODE now belong to the game's own page.
   useEffect(() => {
     if (requestedGame) navigate(`/games/${encodeURIComponent(requestedGame)}`, { replace: true });
@@ -94,22 +90,20 @@ export default function Room() {
   // Launch: take viewers to the new game, but never on first load (the banner covers that).
   const activeId = room?.activeGame?.id ?? null;
   const seenActive = useRef<{ room: string; game: string | null } | null>(null);
-  const refetchGames = games.refetch;
   useEffect(() => {
     if (!room) return;
     const prev = seenActive.current;
     seenActive.current = { room: room.id, game: activeId };
     if (!prev || prev.room !== room.id || prev.game === activeId) return;
-    void refetchGames();
     if (activeId && room.activeGame) navigate(`/games/${room.activeGame.shortCode}`);
-  }, [activeId, room, navigate, refetchGames]);
+  }, [activeId, room, navigate]);
   const isOwner = !!room && room.ownerId === user?.id;
   const isMember = !!room && room.members.some((m) => m.id === user?.id);
   const minPlayers = manifest.data?.minimumPlayers ?? 3;
   useEffect(() => { document.title = `Room ${room?.shortCode ?? id} · Code Gods`; }, [room?.shortCode, id]);
 
   return (
-    <Shell right={room && <Conn ok={!q.isError} updatedAt={q.dataUpdatedAt} fetching={q.isFetching} />}>
+    <Shell right={room && <Conn ok={!q.error} />}>
       {requestedGame ? <p className="mx-auto max-w-lg px-4 py-20" role="status" data-testid="status-legacy-redirect">Opening game {requestedGame}…</p>
       : authLoading ? null : !isAuthenticated ? (
         <div className="mx-auto max-w-lg px-4 py-20 text-center rise">
@@ -122,30 +116,30 @@ export default function Room() {
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-3 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
       ) : !room ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found"} onRetry={() => q.refetch()} />
+          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found"} />
           <Link href="/" className="label-mono underline" data-testid="link-back">Back to rooms</Link>
         </div>
       ) : (<>
         <Header room={room} isOwner={isOwner} />
         <div className="mx-auto max-w-[1440px] px-4 md:px-6 pt-4 space-y-3 empty:hidden">
-          {q.isError && <ErrorLine message={`Showing last known state. ${errMsg(q.error)}`} onRetry={() => q.refetch()} />}
           <ActiveBanner room={room} meId={user?.id} />
         </div>
         <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_360px] items-start">
           <div className="space-y-6 min-w-0">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
-            <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Speak to all deities" : "Join the room to speak"} onSend={(text, done) => act.run({ action: "chat", text }, done)} />
+            <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Speak to all deities" : "Join the room to speak"} onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
+            {isMember && <PlayerApps room={room} />}
           </div>
           <div className="space-y-6 min-w-0">
-            <History games={games.data} loading={games.isLoading} error={games.error} onRetry={() => void games.refetch()} />
+            <History games={games.data?.filter(g => !!g)} loading={games.isLoading} error={games.error} />
             <GameRules settings={room.settings} instance={room.objectInstance} roomCode={room.shortCode} note="Includes this room’s settings for the next game." />
             <ScoringPanel objectType={room.objectInstance?.objectType} />
           </div>
           <div className="space-y-6 min-w-0">
-            {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => void manifest.refetch()} />}
+            {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => manifest.refetch()} />}
             {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} objectTypes={manifest.data?.objectTypes} presets={manifest.data?.presets} />
               : <ReadOnlySettings settings={room.settings} instance={room.objectInstance} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
-            {!isOwner && <Repertoire catalog={room.utilityCatalog} classes={manifest.data?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />}
+            {!isOwner && <Repertoire catalog={catalogOf(room.utilityCatalog)} classes={manifest.data?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />}
           </div>
         </div>
       </>)}

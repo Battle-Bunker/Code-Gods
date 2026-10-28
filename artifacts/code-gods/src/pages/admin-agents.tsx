@@ -4,7 +4,7 @@ import { Shell, Panel, Empty, ErrorLine } from "@/components/shell";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { errMsg } from "@/lib/errors";
+import { errCode, errMsg } from "@/lib/errors";
 import { useAdminAgents, useCreateAgent, useUpdateAgent, useDeleteAgent, type AiAgent, type AiModel } from "@/hooks/use-agents";
 import { Bot, KeyRound, Pencil, Plus, Trash2, X, AlertTriangle } from "lucide-react";
 
@@ -12,7 +12,7 @@ const MAX = 10000;
 const field = "w-full border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
 
 function conflictMsg(e: unknown) {
-  if ((e as { status?: number } | null)?.status === 409) return `Someone else changed this agent first. ${errMsg(e)}. Reload to see the latest version.`;
+  if (errCode(e) === "CONFLICT") return `Someone else changed this agent first. ${errMsg(e)}. Reload to see the latest version.`;
   return errMsg(e);
 }
 
@@ -30,13 +30,14 @@ function Editor({ agent, models, onDone }: { agent: AiAgent | null; models: AiMo
   const sel = models.find((m) => m.id === model && m.provider === provider);
   const unknownModel = !!model && !sel;
   const valid = name.trim().length > 0 && !!provider && !!model && prompt.trim().length > 0 && prompt.length <= MAX;
-  const pending = create.isPending || update.isPending;
+  const [pending, setPending] = useState(false);
   const submit = () => {
     setErr(null);
     const d = { name: name.trim(), provider, model, prompt };
     const ok = () => { toast({ title: agent ? "Agent saved" : "Agent created" }); onDone(); };
-    if (agent) update.mutate({ ...d, id: agent.id, revision: agent.revision }, { onSuccess: ok, onError: (e) => setErr(conflictMsg(e)) });
-    else create.mutate(d, { onSuccess: ok, onError: (e) => setErr(errMsg(e)) });
+    setPending(true);
+    const call = agent ? update({ ...d, id: agent.id, revision: agent.revision }) : create(d);
+    call.then(ok, (e) => setErr(agent ? conflictMsg(e) : errMsg(e))).finally(() => setPending(false));
   };
   return (
     <Panel title={agent ? `Edit / ${agent.name}` : "New agent"} meta={agent ? `rev ${agent.revision}` : "draft"}>
@@ -46,7 +47,7 @@ function Editor({ agent, models, onDone }: { agent: AiAgent | null; models: AiMo
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="space-y-1"><span className="label-mono">Provider</span>
             <select value={provider} onChange={(e) => { setProvider(e.target.value); setModel(models.find((m) => m.provider === e.target.value)?.id ?? ""); }} className={field} data-testid="select-agent-provider">
-              {!providers.includes(provider) && <option value={provider}>{provider || "—"} (not in catalog)</option>}
+              {!(providers as string[]).includes(provider) && <option value={provider}>{provider || "—"} (not in catalog)</option>}
               {providers.map((p) => <option key={p} value={p}>{p}</option>)}
             </select></label>
           <label className="space-y-1"><span className="label-mono">Model</span>
@@ -82,6 +83,7 @@ function Row({ a, models, onEdit }: { a: AiAgent; models: AiModel[]; onEdit: () 
   const { toast } = useToast();
   const del = useDeleteAgent();
   const [confirm, setConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const m = models.find((x) => x.id === a.model && x.provider === a.provider);
   return (
     <li className="px-4 py-3 grid gap-2" data-testid={`row-agent-${a.id}`}>
@@ -100,10 +102,10 @@ function Row({ a, models, onEdit }: { a: AiAgent; models: AiModel[]; onEdit: () 
       {confirm && (
         <div className="ml-7 border border-destructive/40 bg-destructive/5 p-3 flex flex-wrap items-center gap-2 text-sm">
           <span className="flex-1">Delete <b>{a.name}</b>? Rooms can no longer seat it.</span>
-          <button disabled={del.isPending} onClick={() => del.mutate({ id: a.id, revision: a.revision }, {
-            onSuccess: () => toast({ title: `Deleted ${a.name}` }),
-            onError: (e) => { setConfirm(false); toast({ title: "Delete refused", description: conflictMsg(e), variant: "destructive" }); },
-          })} className="bg-destructive text-destructive-foreground px-3 py-1.5 disabled:opacity-50" data-testid={`button-confirm-delete-${a.id}`}>Delete</button>
+          <button disabled={deleting} onClick={() => { setDeleting(true); del({ id: a.id, revision: a.revision }).then(
+            () => toast({ title: `Deleted ${a.name}` }),
+            (e) => { setConfirm(false); toast({ title: "Delete refused", description: conflictMsg(e), variant: "destructive" }); },
+          ).finally(() => setDeleting(false)); }} className="bg-destructive text-destructive-foreground px-3 py-1.5 disabled:opacity-50" data-testid={`button-confirm-delete-${a.id}`}>Delete</button>
           <button onClick={() => setConfirm(false)} className="border px-3 py-1.5 inline-flex items-center gap-1"><X className="h-3 w-3" />Keep</button>
         </div>
       )}
@@ -114,7 +116,7 @@ function Row({ a, models, onEdit }: { a: AiAgent; models: AiModel[]; onEdit: () 
 export default function AdminAgents() {
   const { user, isLoading } = useAuth();
   const isAdmin = !!user?.isAdmin;
-  const q = useAdminAgents();
+  const q = useAdminAgents(isAdmin);
   const [editing, setEditing] = useState<AiAgent | "new" | null>(null);
   const models = q.data?.models ?? [];
   const missing = models.filter((m) => !m.configured);
@@ -132,7 +134,7 @@ export default function AdminAgents() {
         {isLoading ? <Skeleton className="h-40" /> : !isAdmin ? (
           <Panel title="Restricted"><Empty title="Admins only" body="Your account cannot manage the AI library." /><div className="pb-6 text-center"><Link href="/" className="label-mono underline">Back to rooms</Link></div></Panel>
         ) : q.isLoading ? <div className="space-y-3"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
-          : q.isError ? <ErrorLine message={errMsg(q.error)} onRetry={() => q.refetch()} /> : (<>
+          : q.error ? <ErrorLine message={errMsg(q.error)} /> : !q.data ? null : (<>
           {missing.length > 0 && (
             <div className="border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive flex gap-2" data-testid="status-missing-credentials">
               <KeyRound className="h-4 w-4 mt-0.5 shrink-0" />

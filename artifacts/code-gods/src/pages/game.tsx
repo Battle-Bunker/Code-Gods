@@ -1,29 +1,47 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import { getGetGameStateQueryKey, getGetRoomQueryKey, useGetGameState, useGetRoom, type GameView } from "@workspace/api-client-react";
+import { useMutation } from "convex/react";
+import { api, useLive } from "@/lib/convex";
+import { catalogOf, type GameView } from "@/lib/types";
+import { useRun, type Run } from "@/hooks/use-run";
+import { useSendChat } from "@/hooks/use-chat";
 import { Shell, Panel, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
 import { Chat, Conn, Leaderboard, Objects, ReadOnlySettings, Repertoire, Roster, ScoringPanel } from "@/components/game-panels";
 import { useManifest } from "@/hooks/use-manifest";
-import { useAct, type RoomAct } from "@/components/room-panels";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/use-auth";
-import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
 import { errMsg, fmt } from "@/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs } from "@/lib/time";
 import { ArrowLeft, ArrowRight, Crown, Radio, RotateCcw, Square, Trophy } from "lucide-react";
 
 const RETURN_SECONDS = 15;
 
+/**
+ * The engine's clock, ticking locally: a reactive query only re-runs when its data changes, so
+ * countdowns advance from the last `serverTime` (corrected for clock skew) instead of polling.
+ */
+function useServerNow(serverTime: number, running: boolean) {
+  const skew = useRef(0);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { skew.current = serverTime - Date.now(); setNow(Date.now()); }, [serverTime]);
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+  return now + skew.current;
+}
+
 function Header({ game, isOwner }: { game: GameView; isOwner: boolean }) {
   const active = game.status === "active";
-  const plan = active ? secsLeft(game.planningEndsAt, game.serverTime) : null;
-  const pause = active ? secsLeft(game.pauseEndsAt, game.serverTime) : null;
+  const now = useServerNow(game.serverTime, active);
+  const plan = active ? secsLeft(game.planningEndsAt, now) : null;
+  const pause = active ? secsLeft(game.pauseEndsAt, now) : null;
   const cells: [string, string, string][] = [
     ["phase", game.phase, "text-phase"],
     ["world t", `${fmt(game.worldSeconds, 1)}s`, "text-world-t"],
@@ -60,14 +78,17 @@ function Header({ game, isOwner }: { game: GameView; isOwner: boolean }) {
   );
 }
 
-function OwnerControls({ game, act }: { game: GameView; act: RoomAct }) {
+function OwnerControls({ game, act }: { game: GameView; act: Run }) {
   const recovery = game.phase === "recovery";
+  const resume = useMutation(api.rooms.resume);
+  const end = useMutation(api.rooms.endActiveGame);
+  const roomId = game.roomId!;
   return (
     <Panel title="Owner controls" meta="this game">
       <div className="p-3 grid gap-2">
         {recovery && (<>
           <p className="text-xs text-accent" data-testid="text-recovery-reason">Game is in recovery{game.recoveryReason ? `: ${game.recoveryReason}` : "."}</p>
-          <button onClick={() => act.run({ action: "resume" })} disabled={act.pending} className="bg-primary text-primary-foreground py-2 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40" data-testid="button-resume"><RotateCcw className="h-4 w-4" /> Resume game</button>
+          <button onClick={() => act.run("resume", () => resume({ roomId }))} disabled={act.pending} className="bg-primary text-primary-foreground py-2 text-sm inline-flex items-center justify-center gap-2 disabled:opacity-40" data-testid="button-resume"><RotateCcw className="h-4 w-4" /> Resume game</button>
         </>)}
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -80,7 +101,7 @@ function OwnerControls({ game, act }: { game: GameView; act: RoomAct }) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel data-testid="button-cancel-end-game">Keep playing</AlertDialogCancel>
-              <AlertDialogAction onClick={() => act.run({ action: "endGame" })} data-testid="button-confirm-end-game">End game</AlertDialogAction>
+              <AlertDialogAction onClick={() => act.run("endGame", () => end({ roomId }))} data-testid="button-confirm-end-game">End game</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -126,27 +147,16 @@ function Results({ game, returnIn, onStay }: { game: GameView; returnIn: number 
 export default function Game() {
   const { code = "" } = useParams<{ code: string }>();
   const [, navigate] = useLocation();
-  const qc = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading, error: authError, refetch: refetchAuth, login } = useAuth();
-  const activityReady = useActivityReady();
-  const idle = useServerIdle();
-  const q = useGetGameState(code, {
-    query: {
-      queryKey: getGetGameStateQueryKey(code),
-      enabled: activityReady && !idle && isAuthenticated && !!code,
-      // Live at 1 s; once ended, poll slowly only to notice a newer game in the room.
-      refetchInterval: (query) => idle || !activityReady ? false : query.state.data?.status === "ended" ? 10000 : 1000,
-      retry: false,
-    },
-  });
+  // One reactive subscription: the public world updates as the engine commits each tick.
+  const q = useLive(api.games.view, isAuthenticated && code ? { code } : "skip");
   const game = q.data;
   const manifest = useManifest();
   const active = game?.status === "active";
   // Membership decides who may chat; the game view itself does not carry it.
-  const room = useGetRoom(game?.roomShortCode ?? "", {
-    query: { queryKey: getGetRoomQueryKey(game?.roomShortCode ?? ""), enabled: activityReady && !idle && isAuthenticated && active && !!game?.roomShortCode, refetchInterval: idle || !activityReady ? false : 10000 },
-  });
-  const act = useAct(game?.roomShortCode ?? game?.roomId ?? "", () => void qc.invalidateQueries({ queryKey: getGetGameStateQueryKey(code) }));
+  const room = useLive(api.rooms.get, active && game?.roomId ? { room: game.roomId } : "skip");
+  const act = useRun();
+  const sendChat = useSendChat(game?.roomId);
 
   useEffect(() => { document.title = `Game ${game?.shortCode ?? code} · Code Gods`; }, [game?.shortCode, code]);
   useEffect(() => {
@@ -180,7 +190,7 @@ export default function Game() {
   const newer = game?.roomActiveGame && game.roomActiveGame.id !== game.id ? game.roomActiveGame : null;
 
   return (
-    <Shell right={game && <Conn ok={!q.isError} updatedAt={q.dataUpdatedAt} fetching={q.isFetching} label={active ? "live / 1s poll" : "final / 10s check"} staleAfter={active ? 4 : 25} />}>
+    <Shell right={game && <Conn ok={!q.error} label={active ? "live" : "final"} />}>
       {authError ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={errMsg(authError)} onRetry={() => void refetchAuth()} /></div>
       : authLoading ? null : !isAuthenticated ? (
         <div className="mx-auto max-w-lg px-4 py-20 text-center rise">
@@ -194,13 +204,12 @@ export default function Game() {
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
           <h1 className="font-display text-5xl" data-testid="text-game-code">{code}</h1>
-          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found"} onRetry={() => void q.refetch()} />
+          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found"} />
           <Link href="/" className="label-mono underline" data-testid="link-game-home">Back to your rooms</Link>
         </div>
       ) : (<>
         <Header game={game} isOwner={isOwner} />
         <div className="mx-auto max-w-[1440px] px-4 md:px-6 pt-4 space-y-3 empty:hidden">
-          {q.isError && <ErrorLine message={`Showing last known state. ${errMsg(q.error)}`} onRetry={() => void q.refetch()} />}
           {newer && (
             <Link href={`/games/${newer.shortCode}`} className="block border border-accent bg-accent/10 hover:bg-accent/20 px-4 py-3" data-testid="banner-newer-game">
               <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -224,7 +233,7 @@ export default function Game() {
             <Chat messages={game.chat} canPost={canPost} pending={act.pending}
               title={active ? "Public channel" : "Public channel · during this game"}
               placeholder={!active ? "Game over; chat continues in the room" : canPost ? "Speak to all deities" : "Join the room to speak"}
-              onSend={(text, done) => act.run({ action: "chat", text }, done)} />
+              onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
             <GameRules settings={game.settings} instance={game.objectInstance} roomCode={game.roomShortCode} gameCode={game.shortCode} note="Uses this game’s settings snapshot." />
           </div>
           <Objects objects={game.objects} instance={game.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
@@ -232,7 +241,7 @@ export default function Game() {
             {isOwner && active && game.roomShortCode && <OwnerControls game={game} act={act} />}
             <Roster roster={game.roster} meId={user?.id} ownerId={game.ownerId} />
             <ReadOnlySettings settings={game.settings} instance={game.objectInstance} title="Settings used" meta={`started ${fmtWhen(game.startedAt)}`} note="Snapshot taken when this game launched; room changes apply to the next game only." />
-            <Repertoire catalog={game.utilityCatalog} classes={manifest.data?.objectTypes.find(t => t.id === game.settings.objectType)?.classes} />
+            <Repertoire catalog={catalogOf(game.utilityCatalog)} classes={manifest.data?.objectTypes.find(t => t.id === game.settings.objectType)?.classes} />
           </div>
         </div>
       </>)}

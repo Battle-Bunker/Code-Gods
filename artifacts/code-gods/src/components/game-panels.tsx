@@ -1,26 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, InstanceInfo, ObjectTypeInfo, PublicObject, RosterEntry, Settings, Standing, UtilityFamily } from "@workspace/api-client-react";
+import { useConvexConnectionState } from "convex/react";
+import type { ChatMessage, InstanceInfo, ObjectTypeInfo, PublicObject, RosterEntry, Settings, Standing, UtilityFamily } from "@/lib/types";
 import { Panel, Empty } from "@/components/shell";
 import { fmt } from "@/lib/errors";
 import { toMs } from "@/lib/time";
 import { Bot, Send, User } from "lucide-react";
 import { BadgeChips, HowScoringWorks, ObjectView, RuleShelf, objectContext, objectNoun } from "@workspace/object-views";
 
-export function Conn({ ok, updatedAt, fetching, label = "live / 1s poll", staleAfter = 4 }: { ok: boolean; updatedAt: number; fetching: boolean; label?: string; staleAfter?: number }) {
-  const [, tick] = useState(0);
-  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
-  const age = updatedAt ? Math.round((Date.now() - updatedAt) / 1000) : null;
-  const stale = age !== null && age > staleAfter;
+/** The Convex socket: live data arrives by subscription, so the only state worth showing is the link itself. */
+export function Conn({ ok = true, label = "live" }: { ok?: boolean; label?: string }) {
+  const state = useConvexConnectionState();
+  const connected = state.isWebSocketConnected;
   return (
     <span className="flex items-center gap-2 label-mono" data-testid="status-connection">
-      <span className={`h-2 w-2 rounded-full ${!ok ? "bg-destructive" : stale ? "bg-accent" : "bg-primary"} ${fetching ? "pulse-dot" : ""}`} />
-      {!ok ? "poll failing" : stale ? `stale ${age}s` : label}
+      <span className={`h-2 w-2 rounded-full ${!ok ? "bg-destructive" : connected ? "bg-primary" : "bg-accent pulse-dot"}`} />
+      {!ok ? "query failing" : connected ? label : "reconnecting"}
     </span>
   );
 }
 
 /** Public standings: total payoff (bits²) per god. */
-export function Leaderboard({ rows, agentCount, title = "Leaderboard", emptyBody = "Scores appear once the world begins to run." }: { rows: Standing[]; agentCount?: number; title?: string; emptyBody?: string }) {
+export function Leaderboard({ rows, agentCount, title = "Leaderboard", emptyBody = "Scores appear once the world begins to run." }: { rows: readonly Standing[]; agentCount?: number; title?: string; emptyBody?: string }) {
   const max = Math.max(1, ...rows.map((r) => Math.abs(r.totalPayoff)));
   return (
     <Panel title={title} meta={agentCount !== undefined ? <span data-testid="text-agent-count">{agentCount} agents</span> : undefined}>
@@ -50,7 +50,7 @@ export function ScoringPanel({ objectType }: { objectType?: string }) {
 }
 
 /** "Possible gods": the public catalog, grouped by badge, with locked families on a toggle. */
-export function Repertoire({ catalog, classes }: { catalog: UtilityFamily[]; classes?: ObjectTypeInfo["classes"] }) {
+export function Repertoire({ catalog, classes }: { catalog: readonly UtilityFamily[]; classes?: ObjectTypeInfo["classes"] }) {
   const badges = useMemo(() => (classes ?? []).map(c => c.badge), [classes]);
   return (
     <Panel title="Possible gods" meta={`${catalog.filter(f => f.available).length} families`}>
@@ -60,7 +60,7 @@ export function Repertoire({ catalog, classes }: { catalog: UtilityFamily[]; cla
 }
 
 /** The world's objects, hottest first. Public: only salience (Σ of every god's net bits), never anyone's own score. */
-export function Objects({ objects, instance, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: PublicObject[]; instance?: InstanceInfo; emptyBody?: string }) {
+export function Objects({ objects, instance, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: readonly PublicObject[]; instance?: InstanceInfo; emptyBody?: string }) {
   const objs = useMemo(() => [...objects].sort((a, b) => b.salience - a.salience), [objects]);
   const max = Math.max(1, ...objs.map((o) => Math.abs(o.salience)));
   const ctx = objectContext(instance);
@@ -97,7 +97,7 @@ export function Objects({ objects, instance, emptyBody = "No objects in this wor
 }
 
 export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public channel" }: {
-  messages: ChatMessage[]; canPost: boolean; placeholder: string; pending: boolean;
+  messages: readonly ChatMessage[]; canPost: boolean; placeholder: string; pending: boolean;
   onSend: (text: string, done: () => void) => void; title?: string;
 }) {
   const [text, setText] = useState("");
@@ -109,8 +109,8 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
       <div className="h-[340px] overflow-auto px-4 py-2 space-y-2">
         {n === 0 && <Empty title="Silence in the pantheon" body="No one has spoken. Treaties start with a first message." />}
         {messages.map((c) => (
-          <div key={c.id} className={c.kind === "system" ? "label-mono py-1" : "text-sm"} data-testid={`row-chat-${c.id}`}>
-            {c.kind === "system" ? <span>{c.text}</span> : (<>
+          <div key={c.id} className={(c.kind as string) === "system" ? "label-mono py-1" : "text-sm"} data-testid={`row-chat-${c.id}`}>
+            {(c.kind as string) === "system" ? <span>{c.text}</span> : (<>
               <span className="font-medium">{c.authorName}</span>
               <span className="label-mono ml-2">{new Date(toMs(c.timestamp)).toLocaleTimeString()}</span>
               <p className="whitespace-pre-wrap break-words text-foreground/90">{c.text}</p>
@@ -159,7 +159,7 @@ export function ReadOnlySettings({ settings, instance, title = "World settings",
   );
 }
 
-export function Roster({ roster, meId, ownerId }: { roster: RosterEntry[]; meId?: string; ownerId?: string | null }) {
+export function Roster({ roster, meId, ownerId }: { roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null }) {
   return (
     <Panel title="Roster" meta={`${roster.length} seated`}>
       {roster.length === 0 ? <Empty title="No roster" body="This game recorded no seated gods." /> : (
