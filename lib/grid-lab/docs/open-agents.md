@@ -55,10 +55,13 @@ can be had without it:
 - **Search does not dominate on paper (§6.3).** Per lifetime energy, the best of 512 random Programs
   beats the best search template for 12 of 12 owner families at the default prices, and for 8 of 12
   when summoning is 4× cheaper.
-- **Search does help in play (§6.5).** At the default summon price, open agents make up only 2–10% of
-  summons. At a 4× cheaper summon price they make up 22–74%. Search templates earn their owners far
-  more per agent than Programs. Language-only worlds lose mutator variety and dynamism.
-  <!--GAMES-SUMMARY-->
+- **Search does help in play (§6.5), but much less than in the DSL.**
+  - At the default summon price, gods choose open agents for 5–9% of summons. Access is worth
+    +0.19 to +0.34 of a place (59% of wins), against the DSL's +0.78 (66%).
+  - At a 4× cheaper summon price, open agents take 49–64% of summons, and the edge from access
+    disappears (+0.12 to +0.22, 47–53% of wins).
+  - Search templates earn their owners 100–180 payoff per commit, against about 1 for Programs.
+  - Open-only worlds lose mutator variety (0.82 → 0.17–0.20) and dynamism (0.73 → 0.47–0.51).
 - **Computing a target versus naming it is fair at the margin (§6.4).** `greedy_paint` pays 0.4–0.8
   decision bits where the target it finds is predictable. That is far below the 13–15 bits it would
   take to name the target. Its per-application price is within 10% of the named agent's. Searching
@@ -704,7 +707,76 @@ Conditions:
 Policies: `greedy` (four greedy_private) and `mixed` (random, greedy_private, saver,
 greedy_omniscient).
 
-<!--GAMES-->
+**Summon price s = 1** (the honest description length):
+
+| policies | condition | dynamism | tension | spirals /100 commits | lead changes /100 s | welfare | payoff Gini | mutator entropy | mean summon cost | open share of summons | energy spent on applications |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| greedy | off | 0.727 ± 0.018 | 0.36 ± 0.02 | 9.8 ± 0.1 | 5.4 ± 0.9 | 2.3k ± 0.5k | 0.18 ± 0.02 | 0.82 ± 0.01 | 19.8 | 0% | 0 |
+| greedy | mix | 0.701 ± 0.017 | 0.35 ± 0.02 | 9.4 ± 0.2 | 3.8 ± 0.9 | 4.8k ± 1.6k | 0.21 ± 0.02 | 0.84 ± 0.01 | 23.2 | 5% | 61 |
+| greedy | only | 0.493 ± 0.057 | 0.35 ± 0.08 | 4.9 ± 0.9 | 2.6 ± 0.9 | 6.4k ± 2.9k | 0.24 ± 0.02 | 0.17 ± 0.01 | 50.9 | 100% | 642 |
+| mixed | off | 0.692 ± 0.018 | 0.33 ± 0.02 | 8.8 ± 0.2 | 3.2 ± 0.8 | 5.1k ± 1.6k | 0.25 ± 0.02 | 0.83 ± 0.01 | 21.8 | 0% | 0 |
+| mixed | mix | 0.697 ± 0.015 | 0.32 ± 0.02 | 8.6 ± 0.3 | 3.3 ± 0.7 | 4.7k ± 1.0k | 0.23 ± 0.02 | 0.82 ± 0.01 | 24.5 | 9% | 92 |
+| mixed | only | 0.474 ± 0.040 | 0.20 ± 0.06 | 5.9 ± 1.0 | 2.1 ± 0.8 | 6.6k ± 3.6k | 0.26 ± 0.02 | 0.19 ± 0.01 | 50.3 | 100% | 745 |
+
+**Summon price s = ¼** (`open_summon_scale=0.25`):
+
+| policies | condition | dynamism | tension | spirals /100 commits | lead changes /100 s | welfare | payoff Gini | mutator entropy | mean summon cost | open share of summons | energy spent on applications |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| greedy | mix | 0.682 ± 0.017 | 0.36 ± 0.03 | 9.5 ± 0.3 | 3.9 ± 0.9 | 9.7k ± 4.0k | 0.25 ± 0.02 | 0.71 ± 0.03 | 19.5 | 49% | 442 |
+| greedy | only | 0.479 ± 0.056 | 0.29 ± 0.07 | 5.9 ± 1.1 | 2.2 ± 0.9 | 5.9k ± 2.3k | 0.21 ± 0.02 | 0.18 ± 0.02 | 15.0 | 100% | 623 |
+| mixed | mix | 0.652 ± 0.020 | 0.34 ± 0.04 | 9.1 ± 0.3 | 2.3 ± 0.7 | 12.7k ± 4.0k | 0.28 ± 0.02 | 0.64 ± 0.03 | 18.6 | 64% | 530 |
+| mixed | only | 0.509 ± 0.039 | 0.28 ± 0.06 | 6.2 ± 0.8 | 1.1 ± 0.4 | 6.7k ± 2.7k | 0.24 ± 0.02 | 0.20 ± 0.01 | 16.0 | 100% | 744 |
+
+The `off` rows are the same games at both prices.
+
+Owner payoff caused by each agent's own commits, at s = ¼, pooled over conditions:
+
+| agent | summoned | mean summon cost | commit rate | owner payoff per commit | owner payoff per agent |
+|---|---|---|---|---|---|
+| program | 6911 | 22.3 | 0.8 | 1.2 | 78 |
+| fixed:recolour_tool | 1648 | 10.9 | 0.5 | 14.7 | 766 |
+| relative:paint_best_line | 686 | 10.6 | 0.5 | −13.8 | −658 |
+| fixed:paint_one_row | 499 | 11.4 | 0.7 | −10.9 | −798 |
+| search:greedy_paint | 307 | 21.6 | 0.9 | 106.7 | 11,484 |
+| search:careful_greedy | 94 | 37.2 | 0.8 | 134.6 | 13,589 |
+| random:random_row | 83 | 23.3 | 0.8 | −7.7 | −885 |
+| search:greedy_swap | 30 | 62.6 | 0.5 | 10.2 | 833 |
+
+At s = 1, 49 `greedy_paint` agents earned their owners 54,496 each, against 86 for a Program.
+
+Does access to open agents help a god win? The same seed is played with gods 0–1 and then gods 2–3
+holding access, so each god is compared with itself:
+
+| summon price | policies | god-games | rank gain from open agents (+ = better) | games won by an open-agent god (50% = no edge) |
+|---|---|---|---|---|
+| s = 1 | greedy | 64 | +0.34 ± 0.17 | 59% |
+| s = 1 | mixed | 64 | +0.19 ± 0.12 | 59% |
+| s = ¼ | greedy | 64 | +0.22 ± 0.14 | 53% |
+| s = ¼ | mixed | 64 | +0.12 ± 0.13 | 47% |
+
+**Readings.**
+
+- **At the honest price (s = 1), written agents are a luxury.**
+  - Gods choose them for 5–9% of summons in `mix`, and dynamism is unchanged.
+  - The search template is decisive when bought: `greedy_paint`'s 179.6 payoff per commit against
+    1.3 for Programs.
+  - So access helps a little: +0.2 to +0.3 of a place, and 59% of wins. This is far less than the DSL's
+    +0.78 and 66% in PR #10. Per-application pricing and the larger description of open Python both
+    rein search in.
+- **At s = ¼, open agents take about half of all summons** (49% for greedy gods, 64% for mixed).
+  - Welfare roughly doubles or triples (2.3k → 9.7k for greedy gods).
+  - Inequality rises.
+  - The edge from access shrinks to noise (+0.12 to +0.22, 47–53% of wins). When everyone can buy
+    search, nobody gains by it.
+- **Language-only worlds lose variety.**
+  - Mutator entropy collapses from 0.82 to 0.17–0.20, because the templates mostly paint.
+  - Spirals fall from 9.8 to 5–6, and dynamism from 0.73 to 0.47–0.51.
+  - As in PR #10, the cure is more templates over the bijective and positional mutators, not prices.
+- **Fixed one-move agents hurt their own owners in play** (−11 to −17 per commit). They act blindly on
+  every object, the PR #10 finding for Programs. The search agents never do: they evaluate the
+  owner's utility first.
+- **Per-application energy is a real cost.** Open-only worlds spend 620–750 energy on applications per
+  game, against about 1,200 earned. Owners who cannot pay see their agents idle.
 
 ## 7. Integration (`sim.py`)
 
@@ -796,8 +868,8 @@ A TypeScript port must reproduce the following, in this order.
      `per_application_bits` = jackknife I + prior erasure + motion + amortised ratchet.
 2. **Allow seeded randomness and freeze the clock** (§5.4). Keep the seed salt and the reference-grid
    seeds secret during a season (commit, then reveal).
-3. **Calibrate the two energy scales together.** At s = 1, written agents are a luxury. At s = ¼ they
-   take most summons and dominate payoffs (§6.5).
+3. **Calibrate the two energy scales together.** At s = 1, written agents are a luxury (5–9% of
+   summons). At s = ¼ they take about half, with no lasting edge for any god (§6.5).
    - Description length is honest about Python's generality. A Python agent costs 3–4 bits per AST
      node.
    - To make writing code attractive to kids, lower s rather than bending the code.
