@@ -13,9 +13,9 @@ inside its own worker processes. The simulator commits only through `objects[oi]
 
 | question | answer (evidence below) |
 |---|---|
-| Beginner default | **Grid(4,base10,rgb)**: digits and three primary colours. It plays like 5×5 on dynamism (0.533 vs 0.545), and changes are 1.3× more legible than on 5×5. Only 5 of 79 families have a ceiling under 12 bits, against 25 of 76 on 3×3. |
+| Beginner default | **Grid(4,base10,rgb)**: digits and three primary colours. Its dynamism is close to 5×5: equal in training (0.533 vs 0.545) and with greedy-only gods (0.518 vs 0.516), and 0.03 lower on held-out seeds. Changes are 1.2–1.3× more legible than on 5×5. Only 5 of 79 families have a ceiling under 12 bits, against 25 of 76 on 3×3. |
 | Progression | 4×4 base10 rgb → 5×5 base10 rgby (the current reference) → 6×6 with base12/base16 or cards → 7×7 with rainbow6 for experts. Symbol and colour sets barely change the dynamics, so introduce them for variety and theme, not difficulty. |
-| Degenerate | **All of size 3** in competitive play: about 45% of families cap below 16 bits, objects flicker (autocorr 0.13–0.20 vs 0.25 at 5×5), and dynamism2 is lowest. **3×3 cards** is the worst point: 52 symbols on 9 cells, lowest tension and dynamism. 7×7 is not "too noisy": it is the most dynamic. It is, however, the least legible (each change touches 6 cells, 12% of the grid) and it prices out every global mutator. |
+| Degenerate | **All of size 3** in competitive play: about 45% of families cap below 16 bits, objects flicker (autocorr 0.13–0.20 vs 0.25 at 5×5), and dynamism2 is lowest. **Grid(3,cards,rainbow6)** is the worst point: 52 symbols on 9 cells, and the lowest dynamism (0.484 training, 0.483 held out) and tension of all 25 types. 7×7 is not "too noisy" in its dynamics: under the mixed policy mix it is the most dynamic, though not with greedy-only gods (§3.5). It is, however, the least legible (each change touches 6 cells, 12% of the grid) and it prices out every global mutator. |
 | Retire / add | Retire size 3 as a competitive size, and keep it only for a tutorial with a restricted family pool. Retire nothing else. Symbol and colour sets each move the metrics by less than the seed-to-seed noise. Don't add size 8+: the trend in legibility and global-mutator cost continues the wrong way. |
 | What GridType controls | Ceilings, legibility and the mutator mix: the additive model explains 84% of per-game variance in cells-per-change share and 60% of legible-change rate. Dynamism and fairness are governed by the dealt families and policies: GridType explains only 4% of per-game dynamism2, and family unfairness is the same at every size. |
 
@@ -139,7 +139,7 @@ Readings (none of these depend on policies):
      monochrome jackpot is cheap) and 131 bits on 7×7, which is more than the 100-bit starting energy.
      A whole-grid write costs 278 bits on 7×7.
    - So on 6×6 and 7×7, global overwrites are unaffordable for the first 30–180 s and rarely worth it after
-     (§4). On 3×3 everything is affordable at the start (library 100% ≤ 100 bits).
+     (§3.4). On 3×3 everything is affordable at the start (library 100% ≤ 100 bits).
 5. **One-cell sensitivity falls with size.** P(noticeable change from one cell) goes 0.13 → 0.037.
    A kid who changes one cell on 3×3 sees their number move about 1 time in 8; on 7×7 about 1 time in 27.
    Bigger grids need more cells changed per noticeable effect.
@@ -166,7 +166,30 @@ Coefficients are differences from Grid(5,base10,rgby); * means the 95% CI exclud
 per-game, "R² means" is on the 25 type means, and "held-out r" is the correlation between the training
 model's predictions and the held-out type means (24 games/type, seed 9000000).
 
-HELDOUT_TABLE
+| metric | R² (games) | R² type means | held-out r (type means) | size 3 | size 4 | size 6 | size 7 | base12 | base16 | cards | rgb | rainbow6 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| dynamism2 | 0.04 | 0.77 | 0.77 | -0.0397* | -0.000565 | +0.0126 | +0.0349* | +0.0258* | +0.0167 | +0.0137 | +0.00808 | +0.00378 |
+| sig_tension_rate | 0.15 | 0.93 | 0.88 | +0.047* | +0.0254* | -0.0166* | -0.0251* | +0.00363 | +0.0036 | -0.0164* | +0.0133* | -0.0175* |
+| durable_lead_changes_per_obj_100s | 0.03 | 0.75 | 0.62 | -0.206* | -0.00214 | +0.0757 | +0.135* | +0.0573 | +0.0378 | -0.0197 | -0.00449 | +0.0174 |
+| spirals_per_100_commits | 0.09 | 0.88 | 0.83 | -0.533* | -0.178 | +0.224 | +0.429* | +0.225 | -0.0012 | -0.332* | +0.338* | -0.688* |
+| climbs_held_accel_per_100s | 0.03 | 0.80 | 0.64 | -0.342* | +0.0571 | +0.267 | +0.325* | +0.195 | +0.00568 | +0.0228 | +0.0113 | +0.189 |
+| crossings_per_pair_100s | 0.05 | 0.87 | 0.69 | +0.781* | +0.179 | -0.0974 | -0.565* | -0.0969 | -0.0884 | +0.0268 | +0.0759 | +0.0343 |
+| snap_autocorr | 0.17 | 0.95 | 0.89 | -0.122* | -0.0303 | +0.064* | +0.155* | +0.0313* | +0.0223 | +0.0468* | +0.00943 | +0.032* |
+| steal_rate | 0.10 | 0.94 | 0.76 | +0.0136* | +0.00777* | -0.00737* | -0.00738* | +0.00209 | +0.00298 | -0.00332 | +0.0023 | -0.00597* |
+| mutator_entropy_norm | 0.21 | 0.95 | 0.83 | +0.034* | +0.0188* | -0.0196* | -0.0311* | -0.00204 | -0.00573 | +0.00202 | -0.00557 | -0.00919* |
+| energy_unspent_share | 0.02 | 0.68 | 0.72 | +0.0246* | +0.00855 | -0.00677 | -0.00751 | +0.000306 | -0.000867 | -0.000795 | -0.00217 | -0.0144* |
+| cells_mean | 0.59 | 0.99 | 0.99 | -1.56* | -0.548* | +0.835* | +1.1* | +0.00832 | +0.013 | -0.176* | +0.106* | -0.0977 |
+| cells_frac | 0.84 | 1.00 | 1.00 | +0.163* | +0.0738* | -0.035* | -0.0705* | -0.00102 | -0.000247 | -0.00836* | +0.0041 | -0.00296 |
+| vis_rate | 0.18 | 0.96 | 0.91 | +0.0405* | +0.0182* | -0.0146* | -0.0278* | -0.00103 | +1.23e-05 | -0.0214* | +0.011* | -0.0207* |
+| flicker_rate | 0.23 | 0.96 | 0.92 | -0.0585* | -0.0268* | +0.0222* | +0.0354* | +0.00134 | -0.00843 | -0.00531 | +0.0117* | -0.03* |
+| legible_rate | 0.60 | 0.99 | 0.99 | +0.0775* | +0.018* | -0.017* | -0.0206* | +0.000715 | -3.3e-05 | -0.00705* | +0.00461* | -0.0088* |
+| legible_share | 0.74 | 1.00 | 0.99 | +0.287* | +0.0612* | -0.0704* | -0.0837* | +0.00463 | +0.00325 | +0.00926 | +0.00205 | -0.00736 |
+| bits_per_cell | 0.48 | 0.98 | 0.96 | +0.32* | +0.11* | -0.102* | -0.134* | +0.0202 | +0.0266* | +0.0197 | +0.00664 | +0.0112 |
+| vis_per_obj_min_own | 0.02 | 0.62 | 0.48 | +1.61* | -0.662 | -0.884 | -1.72* | -0.429 | -0.576 | -1.05 | +1.09 | -0.308 |
+| late_progress | 0.06 | 0.86 | 0.85 | -0.00167* | -0.000232 | +0.000858 | +0.00258* | +0.000478 | -0.000388 | +0.00047 | -0.000239 | +0.000808 |
+| ceil_spread | 0.10 | 0.92 | 0.62 | -25.1* | -7.15* | +7.5* | +20.9* | +3.64 | -0.532 | -0.541 | +2.24 | +3.65 |
+| ceil_rank_corr | 0.00 | 0.38 | 0.44 | -0.0289 | +0.0152 | +0.0159 | +0.00723 | +0.0365 | -0.00758 | +0.00043 | +0.0656 | +0.0662 |
+| max_s_peak_mean | 0.12 | 0.92 | 0.88 | -7.47* | -1.72* | +2.74* | +3.69* | +2.2* | +1.43 | -0.108 | +0.676 | +0.374 |
 
 What the models say:
 
@@ -218,9 +241,34 @@ lifetimes, metabolic costs), not a GridType one.
 
 Policy-adjusted family rank score z: 0.5 is fair. All 2200 games:
 
-FAIRNESS_TABLE
+**Fairness by size**
 
-- Family unfairness (excess SD of adjusted z ≈ 0.18–0.20) is **the same at every size, symbol set and
+| group | games | families n≥10 | SD adj z | excess SD | share CI∌0.5 | corr(ceiling, rank score) within game |
+|---|---|---|---|---|---|---|
+| 3 | 440 | 81 | 0.196 | 0.186 | 0.49 | +0.153 [+0.098, +0.202] |
+| 4 | 440 | 82 | 0.193 | 0.183 | 0.51 | +0.163 [+0.108, +0.210] |
+| 5 | 528 | 84 | 0.181 | 0.172 | 0.51 | +0.160 [+0.112, +0.207] |
+| 6 | 352 | 80 | 0.197 | 0.186 | 0.46 | +0.189 [+0.127, +0.247] |
+| 7 | 440 | 83 | 0.196 | 0.186 | 0.52 | +0.181 [+0.133, +0.224] |
+
+**Fairness by symbol set**
+
+| group | games | families n≥10 | SD adj z | excess SD | share CI∌0.5 | corr(ceiling, rank score) within game |
+|---|---|---|---|---|---|---|
+| base10 | 704 | 82 | 0.185 | 0.178 | 0.56 | +0.159 [+0.124, +0.199] |
+| base12 | 440 | 81 | 0.203 | 0.194 | 0.54 | +0.188 [+0.140, +0.240] |
+| base16 | 528 | 84 | 0.189 | 0.180 | 0.50 | +0.168 [+0.125, +0.215] |
+| cards | 528 | 83 | 0.183 | 0.174 | 0.52 | +0.164 [+0.120, +0.215] |
+
+**Fairness by colour set**
+
+| group | games | families n≥10 | SD adj z | excess SD | share CI∌0.5 | corr(ceiling, rank score) within game |
+|---|---|---|---|---|---|---|
+| rainbow6 | 704 | 86 | 0.189 | 0.182 | 0.59 | +0.190 [+0.152, +0.234] |
+| rgb | 792 | 81 | 0.186 | 0.180 | 0.54 | +0.190 [+0.149, +0.228] |
+| rgby | 704 | 82 | 0.188 | 0.182 | 0.57 | +0.122 [+0.080, +0.167] |
+
+- Family unfairness (excess SD of adjusted z ≈ 0.17–0.19) is **the same at every size, symbol set and
   colour set**. GridType choice neither causes nor fixes it.
 - Within a game, the god with the higher-ceiling draw tends to rank higher (correlation +0.12 to +0.19,
   CIs exclude 0, about the same everywhere).
@@ -257,7 +305,54 @@ Share of committed applications (%). The full table is in the generated report.
     Weaver cap below 9 bits;
   - Bridge Builder, Ladder of Numbers and Lantern Lighter stay below 20 bits even at 7×7.
 
-POLICY_SECTION
+### 3.5 Policy robustness and held-out validation
+
+**Held-out seeds** (24 games/type, seed 9000000, 600 games). The training model's predicted type means
+correlate with the held-out type means at:
+
+| metric group | held-out r |
+|---|---|
+| legibility metrics | 0.96–1.00 |
+| tension | 0.88 |
+| autocorrelation | 0.89 |
+| spirals | 0.83 |
+| dynamism2 | 0.77 |
+
+Weakly predicted (held-out r < 0.5): rise-and-fall share, hits per object, agents, commits. These are
+dominated by noise, so treat their coefficients as unconfirmed.
+
+Held-out dynamism2 by size (95% CI half-width):
+
+| size | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|
+| dynamism2 | 0.490 ± 0.023 | 0.538 ± 0.021 | 0.570 ± 0.023 | 0.573 ± 0.023 | 0.604 ± 0.022 |
+
+On held-out seeds, 4×4 sits about 0.03 below 5×5 (training: equal). The deficit of 3×3 is confirmed.
+
+**All-greedy_private gods** (24 games/type, seed 5000, 6 types):
+
+| GridType | dynamism2 | sig. tension | snap autocorr | held accel. climbs /100 s | legible share | mutator entropy | agents | unspent energy |
+|---|---|---|---|---|---|---|---|---|
+| (3,base10,rgb) | 0.467 ± 0.044 | 0.164 ± 0.031 | 0.15 ± 0.058 | 0.42 ± 0.34 | 0.605 ± 0.032 | 0.867 ± 0.007 | 131 ± 44 | 0.040 ± 0.011 |
+| (3,cards,rgb) | 0.468 ± 0.049 | 0.181 ± 0.033 | 0.142 ± 0.059 | 0.33 ± 0.22 | 0.623 ± 0.027 | 0.858 ± 0.015 | 145 ± 46 | 0.051 ± 0.021 |
+| (4,base10,rgb) | 0.518 ± 0.046 | 0.156 ± 0.025 | 0.226 ± 0.084 | 0.68 ± 0.41 | 0.396 ± 0.027 | 0.829 ± 0.014 | 179 ± 69 | 0.044 ± 0.019 |
+| (5,base10,rgby) | 0.516 ± 0.042 | 0.117 ± 0.022 | 0.225 ± 0.077 | 0.61 ± 0.43 | 0.298 ± 0.027 | 0.818 ± 0.011 | 126 ± 38 | 0.050 ± 0.016 |
+| (6,cards,rgb) | 0.558 ± 0.047 | 0.102 ± 0.028 | 0.349 ± 0.085 | 0.91 ± 0.37 | 0.232 ± 0.025 | 0.795 ± 0.016 | 151 ± 50 | 0.037 ± 0.009 |
+| (7,base16,rainbow6) | 0.466 ± 0.063 | 0.068 ± 0.020 | 0.334 ± 0.092 | 0.58 ± 0.38 | 0.170 ± 0.023 | 0.764 ± 0.016 | 90.5 ± 26 | 0.051 ± 0.013 |
+
+Under greedy-only play:
+
+- **Robust across policy mixes**:
+  - the legibility ordering;
+  - the tension gradient (small grids tense, large calm);
+  - the autocorrelation gradient;
+  - the mutator-entropy gradient;
+  - 3×3 being the least dynamic;
+  - 4×4 being on par with 5×5 (0.518 vs 0.516).
+- **Not robust**: "7×7 is the most dynamic". With greedy gods, Grid(7,base16,rainbow6) drops to 0.466 ± 0.063,
+  level with 3×3, while 6×6 cards stays high. The large-grid advantage under the mixed mix comes partly
+  from random/saver gods buying many cheap local programs. With greedy gods only, 7×7 gets fewer agents
+  (90 vs 126–179) and the lowest tension (0.068).
 
 ## 4. Recommendations
 
@@ -266,7 +361,7 @@ POLICY_SECTION
    - 16 cells keeps a change visible: 4.3 cells per commit, 37% of noticeable moves traceable to ≤ 3 cells,
      against 31% on 5×5 rgby.
    - Families still have room to climb: median ceiling 25 bits, 5 families below 12 bits.
-   - Dynamism is equal to 5×5 within CI: 0.533 ± 0.03 vs 0.545 ± 0.03.
+   - Dynamism is close to 5×5: within CI in training and greedy-only play, and 0.03 lower on held-out seeds. It is clearly above 3×3 (+0.05) in every set.
    - Pair it with a **beginner dealer exclusion** of the families that are starved at 4×4: `dealer_exclude
      = ["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"]`, all
      with ceiling < 9 bits on Grid(4,base10,rgb).
@@ -274,17 +369,18 @@ POLICY_SECTION
    1. Grid(4,base10,rgb);
    2. Grid(5,base10,rgby), the current reference: one more colour, 25 cells;
    3. Grid(6,base12|base16,rgby) or Grid(5,cards,rgby): new glyphs, calmer and more persistent objects;
-   4. Grid(7,*,rainbow6) for experts: the most dynamic (dyn2 0.58–0.61) and the most persistent climbs, but
-      only about 21% of noticeable moves are traceable.
+   4. Grid(7,*,rainbow6) for experts: the most persistent objects (autocorr 0.44) and the most dynamic under
+      mixed policies (0.58–0.61), but only about 21% of noticeable moves are traceable, and with greedy-only
+      gods its dynamism falls to 3×3 level. 6×6 is the safer "large" default.
 
    Introduce symbol and colour sets for theme and variety. They do not change difficulty measurably.
 3. **Retire size 3 from competitive play.** Keep it as a *tutorial* GridType with a curated pool (families
    with ceiling ≥ 16 bits on that type). It is ceiling-starved (45% of families < 16 bits), flickery
    (autocorr 0.13) and the least dynamic (dyn2 −0.04*). Monochrome jackpots cost two cell paints. Within
-   size 3, Grid(3,cards,*) is the worst: lowest dynamism (0.484) and tension, and 9 cells cannot show a
+   size 3, Grid(3,cards,rainbow6) is the worst: lowest dynamism (0.484) and tension, and 9 cells cannot show a
    52-card alphabet.
-4. **Keep 7×7, but don't call it noisy.** The noise is in legibility, not in the dynamics: it has the most
-   persistence and climbs. Global overwrites (paint grid 131 bits, write grid 278, motif 168) exceed the
+4. **Keep 7×7 as an expert option, but don't call it noisy.** The noise is in legibility, not in the dynamics: it has the most
+   persistence. Its dynamism depends on the policy mix (high with mixed gods, low with greedy-only), and 6×6 is more robust. Global overwrites (paint grid 131 bits, write grid 278, motif 168) exceed the
    starting energy, so if global mutators should matter on big grids, scale `COST_KNOBS["scope"]["global"]`
    down with N (e.g. × 5/N), or raise starting energy with N². Don't add size 8+.
 5. **No symbol or colour value needs retiring or adding** for dynamics or fairness. If the product wants
@@ -300,7 +396,7 @@ POLICY_SECTION
 
 - **Policy-free** (§2): families and mutators available, ceilings, one-cell sensitivity, mutator and
   library costs against the economy. These hold for any players.
-- **Policy-dependent** (§3, §4.1–4.4): dynamism, tension, climbs, mutator shares, legibility *rates*
+- **Policy-dependent** (§3, §4): dynamism, tension, climbs, mutator shares, legibility *rates*
   (they depend on which programs are bought) and fairness. The greedy-only check in §3.5 tests how robust
   the GridType ordering is to the policy mix.
 - The **noticeable-jumps-per-minute** figure depends on the 100 Hz interaction rate.
