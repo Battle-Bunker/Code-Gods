@@ -75,6 +75,7 @@ export async function startGame(room: Room, actor: Actor) {
   for (let i = 0; i < game.settings.startingObjectCount; i++) spawn(game);
   room.game = game;
   room.aiUsed = 0; room.aiReservedUsd = 0;
+  room.aiInputTokens = 0; room.aiOutputTokens = 0;
   room.members.forEach(m => { m.ready = false; });
 }
 

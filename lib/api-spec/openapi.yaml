@@ -623,7 +623,7 @@ components:
         ready: { type: boolean }
         text: { type: string, maxLength: 4000 }
         deityId: { type: string }
-        aiBudget: { type: integer, minimum: 0, maximum: 500000 }
+        aiBudget: { type: integer, minimum: 0, maximum: 1000000 }
         aiAgentId: { type: string }
     Settings:
       type: object
@@ -849,6 +849,8 @@ components:
           items: { $ref: "#/components/schemas/UtilityFamily" }
         aiBudget: { type: integer }
         aiUsed: { type: integer }
+        aiInputTokens: { type: integer, description: Provider-reported input tokens recorded for this game. }
+        aiOutputTokens: { type: integer, description: Provider-reported output tokens recorded for this game. }
     UtilityFamily:
       type: object
       required: [id, name, theme]

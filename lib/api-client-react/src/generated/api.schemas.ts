@@ -394,7 +394,7 @@ export interface RoomActionInput {
   deityId?: string;
   /**
      * @minimum 0
-     * @maximum 500000
+     * @maximum 1000000
      */
   aiBudget?: number;
   aiAgentId?: string;
@@ -636,6 +636,10 @@ export interface RoomState {
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
+  /** Provider-reported input tokens recorded for this game. */
+  aiInputTokens?: number;
+  /** Provider-reported output tokens recorded for this game. */
+  aiOutputTokens?: number;
 }
 
 export interface HealthStatus {

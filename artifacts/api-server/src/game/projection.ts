@@ -74,6 +74,7 @@ export function publicRoom(room: Room) {
       ...member, ...(aiAgent ? { aiAgentId: aiAgent.id, aiAgentRevision: aiAgent.revision, provider: aiAgent.provider, model: aiAgent.model } : {}),
     })), chat: room.chat.slice(-100),
     aiBudget: room.aiBudget, aiUsed: room.aiUsed, serverTime: Date.now(),
+    aiInputTokens: room.aiInputTokens ?? 0, aiOutputTokens: room.aiOutputTokens ?? 0,
     // The lobby describes the NEXT game: the families its gods might draw, never who drew which.
     utilityCatalog: publicCatalog(room.settings.objectType),
     activeGame: activeGameRef(room),

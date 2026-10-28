@@ -147,7 +147,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     optionFields.some(([k]) => !available(k).some(o => o.id === val(k)));
   const conflict = dirty && baseRev.current !== room.revision;
   const b = Number(budget);
-  const budgetOk = Number.isInteger(b) && b >= 0 && b <= 500000;
+  const budgetOk = budget.trim() !== "" && Number.isInteger(b) && b >= 0 && b <= 1000000;
   const field = "w-full border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
   return (
     <Panel title="Settings for the next game" meta={conflict ? "changed by another edit" : dirty ? "unsaved" : `rev ${room.revision}`}>
@@ -196,12 +196,16 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         </div>
         <div className="flex items-baseline justify-between">
           <span className="label-mono !text-foreground">AI token budget</span>
-          <span className="font-mono text-xs" data-testid="text-ai-usage">{fmt(room.aiUsed)} / {fmt(room.aiBudget)} used</span>
+          <span className="font-mono text-xs" data-testid="text-ai-usage">{fmt((room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0))} / {fmt(room.aiBudget)} used</span>
         </div>
-        <div className="h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left transition-transform" style={{ transform: `scaleX(${room.aiBudget ? Math.min(1, room.aiUsed / room.aiBudget) : 0})` }} /></div>
+        <div className="h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left transition-transform" style={{ transform: `scaleX(${room.aiBudget ? Math.min(1, ((room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0)) / room.aiBudget) : 0})` }} /></div>
+        <p className="text-xs text-muted-foreground">Provider-reported: {fmt(room.aiInputTokens ?? 0)} input + {fmt(room.aiOutputTokens ?? 0)} output tokens recorded.</p>
+        {room.aiUsed > (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0) && <p className="text-xs text-muted-foreground">{fmt(room.aiUsed - (room.aiInputTokens ?? 0) - (room.aiOutputTokens ?? 0))} tokens held separately for pending calls or calls without recorded usage (including older calls). This is not confirmed consumption.</p>}
         <div className="flex gap-2">
-          <input type="number" min={0} max={500000} step={1} value={budget} onChange={(e) => { setBudget(e.target.value); setConfirmBudget(false); }} className={field} data-testid="input-ai-budget" />
+          <input type="number" min={0} max={1000000} step={1} value={budget} onChange={(e) => { setBudget(e.target.value); setConfirmBudget(false); }} className={field} data-testid="input-ai-budget" />
         </div>
+        {!budgetOk && <p role="alert" className="text-xs text-accent">Enter a whole number from 0 to 1,000,000 tokens.</p>}
+        <p className="text-xs text-muted-foreground">Per-game allowance shared by all AI seats; resets when a new game starts. Usage above counts only provider-reported tokens recorded since usage tracking was enabled. Pending and unconfirmed reservations also reduce available allowance. Separate dollar safety limits still apply.</p>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
           I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.

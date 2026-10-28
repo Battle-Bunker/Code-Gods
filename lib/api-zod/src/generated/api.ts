@@ -281,7 +281,9 @@ export const CreateRoomResponse = zod.object({
   "theme": zod.string()
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
@@ -428,7 +430,9 @@ export const GetRoomResponse = zod.object({
   "theme": zod.string()
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
@@ -611,7 +615,7 @@ export const roomActionBodySettingsInteractionComputeMsMax = 1000;
 export const roomActionBodyTextMax = 4000;
 
 export const roomActionBodyAiBudgetMin = 0;
-export const roomActionBodyAiBudgetMax = 500000;
+export const roomActionBodyAiBudgetMax = 1000000;
 
 
 
@@ -773,7 +777,9 @@ export const RoomActionResponse = zod.object({
   "theme": zod.string()
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
