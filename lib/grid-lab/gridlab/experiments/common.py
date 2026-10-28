@@ -54,7 +54,7 @@ OLD_CONFIG = {"interaction_rate_hz": 100.0, "starting_energy": 100.0, "energy_pe
 OLD_KNOBS = {"step_base": 1.0, "describe": 1.0, "erase": 1.0, "move": 0.35, "measure": 1.0, "ratchet": 1.0,
              "agent_base": 2.0, "guard_base": 1.0, "erasure": "shannon",
              "scope": {"local": 1.0, "line": 1.0, "block": 1.0, "region": 1.0, "global": 1.0},
-             "kind": {"bijective": 1.0, "overwrite": 1.0}}
+             "kind": {"bijective": 1.0, "overwrite": 1.0}, "disabled": ["flatten"]}
 BASE: dict = {"config": OLD_CONFIG, "knobs": OLD_KNOBS, "prior": "uniform"}
 
 

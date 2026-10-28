@@ -41,6 +41,7 @@ SPACE: dict = {
     "knobs.scope.global": [1.0, 1.5, 2.5],
     "knobs.kind.bijective": [1.0, 0.5, 2.0],
     "exclude_low_ceiling": [0.0, 20.0],
+    "knobs.disabled": [["flatten"], []],
 }
 # the interaction rate is a room setting rather than part of the ecosystem; swept separately
 RATE_VALUES = [100.0, 50.0, 20.0, 10.0]
