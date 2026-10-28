@@ -143,8 +143,8 @@ export function observation(revision = 3) {
         ...(dealt.penalty ? { penalty: { familyId: dealt.penalty.familyId, emoji: dealt.penalty.emoji, name: dealt.penalty.name, summary: dealt.penalty.summary, comparative: dealt.penalty.comparative, source: dealt.penalty.source.python } } : {}) } },
     objects,
     agents: [
-      { id: "agent-1", source: "def agent(grid):\n    return [swap(grid.cells[0], grid.cells[1])]\n", language: "python", summonCost: 38, expectedActCost: 3.5, energy: 5.2, eligible: true, acts: 14, spent: 47.3 },
-      { id: "agent-2", source: "def agent(grid):\n    return [paint(row(0), \"green\")]\n", language: "python", summonCost: 41, expectedActCost: 9.1, energy: -4.6, eligible: false, acts: 3, spent: 31.8 },
+      { id: "agent-1", source: "def agent(grid):\n    return [swap(grid.cells[0], grid.cells[1])]\n", language: "python", summonCost: 38, decisionBits: 1.2, expectedActCost: 3.5, breakdown: { decision: 1.2, erasure: 0, motion: 0.3, floor: 2 }, randomized: false, energy: 5.2, eligible: true, acts: 14, spent: 47.3 },
+      { id: "agent-2", source: "def agent(grid):\n    return [paint(row(0), \"green\")]\n", language: "python", summonCost: 41, decisionBits: 0, expectedActCost: 9.1, breakdown: { decision: 0, erasure: 6.4, motion: 0.7, floor: 2 }, randomized: false, energy: -4.6, eligible: false, acts: 3, spent: 31.8 },
     ],
     transformations: [
       { id: "t1", agentId: "agent-1", before: values[0], after: mutate(values[0]), calls: [["swap", { a: 0, b: 1 }]], cost: 3.2 },
@@ -154,4 +154,5 @@ export function observation(revision = 3) {
   };
 }
 
-export const validation = { valid: true, cost: 42, expectedActCost: 3.5, diagnostics: [] as string[] };
+export const validation = { valid: true, cost: 42, decisionBits: 1.2, expectedActCost: 3.5,
+  breakdown: { decision: 1.2, erasure: 0, motion: 0.3, floor: 2 }, randomized: false, diagnostics: [] as string[] };

@@ -51,7 +51,9 @@ export function retuneSettings(previous: GameSettings, next: GameSettings, sent:
 }
 const isOffered = (settings: GameSettings) => {
   const inst = instantiationOf(settings);
-  return offeredInstantiations(settings.objectType).some(offered => offered.key === inst.key);
+  // With this game's excluded families and prior: every family it can deal must be calibrated.
+  return offeredInstantiations(settings.objectType, { excludedFamilies: settings.excludedFamilies, prior: priorOf(settings.priorId) })
+    .some(offered => offered.key === inst.key);
 };
 /** Settings name an instantiation the server offers (otherwise no calibrated utility functions exist) and known families. */
 export function assertOffered(settings: GameSettings) {
