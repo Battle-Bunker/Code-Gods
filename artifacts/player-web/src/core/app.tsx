@@ -9,6 +9,7 @@ import { connection, convexClient, fetchAccessToken, loginUrl, type Connection }
 import { RoomProvider } from "@/sdk/context";
 import { Dock } from "@/shell/dock";
 import Console from "./console";
+import { CoreBoundary } from "./core-boundary";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -24,7 +25,7 @@ function Authenticated({ conn }: { conn: Connection }) {
   const useAuth = useMemo(() => makeUseAuth(conn), [conn]);
   return (
     <ConvexProviderWithAuth client={client} useAuth={useAuth}>
-      {conn.mode === "app" ? <Play roomId={conn.roomId!} permission={conn.permission ?? "act"} mode="app" /> : <Hosted />}
+      {conn.mode === "app" ? <AppMode conn={conn} /> : <Hosted />}
     </ConvexProviderWithAuth>
   );
 }
@@ -32,7 +33,8 @@ function Authenticated({ conn }: { conn: Connection }) {
 /** Convex's auth adapter for either mode (see connection.ts). */
 function makeUseAuth(conn: Connection) {
   return function useAuth() {
-    const [state, setState] = useState<{ isLoading: boolean; isAuthenticated: boolean }>({ isLoading: true, isAuthenticated: false });
+    const [state, setState] = useState<{ isLoading: boolean; isAuthenticated: boolean }>(
+      conn.mode === "app" ? { isLoading: false, isAuthenticated: true } : { isLoading: true, isAuthenticated: false });
     useEffect(() => {
       if (conn.mode === "app") { setState({ isLoading: false, isAuthenticated: true }); return; }
       fetch("/api/auth/user", { cache: "no-store" }).then(r => r.json()).then(
@@ -42,6 +44,14 @@ function makeUseAuth(conn: Connection) {
     const fetchToken = useCallback(() => fetchAccessToken(conn.mode), []);
     return { ...state, fetchAccessToken: fetchToken };
   };
+}
+
+/** App mode: the credential's room, once Convex holds a token (no query may run unauthenticated). */
+function AppMode({ conn }: { conn: Connection }) {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  if (isLoading) return <Screen title="Connecting…" testId="status-connecting" />;
+  if (!isAuthenticated) return <Screen title="The engine refused this player app" testId="text-connection-error"><AppHelp /></Screen>;
+  return <Play roomId={conn.roomId!} permission={conn.permission ?? "act"} mode="app" />;
 }
 
 /** Hosted mode: sign in on the engine site, then join the room named in ?room=. */
@@ -91,7 +101,9 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
   return (
     <RoomProvider room={room}>
       <Dock>
-        <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "app" ? "your player app" : "hosted client"}</span>} />
+        <CoreBoundary>
+          <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "app" ? "your player app" : "hosted client"}</span>} />
+        </CoreBoundary>
       </Dock>
     </RoomProvider>
   );

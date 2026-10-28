@@ -3,7 +3,7 @@
  * bottom). Each region stacks its panels or shows them as tabs. Players move, resize and hide panels;
  * the layout persists in localStorage (layout.ts). A panel's manifest only sets its defaults.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { panelStore, type PanelEntry } from "./panel-store";
 import { PanelBody, usePanelModules, type FrameStatus } from "./panel-frame";
 import { layoutStore, useLayout, type Layout } from "./layout";
@@ -53,9 +53,10 @@ export function Dock({ children }: { children: ReactNode }) {
   return (
     <div data-testid="dock" className="flex min-h-screen flex-col">
       <DockBar hidden={hidden} count={placed.length} />
-      <div className="flex flex-1 min-h-0 gap-3 px-3">
+      {/* Narrow screens: the core first, then each region stacked full width. */}
+      <div className="flex flex-1 min-h-0 flex-col gap-3 px-3 lg:flex-row">
         <Region region="left" panels={inRegion("left")} buildErrors={buildErrors} width={width("left")} />
-        <main data-testid="core" className="flex-1 min-w-0">{children}</main>
+        <main data-testid="core" className="@container order-first flex-1 min-w-0 lg:order-none">{children}</main>
         <Region region="right" panels={inRegion("right")} buildErrors={buildErrors} width={width("right")} />
       </div>
       <Region region="bottom" panels={inRegion("bottom")} buildErrors={buildErrors} />
@@ -92,8 +93,8 @@ function Region({ region, panels, buildErrors, width }: { region: Placement; pan
   return (
     <aside data-testid={`region-${region}`}
       onDragOver={event => { event.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)} onDrop={event => onDrop(event)}
-      style={vertical && !empty ? { width } : undefined}
-      className={`${vertical ? "flex flex-col shrink-0" : "flex flex-row flex-wrap px-3 pb-3"} gap-3 ${empty ? (vertical ? "w-3" : "min-h-3") : ""} ${over ? "outline outline-2 outline-dashed outline-[hsl(var(--primary))]" : ""}`}>
+      style={vertical && !empty ? { "--region-width": `${width}px` } as CSSProperties : undefined}
+      className={`${vertical ? "flex flex-col shrink-0 lg:w-[var(--region-width)]" : "flex flex-row flex-wrap px-3 pb-3"} gap-3 ${empty ? (vertical ? "lg:w-3" : "min-h-3") : ""} ${over ? "outline outline-2 outline-dashed outline-[hsl(var(--primary))]" : ""}`}>
       {!empty && panels.length > 1 && (
         <div className="flex items-center gap-2 text-[11px] w-full">
           <button type="button" className="underline opacity-70" onClick={() => layoutStore.setRegion(region, { mode: mode === "tabs" ? "stack" : "tabs" })}>
@@ -115,7 +116,7 @@ function Frame({ placed, buildError, onDropBefore, vertical }: { placed: Placed;
   return (
     <section data-testid={`panel-${entry.id}`} data-panel-file={entry.file}
       onDragOver={event => event.preventDefault()} onDrop={onDropBefore}
-      style={vertical ? undefined : { width: WIDTH[size] }}
+      style={vertical ? undefined : { width: WIDTH[size], maxWidth: "100%" }}
       className={`panel flex flex-col ${HEIGHT[size]}`}>
       <header draggable onDragStart={event => event.dataTransfer.setData("application/x-cg-panel", id)}
         className="flex items-center gap-2 border-b border-[hsl(var(--card-border))] px-3 py-1.5 cursor-grab">

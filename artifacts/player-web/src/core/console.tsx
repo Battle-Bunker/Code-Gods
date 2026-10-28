@@ -202,7 +202,7 @@ export default function Console({ header }: { header?: ReactNode }) {
         </div>
       )}
 
-      <div className="flex-1 grid gap-3 p-3 md:p-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)]">
+      <div className="flex-1 grid gap-3 p-3 @md:p-4 @3xl:grid-cols-2 @6xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)]">
         {/* Column 1: forge */}
         <div className="flex flex-col gap-3 min-w-0">
           <Panel title="Forge" meta={`${new TextEncoder().encode(source).length} / 16384 bytes`}>
