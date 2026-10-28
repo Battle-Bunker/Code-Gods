@@ -1,4 +1,4 @@
-export type ObjectType = "Int" | "string";
+export type ObjectType = "Int" | "string" | "Grid";
 export type ObjectValue = number | string;
 export type Language = "python" | "typescript";
 export type Params = Readonly<Record<string, number | string | readonly number[] | readonly (readonly number[])[]>>;
@@ -11,6 +11,10 @@ export interface Domain {
   intMin: number;
   intMax: number;
   stringMaxLength: number;
+  /** Grid only (see @workspace/game-core settings). */
+  gridSize?: number;
+  gridSymbols?: string;
+  gridColours?: string;
 }
 
 /**

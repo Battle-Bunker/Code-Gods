@@ -58,6 +58,116 @@ ASCII strings support settings caps from 0 through 8192. Larger settings fail
 explicitly; supporting them requires increasing bounded IPC/output budgets.
 No coercion, wrapping, clamping, truncation, promises or objects as outputs.
 
+## Grid object type
+
+A GridType is `Grid(gridSize, gridSymbols, gridColours)`: `gridSize` 3–7, `gridSymbols`
+`"base10" | "base12" | "base16" | "cards"`, `gridColours` `"rgb" | "rgby" | "rainbow6"`.
+`intMin`, `intMax` and `stringMaxLength` are ignored for Grid.
+
+```ts
+const grid = { objectType: "Grid" as const, gridSize: 5, gridSymbols: "base10", gridColours: "rgby",
+  interactionComputeMs: 20 };
+await runtime.execute('lambda grid: [paint(row(0), "red")]', "7R,3G,0B,1Y,2R/...", grid);
+// {value: '[{"m":"paint","p":{"kind":"line","region":[0,0],"colour":0}}]'}
+```
+
+* **Agent.** The usual single expression (Python: evaluates to a callable; TypeScript: typed
+  `(grid: Grid) => MutatorCall[]`), from a read-only grid to a list of at most 8 mutator calls.
+  `[]` means "do nothing". Agents keep full language access; they can change a grid only through
+  the calls they return.
+* **Input** is the canonical ASCII grid (`grid/codec.mjs`, `python/domain.py`, mirroring
+  `lib/game-core/src/grid.ts` without depending on it): `N` rows joined by `/`, `N` cells joined
+  by `,`, each a fixed-width symbol code then a colour letter of this GridType. Anything else is
+  `DOMAIN` before guest code runs.
+* **Output** is an ASCII JSON string of at most 8192 bytes (the Grid cap, not
+  `stringMaxLength`): `[{"m": "<Grid Lab mutator id>", "p": {<Grid Lab params>}}]`. Params use
+  Grid Lab's exact field names, field order and values (`Mutator.space(gtype)` entries, tuples as
+  arrays, colours/symbols/suits/ranks as indices, unordered pairs sorted). The runtime checks only
+  the shape (≤ 8 objects with exactly `m` and `p`). The guest-side encoder is
+  untrusted-equivalent: **the host must still validate `p` against the exact parameter space,
+  then price and apply it from its own tables.**
+* **Pricing** is unchanged: ast-bytes-v1 over the submitted expression only. The prelude, its
+  declarations and the trusted wrapper are never priced.
+* **Errors.** `DOMAIN`: bad settings, bad input, or a result that is not a list of at most 8
+  moves (with a kid-readable message from the encoder). `EXECUTION`: a constructor or grid helper
+  was given impossible arguments; the message is the prelude's own, e.g. `row 7 doesn't exist
+  on a 5×5 grid (rows go from 0 to 4)`. Other guest exceptions keep the generic message.
+  `LIMIT` as for Int/string. Codes never depend on message text.
+
+### The agent API (grid/prelude.py, grid/prelude.js, grid/prelude.d.ts)
+
+Python names are snake_case; TypeScript uses the camelCase in brackets. The read-only grid is the
+utility-function API of `lib/grid-lab/gridlab/kid.py` / `docs/kid-api.md` §5:
+`grid.size, cells, rows, columns, diagonals, edge_cells (edgeCells), palette, cell(r, c),
+quarter_turn (quarterTurn), reachable(start, through), regions(same)`; a cell has `row, col,
+symbol` (glyph), `value, colour` (name), `left/right/up/down`, `up_left` (`upLeft`) and the other
+corners, `neighbours, surrounding, on_edge (onEdge)`, and on card grids `suit, is_picture
+(isPicture)`. `next_colour (nextColour)` exists on every grid, `mix(a, b)` only where colours mix
+(rgby, rainbow6). Grids, cells, places and moves are read-only.
+
+Places: `row(i)`, `column(i)`, `at(r, c)` / `at(cell)`, `diagonal(0|1)`, `square(r, c, size=2)` /
+`square(cell, size)`, `ring(depth=0)`, `middle()` (N ≥ 4), `everywhere()`, `busiest_line()`
+(`busiestLine()`, Grid Lab's `line*`). Wherever a place is expected a cell or `(r, c)` (`[r, c]`)
+also means that one cell. Colours are names or indices; symbols are glyphs (`"7"`, `"Q♥"`),
+wire codes (`"QH"`) or indices; "numbers" for `write_ramp`/`swap_symbols` are values as
+`cell.value` shows them (cards 1–13 or `"A"`…`"K"`); suits are names, glyphs, letters or 0–3;
+step counts wrap (`shift_line(row(0), -1)`) and 0 steps is an error.
+
+| Constructor | Grid Lab params |
+|---|---|
+| `swap_cells(a, b, layer="both")` | layer, near (derived), pair (sorted) |
+| `shift_line(line, k=1, layer="both")` / `reverse_line(line, layer="both")` | layer, line, k |
+| `swap_lines(a, b)` | axis, pair (two rows or two columns) |
+| `turn_block(square, move)` / `turn_grid(move)` | move ∈ rot90 rot180 rot270 flipH flipV transpose antitranspose |
+| `sort_line(line, backwards=False)` | line, dir |
+| `mirror_fold(where, fold, layer="both")` | row: `"left->right"`/`"right->left"`, column: `"top->bottom"`/`"bottom->top"` (or 0/1); `everywhere()`: Grid Lab's 8 folds |
+| `paint(where, colour)`, `write(where, symbol)` | kind, region, colour/symbol |
+| `recolour(where, old, new)`, `swap_colours(where, a, b)` | kind, region, pair |
+| `hue_turn(where, k=1)`, `step_rank(where, k=1)` | kind, region, k |
+| `pattern_line(line, "ramp", start, backwards=False)` / `(line, "alternate", a, b)` | line, pattern, start+dir or pair |
+| `motif("stripes across" \| "stripes down" \| "diagonal" \| "other diagonal", start, backwards=False)` / `motif("checker", a, b)` | style, axis, start, dir or pair |
+| `majority_line(line or busiest_line())`, `flatten(where)` | kind, region |
+| `write_ramp(line, start, backwards=False)` | line, start (rank), dir |
+| `swap_symbols(where, a, b)` | kind, region, pair (ranks) |
+| `paint_by_key(where, "parity", even, odd)` / `(where, "mod", shift)` / `(where, "redblack", red_suits, black_suits)` (cards) | kind, region, key, pair or shift |
+| `stamp(where, colour, symbol)` | kind, region, colour, symbol |
+| `tally(where, colour)` (digit grids), `blend(where, a, b)` (mixing colours; recipe derived) | kind, region, colour / recipe |
+| `suit_swap(where, a, b)`, `suit_set(where, suit)` (cards) | kind, region, pair / suit |
+
+Only the mutators Grid Lab makes available in the GridType exist (23–25 of 26), and each accepts
+only the region kinds its Grid Lab `kind` field allows; anything else raises a kid-readable
+error. No prelude name shadows a Python builtin or a QuickJS global; private names start with
+`_` (Python) or `__` (JS). `python/test_grid_lab.py` (host python3 + numpy) proves, for six
+GridTypes, that a broad sweep of friendly arguments maps exactly onto every `Mutator.space(gtype)`
+and that the JS prelude emits byte-identical JSON on the same arguments.
+
+### How the workers run it
+
+* **Python.** The trusted prelude is executed once during bootstrap into a private `_gridrt`
+  module and exercised by `_warm()` so the adaptive interpreter's specialised bytecode is in the
+  snapshot; it is never re-executed per call. Per execution, after snapshot restoration and
+  outside the budget, the runner builds the GridType environment and decodes the host-validated
+  input, takes strong references (`Py_IncRef`) to the guest globals, grid, encoder and error
+  record, and uses those globals (the prelude's public names plus `__builtins__`) for the agent.
+  Inside the budget: create the agent, `agent(grid)`, then the encoder; the result must be an
+  exact `str` of at most 8192 ASCII bytes. Prelude errors are recognised by identity
+  (`PyErr_GetRaisedException` against the record), and only exact-`str` messages are read.
+  Restoration discards any monkeypatching of prelude classes, modules or builtins.
+* **TypeScript.** Typechecking adds the per-GridType `grid/prelude.d.ts` as a separate root file
+  (diagnostics still point into the player's source) and uses the trusted wrapper
+  `const __agent: (grid: Grid) => MutatorCall[]`. `MutatorCall` is branded, so object literals do
+  not typecheck. Each fresh QuickJS context evaluates `grid/prelude.js` after the Date/Math.random
+  capability wrappers and before submitted code, outside the budget; it captures the intrinsics
+  its encoder and error lookup use, installs only the public names, and keeps cells, places and
+  moves in private WeakMaps. The encoder runs inside the budget and its string leaves through the
+  existing string path.
+* **Cache keys.** Int/string compile keys and forwarded settings are byte-for-byte unchanged.
+  Grid keys include the GridType (`typescript-grid-v1`; Python's key includes all settings).
+* **Budget.** Grid agents use the same fuel/CPU budget as Int/string. CPython-in-Wasm is much
+  slower per call than QuickJS: a 5 ms Python budget covers roughly eight constructor calls plus
+  light grid reading, but not a whole-grid `regions()` flood fill. Grid rooms that allow Python
+  should configure `interactionComputeMs` of 20–30.
+
 ## Grammar and price: ast-bytes-v1
 
 Python accepts one `eval` expression which must evaluate to a callable at
@@ -109,7 +219,10 @@ directory and metadata operations, sockets, process exit and blocking poll.
 Import-name filtering is not the boundary: recovered builtins face the same
 host-side capability checks. Guest stdout is not a result channel. Results cross
 the C API only as exact integers or strings, with host-side domain checks; no
-attacker-provided repr/str/JSON hook is invoked for extraction.
+attacker-provided repr/str/JSON hook is invoked for extraction. Grid error messages
+cross the same way: only exact strings from the prelude's error record are read.
+The trusted Grid prelude adds no I/O or capability: it imports only `json` and
+`operator`, and the same WASI denial applies to anything reached through it.
 
 The pinned CPython command module is converted to a reactor by parsing standard
 Wasm sections and its debug name map to expose existing C APIs. Its exact binary
@@ -182,6 +295,13 @@ scheduling remains capped at100Hz; benchmark throughput does not raise that cap.
 Do not silently queue unbounded work to imitate real-time throughput.
 
 ## Security gates
+
+`test/grid.test.mjs`, `python/test_grid.py` and `python/test_grid_lab.py` add Grid
+fixtures: cross-language byte parity, every constructor on each shipped GridType,
+Grid Lab validity, invalid inputs, oversized/forged output, more than 8 calls,
+monkeypatched prelude objects and builtins, prelude-name redefinition, capability
+probes through prelude objects and budget enforcement. `test/scalar-golden.test.mjs`
+pins Int/string costs and outputs recorded before Grid support.
 
 The hostile regression suite covers host file/network attempts, wrong types and
 domains, execution-price forgery, factory state, non-executing inspection,

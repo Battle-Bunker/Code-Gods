@@ -18,9 +18,11 @@ The leaderboard ranks gods by this total; maximize your total when the game ends
 An object that only you value gives you zero score. Cooperation can benefit multiple gods, but their incentives differ.
 
 ## World and agents
-Object type T: ${s.objectType === "Int" ? `integer from ${s.intMin} through ${s.intMax}, inclusive` : `ASCII string, maximum ${s.stringMaxLength} characters`}.
+Object type T: ${s.objectType === "Int" ? `integer from ${s.intMin} through ${s.intMax}, inclusive` : s.objectType === "Grid" ? `Grid(${s.gridSize},${s.gridSymbols},${s.gridColours}): a ${s.gridSize}×${s.gridSize} square of cells, each a symbol and a colour` : `ASCII string, maximum ${s.stringMaxLength} characters`}.${s.objectType === "Grid" ? `
+Grid scoring: your utility function's output is compared with thousands of random grids. Rarity is "1 in N": only one random grid in N is at least this good for you; each doubling of N is one more ✨ bit. Your points for a grid = your bits × max(0, the sum of the other gods' bits). If, overall, the others don't care about a grid, nobody scores from it. A defence goal (⚠️) subtracts bits when a grid is worse than usual for it.
+Grid agents: an agent is a function from a read-only grid to a list of at most 8 mutator calls (e.g. Python lambda grid: [paint(row(0), "red")]). Agents change grids only through mutators, and each mutator costs bits. Each agent has its own ⚡ energy account: it earns ${s.agentEnergyPerSecond} bits per second of world time (up to ${s.agentBatteryActs} acts' worth) and acts only when it can afford its usual cost; an act's actual cost is deducted, possibly below zero (a cooldown). You may destroy your own agents at any time, for free.` : ""}
 All object values are unique. A transformation to an existing value, including its own unchanged value, fails without changing the world. Spawns redraw duplicates.
-Language: ${s.language}. Submit source code that evaluates to a callable T -> T.
+Language: ${s.language}. Submit source code that evaluates to a callable ${s.objectType === "Grid" ? "Grid -> list of mutator calls" : "T -> T"}.
 Grammar: ${s.grammarId}. Only the supported sandbox computational libraries/built-ins are available, not unrestricted host access. Read-only time and randomness are allowed; filesystem, network and process access are not.
 Summoning adds an agent to the shared world. Agents remain available for random selection; they do not belong to individual objects.
 At each interaction a random agent acts on a random object. You cannot choose its target.

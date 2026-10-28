@@ -584,6 +584,7 @@ components:
       type: object
       required: [protocolVersion, defaults, runtimes, minimumPlayers, options, aiFunding]
       properties:
+        grid: { $ref: "#/components/schemas/GridManifest" }
         protocolVersion: { type: integer }
         minimumPlayers: { type: integer }
         defaults: { $ref: "#/components/schemas/Settings" }
@@ -592,6 +593,52 @@ components:
         runtimes:
           type: array
           items: { type: string }
+    GridBadge:
+      type: object
+      description: A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
+      required: [id, emoji, label, kid]
+      properties:
+        id: { type: string }
+        emoji: { type: string }
+        label: { type: string }
+        kid: { type: string }
+    GridTypeOption:
+      type: object
+      description: A GridType that ships calibration tables, so rooms may select it.
+      required: [key, size, symbols, colours, label, badges, familyCount]
+      properties:
+        key: { type: string }
+        size: { type: integer }
+        symbols: { type: string }
+        colours: { type: string }
+        label: { type: string }
+        badges: { type: array, items: { $ref: "#/components/schemas/GridBadge" } }
+        familyCount: { type: integer }
+    GridComponentOption:
+      type: object
+      required: [id, label, emoji, kid, glyphs, names]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        emoji: { type: string }
+        kid: { type: string }
+        glyphs:
+          description: Display glyph per index (symbols) or colour letter per index (colours).
+          type: array
+          items: { type: string }
+        names: { type: array, items: { type: string } }
+        css:
+          description: Colours only. Display colour per index.
+          type: array
+          items: { type: string }
+    GridManifest:
+      type: object
+      required: [types, symbols, colours, maxCallsPerAct]
+      properties:
+        types: { type: array, items: { $ref: "#/components/schemas/GridTypeOption" } }
+        symbols: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
+        colours: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
+        maxCallsPerAct: { type: integer }
     AIFunding:
       type: object
       required: [provider, model, billing, inputUsdPerMillion, outputUsdPerMillion, configured, live]
@@ -631,10 +678,27 @@ components:
       required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
       properties:
         language: { type: string, enum: [python, typescript] }
-        objectType: { type: string, enum: [Int, string] }
+        objectType: { type: string, enum: [Int, string, Grid] }
         intMin: { type: integer }
         intMax: { type: integer }
         stringMaxLength: { type: integer }
+        gridSize:
+          description: Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
+          type: integer
+          minimum: 3
+          maximum: 7
+        gridSymbols: { type: string, enum: [base10, base12, base16, cards], description: Grid only. Symbols printed on cells. }
+        gridColours: { type: string, enum: [rgb, rgby, rainbow6], description: Grid only. Cell colours. }
+        agentEnergyPerSecond:
+          description: Grid only. Bits each agent earns per second of world time into its own energy account.
+          type: number
+          minimum: 0
+          maximum: 1000
+        agentBatteryActs:
+          description: Grid only. An agent's energy is capped at this many of its expected acts.
+          type: number
+          minimum: 0
+          maximum: 1000
         grammarId: { type: string }
         utilitySelectorId: { type: string }
         complexityFunctionId: { type: string }
@@ -859,6 +923,8 @@ components:
         id: { type: string }
         name: { type: string }
         theme: { type: string }
+        emoji: { type: string, description: Grid families only. }
+        defence: { type: boolean, description: Grid only. True when gods of this family also carry a defence goal (a penalty). }
     HealthStatus:
       type: object
       properties:

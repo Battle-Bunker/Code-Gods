@@ -267,7 +267,7 @@ export function createAssistant(options:AssistantOptions) {
           if(prior && prior.body!==body)throw new Error("Command ID already belongs to a different payload.");
           if(prior && !(prior.receipt.status==="uncertain" && args.retryUnknown))return prior.receipt;
           if(!prior && receipts.size>=500)throw new Error("Session receipt limit reached; disconnect and reapprove.");
-          const prepared=prior?.envelope??{...envelope,...(!envelope.gameId && latest?.gameId && ["validate","summon","pause"].includes(envelope.command.type)?{gameId:latest.gameId}:{})};
+          const prepared=prior?.envelope??{...envelope,...(!envelope.gameId && latest?.gameId && ["validate","summon","pause","destroy"].includes(envelope.command.type)?{gameId:latest.gameId}:{})};
           const entry={body,envelope:prepared,receipt:{commandId:envelope.commandId,status:"pending"} as Receipt};
           receipts.set(envelope.commandId,entry);
           const epoch=generation;

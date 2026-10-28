@@ -1,4 +1,5 @@
-import type { GameSettings, ObjectValue } from "./settings.ts";
+import { gridArgs, type GameSettings, type ObjectValue } from "./settings.ts";
+import { spawnGrid } from "./grid.ts";
 
 /** Server injects unbiased random integers; seed/state must never enter public snapshots. */
 export type RandomBelow = (exclusiveUpperBound: bigint) => bigint;
@@ -30,9 +31,11 @@ export function asciiStringAtRank(rank: bigint, maxLength: number): string {
 }
 
 export function uniformObject(
-  settings: Pick<GameSettings, "objectType" | "intMin" | "intMax" | "stringMaxLength">,
+  settings: Pick<GameSettings, "objectType" | "intMin" | "intMax" | "stringMaxLength"> &
+    Partial<Pick<GameSettings, "gridSize" | "gridSymbols" | "gridColours">>,
   randomBelow: RandomBelow,
 ): ObjectValue {
+  if (settings.objectType === "Grid") return spawnGrid(gridArgs(settings as GameSettings), bound => draw(randomBelow, bound));
   if (settings.objectType === "Int") {
     if (
       !Number.isSafeInteger(settings.intMin) || !Number.isSafeInteger(settings.intMax) ||

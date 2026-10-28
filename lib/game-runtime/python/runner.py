@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 import wasmtime
-from domain import settings, check
+from domain import settings, check, check_output, GRID_OUTPUT_MAX
 from reactor import transform
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -71,10 +71,26 @@ def _explain(source):
         return f'{type(e).__name__}: {e}'
     return 'SyntaxError: invalid Python expression'
 """
+# The trusted Grid prelude is executed once during bootstrap into a private module, so it lives in
+# the restored snapshot and is never re-executed per call (nor visible as an importable module).
+GRID_PRELUDE = (pathlib.Path(__file__).resolve().parents[1] / "grid" / "prelude.py").read_text("utf-8")
+GRID_BOOT = f"""
+_gridrt = type(sys)('_gridrt')
+exec(compile({GRID_PRELUDE!r}, '<grid-prelude>', 'exec'), _gridrt.__dict__)
+_gridrt._warm()
+"""
 
 
 class Limit(Exception):
     """A resource limit, reported to players in plain language instead of a wasm trap."""
+
+
+class GuestError(Exception):
+    """A typed failure whose code is known exactly (not inferred from message text)."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
 
 
 def describe_trap(trap, phase, budget):
@@ -120,6 +136,10 @@ class Runner:
             self.call("free", config_ptr)
             self.call("free", status)
             self.simple(BOOT)
+            self.simple(GRID_BOOT)
+            self.keys = {name: self.cstring(name) for name in
+                         ("__main__", "_grid_job", "globals", "grid", "encode", "errors", "error",
+                          "code", "message")}
             self.source_buffer = self.call("malloc", 16385)
             self.input_buffer = self.call("malloc", 8193)
             self.size_buffer = self.call("malloc", 4)
@@ -245,6 +265,37 @@ class Runner:
         length = struct.unpack("<i", self.memory.read(self.store, self.size_buffer, self.size_buffer+4))[0]
         return bytes(self.memory.read(self.store, pointer, pointer+min(length, 2000))).decode("utf-8", "replace")
 
+    def owned_item(self, mapping, name):
+        """A strong reference to mapping[name], so guest code cannot free it under the host."""
+        value = self.call("PyDict_GetItemString", mapping, self.keys[name])
+        if not value:
+            raise ValueError("Trusted Grid preparation failed")
+        self.call("Py_IncRef", value)
+        return value
+
+    def exact_str(self, value, limit):
+        """An exact-str guest object's text (bounded), without invoking any guest hook; else None."""
+        if not value or self.call("PyObject_Type", value) != self.str_type:
+            return None
+        pointer = self.call("PyUnicode_AsUTF8AndSize", value, self.size_buffer)
+        if not pointer:
+            self.call("PyErr_Clear")
+            return None
+        length = struct.unpack("<i", self.memory.read(self.store, self.size_buffer, self.size_buffer+4))[0]
+        return bytes(self.memory.read(self.store, pointer, pointer+min(length, limit))).decode("utf-8", "replace")
+
+    def grid_failure(self, errors, code, message):
+        """Raise the prelude's own typed, kid-readable error if it raised the pending exception."""
+        raised = self.call("PyErr_GetRaisedException")
+        recorded = self.call("PyDict_GetItemString", errors, self.keys["error"])
+        if raised and recorded == raised:
+            known = self.exact_str(self.call("PyDict_GetItemString", errors, self.keys["code"]), 16)
+            text = self.exact_str(self.call("PyDict_GetItemString", errors, self.keys["message"]), 1000)
+            if known in ("EXECUTION", "DOMAIN") and text:
+                code, message = known, text
+        self.call("PyErr_Clear")
+        raise GuestError(code, message)
+
     def snapshot(self):
         if self.memory.data_len(self.store) > 48 * 1024 * 1024:
             raise ValueError("Prepared snapshot exceeds 48 MiB limit")
@@ -311,6 +362,36 @@ class Runner:
         self.cache_bytes += size
         return item
 
+    def run_grid(self, code, globals_, grid, encode, errors, domain):
+        """Inside the guest budget: create the agent, call agent(grid), then the prelude encoder.
+        The encoder is untrusted-equivalent; its result crosses only as an exact str and is
+        re-checked here and by the host."""
+        fn = self.call("PyEval_EvalCode", code, globals_, globals_)
+        if not fn:
+            self.grid_failure(errors, "EXECUTION", "Python source evaluation failed")
+        result = self.call("PyObject_CallOneArg", fn, grid)
+        if not result:
+            self.grid_failure(errors, "EXECUTION", "Python callable failed (guest I/O is disabled)")
+        text = self.call("PyObject_CallOneArg", encode, result)
+        if not text:
+            self.grid_failure(errors, "DOMAIN", "The agent must return a list of moves")
+        if self.call("PyObject_Type", text) != self.str_type:
+            raise GuestError("DOMAIN", "Agent output is not a valid list of mutator calls")
+        pointer = self.call("PyUnicode_AsUTF8AndSize", text, self.size_buffer)
+        length = struct.unpack("<i", self.memory.read(self.store, self.size_buffer, self.size_buffer+4))[0]
+        if not pointer or not 0 <= length <= GRID_OUTPUT_MAX:
+            self.call("PyErr_Clear")
+            raise GuestError("DOMAIN", "Agent output is too long")
+        try:
+            output = bytes(self.memory.read(self.store, pointer, pointer+length)).decode("ascii")
+        except UnicodeDecodeError:
+            raise GuestError("DOMAIN", "Agent output is not ASCII") from None
+        try:
+            check_output(output, domain)
+        except ValueError:
+            raise GuestError("DOMAIN", "Agent output is not a valid list of mutator calls") from None
+        return {"value": output}
+
     def run(self, request, *, seconds=None, fuel=None, on_execute=None):
         if request.get("mode") not in ("inspect", "execute"):
             raise ValueError("Unknown runner mode")
@@ -335,14 +416,29 @@ class Runner:
                 code = self.call("PyMarshal_ReadObjectFromString", self.code_buffer, len(blob))
                 if not code:
                     raise ValueError("Trusted code deserialization failed")
-                globals_ = self.call("PyDict_New")
+                value = request["input"]
+                grid = domain["objectType"] == "Grid"
+                if grid:
+                    # Trusted, outside the budget: build this GridType's environment from the
+                    # snapshot's prelude and decode the host-validated input (only [0-9A-Z,/]).
+                    self.simple(f"_grid_job = _gridrt._job({domain['gridSize']}, {domain['gridSymbols']!r}, "
+                                f"{domain['gridColours']!r}, {value!r})")
+                    main = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.keys["__main__"]))
+                    job = self.owned_item(main, "_grid_job")
+                    globals_ = self.owned_item(job, "globals")
+                    argument = self.owned_item(job, "grid")
+                    encode = self.owned_item(job, "encode")
+                    errors = self.owned_item(job, "errors")
+                else:
+                    globals_ = self.call("PyDict_New")
                 if self.call("PyDict_SetItemString", globals_, self.builtins_key,
                              self.call("PyEval_GetBuiltins")):
                     raise ValueError("Guest globals preparation failed")
                 # Entropy must be refreshed AFTER restoring random module state.
                 self.simple("random.seed(None)")
-                value = request["input"]
-                if type(value) is int:
+                if grid:
+                    pass  # the decoded grid object is the argument
+                elif type(value) is int:
                     argument = self.call("PyLong_FromLong", value)
                 else:
                     self.memory.write(self.store, value.encode() + b"\0", self.input_buffer)
@@ -355,6 +451,8 @@ class Runner:
             if on_execute:
                 on_execute()
             with self.bounded(seconds if seconds is not None else max(0.05, budget/1000*10), budget):
+                if grid:
+                    return self.run_grid(code, globals_, argument, encode, errors, domain)
                 fn = self.call("PyEval_EvalCode", code, globals_, globals_)
                 if not fn:
                     raise ValueError("Python source evaluation failed")
@@ -401,7 +499,7 @@ if __name__ == "__main__":
             print(json.dumps({"ok": True, **result}), flush=True)
         except Exception as error:
             message = str(error)[-2000:]
-            code = "DOMAIN" if "DOMAIN:" in message else (
+            code = error.code if isinstance(error, GuestError) else "DOMAIN" if "DOMAIN:" in message else (
                 "LIMIT" if isinstance(error, (wasmtime.Trap, Limit)) else "COMPILE"
                 if "SyntaxError" in message else "EXECUTION")
             print(json.dumps({"ok": False, "code": code, "error": message}), flush=True)

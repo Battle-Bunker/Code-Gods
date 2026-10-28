@@ -1,5 +1,6 @@
 import type { Domain, Rng, UtilityDescriptor } from "./types.ts";
-import { familiesFor, legal } from "./catalog.ts";
+import { familiesFor, gridArgsOf, legal } from "./catalog.ts";
+import { dealGrid } from "./grid/index.ts";
 
 /**
  * Decides which utility function each god receives. Selectors are the hook for
@@ -28,6 +29,7 @@ export const divineLottery: UtilitySelector = {
   name: "Divine Lottery",
   description: "Every god independently draws a random utility function from the whole repertoire for the object type. Identical draws are redrawn; anything else, including two gods of the same family, can happen.",
   select(domain, godCount, rng) {
+    if (domain.objectType === "Grid") return dealGrid(gridArgsOf(domain), godCount, rng);
     const chosen: UtilityDescriptor[] = [];
     const seen = new Set<string>();
     while (chosen.length < godCount) {
