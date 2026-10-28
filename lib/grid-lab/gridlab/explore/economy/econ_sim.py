@@ -25,6 +25,9 @@ Economy knobs (Econ):
                     (an earned-income loop; adds energy).
   income_any        energy per bit of surprisal gained by EACH god on ANY commit (income from the
                     world becoming more interesting to you, whoever caused it).
+  price_exp         convex (> 1) or concave (< 1) summon pricing: price = c * (c / price_ref)^(price_exp - 1)
+                    for a program of c bits (after cost_scale); 1 = linear (the engine). price_ref = 20 bits,
+                    about a typical program, so typical agents keep their price and jackpots get dearer.
   aware             policies price an agent at its total cost of ownership: summon cost + expected
                     gas over its expected applications (lifetime- and charge-limited).
 
@@ -71,6 +74,8 @@ class Econ:
     income_own: float = 0.0
     income_any: float = 0.0
     aware: bool = False
+    price_exp: float = 1.0
+    price_ref: float = 20.0
 
     @property
     def mortal(self) -> bool:
@@ -134,10 +139,17 @@ class EconWorld(World):
     def cost_mult(self, god: int) -> float:
         return 1.0 + self.econ.crowd_tax * self.own_count[god]
 
+    def price(self, god: int, base):
+        """Summon price for base cost(s) `base` (program bits x cost_scale): convexity, then crowd tax."""
+        e = self.econ
+        if e.price_exp != 1.0:
+            base = base * (np.maximum(base, 1e-9) / e.price_ref) ** (e.price_exp - 1.0)
+        return base * self.cost_mult(god)
+
     # --- agents -----------------------------------------------------------------------------------
     def summon(self, god: int, prog, cost: float) -> int | None:
         """`cost` is the base price (program bits x cost_scale); the crowd tax is applied here."""
-        price = cost * self.cost_mult(god)
+        price = float(self.price(god, cost))
         if self.own_count[god] >= self.cfg.max_agents or self.energy(god) < price:
             return None
         aid = len(self.agent_prog)
@@ -189,8 +201,8 @@ def _wrap(cls):
     class Econ_(cls):
         def sample_programs(self, k):
             progs, costs = super().sample_programs(k)
-            w = self.world
-            return progs, costs * w.cost_mult(self.god)
+            self._base_costs = costs
+            return progs, self.world.price(self.god, costs)
 
         def evaluate(self, K):
             w = self.world
@@ -204,13 +216,13 @@ def _wrap(cls):
                 return None
             cands = [p for p, o in zip(cands, ok) if o]
             costs = costs[ok]
+            base = self._base_costs[ok]
             d = self.mean_delta(cands)
             c = w.cfg
             rem = c.half_life_seconds / math.log(2) if c.length != "fixed" else max(0.0, c.fixed_seconds - max(w.t, 0.0))
             rate = c.interaction_rate_hz / (len(w.agents) + 1)
             life = min(rem, e.expected_life(c, rate))
             apps = rate * life
-            base = costs / w.cost_mult(self.god)
             tco = costs + (e.gas + e.gas_frac * base) * apps
             y = d * apps * self.discount * self.scale() / np.maximum(tco, 1e-9)
             b = int(np.argmax(y))

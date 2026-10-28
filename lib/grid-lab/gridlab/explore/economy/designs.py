@@ -33,6 +33,7 @@ SWEEP: dict = {
     "tilt": _g("tilt", [-1.0, -0.5, 0.5, 1.0], lambda v: esetting(econ={"income_tilt": v})),
     "iown": _g("iown", [0.1, 0.25, 0.5, 1.0], lambda v: esetting(econ={"income_own": v})),
     "iany": _g("iany", [0.05, 0.1, 0.25], lambda v: esetting(econ={"income_any": v})),
+    "pexp": _g("pexp", [1.25, 1.5, 2.0], lambda v: esetting(econ={"price_exp": v})),
 }
 for _grp in SWEEP.values():
     for _n, _st in _grp:

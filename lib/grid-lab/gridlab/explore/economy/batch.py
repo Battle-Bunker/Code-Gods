@@ -9,7 +9,7 @@ shuffled per game (every game is a head-to-head of the four policies); "iid" = 3
 policies from the same four; any experiments.common.POLICY_MIXES name also works (iid, 3-6 gods).
 
 Results are cached one JSON per game under .cache/explore-economy/games/, keyed by sha256(setting,
-spec, hash of the shared Grid Lab code and of this package).
+spec, a pinned code version; see ECODE).
 """
 from __future__ import annotations
 
@@ -45,7 +45,9 @@ def _code_hash() -> str:
     return h.hexdigest()[:16]
 
 
-ECODE = _code_hash()
+# Pinned: new Econ knobs default to off and selftest checks Econ() == gridlab.sim.run_game, so adding knobs
+# does not change cached results. Bump EVERSION (or re-pin to _code_hash()) when existing semantics change.
+ECODE = "a58c90ddfbfa324d"
 
 
 def esetting(config: dict | None = None, econ: dict | None = None, knobs: dict | None = None) -> dict:
