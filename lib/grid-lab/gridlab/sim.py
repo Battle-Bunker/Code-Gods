@@ -125,6 +125,24 @@ class GameConfig:
     decision_interval: float = 2.0
     program_factory: Optional[Callable] = None           # default gridlab.program.random_program
     program_library: int = 4096                          # candidate catalogue size (0: price fresh programs)
+    # agent language (gridlab/agentlang): "off" (default) | "mix" (candidates come from the language
+    # templates with probability lang_share, else from the program library) | "only"
+    agent_language: str = "off"
+    lang_templates: Optional[Sequence[str]] = None       # template names (default: all of agentlang.examples.TEMPLATES)
+    lang_share: float = 0.5
+    lang_gods: Optional[Sequence[int]] = None            # gods allowed language agents (default: all)
+    lang_pricing: dict = field(default_factory=dict)     # overrides of agentlang.pricing.PRICING
+    # open agents (gridlab/openagents, docs/open-agents.md): plain-Python agents behind the closed mutation
+    # interface. "off" (default) | "mix" (candidates are open-agent templates with probability open_share,
+    # else library Programs) | "only". The summon price is the description (× open_summon_scale); every
+    # application then costs its owner per_application_bits × open_app_scale (skipped if unaffordable).
+    open_agents: str = "off"
+    open_templates: Optional[Sequence[str]] = None       # template names (default: openagents.examples.TEMPLATES)
+    open_share: float = 0.5
+    open_gods: Optional[Sequence[int]] = None            # gods allowed open agents (default: all)
+    open_pricing: dict = field(default_factory=dict)     # overrides of openagents.measure.PRICING
+    open_summon_scale: float = 1.0                       # energy per description bit
+    open_app_scale: float = 0.01                         # energy per per-application bit, paid on each application
     # logging
     snapshot_interval: float = 5.0
     keep_programs: bool = False                          # store Program.describe() per agent
@@ -224,6 +242,7 @@ class GameLog:
     a_cost: np.ndarray = None     # float32
     a_mutators: list = None       # list[tuple[str, ...]]
     a_desc: list = None           # list[str] when keep_programs
+    a_label: list = None          # "program", or "<kind>:<template>" for language agents
     a_attempts: np.ndarray = None # int32 applications attempted
     # spawns (incl. starting objects at t=0)
     s_time: np.ndarray = None
@@ -312,6 +331,7 @@ class World:
         self.agent_attempts: list[int] = []
         self.own_count = [0] * self.G
         self.library = None                 # (programs, costs) or None
+        self.lang_libraries = None          # per god (language agents, costs) when cfg.agent_language != "off"
 
     # --- state helpers -------------------------------------------------------------------------
     @property
@@ -411,6 +431,23 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     if cfg.program_library:
         from .policy import program_library
         world.library = program_library(gt, factory, cfg.program_library)
+    if cfg.open_agents != "off":
+        assert cfg.agent_language == "off", "agent_language and open_agents are alternatives"
+        from .openagents.simlib import open_libraries
+        allowed = range(cfg.n_gods) if cfg.open_gods is None else sorted(set(cfg.open_gods))
+        libs = open_libraries(gt, [draws[i] for i in allowed], [tables[i] for i in allowed], cfg.open_templates,
+                              cfg.open_pricing, cfg.open_summon_scale)
+        world.lang_libraries = [None] * cfg.n_gods
+        for i, lib in zip(allowed, libs):
+            world.lang_libraries[i] = lib
+    if cfg.agent_language != "off":
+        from .agentlang.simlib import lang_libraries
+        allowed = range(cfg.n_gods) if cfg.lang_gods is None else sorted(set(cfg.lang_gods))
+        libs = lang_libraries(gt, [draws[i] for i in allowed], [tables[i] for i in allowed], cfg.lang_templates,
+                              cfg.lang_pricing)
+        world.lang_libraries = [None] * cfg.n_gods
+        for i, lib in zip(allowed, libs):
+            world.lang_libraries[i] = lib
     duration = game_duration(cfg, r_len)
     names = cfg.policy_list()
     pols = [make_policy(names[i], i, world, r_pol[i], factory, **cfg.policy_kwargs) for i in range(cfg.n_gods)]
@@ -420,9 +457,12 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     s_time, s_obj, s_vec = [], [], []
     snap_time, snap_payoff, snap_objs, snap_s = [], [], [], []
     c_hb, c_ha, s_h, snap_h = [], [], [], []
-    a_cost, a_time, a_mut, a_desc = [], [], [], []
+    a_cost, a_time, a_mut, a_desc, a_label = [], [], [], [], []
     counters = {"attempts": 0, "none": 0, "duplicate": 0, "commits": 0, "metabolic_skips": 0,
                 "decisions": 0, "summons": 0}
+    app_scale = cfg.open_app_scale * cfg.cost_scale if cfg.open_agents != "off" else 0.0
+    if app_scale:
+        counters.update(open_skips=0, open_applications=0, open_app_energy=0.0)
 
     def do_summons(god: int):
         for prog in pols[god].decide() or ():
@@ -434,6 +474,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
             a_cost.append(cost)
             a_time.append(world.t)
             a_mut.append(program_mutator_ids(prog))
+            a_label.append(getattr(prog, "label", "program"))
             if cfg.keep_programs:
                 a_desc.append(prog.describe(gt))
             pols[god].on_summon(aid, prog, cost)
@@ -521,10 +562,21 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 counters["metabolic_skips"] += 1
                 continue
             world.spent[owner] += met
+        prog = world.agent_prog[aid]
+        if app_scale:
+            pa = getattr(prog, "per_application_bits", 0.0)
+            if pa:
+                charge = pa * app_scale
+                if world.energy(owner) < charge:
+                    counters["open_skips"] += 1
+                    continue
+                world.spent[owner] += charge
+                counters["open_applications"] += 1
+                counters["open_app_energy"] += charge
         counters["attempts"] += 1
         world.agent_attempts[aid] += 1
         old = world.objects[oi]
-        new = world.agent_prog[aid].apply(old, gt, rng)
+        new = prog.apply(old, gt, rng)
         if new is None:
             counters["none"] += 1
             continue
@@ -566,7 +618,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         c_time=np.array(c_time, f32), c_obj=np.array(c_obj, np.int32), c_agent=np.array(c_agent, np.int32),
         c_before=np.array(c_before, f32).reshape(-1, G), c_after=np.array(c_after, f32).reshape(-1, G),
         a_owner=np.array(world.agent_owner, np.int8), a_time=np.array(a_time, f32), a_cost=np.array(a_cost, f32),
-        a_mutators=a_mut, a_desc=a_desc if cfg.keep_programs else None,
+        a_mutators=a_mut, a_desc=a_desc if cfg.keep_programs else None, a_label=a_label,
         a_attempts=np.array(world.agent_attempts, np.int32),
         s_time=np.array(s_time, f32), s_obj=np.array(s_obj, np.int32), s_vec=np.array(s_vec, f32).reshape(-1, G),
         snap_time=np.array(snap_time, f32), snap_payoff=np.array(snap_payoff, f32).reshape(-1, G),

@@ -127,12 +127,37 @@ class Policy:
         when there is one, else fresh from the factory."""
         cs = self.world.cfg.cost_scale
         lib = self.world.library
+        langs = getattr(self.world, "lang_libraries", None)
+        if langs is not None and langs[self.god] is not None:
+            return self._sample_with_language(k, langs[self.god], cs)
         if lib is not None and not self.program_kwargs:
             progs, costs = lib
             idx = self.rng.integers(0, len(progs), k)
             return [progs[i] for i in idx], costs[idx] * cs
         ps = [self.factory(self.rng, self.world.gtype, **self.program_kwargs) for _ in range(k)]
         return ps, np.array([p.cost(self.world.gtype) * cs for p in ps], float)
+
+    def _sample_with_language(self, k: int, lang: tuple, cs: float) -> tuple[list, np.ndarray]:
+        """agent_language "mix": each candidate is a language agent with probability lang_share, else a
+        program (library or factory); "only": language agents only."""
+        cfg, (agents, acosts) = self.world.cfg, lang
+        if cfg.open_agents != "off":
+            share = 1.0 if cfg.open_agents == "only" else cfg.open_share
+        else:
+            share = 1.0 if cfg.agent_language == "only" else cfg.lang_share
+        progs, costs = [], []
+        for u in self.rng.random(k):
+            if u < share:
+                i = int(self.rng.integers(len(agents)))
+                progs.append(agents[i]); costs.append(acosts[i])
+            elif self.world.library is not None and not self.program_kwargs:
+                lp, lc = self.world.library
+                i = int(self.rng.integers(len(lp)))
+                progs.append(lp[i]); costs.append(lc[i])
+            else:
+                p = self.factory(self.rng, self.world.gtype, **self.program_kwargs)
+                progs.append(p); costs.append(p.cost(self.world.gtype))
+        return progs, np.array(costs, float) * cs
 
     # --- hooks -------------------------------------------------------------------------------------
     def decide(self) -> list:
@@ -241,7 +266,12 @@ class GreedyPolicy(Policy):
         cands = [p for p, o in zip(cands, ok) if o]
         costs = costs[ok]
         d = self.mean_delta(cands)
-        y = d * self.horizon_apps() * self.discount * self.scale() / np.maximum(costs, 1e-9)
+        apps = self.horizon_apps()
+        cfg = self.world.cfg
+        if cfg.open_agents != "off":      # open agents also pay per application: value against lifetime cost
+            pa = np.array([getattr(p, "per_application_bits", 0.0) for p in cands], float)
+            costs = costs + pa * cfg.open_app_scale * cfg.cost_scale * apps * self.discount
+        y = d * apps * self.discount * self.scale() / np.maximum(costs, 1e-9)
         b = int(np.argmax(y))
         return cands[b], float(y[b]), float(d[b])
 
