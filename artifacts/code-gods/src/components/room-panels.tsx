@@ -3,10 +3,10 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetRoomQueryKey, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type ObjectTypeInfo,
+  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type ObjectTypeInfo, type SettingsPreset,
 } from "@workspace/api-client-react";
 import { Panel, Empty, ErrorLine } from "@/components/shell";
-import { ObjectTypePicker, RuleShelf, catalogFor, changedParams, findOffered, sameArgs, snapToOffered, type TypeChoice } from "@workspace/object-views";
+import { ObjectTypePicker, RuleShelf, catalogFor, changedParams, findOffered, sameArgs, snapToOffered, withExcluded, type TypeChoice } from "@workspace/object-views";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAgentOptions } from "@/hooks/use-agents";
@@ -105,7 +105,7 @@ const NUM_GROUPS: { title: string; fields: NumField[] }[] = [
     { key: "halfLifeSeconds", label: "Half-life", unit: "s", min: 0 },
     { key: "startingObjectCount", label: "Starting objects", min: 0, int: true },
     { key: "spawnRateHz", label: "Spawn rate", unit: "/s", min: 0 },
-    { key: "interactionRateHz", label: "Interaction cap", unit: "Hz", min: 0, max: 1000, help: "A ceiling, not guaranteed throughput (default 100 Hz)." },
+    { key: "interactionRateHz", label: "Interaction cap", unit: "Hz", min: 0, max: 1000, help: "Slower = easier to follow your score. A ceiling, not guaranteed throughput (default 100 Hz)." },
     { key: "interactionComputeMs", label: "Compute / interaction", unit: "ms", min: 1, max: 1000, int: true, help: "Guest CPU per interaction, not compilation or worker startup." },
     { key: "pauseSeconds", label: "Pause", unit: "s", min: 0 },
   ] },
@@ -131,15 +131,16 @@ const badNum = (f: NumField, raw: string) => {
   return raw.trim() === "" || !Number.isFinite(v) || (f.int && !Number.isInteger(v)) || (f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max);
 };
 
-export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, objectTypes }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; objectTypes?: ObjectTypeInfo[] }) {
+export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, objectTypes, presets = [] }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; objectTypes?: ObjectTypeInfo[]; presets?: SettingsPreset[] }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [excludedDraft, setExcludedDraft] = useState<string[] | null>(null);
   const [typeDraft, setTypeDraft] = useState<TypeChoice | null>(null);
   const [highlight, setHighlight] = useState<string[]>([]);
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const baseRev = useRef(room.revision);
-  const dirty = Object.keys(draft).length > 0 || typeDraft !== null;
+  const dirty = Object.keys(draft).length > 0 || typeDraft !== null || excludedDraft !== null;
   const frozen = !!room.activeGame;
   useEffect(() => { if (!dirty) baseRev.current = room.revision; }, [room.revision, dirty]);
   useEffect(() => { if (!highlight.length) return; const t = setTimeout(() => setHighlight([]), 2500); return () => clearTimeout(t); }, [highlight]);
@@ -179,7 +180,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     pickerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   };
   const build = (): Settings => {
-    const s = { ...source, objectType: choice.objectType, typeArgs: choice.typeArgs } as Record<string, unknown>;
+    const s = { ...source, objectType: choice.objectType, typeArgs: choice.typeArgs, ...(excludedDraft ? { excludedFamilies: excludedDraft } : {}) } as Record<string, unknown>;
     for (const [k, v] of Object.entries(draft)) s[k] = NUM_KEYS.some(f => f.key === k) ? Number(v) : v;
     return s as unknown as Settings;
   };
@@ -189,13 +190,16 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     optionFields.some(([k]) => !available(k).some(o => o.id === val(k))) || (types.length > 0 && !offered);
   const conflict = dirty && baseRev.current !== room.revision;
   const savedType = typeDraft === null || (typeDraft.objectType === source.objectType && sameArgs(typeDraft.typeArgs, source.typeArgs));
-  const shelf = useMemo(() => savedType ? room.utilityCatalog : catalogFor(choice.objectType, choice.typeArgs),
-    [savedType, room.utilityCatalog, choice.objectType, choice.typeArgs]);
+  const excluded = excludedDraft ?? source.excludedFamilies ?? [];
+  const shelf = useMemo(() => withExcluded(savedType ? room.utilityCatalog : catalogFor(choice.objectType, choice.typeArgs), excluded),
+    [savedType, room.utilityCatalog, choice.objectType, choice.typeArgs, excluded]);
+  const toggleExcluded = (id: string, out: boolean) => setExcludedDraft(() => out ? [...new Set([...excluded, id])] : excluded.filter(x => x !== id));
   const badges = useMemo(() => (currentType?.classes ?? []).map(c => c.badge), [currentType]);
   const b = Number(budget);
   const budgetOk = budget.trim() !== "" && Number.isInteger(b) && b >= 0 && b <= 1000000;
   const field = "w-full min-w-0 border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
-  const discard = () => { setDraft({}); setTypeDraft(null); setHighlight([]); };
+  const discard = () => { setDraft({}); setTypeDraft(null); setExcludedDraft(null); setHighlight([]); };
+  const currentPreset = presets.find(p => p.objectType === source.objectType && sameArgs(p.typeArgs, source.typeArgs));
   return (
     <Panel title="Settings for the next game" meta={conflict ? "changed by another edit" : dirty ? "unsaved" : `rev ${room.revision}`}>
       {frozen ? <p className="px-4 pt-3 text-xs text-accent" data-testid="text-settings-frozen">Settings are frozen while game {room.activeGame?.shortCode} runs. Edit them for the next game once it ends.</p>
@@ -204,12 +208,29 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
       <div className="p-4 space-y-4">
         <label className="space-y-1 block"><span className="label-mono">Language</span>
           <select value={val("language")} onChange={(e) => set("language", e.target.value)} className={field} data-testid="select-language"><option value="python">python</option><option value="typescript">typescript</option></select></label>
+        {presets.length > 0 && (
+          <div className="space-y-1.5" data-testid="settings-presets">
+            <span className="label-mono">Start from a preset</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {presets.map(p => (
+                <button key={p.id} type="button" disabled={!p.offered || act.pending} aria-pressed={currentPreset?.id === p.id}
+                  onClick={() => act.run({ action: "settings", revision: room.revision, preset: p.id }, discard)}
+                  title={p.offered ? `${p.kid} Applies now; fine-tune below.` : "Not offered on this server yet"}
+                  className={`text-left border px-2 py-1.5 min-w-0 disabled:opacity-40 ${currentPreset?.id === p.id ? "border-primary bg-primary/10" : "hover:bg-muted"}`} data-testid={`button-preset-${p.id}`}>
+                  <span className="block text-xs font-medium truncate">{p.label}{currentPreset?.id === p.id && " ✓"}</span>
+                  <span className="block text-[10px] text-muted-foreground line-clamp-2">{p.kid}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">One click applies a preset to the next game; then fine-tune anything below.</p>
+          </div>
+        )}
         <div ref={pickerRef} className="space-y-1">
           <span className="label-mono">World</span>
-          {types.length ? <ObjectTypePicker types={types} value={choice} onChange={pickType} highlight={highlight} disabled={frozen} />
+          {types.length ? <ObjectTypePicker types={types} value={choice} onChange={pickType} highlight={highlight} disabled={frozen} showOffered={!presets.some(p => p.objectType === choice.objectType)} />
             : <p className="text-xs text-muted-foreground">{optionsFailed ? "Object types unavailable — retry above." : "Loading object types…"}</p>}
         </div>
-        <div className="border-t pt-3"><RuleShelf title="Rule shelf" entries={shelf} badges={badges} onUnlock={unlock} unlockDisabled={frozen} /></div>
+        <div className="border-t pt-3"><RuleShelf title="Rule shelf" entries={shelf} badges={badges} onUnlock={unlock} onToggleExcluded={toggleExcluded} unlockDisabled={frozen} /></div>
         {optionFields.map(([k, l]) => (
           <label key={k} className="space-y-1 block"><span className="label-mono">{l}</span>
             <select value={available(k).some(o => o.id === val(k)) ? val(k) : ""} disabled={!options} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`select-${k}`}>

@@ -22,14 +22,14 @@ export interface ParamSchemaLike {
   presets?: readonly number[];
 }
 export interface OfferedLike { key: string; args: ArgsLike; label: string; badges: readonly BadgeLike[]; classes?: readonly string[] }
-export interface ObjectTypeInfoLike {
+export interface ObjectTypeInfoLike<O extends OfferedLike = OfferedLike> {
   id: string;
   label: string;
   emoji: string;
   kid: string;
   params: readonly ParamSchemaLike[];
   defaults: ArgsLike;
-  offered: readonly OfferedLike[];
+  offered: readonly O[];
 }
 
 export const sameArgs = (a: ArgsLike, b: ArgsLike) => {
@@ -38,7 +38,7 @@ export const sameArgs = (a: ArgsLike, b: ArgsLike) => {
 };
 
 /** The offered instantiation equal to these args (missing args take the type's defaults). */
-export function findOffered(t: ObjectTypeInfoLike, args: ArgsLike): OfferedLike | undefined {
+export function findOffered<O extends OfferedLike>(t: ObjectTypeInfoLike<O>, args: ArgsLike): O | undefined {
   const full = { ...t.defaults, ...args };
   return t.offered.find(o => sameArgs({ ...t.defaults, ...o.args }, full));
 }
@@ -47,9 +47,9 @@ export function findOffered(t: ObjectTypeInfoLike, args: ArgsLike): OfferedLike 
  * The offered instantiation that contains every value in `patch` and keeps the most other current
  * values (ties: parameter order, then the server's order). Undefined when none contains the patch.
  */
-export function snapToOffered(t: ObjectTypeInfoLike, current: ArgsLike, patch: ArgsLike): OfferedLike | undefined {
+export function snapToOffered<O extends OfferedLike>(t: ObjectTypeInfoLike<O>, current: ArgsLike, patch: ArgsLike): O | undefined {
   const want = { ...t.defaults, ...current, ...patch };
-  let best: OfferedLike | undefined, bestScore = -1;
+  let best: O | undefined, bestScore = -1;
   for (const o of t.offered) {
     const args = { ...t.defaults, ...o.args };
     if (!Object.entries(patch).every(([k, v]) => String(args[k]) === String(v))) continue;

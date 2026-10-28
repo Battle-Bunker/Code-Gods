@@ -1,4 +1,4 @@
-import { VERSION, commandSchema, observationSchema, resultSchema, type Command, type CommandResult, type Envelope, type Observation } from "@workspace/player-client";
+import { GAME_COMMANDS, VERSION, commandSchema, observationSchema, resultSchema, type Command, type CommandResult, type Envelope, type Observation } from "@workspace/player-client";
 export type { Command, CommandResult, Observation };
 const base = `${import.meta.env.BASE_URL}daemon`;
 let csrf = "";
@@ -117,7 +117,7 @@ export const sendCommand = async (command:Command, commandId=crypto.randomUUID()
   // Keep the entire prepared envelope stable when retrying an uncertain outcome.
   const prior=commandEnvelopes.get(commandId);
   if(!prior && commandEnvelopes.size>=2000) throw new Error("Session command limit reached. Disconnect and reconnect.");
-  const envelope=prior ?? {version:VERSION,commandId,command:commandSchema.parse(command),...(["validate","summon","pause"].includes(command.type) && gameId ? {gameId} : {})};
+  const envelope=prior ?? {version:VERSION,commandId,command:commandSchema.parse(command),...(GAME_COMMANDS.includes(command.type) && gameId ? {gameId} : {})};
   if(prior && JSON.stringify(prior.command)!==JSON.stringify(commandSchema.parse(command))) throw new Error("Command ID reused with different payload.");
   commandEnvelopes.set(commandId,envelope);
   const result=resultSchema.parse(await request<CommandResult>(playerPath("commands"),envelope));

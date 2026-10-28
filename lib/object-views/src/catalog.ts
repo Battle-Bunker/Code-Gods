@@ -17,6 +17,8 @@ export interface CatalogEntryLike {
   theme: string;
   role: "reward" | "penalty" | string;
   available: boolean;
+  /** Taken out of the lottery by the owner (settings.excludedFamilies): "not dealt in this game". */
+  excluded?: boolean;
   badges: readonly BadgeLike[];
   locked?: { reason: string; unlock?: ArgsLike };
 }
@@ -81,8 +83,17 @@ export function familyUses(familyId: string): Badge[] {
   try { return badgesFor(family(familyId).requires); } catch { return []; }
 }
 
-export function shelfCounts(entries: readonly CatalogEntryLike[]): { available: number; total: number; locked: number } {
+/** Reward families: how many can be dealt (available and not excluded), out of how many; locked and excluded counts. */
+export function shelfCounts(entries: readonly CatalogEntryLike[]): { available: number; total: number; locked: number; excluded: number } {
   const rewards = entries.filter(e => e.role !== "penalty");
-  const available = rewards.filter(e => e.available).length;
-  return { available, total: rewards.length, locked: rewards.length - available };
+  const open = rewards.filter(e => e.available);
+  const excluded = open.filter(e => e.excluded).length;
+  return { available: open.length - excluded, total: rewards.length, locked: rewards.length - open.length, excluded };
+}
+
+/** Marks entries excluded by a (draft) excludedFamilies list; entries keep the server's flag otherwise. */
+export function withExcluded<E extends CatalogEntryLike>(entries: readonly E[], excluded: readonly string[] | undefined): E[] {
+  if (!excluded) return [...entries];
+  const set = new Set(excluded);
+  return entries.map(e => ({ ...e, excluded: set.has(e.id) }));
 }

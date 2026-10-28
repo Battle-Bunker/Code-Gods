@@ -28,8 +28,10 @@ const cardCls = (selected: boolean, disabled: boolean) =>
  * Object type and type arguments. Each option shows its badges and how the rule shelf would change;
  * choices snap to an instantiation the server offers. `highlight` outlines params an unlock changed.
  */
-export function ObjectTypePicker({ types, value, onChange, highlight = [], disabled = false }: {
+export function ObjectTypePicker({ types, value, onChange, highlight = [], disabled = false, showOffered = true }: {
   types: readonly ObjectTypeInfoLike[]; value: TypeChoice; onChange: (next: TypeChoice) => void; highlight?: readonly string[]; disabled?: boolean;
+  /** Also list every offered instantiation as a one-click chip (off when the page shows named presets). */
+  showOffered?: boolean;
 }) {
   const type = types.find(t => t.id === value.objectType);
   const args = useMemo(() => ({ ...(type?.defaults ?? {}), ...value.typeArgs }), [type, value.typeArgs]);
@@ -57,7 +59,7 @@ export function ObjectTypePicker({ types, value, onChange, highlight = [], disab
       {type && <p className="text-xs text-muted-foreground">{type.kid}</p>}
       {type?.params.map(p => <ParamPicker key={p.id} type={type} param={p} args={args} onPick={v => choose(type, { [p.id]: v })}
         highlighted={highlight.includes(p.id)} disabled={disabled} />)}
-      {type && type.offered.length > 1 && type.offered.length <= 8 && (
+      {showOffered && type && type.offered.length > 1 && type.offered.length <= 8 && (
         <div className="space-y-1">
           <span className="text-xs font-medium">Presets</span>
           <div className="flex flex-wrap gap-1.5" data-testid="offered-presets">
@@ -71,7 +73,7 @@ export function ObjectTypePicker({ types, value, onChange, highlight = [], disab
           </div>
         </div>
       )}
-      {type && !current && <p role="alert" className="text-xs text-destructive" data-testid="text-not-offered">This combination isn't offered on this server. Pick a preset.</p>}
+      {type && !current && <p role="alert" className="text-xs text-destructive" data-testid="text-not-offered">This combination isn't offered on this server. Pick another option.</p>}
     </div>
   );
 }
@@ -135,8 +137,10 @@ function ParamPicker({ type, param, args, onPick, highlighted, disabled }: {
  * The rule shelf / "possible gods": the families that can be dealt in this room grouped by badge, with
  * filter chips and a "show locked" toggle. Locked rows say why, and (for the owner) offer Unlock.
  */
-export function RuleShelf({ entries, badges = [], onUnlock, title = "Possible gods", unlockDisabled = false }: {
+export function RuleShelf({ entries, badges = [], onUnlock, onToggleExcluded, title = "Possible gods", unlockDisabled = false }: {
   entries: readonly CatalogEntryLike[];
+  /** Owner only: deal or stop dealing a family in this room's games (settings.excludedFamilies). */
+  onToggleExcluded?: (familyId: string, excluded: boolean) => void;
   /** Every capability badge (manifest classes), used to place locked rules in the group they would join. */
   badges?: readonly BadgeLike[];
   onUnlock?: (patch: ArgsLike) => void;
@@ -153,7 +157,7 @@ export function RuleShelf({ entries, badges = [], onUnlock, title = "Possible go
       <div>
         <p className="text-sm"><b>{title}:</b> <span data-testid="text-shelf-count">{counts.available} of {counts.total}</span> rules can appear in this room</p>
         <div className="h-1.5 bg-muted mt-1 overflow-hidden" aria-hidden><div className="h-full bg-primary" style={{ width: `${counts.total ? (100 * counts.available) / counts.total : 0}%` }} /></div>
-        <p className="text-xs text-muted-foreground mt-1">Each god secretly draws one utility function from these families, with secret settings. Who drew what is for you to work out.</p>
+        <p className="text-xs text-muted-foreground mt-1">Each god secretly draws one utility function from these families, with secret settings. Who drew what is for you to work out.{counts.excluded > 0 && ` ${counts.excluded} ${counts.excluded === 1 ? "is" : "are"} not dealt in this game.`}{onToggleExcluded && " Untick a rule to stop dealing it."}</p>
       </div>
       <div className="flex flex-wrap gap-1" role="group" aria-label="Filter rules by badge">
         <button type="button" aria-pressed={filter === "all"} onClick={() => setFilter("all")} className={`text-[11px] border px-2 py-0.5 ${filter === "all" ? "bg-foreground text-background" : "hover:bg-muted"}`} data-testid="filter-all">All</button>
@@ -173,9 +177,13 @@ export function RuleShelf({ entries, badges = [], onUnlock, title = "Possible go
               <h3 className="text-xs font-semibold" title={g.badge.kid}>{g.badge.emoji} {g.badge.label}</h3>
               <ul className="mt-1 space-y-1">
                 {rows.map(e => (
-                  <li key={e.id} className={`text-sm flex flex-wrap items-baseline gap-x-2 ${e.available ? "" : "text-muted-foreground"}`} data-testid={`row-family-${e.id}`}>
-                    <span>{e.available ? "✓" : "🔒"}</span>
-                    <span className="font-medium">{e.emoji} {e.name}</span>
+                  <li key={e.id} className={`text-sm flex flex-wrap items-baseline gap-x-2 ${e.available && !e.excluded ? "" : "text-muted-foreground"}`} data-testid={`row-family-${e.id}`} data-excluded={e.excluded || undefined}>
+                    {e.available && onToggleExcluded
+                      ? <input type="checkbox" checked={!e.excluded} disabled={unlockDisabled} onChange={ev => onToggleExcluded(e.id, !ev.target.checked)}
+                          aria-label={`Deal ${e.name} in this room's games`} className="self-center accent-[hsl(var(--primary))]" data-testid={`toggle-family-${e.id}`} />
+                      : <span>{!e.available ? "🔒" : e.excluded ? "⊘" : "✓"}</span>}
+                    <span className={`font-medium ${e.excluded ? "line-through" : ""}`}>{e.emoji} {e.name}</span>
+                    {e.excluded && <span className="text-xs" data-testid={`text-excluded-${e.id}`}>not dealt in this game</span>}
                     <span className="text-xs text-muted-foreground min-w-0">{e.theme}</span>
                     {e.available && e.badges.length > 1 && <BadgeChips badges={e.badges.slice(1)} />}
                     {!e.available && (

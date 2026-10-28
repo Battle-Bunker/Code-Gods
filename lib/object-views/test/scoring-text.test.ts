@@ -98,7 +98,9 @@ test("familyUses: badges a card relies on, [] for unknown or unconstrained", () 
 
 const gridType = (): ObjectTypeInfoLike => {
   const T = OBJECT_TYPES.find(t => t.id === "Grid")!;
-  const offered = [{ size: 5, symbols: "base10", colours: "rgby" }, { size: 4, symbols: "cards", colours: "rainbow6" }, { size: 3, symbols: "base10", colours: "rgb" }]
+  // The server's offered Grid instantiations (artifacts/api-server calibration-fallback.ts).
+  const offered = [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 5, symbols: "base10", colours: "rgby" },
+    { size: 6, symbols: "base16", colours: "rainbow6" }, { size: 7, symbols: "cards", colours: "rainbow6" }]
     .map(args => { const info = instanceInfo(instantiate("Grid", args)); return { key: info.key, args: info.args as Record<string, string | number>, label: info.label, badges: info.badges }; });
   return { id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params as ObjectTypeInfoLike["params"], defaults: T.defaults as Record<string, string | number>, offered };
 };
@@ -108,10 +110,12 @@ test("settings: snapping to offered instantiations keeps the most of the current
   const cur = { size: 5, symbols: "base10", colours: "rgby" };
   assert.equal(findOffered(t, cur)?.key, "Grid(5,base10,rgby)");
   assert.equal(findOffered(t, { size: 6 }), undefined);
-  assert.equal(snapToOffered(t, cur, { symbols: "cards" })?.key, "Grid(4,cards,rainbow6)");
-  assert.equal(snapToOffered(t, cur, { colours: "rgb" })?.key, "Grid(3,base10,rgb)");
-  assert.equal(snapToOffered(t, cur, { symbols: "base16" }), undefined);
-  assert.equal(snapToOffered(t, { size: 3, symbols: "base10", colours: "rgb" }, { size: 5 })?.key, "Grid(5,base10,rgby)");
+  assert.equal(snapToOffered(t, cur, { symbols: "cards" })?.key, "Grid(7,cards,rainbow6)");
+  assert.equal(snapToOffered(t, cur, { colours: "rgb" })?.key, "Grid(4,base10,rgb)");
+  assert.equal(snapToOffered(t, cur, { symbols: "base12" }), undefined);
+  assert.equal(snapToOffered(t, { size: 4, symbols: "base10", colours: "rgb" }, { size: 5 })?.key, "Grid(5,base10,rgby)");
+  // Nothing else can be kept: ties go to the server's order (the 6×6 hex board before the 7×7 cards).
+  assert.equal(snapToOffered(t, cur, { colours: "rainbow6" })?.key, "Grid(6,base16,rainbow6)");
   assert.deepEqual(changedParams(cur, { size: 4, symbols: "cards", colours: "rgby" }), ["size", "symbols"]);
 });
 
@@ -122,7 +126,7 @@ test("settings: component badges are maximal; rule deltas count gained and lost 
   assert.deepEqual(componentBadges("Grid", symbols, "cards").map(b => b.id).sort(), ["Faced", "Suited", "Valued"]);
   const colours = t.params.find(p => p.id === "colours")!;
   assert.ok(componentBadges("Grid", colours, "rainbow6").some(b => b.id === "Wheel"));
-  const d = ruleDelta("Grid", { size: 5, symbols: "base10", colours: "rgby" }, "Grid", { size: 4, symbols: "cards", colours: "rainbow6" });
+  const d = ruleDelta("Grid", { size: 5, symbols: "base10", colours: "rgby" }, "Grid", { size: 7, symbols: "cards", colours: "rainbow6" });
   assert.ok(d.gained > 0 && d.lost > 0);
   assert.deepEqual(ruleDelta("Grid", { size: 5 }, "Grid", { size: 5 }), { gained: 0, lost: 0 });
 });
