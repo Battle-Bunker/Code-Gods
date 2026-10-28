@@ -1,0 +1,57 @@
+## Grid(5,base10,rgby), seed 22, variant all_pay: 6 gods, 223 s, 5270 commits, 60 agents
+Gods (private rule; final payoff, rank):
+  g0 saver              mirrormancer           Count the rows whose colours read the same forwards and backwards.  payoff 62611 (#3)
+  g1 saver              seed1_line_painter     Every straight line of 2 or more blue cells touching in a row (across or down, or diagonally) scores the sum of its numbers.  payoff 51460 (#4)
+  g2 saver              treasure_map           Every green cell scores its number times how close it is to the middle (corners count nothing).  payoff 24510 (#5)
+  g3 saver              go_fish_books          Your fish is 6. Every 2×2 block of four of them is a book (1 point), or a perfect book (2 points) if they are all different colours.  payoff 176266 (#2)
+  g4 greedy_omniscient  swiss_cheese           Your cheese is red. A hole is a patch of other colours completely surrounded by red (not touching the edge). Count the holes.  payoff 6415 (#6)
+  g5 saver              snap                   Shout Snap! for every pair of touching cells showing the same symbol.  payoff 183765 (#1)
+Featured: object 6, its busiest tension window (24 commits)
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t=  27.63 g4 Δσ  -24.5 s=[ 14.9   0.0  30.0  17.9   0.1  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+   t=  28.36 g1 Δσ  +12.9 s=[ 14.9  42.9   0.2  17.9   0.0  41.2]  Move every colour in the whole grid 1 step along the rainbow.
+   t=  28.76 g4 Δσ   +3.0 s=[ 14.9  45.3   0.7  17.9   0.1  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+   t=  29.58 g2 Δσ   +0.5 s=[ 14.9  45.3   1.2  17.9   0.0  41.2]  Turn every red cell in the whole grid green.
+ * t=  29.60 g2 Δσ   +8.1 s=[ 20.1   0.0  49.5  17.9   0.0  41.2]  Paint the whole grid green.
+ * t=  29.87 g1 Δσ  +11.0 s=[ 20.1  60.6   0.0  17.9   0.0  41.2]  Move every colour in the whole grid 1 step along the rainbow.
+ * t=  29.91 g4 Δσ  -19.6 s=[ 14.9  45.3   0.7  17.9   0.1  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+ * t=  30.51 g2 Δσ   +0.5 s=[ 14.9  45.3   1.2  17.9   0.0  41.2]  Turn every red cell in the whole grid green.
+ * t=  30.79 g2 Δσ  -15.5 s=[ 11.3  26.6   8.1  17.9   0.0  41.2]  Paint the 2x2 square at row 2, column 2 green.
+ * t=  31.16 g0 Δσ  -16.8 s=[ 20.1   9.2   0.0  17.9   0.0  41.2]  Reverse the symbols of column 4, then paint the whole grid as a yellow/blue chessboard.
+ * t=  31.24 g4 Δσ   -6.0 s=[ 14.9   7.6   0.7  17.9   0.1  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+ * t=  31.66 g2 Δσ   +0.5 s=[ 14.9   7.6   1.2  17.9   0.0  41.2]  Turn every red cell in the whole grid green.
+ * t=  31.85 g2 Δσ   -0.8 s=[ 11.3   3.6   8.1  17.9   0.0  41.2]  Paint the 2x2 square at row 2, column 2 green.
+ * t=  31.92 g1 Δσ   +0.6 s=[ 11.3  11.1   1.2  17.9   0.0  41.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+ * t=  32.19 g0 Δσ   +3.1 s=[ 14.9   3.6   8.1  17.9   0.0  41.2]  Paint row 4 green, then sort row 4 biggest first.
+ * t=  32.43 g2 Δσ   +6.5 s=[ 11.3   0.9  21.0  17.9   0.0  41.2]  Paint the 2x2 square at row 2, column 2 green.
+ * t=  32.62 g1 Δσ   -0.7 s=[ 11.3  17.4   1.6  17.9   2.3  41.2]  Move every colour in the whole grid 1 step along the rainbow.
+ * t=  32.75 g4 Δσ   -7.8 s=[ 11.3   6.2   2.9  17.9   4.3  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+ * t=  32.92 g2 Δσ   +7.6 s=[ 14.9   1.3  11.6  17.9   4.3  41.2]  Paint the 2x2 square at row 2, column 2 green.
+ * t=  32.94 g1 Δσ   -4.3 s=[ 14.9   6.6   2.0  17.9   4.3  41.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+ * t=  33.15 g0 Δσ   +3.1 s=[ 14.9   4.1   9.8  17.9   2.3  41.2]  Paint row 4 green, then sort row 4 biggest first.
+ * t=  33.21 g2 Δσ   +4.0 s=[ 14.9   4.1  16.1  17.9   0.0  41.2]  Turn every red cell in the whole grid green.
+ * t=  33.44 g4 Δσ   -2.2 s=[ 14.9   4.1  13.8  17.9   0.1  41.2]  Paint row 3 as a rainbow starting red, backwards along the rainbow.
+ * t=  33.96 g2 Δσ  +36.7 s=[ 20.1   0.0  49.5  17.9   0.0  41.2]  Paint the whole grid green.
+ * t=  33.99 g1 Δσ   -8.2 s=[ 20.1   1.0  40.3  17.9   0.0  41.2]  Reverse the colours of column 4, then paint the row or column with the most blue blue.
+ * t=  34.23 g2 Δσ   +8.2 s=[ 20.1   0.0  49.5  17.9   0.0  41.2]  Paint the whole grid green.
+ * t=  34.32 g1 Δσ   -8.2 s=[ 20.1   1.0  40.3  17.9   0.0  41.2]  In row 5, paint even numbers blue and odd numbers red.
+ * t=  34.53 g1 Δσ   +3.0 s=[ 20.1  42.9   0.0  17.9   1.4  41.2]  Move every colour in the whole grid 1 step along the rainbow.
+   t=  34.73 g1 Δσ  +16.3 s=[ 20.1  60.6   0.0  17.9   0.0  41.2]  In row 5, paint even numbers blue and odd numbers red.
+   t=  35.54 g2 Δσ  -11.0 s=[ 20.1   0.0  49.5  17.9   0.0  41.2]  Paint the whole grid green.
+   t=  36.72 g1 Δσ  -32.4 s=[ 20.1   8.1   9.0  17.9   0.0  41.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+   t=  38.09 g0 Δσ   +5.7 s=[ 20.1   3.7  19.1  17.9   0.0  41.2]  Paint row 4 green, then sort row 4 biggest first.
+
+t=29.6 σ=120.7        t=29.6 σ=128.7        t=31.9 σ=82.2         t=32.9 σ=87.1      
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G    6Y  6B  6Y  6B  6Y    6G  6R  6G  6R  6G
+ 9B  9B  9B  6B  6B    9G  9G  9G  6G  6G    9B  9G  9G  6Y  6B    9B  9B  9B  6B  6B
+ 6G  9B  9G  6Y  0G    6G  9G  9G  6G  0G    6G  9G  9G  6Y  0G    6R  9B  9G  6Y  0R
+ 9B  9B  9B  6B  6B    9G  9G  9G  6G  6G    9B  9Y  9B  6Y  6B    9R  9B  9B  6B  6R
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G    6Y  6B  6Y  6B  6Y    6G  6R  6G  6R  6G
+
+t=34.5 σ=123.5        t=38.1 σ=102.0     
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G
+ 9B  9B  9B  6B  6B    9G  9B  9B  6B  6G
+ 6B  9B  9B  6B  0B    6G  9B  9G  6B  0G
+ 9B  9B  9B  6B  6B    9G  9G  9G  6G  6G
+ 6R  6R  6R  6R  6R    6G  6G  6G  6G  6G

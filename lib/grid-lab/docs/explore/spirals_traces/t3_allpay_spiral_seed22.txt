@@ -1,0 +1,43 @@
+## Grid(5,base10,rgby), seed 22, variant all_pay: 6 gods, 223 s, 5270 commits, 60 agents
+Gods (private rule; final payoff, rank):
+  g0 saver              mirrormancer           Count the rows whose colours read the same forwards and backwards.  payoff 62611 (#3)
+  g1 saver              seed1_line_painter     Every straight line of 2 or more blue cells touching in a row (across or down, or diagonally) scores the sum of its numbers.  payoff 51460 (#4)
+  g2 saver              treasure_map           Every green cell scores its number times how close it is to the middle (corners count nothing).  payoff 24510 (#5)
+  g3 saver              go_fish_books          Your fish is 6. Every 2×2 block of four of them is a book (1 point), or a perfect book (2 points) if they are all different colours.  payoff 176266 (#2)
+  g4 greedy_omniscient  swiss_cheese           Your cheese is red. A hole is a patch of other colours completely surrounded by red (not touching the edge). Count the holes.  payoff 6415 (#6)
+  g5 saver              snap                   Shout Snap! for every pair of touching cells showing the same symbol.  payoff 183765 (#1)
+Featured: object 14, spiral of 10 commits over 5.0 s, salience 54.3 -> 194.9 (+140.5 bits), 5 contributing owners (3 major, top owner 50%), 4 gods gain >= 1 bit, accel +0.59, retention 0.95
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t= 110.09 g3 Δσ   +4.5 s=[ 20.1   0.0  13.2  17.9   0.0  13.2]  Count every number in the 3x3 square at row 2, column 1 on by 9, then swap yellow and blue in ring 2 in from the edge.
+   t= 110.85 g1 Δσ   -5.9 s=[ 20.1   0.6   6.7  17.9   0.0  13.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+   t= 111.24 g2 Δσ   -2.1 s=[ 11.3   0.0  14.0  17.9   0.0  13.2]  Paint the 2x2 square at row 2, column 2 green.
+   t= 111.64 g1 Δσ   -2.0 s=[ 14.9   1.5   6.7  17.9   0.0  13.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+ * t= 111.70 g0 Δσ   +2.2 s=[ 20.1   3.5   1.8  17.9   0.0  13.2]  Paint row 3 blue, yellow, blue, ... alternating.
+ * t= 111.84 g1 Δσ  +10.4 s=[ 20.1  15.6   0.0  17.9   0.1  13.2]  If row 2 is not all one colour: move every colour in the outer edge 1 step along the rainbow.
+ * t= 113.34 g2 Δσ   -0.8 s=[ 20.1  14.1   0.8  17.9   0.0  13.2]  Move every colour in row 3 1 step along the rainbow.
+ * t= 113.89 g1 Δσ   +6.4 s=[ 20.1  21.2   0.0  17.9   0.0  13.2]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+ * t= 114.00 g2 Δσ  +11.0 s=[ 20.1   0.0  32.2  17.9   0.0  13.2]  Paint the whole grid green.
+ * t= 114.69 g5 Δσ  +28.2 s=[ 20.1   0.0  31.1  33.9   0.0  26.5]  Stamp 6 on every green cell in the 3x3 square at row 1, column 2.
+ * t= 115.07 g3 Δσ  +20.5 s=[ 20.1   0.0  32.2  40.8   0.0  38.9]  Swap 2s and 7s in the centre cell, then mirror the whole grid above->below diagonal (symbols).
+ * t= 115.56 g1 Δσ  +12.5 s=[ 20.1  44.7   0.0  40.8   0.0  38.9]  Move every colour in the whole grid 1 step along the rainbow.
+ * t= 116.59 g3 Δσ  +21.7 s=[ 20.1  46.9   0.0  47.8   0.0  51.6]  Stamp 6 on every blue cell in the 2x2 square at row 2, column 4.
+ * t= 116.73 g3 Δσ  +28.6 s=[ 20.1  50.3   0.0  54.6   0.0  69.9]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5.
+   t= 116.93 g2 Δσ  -34.4 s=[  4.9  24.4   6.6  54.6   0.0  69.9]  Swap green and blue in the 3x3 square at row 1, column 3.
+   t= 117.36 g0 Δσ   -2.2 s=[  8.9  23.3   1.6  54.6   0.0  69.9]  Paint row 3 blue, yellow, blue, ... alternating.
+   t= 117.96 g2 Δσ   -1.9 s=[  8.9  18.3   4.5  54.6   0.1  69.9]  Move every colour in row 3 1 step along the rainbow.
+   t= 118.05 g2 Δσ  +22.2 s=[ 20.1   0.0  34.0  54.6   0.0  69.9]  Paint the whole grid green.
+
+t=111.6 σ=54.3        t=111.7 σ=56.5        t=113.9 σ=72.4        t=115.1 σ=132.0    
+ 6G  9G  4G  6G  6G    6G  9G  4G  6G  6G    6B  9B  4B  6B  6B    6G  6G  6G  6G  6G
+ 8G  6Y  6Y  7Y  6G    8G  6Y  6Y  7Y  6G    6B  6B  6B  7B  1B    6G  6G  6G  6G  1G
+ 7G  6B  6G  7Y  7G    7B  6Y  6B  7Y  7B    7Y  6B  6R  7B  7Y    6G  6G  6G  6G  7G
+ 6G  6B  6B  7B  1G    6G  6B  6B  7B  1G    8B  6Y  6Y  7Y  6B    6G  6G  6G  7G  6G
+ 1G  3G  2G  6G  3G    1G  3G  2G  6G  3G    1B  3B  2B  6B  3B    6G  1G  7G  6G  3G
+
+t=116.7 σ=194.9       t=118.1 σ=178.6    
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G
+ 6B  6B  6B  7B  6B    6G  6G  6G  7G  6G
+ 6B  6B  6B  6B  6B    6G  6G  6G  6G  6G
