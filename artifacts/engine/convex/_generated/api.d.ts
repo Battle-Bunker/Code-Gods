@@ -50,6 +50,10 @@ import type * as owner from "../owner.js";
 import type * as player from "../player.js";
 import type * as receipts from "../receipts.js";
 import type * as rooms from "../rooms.js";
+import type * as runtime_assets from "../runtime/assets.js";
+import type * as runtime_node from "../runtime/node.js";
+import type * as runtime_probe from "../runtime/probe.js";
+import type * as runtime_tables from "../runtime/tables.js";
 import type * as testing from "../testing.js";
 
 import type {
@@ -101,6 +105,10 @@ declare const fullApi: ApiFromModules<{
   player: typeof player;
   receipts: typeof receipts;
   rooms: typeof rooms;
+  "runtime/assets": typeof runtime_assets;
+  "runtime/node": typeof runtime_node;
+  "runtime/probe": typeof runtime_probe;
+  "runtime/tables": typeof runtime_tables;
   testing: typeof testing;
 }>;
 

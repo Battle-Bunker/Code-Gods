@@ -11,7 +11,8 @@
     "test:auth": "node scripts/test-auth.mjs",
     "gen-jwt-key": "node scripts/gen-jwt-key.mjs",
     "deploy-static": "node scripts/deploy-static.mjs",
-    "fake-oidc": "node scripts/fake-oidc.mjs"
+    "fake-oidc": "node scripts/fake-oidc.mjs",
+    "upload-runtime": "node scripts/upload-runtime.mjs"
   },
   "dependencies": {
     "@workspace/game-core": "workspace:*",
@@ -22,10 +23,11 @@
     "@workspace/ai-player": "workspace:*",
     "@convex-dev/static-hosting": "0.2.1",
     "convex": "1.48.0",
-    "jose": "6.2.13"
+    "jose": "6.2.13",
+    "quickjs-emscripten": "0.31.0",
+    "typescript": "5.9.3"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "typescript": "~5.9.3"
+    "@types/node": "catalog:"
   }
 }

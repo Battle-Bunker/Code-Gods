@@ -479,13 +479,16 @@ importers:
       jose:
         specifier: 6.2.13
         version: 6.2.13
+      quickjs-emscripten:
+        specifier: 0.31.0
+        version: 0.31.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
 
   artifacts/mockup-sandbox:
     devDependencies:
@@ -966,6 +969,10 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   lib/game-types:
     devDependencies:
