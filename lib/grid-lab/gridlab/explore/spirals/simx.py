@@ -35,12 +35,14 @@ from ... import calibrate as cal
 class Ext:
     select_alpha: float = 0.0
     select_by: str = "salience"
+    heat: float = 0.0              # > 0: object choice weight 1 + heat * h, h = recent salience gains (bits)
+    heat_tau: float = 5.0          # e-folding time (s) of h
     tend_all: Optional[str] = None
     library: Optional[tuple] = None
     policy_map: dict = field(default_factory=dict)   # policy name -> replacement name (e.g. tend-aware)
 
     def is_default(self) -> bool:
-        return self.select_alpha == 0.0 and self.tend_all is None
+        return self.select_alpha == 0.0 and self.tend_all is None and self.heat == 0.0
 
 
 class Tended:
@@ -170,6 +172,9 @@ def run_game_x(cfg: GameConfig, ext: Ext | None = None, hook: Optional[Callable]
     ublk, upos = rng.random((BLK, 2)), 0
     k = 0
     alpha = ext.select_alpha
+    hb = ext.heat
+    heat_h = np.zeros(64)          # by object index: heat as of heat_t
+    heat_t = np.zeros(64)
     use_max = ext.select_by == "max"
     while True:
         t = k * dt if rate > 0 else math.inf
@@ -212,7 +217,13 @@ def run_game_x(cfg: GameConfig, ext: Ext | None = None, hook: Optional[Callable]
         u1, u2 = ublk[upos]
         upos += 1
         M = len(world.objects)
-        if alpha:
+        if hb:
+            if len(heat_h) < M:
+                heat_h = np.r_[heat_h, np.zeros(len(heat_h))]
+                heat_t = np.r_[heat_t, np.zeros(len(heat_t))]
+            w = np.cumsum(1.0 + hb * heat_h[:M] * np.exp(-(t - heat_t[:M]) / ext.heat_tau))
+            oi = min(int(np.searchsorted(w, u1 * w[-1], side="right")), M - 1)
+        elif alpha:
             Sm = world.S[:M]
             base = Sm.max(1) if use_max else Sm.sum(1)
             w = np.cumsum((1.0 + base) ** alpha)
@@ -254,6 +265,10 @@ def run_game_x(cfg: GameConfig, ext: Ext | None = None, hook: Optional[Callable]
         if mode is None:
             after = world.svec(new)
         S[oi] = after
+        if hb:
+            gain = float(after.sum() - before.sum())
+            heat_h[oi] = heat_h[oi] * math.exp(-(t - heat_t[oi]) / ext.heat_tau) + max(gain, 0.0)
+            heat_t[oi] = t
         counters["commits"] += 1
         c_time.append(t); c_obj.append(world.obj_ids[oi]); c_agent.append(aid)
         c_before.append(before); c_after.append(after)

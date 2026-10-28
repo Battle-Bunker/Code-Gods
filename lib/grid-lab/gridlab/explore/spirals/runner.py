@@ -64,7 +64,10 @@ def _code_hash() -> str:
     return h.hexdigest()[:16]
 
 
-CODE_HASH = _code_hash()
+# Pinned: the value _code_hash() gave for the code the cached batches were run with. Bump it by hand
+# when a change alters game outcomes (prototypes that are off by default do not: tests.test_spirals
+# checks the fork against gridlab.sim).
+CODE_HASH = "52fcefae129a9314"
 
 
 # ------------------------------------------------------------------------------------------------
@@ -168,7 +171,8 @@ def ext_for(v: dict, gt: GridType) -> Ext:
     tending = bool(v.get("tend_all") or (v.get("tend_prob") and v.get("tend_mode")))
     aware = v.get("tend_aware", tending)
     return Ext(select_alpha=v.get("select_alpha", 0.0), select_by=v.get("select_by", "salience"),
-               tend_all=v.get("tend_all"), library=library(gt, v), policy_map=TEND_AWARE if aware else {})
+               tend_all=v.get("tend_all"), heat=v.get("heat", 0.0),
+               heat_tau=v.get("heat_tau", 5.0), library=library(gt, v), policy_map=TEND_AWARE if aware else {})
 
 
 def play(v: dict, spec, keep_programs: bool = False, hook=None, commit_hook=None):

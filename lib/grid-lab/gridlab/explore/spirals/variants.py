@@ -60,3 +60,9 @@ VARIANTS["bij2"] = {"name": "bij2", "knobs": {"kind": {"bijective": 2.0}}}
 VARIANTS["bij2+tend_pay"] = combo("bij2+tend_pay", "bij2", "tend_pay")
 VARIANTS["bij2+tend_pay+sel-1"] = combo("bij2+tend_pay+sel-1", "bij2", "tend_pay", "sel-1")
 VARIANTS["bij2+all_pay"] = combo("bij2+all_pay", "bij2", "all_pay")
+
+# round 4: heat (recently improved objects are touched more), with and without constructive agents
+VARIANTS["heat"] = {"name": "heat", "heat": 0.2}
+VARIANTS["heat+tend_pay"] = combo("heat+tend_pay", "heat", "tend_pay")
+VARIANTS["heat+all_pay"] = combo("heat+all_pay", "heat", "all_pay")
+VARIANTS["heat1+all_pay"] = combo("heat1+all_pay", "all_pay", heat=1.0)
