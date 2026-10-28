@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { instantiate, objectType, seededRng, type Instantiation } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
 import {
-  ESTIMATOR, REGENERATE_COMMAND, calibrationManifest, cmpOrdinal, coverage, hasTable, keyFromParts, offeredInstantiations,
+  ESTIMATOR, REGENERATE_COMMAND, calibrationManifest, cmpOrdinal, coverage, defaultExcludedFamilies, hasTable, keyFromParts, offeredInstantiations,
   penaltyMeanBits, priorMeanBits, shippedFiles, softHinge, surprisal, tableFor, tableKey, tableKeyParts,
   type CalibrationTable,
 } from "../src/calibration.ts";
@@ -220,6 +220,18 @@ test("every dealable draw of every shipped instantiation has a fresh table, so a
   assert.deepEqual(offered.sort(), Object.keys(calibrationManifest().instances).sort());
   assert.ok(offered.includes("Grid(5,base10,rgby)") && offered.includes("Int(-2147483648,2147483647)") && offered.includes("string(128)"));
   assert.ok(!offeredInstantiations("Grid").some(i => i.key === "Grid(7,cards,rgb)"));
+  assert.ok(!offeredInstantiations("Grid").some(i => i.terms.size === 3), "3×3 grids are retired from play");
+});
+
+test("offered ignores excluded families: Grid(4,base10,rgb)'s default exclusions need no tables", () => {
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
+  const ex = defaultExcludedFamilies(inst);
+  assert.deepEqual([...ex].sort(), ["bridge_builder", "fair_weaver", "ladder_of_numbers", "lantern_lighter", "sudoku_scholar"]);
+  const all = coverage(inst, []), dflt = coverage(inst);
+  assert.ok(dflt.missing.every(m => !ex.includes(m.familyId)));
+  assert.ok(dflt.tables <= all.tables);
+  // An exclusion can only shrink what is required.
+  assert.ok(coverage(inst, [...ex, "seed1_line_painter"]).missing.length <= dflt.missing.length);
 });
 
 test("tableFor canonicalises raw draws and serves fresh tables only", () => {

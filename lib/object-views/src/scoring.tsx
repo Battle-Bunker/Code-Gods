@@ -97,3 +97,34 @@ export function HowScoringWorks({ noun = "object", open = false, id = "how-scori
     </details>
   );
 }
+
+/** Per-act cost parts (bits), when the server reports them: decision (naming the moves), erasure, motion. */
+export type ActCostBreakdown = { decision?: number; decisionBits?: number; erasure?: number; motion?: number } & { [part: string]: number | undefined };
+
+const PART_LABELS: Record<string, string> = {
+  decision: "choosing the moves", decisionBits: "choosing the moves", erasure: "information erased", motion: "how much moved",
+};
+
+/**
+ * An agent's price: the one-off summon cost (paid from god energy) and the expected cost per act (paid
+ * from the agent's own energy), with an optional breakdown of the per-act cost.
+ */
+export function AgentCost({ summonCost, expectedActCost, breakdown, agentEnergyPerSecond, godEnergy }: {
+  summonCost: number; expectedActCost: number; breakdown?: ActCostBreakdown; agentEnergyPerSecond?: number; godEnergy?: number;
+}) {
+  const parts = Object.entries(breakdown ?? {}).filter((e): e is [string, number] => typeof e[1] === "number" && Number.isFinite(e[1]));
+  const f = (x: number) => formatBits(x);
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-3 font-mono text-xs" data-testid="validation-costs">
+      <dt className="text-muted-foreground">summon cost</dt>
+      <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
+      <dt className="text-muted-foreground">expected per act</dt>
+      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits{agentEnergyPerSecond && agentEnergyPerSecond > 0 ? ` · about one act every ${f(expectedActCost / agentEnergyPerSecond)}s of world time` : ""}</dd>
+      {parts.map(([k, v]) => (
+        <div key={k} className="contents" data-testid={`cost-part-${k}`}>
+          <dt className="text-muted-foreground pl-3">· {PART_LABELS[k] ?? k}</dt><dd>{f(v)} bits</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}

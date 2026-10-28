@@ -344,42 +344,71 @@ export interface Coverage {
   readonly tables: number;
 }
 
+/**
+ * Families the dealer leaves out by default on particular instantiations (the default of
+ * settings.excludedFamilies there; lib/grid-lab/docs/explore/gridtypes.md). Their tables are optional: they never
+ * count against `offeredInstantiations` for that instantiation.
+ */
+export const DEFAULT_EXCLUDED_FAMILIES: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  "Grid(4,base10,rgb)": Object.freeze(["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"]),
+});
+export const defaultExcludedFamilies = (inst: Instantiation): readonly string[] => DEFAULT_EXCLUDED_FAMILIES[inst.key] ?? [];
+
+/** Grid sizes retired from play (3×3: too small for most families' structure). Never offered, tables or not. */
+export const RETIRED_GRID_SIZES: readonly number[] = Object.freeze([3]);
+
 const coverageMemo = new Map<string, Coverage>();
-/** Which dealable draws of an instantiation (every available reward and penalty family × canonical support) lack a fresh table. */
-export function coverage(inst: Instantiation): Coverage {
-  let c = coverageMemo.get(inst.key);
+/**
+ * Which dealable draws of an instantiation (every available reward and penalty family × canonical support, minus
+ * `excludedFamilies`, default `defaultExcludedFamilies(inst)`) lack a fresh table.
+ */
+export function coverage(inst: Instantiation, excludedFamilies: readonly string[] = defaultExcludedFamilies(inst)): Coverage {
+  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}`;
+  let c = coverageMemo.get(memoKey);
   if (c) return c;
-  const ctx = context(inst), entry = manifest.instances[inst.key];
+  const ctx = context(inst), entry = manifest.instances[inst.key], excluded = new Set(excludedFamilies);
   const missing: { familyId: string; params: Params; stale: boolean }[] = [];
   let tables = 0;
   for (const f of familiesFor(inst.objectType)) {
-    if (!available(f, inst).ok) continue;
+    if (excluded.has(f.id) || !available(f, inst).ok) continue;
     for (const p of canonicalSupport(f, ctx)) {
       const stored = entry?.tables[f.id]?.[paramsKey(p)];
       if (stored !== undefined && stored === tableKey(f.id, p, inst)) tables++;
       else missing.push({ familyId: f.id, params: p, stale: stored !== undefined });
     }
   }
-  coverageMemo.set(inst.key, c = Object.freeze({ instance: inst.key, missing, tables }));
+  coverageMemo.set(memoKey, c = Object.freeze({ instance: inst.key, missing, tables }));
   return c;
+}
+
+export interface OfferOptions {
+  /**
+   * Families the room will never deal (settings.excludedFamilies). Default: `defaultExcludedFamilies(inst)` per
+   * instantiation. Excluded families need no tables.
+   */
+  readonly excludedFamilies?: readonly string[];
 }
 
 /**
  * The instantiations the settings UI may offer for an object type.
  *
- * Rule: an instantiation is offered iff EVERY family that can be dealt in it (each available reward family and
- * each available penalty family, for every canonical params of its support) has a fresh shipped table. A partial
- * rule ("enough families") would make the catalog the settings page shows dishonest: it lists every available
- * family as possible, and the selector would silently never deal the uncalibrated ones. Penalty families count
- * even though defence goals are opt-in, so turning `defenceRate` on can never break a room. The order is the
- * manifest's (the pipeline's curated order: type presets first, then the curated GridTypes).
+ * Rule: an instantiation is offered iff
+ *  1. it is not retired (Grid sizes in RETIRED_GRID_SIZES, i.e. 3×3, are never offered), and
+ *  2. EVERY family that can be dealt in it (each available reward family and each available penalty family, for
+ *     every canonical params of its support), except the excluded ones, has a fresh shipped table.
+ * A partial rule ("enough families") would make the catalog the settings page shows dishonest: it lists every
+ * available family as possible, and the selector would silently never deal the uncalibrated ones. Penalty families
+ * count even though defence goals are opt-in, so turning `defenceRate` on can never break a room. Stale tables
+ * (key ≠ current code) count as missing. The order is the manifest's (the pipeline's curated order: Int and string
+ * presets, then the curated GridTypes with the Grid default first).
  */
-export function offeredInstantiations(objectTypeId: string): Instantiation[] {
+export function offeredInstantiations(objectTypeId: string, options: OfferOptions = {}): Instantiation[] {
   const T = objectType(objectTypeId);
   return Object.values(manifest.instances)
     .filter(e => e.objectType === objectTypeId)
     .map(e => T.instantiate(e.args))
-    .filter(inst => coverage(inst).missing.length === 0);
+    .filter(inst => !(inst.objectType === "Grid" && RETIRED_GRID_SIZES.includes(inst.terms.size)))
+    .filter(inst => coverage(inst, options.excludedFamilies ?? defaultExcludedFamilies(inst)).missing.length === 0);
 }
 
 /** The manifest of shipped tables (for diagnostics and the freshness test). */

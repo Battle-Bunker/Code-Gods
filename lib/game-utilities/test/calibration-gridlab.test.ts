@@ -51,9 +51,10 @@ print(json.dumps(out))
 const CASES: { family: string; grid: TypeArgs }[] = [
   { family: "seed3_green_ones", grid: { size: 5, symbols: "base10", colours: "rgby" } },
   { family: "conqueror", grid: { size: 5, symbols: "base10", colours: "rgby" } },
-  { family: "homebody", grid: { size: 5, symbols: "cards", colours: "rainbow6" } },
+  { family: "homebody", grid: { size: 7, symbols: "cards", colours: "rainbow6" } },
   { family: "seed1_line_painter", grid: { size: 4, symbols: "base12", colours: "rgby" } },
-  { family: "rainbow_road", grid: { size: 5, symbols: "base10", colours: "rgb" } },
+  { family: "rainbow_road", grid: { size: 4, symbols: "base10", colours: "rgb" } },
+  { family: "lone_peak", grid: { size: 5, symbols: "base10", colours: "rgby" } },
 ];
 
 const hasPython = (() => {

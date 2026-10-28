@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
 import { AssistantGrants } from "@/components/assistant-grants";
 import {
-  HelpersDrawer, HowScoringWorks, ObjectView, ScoreBreakdown, TransformationView, UtilityCardView, formatBits, objectContext, objectNoun,
+  AgentCost, HelpersDrawer, HowScoringWorks, type ActCostBreakdown, ObjectView, ScoreBreakdown, TransformationView, UtilityCardView, formatBits, objectContext, objectNoun,
 } from "@workspace/object-views";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
@@ -386,10 +386,9 @@ export default function Console() {
               {currentValidation ? (
                 <div className={`border-l-4 pl-3 py-1 ${currentValidation.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
                   <p className="font-mono text-xs"><strong>{currentValidation.valid ? "VALID" : "INVALID"}</strong></p>
-                  <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 font-mono text-xs" data-testid="validation-costs">
-                    <dt className="text-muted-foreground">summon cost</dt><dd data-testid="text-summon-cost">{formatBits(currentValidation.cost)} bits from your energy{obs && currentValidation.cost > obs.self.energy ? ` (you have ${formatBits(obs.self.energy)})` : ""}</dd>
-                    <dt className="text-muted-foreground">expected per act</dt><dd data-testid="text-expected-act-cost">{formatBits(currentValidation.expectedActCost)} bits{obs?.economy && obs.economy.agentEnergyPerSecond > 0 ? ` · about one act every ${formatBits(currentValidation.expectedActCost / obs.economy.agentEnergyPerSecond)}s of world time` : ""}</dd>
-                  </dl>
+                  <div className="mt-1"><AgentCost summonCost={currentValidation.cost} expectedActCost={currentValidation.expectedActCost}
+                    breakdown={(currentValidation as { breakdown?: ActCostBreakdown }).breakdown}
+                    agentEnergyPerSecond={obs?.economy?.agentEnergyPerSecond} godEnergy={obs?.self.energy} /></div>
                   {currentValidation.diagnostics.length > 0 ? (
                     <ul className="mt-1 font-mono text-xs space-y-0.5 text-muted-foreground">{currentValidation.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
                   ) : <p className="font-mono text-xs text-muted-foreground mt-1">no diagnostics</p>}
