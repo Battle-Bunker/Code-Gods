@@ -395,16 +395,24 @@ of cryptographic safety.
 Measured in this workspace (`pnpm --filter @workspace/game-runtime benchmark`)
 through the actual worker subprocess JSON IPC, with the fixture prelude, four
 workers, eight distinct warmed agents, 800 requests in rounds of eight concurrent
-acts and the default 5 ms compute budget:
+acts, open-agent settings (`interactionComputeMs: 1000`, default step budget),
+and a fresh seed per act, on a shared host under load (load average ≈ 10 from
+other jobs, so these are pessimistic):
 
 | | attempted acts/s | p50 | p95 | max | sequential warm mean | errors |
 |---|---|---|---|---|---|---|
-| Python | 199.5 | 25.8 ms | 41.4 ms | 64.0 ms | 11.1 ms | 0 |
-| TypeScript | 520.6 | 3.2 ms | 8.6 ms | 205 ms | 1.8 ms | 0 |
+| Python | 119.8 | 40.2 ms | 75.3 ms | 146.5 ms | 20.0 ms | 0 |
+| TypeScript | 359.3 | 5.2 ms | 20.2 ms | 410 ms | 1.8 ms | 0 |
 
-About 6.5 ms of each Python act is restoring the initialized snapshot (measured
-in-process); the rest is two unmarshals, the prelude, decode and the agent.
-Real preludes (Grid) cost more to run per act than the fixture. This is a small
+In-process on the same host, a Python act took 13.5 ms, of which the snapshot
+restore was 8.2 ms and the deterministic sandbox's per-act setup (seeded
+`random` proxy, agent builtins, `sys.monitoring` instrumentation) 1.6 ms; the
+rest is two unmarshals, the prelude, decode and the agent. Monitored steps cost
+about 0.3 µs each (≈ 2,900 fuel units), so a 500,000-step agent spends roughly
+150 ms on counting alone. Under this load the 5 ms default budget's 50 ms wall
+backstop can kill a Python act, which is why open agents should run with a
+generous `interactionComputeMs`. Real preludes (Grid) cost more to run per act
+than the fixture. This is a small
 microbenchmark, not a capacity reservation or a whole-engine throughput claim.
 
 Current copying of the entire initialized linear memory remains a throughput
@@ -418,16 +426,21 @@ Do not silently queue unbounded work to imitate real-time throughput.
 
 ## Security gates
 
-The hostile regression suites (`test/runtime.test.mjs`, `python/test_reactor.py`,
-`python/test_runner.py`, using the fixture prelude in `test/fixture-prelude.json`)
-cover host file/network attempts, invalid inputs and settings, broken preludes,
+The hostile regression suites (`test/runtime.test.mjs`, `test/pricing.test.mjs`,
+`python/test_reactor.py`, `python/test_runner.py`, `python/test_sandbox.py`,
+`python/test_astbits.py`, using the fixture prelude in `test/fixture-prelude.json`)
+cover host file/network attempts (directly and past the agent proxies via the
+real builtins module), invalid inputs and settings, broken preludes,
 stdout forgery, state across acts, non-executing inspection, budgeted player
 modules, a slow prelude/decode outside the budget, compilation abuse, infinite
-loops, malicious regex, real clock/entropy access, snapshot reset of
+loops, malicious regex, the virtual clock and seeded entropy (also past the
+proxies), read-only module proxies, step budgets that `except BaseException`
+cannot swallow, deterministic replays per seed, snapshot reset of
 builtins/modules/prelude state, monkeypatched encoders and constructors,
 malicious result hooks and str subclasses, non-string, non-ASCII and oversized
 encoder output, embedded NULs, cache keys across preludes (including a reused
-key with different text), code-cache bounds, capacity failure and worker
+key with different text, and a changed pricing vocabulary), the ast-bits-v1
+test vectors, literal-move detection and fallback, renaming invariance, code-cache bounds, capacity failure and worker
 recovery. It is not a sandbox security audit.
 Before public hostile multi-tenant use, independently audit both engines and
 the host imports, test engine-version upgrades, and add OS-level worker RSS/CPU
