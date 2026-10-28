@@ -241,6 +241,15 @@ def test_act_naming_variant():
     assert np.median(log.act_bits) > 5 * max(np.median(base.act_bits), 1e-3)
 
 
+def test_act_floor():
+    """agent_act_floor_bits is charged on every act (committed or not) and included in the threshold."""
+    log = game(seed=19, agent_act_floor_bits=2.0, agent_income=2.0)
+    assert len(log.act_bits) > 0
+    assert (log.act_bits >= 2.0 - 1e-6).all()
+    assert (log.a_act_exp >= 2.0 - 1e-6).all()
+    assert (log.act_energy >= log.a_act_exp.astype(float)[log.act_agent] - 1e-6).all()
+
+
 def test_determinism():
     a = game(seed=8)
     b = game(seed=8)

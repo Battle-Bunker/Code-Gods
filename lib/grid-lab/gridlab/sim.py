@@ -122,6 +122,7 @@ class GameConfig:
     agent_battery: float = 2.0                           # energy cap, in expected acts
     agent_start: str = "zero"                            # "zero" | "one" (one expected act, paid by the god)
     agent_act_naming: float = 0.0                        # × energy.naming_bits charged on every act (variant)
+    agent_act_floor_bits: float = 0.0                    # constant bits charged on every act (Margolus–Levitin variant)
     # rates
     interaction_rate_hz: float = 20.0
     spawn_rate_hz: float = 0.1
@@ -321,7 +322,7 @@ class World:
         self.e_t = -cfg.planning_seconds    # time the accounts were last accrued to
         self.a_prof: list = []              # energy.ActProfile per agent
         self.a_act_cost: list = []          # owner_pays: per-commit bits per agent
-        self.a_naming: list = []            # agent_energy: naming bits charged per act (agent_act_naming)
+        self.a_naming: list = []            # agent_energy: fixed bits per act (agent_act_naming, agent_act_floor_bits)
 
     # --- state helpers -------------------------------------------------------------------------
     @property
@@ -492,7 +493,8 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
             else:
                 prof = energy.profile(prog, gt)
                 cost = prof.summon * cfg.cost_scale
-                nm = cfg.agent_act_naming * energy.naming_bits(prog, gt) if econ == "agent_energy" else 0.0
+                nm = (cfg.agent_act_naming * energy.naming_bits(prog, gt) + cfg.agent_act_floor_bits
+                      if econ == "agent_energy" else 0.0)
                 ex = (prof.expected + nm if econ == "agent_energy" else prof.analytic) * cfg.cost_scale
                 extra = ex if (econ == "agent_energy" and cfg.agent_start == "one") else 0.0
                 aid = world.summon(god, prog, cost, act_exp=ex, extra=extra)

@@ -48,14 +48,21 @@ for _i in (0.02, 0.05, 0.1, 0.25, 1.0, 2.0, 4.0):
     SETTINGS[_name(_i, 2)] = energy_setting(_i)
 for _i in (0.25, 2.0):
     SETTINGS[_name(_i, 2) + "_naming"] = energy_setting(_i, agent_act_naming=1.0)
+for _i in (0.25, 2.0):
+    SETTINGS[_name(_i, 2) + "_floor2"] = energy_setting(_i, agent_act_floor_bits=2.0)
+for _f in (1.0, 4.0):
+    SETTINGS[_name(2, 2) + f"_floor{_f:g}"] = energy_setting(2.0, agent_act_floor_bits=_f)
 SETTINGS["energy_I0p25_B2_nodestroy"] = energy_setting(0.25, policy_kwargs={"destroy": False})
 SETTINGS["w80_summon"] = setting(config=WORLD80)
 for _i in (0.05, 0.25, 1.0, 2.0):
     SETTINGS["w80_" + _name(_i, 2)] = energy_setting(_i, **WORLD80)
+SETTINGS["w80_energy_I0p25_B2_naming"] = energy_setting(0.25, agent_act_naming=1.0, **WORLD80)
 SETTINGS["w80_energy_I2_B2_naming"] = energy_setting(2.0, agent_act_naming=1.0, **WORLD80)
+for _i in (0.25, 2.0):
+    SETTINGS["w80_" + _name(_i, 2) + "_floor2"] = energy_setting(_i, agent_act_floor_bits=2.0, **WORLD80)
 MAIN = list(SETTINGS)
 FOCUS = ("energy_I0p25_B2", "energy_I2_B2")   # settings whose family moves vs summon are listed
-SPAM = ["summon", "energy_I0p25_B2", "energy_I2_B2", "energy_I2_B2_naming"]
+SPAM = ["summon", "energy_I0p25_B2", "energy_I2_B2", "energy_I2_B2_naming", "energy_I2_B2_floor2"]
 
 
 def make_specs(types, n, seed0, mix=MIX) -> list[GameSpec]:
