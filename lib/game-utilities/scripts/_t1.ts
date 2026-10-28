@@ -1,0 +1,10 @@
+import { instantiate } from "@workspace/game-types";
+import { buildTable, SMOKE_BUDGET, DEFAULT_BUDGET, tableJson } from "./estimator.ts";
+const [fam, instKey, b] = process.argv.slice(2);
+const insts: any = { g: instantiate("Grid",{}), i: instantiate("Int",{}), i4: instantiate("Int",{min:0,max:9999}), s: instantiate("string",{maxLength:16}), s128: instantiate("string",{maxLength:128}) };
+import { canonicalSupport, context, family } from "../src/catalog.ts";
+const inst = insts[instKey]; const p = canonicalSupport(family(fam), context(inst))[0];
+const r = buildTable(fam, p, inst, b === "d" ? DEFAULT_BUDGET : SMOKE_BUDGET);
+const j = tableJson(r.table);
+console.log(r.seconds.toFixed(2), "s", r.evaluations, "evals", (1e6*r.seconds/r.evaluations).toFixed(1), "us/eval", j.length, "bytes", r.table.levels.length, "levels", JSON.stringify(r.table.meta));
+console.log(j.slice(0, 600));

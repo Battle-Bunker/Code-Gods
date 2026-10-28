@@ -1,8 +1,8 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import {
-  SCALAR, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product, pyCard, range,
-  recolour, symForValue, thing, tsCard, tuple, wire,
+  SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
+  range, recolour, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
@@ -412,4 +412,297 @@ const lonePeak = gridFamily<PeakP>({
   },
 });
 
-export const STRATEGY = [rainbowRoad, borderBaron, conqueror, parityPainter, mirrormancer, homebody, lonePeak];
+
+// ================================================================================================
+// Not shortlisted (grid-lab has no cards for these; the cards below are new and checked by the parity tests)
+// ================================================================================================
+
+// --- Islander ------------------------------------------------------------------------------------
+type ColourP = { X: number };
+const islanderText = (p: ColourP, g: GridSpec): CardText => ({
+  emoji: "🏝️", name: "Islander", consts: [["MY_COLOUR", cname(g, p.X)]],
+  about: `${cap(an(cname(g, p.X)))} cell is an island when every cell touching it is one and the same other colour. `
+    + `Count your islands; if that's a tie, count ${cname(g, p.X)} cells with no ${cname(g, p.X)} neighbour.`,
+});
+const islander = gridFamily<ColourP>({
+  id: "islander", name: "Islander", emoji: "🏝️", theme: "Polka dots in a one-colour sea", shape: tuple(2),
+  support: g => range(g.C).map(X => ({ X })),
+  canonical: p => recolour(p, ["X"]),
+  summary: (p, g) => `A ${cname(g, p.X)} cell whose neighbours are all one other colour is an island. Count your islands.`,
+  python: (p, g) => pyCard(islanderText(p, g), `
+    def utility(grid):
+        islands = 0
+        alone = 0
+        for cell in grid.cells:
+            if cell.colour != MY_COLOUR:
+                continue
+            sea = [other.colour for other in cell.neighbours]
+            if MY_COLOUR not in sea:
+                alone += 1
+                if all(colour == sea[0] for colour in sea):
+                    islands += 1
+        return (islands, alone)`),
+  typescript: (p, g) => tsCard(islanderText(p, g), `
+    function utility(grid) {
+      let islands = 0;
+      let alone = 0;
+      for (const cell of grid.cells) {
+        if (cell.colour !== MY_COLOUR) continue;
+        const sea = cell.neighbours.map(other => other.colour);
+        if (!sea.includes(MY_COLOUR)) {
+          alone += 1;
+          if (sea.every(colour => colour === sea[0])) islands += 1;
+        }
+      }
+      return [islands, alone];
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.X : (p.X + 1) % g.C))),
+});
+
+// --- Rook's Watch --------------------------------------------------------------------------------
+type TokenP = { S: number; X: number };
+const rookText = (p: TokenP, g: GridSpec): CardText => ({
+  emoji: "🏰", name: "Rook's Watch", consts: [["MY_SYMBOL", glyph(g, p.S)], ["MY_COLOUR", cname(g, p.X)]],
+  about: `Your token is ${an(cname(g, p.X))} ${glyph(g, p.S)}. Score a point for every row and every column with a token `
+    + "in it. If that's a tie, count rows and columns holding a half-token: the right symbol or the right colour, not both.",
+});
+const rooksWatch = gridFamily<TokenP>({
+  id: "rooks_watch", name: "Rook's Watch", emoji: "🏰", theme: "One token watching every row and column", shape: tuple(2),
+  support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
+  canonical: () => ({ S: 0, X: 0 }),
+  summary: (p, g) => `Your token is a ${cname(g, p.X)} ${glyph(g, p.S)}. Score a point for every row and every column `
+    + "that has at least one token in it.",
+  python: (p, g) => pyCard(rookText(p, g), `
+    def watched(lines, check):
+        count = 0
+        for line in lines:
+            if any(check(cell) for cell in line):
+                count += 1
+        return count
+
+    def token(cell):
+        return cell.symbol == MY_SYMBOL and cell.colour == MY_COLOUR
+
+    def half_token(cell):
+        return (cell.symbol == MY_SYMBOL) != (cell.colour == MY_COLOUR)
+
+    def utility(grid):
+        lines = grid.rows + grid.columns
+        return (watched(lines, token), watched(lines, half_token))`),
+  typescript: (p, g) => tsCard(rookText(p, g), `
+    function watched(lines, check) {
+      let count = 0;
+      for (const line of lines) {
+        if (line.some(cell => check(cell))) count += 1;
+      }
+      return count;
+    }
+
+    function token(cell) {
+      return cell.symbol === MY_SYMBOL && cell.colour === MY_COLOUR;
+    }
+
+    function halfToken(cell) {
+      return (cell.symbol === MY_SYMBOL) !== (cell.colour === MY_COLOUR);
+    }
+
+    function utility(grid) {
+      const lines = [...grid.rows, ...grid.columns];
+      return [watched(lines, token), watched(lines, halfToken)];
+    }`),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (r === c ? p.S : (p.S + 1) % g.S)), full(g.N, p.X)),
+});
+
+// --- Picture Frame (all or nothing) -----------------------------------------------------------------
+const frameText = (p: ColourP, g: GridSpec): CardText => ({
+  emoji: "🖼️", name: "Picture Frame", consts: [["MY_COLOUR", cname(g, p.X)]],
+  about: `You want every edge cell to be ${cname(g, p.X)}. All or nothing: one wrong edge cell and you score zero.`,
+});
+const pictureFrame = gridFamily<ColourP>({
+  id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "A perfect frame, all or nothing", shape: SCALAR,
+  support: g => range(g.C).map(X => ({ X })),
+  canonical: p => recolour(p, ["X"]),
+  summary: (p, g) => `You want every edge cell to be ${cname(g, p.X)}. All or nothing: one wrong edge cell and you score zero.`,
+  python: (p, g) => pyCard(frameText(p, g), `
+    def utility(grid):
+        for cell in grid.edge_cells:
+            if cell.colour != MY_COLOUR:
+                return 0
+        return 1`),
+  typescript: (p, g) => tsCard(frameText(p, g), `
+    function utility(grid) {
+      for (const cell of grid.edgeCells) {
+        if (cell.colour !== MY_COLOUR) return 0;
+      }
+      return 1;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+});
+
+// --- Staircase Climber -------------------------------------------------------------------------------
+type StairP = { dir: "→" | "↓" };
+const stairText = (p: StairP, g: GridSpec): CardText => ({
+  emoji: "🪜", name: "Staircase Climber", consts: [],
+  about: `Score a point every time a ${thing(g)} is exactly one more than the one ${p.dir === "→" ? "to its left" : "above it"}.`,
+});
+const staircase = gridFamily<StairP>({
+  id: "staircase_climber", name: "Staircase Climber", emoji: "🪜", theme: "Numbers that go up one step at a time",
+  requires: { classes: ["Valued", "Ranked"] }, shape: SCALAR,
+  support: () => [{ dir: "→" }, { dir: "↓" }],
+  canonical: () => ({ dir: "→" }),
+  summary: p => `Score a point every time a number is exactly one more than the one ${p.dir === "→" ? "to its left" : "above it"}.`,
+  python: (p, g) => pyCard(stairText(p, g), `
+    def utility(grid):
+        steps = 0
+        for cell in grid.cells:
+            before = cell.${p.dir === "→" ? "left" : "up"}
+            if before is not None and cell.value == before.value + 1:
+                steps += 1
+        return steps`),
+  typescript: (p, g) => tsCard(stairText(p, g), `
+    function utility(grid) {
+      let steps = 0;
+      for (const cell of grid.cells) {
+        const before = cell.${p.dir === "→" ? "left" : "up"};
+        if (before !== null && cell.value === before.value + 1) steps += 1;
+      }
+      return steps;
+    }`),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => symForValue(g, g.vmin + (p.dir === "→" ? c : r))), full(g.N, 0)),
+});
+
+// --- Lucky Token -------------------------------------------------------------------------------------
+const luckyText = (p: TokenP, g: GridSpec): CardText => ({
+  emoji: "🧿", name: "Lucky Token", consts: [["MY_SYMBOL", glyph(g, p.S)], ["MY_COLOUR", cname(g, p.X)]],
+  about: `Count your tokens: cells showing ${glyph(g, p.S)} in ${cname(g, p.X)}. If that's a tie, count the cells that are `
+    + "halfway there: the right symbol or the right colour, but not both.",
+});
+const luckyToken = gridFamily<TokenP>({
+  id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
+  tags: ["generalised-seed"],
+  support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
+  canonical: () => ({ S: 0, X: 0 }),
+  summary: (p, g) => `Count your tokens: cells showing ${glyph(g, p.S)} in ${cname(g, p.X)}. `
+    + "A cell with only the right symbol or only the right colour is a small step.",
+  python: (p, g) => pyCard(luckyText(p, g), `
+    def utility(grid):
+        tokens = 0
+        halfway = 0
+        for cell in grid.cells:
+            right_symbol = cell.symbol == MY_SYMBOL
+            right_colour = cell.colour == MY_COLOUR
+            if right_symbol and right_colour:
+                tokens += 1
+            elif right_symbol or right_colour:
+                halfway += 1
+        return (tokens, halfway)`),
+  typescript: (p, g) => tsCard(luckyText(p, g), `
+    function utility(grid) {
+      let tokens = 0;
+      let halfway = 0;
+      for (const cell of grid.cells) {
+        const rightSymbol = cell.symbol === MY_SYMBOL;
+        const rightColour = cell.colour === MY_COLOUR;
+        if (rightSymbol && rightColour) tokens += 1;
+        else if (rightSymbol || rightColour) halfway += 1;
+      }
+      return [tokens, halfway];
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, p.S), full(g.N, p.X)),
+});
+
+// --- Neighbourhood Vote --------------------------------------------------------------------------------
+const voteText = (p: ColourP, g: GridSpec): CardText => ({
+  emoji: "🗳️", name: "Neighbourhood Vote", consts: [["MY_COLOUR", cname(g, p.X)]],
+  about: "Each cell looks at the cells touching it and votes for the colour it sees most. Score a point for every cell "
+    + `that votes ${cname(g, p.X)} (a tie for most doesn't vote).`,
+});
+const neighbourhoodVote = gridFamily<ColourP>({
+  id: "neighbourhood_vote", name: "Neighbourhood Vote", emoji: "🗳️", theme: "Every cell votes with its neighbours",
+  shape: SCALAR,
+  support: g => range(g.C).map(X => ({ X })),
+  canonical: p => recolour(p, ["X"]),
+  summary: (p, g) => "Each cell looks at its neighbours and votes for the colour it sees most. Score a point for every "
+    + `cell that votes ${cname(g, p.X)} (ties don't vote).`,
+  python: (p, g) => pyCard(voteText(p, g), `
+    def seen(cell, colour):
+        n = 0
+        for other in cell.neighbours:
+            if other.colour == colour:
+                n += 1
+        return n
+
+    def utility(grid):
+        votes = 0
+        for cell in grid.cells:
+            mine = seen(cell, MY_COLOUR)
+            rivals = [seen(cell, colour) for colour in grid.palette if colour != MY_COLOUR]
+            if mine > max(rivals):
+                votes += 1
+        return votes`),
+  typescript: (p, g) => tsCard(voteText(p, g), `
+    function seen(cell, colour) {
+      let n = 0;
+      for (const other of cell.neighbours) {
+        if (other.colour === colour) n += 1;
+      }
+      return n;
+    }
+
+    function utility(grid) {
+      let votes = 0;
+      for (const cell of grid.cells) {
+        const mine = seen(cell, MY_COLOUR);
+        const rivals = grid.palette.filter(colour => colour !== MY_COLOUR).map(colour => seen(cell, colour));
+        if (mine > Math.max(...rivals)) votes += 1;
+      }
+      return votes;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+});
+
+// --- Far Apart -------------------------------------------------------------------------------------------
+type PairP = { A: number; B: number };
+const farText = (p: PairP, g: GridSpec): CardText => ({
+  emoji: "↔️", name: "Far Apart", consts: [["COLOUR_A", cname(g, p.A)], ["COLOUR_B", cname(g, p.B)]],
+  about: `Find the middle of all the ${cname(g, p.A)} cells and the middle of all the ${cname(g, p.B)} cells. Score how `
+    + "far apart they are (steps across plus steps down), in 64ths of a step. Missing a colour scores 0.",
+});
+const farApart = gridFamily<PairP>({
+  id: "far_apart", name: "Far Apart", emoji: "↔️", theme: "Keep two colours as far apart as possible", shape: SCALAR,
+  support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
+  canonical: p => recolour(p, ["A", "B"]),
+  summary: (p, g) => `Find the middle of all the ${cname(g, p.A)} cells and the middle of all the ${cname(g, p.B)} cells. `
+    + "The further apart (in steps across plus steps down), the better.",
+  python: (p, g) => pyCard(farText(p, g), `
+    def utility(grid):
+        a = [cell for cell in grid.cells if cell.colour == COLOUR_A]
+        b = [cell for cell in grid.cells if cell.colour == COLOUR_B]
+        if len(a) == 0 or len(b) == 0:
+            return 0
+        down = abs(sum(cell.row for cell in a) * len(b) - sum(cell.row for cell in b) * len(a))
+        across = abs(sum(cell.col for cell in a) * len(b) - sum(cell.col for cell in b) * len(a))
+        return (down + across) * 64 // (len(a) * len(b))`),
+  typescript: (p, g) => tsCard(farText(p, g), `
+    function total(cells, side) {
+      let sum = 0;
+      for (const cell of cells) sum += cell[side];
+      return sum;
+    }
+
+    function utility(grid) {
+      const a = grid.cells.filter(cell => cell.colour === COLOUR_A);
+      const b = grid.cells.filter(cell => cell.colour === COLOUR_B);
+      if (a.length === 0 || b.length === 0) return 0;
+      const down = Math.abs(total(a, "row") * b.length - total(b, "row") * a.length);
+      const across = Math.abs(total(a, "col") * b.length - total(b, "col") * a.length);
+      return Math.floor(((down + across) * 64) / (a.length * b.length));
+    }`),
+  exemplar: (p, g) => {
+    const other = range(g.C).find(k => k !== p.A && k !== p.B)!, N = g.N;
+    return wire(g, full(N, 0), fromFn(N, (r, c) => (r === 0 && c === 0 ? p.A : r === N - 1 && c === N - 1 ? p.B : other)));
+  },
+});
+
+export const STRATEGY = [rainbowRoad, borderBaron, conqueror, parityPainter, mirrormancer, homebody, lonePeak,
+  islander, rooksWatch, pictureFrame, staircase, luckyToken, neighbourhoodVote, farApart];

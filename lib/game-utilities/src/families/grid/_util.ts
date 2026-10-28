@@ -95,6 +95,11 @@ export const isRim = (N: number, r: number, c: number) => r === 0 || c === 0 || 
 export function symbolCode(g: GridSpec, s: number): string {
   return g.cards ? RANK_CODES[s % 13] + "SHDC"[Math.floor(s / 13)] : DIGIT_CODES[s];
 }
+const RANK_GLYPHS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+/** What a cell with symbol index s shows (the prelude's cell.symbol): "7", "B", "10♥". */
+export function glyph(g: GridSpec, s: number): string {
+  return g.cards ? RANK_GLYPHS[s % 13] + "♠♥♦♣"[Math.floor(s / 13)] : DIGIT_CODES[s];
+}
 export function wire(g: GridSpec, sym: Layer, col: Layer): ObjectValue {
   return sym.map((row, r) => row.map((s, c) => symbolCode(g, s) + COLOUR_LETTER[g.colourNames[col[r][c]]]).join(",")).join("/");
 }
@@ -249,7 +254,8 @@ function mulberry32(seed: number): () => number {
  * Deterministic steepest ascent over single-cell colour edits from each start plus `restarts` seeded random
  * colourings; returns the best grid found ("best found" exemplars, as grid-lab's multi_climb).
  */
-export function climb(id: string, p: Params, ctx: FamilyContext, starts: readonly Cand[], restarts = 0): ObjectValue {
+export function climb(id: string, p: Params, ctx: FamilyContext, starts: readonly Cand[], restarts = 0,
+  symbols?: readonly number[]): ObjectValue {
   const g = gridSpec(ctx), u = host(id, p, ctx), N = g.N;
   const rand = mulberry32(0x5eed);
   const all = [...starts];
@@ -258,22 +264,24 @@ export function climb(id: string, p: Params, ctx: FamilyContext, starts: readonl
   }
   let best: ObjectValue | null = null, bv: Ordinal | null = null;
   for (const s of all) {
-    const sym = s.sym, col = s.col.map(r => r.slice());
+    // `symbols` given: edit symbols (from that list), else colours.
+    const sym = s.sym.map(r => r.slice()), col = s.col.map(r => r.slice());
+    const layer = symbols ? sym : col, choices = symbols ?? range(g.C);
     let cur = u(wire(g, sym, col));
     for (let step = 0; step < 200; step++) {
       let top: [number, number, number] | null = null, tv = cur;
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-        const was = col[r][c];
-        for (let k = 0; k < g.C; k++) {
+        const was = layer[r][c];
+        for (const k of choices) {
           if (k === was) continue;
-          col[r][c] = k;
+          layer[r][c] = k;
           const v = u(wire(g, sym, col));
           if (cmp(v, tv) > 0) { tv = v; top = [r, c, k]; }
         }
-        col[r][c] = was;
+        layer[r][c] = was;
       }
       if (!top) break;
-      col[top[0]][top[1]] = top[2];
+      layer[top[0]][top[1]] = top[2];
       cur = tv;
     }
     if (bv === null || cmp(cur, bv) > 0) { best = wire(g, sym, col); bv = cur; }
