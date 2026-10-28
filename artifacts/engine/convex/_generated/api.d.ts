@@ -11,6 +11,10 @@
 import type * as auth_access from "../auth/access.js";
 import type * as auth_tables from "../auth/tables.js";
 import type * as game_tables from "../game/tables.js";
+import type * as runtime_assets from "../runtime/assets.js";
+import type * as runtime_node from "../runtime/node.js";
+import type * as runtime_probe from "../runtime/probe.js";
+import type * as runtime_tables from "../runtime/tables.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +26,10 @@ declare const fullApi: ApiFromModules<{
   "auth/access": typeof auth_access;
   "auth/tables": typeof auth_tables;
   "game/tables": typeof game_tables;
+  "runtime/assets": typeof runtime_assets;
+  "runtime/node": typeof runtime_node;
+  "runtime/probe": typeof runtime_probe;
+  "runtime/tables": typeof runtime_tables;
 }>;
 
 /**

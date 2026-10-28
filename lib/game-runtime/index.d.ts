@@ -119,6 +119,8 @@ export const CALLS_MAX_BYTES: 65536;
 export const PYTHON_BUNDLE_SHA256: string;
 /** File name of the built bundle (in dist/; the object stored in Convex file storage). */
 export const PYTHON_BUNDLE_FILE: "python-runtime.bin.gz";
+/** Absolute files of `typescript` and `quickjs-emscripten` that TypeScript workers load (ESM resolution). */
+export function typescriptPaths(): { typescript: string; quickjs: string };
 /** Loads, verifies and compiles the Python bundle once per `assets` source (what workers share). */
 export function loadPythonRuntime(assets?: PythonAssets): Promise<unknown>;
 
@@ -126,6 +128,8 @@ export class GameRuntime {
   constructor(options: RuntimeOptions);
   readonly language: Language;
   readonly execution: "worker" | "inline";
+  /** Engine count (1 when inline). */
+  readonly workers: number;
   /** Starts up to `count` engines (default: all) ahead of demand and resolves when they are ready. */
   warm(count?: number): Promise<void>;
   readonly grammarId: "python-agent-v1" | "typescript-agent-v1";
