@@ -208,7 +208,66 @@ INCOME_FINDINGS
 
 ## 4. Time-split price versus all-at-summon
 
-SPLIT_SECTION
+The time-split price was proposed in a discussion with the user. **Summon** pays the description terms: agent
+base, tool naming, parameter description of every step and of the guard, and the ratchet surcharge.
+**Each committed application** pays erasure + motion + measurement (`econ_sim.split_terms`). The two parts
+sum exactly to `Program.cost`. On Grid(5,base10,rgby) the median library program is 20 description bits
+plus 13 per-application bits. At the 90th percentile it is 38 + 60, because whole-grid jackpots carry most
+of their price per application. An owner who cannot pay idles: the pick is skipped. Two choices
+were left open:
+- whether failed or duplicate attempts are charged: `split_fail` 0 (free, the default) or 1;
+- whether policies anticipate the running cost: `aware`.
+
+`split_scale` multiplies the per-application part. At scale 1, a god whose agents commit about 20 times
+per second would owe about 260 energy/s against an income of 1/s.
+
+| setting | n | Δdyn2 [95% CI] | dyn2 | lead chg late | crossings | held climbs | tau25 | live agents | useful-life | unspent | z random | z greedy | z saver [CI] | z coop | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| old | 80 | +0.000 ± 0.000 | 0.570 | 11.3 | 2.71 | 2.36 | 0.66 | 58 | 0.71 | 0.13 | 0.37 | 0.51 | 0.72 [0.65, 0.80] | 0.40 | 0.36 |
+| pexp=1.25 | 80 | -0.018 ± 0.015 | 0.551 | 11.1 | 2.81 | 2.10 | 0.65 | 61 | 0.70 | 0.14 | 0.40 | 0.50 | 0.73 [0.66, 0.80] | 0.37 | 0.36 |
+| pexp=1.5 | 80 | -0.032 ± 0.018 | 0.537 | 11.4 | 2.99 | 2.22 | 0.65 | 64 | 0.70 | 0.16 | 0.37 | 0.55 | 0.70 [0.63, 0.78] | 0.38 | 0.34 |
+| pexp=2.0 | 80 | -0.065 ± 0.018 | 0.505 | 13.7 | 3.08 | 1.56 | 0.67 | 68 | 0.70 | 0.17 | 0.35 | 0.54 | 0.70 [0.62, 0.77] | 0.42 | 0.35 |
+| split=1.0 | 80 | -0.200 ± 0.025 | 0.370 | 11.5 | 2.16 | 0.03 | 0.44 | 28 | 0.17 | 0.01 | 0.40 | 0.44 | 0.67 [0.59, 0.75] | 0.49 | 0.27 |
+| split=0.1 | 80 | -0.118 ± 0.022 | 0.451 | 11.2 | 2.60 | 0.57 | 0.71 | 28 | 0.37 | 0.00 | 0.44 | 0.44 | 0.74 [0.68, 0.80] | 0.38 | 0.36 |
+| split=0.03 | 80 | -0.049 ± 0.020 | 0.521 | 12.8 | 2.81 | 1.68 | 0.68 | 28 | 0.52 | 0.00 | 0.37 | 0.51 | 0.68 [0.62, 0.76] | 0.44 | 0.31 |
+| split=0.01 | 80 | -0.007 ± 0.013 | 0.562 | 13.3 | 2.77 | 2.24 | 0.67 | 29 | 0.66 | 0.00 | 0.38 | 0.54 | 0.66 [0.59, 0.73] | 0.42 | 0.28 |
+| split=0.003 | 80 | +0.007 ± 0.015 | 0.577 | 13.3 | 2.96 | 1.90 | 0.67 | 33 | 0.74 | 0.02 | 0.38 | 0.50 | 0.72 [0.66, 0.78] | 0.40 | 0.34 |
+| splitfail=0.03 | 80 | -0.068 ± 0.023 | 0.502 | 11.7 | 2.94 | 1.24 | 0.59 | 28 | 0.48 | 0.00 | 0.41 | 0.48 | 0.65 [0.58, 0.73] | 0.46 | 0.24 |
+| splitfail=0.01 | 80 | -0.022 ± 0.016 | 0.547 | 13.5 | 2.64 | 1.82 | 0.74 | 28 | 0.64 | 0.00 | 0.40 | 0.51 | 0.69 [0.62, 0.77] | 0.40 | 0.30 |
+| splitaware=0.03 | 80 | -0.079 ± 0.017 | 0.491 | 15.4 | 3.17 | 1.24 | 0.65 | 30 | 0.66 | 0.02 | 0.39 | 0.50 | 0.66 [0.58, 0.74] | 0.45 | 0.27 |
+| splitaware=0.01 | 80 | -0.017 ± 0.014 | 0.552 | 12.4 | 2.92 | 1.88 | 0.65 | 31 | 0.73 | 0.03 | 0.36 | 0.52 | 0.71 [0.64, 0.78] | 0.41 | 0.35 |
+
+(`split=x` is per-application scale x with free failures. `splitfail` charges failures. `splitaware` gives
+policies the total-cost-of-ownership estimate. Convex pricing `pexp` is shown for contrast.)
+
+**Results, on the same 80 paired games as every other setting:**
+
+- **Unscaled (`split_scale` = 1), the world nearly freezes.** dynamism2 falls by 0.20 ± 0.03, and held
+  accelerating climbs fall from 2.36 to 0.03 per 100 s. Useful-life drops to 0.17: agents sit idle waiting
+  for energy. Running costs absorb all income (unspent 1%). The policy range narrows (0.27) only because
+  every policy is equally starved. The second-law reasoning (per-application terms bound the surprisal
+  one application can create) is sound, but at 1 energy/s it makes acting roughly 10× too expensive for
+  a lively game.
+- **Scaled to 0.01 it is nearly neutral on dynamism and mildly balancing.** Δdyn2 is −0.007 ± 0.013.
+  Saver's z falls from 0.72 to 0.66 [0.59, 0.73], range 0.28, and late lead changes rise from 11.3 to 13.3.
+  It still balances less than `cost_scale` 0.25 or energy cap 30 (both 0.61), and the CIs overlap. At
+  0.003 it is indistinguishable from all-at-summon pricing.
+- **Charging failed and duplicate attempts** (`split_fail` = 1) balances a little more (range 0.24 at 0.03)
+  but costs dynamism (−0.068 at 0.03, −0.022 at 0.01). **Leave failures uncharged.** This is the same
+  lesson as the gas refunds in §3.
+- **Aware policies** help neither dynamism nor balance. The effect of the split comes from energy becoming the
+  binding constraint on *activity*, not from smarter summoning.
+- **Mechanism, policy-independent.** Under the split, a god's rate of change in the world is bounded by
+  its income divided by the per-application price. Agent *count* matters less: live agents fall from 58 to
+  about 28, and nobody keeps energy unspent. Jackpots become dear per use, which is why saver's edge shrinks.
+  The bound is fair, but at any scale where it binds hard, the world slows down.
+
+**Verdict on time-split versus all-at-summon.** At a per-application scale of about 0.01 the split is a
+mild improvement: balance gets better and dynamism is unchanged within noise. At full scale it is far too
+static. It does not beat the simpler price-ratio fixes in §3 and §5. For the successor design
+(per-agent energy with pointwise act costs, on `claude/gridlab-agent-energy`), these rows give the
+paired baseline: same spec seeds, same 80 games.
+
 
 ## 5. Combinations
 
