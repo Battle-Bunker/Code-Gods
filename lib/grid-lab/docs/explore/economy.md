@@ -204,7 +204,30 @@ by the first quarter. The early leader is usually the god that bought the bigges
 4. **Stagnation never appears.** `stagnation_frac` is ≥ 0.96 everywhere except the commit-charge
    settings that starve the world.
 
-INCOME_FINDINGS
+5. **Income loops: earned income helps, without runaway.**
+   - `income_own` pays energy per bit of surprisal the owner's own agents gain it. It raises dynamism
+     *and* balances policies: at 0.5, Δ +0.029 ± 0.015 and z saver 0.62; at 1.0, Δ +0.034 ± 0.017 and
+     z saver 0.58 [0.51, 0.67], range 0.23.
+   - It does **not** create runaway leaders.
+
+     | | today | `income_own` 0.25 | 0.5 | 1.0 |
+     |---|---|---|---|---|
+     | leader's final share | 0.40 | 0.41 | 0.41 | 0.41 |
+     | P(leader at 25% wins) | 0.76 | 0.73 | 0.76 | 0.73 |
+     | lead changes per game | 13.6 | 13.3 | 14.8 | 15.2 |
+
+     Income is unequal (Gini 0.47–0.49), but extra energy has diminishing returns: each extra agent gets
+     a 1/A share of the picks, and its work is overwritten by everyone else's. The mechanism is the same as
+     `cost_scale` 0.25: energy becomes plentiful, so every policy can afford big programs, and banking stops
+     paying. Live agents grow from 58 to 139–163, and unspent energy rises to 37–49%: income arrives faster
+     than the simulated policies spend it.
+   - `income_any` (every god earns from every commit that raises its surprisal, whoever made it) behaves
+     similarly but more weakly: Δ +0.016 and z saver 0.59 at 0.25. It doesn't produce cooperative spirals
+     either: held climbs fall from 2.36 to 1.86.
+   - `income_tilt` (redistributing the fixed income by standings, ±1) has no measurable effect on
+     anything: Δdyn2 within ±0.012, z saver 0.75–0.78. Base income is too small a lever relative to the
+     starting bank and to how little the standings depend on energy. *Policy-dependent caveat:* human
+     players might push harder on a pro-leader tilt. At k = 1 the late lead changes do drop from 11.3 to 9.3.
 
 ## 4. Time-split price versus all-at-summon
 
