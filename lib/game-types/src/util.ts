@@ -63,7 +63,8 @@ const K = new Uint32Array([
   0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 ]);
 
-function utf8(text: string): number[] {
+/** UTF-8 bytes of a string. */
+export function utf8Bytes(text: string): Uint8Array {
   const out: number[] = [];
   for (const ch of text) {
     const c = ch.codePointAt(0)!;
@@ -72,11 +73,11 @@ function utf8(text: string): number[] {
     else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
     else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
   }
-  return out;
+  return Uint8Array.from(out);
 }
 
-export function sha256(text: string): string {
-  const bytes = utf8(text);
+/** sha256 digest (32 bytes) of raw bytes. */
+export function sha256Bytes(bytes: Uint8Array): Uint8Array {
   const len = bytes.length, total = Math.ceil((len + 9) / 64) * 64;
   const buf = new Uint8Array(total);
   buf.set(bytes);
@@ -102,5 +103,30 @@ export function sha256(text: string): string {
     }
     h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
   }
-  return Array.from(h, x => x.toString(16).padStart(8, "0")).join("");
+  const out = new Uint8Array(32);
+  const ov = new DataView(out.buffer);
+  for (let i = 0; i < 8; i++) ov.setUint32(4 * i, h[i]);
+  return out;
+}
+
+/** HMAC-SHA256 (RFC 2104) of `message` under `key`; strings are taken as UTF-8. */
+export function hmacSha256(key: Uint8Array | string, message: Uint8Array | string): Uint8Array {
+  let k = typeof key === "string" ? utf8Bytes(key) : key;
+  const m = typeof message === "string" ? utf8Bytes(message) : message;
+  if (k.length > 64) k = sha256Bytes(k);
+  const ipad = new Uint8Array(64 + m.length), opad = new Uint8Array(64 + 32);
+  for (let i = 0; i < 64; i++) {
+    const b = k[i] ?? 0;
+    ipad[i] = b ^ 0x36;
+    opad[i] = b ^ 0x5c;
+  }
+  ipad.set(m, 64);
+  opad.set(sha256Bytes(ipad), 64);
+  return sha256Bytes(opad);
+}
+
+export const toHex = (bytes: Uint8Array): string => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+
+export function sha256(text: string): string {
+  return toHex(sha256Bytes(utf8Bytes(text)));
 }

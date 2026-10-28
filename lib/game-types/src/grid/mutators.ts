@@ -249,6 +249,8 @@ interface GridMutatorSpec {
   apply(v: GridValue, p: GP, g: GridCtx): GridValue | null;
   /** Pointwise erasure for data-dependent overwrites; default: 0 (bijection) or terms().erase (constant). */
   pointwise?(v: GridValue, p: GP, g: GridCtx): number;
+  /** The line score a `line*` region maximises (lowest index on ties); only mutators that offer line*. */
+  star?(p: GP, g: GridCtx): Feature;
   text(p: GP, g: GridCtx): string;
   guest: { python: string; js: string; dts: string; docs: readonly HelperDoc[] };
 }
@@ -259,10 +261,32 @@ export interface GridMutator extends MutatorDef<GridValue, GP> {
   terms(params: GP, inst: Instantiation): Required<Terms>;
   /** Kid-readable one-liner, as mutators.py `describe`. */
   describe(params: GP, inst: Instantiation): string;
+  /** Field names in field order (mutators.py `fields`), including fields that are absent for some params. */
+  readonly fieldNames: readonly string[];
+  /** Every legal params value in field-space order (mutators.py `space`), as parse would return it. Cached. */
+  space(inst: Instantiation): readonly GP[];
+  /**
+   * The same params with a `line*` (busiest line) region replaced by the line it hits on `v`
+   * ({kind: "line", region: [axis, i]}); other params are returned unchanged (open-agents.md §3.1).
+   */
+  resolve(v: GridValue, params: GP, inst: Instantiation): GP;
+}
+
+function spaceFields(fields: readonly Field[], g: GridCtx): GP[] {
+  const out: GP[] = [];
+  const rec = (i: number, p: GP): void => {
+    if (i === fields.length) { out.push({ ...p }); return; }
+    const ch = fields[i].choices(g, p);
+    if (ch === null) { rec(i + 1, p); return; }
+    for (const v of ch) { p[fields[i].name] = v; rec(i + 1, p); delete p[fields[i].name]; }
+  };
+  rec(0, {});
+  return out;
 }
 
 function def(s: GridMutatorSpec): GridMutator {
   const full = (p: GP, g: GridCtx): Required<Terms> => ({ erase: 0, dcol: 0, dsym: 0, measure: 0, ...s.terms(p, g) });
+  const spaces = new Map<string, readonly GP[]>();
   return Object.freeze({
     id: s.id, name: s.name, emoji: s.emoji, summary: s.summary,
     requires: s.requires.map(has => ({ has })), scope: s.scope, kind: s.kind,
@@ -283,6 +307,21 @@ function def(s: GridMutatorSpec): GridMutator {
     sample: (rng: Rng, inst: Instantiation) => sampleFields(s.fields, rng, gridCtx(inst)),
     terms: (p: GP, inst: Instantiation) => full(p, gridCtx(inst)),
     describe: (p: GP, inst: Instantiation) => s.text(p, gridCtx(inst)),
+    fieldNames: Object.freeze(s.fields.map(f => f.name)),
+    space: (inst: Instantiation) => {
+      let sp = spaces.get(inst.key);
+      if (!sp) spaces.set(inst.key, sp = Object.freeze(spaceFields(s.fields, gridCtx(inst))));
+      return sp;
+    },
+    resolve: (v: GridValue, p: GP, inst: Instantiation) => {
+      if (p.kind !== "line*" || !s.star) return p;
+      const g = gridCtx(inst), out: GP = {};
+      for (const [k, x] of Object.entries(p)) {
+        out[k] = x;
+        if (k === "kind") { out.kind = "line"; out.region = lineOf(argmax(s.star(p, g)(v)), g.N); }
+      }
+      return out;
+    },
     guest: s.guest,
   });
 }
@@ -967,6 +1006,7 @@ const paint = def({
     for (const i of resolveCells(p, g, v, colourHits(p.colour))) out.col[i] = p.colour;
     return out;
   },
+  star: p => colourHits(p.colour),
   text: (p, g) => `paint ${regionText(p, g, `the row or column with the most ${cn(g, p.colour)}`)} ${cn(g, p.colour)}`,
   guest: guest({
     py: `def paint(where, colour):
@@ -995,6 +1035,7 @@ const recolour = def({
     for (const i of resolveCells(p, g, v, colourHits(b))) if (v.col[i] === a) out.col[i] = b;
     return out;
   },
+  star: p => colourHits(p.pair[1]),
   // one bit per output-b cell of the area (it was a or b)
   pointwise: (v, p, g) => {
     const [a, b] = p.pair;
@@ -1210,6 +1251,7 @@ const majority_line = def({
     for (const i of cells) out.col[i] = k;
     return out;
   },
+  star: (_p, g) => majorityFeature(g),
   pointwise: (v, p, g) => {
     const cells = resolveCells(p, g, v, majorityFeature(g));
     return Math.log2(pluralityCounts(g.N, g.C)[plurality(cells.map(i => v.col[i]), g.C)]);
@@ -1246,6 +1288,7 @@ const write = def({
     for (const i of resolveCells(p, g, v, symbolHits(p.symbol))) out.sym[i] = p.symbol;
     return out;
   },
+  star: p => symbolHits(p.symbol),
   text: (p, g) => `write ${symText(g, p.symbol)} in ${p.kind === "cell" ? "" : "every cell of "}${regionText(p, g, `the row or column with the most ${symText(g, p.symbol)}s`)}`,
   guest: guest({
     py: `def write(where, symbol):
