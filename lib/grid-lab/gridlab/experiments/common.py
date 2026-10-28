@@ -934,3 +934,26 @@ def refresh_ceilings(results: Sequence[dict]) -> None:
             except Exception:
                 continue
             g["ceil"] = draw_ceiling(L, 0, tb)
+
+
+def load_manifest(name: str):
+    """Results of a batch saved with save_json(name, {"keys": [...]}) (or {"a": [...], "b": [...]}),
+    read straight from the per-game cache regardless of the current CODE_HASH (to analyse a batch after
+    the code has moved on). Returns a list for "keys", else a dict of lists."""
+    with open(CACHE / f"{name}.json") as fh:
+        man = json.load(fh)
+
+    def load(keys):
+        out = []
+        for k in keys:
+            with open(_path(k)) as fh:
+                out.append(json.load(fh))
+        stale = [r for r in out if not r.get("ceil_v")]
+        if stale:
+            refresh_ceilings(stale)
+            for r in stale:
+                r["ceil_v"] = 2
+        return out
+    if "keys" in man:
+        return load(man["keys"])
+    return {k: load(v) for k, v in man.items() if isinstance(v, list)}

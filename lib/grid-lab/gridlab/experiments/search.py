@@ -23,6 +23,14 @@ from .common import (BASE, CACHE, GTYPES, add_dyn2, family_fairness, god_rows, m
                      mutator_table, policy_table, run_batch)
 
 TRAIN_SEED = 200_000
+
+
+def _cross_layer() -> list[str]:
+    from ..rules import FAMILIES
+    return sorted(f.id for f in FAMILIES if {"colour", "symbol"} <= set(f.layers))
+
+
+CROSS_LAYER = _cross_layer()
 POINTS = CACHE / "search-points.jsonl"
 
 # knob -> candidate values (first value = the old default)
@@ -35,7 +43,8 @@ SPACE: dict = {
     "config.max_agents": [200, 40, 12],
     "config.spawn_rate_hz": [0.1, 0.25, 0.5],
     "config.starting_objects": [10, 20, 40],
-    "config.dealer": ["distinct", "balanced_camps"],
+    "config.dealer": ["distinct", "balanced_camps", "uniform"],
+    "config.dealer_require": [[], [CROSS_LAYER]],
     "knobs.move": [0.35, 0.15, 0.7, 1.2],
     "knobs.erasure": ["shannon", "hartley"],
     "knobs.scope.global": [1.0, 1.5, 2.5],
@@ -171,6 +180,9 @@ def diff_str(pt: dict) -> str:
     out = []
     for k, v in pt.items():
         if k in SPACE and v == SPACE[k][0]:
+            continue
+        if k == "config.dealer_require":
+            out.append("require=cross_layer")
             continue
         out.append(f"{k.split('.', 1)[-1]}={v}")
     return ", ".join(out) or "(old)"
