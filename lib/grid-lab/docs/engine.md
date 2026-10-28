@@ -267,3 +267,20 @@ about 0.1 ms. Shared symmetry orbits (`canonical`) cut the table count further.
 
 **Rough budget for 1000 games on one GridType**: about 1–3 min to calibrate every reachable draw
 (a few hundred tables), plus about 1 min of simulation on 4 cores.
+
+## 7. Language agents (optional)
+
+`GameConfig.agent_language` (default `"off"`, which changes nothing) lets policies summon agents written
+in the agent language (`gridlab/agentlang`, docs/agent-language.md) next to, or instead of, Programs:
+
+| field | meaning |
+|---|---|
+| `agent_language` | `"off"` \| `"mix"` (each candidate is a language agent with probability `lang_share`, else a library Program) \| `"only"` |
+| `lang_templates` | template names from `agentlang.examples.TEMPLATES` (default: all), instantiated over the GridType's colours |
+| `lang_share` | share of language candidates in `"mix"` (default 0.5) |
+| `lang_gods` | gods allowed language agents (default: all); the others keep Programs only |
+| `lang_pricing` | overrides of `agentlang.pricing.PRICING` (reference sample sizes, step budget) |
+
+Agents that call `score(...)` are bound to their summoner's utility and priced for it. All others are
+priced once and shared. Prices are measured at game start and cached on disk. `GameLog.a_label` records
+`"program"` or `"<kind>:<template>"` for each agent.

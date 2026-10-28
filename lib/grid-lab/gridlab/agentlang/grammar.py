@@ -120,6 +120,8 @@ def walk_stmt(tag: str, ctx: Ctx, st: Optional[Node], S) -> tuple[Node, Ctx]:
         actual = None if st is None else ("<new>" if st.val[1] else st.val[0])
         tgt = S.choose("target", ["<new>"] + existing, actual)
         if tgt == "<new>":
+            if st is None and T == REGION and e.tag in ("AsCell", "AsLine"):
+                raise _TooBig()       # a new name takes the narrower type (cell, line): codeword unused
             name = S.name("v", None if st is None else st.val[0])
             ctx2 = ctx.bind(Var(name, T, dom_of(e, ctx)))
             return Node("Assign", T, (e,), (name, True), line), ctx2
