@@ -186,6 +186,9 @@ importers:
       '@workspace/game-runtime':
         specifier: workspace:*
         version: link:../../lib/game-runtime
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
       '@workspace/game-utilities':
         specifier: workspace:*
         version: link:../../lib/game-utilities
@@ -249,6 +252,10 @@ importers:
         version: 3.1.0
 
   artifacts/code-gods:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -634,6 +641,9 @@ importers:
 
   artifacts/player-web:
     dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
       '@workspace/object-views':
         specifier: workspace:*
         version: link:../../lib/object-views
@@ -836,6 +846,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.133.0
         version: 0.133.0(zod@3.25.76)
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../player-client
@@ -893,7 +906,11 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
-  lib/game-core: {}
+  lib/game-core:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
 
   lib/game-runtime:
     dependencies:
@@ -904,7 +921,17 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  lib/game-types:
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
   lib/game-utilities:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
     devDependencies:
       typescript:
         specifier: ~5.9.3
@@ -918,6 +945,9 @@ importers:
       '@workspace/game-core':
         specifier: workspace:*
         version: link:../game-core
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
     devDependencies:
       '@types/react':
         specifier: 'catalog:'
@@ -934,6 +964,9 @@ importers:
 
   lib/player-client:
     dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
       ws:
         specifier: 8.22.0
         version: 8.22.0

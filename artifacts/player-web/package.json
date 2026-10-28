@@ -76,6 +76,7 @@
   },
   "dependencies": {
     "@workspace/object-views": "workspace:*",
-    "@workspace/player-client": "workspace:*"
+    "@workspace/player-client": "workspace:*",
+    "@workspace/game-types": "workspace:*"
   }
 }

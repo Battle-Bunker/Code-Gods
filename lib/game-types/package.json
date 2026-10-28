@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/game-types",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "test:python": "python3 test/parity.py",
+    "typecheck": "tsc --build"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}
