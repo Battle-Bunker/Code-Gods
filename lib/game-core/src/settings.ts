@@ -55,6 +55,11 @@ export interface GameSettings {
   defenceRate: number;
   /** Family ids the dealer never deals in this game (e.g. rules too hard on a beginner board). */
   excludedFamilies: readonly string[];
+  /**
+   * The reference prior that rarity is measured against (calibration tables are keyed by it). "uniform" is
+   * the spawn prior; later seasons may use an empirical mixture (lib/grid-lab/docs/explore/priors.md).
+   */
+  priorId: string;
 }
 
 // These IDs describe the contract, not a claim that runners are installed.
@@ -81,6 +86,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   penaltyWeight: 1,
   defenceRate: 0,
   excludedFamilies: Object.freeze([]) as readonly string[],
+  priorId: "uniform",
 } satisfies GameSettings);
 
 export interface SettingsOption {
@@ -159,6 +165,9 @@ export function validateSettings(settings: GameSettings): void {
   if (!Array.isArray(settings.excludedFamilies) || settings.excludedFamilies.length > 200 ||
       settings.excludedFamilies.some(id => typeof id !== "string" || !/^[a-z0-9_+-]{1,64}$/.test(id))) {
     throw new Error("excludedFamilies must be a list of family ids");
+  }
+  if (typeof settings.priorId !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(settings.priorId)) {
+    throw new Error("priorId must be a prior identifier");
   }
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
   for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
