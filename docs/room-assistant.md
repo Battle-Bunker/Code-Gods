@@ -9,6 +9,15 @@ discovered deployment. Do not extract browser cookies or ask for tokens in chat.
 
 Run from a trusted player workspace with this repository and dependencies:
 
+First run this as a persistent workflow (not a detached child of a one-off Agent
+shell). Keep it running across chat turns:
+
+```sh
+pnpm --filter @workspace/player-client assistant serve
+```
+
+Then, in separate shell commands:
+
 ```sh
 pnpm --filter @workspace/player-client assistant connect \
   'https://GAME_HOST/player/?room=4B9A' \
@@ -16,16 +25,23 @@ pnpm --filter @workspace/player-client assistant connect \
 ```
 
 Use `--permission act` only when the human wants player commands. The default is
-read-only. Connect prints only an approval URL, comparison code, canonical room,
+read-only. Use `--permission owner` only when the human explicitly requests full
+control of a room they own. Owner approval includes configuration, AI budget
+and seats (potential provider spending), start/end/recovery, and playing as that
+human. The browser approval requires an additional owner consent checkbox.
+Read/act approvals are never upgraded; disconnect and request fresh owner approval.
+Connect prints only an approval URL, comparison code, canonical room,
 and requested permission. Share those fields with the human. They open the URL
 in their signed-in browser, check the code, resolved room, permission and expiry,
 then approve or deny. Join the room on the authority first if necessary.
 The label is self-reported, **not a verified workspace or model identity**.
 
-The command starts a detached bridge with a sanitized environment. It needs no
+The foreground service starts a bridge with a sanitized environment. It needs no
 database, model-provider or server credentials. No player web server or public
 port is required. A private Unix socket is accessible only to the workspace OS
 owner; the upstream bearer, verifier and device secret stay in bridge memory.
+CLI commands never silently create a replacement bridge. If the service stops,
+restart it and obtain fresh approval; a restart intentionally loses authorization.
 Other editors/processes with that same OS identity are trusted. This is not a
 security boundary against them.
 
@@ -67,6 +83,28 @@ Read-only grants cannot mutate via HTTP, v2 sockets, or legacy sockets. Action
 grants still cannot host/administer a room, change identity or room, or access
 individual opponent utilities. Commands use the human's normal player rights.
 The server records separate delegated-session metadata.
+
+## Owner commands
+
+Only an explicitly approved `owner` grant can use:
+
+```sh
+pnpm --filter @workspace/player-client assistant room-state
+pnpm --filter @workspace/player-client assistant ai-catalog
+cat room-action.json | pnpm --filter @workspace/player-client assistant room-command
+```
+
+The JSON uses the server's RoomActionInput shape, with a UUID requestId:
+`{"action":"start","requestId":"NEW_UUID"}`. Supported owner actions are settings,
+start, resume, endGame, addAi and removeAi. For settings, read room-state first
+and submit its revision and complete settings object, plus optional aiBudget.
+Use ordinary `command` envelopes to play as the approving human.
+
+Owner commands are never automatically retried. A failed transport response
+may mean the action already happened: inspect room-state before retrying.
+Keep the original requestId for a retry of the same start intent.
+Owner grants cannot create other rooms, manage the global AI library, mint
+additional grants, or see individual opponents' utilities.
 
 ## Consent, revocation and safe use
 

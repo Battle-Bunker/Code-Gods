@@ -107,7 +107,7 @@ export interface DeviceApprovalInput {
 }
 
 /**
- * read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+ * read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.
  */
 export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermission];
 
@@ -115,6 +115,7 @@ export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermis
 export const DevicePermission = {
   read: 'read',
   act: 'act',
+  owner: 'owner',
 } as const;
 
 export interface DeviceRequestInput {
@@ -243,6 +244,8 @@ export interface DeviceDetails {
   /** Self-reported */
   clientLabel: string;
   permission: DevicePermission;
+  /** Whether the signed-in human may approve this request. Owner grants require the current room owner. */
+  canApprove?: boolean;
   /** Approval-request deadline */
   expiresAt: string;
   status: DeviceDetailsStatus;
@@ -275,6 +278,48 @@ export interface SettingsOptions {
   complexityFunctionId: AuthoredOption[];
 }
 
+/**
+ * A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
+ */
+export interface GridBadge {
+  id: string;
+  emoji: string;
+  label: string;
+  kid: string;
+}
+
+/**
+ * A GridType that ships calibration tables, so rooms may select it.
+ */
+export interface GridTypeOption {
+  key: string;
+  size: number;
+  symbols: string;
+  colours: string;
+  label: string;
+  badges: GridBadge[];
+  familyCount: number;
+}
+
+export interface GridComponentOption {
+  id: string;
+  label: string;
+  emoji: string;
+  kid: string;
+  /** Display glyph per index (symbols) or colour letter per index (colours). */
+  glyphs: string[];
+  names: string[];
+  /** Colours only. Display colour per index. */
+  css?: string[];
+}
+
+export interface GridManifest {
+  types: GridTypeOption[];
+  symbols: GridComponentOption[];
+  colours: GridComponentOption[];
+  maxCallsPerAct: number;
+}
+
 export type SettingsLanguage = typeof SettingsLanguage[keyof typeof SettingsLanguage];
 
 
@@ -289,6 +334,32 @@ export type SettingsObjectType = typeof SettingsObjectType[keyof typeof Settings
 export const SettingsObjectType = {
   Int: 'Int',
   string: 'string',
+  Grid: 'Grid',
+} as const;
+
+/**
+ * Grid only. Symbols printed on cells.
+ */
+export type SettingsGridSymbols = typeof SettingsGridSymbols[keyof typeof SettingsGridSymbols];
+
+
+export const SettingsGridSymbols = {
+  base10: 'base10',
+  base12: 'base12',
+  base16: 'base16',
+  cards: 'cards',
+} as const;
+
+/**
+ * Grid only. Cell colours.
+ */
+export type SettingsGridColours = typeof SettingsGridColours[keyof typeof SettingsGridColours];
+
+
+export const SettingsGridColours = {
+  rgb: 'rgb',
+  rgby: 'rgby',
+  rainbow6: 'rainbow6',
 } as const;
 
 export type SettingsSpawnFunctionId = typeof SettingsSpawnFunctionId[keyof typeof SettingsSpawnFunctionId];
@@ -304,6 +375,28 @@ export interface Settings {
   intMin: number;
   intMax: number;
   stringMaxLength: number;
+  /**
+     * Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
+     * @minimum 3
+     * @maximum 7
+     */
+  gridSize?: number;
+  /** Grid only. Symbols printed on cells. */
+  gridSymbols?: SettingsGridSymbols;
+  /** Grid only. Cell colours. */
+  gridColours?: SettingsGridColours;
+  /**
+     * Grid only. Bits each agent earns per second of world time into its own energy account.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentEnergyPerSecond?: number;
+  /**
+     * Grid only. An agent's energy is capped at this many of its expected acts.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentBatteryActs?: number;
   grammarId: string;
   utilitySelectorId: string;
   complexityFunctionId: string;
@@ -353,6 +446,7 @@ export interface AIFunding {
 }
 
 export interface Manifest {
+  grid?: GridManifest;
   protocolVersion: number;
   minimumPlayers: number;
   defaults: Settings;
@@ -394,7 +488,7 @@ export interface RoomActionInput {
   deityId?: string;
   /**
      * @minimum 0
-     * @maximum 500000
+     * @maximum 1000000
      */
   aiBudget?: number;
   aiAgentId?: string;
@@ -573,6 +667,10 @@ export interface UtilityFamily {
   id: string;
   name: string;
   theme: string;
+  /** Grid families only. */
+  emoji?: string;
+  /** Grid only. True when gods of this family also carry a defence goal (a penalty). */
+  defence?: boolean;
 }
 
 /**
@@ -636,6 +734,10 @@ export interface RoomState {
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
+  /** Provider-reported input tokens recorded for this game. */
+  aiInputTokens?: number;
+  /** Provider-reported output tokens recorded for this game. */
+  aiOutputTokens?: number;
 }
 
 export interface HealthStatus {

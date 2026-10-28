@@ -10,6 +10,8 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ready"), ready: z.boolean() }).strict(),
   z.object({ type: z.literal("pause") }).strict(),
   z.object({ type: z.literal("chat"), text: z.string().trim().min(1).max(2000) }).strict(),
+  // Gods may destroy their own agents at any time, for free.
+  z.object({ type: z.literal("destroy"), agentId: id }).strict(),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export const envelopeSchema = z.object({
@@ -26,13 +28,25 @@ export const observationSchema = z.object({
   // Optional additions (servers before the room-lobby lifecycle omit them). `seated` is false
   // for a member who joined after this game launched: they spectate and play in the next one.
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
+  // Optional: the game's object type, and for Grid its GridType (older servers omit both).
+  objectType: z.enum(["Int", "string", "Grid"]).optional(),
+  grid: z.object({ size: z.number().int().min(1).max(16), symbols: z.string().max(32), colours: z.string().max(32) }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Your private utility function: a plain-language summary of its incentives, then its source.
-    utility: z.object({ name: z.string().max(128), summary: z.string().max(2000), language: z.enum(["python", "typescript"]), source: z.string().max(16384) }).optional() }),
+    utility: z.object({ name: z.string().max(128), summary: z.string().max(2000), language: z.enum(["python", "typescript"]), source: z.string().max(16384),
+      // Grid: the card's emoji, and a defence goal (what this god wants to stop) if it has one.
+      emoji: z.string().max(16).optional(),
+      penalty: z.object({ name: z.string().max(128), summary: z.string().max(2000) }).optional() }).optional() }),
   // score = ownUtility × othersUtilitySum. Individual opponents' utilities are never disclosed.
-  objects: z.array(z.object({ id, value: z.union([finite, z.string().max(1024)]), ownUtility: finite, othersUtilitySum: finite, score: finite })).max(2000),
-  agents: z.array(z.object({ id, source: z.string().max(16384), language: z.enum(["python", "typescript"]), cost: finite })).max(200),
-  transformations: z.array(z.object({ id, agentId: id, before: z.union([finite,z.string().max(1024)]), after: z.union([finite,z.string().max(1024)]) })).max(500),
+  // Grid: ownUtility is signed net bits; `rarity` is how rare this grid is for your own utility function.
+  objects: z.array(z.object({ id, value: z.union([finite, z.string().max(1024)]), ownUtility: finite, othersUtilitySum: finite, score: finite,
+    rarity: z.object({ bits: finite, rarerThan: finite, oneIn: finite, text: z.string().max(200),
+      penalty: z.object({ bits: finite, worseThanPercent: finite, warning: z.boolean(), text: z.string().max(200) }).nullable() }).optional() })).max(2000),
+  // Grid: each agent's own energy account (bits). It acts only while balance ≥ expectedCost.
+  agents: z.array(z.object({ id, source: z.string().max(16384), language: z.enum(["python", "typescript"]), cost: finite,
+    energy: z.object({ balance: finite, expectedCost: finite, acts: z.number().int().nonnegative(), charged: finite, eligible: z.boolean() }).optional() })).max(200),
+  transformations: z.array(z.object({ id, agentId: id, before: z.union([finite,z.string().max(1024)]), after: z.union([finite,z.string().max(1024)]),
+    steps: z.array(z.string().max(300)).max(16).optional(), bits: finite.optional() })).max(500),
   leaderboard: z.array(z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), score: finite })).max(100),
   chat: z.array(z.object({ id, godId: id, label: z.string().max(128), isAI: z.boolean(), text: z.string().max(2000) })).max(100),
 });

@@ -1,6 +1,6 @@
 import { leaderboard, personalScore, totalUtility } from "@workspace/game-core";
-import { card, publicCatalog } from "@workspace/game-utilities";
-import type { Room, Game, Chat } from "./types";
+import { card, gridArgsOf, gridCard, gridFeedback, publicCatalog, type GridEvaluation } from "@workspace/game-utilities";
+import type { Room, Game, Chat, WorldObject } from "./types";
 export function standings(game: Game) {
   return leaderboard(game.roster.map(m => m.id), game.objects.map(o => new Map(Object.entries(o.utilities))))
     .map(row => ({ ...row, name: game.roster.find(m => m.id === row.deityId)!.name, kind: game.roster.find(m => m.id === row.deityId)!.kind }));
@@ -9,9 +9,22 @@ export function standings(game: Game) {
 export function utilityCard(game: Game, id: string) {
   const deity = game.deities.find(d => d.id === id);
   if (!deity) return null;
+  if (game.settings.objectType === "Grid") {
+    // Grid utility functions are kid-readable Python cards (lib/grid-lab), whatever the room's agent language.
+    const c = gridCard(deity.utility, gridArgsOf(game.settings));
+    return { name: c.name, emoji: c.emoji, summary: c.summary, language: "python" as const, source: c.source,
+      ...(c.penalty ? { penalty: c.penalty } : {}) };
+  }
   const { name, summary, source } = card(deity.utility);
   return { name, summary, language: game.settings.language, source: source[game.settings.language] };
 }
+/** God-private reading of one grid for its own utility function: rarity and any defence-goal warning. */
+export function rarityFor(game: Game, o: WorldObject, id: string) {
+  const r = o.rarity?.[id], deity = game.deities.find(d => d.id === id);
+  if (!r || !deity || game.settings.objectType !== "Grid") return undefined;
+  return gridFeedback(r as GridEvaluation, deity.utility, gridArgsOf(game.settings));
+}
+const catalogFor = (settings: Game["settings"]) => publicCatalog(settings.objectType, settings);
 const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 const isActive = (game: Game | null): game is Game => !!game && game.phase !== "ended";
 /** Live/final public world state of one game. No utilities, seeds, sources or end deadline. */
@@ -60,7 +73,7 @@ export function publicGameView(game: Game, room: Room | null) {
     winners: game.phase === "ended" ? record.winners : [],
     chat: room ? gameChat(room.chat, game) : [],
     roomActiveGame: room ? activeGameRef(room) : null,
-    utilityCatalog: publicCatalog(game.settings.objectType),
+    utilityCatalog: catalogFor(game.settings),
     serverTime: Date.now(),
   };
 }
@@ -74,8 +87,9 @@ export function publicRoom(room: Room) {
       ...member, ...(aiAgent ? { aiAgentId: aiAgent.id, aiAgentRevision: aiAgent.revision, provider: aiAgent.provider, model: aiAgent.model } : {}),
     })), chat: room.chat.slice(-100),
     aiBudget: room.aiBudget, aiUsed: room.aiUsed, serverTime: Date.now(),
+    aiInputTokens: room.aiInputTokens ?? 0, aiOutputTokens: room.aiOutputTokens ?? 0,
     // The lobby describes the NEXT game: the families its gods might draw, never who drew which.
-    utilityCatalog: publicCatalog(room.settings.objectType),
+    utilityCatalog: catalogFor(room.settings),
     activeGame: activeGameRef(room),
     /** Legacy room-scoped view of the current game slot; new clients use activeGame and /games/{code}/state. */
     game: !game ? null : publicGame(game),
@@ -94,7 +108,8 @@ export function personalRoom(room: Room, id: string) {
     },
     game: {
       ...publicState.game,
-      objects: game.objects.map(o => ({ id: o.id, value: o.value, version: o.version, ...personalScore(new Map(Object.entries(o.utilities)), id) })),
+      objects: game.objects.map(o => ({ id: o.id, value: o.value, version: o.version, ...personalScore(new Map(Object.entries(o.utilities)), id),
+        ...(o.rarity ? { rarity: rarityFor(game, o, id) } : {}) })),
     },
   };
 }

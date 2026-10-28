@@ -4,7 +4,7 @@ import type { Request, Response, NextFunction } from "express";
 import * as oidc from "openid-client";
 
 export type Identity = { id: string; name: string; kind: "human"; scope: "browser" | "player"; roomId?: string; email?: string; emailVerified?: boolean; issuer?: string;
-  delegateId?: string; clientLabel?: string; permission?: "read" | "act"; expiresAt?: string; sessionHash?: string };
+  delegateId?: string; clientLabel?: string; permission?: "read" | "act" | "owner"; expiresAt?: string; sessionHash?: string };
 declare global {
   namespace Express { interface Request { identity?: Identity } }
 }

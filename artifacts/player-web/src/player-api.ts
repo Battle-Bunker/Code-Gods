@@ -27,7 +27,7 @@ const commandEnvelopes=new Map<string,Envelope>();
 export const isDaemonMode = () => daemon;
 export type AssistantGrant = {
   delegateId: string; roomId: string; clientLabel: string;
-  permission: "read" | "act"; expiresAt: string | number;
+  permission: "read" | "act" | "owner"; expiresAt: string | number;
 };
 function requireBrowserAuthority() {
   if (daemon) throw new Error("Manage assistant grants in a signed-in browser on your authoritative room server, not through the local daemon.");

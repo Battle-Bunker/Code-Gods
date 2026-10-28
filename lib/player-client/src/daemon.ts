@@ -121,7 +121,7 @@ export function createPlayerDaemon(options:DaemonOptions) {
         if(prior?.result) return json(await prior.result);
         // Bound memory without evicting uncertain outcomes. New session/approval clears cache.
         if(!prior && receipts.size>=2000) return json({error:"Session command limit; reconnect"},429);
-        const prepared=prior?.envelope ?? {...envelope,...(!envelope.gameId && gameId && ["validate","summon","pause"].includes(envelope.command.type) ? {gameId} : {})};
+        const prepared=prior?.envelope ?? {...envelope,...(!envelope.gameId && gameId && ["validate","summon","pause","destroy"].includes(envelope.command.type) ? {gameId} : {})};
         const result=transport.send(prepared,AbortSignal.timeout(15000));
         const entry={body:serialized,envelope:prepared,result:result as Promise<unknown>|undefined};
         receipts.set(envelope.commandId,entry);

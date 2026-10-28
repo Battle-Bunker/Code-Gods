@@ -38,4 +38,8 @@ export interface RoomState {
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
+  /** Provider-reported input tokens recorded for this game. */
+  aiInputTokens?: number;
+  /** Provider-reported output tokens recorded for this game. */
+  aiOutputTokens?: number;
 }

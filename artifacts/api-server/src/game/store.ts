@@ -141,7 +141,8 @@ export function member(room: Room, actor: Actor) {
 }
 export function owner(room: Room, actor: Actor) {
   member(room, actor);
-  if (room.ownerId !== actor.id || actor.scope !== "browser") throw Object.assign(new Error("Room owner access required"), { status: 403 });
+  if (room.ownerId !== actor.id || (actor.scope !== "browser" && actor.permission !== "owner"))
+    throw Object.assign(new Error("Room owner access required"), { status: 403 });
 }
 export async function persist(room: Room) {
   const client = await pool.connect();

@@ -10,7 +10,7 @@ export type AIEvent =
   | {type:"command";godId:string;commandId:string;accepted:boolean};
 export interface ControllerOptions {
   roomId:string; godId:string; transport:PlayerTransport; provider:ModelProvider;
-  budget:{ reserve(tokens:number,usd:number): {reservedTokens:number;reservedUsd:number} | Promise<{reservedTokens:number;reservedUsd:number}> };
+  budget:{ reserve(tokens:number,usd:number): {reservedTokens:number;reservedUsd:number;settle?:(actualTokens:number,usage:{inputTokens:number;outputTokens:number})=>Promise<void>} | Promise<{reservedTokens:number;reservedUsd:number;settle?:(actualTokens:number,usage:{inputTokens:number;outputTokens:number})=>Promise<void>}> };
   onEvent:(event:AIEvent)=>void; intervalMs?:number;
   /** Trusted administrator-authored strategy; cannot replace the protocol policy. */
   customPrompt?:string;
@@ -59,6 +59,9 @@ export class AIController {
       const response=await this.options.provider.complete({system:this.system,data,maxOutputTokens:outputBound,signal:bounded});
       this.options.onEvent({type:"usage",godId:this.options.godId,inputTokens:response.inputTokens,outputTokens:response.outputTokens,reservedUsd:reservation.reservedUsd});
       if(!Number.isSafeInteger(response.inputTokens)||response.inputTokens<0||!Number.isSafeInteger(response.outputTokens)||response.outputTokens<0||response.inputTokens>inputBound||response.outputTokens>outputBound) throw new Error("Provider exceeded reservation contract");
+      // Return unused token allowance only after trustworthy provider usage.
+      // Missing usage/network failures keep their conservative reservation.
+      await reservation.settle?.(response.inputTokens+response.outputTokens,{inputTokens:response.inputTokens,outputTokens:response.outputTokens});
       if(Buffer.byteLength(response.text)>40000) throw new Error("Model response too large");
       const decision=decisionSchema.parse(JSON.parse(response.text));
       this.options.onEvent({type:"status",godId:this.options.godId,status:"acting"});

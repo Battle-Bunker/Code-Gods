@@ -14,6 +14,8 @@ export interface DeviceDetails {
   /** Self-reported */
   clientLabel: string;
   permission: DevicePermission;
+  /** Whether the signed-in human may approve this request. Owner grants require the current room owner. */
+  canApprove?: boolean;
   /** Approval-request deadline */
   expiresAt: Date;
   status: DeviceDetailsStatus;

@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SettingsGridColours } from './settingsGridColours';
+import type { SettingsGridSymbols } from './settingsGridSymbols';
 import type { SettingsLanguage } from './settingsLanguage';
 import type { SettingsObjectType } from './settingsObjectType';
 import type { SettingsSpawnFunctionId } from './settingsSpawnFunctionId';
@@ -15,6 +17,28 @@ export interface Settings {
   intMin: number;
   intMax: number;
   stringMaxLength: number;
+  /**
+     * Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
+     * @minimum 3
+     * @maximum 7
+     */
+  gridSize?: number;
+  /** Grid only. Symbols printed on cells. */
+  gridSymbols?: SettingsGridSymbols;
+  /** Grid only. Cell colours. */
+  gridColours?: SettingsGridColours;
+  /**
+     * Grid only. Bits each agent earns per second of world time into its own energy account.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentEnergyPerSecond?: number;
+  /**
+     * Grid only. An agent's energy is capped at this many of its expected acts.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentBatteryActs?: number;
   grammarId: string;
   utilitySelectorId: string;
   complexityFunctionId: string;

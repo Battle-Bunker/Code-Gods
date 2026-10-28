@@ -20,7 +20,7 @@ export interface RoomActionInput {
   deityId?: string;
   /**
      * @minimum 0
-     * @maximum 500000
+     * @maximum 1000000
      */
   aiBudget?: number;
   aiAgentId?: string;

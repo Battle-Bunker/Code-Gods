@@ -10,4 +10,8 @@ export interface UtilityFamily {
   id: string;
   name: string;
   theme: string;
+  /** Grid families only. */
+  emoji?: string;
+  /** Grid only. True when gods of this family also carry a defence goal (a penalty). */
+  defence?: boolean;
 }

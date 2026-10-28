@@ -53,7 +53,7 @@ device approval flow:
 
 1. Generate a random verifier locally and its base64url SHA-256 challenge.
 2. `POST /api/device/request` with `{roomId,challenge,clientLabel,permission}`.
-   Permission is `read` or `act`; labels are self-reported, not verified identities.
+   Permission is `read`, `act`, or explicitly owner-approved `owner`; labels are self-reported, not verified identities.
    Keep the returned
    `deviceSecret` in daemon memory, not in a browser bundle or URL.
 3. Ask the human to visit the returned `verificationPath` on the server domain.
@@ -106,7 +106,10 @@ may deny through `POST /api/device/deny`, and list their own delegated sessions 
 `POST /api/device/grants/:delegateId/revoke` invalidates just that grant and its
 live sockets. Pending clients may cancel using `/api/device/cancel` with their
 device proof. Read-only grants cannot use either HTTP or socket mutation formats;
-all grants remain bound to one room and the approving human, with no host rights.
+all grants remain bound to one room and the approving human. Only an explicit
+`owner` grant approved by that room's current owner includes room configuration,
+AI budget/seats, game lifecycle and player actions. Read/act grants never inherit
+owner rights. No grant includes global administrator powers.
 
 ## Room actions
 

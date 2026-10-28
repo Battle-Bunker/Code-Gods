@@ -383,8 +383,10 @@ export default function Console() {
                 {obs.agents.map((a) => (
                   <li key={a.id} data-testid={`row-agent-${a.id}`} className="border border-[hsl(var(--card-border))]">
                     <div className="flex justify-between px-3 py-1.5 font-mono text-xs bg-muted"><span>{a.id} · {a.language}</span><span>cost {fmt(a.cost)}</span></div>
+                    {a.energy && <p className="px-3 pt-1.5 font-mono text-[11px]" data-testid={`text-agent-energy-${a.id}`}>⚡ {fmt(a.energy.balance)} / {fmt(a.energy.expectedCost)} bits · {a.energy.eligible ? "ready" : "recharging"} · {a.energy.acts} acts, {fmt(a.energy.charged)} bits spent</p>}
                     <pre className="px-3 py-2 font-mono text-[11px] max-h-28 overflow-auto whitespace-pre-wrap">{a.source}</pre>
                     <button data-testid={`button-load-agent-${a.id}`} onClick={() => { langTouched.current = true; setLanguage(a.language); setSource(a.source); }} className="label px-3 pb-2 hover:!text-primary">load into forge</button>
+                    <button data-testid={`button-destroy-agent-${a.id}`} disabled={!!busy} onClick={() => { if (window.confirm("Destroy this agent? It's free, but it can't be undone.")) void run({ type: "destroy", agentId: a.id }); }} className="label px-3 pb-2 hover:!text-destructive">destroy</button>
                   </li>
                 ))}
               </ul>
@@ -406,8 +408,10 @@ export default function Console() {
           <Panel title="Your utility function" meta="private">
             {!obs ? <Empty>Available after room approval.</Empty> : !obs.self.utility ? <Empty>Dealt when the next game starts.</Empty> : (
               <div data-testid="panel-utility">
-                <p className="font-serif text-2xl leading-tight">{obs.self.utility.name}</p>
+                <p className="font-serif text-2xl leading-tight">{obs.self.utility.emoji ? `${obs.self.utility.emoji} ` : ""}{obs.self.utility.name}</p>
                 <p data-testid="text-utility-summary" className="mt-2 text-sm leading-relaxed">{obs.self.utility.summary}</p>
+                {obs.self.utility.penalty && <p data-testid="text-utility-penalty" className="mt-1 text-sm">⚠️ {obs.self.utility.penalty.name}: {obs.self.utility.penalty.summary} (only counts when a grid is worse than usual)</p>}
+                {obs.objectType === "Grid" && <p className="mt-2 text-xs text-muted-foreground">How scoring works: your utility function is compared with thousands of random grids. "1 in 40" means only one random grid in 40 is this good for you. Points for a grid = your ✨ bits × the other gods' bits added up (never below zero: if nobody else cares, nobody scores). ⚠️ subtracts when a grid is worse than usual. Agents return mutator calls, like <code>[paint(row(0), "red")]</code>; each costs ⚡ bits from the agent's own energy.</p>}
                 <p className="mt-2 text-xs text-muted-foreground">Each object scores <em>your utility × the sum of everyone else's</em>: it only pays if other gods value it too.</p>
                 <details className="mt-3">
                   <summary className="label cursor-pointer hover:!text-primary">{obs.self.utility.language} source</summary>
@@ -427,7 +431,8 @@ export default function Console() {
                     {ranked.map((o, i) => (
                       <tr key={o.id} data-testid={`row-object-${o.id}`} className="border-t border-[hsl(var(--card-border))] hover:bg-muted transition-colors">
                         <td className="py-1.5 pr-2 opacity-50">{i + 1}</td>
-                        <td className="pr-2 max-w-[260px] truncate" title={objectTitle(o.value)}><ObjectView value={o.value} /></td>
+                        <td className="pr-2 max-w-[260px] truncate" title={objectTitle(o.value, { objectType: obs.objectType })}><ObjectView value={o.value} objectType={obs.objectType} grid={obs.grid} />
+                          {o.rarity && <span className="block text-[10px] opacity-70 whitespace-normal" data-testid={`text-rarity-${o.id}`}>✨ {o.rarity.text}{o.rarity.penalty?.warning ? ` · ${o.rarity.penalty.text}` : ""}</span>}</td>
                         <td className="text-right pr-2">{fmt(o.ownUtility)}</td>
                         <td className="text-right pr-2 opacity-70">{fmt(o.othersUtilitySum)}</td>
                         <td className={`text-right font-semibold ${o.score > 0 ? "text-[hsl(var(--accent))]" : "opacity-50"}`}>{fmt(o.score)}</td>
@@ -444,7 +449,8 @@ export default function Console() {
                 {obs.transformations.map((t) => (
                   <li key={t.id} data-testid={`row-transformation-${t.id}`} className="flex gap-2 items-center">
                     <span className="opacity-50 w-20 truncate">{t.agentId}</span>
-                    <span className="truncate"><ObjectView value={t.before} /></span><span className="text-primary">→</span><span className="truncate font-semibold"><ObjectView value={t.after} compareTo={t.before} /></span>
+                    <span className="truncate"><ObjectView value={t.before} objectType={obs.objectType} grid={obs.grid} /></span><span className="text-primary">→</span><span className="truncate font-semibold"><ObjectView value={t.after} compareTo={t.before} objectType={obs.objectType} grid={obs.grid} /></span>
+                    {t.steps && <span className="opacity-70 whitespace-normal">{t.steps.join("; ")}{t.bits !== undefined ? ` · ${fmt(t.bits)} bits` : ""}</span>}
                   </li>
                 ))}
               </ul>

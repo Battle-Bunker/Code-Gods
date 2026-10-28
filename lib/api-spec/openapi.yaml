@@ -470,8 +470,8 @@ components:
         code: { type: string, minLength: 4, maxLength: 32 }
     DevicePermission:
       type: string
-      enum: [read, act]
-      description: read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+      enum: [read, act, owner]
+      description: read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.
     DeviceRequestInput:
       type: object
       required: [roomId, challenge]
@@ -536,6 +536,7 @@ components:
         roomCode: { type: string }
         clientLabel: { type: string, description: Self-reported, not verified requester identity }
         permission: { $ref: "#/components/schemas/DevicePermission" }
+        canApprove: { type: boolean, description: Whether the signed-in human may approve this request. Owner grants require the current room owner. }
         expiresAt: { type: string, format: date-time, description: Approval-request deadline, not a redeemed grant's lifetime }
         status: { type: string, enum: [pending, approved, denied, redeemed, expired] }
     DeviceGrant:
@@ -583,6 +584,7 @@ components:
       type: object
       required: [protocolVersion, defaults, runtimes, minimumPlayers, options, aiFunding]
       properties:
+        grid: { $ref: "#/components/schemas/GridManifest" }
         protocolVersion: { type: integer }
         minimumPlayers: { type: integer }
         defaults: { $ref: "#/components/schemas/Settings" }
@@ -591,6 +593,52 @@ components:
         runtimes:
           type: array
           items: { type: string }
+    GridBadge:
+      type: object
+      description: A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
+      required: [id, emoji, label, kid]
+      properties:
+        id: { type: string }
+        emoji: { type: string }
+        label: { type: string }
+        kid: { type: string }
+    GridTypeOption:
+      type: object
+      description: A GridType that ships calibration tables, so rooms may select it.
+      required: [key, size, symbols, colours, label, badges, familyCount]
+      properties:
+        key: { type: string }
+        size: { type: integer }
+        symbols: { type: string }
+        colours: { type: string }
+        label: { type: string }
+        badges: { type: array, items: { $ref: "#/components/schemas/GridBadge" } }
+        familyCount: { type: integer }
+    GridComponentOption:
+      type: object
+      required: [id, label, emoji, kid, glyphs, names]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        emoji: { type: string }
+        kid: { type: string }
+        glyphs:
+          description: Display glyph per index (symbols) or colour letter per index (colours).
+          type: array
+          items: { type: string }
+        names: { type: array, items: { type: string } }
+        css:
+          description: Colours only. Display colour per index.
+          type: array
+          items: { type: string }
+    GridManifest:
+      type: object
+      required: [types, symbols, colours, maxCallsPerAct]
+      properties:
+        types: { type: array, items: { $ref: "#/components/schemas/GridTypeOption" } }
+        symbols: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
+        colours: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
+        maxCallsPerAct: { type: integer }
     AIFunding:
       type: object
       required: [provider, model, billing, inputUsdPerMillion, outputUsdPerMillion, configured, live]
@@ -623,17 +671,34 @@ components:
         ready: { type: boolean }
         text: { type: string, maxLength: 4000 }
         deityId: { type: string }
-        aiBudget: { type: integer, minimum: 0, maximum: 500000 }
+        aiBudget: { type: integer, minimum: 0, maximum: 1000000 }
         aiAgentId: { type: string }
     Settings:
       type: object
       required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
       properties:
         language: { type: string, enum: [python, typescript] }
-        objectType: { type: string, enum: [Int, string] }
+        objectType: { type: string, enum: [Int, string, Grid] }
         intMin: { type: integer }
         intMax: { type: integer }
         stringMaxLength: { type: integer }
+        gridSize:
+          description: Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
+          type: integer
+          minimum: 3
+          maximum: 7
+        gridSymbols: { type: string, enum: [base10, base12, base16, cards], description: Grid only. Symbols printed on cells. }
+        gridColours: { type: string, enum: [rgb, rgby, rainbow6], description: Grid only. Cell colours. }
+        agentEnergyPerSecond:
+          description: Grid only. Bits each agent earns per second of world time into its own energy account.
+          type: number
+          minimum: 0
+          maximum: 1000
+        agentBatteryActs:
+          description: Grid only. An agent's energy is capped at this many of its expected acts.
+          type: number
+          minimum: 0
+          maximum: 1000
         grammarId: { type: string }
         utilitySelectorId: { type: string }
         complexityFunctionId: { type: string }
@@ -849,6 +914,8 @@ components:
           items: { $ref: "#/components/schemas/UtilityFamily" }
         aiBudget: { type: integer }
         aiUsed: { type: integer }
+        aiInputTokens: { type: integer, description: Provider-reported input tokens recorded for this game. }
+        aiOutputTokens: { type: integer, description: Provider-reported output tokens recorded for this game. }
     UtilityFamily:
       type: object
       required: [id, name, theme]
@@ -856,6 +923,8 @@ components:
         id: { type: string }
         name: { type: string }
         theme: { type: string }
+        emoji: { type: string, description: Grid families only. }
+        defence: { type: boolean, description: Grid only. True when gods of this family also carry a defence goal (a penalty). }
     HealthStatus:
       type: object
       properties:

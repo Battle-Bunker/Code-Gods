@@ -56,7 +56,7 @@ export function Repertoire({ catalog }: { catalog: UtilityFamily[] }) {
   );
 }
 
-export function Objects({ objects, objectType, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: PublicObject[]; objectType?: string; emptyBody?: string }) {
+export function Objects({ objects, objectType, grid, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: PublicObject[]; objectType?: string; grid?: { size?: number; symbols?: string; colours?: string }; emptyBody?: string }) {
   const objs = useMemo(() => [...objects].sort((a, b) => b.totalUtility - a.totalUtility), [objects]);
   const max = Math.max(1, ...objs.map((o) => Math.abs(o.totalUtility)));
   return (
@@ -72,7 +72,7 @@ export function Objects({ objects, objectType, emptyBody = "No objects in this w
                 <tr key={o.id} className="border-t hover:bg-muted/50" data-testid={`row-object-${o.id}`}>
                   <td className="px-4 py-1.5 font-mono text-muted-foreground">{i + 1}</td>
                   <td className="py-1.5 font-mono text-xs truncate max-w-[120px]">{o.id}</td>
-                  <td className="py-1.5 font-mono truncate max-w-[220px]"><ObjectView value={o.value} objectType={objectType} /></td>
+                  <td className="py-1.5 font-mono truncate max-w-[220px]"><ObjectView value={o.value} objectType={objectType} grid={grid} /></td>
                   <td className="py-1.5 font-mono text-right text-muted-foreground">v{o.version}</td>
                   <td className="px-4 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -121,8 +121,13 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
   );
 }
 
+const INT_KEYS = ["intMin", "intMax"], STRING_KEYS = ["stringMaxLength"];
+const GRID_KEYS = ["gridSize", "gridSymbols", "gridColours", "agentEnergyPerSecond", "agentBatteryActs"];
+/** Which settings apply to an object type: each type's parameters show only for that type. */
 export const relevantToType = (key: string, type: string) =>
-  type === "Int" ? key !== "stringMaxLength" : key !== "intMin" && key !== "intMax";
+  type === "Int" ? !STRING_KEYS.includes(key) && !GRID_KEYS.includes(key)
+    : type === "Grid" ? !INT_KEYS.includes(key) && !STRING_KEYS.includes(key)
+    : !INT_KEYS.includes(key) && !GRID_KEYS.includes(key);
 
 export function ReadOnlySettings({ settings, title = "World settings", meta = "owner controls", note }: { settings: Settings; title?: string; meta?: string; note?: string }) {
   return (

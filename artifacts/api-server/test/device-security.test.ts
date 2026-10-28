@@ -82,7 +82,8 @@ test("delegated authorization lifecycle, permissions and passive invalidation", 
     assert.equal((await request(`/device/details?code=${pending.userCode}`)).status, 401);
     assert.equal((await request(`/device/details?code=${pending.userCode}`, undefined, outsiderToken)).status, 403);
     const details = await request(`/device/details?code=${pending.userCode}`, undefined, hostToken);
-    assert.deepEqual(Object.keys(details.body).sort(), ["clientLabel", "expiresAt", "permission", "roomCode", "roomId", "status"].sort());
+    assert.deepEqual(Object.keys(details.body).sort(), ["canApprove", "clientLabel", "expiresAt", "permission", "roomCode", "roomId", "status"].sort());
+    assert.equal(details.body.canApprove, true);
     assert.equal(details.body.roomId, room.id);
     assert.equal(details.body.roomCode, room.shortCode);
     assert.equal(details.body.clientLabel, "Self-reported assistant");
