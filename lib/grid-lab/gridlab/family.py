@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 import numpy as np
 
-from .core import Grid, Room, Requires, req
+from .core import Grid, GridType, Requires, req
 
 Params = dict
 Ordinal = int
@@ -33,40 +33,40 @@ class Family:
     requires: Requires
     layers: frozenset[str]                       # subset of {"colour", "symbol", "position"}
     camp: str                                    # "clumper" | "alternator" | "neutral"
-    sample: Callable[[np.random.Generator, Room], Params]
-    summary: Callable[[Params, Room], str]       # private, kid-readable incentive
-    ordinal: Callable[[Grid, Params, Room], Ordinal]
+    sample: Callable[[np.random.Generator, GridType], Params]
+    summary: Callable[[Params, GridType], str]       # private, kid-readable incentive
+    ordinal: Callable[[Grid, Params, GridType], Ordinal]
     # Optional vectorised ordinal over a batch (sym, col) of shape (B, N, N) -> int64 (B,). Must agree with `ordinal`.
-    batch: Optional[Callable[[np.ndarray, np.ndarray, Params, Room], np.ndarray]] = None
+    batch: Optional[Callable[[np.ndarray, np.ndarray, Params, GridType], np.ndarray]] = None
     # Map params to a representative of their symmetry orbit so draws can share a survival table
     # (e.g. any "your colour" -> colour 0 when the rule ignores colour order). Must preserve the
     # distribution of the ordinal under the prior. Default: params unchanged.
-    canonical: Optional[Callable[[Params, Room], Params]] = None
+    canonical: Optional[Callable[[Params, GridType], Params]] = None
     # Optional exact log2 μ{u >= t} (a "proof"); checked against sampling by tests.
-    exact_log2_tail: Optional[Callable[[Ordinal, Params, Room], float]] = None
+    exact_log2_tail: Optional[Callable[[Ordinal, Params, GridType], float]] = None
     # Optional: a legal grid achieving the family's maximum ordinal (reachability).
-    exemplar: Optional[Callable[[Params, Room], Grid]] = None
+    exemplar: Optional[Callable[[Params, GridType], Grid]] = None
     source: str = ""                             # brainstorm origin, e.g. "catalog#12 / games.md"
     tags: frozenset[str] = field(default_factory=frozenset)  # e.g. {"seed", "shortlist"}
 
-    def available(self, room: Room) -> bool:
-        return self.requires.check(room)
+    def available(self, gtype: GridType) -> bool:
+        return self.requires.check(gtype)
 
-    def evaluate_batch(self, sym: np.ndarray, col: np.ndarray, params: Params, room: Room) -> np.ndarray:
+    def evaluate_batch(self, sym: np.ndarray, col: np.ndarray, params: Params, gtype: GridType) -> np.ndarray:
         if self.batch is not None:
-            return self.batch(sym, col, params, room).astype(np.int64)
-        return np.fromiter((self.ordinal(Grid(s, c), params, room) for s, c in zip(sym, col)),
+            return self.batch(sym, col, params, gtype).astype(np.int64)
+        return np.fromiter((self.ordinal(Grid(s, c), params, gtype) for s, c in zip(sym, col)),
                            dtype=np.int64, count=len(sym))
 
 
 @dataclass(frozen=True)
 class Draw:
-    """One god's concrete utility function: a family plus sampled params, in a room."""
+    """One god's concrete utility function: a family plus sampled params, in a gtype."""
     family: Family
     params: Params
 
-    def ordinal(self, g: Grid, room: Room) -> Ordinal:
-        return self.family.ordinal(g, self.params, room)
+    def ordinal(self, g: Grid, gtype: GridType) -> Ordinal:
+        return self.family.ordinal(g, self.params, gtype)
 
-    def summary(self, room: Room) -> str:
-        return self.family.summary(self.params, room)
+    def summary(self, gtype: GridType) -> str:
+        return self.family.summary(self.params, gtype)

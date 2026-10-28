@@ -33,7 +33,7 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 |---|---|---|---|---|
 | u_i : T → ℤ | **utility function** (returns an **ordinal utility**) | `ordinal` | Rule output; only its order matters. Ties allowed. | Ordinal utility / utility representation theorem (decision theory) |
 | U_i(x) = {y : u_i(y) ≥ u_i(x)} | **upper contour set** | `contour` | Everything at least as good as x for god i. | Microeconomics (preference upper contour sets) |
-| μ | **prior** | `prior` | Reference measure: the room's uniform spawn distribution. | Bayesian prior / base measure |
+| μ | **prior** | `prior` | Reference measure: the grid type's uniform spawn distribution. | Bayesian prior / base measure |
 | G_i(t) = μ{u_i ≥ t} | **survival function** | `Survival` | Tail mass of god i's ordinal under the prior. | Statistics (survival / complementary CDF) |
 | p_i(x) = G_i(u_i(x)) | **tail mass** (a p-value) | `tail` | Chance a random spawn is at least this good. | Hypothesis testing |
 | s_i(x) = −log₂ p_i(x) | **surprisal** (bits) | `surprisal` | God i's information score for object x. P(s ≥ k) ≤ 2^−k for every rule. | Shannon self-information |
@@ -53,14 +53,22 @@ Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "poin
 
 | File | Owner | Contract |
 |---|---|---|
-| `gridlab/core.py` | coordinator (done) | `Room`, `Grid`, `Requires`/`req`, `spawn`, `spawn_batch`, `D4`, `lines`, `neighbours4`, `all_rooms`. Encodings documented in the module docstring. |
+| `gridlab/core.py` | coordinator (done) | `GridType`, `Grid`, `Requires`/`req`, `spawn`, `spawn_batch`, `D4`, `lines`, `neighbours4`, `all_grid_types`. Encodings documented in the module docstring. |
 | `gridlab/family.py` | coordinator (done) | `Family`, `Draw`, `lex`. |
 | `gridlab/rules/*.py`, `gridlab/rules/__init__.py` | rules worker | `FAMILIES: list[Family]`, `by_id(id)`. All brainstorm rules converted to ordinal form. |
-| `gridlab/calibrate.py` | engine worker | `survival(draw, room) -> Survival` with `.surprisal(t) -> float` (bits, ≥ 0, non-decreasing in t), `.log2_tail(t)`, `.max_observed_bits`; deterministic (seeded from a stable hash of family id, canonical params, room key, estimator version); disk cache under `lib/grid-lab/.cache/` (gitignored). Monte Carlo body + multilevel splitting tail; uses `exact_log2_tail` when provided. |
-| `gridlab/mutators.py`, `gridlab/program.py` | mutator worker | `MUTATORS: list[Mutator]`; `Mutator(id, name, summary, requires, sample(rng, room)->params, cost(params, room)->float bits, apply(grid, params, room, rng)->Grid|None)`. `Program(guard, steps)` = an agent, with `.cost(room)`, `.apply(grid, room, rng)->Grid|None`, `.describe(room)`; `random_program(rng, room, ...)` and enumeration helpers for policies. |
-| `gridlab/sim.py`, `gridlab/policy.py`, `gridlab/metrics.py` | engine worker | `GameConfig` (room, gods, dealer, economy knobs, policy names, rates, seed), `run_game(config) -> GameLog`, `metrics(log) -> dict`. Policies choose Programs to summon. |
+| `gridlab/calibrate.py` | engine worker | `survival(draw, gtype) -> Survival` with `.surprisal(t) -> float` (bits, ≥ 0, non-decreasing in t), `.log2_tail(t)`, `.max_observed_bits`; deterministic (seeded from a stable hash of family id, canonical params, gtype key, estimator version); disk cache under `lib/grid-lab/.cache/` (gitignored). Monte Carlo body + multilevel splitting tail; uses `exact_log2_tail` when provided. |
+| `gridlab/mutators.py`, `gridlab/program.py` | mutator worker | `MUTATORS: list[Mutator]`; `Mutator(id, name, summary, requires, sample(rng, gtype)->params, cost(params, gtype)->float bits, apply(grid, params, gtype, rng)->Grid|None)`. `Program(guard, steps)` = an agent, with `.cost(gtype)`, `.apply(grid, gtype, rng)->Grid|None`, `.describe(gtype)`; `random_program(rng, gtype, ...)` and enumeration helpers for policies. |
+| `gridlab/sim.py`, `gridlab/policy.py`, `gridlab/metrics.py` | engine worker | `GameConfig` (gtype, gods, dealer, economy knobs, policy names, rates, seed), `run_game(config) -> GameLog`, `metrics(log) -> dict`. Policies choose Programs to summon. |
 | `gridlab/experiments/*.py`, `docs/experiments.md` | experiment worker (later) | Batches of games, sweeps, optimisation. |
 | `docs/*.md` | each owner for its area | |
 
 Do not edit files you don't own; if you need a change in someone else's file, write a note in
 `lib/grid-lab/NOTES.md` under a heading with your role. Do not run git commit/push.
+
+## 4. Terminology: GridType, not room
+
+A **room** is the game lobby where players gather, configure settings and launch games; it is not
+a type-level concept. The parameterised object type is a **GridType** (`Grid(5,cards,rgb)`): the
+type constructor `Grid` fully applied to its runtime parameters. Code uses `GridType` and the
+variable name `gtype`; the full list is `all_grid_types()`. A game's settings select its GridType.
+Never use `room`/`Room` for this in Grid Lab code or docs.

@@ -1,4 +1,4 @@
-"""Rooms, grids, capabilities, spawning and symmetries: the shared contract for every module.
+"""Grid types, grids, capabilities, spawning and symmetries: the shared contract for every module.
 
 Encoding (all integer indices, so batches are plain uint8 arrays):
   sym[r, c]  symbol index. Digit sets: index == digit value. Cards: index = suit * 13 + rank,
@@ -41,7 +41,9 @@ SUPER = {
 
 
 @dataclass(frozen=True)
-class Room:
+class GridType:
+    """A fully applied object type, e.g. Grid(5,cards,rgb): the type constructor Grid applied to
+    its runtime parameters. NOT a game room (rooms are lobbies that configure and host games)."""
     size: int = 5
     symbols: str = "base10"
     colours: str = "rgby"
@@ -152,7 +154,7 @@ class Room:
 
 @dataclass(frozen=True)
 class Requires:
-    """A family's constraint: capability classes plus numeric refinements on the room."""
+    """A family's constraint: capability classes plus numeric refinements on the gtype."""
     classes: frozenset[str] = frozenset()
     min_size: int = 3
     max_size: int = 7
@@ -160,10 +162,10 @@ class Requires:
     min_colours: int = 0
     min_symbols: int = 0
 
-    def check(self, room: Room) -> bool:
-        return (self.classes <= room.caps and self.min_size <= room.N <= self.max_size
-                and (self.parity is None or (room.N % 2 == 1) == (self.parity == "odd"))
-                and room.C >= self.min_colours and room.S >= self.min_symbols)
+    def check(self, gtype: GridType) -> bool:
+        return (self.classes <= gtype.caps and self.min_size <= gtype.N <= self.max_size
+                and (self.parity is None or (gtype.N % 2 == 1) == (self.parity == "odd"))
+                and gtype.C >= self.min_colours and gtype.S >= self.min_symbols)
 
     def describe(self) -> str:
         bits = sorted(self.classes)
@@ -204,14 +206,14 @@ class Grid:
         return Grid(self.sym if sym is None else sym, self.col if col is None else col)
 
 
-def spawn(room: Room, rng: np.random.Generator) -> Grid:
+def spawn(gtype: GridType, rng: np.random.Generator) -> Grid:
     """The prior μ: every cell independent and uniform over symbols × colours."""
-    return Grid(rng.integers(0, room.S, (room.N, room.N)), rng.integers(0, room.C, (room.N, room.N)))
+    return Grid(rng.integers(0, gtype.S, (gtype.N, gtype.N)), rng.integers(0, gtype.C, (gtype.N, gtype.N)))
 
 
-def spawn_batch(room: Room, rng: np.random.Generator, B: int) -> tuple[np.ndarray, np.ndarray]:
-    return (rng.integers(0, room.S, (B, room.N, room.N), dtype=np.uint8),
-            rng.integers(0, room.C, (B, room.N, room.N), dtype=np.uint8))
+def spawn_batch(gtype: GridType, rng: np.random.Generator, B: int) -> tuple[np.ndarray, np.ndarray]:
+    return (rng.integers(0, gtype.S, (B, gtype.N, gtype.N), dtype=np.uint8),
+            rng.integers(0, gtype.C, (B, gtype.N, gtype.N), dtype=np.uint8))
 
 
 # Dihedral group D4 acting on the last two axes; spawn measure is invariant under all of it.
@@ -242,5 +244,5 @@ def lines(N: int, diagonals: bool = False) -> list[list[tuple[int, int]]]:
     return out
 
 
-def all_rooms() -> list[Room]:
-    return [Room(n, s, c) for n in SIZES for s in SYMBOL_SETS for c in COLOUR_SETS]
+def all_grid_types() -> list[GridType]:
+    return [GridType(n, s, c) for n in SIZES for s in SYMBOL_SETS for c in COLOUR_SETS]
