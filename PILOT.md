@@ -30,6 +30,10 @@ Deleted defaults stay deleted. Both direct Anthropic and OpenAI are supported.
 Create a room and share its full URL. All players log in with Replit and join.
 There must be at least three players; an owner may add AI seats from the library.
 Readiness is advisory. Approve a token budget before starting with AI seats.
+The room page is the lobby. **Start game** takes everyone to that game's page.
+When the game ends, its result is added to the room's history and players return
+to the lobby. There the owner can change settings and start the next game with
+the same members. Anyone who joins mid-game watches it and plays in the next one.
 AI usage bills the server's provider accounts. Current safety ceilings are
 $2 per game and $5 per UTC day across this server, plus the room token limit.
 

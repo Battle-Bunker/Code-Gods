@@ -26,6 +26,8 @@ import type {
   DeleteAdminAiAgentParams,
   DeviceApprovalInput,
   GameLink,
+  GameRecord,
+  GameView,
   GetCurrentAuthUser200,
   HealthStatus,
   ListAdminAiAgents200,
@@ -803,6 +805,148 @@ export function useGetRoom<TData = Awaited<ReturnType<typeof getRoom>>, TError =
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRoomQueryOptions(roomId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListRoomGamesUrl = (roomId: string,) => {
+
+
+
+
+  return `/api/rooms/${roomId}/games`
+}
+
+export const listRoomGames = async (roomId: string, options?: Parameters<typeof customFetch>[1]): Promise<GameRecord[]> => {
+
+  return customFetch<GameRecord[]>(getListRoomGamesUrl(roomId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRoomGamesQueryKey = (roomId: string,) => {
+    return [
+    `/api/rooms/${roomId}/games`
+    ] as const;
+    }
+
+
+export const getListRoomGamesQueryOptions = <TData = Awaited<ReturnType<typeof listRoomGames>>, TError = ErrorType<void>>(roomId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoomGames>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRoomGamesQueryKey(roomId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRoomGames>>> = ({ signal }) => listRoomGames(roomId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: roomId !== null && roomId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRoomGames>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRoomGamesQueryResult = NonNullable<Awaited<ReturnType<typeof listRoomGames>>>
+export type ListRoomGamesQueryError = ErrorType<void>
+
+
+
+export function useListRoomGames<TData = Awaited<ReturnType<typeof listRoomGames>>, TError = ErrorType<void>>(
+ roomId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRoomGames>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRoomGamesQueryOptions(roomId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetGameStateUrl = (code: string,) => {
+
+
+
+
+  return `/api/games/${code}/state`
+}
+
+export const getGameState = async (code: string, options?: Parameters<typeof customFetch>[1]): Promise<GameView> => {
+
+  return customFetch<GameView>(getGetGameStateUrl(code),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGameStateQueryKey = (code: string,) => {
+    return [
+    `/api/games/${code}/state`
+    ] as const;
+    }
+
+
+export const getGetGameStateQueryOptions = <TData = Awaited<ReturnType<typeof getGameState>>, TError = ErrorType<void>>(code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGameState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGameStateQueryKey(code);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGameState>>> = ({ signal }) => getGameState(code, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: code !== null && code !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGameState>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGameStateQueryResult = NonNullable<Awaited<ReturnType<typeof getGameState>>>
+export type GetGameStateQueryError = ErrorType<void>
+
+
+
+export function useGetGameState<TData = Awaited<ReturnType<typeof getGameState>>, TError = ErrorType<void>>(
+ code: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGameState>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGameStateQueryOptions(code,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

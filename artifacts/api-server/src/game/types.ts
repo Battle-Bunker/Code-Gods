@@ -20,7 +20,17 @@ export type Game = {
   events: WorldEvent[]; recoveryReason?: string; executionEpoch?: number;
   /** Recovery caused by a restart or idling resumes by itself once a human is active again. */
   autoResume?: boolean;
+  /** Wall-clock end. Null for legacy games that ended before this was recorded. */
+  endedAt?: number | null;
+  endReason?: GameEndReason;
 };
+export type GameEndReason = "lifetime" | "owner" | "retired";
+/**
+ * A room is a persistent lobby: members, readiness and the owner's settings draft
+ * for the NEXT game. `game` is the room's current game slot: the active game, or the
+ * most recent one until the next launch. Each game is also stored on its own in
+ * cg_games, where its public result becomes the room's history once it ends.
+ */
 export type Room = {
   id: string; shortCode: string; ownerId: string; createdAt: number | null; revision: number;
   settings: GameSettings; members: Member[]; chat: Chat[]; game: Game | null;

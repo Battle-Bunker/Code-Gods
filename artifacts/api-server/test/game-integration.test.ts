@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 // These exports exist ONLY in the runner's in-memory DB fixture.
 // @ts-expect-error isolated test fixture
-import { fixtureRooms, fixtureGames, fixtureAgents, fixtureControl, fixtureDurableRoom, fixtureDurableBatches, fixtureBatches } from "@workspace/db";
+import { fixtureRooms, fixtureGames, fixtureAgents, fixtureControl, fixtureDurableRoom, fixtureDurableBatches, fixtureBatches, fixtureGameRows } from "@workspace/db";
 // @ts-expect-error isolated test fixture
 import { fixtureActors } from "../src/lib/identity";
 import express from "express";
@@ -12,6 +12,7 @@ import { once } from "node:events";
 import WebSocket from "ws";
 import roomsRouter from "../src/routes/rooms";
 import playerRouter from "../src/routes/player";
+import gamesRouter from "../src/routes/games";
 import { attachSockets } from "../src/game/socket";
 import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions } from "../src/game/store";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
@@ -469,6 +470,170 @@ test("games frozen by a restart or idling resume once a human is active; safety 
     assert.equal(resolveRoom(rooms[1].id).game!.phase, "recovery", "only restart/idle recoveries resume themselves");
   } finally {
     await stop?.();
+    shutdownRuntimeAdapters();
+  }
+});
+
+test("room lobby lifecycle: launch, end, history recorded, second game launched in the same room", { timeout: 120000 }, async (t) => {
+  await initializeRuntimeAdapters();
+  await recordHumanActivity();
+  const actors = ["Lobby Host", "Ada Seated", "Bo Seated", "Cy Latecomer"].map(name =>
+    ({ id: randomUUID(), name, kind: "human" as const, scope: "browser" as const }));
+  const [host, ada, bo, cy] = actors;
+  for (const actor of actors) fixtureActors.set(`lobby:${actor.name}`, actor);
+  const app = express();
+  app.use(express.json(), roomsRouter, playerRouter, gamesRouter);
+  app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? 400).json({ error: error.message }));
+  const server = createServer(app);
+  attachSockets(server);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const token = (actor: Actor) => `lobby:${actor.name}`;
+  const get = (path: string, actor = host) => fetch(`${base}${path}`, { headers: { authorization: `Bearer ${token(actor)}` } });
+  const act = (id: string, body: Record<string, unknown>, actor = host) => fetch(`${base}/rooms/${id}/actions`, {
+    method: "POST", headers: { authorization: `Bearer ${token(actor)}`, "content-type": "application/json" },
+    body: JSON.stringify({ requestId: randomUUID(), ...body }),
+  });
+  const json = async (response: Response | Promise<Response>) => {
+    const r = await response;
+    const body = await r.json();
+    assert.equal(r.status, 200, JSON.stringify(body));
+    return body;
+  };
+  const refused = async (response: Promise<Response>, pattern: RegExp) => {
+    const r = await response;
+    assert.notEqual(r.status, 200);
+    assert.match((await r.json()).error, pattern);
+  };
+  let stop: (() => Promise<void>) | undefined;
+  let ws: WebSocket | undefined;
+  /** Shorten the sampled lifetime so the ticker ends this game naturally within a second. */
+  const expireSoon = (id: string) => mutate(id, async draft => {
+    const g = draft.game!;
+    g.planningEndsAt = Date.now() - 1; g.endAtWorld = 0.2; g.nextSpawn = Number.MAX_VALUE;
+  });
+  const waitForEnd = async (id: string) => {
+    const deadline = Date.now() + 20000;
+    while (resolveRoom(id).game!.phase !== "ended") {
+      assert.ok(Date.now() < deadline, "the ticker ends the game when its lifetime elapses");
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+  };
+  try {
+    const { id } = await createRoom(host);
+    await json(act(id, { action: "join" }, ada));
+    await json(act(id, { action: "join" }, bo));
+    let room = await json(get(`/rooms/${id}`));
+    assert.equal(room.activeGame, null, "a new room is a lobby");
+    assert.equal(room.ownerName, "Lobby Host");
+    assert.equal(typeof room.createdAt, "number");
+    const firstSettings = { ...room.settings, language: "typescript", grammarId: "typescript-standard-v1", objectType: "Int", startingObjectCount: 4, spawnRateHz: 0 };
+    room = await json(act(id, { action: "settings", revision: room.revision, settings: firstSettings }));
+    await refused(act(id, { action: "start" }, ada), /owner/);
+
+    // Launch: the room points at its one active game, which has its own page.
+    room = await json(act(id, { action: "start" }));
+    const first = room.activeGame;
+    assert.ok(first, "the launched game is the room's active game");
+    assert.deepEqual(first.roster.map((m: any) => m.id).sort(), [host.id, ada.id, bo.id].sort());
+    assert.equal(fixtureGameRows.get(first.id).summary, null, "no result is recorded while the game runs");
+    let view = await json(get(`/games/${first.shortCode}/state`));
+    assert.equal(view.status, "active");
+    assert.equal(view.roomShortCode, room.shortCode);
+    assert.equal(view.objects.length, 4);
+    assert.deepEqual(view.winners, []);
+    await refused(act(id, { action: "start" }), /already a live game/);
+    await refused(act(id, { action: "settings", revision: room.revision, settings: firstSettings }), /frozen/);
+
+    // A latecomer joins mid-game: a member who spectates and is dealt in next game.
+    await json(act(id, { action: "join" }, cy));
+    const spectator = await json(get(`/player/v1/rooms/${id}/observation`, cy));
+    assert.equal(spectator.seated, false);
+    assert.equal(spectator.gameShortCode, first.shortCode);
+    assert.equal(spectator.self.utility, undefined);
+    assert.deepEqual(spectator.objects, []);
+    const seated = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+    assert.equal(seated.seated, true);
+    await refused(act(id, { action: "leave" }, ada), /seated in the active game/);
+    await refused(act(id, { action: "leave" }), /owner cannot leave/);
+    const chat = await json(act(id, { action: "chat", text: "Treaty proposal during game one" }, bo));
+    assert.ok(chat.chat.some((m: any) => m.text === "Treaty proposal during game one"));
+
+    // End by lifetime: result recorded in the room's history; the room is a lobby again.
+    stop = startTicker();
+    await expireSoon(id);
+    await waitForEnd(id);
+    room = await json(get(`/rooms/${id}`));
+    assert.equal(room.activeGame, null, "an ended game is no longer active");
+    const listed = (await json(get(`/rooms`))).find((r: any) => r.id === id);
+    assert.equal(listed.phase, "lobby");
+    assert.equal(listed.activeGameShortCode, null);
+    let history = await json(get(`/rooms/${id}/games`));
+    assert.equal(history.length, 1);
+    const [record] = history;
+    assert.equal(record.id, first.id);
+    assert.equal(record.shortCode, first.shortCode);
+    assert.equal(record.endReason, "lifetime");
+    assert.ok(record.endedAt >= record.startedAt);
+    assert.equal(record.settings.startingObjectCount, 4, "history keeps the settings the game was played with");
+    assert.equal(record.leaderboard.length, 3);
+    assert.ok(record.winners.length >= 1 && record.winners.every((w: any) => record.leaderboard.some((s: any) => s.deityId === w.deityId && s.rank === 1)));
+    assert.deepEqual(record.roster.map((m: any) => Object.keys(m).sort()), [0, 1, 2].map(() => ["id", "kind", "name"]));
+    for (const leak of ["utilities", "utility", "deities", "aiAgent", "endAtWorld", "source", "prompt"]) {
+      assert.ok(!JSON.stringify(history).includes(`"${leak}"`), `history never discloses ${leak}`);
+    }
+    view = await json(get(`/games/${first.shortCode}/state`));
+    assert.equal(view.status, "ended");
+    assert.deepEqual(view.winners, record.winners);
+    assert.ok(view.chat.some((m: any) => m.text === "Treaty proposal during game one"), "the game page shows chat sent during play");
+    assert.ok(!JSON.stringify(view).includes('"utilities"'));
+
+    // Between games: members can leave/join, and the owner edits the next game's settings.
+    await json(act(id, { action: "leave" }, cy));
+    await json(act(id, { action: "join" }, cy));
+    room = await json(get(`/rooms/${id}`));
+    await json(act(id, { action: "settings", revision: room.revision, settings: { ...firstSettings, startingObjectCount: 2 } }));
+    await json(act(id, { action: "chat", text: "Lobby talk after game one" }, cy));
+
+    // Second game in the same room, with the same members plus the latecomer.
+    room = await json(act(id, { action: "start" }));
+    const second = room.activeGame;
+    assert.notEqual(second.id, first.id);
+    assert.equal(second.roster.length, 4, "the latecomer is dealt into the next game");
+    assert.equal((await json(get(`/player/v1/rooms/${id}/observation`, cy))).seated, true);
+    view = await json(get(`/games/${second.shortCode}/state`));
+    assert.equal(view.objects.length, 2);
+    assert.ok(!view.chat.some((m: any) => m.text === "Treaty proposal during game one"), "each game page shows only its own chat");
+    const old = await json(get(`/games/${first.id}/state`));
+    assert.equal(old.status, "ended", "a previous game stays viewable as its final state");
+    assert.equal(old.settings.startingObjectCount, 4);
+    assert.equal(old.roomActiveGame.id, second.id, "an old game's page can point to the room's newer game");
+    assert.equal(old.objects.length, 4);
+
+    // The owner ends the second game early; a socket hears it end.
+    ws = new WebSocket(`ws://127.0.0.1:${(server.address() as { port: number }).port}/api/rooms/${id}/ws`, { headers: { authorization: `Bearer ${token(ada)}` } });
+    const ended = new Promise<any>((resolve, reject) => {
+      ws!.on("message", raw => { const message = JSON.parse(raw.toString()); if (message.type === "game.ended") resolve(message.payload); });
+      ws!.on("error", reject);
+      t.signal.addEventListener("abort", () => reject(new Error("aborted")));
+    });
+    await once(ws, "open");
+    await refused(act(id, { action: "endGame" }, ada), /owner/);
+    await json(act(id, { action: "endGame" }));
+    const endedEvent = await ended;
+    assert.equal(endedEvent.id, second.id);
+    assert.equal(endedEvent.endReason, "owner");
+    history = await json(get(`/rooms/${id}/games`));
+    assert.deepEqual(history.map((g: any) => g.id), [second.id, first.id], "history is newest first");
+    assert.equal(history[0].settings.startingObjectCount, 2);
+    assert.equal(history[0].roster.length, 4);
+    await refused(act(id, { action: "endGame" }), /no active game/);
+    assert.equal((await json(get(`/rooms/${id}`))).activeGame, null);
+  } finally {
+    ws?.close();
+    await stop?.();
+    server.close();
     shutdownRuntimeAdapters();
   }
 });

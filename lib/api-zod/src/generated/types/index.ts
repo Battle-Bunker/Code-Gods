@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './activeGameRef';
 export * from './aiAgent';
 export * from './aiAgentInput';
 export * from './aiAgentInputProvider';
@@ -23,6 +24,10 @@ export * from './deleteAdminAiAgentParams';
 export * from './deviceApprovalInput';
 export * from './gameLink';
 export * from './gameLinkStatus';
+export * from './gameRecord';
+export * from './gameRecordEndReason';
+export * from './gameView';
+export * from './gameViewStatus';
 export * from './getCurrentAuthUser200';
 export * from './healthStatus';
 export * from './listAdminAiAgents200';
@@ -39,6 +44,8 @@ export * from './roomActionInputAction';
 export * from './roomInput';
 export * from './roomState';
 export * from './roomSummary';
+export * from './rosterEntry';
+export * from './rosterEntryKind';
 export * from './settings';
 export * from './settingsLanguage';
 export * from './settingsObjectType';
@@ -47,3 +54,4 @@ export * from './settingsSpawnFunctionId';
 export * from './standing';
 export * from './statusResult';
 export * from './utilityFamily';
+export * from './winner';

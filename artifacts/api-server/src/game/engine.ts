@@ -78,6 +78,18 @@ export async function startGame(room: Room, actor: Actor) {
   room.members.forEach(m => { m.ready = false; });
 }
 
+/** The owner closes the active game early; its final state is recorded like any other ending. */
+export function endGame(room: Room, actor: Actor) {
+  owner(room, actor);
+  const game = room.game;
+  if (!game || game.phase === "ended") throw new Error("There is no active game to end");
+  // Invalidates in-flight interactions: completions recheck phase and epoch.
+  game.executionEpoch = (game.executionEpoch ?? 0) + 1;
+  game.phase = "ended";
+  game.endReason = "owner";
+  delete game.autoResume;
+}
+
 export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string; payload?: Record<string, unknown> }) {
   member(room, actor);
   if (!input.requestId || input.requestId.length > 100) throw new Error("Invalid request ID");

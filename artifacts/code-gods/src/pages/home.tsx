@@ -133,7 +133,10 @@ function Rooms() {
                       </span>
                     </span>
                     <span className="font-mono text-sm tabular-nums">{r.memberCount}<span className="text-muted-foreground"> seats</span></span>
-                    <span className={`label-mono !text-inherit px-2 py-1 ${phaseTone(r.phase)}`}>{r.phase}</span>
+                    <span className="flex flex-col items-start sm:items-end gap-1">
+                      <span className={`label-mono !text-inherit px-2 py-1 ${phaseTone(r.phase)}`} data-testid={`text-room-phase-${r.id}`}>{r.activeGameShortCode ? `game ${r.phase}` : r.phase}</span>
+                      {r.activeGameShortCode && <span className="font-mono text-xs text-muted-foreground" data-testid={`text-room-game-${r.id}`}>game {r.activeGameShortCode}</span>}
+                    </span>
                   </button>
                 </li>
               ))}
