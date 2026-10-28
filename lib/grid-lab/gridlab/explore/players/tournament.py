@@ -7,7 +7,7 @@ assignments on shared seeds controls for deal luck (paired comparisons).
 Each game result is `experiments.common.ext_metrics(log, tables)` plus `dynamism2`, per-god extras
 (`share` = Π_i / mean_j Π_j, `z` = (G − rank)/(G − 1)) and SmartPolicy diagnostics, cached as one JSON
 per game under .cache/explore_players/ keyed by (setting, match, code hash of gridlab/*.py, rules and
-this package).
+this package's policies.py and features.py).
 """
 from __future__ import annotations
 
@@ -50,8 +50,9 @@ class Match:
 def _code_hash() -> str:
     h = hashlib.sha256()
     g = ROOT / "gridlab"
+    pl = g / "explore" / "players"
     files = sorted(list(g.glob("*.py")) + list((g / "rules").glob("*.py")) +
-                   list((g / "explore" / "players").glob("*.py")))
+                   [pl / "policies.py", pl / "features.py"])
     for f in files:
         h.update(f.name.encode())
         h.update(f.read_bytes())
