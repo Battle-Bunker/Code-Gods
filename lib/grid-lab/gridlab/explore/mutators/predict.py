@@ -53,6 +53,8 @@ def main(argv=None):
             "landscape 1-step yield": [F[f]["one"] for f in fams],
             "library best-of-12 yield": [LYt[f]["lib_bestK"] for f in fams],
             "library share of positive programs": [LYt[f]["lib_pos"] for f in fams],
+            "passive gain: mean Δs of a random library agent": [LYt[f]["lib_mean_d"] for f in fams],
+            "passive gain, positive part": [LYt[f]["lib_mean_up"] for f in fams],
             "calibrated ceiling (bits)": [F[f]["ceil"] for f in fams],
             "route yield × ceiling": [F[f]["route"] * F[f]["ceil"] for f in fams],
             "library best-of-12 × ceiling": [LYt[f]["lib_bestK"] * F[f]["ceil"] for f in fams]}

@@ -71,7 +71,9 @@ def _work(i):
         for m in mids[j]:
             use[m] += max(y[j], 0) / len(mids[j])
     return i, {"family": draw.family.id, "lib_best": float(y.max()), "lib_bestK": _expected_max_of_k(np.maximum(y, 0), 12),
-               "lib_pos": float((y > 0.005).mean()), "use": dict(use)}
+               "lib_pos": float((y > 0.005).mean()), "use": dict(use),
+               # passive gain: mean Δs per application of a uniformly random library agent (anyone's)
+               "lib_mean_d": float(d.mean()), "lib_mean_up": float(np.clip(S1 - s0[None], 0, None)[:, te].mean())}
 
 
 def run(gt: GridType, preset: str = "default", k: int = 3, processes: int = 4) -> dict:
@@ -99,7 +101,7 @@ def run(gt: GridType, preset: str = "default", k: int = 3, processes: int = 4) -
 
 
 def load_or_run(gt: GridType, preset: str = "default", k: int = 3, **kw) -> dict:
-    p = ST.CACHE / f"libyield-{gt.key}-{preset}-{preset_tag(preset)[:10]}-k{k}.pkl"
+    p = ST.CACHE / f"libyield-{gt.key}-{preset}-{preset_tag(preset)[:10]}-k{k}-v2.pkl"
     if p.exists():
         with open(p, "rb") as fh:
             return pickle.load(fh)
@@ -114,7 +116,8 @@ def family_table(R: dict) -> dict:
     by = defaultdict(list)
     for r in R["draws"]:
         by[r["family"]].append(r)
-    return {f: {k: float(np.mean([x[k] for x in rs])) for k in ("lib_best", "lib_bestK", "lib_pos")} for f, rs in by.items()}
+    keys = [k for k in ("lib_best", "lib_bestK", "lib_pos", "lib_mean_d", "lib_mean_up") if k in R["draws"][0]]
+    return {f: {k: float(np.mean([x[k] for x in rs])) for k in keys} for f, rs in by.items()}
 
 
 if __name__ == "__main__":
