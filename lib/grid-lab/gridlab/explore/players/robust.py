@@ -25,7 +25,7 @@ POPULATIONS = {
     "engine": ("random", "greedy_private", "saver", "greedy_omniscient"),
     "greedy": ("greedy_private",),
     # stronger private-information players from this study
-    "strong": ("k32_bar", "ridge", "planner", "copycat", "burst"),
+    "strong": ("saver", "k32_bar", "burst", "saver_ridge", "saver_planner"),
     # noisier, more human-like mix: talkers who announce goals, learners, impulsive spenders
     "human": ("talker", "bandit", "random", "afford", "copycat", "listener"),
 }
@@ -39,6 +39,8 @@ SETTINGS = {
     "bij_dear": {"knobs": {"kind": {"bijective": 2.0}}},
     "global_dear": {"knobs": {"scope": {"global": 2.0}}},
     "metabolic": {"config": {"metabolic_cost": 0.02}},
+    "erase15": {"knobs": {"erase": 1.5}},
+    "halflife": {"config": {"agent_half_life": 120.0}},
 }
 
 KEYS = ["dynamism2", "dynamism", "welfare", "sig_tension_rate", "snap_tension", "climbs_held_accel_per_100s",
