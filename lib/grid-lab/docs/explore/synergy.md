@@ -17,8 +17,8 @@ pass, untouched.
 default at 100 Hz, 0.1 Hz spawns, 10 starting objects, the **uniform prior**, exponential length with
 a 300 s half-life, 3–6 gods, and per-god policies iid from {random, greedy_private, saver,
 greedy_omniscient}. Dealer comparisons are **paired**: every dealer plays the same game specs (seed,
-number of gods, policies). The other sessions' new defaults (PR #8) and the self-play prior (PR #17)
-were not used. The fairness findings in particular may shrink under the empirical prior, which is
+number of gods, policies). The new world defaults (PR #8) were used only in the robustness run (§3.4).
+The self-play prior (PR #17) was not used. The fairness findings in particular may shrink under the empirical prior, which is
 reported to remove most of the clumper bias. §5.3 separates what depends on the prior and the policies
 from what does not.
 
