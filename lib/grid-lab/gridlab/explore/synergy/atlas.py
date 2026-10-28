@@ -421,7 +421,9 @@ def pmi_matrix(state: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     ths = state["thresholds"]
     # binary draws: one ordinal jump covers every depth (e.g. Picture Frame, 0 -> 32 bits). The climb
     # cannot enter an all-or-nothing contour set, so their censored pairs carry no information.
-    binary = [len({x[0] for x in t if x}) == 1 and all(x for x in t) for t in ths]
+    dps = state["depths"]
+    binary = [len({x[0] for x in t if x}) == 1 and sum(1 for x in t if x) >= 2 and
+              max(x[1] for x in t if x) >= dps[1] for t in ths]
     for (i, j), r in state["joint"].items():
         if r is None:
             continue

@@ -12,7 +12,10 @@ Params are then sampled by sim.deal (dealer "fixed"), so dealers act on families
                   (rejection sampling, up to 400 tries; else the deal with the most satisfied gods)
   max_var         best of 32 uniform deals by the variance of the pairwise W (strong allies and rivals)
   baron           Border Baron always dealt (a structure-feeding parasite), rest uniform
-  aligned         best of 32 by mean pairwise W   (probe: a friendly table; not a recommendation)
+  aligned         best of 32 by mean pairwise W   (a friendly table; first run as a probe, it won)
+  fair_aligned    best of 32 by mean pairwise W − 1.0 · sd over gods of each god's mean W to the
+                  rest of the table: friendly, and no god much friendlier with the table than another
+                  (a god's in-game strength tracks its alignment with the table, docs/explore/synergy.md)
   hostile         worst of 32 by mean pairwise W  (probe: a hostile table)
 
 W is the family-level atlas matrix at one depth (default: the depth average), read from the JSON
@@ -96,7 +99,7 @@ def _round_robin(groups: dict, G: int, rng) -> list[str]:
 
 
 def make_dealer(name: str, fm: FamilyMatrix, pool: Sequence[str], a: float = 2.0, tries: int = 32,
-                baron: str = "border_baron") -> Callable[[int, np.random.Generator], list[str]]:
+                baron: str = "border_baron", lam: float = 1.0) -> Callable[[int, np.random.Generator], list[str]]:
     pool = [f for f in pool if f in fm.idx]
 
     if name == "uniform":
@@ -141,6 +144,17 @@ def make_dealer(name: str, fm: FamilyMatrix, pool: Sequence[str], a: float = 2.0
                     best, bs = d, s
             return best
         return deal
+    if name == "fair_aligned":
+        def score(d):
+            ix = [fm.idx[f] for f in d]
+            sub = fm.W[np.ix_(ix, ix)]
+            per = (sub.sum(1) - np.diag(sub)) / (len(d) - 1)
+            return float(sub[np.triu_indices(len(d), 1)].mean() - lam * per.std())
+
+        def deal(G, rng):
+            cands = [_uniform(pool, G, rng) for _ in range(tries)]
+            return max(cands, key=score)
+        return deal
     if name in ("max_var", "aligned", "hostile"):
         key = {"max_var": lambda v: v.var(), "aligned": lambda v: v.mean(), "hostile": lambda v: -v.mean()}[name]
 
@@ -152,4 +166,4 @@ def make_dealer(name: str, fm: FamilyMatrix, pool: Sequence[str], a: float = 2.0
 
 
 DEALERS = ("uniform", "hand_camps", "atlas_camps", "cross_layer", "ally_rival", "max_var", "baron",
-           "aligned", "hostile")
+           "aligned", "hostile", "fair_aligned")
