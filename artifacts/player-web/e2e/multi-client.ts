@@ -273,10 +273,18 @@ await playGame("string", async () => {
     await pages.carol.waitForFunction(() => document.body.textContent!.includes("assistant speaking for bob"), null, { timeout: 20_000 });
     const observation = JSON.parse(playerCli("bob", ["assistant", "observation"]));
     const gameId = JSON.stringify(observation).match(/"gameId":"([^"]+)"/)?.[1];
-    const summon = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId,
-      command: { type: "summon", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
-    const result = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(summon)));
-    assert(JSON.stringify(result).includes("\"accepted\":true"), `summon receipt ${JSON.stringify(result).slice(0, 300)}`);
+    // Bob's god energy went into his first summon; it accrues in real time, so the assistant retries until
+    // it covers the price. A refused command has a final receipt, so each attempt is a new command.
+    const result = await until(() => {
+      const summon = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId,
+        command: { type: "summon", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
+      const receipt = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(summon)));
+      const text = JSON.stringify(receipt);
+      if (text.includes("\"accepted\":true")) return text;
+      assert(text.includes("Insufficient energy"), `summon receipt ${text.slice(0, 300)}`);
+      return undefined;
+    }, "bob's god energy covers a second summon", 180_000);
+    assert(result, "summon accepted");
     await pages.bob.waitForFunction(() => document.querySelectorAll("[data-testid^=row-agent-]").length >= 2, null, { timeout: 30_000 });
   });
   await check("assistant observation discloses only bob's own scores and peer aggregates", async () => {
