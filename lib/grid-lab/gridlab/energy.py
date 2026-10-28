@@ -84,6 +84,14 @@ def split_terms(prog, gt: GridType) -> tuple[float, float]:
     return float(desc), float(act)
 
 
+def naming_bits(prog, gt: GridType) -> float:
+    """The description bits of what the program does (each step's tool naming + parameters, and the guard's
+    kind + parameters), i.e. summon_bits minus the agent base and the ratchet surcharge. Charged again on
+    every act as decision bits when GameConfig.agent_act_naming > 0 (an experimental variant)."""
+    t = prog.cost_terms(gt)
+    return split_terms(prog, gt)[0] - t["agent_base"] - t["ratchet"]
+
+
 def summon_bits(prog, gt: GridType) -> float:
     return split_terms(prog, gt)[0]
 

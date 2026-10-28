@@ -216,7 +216,10 @@ class GreedyPolicy(Policy):
         """agent_energy: expected acts/s of each candidate if summoned now (see module docstring)."""
         from .energy import profile
         w, c = self.world, self.world.cfg
-        per = np.array([profile(p, w.gtype).expected for p in progs]) * c.cost_scale
+        from .energy import naming_bits
+        k = c.agent_act_naming
+        per = np.array([profile(p, w.gtype).expected + (k * naming_bits(p, w.gtype) if k else 0.0)
+                        for p in progs]) * c.cost_scale
         return np.minimum(c.agent_income / np.maximum(per, 1e-3), c.interaction_rate_hz / (len(w.agents) + 1))
 
     def scale(self) -> float:

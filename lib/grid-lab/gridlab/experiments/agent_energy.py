@@ -42,16 +42,20 @@ def _name(i, b):
 
 
 SETTINGS: dict = {"summon": BASE, "owner_pays": setting(config={"economy": "owner_pays"})}
-for _i in (0.25, 1.0, 2.0, 4.0, 16.0):
+# the experiment worker's new world defaults (spawn 0.5 Hz, 80 starting objects at 100 Hz)
+WORLD80 = {"spawn_rate_hz": 0.5, "starting_objects": 80}
+for _i in (0.02, 0.05, 0.1, 0.25, 1.0, 2.0, 4.0):
     SETTINGS[_name(_i, 2)] = energy_setting(_i)
-for _b in (1.0, 8.0):
-    SETTINGS[_name(2, _b)] = energy_setting(2.0, _b)
-SETTINGS["energy_I2_B2_start1"] = energy_setting(2.0, agent_start="one")
-SETTINGS["energy_I2_B2_naive"] = energy_setting(2.0, policy_kwargs={"energy_aware": False})
-SETTINGS["energy_I2_B2_nodestroy"] = energy_setting(2.0, policy_kwargs={"destroy": False})
+for _i in (0.25, 2.0):
+    SETTINGS[_name(_i, 2) + "_naming"] = energy_setting(_i, agent_act_naming=1.0)
+SETTINGS["energy_I0p25_B2_nodestroy"] = energy_setting(0.25, policy_kwargs={"destroy": False})
+SETTINGS["w80_summon"] = setting(config=WORLD80)
+for _i in (0.05, 0.25, 1.0, 2.0):
+    SETTINGS["w80_" + _name(_i, 2)] = energy_setting(_i, **WORLD80)
+SETTINGS["w80_energy_I2_B2_naming"] = energy_setting(2.0, agent_act_naming=1.0, **WORLD80)
 MAIN = list(SETTINGS)
-FOCUS = ("energy_I2_B2",)   # settings whose family moves vs summon are listed
-SPAM = ["summon", "owner_pays", "energy_I1_B2", "energy_I2_B2", "energy_I4_B2"]
+FOCUS = ("energy_I0p25_B2", "energy_I2_B2")   # settings whose family moves vs summon are listed
+SPAM = ["summon", "energy_I0p25_B2", "energy_I2_B2", "energy_I2_B2_naming"]
 
 
 def make_specs(types, n, seed0, mix=MIX) -> list[GameSpec]:

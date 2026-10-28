@@ -121,6 +121,7 @@ class GameConfig:
     agent_income: float = 0.4                            # bits/s per agent; 0.4 at 20 Hz = the recommended 2 at 100 Hz
     agent_battery: float = 2.0                           # energy cap, in expected acts
     agent_start: str = "zero"                            # "zero" | "one" (one expected act, paid by the god)
+    agent_act_naming: float = 0.0                        # × energy.naming_bits charged on every act (variant)
     # rates
     interaction_rate_hz: float = 20.0
     spawn_rate_hz: float = 0.1
@@ -320,6 +321,7 @@ class World:
         self.e_t = -cfg.planning_seconds    # time the accounts were last accrued to
         self.a_prof: list = []              # energy.ActProfile per agent
         self.a_act_cost: list = []          # owner_pays: per-commit bits per agent
+        self.a_naming: list = []            # agent_energy: naming bits charged per act (agent_act_naming)
 
     # --- state helpers -------------------------------------------------------------------------
     @property
@@ -490,11 +492,13 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
             else:
                 prof = energy.profile(prog, gt)
                 cost = prof.summon * cfg.cost_scale
-                ex = (prof.expected if econ == "agent_energy" else prof.analytic) * cfg.cost_scale
+                nm = cfg.agent_act_naming * energy.naming_bits(prog, gt) if econ == "agent_energy" else 0.0
+                ex = (prof.expected + nm if econ == "agent_energy" else prof.analytic) * cfg.cost_scale
                 extra = ex if (econ == "agent_energy" and cfg.agent_start == "one") else 0.0
                 aid = world.summon(god, prog, cost, act_exp=ex, extra=extra)
                 if aid is not None:
                     world.a_prof.append(prof)
+                    world.a_naming.append(nm)
                     world.a_act_cost.append(ex)
                     a_sbits.append(cost)
                     a_exp.append(ex)
@@ -612,7 +616,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 dup = True
             else:
                 dup = False
-            bits = (dec + (er + mo if new is not None else 0.0)) * cfg.cost_scale
+            bits = (dec + world.a_naming[aid] + (er + mo if new is not None else 0.0)) * cfg.cost_scale
             act_energy.append(world.a_energy[aid])
             world.a_energy[aid] -= bits
             world.a_charged[aid] += bits

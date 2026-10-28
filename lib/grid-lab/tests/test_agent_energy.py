@@ -231,6 +231,16 @@ def test_destroy_is_free():
     assert off.counters["destroys"] == 0
 
 
+def test_act_naming_variant():
+    """agent_act_naming = 1 charges each act its program's naming bits on top of the pointwise cost."""
+    log = game(seed=18, agent_act_naming=1.0, agent_income=4.0)
+    base = game(seed=18, agent_income=4.0)
+    assert len(log.act_bits) > 0
+    assert (log.a_act_exp > 2.0).all()                    # naming is >= one tool name (log2 #mutators)
+    assert (log.act_bits >= 2.0).all()
+    assert np.median(log.act_bits) > 5 * max(np.median(base.act_bits), 1e-3)
+
+
 def test_determinism():
     a = game(seed=8)
     b = game(seed=8)
