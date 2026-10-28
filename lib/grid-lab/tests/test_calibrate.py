@@ -51,10 +51,12 @@ def test_monotone():
             T = cal.survival(Draw(f, {"colour": 2}), gt)
             ts = np.arange(int(T.levels[0]) - 3, int(T.levels[-1]) + 6)
             s = T.surprisal(ts)
-            assert (s >= 0).all() and (np.diff(s) >= -1e-12).all(), f.id
+            assert (s >= 0).all() and (np.diff(s) > 0).all(), f.id
             # scalar and vector lookups agree
-            assert all(abs(T.surprisal(int(t)) - x) < 1e-12 for t, x in zip(ts, s))
-            assert T.surprisal(int(T.levels[-1]) + 100) <= T.max_observed_bits + cal.EXTRAP_CAP_BITS
+            assert all(abs(T.surprisal(int(t)) - x) < 1e-9 for t, x in zip(ts, s))
+            # uncapped, strictly increasing extrapolation at the fitted slope (>= MIN_SLOPE_BITS per step)
+            top = int(T.levels[-1])
+            assert T.surprisal(top + 100) - T.surprisal(top) >= 100 * cal.MIN_SLOPE_BITS - 1e-9
 
 
 def test_p_value_property():
@@ -169,9 +171,11 @@ def test_tuple_ordinals():
         b = cal.build_table(Draw(tup_fam, {"colour": 1}), gt)
         assert b.levels.dtype.kind == "S" and len(a.levels) == len(b.levels)
         assert np.array_equal(a.log2p, b.log2p), gt.key
-        for t in range(-1, gt.N * gt.N + 3):
+        for t in a.levels.tolist():
             assert a.surprisal(t) == b.surprisal((t, 0)), (gt.key, t)
-        assert b.surprisal((3, 5)) == a.surprisal(3) and b.surprisal((3, -5)) == a.surprisal(2)
+        # unobserved tuples fall strictly between their neighbouring levels
+        x = int(a.levels[len(a.levels) // 2])
+        assert a.surprisal(x - 1) < b.surprisal((x, -5)) < a.surprisal(x) < b.surprisal((x, 5)) < a.surprisal(x + 1)
     f = by_id("seed3_green_ones")
     d = Draw(f, f.sample(np.random.default_rng(0), GT5))
     est, ex = cal.survival(d, GT5, use_exact=False), cal.survival(d, GT5)
@@ -184,6 +188,67 @@ def test_tuple_ordinals():
     assert u.shape == (300, 2)
     vec = est.surprisal(u)
     assert all(abs(vec[i] - est.surprisal(tuple(int(x) for x in u[i]))) < 1e-12 for i in range(300))
+
+
+STRICT_GTYPES = (GridType(5, "base10", "rgby"), GridType(5, "cards", "rainbow6"), GridType(4, "base16", "rgb"))
+STRICT_BUDGET = cal.Budget(n_mc=1 << 12, min_mc_count=64, n_particles=200, target_bits=32.0)
+
+
+def _probe_ordinals(f, p, gt, T, rng) -> list:
+    """Ordinals from random and structured grids and the exemplar, plus synthetic ones below the lowest
+    and above the highest level of the table."""
+    from tests.test_cards import grids_for
+    gs = grids_for(f, p, gt, rng)
+    u = f.evaluate_batch(np.stack([g.sym for g in gs]), np.stack([g.col for g in gs]), p, gt).tolist()
+    out = {tuple(x) if isinstance(x, list) else x for x in u}
+    lo, hi = cal.key_to_ordinal(T.levels[0]), cal.key_to_ordinal(T.levels[-1])
+    if isinstance(hi, tuple):
+        k = len(hi)
+        out |= {(hi[0],) + hi[1:-1] + (hi[-1] + 1,), (hi[0] + 1,) + (-5,) * (k - 1), (hi[0] + 7,) + (0,) * (k - 1),
+                (lo[0],) + lo[1:-1] + (lo[-1] - 1,), (lo[0] - 2,) + (9,) * (k - 1)}
+    else:
+        out |= {hi + 1, hi + 2, hi + 50, lo - 1, lo - 30}
+    return sorted(out)
+
+
+def check_strict(fid: str) -> list[str]:
+    from gridlab.rules import by_id
+    f = by_id(fid)
+    errs = []
+    for gt in STRICT_GTYPES:
+        if not f.available(gt):
+            continue
+        rng = np.random.default_rng(len(fid) * 1000 + gt.N)
+        p = f.sample(rng, gt)
+        d = Draw(f, p)
+        tables = [cal.survival(d, gt, use_exact=False, budget=STRICT_BUDGET)]
+        if f.exact_log2_tail is not None:
+            tables.append(cal.survival(d, gt, budget=STRICT_BUDGET))
+        q = cal.canonical_params(d, gt)
+        ts = _probe_ordinals(f, q, gt, tables[0], rng)
+        for T in tables:
+            # an exact tail proves some synthetic ordinals impossible (mass 0, infinite bits): skip those
+            tt = [t for t in ts if T.exact is None or math.isfinite(T.surprisal(t))]
+            s = [T.surprisal(t) for t in tt]
+            for (t1, s1), (t2, s2) in zip(zip(tt, s), zip(tt[1:], s[1:])):
+                if not (s2 > s1 >= 0):
+                    errs.append(f"{fid} {gt.key} {p}{' exact' if T.exact else ''}: s({t2}) = {s2!r} "
+                                f"not > s({t1}) = {s1!r} (top level {cal.key_to_ordinal(T.levels[-1])})")
+                    break
+            vec = T.surprisal(np.array(tt, dtype=np.int64))
+            if not np.allclose(vec, s, rtol=0, atol=1e-9):
+                errs.append(f"{fid} {gt.key}: vector and scalar lookups disagree")
+    return errs
+
+
+def test_strictly_increasing():
+    """Every family on a few GridTypes: surprisal(t2) > surprisal(t1) for every pair of distinct
+    observed ordinals t2 > t1, including below the lowest and above the highest table level."""
+    from multiprocessing import Pool
+    from gridlab.rules import FAMILIES
+    with Pool() as pool:
+        errs = [e for es in pool.map(check_strict, [f.id for f in FAMILIES]) for e in es]
+    assert not errs, "\n".join(errs[:10]) + f"\n({len(errs)} failures)"
 
 
 def main():

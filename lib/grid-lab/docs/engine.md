@@ -56,16 +56,30 @@ ordinal, its key, a `(B,)` / `(B, k)` batch from `evaluate_batch`, or an array o
    the starting level, converted to bits². The splitting part is multiplied by `SE_INFLATION = 1.6`
    as a margin for slow mixing.
 
-**Lookup rule.** `log2_tail(t)` uses the largest level ≤ t. An unseen ordinal between two levels
-gets the lower level's (smaller) surprisal, which is conservative: it never claims more bits than a
-level supports. Below the smallest level the surprisal is 0.
+**Invariant: surprisal is strictly increasing in the ordinal.** A higher utility output always earns
+strictly more bits, so the kid intuition "bigger is better" always matches the scoring. This is true
+in the maths (every grid has positive prior mass, so U(x) ⊊ U(y) whenever u(x) > u(y)), and the
+lookups keep it (ESTIMATOR_VERSION 3):
 
-**Extrapolation above the highest level** (the ordinal was never seen during estimation): s(max
-level) + 1 bit per further *known* distinct ordinal up to t, minimum +1 and capped at
-`EXTRAP_CAP_BITS = 4` extra. The only known ordinal above the levels is u(exemplar), when the family
-has an exemplar. The table usually reaches 64+ bits, and 2^-64 is beyond anything a game produces by
-chance, so this cap rarely matters. It is only there so an object built deliberately above the
-estimated range scores slightly more than the deepest level, by a bounded amount.
+* **Clean-up** (`strict_bits`): the raw level estimates go through weighted isotonic regression
+  (pool-adjacent-violators, weights 1/se²), then every level gets at least `MIN_STEP_BITS = 1e-6`
+  more than the one below it. The lowest level gets at least that much too, so ordinals below it can
+  still score less. The old running minimum could leave plateaus.
+* **Between two levels** an unseen ordinal interpolates linearly in `ordinal_distance` from the lower
+  level. For ints that is t − a. For tuples it is whole steps of the first component plus a fraction
+  in (0, 1) from the remaining components. It is strictly increasing in t and strictly decreasing in
+  a. The value never exceeds the next level's estimate, which bounds the truth there.
+* **Below the lowest level:** bits[0] / (1 + distance). It stays positive and strictly increasing.
+* **Above the highest level:** bits[-1] + slope × distance, uncapped. The slope is fitted over the
+  last `SLOPE_LEVELS = 4` levels, with at least `MIN_SLOPE_BITS = 0.05` bits per ordinal step.
+  Previously this was capped at +4 bits, which flattened the top of rules whose tables stop early.
+* **Exact tails** give -log₂ μ{u ≥ t} plus a tiny strictly increasing term (< MIN_STEP_BITS), so
+  ordinals whose tails round to the same float still order strictly. Ordinals an exact tail proves
+  impossible get infinite bits, which is correct: no grid has them.
+
+`tests/test_calibrate.py::test_strictly_increasing` checks this for all 88 families on three
+GridTypes, with both estimated and exact tables. It uses ordinals from random and structured grids,
+the exemplar, and synthetic ordinals below the lowest and above the highest level.
 
 ### 1.2 Error behaviour (measured)
 
@@ -90,7 +104,10 @@ seed families and GridTypes (ties make it < 1; the occasional > 1 is sampling no
 
 Failure modes:
 * **Kernel cannot reach a level.** If the high set is disconnected under single-cell moves and swaps,
-  splitting stops early and max_observed_bits is low. Extrapolation then gives +1 to +4 bits.
+  splitting stops early and max_observed_bits is low. Extrapolation then continues at the fitted slope.
+  Retrying stuck stages with up to 64× more MCMC steps was tried and did not move `robin_hood` or
+  `lone_peak` at all; it made builds about 3× slower, so it was not kept. `lone_peak` now has an exact
+  tail instead.
   `meta["stopped_early"]` (target_bits not reached) and `meta["top_reached"]` (the exemplar's ordinal
   is among the levels) tell the cases apart: stopped early at the true top is fine, but stopped early
   without reaching the top means the kernel got stuck. On Grid(5,base10,rgby), 35 of the 54 tables stop

@@ -316,6 +316,22 @@ def lp_exemplar(p, gtype):
     return grid(s, col)
 
 
+def lp_tail(t, p, gtype):
+    """Exact μ{(gap, has) >= t} for iid cells: order statistics of the values plus the top cell's colour."""
+    g, h = t
+    if (g, h) <= (0, 0):
+        return 0.0
+    n, q = gtype.N ** 2, 1.0 / gtype.C
+    vs, cnt = np.unique(gtype.value, return_counts=True)
+    pv = {int(v): c / gtype.S for v, c in zip(vs, cnt)}
+    F = lambda x: sum(pr for v, pr in pv.items() if v <= x)  # noqa: E731
+    if g == 0:  # h == 1: some top cell is your colour (which every gap >= 1 also has)
+        tot = sum((F(m - 1) + pm) ** n - (F(m - 1) + pm * (1 - q)) ** n for m, pm in pv.items())
+    else:       # a unique top of your colour standing at least g above the rest
+        tot = sum(n * q * pm * F(m - g) ** (n - 1) for m, pm in pv.items())
+    return math.log2(tot) if tot > 0 else float("-inf")
+
+
 LONE_PEAK = mk(
     id="lone_peak", name="Lone Peak", theme="One mountain towering over everything",
     requires=req("Valued"), layers={"colour", "symbol"}, camp="neutral",
@@ -323,6 +339,7 @@ LONE_PEAK = mk(
     summary=lambda p, gt: (f"The biggest number on the grid should be alone and {cname(gt, p['X'])}. Score = how much "
                            "bigger it is than the second biggest. If it is tied or the wrong colour you score 0."),
     ordinal=lp_ord, batch=lp_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=lp_exemplar,
+    exact_log2_tail=lp_tail,
     source="catalog#27 (strat#9); tie-breaker = some top cell is your colour", tags={"shortlist"})
 
 

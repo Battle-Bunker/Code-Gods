@@ -7,7 +7,7 @@ Every shortlisted family also has a kid-readable card (`card_source`, `rules/car
 
 **88 families**: the 3 seeds, all 31 shortlisted rules (`tags={"shortlist"}`, seeds also `"seed"`), every distinct
 appendix rule, and 13 of the lens files' undeveloped "cross-lens ideas". **Every family has `batch`** (vectorised
-over `(B, N, N)`), an independent scalar `ordinal`, and an `exemplar`. 68 have `canonical`, and 8 have `exact_log2_tail`.
+over `(B, N, N)`), an independent scalar `ordinal`, and an `exemplar`. 68 have `canonical`, and 9 have `exact_log2_tail`.
 
 ## 1. How the brainstorm was converted
 
@@ -70,7 +70,8 @@ An ordinal utility is an `int`, or a fixed-length tuple of ints compared lexicog
    for a different reason: every valid offset gives the same Bin(N², 1/#values) law. The tests check every canonical
    map statistically (KS test on 2000 + 2000 random grids, α ≈ 1e-6) and check that it is idempotent.
 
-Exact tails (`exact_log2_tail`) exist for:
+Exact tails (`exact_log2_tail`) exist for Lone Peak (order statistics: a unique top of your colour at least g above
+the rest) and:
 - Seed 3 and Lucky Token: the multinomial of tokens and half-tokens, so the tuple order is handled exactly;
 - Conqueror (both weights), Homebody and Parity Painter: exact convolution of the per-cell laws;
 - Picture Frame: `−(4N−4)·log₂K`;
@@ -121,7 +122,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `parity_painter` ★ | Parity Painter | C+S | neutral | Valued | Σ ±1: +1 if (even/red-suit ∧ P) or (odd/black-suit ∧ Q), −1 for the swapped pairing | — | S_k colours; exact trinomial tail | exact, canon | catalog#8 (D13: strat#10 ±1 scoring; strat's Suited key as key=suit) |
 | `mirrormancer` ★ | Mirrormancer | C+S+P | neutral | generic | #rows (LR) or cols (TB) palindromic in colour or rank | #matching mirror pairs | D4 (axis→LR) | canon | catalog#15 (D9 lines; cards compare rank); tie-breaker = matching mirror pairs |
 | `homebody` ★ | Homebody | C+P | neutral | generic | #X in zone − #X outside (zone = rim or core) | — | S_k colours; exact convolution tail | exact, canon | catalog#16 (D5: strat#2; Fence Painter = zone rim) |
-| `lone_peak` ★ | Lone Peak | C+S | neutral | Valued | m1 − m2 if the max value is unique and coloured X, else 0 | some max-valued cell is X | S_k colours | canon | catalog#27 (strat#9); tie-breaker = some top cell is your colour |
+| `lone_peak` ★ | Lone Peak | C+S | neutral | Valued | m1 − m2 if the max value is unique and coloured X, else 0 | some max-valued cell is X | S_k colours; exact order-statistic tail | exact, canon | catalog#27 (strat#9); tie-breaker = some top cell is your colour |
 | `islander` | Islander | C+P | alternator | generic | #X cells whose in-grid neighbours all share one colour ≠ X | #X cells with no X neighbour | S_k colours | canon | strat#6 (catalog D2 'dots'); tie-breaker = your cells with no same-colour neighbour |
 | `rooks_watch` | Rook's Watch | C+S+P | neutral | generic | #rows + #cols containing token (S, X) | #rows + #cols containing a half-token | S_symbols × S_k (→ (0,0)) | canon | strat#11 (catalog D8 coverage temperament); tie-breaker = lines holding a half-token |
 | `picture_frame` | Picture Frame | C+P | clumper | generic | 1 if every rim cell is X else 0 (all-or-nothing) | none (deliberate holdout) | S_k colours; exact tail | exact, canon | strat#12 (catalog D5 all-or-nothing temperament; holdout, so no tie-breaker) |
@@ -324,6 +325,6 @@ about 70–110k grids/s after the labeller rewrite requested in NOTES.md.
   N ≤ 4 have low ceilings (5–16 bits). This is inherent and was left unpatched (catalog §4.6 #8): the dealer should
   weigh it.
 - Royal Court requires odd N. The catalog's "degrade on even N to any centre cell" was not implemented.
-- Robin Hood and Lone Peak still have no exact tail (engine note). Lone Peak's distribution is a closed-form order
-  statistic and could be added. Robin Hood's needs a DP over colour totals.
+- Robin Hood still has no exact tail (engine note); it needs a DP over colour totals. Lone Peak now has one (the
+  order statistic of iid values plus the top cell's colour).
 
