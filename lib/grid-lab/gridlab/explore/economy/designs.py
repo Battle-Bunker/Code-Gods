@@ -67,3 +67,7 @@ COMBOS2: dict = {
 }
 NAMED.update(COMBOS2)
 SWEEP["combo2"] = list(COMBOS2.items())
+
+# recommendation (chosen on training seed 500000; validated on held-out seed 9500000)
+NAMED["rec"] = COMBOS2["iown1_ecap60_life120"]
+NAMED["rec_nocap"] = COMBOS2["iown1_life120"]

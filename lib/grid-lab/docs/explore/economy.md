@@ -174,6 +174,22 @@ by the first quarter. The early leader is usually the god that bought the bigges
 | ecap=60 | 80 | -0.018 ± 0.015 | 0.552 | 11.7 | 2.73 | 2.24 | 0.71 | 57 | 0.70 | 0.09 | 0.32 | 0.53 | 0.75 [0.68, 0.81] | 0.41 | 0.42 |
 | ecap=120 | 80 | -0.002 ± 0.004 | 0.567 | 10.2 | 2.67 | 2.44 | 0.65 | 58 | 0.70 | 0.10 | 0.37 | 0.51 | 0.73 [0.66, 0.81] | 0.38 | 0.36 |
 
+Income loops, on the same specs:
+
+| setting | n | Δdyn2 [95% CI] | dyn2 | lead chg late | crossings | held climbs | tau25 | live agents | useful-life | unspent | z random | z greedy | z saver [CI] | z coop | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| tilt=-1.0 | 80 | -0.002 ± 0.012 | 0.567 | 10.9 | 2.68 | 2.07 | 0.63 | 59 | 0.70 | 0.12 | 0.36 | 0.50 | 0.75 [0.68, 0.82] | 0.39 | 0.39 |
+| tilt=-0.5 | 80 | +0.005 ± 0.010 | 0.574 | 11.7 | 2.70 | 2.41 | 0.63 | 59 | 0.70 | 0.13 | 0.32 | 0.48 | 0.78 [0.70, 0.85] | 0.42 | 0.45 |
+| tilt=0.5 | 80 | +0.001 ± 0.013 | 0.571 | 9.6 | 2.58 | 2.43 | 0.69 | 56 | 0.72 | 0.13 | 0.38 | 0.50 | 0.76 [0.69, 0.82] | 0.37 | 0.39 |
+| tilt=1.0 | 80 | -0.012 ± 0.012 | 0.557 | 9.3 | 2.44 | 2.66 | 0.63 | 53 | 0.73 | 0.13 | 0.37 | 0.50 | 0.78 [0.72, 0.84] | 0.35 | 0.43 |
+| iown=0.1 | 80 | +0.015 ± 0.014 | 0.585 | 11.1 | 2.70 | 2.53 | 0.60 | 86 | 0.71 | 0.21 | 0.36 | 0.55 | 0.72 [0.65, 0.79] | 0.36 | 0.36 |
+| iown=0.25 | 80 | +0.015 ± 0.016 | 0.585 | 10.8 | 2.70 | 2.29 | 0.60 | 116 | 0.70 | 0.28 | 0.39 | 0.59 | 0.64 [0.56, 0.71] | 0.38 | 0.25 |
+| iown=0.5 | 80 | +0.029 ± 0.015 | 0.599 | 12.3 | 2.94 | 2.45 | 0.64 | 139 | 0.69 | 0.37 | 0.40 | 0.61 | 0.62 [0.55, 0.71] | 0.37 | 0.25 |
+| iown=1.0 | 80 | +0.034 ± 0.017 | 0.603 | 12.6 | 2.88 | 2.24 | 0.70 | 163 | 0.67 | 0.49 | 0.42 | 0.61 | 0.58 [0.51, 0.67] | 0.38 | 0.23 |
+| iany=0.05 | 80 | +0.011 ± 0.013 | 0.581 | 10.9 | 2.59 | 2.34 | 0.65 | 93 | 0.69 | 0.20 | 0.33 | 0.55 | 0.71 [0.63, 0.79] | 0.41 | 0.37 |
+| iany=0.1 | 80 | +0.013 ± 0.014 | 0.582 | 12.1 | 2.84 | 2.10 | 0.65 | 120 | 0.67 | 0.24 | 0.41 | 0.55 | 0.64 [0.56, 0.72] | 0.39 | 0.25 |
+| iany=0.25 | 80 | +0.016 ± 0.015 | 0.585 | 13.4 | 2.98 | 1.86 | 0.64 | 167 | 0.65 | 0.38 | 0.42 | 0.62 | 0.59 [0.51, 0.68] | 0.36 | 0.26 |
+
 ### Findings
 
 1. **Starting energy, energy rate, agent cap, gas, refunds and crowding tax do not fix policy balance.**
@@ -294,7 +310,44 @@ paired baseline: same spec seeds, same 80 games.
 
 ## 5. Combinations
 
-COMBO_SECTION
+The sweep suggests two kinds of lever, which combine.
+- **Turnover** (lifetimes) adds dynamism but favours saver.
+- **Abundance or no banking** (a lower cost scale, earned income, an energy cap) balances the policies.
+
+All on the same 80 paired training games:
+
+| setting | n | Δdyn2 [95% CI] | dyn2 | lead chg late | crossings | held climbs | tau25 | live agents | useful-life | unspent | z random | z greedy | z saver [CI] | z coop | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| old | 80 | +0.000 ± 0.000 | 0.570 | 11.3 | 2.71 | 2.36 | 0.66 | 58 | 0.71 | 0.13 | 0.37 | 0.51 | 0.72 [0.65, 0.80] | 0.40 | 0.36 |
+| cs25_ecap30 | 80 | +0.010 ± 0.015 | 0.580 | 14.4 | 3.24 | 1.86 | 0.62 | 146 | 0.65 | 0.10 | 0.38 | 0.56 | 0.63 [0.55, 0.71] | 0.42 | 0.25 |
+| cs25_ecap15 | 80 | +0.005 ± 0.015 | 0.575 | 13.5 | 3.12 | 1.98 | 0.70 | 138 | 0.66 | 0.07 | 0.41 | 0.60 | 0.62 [0.55, 0.70] | 0.37 | 0.25 |
+| cs50_ecap30 | 80 | -0.006 ± 0.016 | 0.564 | 13.5 | 2.83 | 2.11 | 0.70 | 91 | 0.68 | 0.07 | 0.38 | 0.51 | 0.70 [0.63, 0.78] | 0.42 | 0.33 |
+| ecap30_life120 | 80 | -0.039 ± 0.018 | 0.531 | 11.3 | 2.83 | 2.29 | 0.53 | 23 | 0.73 | 0.07 | 0.40 | 0.55 | 0.60 [0.52, 0.70] | 0.44 | 0.20 |
+| ecap30_cc100 | 80 | -0.037 ± 0.022 | 0.532 | 5.9 | 1.67 | 1.71 | 0.53 | 9 | 0.66 | 0.07 | 0.35 | 0.55 | 0.74 [0.67, 0.81] | 0.37 | 0.40 |
+| cs25_ecap30_life120 | 80 | +0.038 ± 0.017 | 0.607 | 12.6 | 3.01 | 2.86 | 0.61 | 62 | 0.68 | 0.07 | 0.37 | 0.60 | 0.65 [0.57, 0.72] | 0.38 | 0.28 |
+| ecap20 | 80 | -0.067 ± 0.019 | 0.503 | 14.7 | 2.83 | 1.48 | 0.62 | 43 | 0.74 | 0.08 | 0.40 | 0.55 | 0.66 [0.58, 0.74] | 0.40 | 0.26 |
+| ecap40 | 80 | -0.024 ± 0.014 | 0.546 | 13.1 | 2.89 | 2.11 | 0.61 | 55 | 0.71 | 0.08 | 0.31 | 0.57 | 0.70 [0.62, 0.78] | 0.42 | 0.40 |
+| iown05_life120 | 80 | +0.046 ± 0.014 | 0.615 | 11.2 | 2.74 | 2.80 | 0.59 | 61 | 0.72 | 0.35 | 0.36 | 0.62 | 0.63 [0.56, 0.70] | 0.39 | 0.28 |
+| iown1_life120 | 80 | +0.044 ± 0.014 | 0.613 | 13.4 | 2.79 | 2.40 | 0.67 | 73 | 0.70 | 0.48 | 0.41 | 0.59 | 0.60 [0.53, 0.68] | 0.40 | 0.20 |
+| cs25_life120 | 80 | +0.030 ± 0.017 | 0.599 | 11.7 | 3.04 | 2.71 | 0.57 | 68 | 0.68 | 0.16 | 0.36 | 0.54 | 0.68 [0.60, 0.75] | 0.42 | 0.32 |
+| iown05_ecap30_life120 | 80 | -0.010 ± 0.018 | 0.560 | 12.0 | 2.70 | 2.65 | 0.46 | 40 | 0.72 | 0.07 | 0.36 | 0.53 | 0.67 [0.59, 0.75] | 0.45 | 0.31 |
+| iown1_ecap60_life120 | 80 | +0.054 ± 0.014 | 0.623 | 11.8 | 2.62 | 3.45 | 0.60 | 65 | 0.71 | 0.07 | 0.37 | 0.62 | 0.55 [0.48, 0.63] | 0.46 | 0.25 |
+
+- **Energy caps alone always cost dynamism.** A cap of 20 gives −0.067, 30 gives −0.045 and 40 gives −0.024.
+  Pairing a cap with cheap prices (`cost_scale` 0.25) keeps the balance (range 0.25) and recovers
+  dynamism to neutral.
+- **A lifetime plus abundance gets both kinds of gain.** `cost_scale` 0.25 + cap 30 + lifetime 120:
+  Δ +0.038, z saver 0.65. Income 0.5 + lifetime 120: Δ +0.046, z saver 0.63. Income 1 + lifetime 120:
+  Δ +0.044, range 0.20.
+- **Best on training: earned income 1 bit per bit + energy cap 60 + lifetime 120 s.** Δdyn2 is
+  **+0.054 ± 0.014**, z saver **0.55 [0.48, 0.63]**, range 0.25, and held accelerating climbs rise from
+  2.36 to 3.45 per 100 s. The lifetime keeps the population turning over. Earned income refills the
+  bank of whoever's agents are working, so energy is plentiful. The cap of 60 stops anyone hoarding
+  that plentiful income for a late jackpot: unspent energy is 7%, against 48% without the cap. Greedy
+  becomes the strongest policy (z 0.62), but that is a far smaller edge than saver's 0.72 today.
+- **A cap of 30 combined with income and a lifetime is too tight** (Δ −0.010): agents can't be re-bought
+  quickly enough after they expire.
+
 
 ## 6. Held-out validation and recommendation
 
