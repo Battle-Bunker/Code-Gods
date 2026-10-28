@@ -171,6 +171,9 @@ importers:
       '@workspace/game-types':
         specifier: workspace:*
         version: link:../../lib/game-types
+      '@workspace/game-utilities':
+        specifier: workspace:*
+        version: link:../../lib/game-utilities
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0

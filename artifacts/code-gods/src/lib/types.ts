@@ -2,7 +2,8 @@
 import type { FunctionReturnType } from "convex/server";
 import type { GameSettings, SETTINGS_OPTIONS } from "@workspace/game-core";
 import type { InstanceInfo as EngineInstanceInfo } from "@workspace/game-types";
-import type { CatalogEntryLike, ObjectTypeInfoLike, OfferedLike } from "@workspace/object-views";
+import type { ObjectTypeInfoLike, OfferedLike } from "@workspace/object-views";
+import type { CatalogEntry } from "@workspace/game-utilities";
 import type { api } from "@/lib/convex-api";
 
 export type Settings = GameSettings;
@@ -23,7 +24,7 @@ export type AiAgent = AdminAgents["agents"][number];
 export type AiModel = AdminAgents["models"][number];
 
 /** The engine stores the public catalog untyped (`catalogs.catalog`); entries follow object-views' shape. */
-export type UtilityFamily = CatalogEntryLike & { available?: boolean };
+export type UtilityFamily = CatalogEntry & { available?: boolean };
 export const catalogOf = (catalog: unknown): UtilityFamily[] => (Array.isArray(catalog) ? catalog as UtilityFamily[] : []);
 
 /** `manifest.get` returns its object types untyped; this is their shape (convex/manifest.ts). */

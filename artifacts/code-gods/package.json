@@ -78,6 +78,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@workspace/game-types": "workspace:*"
+    "@workspace/game-types": "workspace:*",
+    "@workspace/game-utilities": "workspace:*"
   }
 }
