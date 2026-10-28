@@ -128,14 +128,14 @@ def mc_ord(g, p, gt):
     cs = [(0, 0), (0, N - 1), (N - 1, 0), (N - 1, N - 1)]
     col = [int(g.col[r, c]) for r, c in cs]
     rk = [int(gt.rank[g.sym[r, c]]) for r, c in cs]
-    return lex((max(Counter(col).values()), 5), (max(Counter(rk).values()), 5))
+    return tup(max(Counter(col).values()), max(Counter(rk).values()))
 
 
 def mc_batch(s, c, p, gt):
     cc, rr = _corners(c.astype(np.int64)), _corners(rank_key(s, gt))
     cm = (cc[..., :, None] == cc[..., None, :]).sum(-1).max(-1)
     rm = (rr[..., :, None] == rr[..., None, :]).sum(-1).max(-1)
-    return lexb((cm, 5), (rm, 5))
+    return tupb(cm, rm)
 
 
 HATE_SAME_CORNERS = mk(
@@ -152,7 +152,7 @@ HATE_SAME_CORNERS = mk(
 def rr_ord(g, p, gt):
     row = g.col[p["row"]].tolist()
     N = gt.N
-    return lex((N - len(set(row)), N), (sum(a == b for a, b in zip(row, row[1:])), N))
+    return tup(N - len(set(row)), sum(a == b for a, b in zip(row, row[1:])))
 
 
 def rr_batch(s, c, p, gt):
@@ -160,7 +160,7 @@ def rr_batch(s, c, p, gt):
     N = gt.N
     distinct = np.stack([(row == k).any(1) for k in range(gt.C)]).sum(0)
     adj = (row[:, 1:] == row[:, :-1]).sum(1)
-    return lexb((N - distinct, N), (adj, N))
+    return tupb(N - distinct, adj)
 
 
 HATE_REPEAT_ROW = mk(
@@ -225,7 +225,7 @@ def rc_ord(g, p, gt):
     col = g.col.tolist()
     lines = col + [list(x) for x in zip(*col)]
     fair = sum(_fair_line([ln.count(k) for k in range(gt.C)], gt) for ln in lines)
-    return lex((min(cnt.get(k, 0) for k in range(gt.C)), gt.N ** 2 + 1), (fair, 2 * gt.N + 1))
+    return tup(min(cnt.get(k, 0) for k in range(gt.C)), fair)
 
 
 def rc_batch(s, c, p, gt):
@@ -233,7 +233,7 @@ def rc_batch(s, c, p, gt):
     share = -(-gt.N // gt.C)
     rows = np.stack([(c == k).sum(2) for k in range(gt.C)]).max(0) <= share
     cols = np.stack([(c == k).sum(1) for k in range(gt.C)]).max(0) <= share
-    return lexb((mn, gt.N ** 2 + 1), (rows.sum(1) + cols.sum(1), 2 * gt.N + 1))
+    return tupb(mn, rows.sum(1) + cols.sum(1))
 
 
 @lru_cache(maxsize=None)
@@ -244,17 +244,17 @@ def rc_exemplar(gt, iters: int = 300, k: int = 128):
     N = gt.N
     col = (np.arange(N * N) % gt.C).reshape(N, N).astype(np.uint8)
     sym = np.zeros((N, N), np.uint8)
-    cur = int(rc_batch(sym[None], col[None], {}, gt)[0])
+    cur = tuple(rc_batch(sym[None], col[None], {}, gt)[0].tolist())
     for _ in range(iters):
         C_ = np.repeat(col.reshape(1, -1), k, 0)
         a, b = rng.integers(0, N * N, k), rng.integers(0, N * N, k)
         ar = np.arange(k)
         C_[ar, a], C_[ar, b] = C_[ar, b], C_[ar, a]
         C_ = C_.reshape(k, N, N)
-        v = rc_batch(np.zeros_like(C_), C_, {}, gt)
-        i = int(np.argmax(v))
+        v = [tuple(r) for r in rc_batch(np.zeros_like(C_), C_, {}, gt).tolist()]
+        i = max(range(k), key=v.__getitem__)
         if v[i] >= cur:
-            cur, col = int(v[i]), C_[i].copy()
+            cur, col = v[i], C_[i].copy()
     return grid(sym, col)
 
 
@@ -273,8 +273,7 @@ def cv_ord(g, p, gt):
     cs = [(0, 0), (0, N - 1), (N - 1, 0), (N - 1, N - 1)]
     blocks = sum(len({int(g.col[r + a, c + b]) for a in (0, 1) for b in (0, 1)})
                  for r, c in [(0, 0), (0, N - 2), (N - 2, 0), (N - 2, N - 2)])
-    return lex((len({int(g.col[r, c]) for r, c in cs}), 5), (blocks, 17),
-               (len({int(gt.rank[g.sym[r, c]]) for r, c in cs}), 5))
+    return tup(len({int(g.col[r, c]) for r, c in cs}), blocks, len({int(gt.rank[g.sym[r, c]]) for r, c in cs}))
 
 
 def _distinct4(a):
@@ -287,7 +286,7 @@ def cv_batch(s, c, p, gt):
     c = c.astype(np.int64)
     blocks = sum(_distinct4(np.stack([c[:, r, q], c[:, r, q + 1], c[:, r + 1, q], c[:, r + 1, q + 1]], -1))
                  for r, q in [(0, 0), (0, N - 2), (N - 2, 0), (N - 2, N - 2)])
-    return lexb((_distinct4(_corners(c)), 5), (blocks, 17), (_distinct4(_corners(rank_key(s, gt))), 5))
+    return tupb(_distinct4(_corners(c)), blocks, _distinct4(_corners(rank_key(s, gt))))
 
 
 def cv_exemplar(p, gt):
@@ -319,14 +318,14 @@ CORNER_VARIETY = mk(
 def rw_ord(g, p, gt):
     steps = [sum((b - a) % gt.C == 1 for a, b in zip(row, row[1:])) for row in g.col.tolist()]
     N = gt.N
-    return lex((steps[p["row"]], N), (sum(steps) - steps[p["row"]], N * (N - 1) + 1))
+    return tup(steps[p["row"]], sum(steps) - steps[p["row"]])
 
 
 def rw_batch(s, c, p, gt):
     c = c.astype(np.int64)
     steps = ((c[:, :, 1:] - c[:, :, :-1]) % gt.C == 1).sum(2)
     N, mine = gt.N, steps[:, p["row"]]
-    return lexb((mine, N), (steps.sum(1) - mine, N * (N - 1) + 1))
+    return tupb(mine, steps.sum(1) - mine)
 
 
 RAINBOW_ROW = mk(
@@ -364,7 +363,7 @@ ISLANDS = mk(
 def sv_ord(g, p, gt):
     rk = gt.rank[g.sym].ravel().tolist()
     pairs = set(zip(rk, g.col.ravel().tolist()))
-    return lex((len(set(rk)), gt.ranks + 1), (len(pairs), gt.N ** 2 + 1))
+    return tup(len(set(rk)), len(pairs))
 
 
 def sv_batch(s, c, p, gt):
@@ -372,7 +371,7 @@ def sv_batch(s, c, p, gt):
     code = rk * gt.C + c.reshape(len(c), -1).astype(np.int64)
     d1 = np.stack([(rk == r).any(1) for r in range(gt.ranks)]).sum(0)
     d2 = np.stack([(code == k).any(1) for k in range(gt.ranks * gt.C)]).sum(0)
-    return lexb((d1, gt.ranks + 1), (d2, gt.N ** 2 + 1))
+    return tupb(d1, d2)
 
 
 def sv_exemplar(p, gt):

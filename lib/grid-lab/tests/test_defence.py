@@ -19,7 +19,7 @@ import time
 import numpy as np
 
 from gridlab.core import Grid, GridType, spawn_batch
-from gridlab.family import Draw
+from gridlab.family import Draw, ordinal_key, ordinal_keys
 from gridlab import calibrate as cal
 from gridlab.defence import HINGE_BITS, hinge, card, object_line, constants, net_bits, payoff_matrix
 from gridlab.rules import FAMILIES, DEFENCE_FAMILIES, PENALTIES, by_id
@@ -145,13 +145,14 @@ def test_monotone_theorem():
     q = d.penalty_draw().family.evaluate_batch(S_, C_, d.penalty_draw().params, GT)
     dc = constants([T], [PT])
     n = net_bits(T.surprisal(r)[:, None], hinge(PT.surprisal(q))[:, None], dc)[:, 0]
+    r, q = ordinal_keys(r), ordinal_keys(q)  # tuple ordinals compare via their order-preserving keys
     for _ in range(4000):
         a, b = rng.integers(0, len(r), 2)
         if r[a] >= r[b] and q[a] <= q[b]:
             assert n[a] >= n[b] - 1e-12
-        if r[a] > r[b] and q[a] <= q[b] and T.surprisal(int(r[a])) > T.surprisal(int(r[b])):
+        if r[a] > r[b] and q[a] <= q[b] and T.surprisal(ordinal_key(r[a])) > T.surprisal(ordinal_key(r[b])):
             assert n[a] > n[b]
-        if r[a] >= r[b] and q[a] < q[b] and PT.surprisal(int(q[a])) < PT.surprisal(int(q[b])):
+        if r[a] >= r[b] and q[a] < q[b] and PT.surprisal(ordinal_key(q[a])) < PT.surprisal(ordinal_key(q[b])):
             assert n[a] > n[b]
 
 
