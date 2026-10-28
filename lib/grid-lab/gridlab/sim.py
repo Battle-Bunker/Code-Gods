@@ -94,6 +94,10 @@ class GameConfig:
     # "balanced_camps" (round-robin over clumper/alternator/neutral camps), "fixed" (fixed_families)
     dealer: str = "distinct"
     fixed_families: Optional[Sequence[str]] = None
+    # dealer constraints (any dealer except "fixed"): never deal these family ids; and for each group
+    # in dealer_require, deal at least one family from that group (a random slot is replaced if needed)
+    dealer_exclude: Sequence[str] = ()
+    dealer_require: Sequence[Sequence[str]] = ()
     families: Optional[Sequence[Family]] = None          # pool; default gridlab.rules.FAMILIES
     # economy
     starting_energy: float = 100.0
@@ -137,7 +141,8 @@ class GameConfig:
 # dealing
 # ------------------------------------------------------------------------------------------------
 def deal(cfg: GameConfig, rng: np.random.Generator, pool: Sequence[Family]) -> list[Draw]:
-    fams = [f for f in pool if f.available(cfg.gtype)]
+    excl = set(cfg.dealer_exclude or ())
+    fams = [f for f in pool if f.available(cfg.gtype) and (cfg.dealer == "fixed" or f.id not in excl)]
     assert fams, f"no family available for {cfg.gtype.key}"
     G = cfg.n_gods
     if cfg.dealer == "fixed":
@@ -165,6 +170,25 @@ def deal(cfg: GameConfig, rng: np.random.Generator, pool: Sequence[Family]) -> l
             k += 1
     else:
         raise ValueError(f"unknown dealer {cfg.dealer}")
+    if cfg.dealer != "fixed" and cfg.dealer_require:
+        by = {f.id: f for f in fams}
+        locked: set[int] = set()
+        for group in cfg.dealer_require:
+            opts = [by[i] for i in group if i in by]
+            if not opts:
+                continue
+            have = [k for k, f in enumerate(chosen) if f.id in group and k not in locked]
+            if have:
+                locked.add(have[0])
+                continue
+            free = [k for k in range(G) if k not in locked]
+            if not free:
+                continue
+            k = free[int(rng.integers(len(free)))]
+            ids = {f.id for f in chosen}
+            fresh = [f for f in opts if f.id not in ids] or opts
+            chosen[k] = fresh[int(rng.integers(len(fresh)))]
+            locked.add(k)
     return [Draw(f, f.sample(rng, cfg.gtype)) for f in chosen]
 
 
