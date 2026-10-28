@@ -16,3 +16,4 @@ if (action === "settings" && args.revision === undefined) {
   args.revision = (await c.query(makeFunctionReference<"query">("rooms:get"), { room: roomId }) as { revision: number }).revision;
 }
 console.log(JSON.stringify(await c.action(makeFunctionReference<"action">("owner:command"), args)));
+export {};

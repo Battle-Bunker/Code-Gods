@@ -10,7 +10,7 @@ import { offeredInstantiations } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
 import { assertOffered, PRIORS } from "./engine/node";
-import { languageAvailable } from "./engine/runtime";
+import { bindRuntime, languageAvailable } from "./engine/runtime";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
 
 let objectTypes: unknown[] | undefined;
@@ -29,7 +29,8 @@ const offered = (settings: GameSettings) => { try { assertOffered(settings); ret
 
 export const get = action({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
+    bindRuntime(ctx);
     const runtimes = [];
     for (const language of ["python", "typescript"] as const) {
       if (await languageAvailable(defaultSettingsFor("Int", language))) runtimes.push(language);

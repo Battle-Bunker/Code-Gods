@@ -23,7 +23,7 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
 import { cryptoRng, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
-import { act, isAgentFault, WORKERS } from "./runtime";
+import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
@@ -49,6 +49,7 @@ function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResu
 export const run = internalAction({
   args: { gameId: v.id("games"), seq: v.number() },
   handler: async (ctx, { gameId, seq }): Promise<unknown> => {
+    bindRuntime(ctx);
     const snap = await ctx.runQuery(internal.engine.loop.snapshot, { gameId, seq });
     if (!snap) return { result: "stale" };
     const { game } = snap;

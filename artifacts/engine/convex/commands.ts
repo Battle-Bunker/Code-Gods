@@ -1,4 +1,5 @@
 "use node";
+import { bindRuntime } from "./engine/runtime";
 /**
  * The ONE command entry point: a protocol v3 envelope (lib/player-client envelopeSchema), so the default
  * client, a modded player app and the room assistant submit exactly the same thing and get the same
@@ -50,5 +51,5 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
  */
 export const submit = action({
   args: { roomId: v.string(), envelope: v.any() },
-  handler: async (ctx, { roomId, envelope }): Promise<CommandResult> => runEnvelope(ctx, roomId, envelope),
+  handler: async (ctx, { roomId, envelope }): Promise<CommandResult> => { bindRuntime(ctx); return runEnvelope(ctx, roomId, envelope); },
 });

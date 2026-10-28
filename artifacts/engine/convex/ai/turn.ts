@@ -1,4 +1,5 @@
 "use node";
+import { bindRuntime } from "../engine/runtime";
 /**
  * One AI seat turn (plan §9): the seat's own observation (the same projection as a human's, isAI = true)
  * → lib/ai-player's AIController (policy, decision schema, validate-before-summon) → the provider →
@@ -58,6 +59,7 @@ function providerFor(agent: { provider: string; model: string }): ModelProvider 
 export const run = internalAction({
   args: { gameId: v.id("games"), godId: v.string(), chain: v.number() },
   handler: async (ctx, { gameId, godId, chain }): Promise<unknown> => {
+    bindRuntime(ctx);
     const context = await ctx.runQuery(internal.ai.seats.turnContext, { gameId, godId, chain });
     if ("stop" in context) return { stopped: context.stop };
     if ("waitUntil" in context) {

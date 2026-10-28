@@ -1,45 +1,20 @@
 "use node";
 /**
- * The ONE place that constructs agent sandboxes. Warm runtimes live at module scope, so a warm Node
- * instance reuses them across tick actions and summon examinations.
- *
- * Interim implementation: `@workspace/game-runtime`'s `createRuntime` (persistent child-process workers:
- * QuickJS for TypeScript, CPython-WASI on Wasmtime for Python). It is loaded from the workspace package on
- * disk, not from the function bundle, because its worker scripts are resolved relative to its own module
- * URL; this works on the local backend, whose Node executor runs in the project directory. When the
- * in-process runtime (convex/runtime/**, same `createRuntime` API) lands, swap `load()` for a static
- * import of it; nothing else changes.
+ * The ONE place the engine reaches agent sandboxes: the in-process runtime of convex/runtime/node.ts
+ * (QuickJS for TypeScript, CPython-WASI on Node's WebAssembly for Python), whose warm workers live at
+ * module scope and are reused across tick actions and summon examinations. Every action that can run
+ * agent code calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { createRequire } from "node:module";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { codecOf, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
 import type { ActResult, ActSettings, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
+import { runtimeFor } from "../runtime/node";
+export { bindRuntime } from "../runtime/node";
 
-type RuntimeModule = typeof import("@workspace/game-runtime");
-let modulePromise: Promise<RuntimeModule> | undefined;
-function load(): Promise<RuntimeModule> {
-  return modulePromise ??= (async () => {
-    const dir = process.env.CODE_GODS_RUNTIME_DIR;
-    const entry = dir ? join(dir, "index.mjs") : createRequire(join(process.cwd(), "package.json")).resolve("@workspace/game-runtime");
-    return (await import(/* @vite-ignore */ pathToFileURL(entry).href)) as RuntimeModule;
-  })();
-}
-
-/** Workers per language: summon measurement runs four acts at once; the tick runs waves of four. */
+/** Acts in flight per tick wave (the runtime pools queue beyond their worker count). */
 export const WORKERS = 4;
-const pools = new Map<Language, Promise<GameRuntime>>();
 const unavailable = new Map<Language, string>();
-
-async function pool(language: Language): Promise<GameRuntime> {
-  let p = pools.get(language);
-  if (!p) {
-    p = load().then(m => m.createRuntime({ language, workers: WORKERS, queueLimit: 64, startupMs: 120000 }));
-    pools.set(language, p);
-  }
-  return p;
-}
+const pool = async (language: Language): Promise<GameRuntime> => runtimeFor(language);
 
 /** Runtime failures caused by the agent's own code; CONFIG is a server bug, CAPACITY/UNAVAILABLE are the host's. */
 export const AGENT_FAULTS: ReadonlySet<string> = new Set(["COMPILE", "DOMAIN", "EXECUTION", "LIMIT"]);
