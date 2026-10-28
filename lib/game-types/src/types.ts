@@ -135,8 +135,26 @@ export interface PreludeParts {
   /** Declarations for the TypeScript type checker (agents and cards in TS rooms). */
   readonly dts: string;
   readonly helpers: readonly HelperDoc[];
-  /** sha256 of python + js + dts, for cache and calibration keys. */
+  /** The game half of the summon-price tables (lib/game-runtime PricingVocab), per language. Derived from the texts. */
+  readonly pricing: { readonly python: PricingVocab; readonly typescript: PricingVocab };
+  /** sha256 of python + js + dts, for cache and calibration keys (pricing is a function of these texts). */
   readonly hash: string;
+}
+
+/** The prelude's public guest names, as the summon-price code (ast-bits-v1) needs them. */
+export interface PricingVocab {
+  /** Every public name the prelude binds: helpers, constructors, constants. */
+  readonly api: readonly string[];
+  /** Public attributes / methods of the objects the API hands an agent (grid.cells, cell.colour, ...). */
+  readonly attrs: readonly string[];
+  /** Parameter names of the API functions. */
+  readonly params: readonly string[];
+  /** Strings the API gives meaning to (colour names, mutator ids, field values, suits, glyphs). */
+  readonly strings: readonly string[];
+  /** The names in `api` that are mutator constructors. */
+  readonly mutators: readonly string[];
+  /** The names in `api` that build areas (allowed inside a literal move's arguments). */
+  readonly areas: readonly string[];
 }
 
 // ------------------------------------------------------------------------------------------------

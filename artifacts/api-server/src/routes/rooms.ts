@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, SETTINGS_PRESETS, instantiationOf, 
 import { familiesFor } from "@workspace/game-utilities";
 import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
-import { offeredInstantiations } from "../game/calibration";
+import { offeredInstantiations, priorOf, PRIORS } from "../game/calibration";
 import { requireIdentity, requireAct } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
@@ -55,6 +55,7 @@ const isOffered = (settings: GameSettings) => {
 };
 /** Settings name an instantiation the server offers (otherwise no calibrated utility functions exist) and known families. */
 export function assertOffered(settings: GameSettings) {
+  priorOf(settings.priorId);
   if (!isOffered(settings))
     throw new Error(`${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
   const known = new Set(familiesFor(settings.objectType).map(f => f.id));
@@ -71,7 +72,7 @@ export function presetsManifest() {
 router.get("/manifest", (_req, res) => res.json({
   protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, defaults: DEFAULT_SETTINGS,
   runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
-  objectTypes: objectTypesManifest(), presets: presetsManifest(),
+  objectTypes: objectTypesManifest(), presets: presetsManifest(), priors: Object.keys(PRIORS),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);

@@ -29,7 +29,7 @@ export interface GameSettings {
   grammarId: GrammarId;
   /** How utility functions are dealt to gods; see @workspace/game-utilities. */
   utilitySelectorId: string;
-  /** Summon price in bits (the agent source's description length). */
+  /** Summon price in bits: the source's description (Python ast-bits-v1, TypeScript ts-ast-bits-v1-uniform). */
   complexityFunctionId: string;
   spawnFunctionId: "uniform";
   planningSeconds: number;
@@ -37,8 +37,12 @@ export interface GameSettings {
   startingObjectCount: number;
   spawnRateHz: number;
   interactionRateHz: number;
-  /** Guest execution CPU budget per interaction; excludes compilation and startup. */
+  /** CPU backstop per act (ms); excludes compilation and startup. The deterministic `stepBudget` is what binds. */
   interactionComputeMs: number;
+  /** Deterministic step budget per act (lib/game-runtime): the same agent, input and seed always fit or never do. */
+  stepBudget: number;
+  /** Bits added to every act's charge, valid or not (open-agents §3). */
+  perActFloorBits: number;
   pauseSeconds: number;
   /** God energy (bits) at the start of planning; accrues in real time. */
   startingEnergy: number;
@@ -69,14 +73,16 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   typeArgs: Object.freeze({ min: -2147483648, max: 2147483647 }),
   grammarId: "python-agent-v1",
   utilitySelectorId: "divine-lottery",
-  complexityFunctionId: "ast-bytes-v1",
+  complexityFunctionId: "ast-bits-v1",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
   halfLifeSeconds: 300,
   startingObjectCount: 10,
   spawnRateHz: 0.1,
   interactionRateHz: 100,
-  interactionComputeMs: 5,
+  interactionComputeMs: 1000,
+  stepBudget: 500000,
+  perActFloorBits: 0,
   pauseSeconds: 180,
   startingEnergy: 100,
   energyPerSecond: 1,
@@ -88,6 +94,9 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   excludedFamilies: Object.freeze([]) as readonly string[],
   priorId: "uniform",
 } satisfies GameSettings);
+
+/** The one summon-price code of each language (lib/game-runtime COMPLEXITY_IDS). */
+export const COMPLEXITY_FOR: Readonly<Record<Language, string>> = Object.freeze({ python: "ast-bits-v1", typescript: "ts-ast-bits-v1-uniform" });
 
 export interface SettingsOption {
   readonly id: string;
@@ -109,7 +118,8 @@ export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId"
     { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
   ],
   complexityFunctionId: [
-    { id: "ast-bytes-v1", label: "AST nodes + literal bytes (summon price in bits)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
+    { id: "ast-bits-v1", label: "Python description bits (ast-bits-v1, corpus-weighted)", languages: ["python"], objectTypes: ALL_TYPES },
+    { id: "ts-ast-bits-v1-uniform", label: "TypeScript description bits (ts-ast-bits-v1, uniform)", languages: ["typescript"], objectTypes: ALL_TYPES },
   ],
 });
 
@@ -146,8 +156,11 @@ export function validateSettings(settings: GameSettings): void {
   finiteNonnegative(settings, [
     "planningSeconds", "halfLifeSeconds", "spawnRateHz", "interactionRateHz", "pauseSeconds",
     "startingEnergy", "energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs",
-    "penaltyWeight", "defenceRate",
+    "penaltyWeight", "defenceRate", "perActFloorBits",
   ]);
+  if (!Number.isInteger(settings.stepBudget) || settings.stepBudget < 1 || settings.stepBudget > 10_000_000) {
+    throw new Error("stepBudget must be an integer from 1 to 10,000,000 steps");
+  }
   if (settings.halfLifeSeconds === 0) throw new Error("Half-life must be positive");
   if (settings.interactionRateHz > 1000) throw new Error("interactionRateHz must not exceed 1000 Hz");
   if (!Number.isInteger(settings.interactionComputeMs) ||
@@ -284,6 +297,6 @@ export function defaultSettingsFor(
   const args = typeArgs ?? objectTypeDef(objectType).defaults;
   return {
     ...DEFAULT_SETTINGS, ...typeDefaults(objectType, args), language, objectType, typeArgs: args,
-    grammarId: `${language}-agent-v1` as GrammarId,
+    grammarId: `${language}-agent-v1` as GrammarId, complexityFunctionId: COMPLEXITY_FOR[language],
   };
 }

@@ -7,3 +7,7 @@ export { SELECTORS, selector, divineLottery, availableFamilies, type UtilitySele
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
 export { INT_FAMILIES } from "./families/int.ts";
 export { STRING_FAMILIES } from "./families/string.ts";
+export {
+  tableFor, hasTable, surprisal, penaltyMeanBits, offeredInstantiations, UNIFORM_PRIOR, priorKey,
+  type CalibrationTable, type PriorRef,
+} from "./calibration.ts";

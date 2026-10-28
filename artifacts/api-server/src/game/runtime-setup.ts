@@ -1,7 +1,7 @@
-import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
+import { defaultSettingsFor, type GameSettings } from "@workspace/game-core";
 import { OBJECT_TYPES } from "@workspace/game-types";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, referenceSpawns, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, probeValue, registerAdapters, unregisterAdapters } from "./adapters.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};
@@ -27,13 +27,12 @@ export function initializeRuntimeAdapters(): Promise<void> {
         for (const type of OBJECT_TYPES) {
           // The probe checks availability, not speed: a cold worker on a busy host can
           // exceed the 5 ms play budget, which must not disable a language until restart.
-          const settings: GameSettings = { ...DEFAULT_SETTINGS, language, grammarId: `${language}-agent-v1`,
-            objectType: type.id, typeArgs: type.defaults, interactionComputeMs: 1000 };
+          const settings: GameSettings = defaultSettingsFor(type.id, language);
           const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
           const act = actSettings(settings);
           const { cost } = await pool.inspect(source, act);
-          const input = referenceSpawns(settings)[0];
-          const { calls } = await pool.act(source, input, act);
+          const input = probeValue(settings);
+          const { calls } = await pool.act(source, input, act, "0");
           if (!Number.isSafeInteger(cost) || cost <= 0 || calls !== "[]") {
             throw new RuntimeError("UNAVAILABLE", `${language} ${type.id} agent probe failed`);
           }

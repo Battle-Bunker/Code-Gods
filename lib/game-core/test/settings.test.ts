@@ -17,7 +17,7 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.startingObjectCount, 10);
   assert.equal(DEFAULT_SETTINGS.spawnRateHz, 0.1);
   assert.equal(DEFAULT_SETTINGS.interactionRateHz, 100);
-  assert.equal(DEFAULT_SETTINGS.interactionComputeMs, 5);
+  assert.equal(DEFAULT_SETTINGS.interactionComputeMs, 1000);
   assert.equal(DEFAULT_SETTINGS.agentEnergyPerSecond, 2);
   assert.equal(DEFAULT_SETTINGS.agentBatteryActs, 2);
   assert.equal(DEFAULT_SETTINGS.maxAgentsPerGod, 200);
@@ -25,7 +25,10 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.penaltyWeight, 1);
   assert.equal(DEFAULT_SETTINGS.defenceRate, 0);
   assert.equal(DEFAULT_SETTINGS.grammarId, "python-agent-v1");
-  assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bytes-v1");
+  assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bits-v1");
+  assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
+  assert.equal(DEFAULT_SETTINGS.perActFloorBits, 0);
+  assert.equal(defaultSettingsFor("Int", "typescript").complexityFunctionId, "ts-ast-bits-v1-uniform");
   assert.equal(DEFAULT_SETTINGS.objectType, "Int");
   assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { min: -2147483648, max: 2147483647 });
   for (const legacy of ["intMin", "intMax", "stringMaxLength"]) assert.ok(!(legacy in DEFAULT_SETTINGS));
@@ -114,7 +117,10 @@ test("unknown identifiers, cross-language grammars and old grammar ids are rejec
     assert.throws(() => validateSettings(settings({ [key]: "custom-arbitrary-id" })), /Unsupported/);
   }
   assert.throws(() => validateSettings(settings({ language: "typescript" })), /Unsupported grammarId/);
-  validateSettings(settings({ language: "typescript", grammarId: "typescript-agent-v1" }));
+  validateSettings(settings({ language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" }));
+  assert.throws(() => validateSettings(settings({ complexityFunctionId: "ast-bytes-v1" })), /Unsupported complexityFunctionId/);
+  assert.throws(() => validateSettings(settings({ stepBudget: 0 })), /stepBudget/);
+  assert.throws(() => validateSettings(settings({ perActFloorBits: -1 })), /perActFloorBits/);
   assert.throws(() => validateSettings(settings({ grammarId: "python-standard-v1" as never })), /Unsupported grammarId/);
   assert.deepEqual(SETTINGS_OPTIONS.grammarId.map(o => o.id), ["python-agent-v1", "typescript-agent-v1"]);
 });

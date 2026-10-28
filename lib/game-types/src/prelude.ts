@@ -9,7 +9,7 @@
  * emit byte-identical text for the same calls.
  */
 import { satisfied } from "./constraints.ts";
-import { MAX_CALLS, type HelperDoc, type Instantiation, type MutatorDef, type PreludeParts } from "./types.ts";
+import { MAX_CALLS, type HelperDoc, type Instantiation, type MutatorDef, type PreludeParts, type PricingVocab } from "./types.ts";
 import { sha256 } from "./util.ts";
 
 type Lit = number | string | boolean | null | readonly Lit[];
@@ -174,7 +174,87 @@ export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators
   return Object.freeze({
     python, js: jsText, dts,
     helpers: Object.freeze([...base.helpers, ...avail.flatMap(m => m.guest.docs)]),
+    pricing: Object.freeze({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }),
     hash: sha256(`${python}\0${jsText}\0${dts}`),
+  });
+}
+
+// ------------------------------------------------------------------------------------------------
+// pricing vocabulary (the game half of ast-bits-v1), read off the generated prelude texts
+// ------------------------------------------------------------------------------------------------
+
+const VOCAB_MAX = 4096;
+const sortedUnique = (xs: Iterable<string>): string[] =>
+  [...new Set([...xs].filter(x => x.length > 0 && x.length <= 128))].sort().slice(0, VOCAB_MAX);
+/** Strings the API gives meaning to: short literal words and glyphs in the prelude (not messages or private keys). */
+function meaningfulStrings(text: string, avail: readonly MutatorDef<any, any>[]): string[] {
+  const out = new Set(avail.map(m => m.id));
+  for (const m of text.matchAll(/"((?:[^"\\\n]|\\.){1,24})"|'((?:[^'\\\n]|\\.){1,24})'/g)) {
+    const raw = m[1] ?? m[2];
+    let value: string;
+    try { value = JSON.parse(`"${raw.replace(/"/g, '\\"')}"`); } catch { continue; }
+    if (/^[^\s%{}\\]{1,24}$/.test(value) && !value.startsWith("_")) out.add(value);
+  }
+  return sortedUnique(out);
+}
+type Block = { name: string; params: string[]; body: string };
+/** Top-level public functions: name, parameter names and body text. */
+function blocks(text: string, header: RegExp, isTopLevel: (line: string) => boolean, publicName: (n: string) => boolean): Block[] {
+  const lines = text.split("\n"), out: Block[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(header);
+    if (!m || !publicName(m[1])) continue;
+    let j = i + 1;
+    while (j < lines.length && !isTopLevel(lines[j])) j++;
+    const params = m[2].split(",").map(p => p.trim().replace(/^\*+/, "").split(/[=:]/)[0].trim()).filter(p => /^[A-Za-z]\w*$/.test(p));
+    out.push({ name: m[1], params, body: [lines[i], ...lines.slice(i + 1, j)].join("\n") });
+  }
+  return out;
+}
+/** Mutator constructors build a call; areas build a region (or return another area). */
+function roles(fns: Block[], isMutator: (b: Block) => boolean, isArea: (b: Block) => boolean) {
+  const mutators = fns.filter(isMutator).map(b => b.name);
+  const areas = new Set(fns.filter(b => !mutators.includes(b.name) && isArea(b)).map(b => b.name));
+  for (const b of fns) if (!mutators.includes(b.name) && [...areas].some(a => new RegExp(`return ${a}\\(`).test(b.body))) areas.add(b.name);
+  return { mutators: sortedUnique(mutators), areas: sortedUnique(areas) };
+}
+function pythonVocab(text: string, avail: readonly MutatorDef<any, any>[]): PricingVocab {
+  const isPublic = (n: string) => !n.startsWith("_");
+  const fns = blocks(text, /^def (\w+)\(([^)]*)\)/, l => /^\S/.test(l) && !/^\s*#/.test(l), isPublic);
+  const constants = [...text.matchAll(/^([A-Za-z]\w*)\s*=/gm)].map(m => m[1]);
+  const attrs: string[] = [];
+  for (const cls of text.matchAll(/^class \w+[^\n]*\n((?:[ \t]+[^\n]*\n|\n)*)/gm)) {
+    const body = cls[1];
+    for (const m of body.matchAll(/__slots__\s*=\s*\(([^)]*)\)/g)) attrs.push(...[...m[1].matchAll(/"(\w+)"/g)].map(x => x[1]));
+    attrs.push(...[...body.matchAll(/^    def (\w+)\(/gm)].map(m => m[1]));
+    attrs.push(...[...body.matchAll(/self\.(\w+)\s*=/g)].map(m => m[1]));
+  }
+  return Object.freeze({
+    api: sortedUnique([...fns.map(b => b.name), ...constants]),
+    attrs: sortedUnique(attrs.filter(isPublic)),
+    params: sortedUnique(fns.flatMap(b => b.params)),
+    strings: meaningfulStrings(text, avail),
+    ...roles(fns, b => /_M_CALL\(|"__m"/.test(b.body), b => /"kind"/.test(b.body)),
+  });
+}
+function jsVocab(text: string, avail: readonly MutatorDef<any, any>[]): PricingVocab {
+  const isPublic = (n: string) => !n.startsWith("__");
+  const fns = blocks(text, /^function (\w+)\(([^)]*)\)/, l => /^\S/.test(l) && !/^\s*\/\//.test(l) && !/^[}\])]/.test(l), isPublic);
+  const constants = [...text.matchAll(/^(?:const|let|var) ([A-Za-z]\w*)\s*=/gm)].map(m => m[1]).filter(isPublic);
+  const attrs: string[] = [];
+  for (const cls of text.matchAll(/^class \w+[^\n]*\{\n((?:(?!\}\n)[^\n]*\n|\n)*?)\}$/gm)) {
+    const body = cls[1];
+    attrs.push(...[...body.matchAll(/^  (?:static |get |set )?(\w+)\s*\(/gm)].map(m => m[1]).filter(n => n !== "constructor"));
+    attrs.push(...[...body.matchAll(/this\.(\w+)/g)].map(m => m[1]));
+  }
+  // Fields set on the objects the prelude builds (`x.colour = ...` in __decode).
+  attrs.push(...[...text.matchAll(/(?<![\w.#])[a-z]\w*\.([A-Za-z]\w*)\s*=(?!=)/g)].map(m => m[1]));
+  return Object.freeze({
+    api: sortedUnique([...fns.map(b => b.name), ...constants]),
+    attrs: sortedUnique(attrs.filter(n => !n.startsWith("_"))),
+    params: sortedUnique(fns.flatMap(b => b.params)),
+    strings: meaningfulStrings(text, avail),
+    ...roles(fns, b => /__m:/.test(b.body), b => /kind:/.test(b.body)),
   });
 }
 
