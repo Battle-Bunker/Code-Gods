@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@workspace/object-views": "workspace:*",
     "@workspace/player-client": "workspace:*"
   }
 }

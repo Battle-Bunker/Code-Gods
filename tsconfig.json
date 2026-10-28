@@ -13,6 +13,9 @@
       "path": "./lib/game-core"
     },
     {
+      "path": "./lib/object-views"
+    },
+    {
       "path": "./lib/game-utilities"
     },
     {
