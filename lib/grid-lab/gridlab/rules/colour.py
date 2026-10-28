@@ -184,15 +184,14 @@ def fw_ord(g, p, gtype):
         d = max(n) - min(n)
         fair += d <= 1
         spread += d
-    return tup(fair, 2 * N * N - spread)
+    return tup(fair, -spread)
 
 
 def fw_batch(sym, col, p, gtype):
-    N = gtype.N
     L = lines_rc(col, "both")
     n = np.stack([(L == k).sum(2) for k in range(gtype.C)], 2)
     d = n.max(2) - n.min(2)
-    return tupb((d <= 1).sum(1), 2 * N * N - d.sum(1))
+    return tupb((d <= 1).sum(1), -d.sum(1))
 
 
 FAIR_WEAVER = mk(

@@ -34,7 +34,7 @@ An ordinal utility is an `int`, or a fixed-length tuple of ints compared lexicog
    - *half-tokens*: a cell matching one of the two required attributes (Seed 3, Lucky Token, Rook's Watch);
    - *the pairwise version of a whole-line rule*: Rainbow Road → rainbow steps, Mirrormancer → mirror pairs,
      Straight Shooter → counting steps, Chessmaster → A–B seams, Sunset Sky → good steps, Young Tableau → uphill steps;
-   - *distance to target*: Magic Accountant `D − Σ|sum − T|`, Seesaw `D − Σ|imbalance|`, Fair Weaver `−Σ(max − min)`,
+   - *distance to target*: Magic Accountant `−Σ|sum − T|`, Seesaw `−Σ|imbalance|`, Fair Weaver `−Σ(max − min)`,
      Round Numbers (closeness to a multiple);
    - *structural precursors*: Castle Keeper and Swiss Cheese count wall cells on the rim, Border Baron uses
      `Σ min(size_a, size_b, K)`, Stripe Painter, Bullseye, Pinwheel and Flush Royale use the per-line, per-ring or
@@ -139,7 +139,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `bridge_builder` ★ | Bridge Builder | C+P | clumper | generic | max #distinct columns (LR) or rows (TB) touched by one C blob (2N bonus is monotone, dropped) | — | S_k × D4 (→ C=0, LR) | canon | catalog#11 (geo#1; the 2N full-crossing bonus is monotone, so the ordinal is the span) |
 | `looking_glass` | Looking-Glass | C+S+P | neutral | generic | #mirror pairs (V, H, D, A or half-turn) equal in colour or rank | — | D4 (H→V, A→D) | canon | geo#2 + col#9 Mirror Quilt (catalog D9 'pairs'; half-turn axis from col) |
 | `pinwheel` | Pinwheel | C+S+P | clumper | generic | #90° orbits whose 4 cells share colour (or symbol; cards: suit) | Σ per-orbit plurality | — | — | geo#3 (cards use suit); tie-breaker = Σ per-orbit plurality |
-| `card_windmill` ★ | Card Windmill | S+P | alternator | Suited | #90° orbits whose suits step ♠→♥→♦→♣ cyclically in rotation order | #correct suit steps inside orbits | (no params) | — | catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits |
+| `card_windmill` ★ | Card Windmill | S+P | alternator | Suited | #90° orbits whose suits step ♠→♥→♦→♣ cyclically in rotation order | #correct quarter-turn suit steps, all 4 per orbit (was 3 before the kid cards) | (no params) | — | catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits |
 | `royal_court` ★ | Royal Court | S+P | clumper | Faced, N odd | if centre is a face card (of suit): size of its face 4-region, ×2 if it avoids the rim | #face cards off the rim | S_4 suits (suit→0) | canon | catalog#31 (geo#16; HasCentre = odd N only); tie-breaker = picture cards off the edge |
 | `bullseye` | Bullseye | C+P | neutral | generic | #consecutive rings from the outside that are monochrome and differ from the ring outside | Σ per-ring plurality | — | — | geo#6 (all-or-nothing from outside in); tie-breaker = Σ per-ring plurality |
 | `snake_charmer` | Snake Charmer | C+P | neutral | generic | size of the largest C blob that is a simple path | — | S_k colours | canon | geo#9 |
@@ -160,7 +160,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 |---|---|---|---|---|---|---|---|---|---|
 | `straight_shooter` ★ | Straight Shooter | C+S+P | alternator | Ranked, Valued | Σ L² over maximal ±1 runs (L ≥ 3) in rows L→R and cols T→B, ×2 if flush and monochrome; aceHigh option | #counting steps | rot180 (step→+1) | canon | catalog#9 (D11: arith#2 + games#3; flush and aceHigh); tie-breaker = counting steps |
 | `number_bonds` ★ | Number Bonds | C+S+P | clumper | Valued | #adjacent pairs with v1+v2 = V+1 (cards 14) satisfying colour mode any/same/different | — | — | — | catalog#10 (arith#3; T = V+1, cards 14) |
-| `magic_accountant` ★ | Magic Accountant | S+P | neutral | Valued | #lines (rows/cols/both) with Σ value = T | D − Σ|line sum − T| | D4 (cols→rows) + value reflection (T→min(T, N(lo+hi)−T)) | canon | catalog#25 (D10: strat#7 + arith#1 exact mode); tie-breaker = total distance from T |
+| `magic_accountant` ★ | Magic Accountant | S+P | neutral | Valued | #lines (rows/cols/both) with Σ value = T | −Σ|line sum − T| | D4 (cols→rows) + value reflection (T→min(T, N(lo+hi)−T)) | canon | catalog#25 (D10: strat#7 + arith#1 exact mode); tie-breaker = total distance from T |
 | `round_numbers` | Round Numbers | S+P | neutral | Numeral | #lines with Σ value ≡ 0 mod base | Σ closeness to a multiple of base | D4 (cols→rows) | canon | arith#1 Row Ranger round-number mode (catalog D10 mode=round); tie-breaker = closeness to a multiple |
 | `king_of_the_hill` ★ | King of the Hill | C+S+P | alternator | Valued | #X cells strictly above (valley: below) all 4-neighbours | — | S_k × value reflection (valley→peak) | canon | catalog#26 (arith#13; valley variant) |
 | `divisibility_detective` ★ | Divisibility Detective | S+P | neutral | Numeral | #rows (or rows+cols) whose base-b number ≡ 0 mod m (m=2 dropped) | — | — | — | catalog#29 (arith#14; m=2 dropped) |
@@ -170,7 +170,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `odds_evens` | Odds & Evens | S+P | alternator | Valued | #2×2 parity checkerboards (odd cells must be X if locked) | — | S_k colours | canon | arith#7 Odds & Evens Chessboard (colourLock as X) |
 | `number_painter` | Number Painter | C+S | neutral | Spectral, Valued | #cells with value = colour index + 1 + o | — | all valid o (→ smallest); exact Bin(N², 1/#values) | exact, canon | arith#8 (offset o; every valid o gives Bin(N², 1/#values)) |
 | `robin_hood` | Robin Hood | C+S | alternator | Valued | 2·min − max over per-colour value totals (arith fix min − (max − min)) | — | (no params) | — | arith#10 with the catalog/arith fix min − (max − min) |
-| `seesaw` | Seesaw | S+P | clumper | Valued | #balanced lines (left half vs right half, or colour X vs Y totals) | D − Σ|imbalance| | D4 (cols→rows), S_k | canon | arith#11 (colourSeesaw variant as mode=colours); tie-breaker = total imbalance |
+| `seesaw` | Seesaw | S+P | clumper | Valued | #balanced lines (left half vs right half, or colour X vs Y totals) | −Σ|imbalance| | D4 (cols→rows), S_k | canon | arith#11 (colourSeesaw variant as mode=colours); tie-breaker = total imbalance |
 | `stepping_stones` | Stepping Stones | S+P | alternator | Valued | largest component linked by |Δvalue| = d | — | — | — | arith#12 (d menu incl. Cliffhanger ⌈V/2⌉) |
 | `column_addition` | Column Addition | S+P | neutral | Numeral | trailing correct digits of row t + row t+1 = row t+2 in base b (0 if the top row is all zeros) | #correct columns anywhere | row choice (top→0) | canon | arith#15 (all-zero top row excluded); tie-breaker = correct columns anywhere |
 | `ladder_of_numbers` | Ladder of Numbers | S+P | neutral | Numeral | longest streak of rows read as base-b numbers increasing down (or up) | #rising row steps | D4 (dir→down) | canon | arith#16 (catalog: longest streak primary, count of rises as tie-breaker) |
@@ -186,7 +186,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `stripe_painter` ★ | Stripe Painter | C+P | clumper | generic | #lines that are monochrome and differ from the previous solid line (col code) | Σ per-line plurality | D4 (cols→rows) | canon | catalog#17 (D3: col#2 + geo#7 Zebra, col code); tie-breaker = Σ per-line plurality |
 | `feuding_families` ★ | Feuding Families | C+P | clumper | generic | min(#X with no Y neighbour, #Y with no X neighbour) (×2 dropped) | #safe X + #safe Y | S_k colours | canon | catalog#18 (col#11; ×2 dropped); tie-breaker = total safe cells |
 | `colour_mixer` ★ | Colour Mixer | C+P | alternator | Mixable | #M cells with a P1 and a P2 neighbour (strict: on opposite sides) | #M cells touching a parent | S_k (any recipe → first recipe) | canon | catalog#19 (D12: col#5 recipe param, strict from geo#15); tie-breaker = mixes touching a parent |
-| `fair_weaver` ★ | Fair Weaver | C+P | alternator | generic | #rows+cols whose colour counts (all K) differ by ≤ 1 | 2N² − Σ(max−min) | (no params) | — | catalog#24 (col#7; kept generic, low ceiling at N=3 rainbow6); tie-breaker = total count spread |
+| `fair_weaver` ★ | Fair Weaver | C+P | alternator | generic | #rows+cols whose colour counts (all K) differ by ≤ 1 | −Σ(max−min) | (no params) | — | catalog#24 (col#7; kept generic, low ceiling at N=3 rainbow6); tie-breaker = total count spread |
 | `lantern_lighter` ★ | Lantern Lighter | C+P | alternator | generic | #X cells alone in their row and column | — | S_k colours | canon | catalog#28 (col#12) |
 | `best_friends` | Best Friends | C+P | alternator | generic | #orthogonal A–B seams | — | S_k colours | canon | col#1 (catalog D2 'seams') |
 | `rainbow_steps` | Rainbow Steps | C+P | alternator | Spectral | #adjacent pairs in direction D with c2 = c1+1 mod K | — | D4 (dir→→) | canon | col#3 (catalog D1 'pairs'; wrap on every Spectral set) |

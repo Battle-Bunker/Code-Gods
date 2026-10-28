@@ -161,22 +161,16 @@ NUMBER_BONDS = mk(
 
 
 # --- Magic Accountant (merged with Row Ranger exact mode) ------------------------------------------------
-def ma_dmax(N, axis, gtype):
-    return _nlines(N, axis) * N * (vmax(gtype) - vmin(gtype))
-
-
 def ma_ord(g, p, gtype):
-    N, T = gtype.N, p["T"]
+    T = p["T"]
     sums = [sum(l) for l in _lines_scalar(gtype.value[g.sym].tolist(), p["axis"])]
-    D = ma_dmax(N, p["axis"], gtype)
-    return tup(sum(s == T for s in sums), D - sum(abs(s - T) for s in sums))
+    return tup(sum(s == T for s in sums), -sum(abs(s - T) for s in sums))
 
 
 def ma_batch(sym, col, p, gtype):
-    N, T = gtype.N, p["T"]
+    T = p["T"]
     s = lines_rc(vals(sym, gtype), p["axis"]).sum(2)
-    D = ma_dmax(N, p["axis"], gtype)
-    return tupb((s == T).sum(1), D - np.abs(s - T).sum(1))
+    return tupb((s == T).sum(1), -np.abs(s - T).sum(1))
 
 
 def ma_sample(rng, gtype):
@@ -605,9 +599,7 @@ def sa_ord(g, p, gtype):
     N = gtype.N
     v, col = gtype.value[g.sym].tolist(), g.col.tolist()
     imb = [abs(sa_imb_scalar(a, b, p, N)) for a, b in zip(_lines_scalar(v, p["scope"]), _lines_scalar(col, p["scope"]))]
-    nl = _nlines(N, p["scope"])
-    D = nl * N * vmax(gtype)
-    return tup(sum(x == 0 for x in imb), D - sum(imb))
+    return tup(sum(x == 0 for x in imb), -sum(imb))
 
 
 def sa_batch(sym, col, p, gtype):
@@ -618,9 +610,7 @@ def sa_batch(sym, col, p, gtype):
         imb = np.abs(L[:, :, :h].sum(2) - L[:, :, N - h:].sum(2))
     else:
         imb = np.abs((L * (C == p["X"])).sum(2) - (L * (C == p["Y"])).sum(2))
-    nl = _nlines(N, p["scope"])
-    D = nl * N * vmax(gtype)
-    return tupb((imb == 0).sum(1), D - imb.sum(1))
+    return tupb((imb == 0).sum(1), -imb.sum(1))
 
 
 def sa_sample(rng, gtype):

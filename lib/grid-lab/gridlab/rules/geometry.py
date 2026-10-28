@@ -322,8 +322,9 @@ def cw_ord(g, p, gtype):
     full = steps = 0
     for o in orbits(gtype.N).tolist():
         v = [s[i] for i in o]
-        full += all(v[i] == (v[0] + i) % 4 for i in range(4))
-        steps += sum(v[i + 1] == (v[i] + 1) % 4 for i in range(3))
+        good = [v[(i + 1) % 4] == (v[i] + 1) % 4 for i in range(4)]  # all 4 turns, wrapping round
+        full += all(good)
+        steps += sum(good)
     return tup(full, steps)
 
 
@@ -331,7 +332,7 @@ def cw_batch(sym, col, p, gtype):
     s = gtype.suit[sym].astype(np.int64).reshape(len(sym), -1)
     O = orbits(gtype.N)
     v = s[:, O]
-    st = v[:, :, 1:] == (v[:, :, :-1] + 1) % 4
+    st = np.roll(v, -1, axis=2) == (v + 1) % 4
     return tupb(st.all(2).sum(1), st.sum((1, 2)))
 
 
@@ -351,7 +352,7 @@ CARD_WINDMILL = mk(
     summary=lambda p, gt: ("Turn the grid a quarter turn and every suit should move on one: ♠→♥→♦→♣→♠. Every set of 4 "
                            "cells that spin that way scores a point."),
     ordinal=cw_ord, batch=cw_batch, exemplar=cw_exemplar,
-    source="catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits", tags={"shortlist"})
+    source="catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits (all 4 turns, kid card)", tags={"shortlist"})
 
 
 # --- Royal Court -------------------------------------------------------------------------------------
