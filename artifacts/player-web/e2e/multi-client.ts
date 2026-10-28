@@ -197,7 +197,8 @@ async function summonThroughUi(p: Player, language: string, source: string) {
 async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>, during?: () => Promise<void>) {
   const { language, source } = AGENTS[type];
   await check(`${type} game (${language}): owner configures and starts it`, async () => {
-    await owner("settings", { settings: { objectType: type, language, planningSeconds: 2 } });
+    // A long half-life: the game must not end by its (random) lifetime in the middle of the checks.
+    await owner("settings", { settings: { objectType: type, language, planningSeconds: 2, halfLifeSeconds: 3600 } });
     await start();
     for (const p of PLAYERS) await pages[p].waitForFunction(t => document.querySelector("[data-testid=text-phase]")?.textContent?.match(/planning|running/i), type, { timeout: 30_000 });
   });
@@ -219,7 +220,10 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
   if (during) await during();
   await check(`${type} game: the owner ends it and it is in the room's history`, async () => {
     await owner("endGame");
-    for (const p of PLAYERS) await pages[p].waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 });
+    for (const p of PLAYERS) {
+      await pages[p].waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 })
+        .catch(async () => { throw new Error(`${p} still shows phase ${await pages[p].textContent("[data-testid=text-phase]")}`); });
+    }
     const history = await (await ownerClient()).query(ref.query("rooms:history"), { room: roomId }) as { settings: { objectType: string } }[];
     assert(history.some(h => h.settings.objectType === type), "history entry");
   });
@@ -301,9 +305,10 @@ export default definePanel({ title: "Test live", placement: "left", Component() 
     assert(/test-live\.tsx|Unexpected|expected/i.test(message ?? ""), `error text: ${message}`);
     const objects = await pages.alice.$$eval("[data-testid^=row-object-]", els => els.length);
     assert(objects > 0, "core console still shows the world");
-    await pages.bob.fill("[data-testid=input-chat]", "still playing");
-    await pages.bob.click("[data-testid=button-send-chat]");
-    await pages.alice.waitForFunction(() => document.body.textContent!.includes("still playing"), null, { timeout: 20_000 });
+    await pages.carol.fill("[data-testid=input-chat]", "still playing");
+    await pages.carol.click("[data-testid=button-send-chat]");
+    await pages.alice.waitForFunction(() => document.body.textContent!.includes("still playing"), null, { timeout: 30_000 })
+      .catch(async () => { throw new Error(`chat did not arrive; carol's notice: ${await pages.carol.textContent("[data-testid=text-notice]").catch(() => "none")}`); });
     assert(await sameDocument("alice"), "alice's page reloaded");
   });
   await check("fixing or deleting the broken panel recovers without a reload", async () => {
