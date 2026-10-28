@@ -19,9 +19,13 @@ E[remaining] is the half-life mean (memoryless) for exponential games, the true 
 Other economies (GameConfig.economy, docs/agent-energy.md). Candidates are priced at what the god pays at
 summon (energy.summon_bits). With `energy_aware` (default) the greedy family values them accordingly:
 
-    agent_energy:  acts/s = min(marginal own income / E[bits per act], rate / (A + 1))
+    agent_energy:  acts/s = min(agent income / E[bits per act], rate / (A + 1))
                    V(P) = d(P) * acts/s * E[remaining] * discount,   yield = V / summon_bits
-                   (marginal own income = income * ((k+1)^alpha - k^alpha) for a god with k agents)
+
+Destroying agents (free, no refund; Policy.destroy, called before each decision). The greedy family
+destroys an own agent once it has made >= `destroy_min_acts` attempts and its realised own payoff
+change per attempt is negative, and, when the god is at max_agents, its worst agent to make room.
+On by default under agent_energy (`destroy=None`), off otherwise; `destroy=True/False` forces it.
     owner_pays:    yield = d * apps * discount / (summon_bits + per-commit bits * apps * commit share)
 """
 from __future__ import annotations
@@ -155,6 +159,10 @@ class Policy:
     def on_commit(self, aid: int, obj_index: int, before: np.ndarray, after: np.ndarray) -> None:
         pass
 
+    def destroy(self) -> list:
+        """Ids of own agents to destroy now (free, no refund)."""
+        return []
+
 
 class RandomPolicy(Policy):
     """Summons an affordable random program with probability p each decision."""
@@ -178,11 +186,15 @@ class GreedyPolicy(Policy):
     objective = "own"   # "own" | "total"
 
     def __init__(self, *a, K: int = 12, M_eval: int = 24, discount: float = 0.5, min_yield: float = 0.0,
-                 learn: bool = False, backoff: bool = True, energy_aware: bool = True, **kw):
+                 learn: bool = False, backoff: bool = True, energy_aware: bool = True,
+                 destroy: bool | None = None, destroy_min_acts: int = 20, **kw):
         super().__init__(*a, **kw)
         self.K, self.M_eval, self.discount, self.min_yield, self.learn = K, M_eval, discount, min_yield, learn
         self.backoff = backoff
         self.energy_aware = energy_aware
+        self.destroy_on = destroy
+        self.destroy_min_acts = destroy_min_acts
+        self.gain: dict[int, float] = {}       # aid -> realised own payoff change (all own agents)
         self.commit_share = None               # per candidate of the last mean_delta: share of sampled objects changed
         self.skip = 0
         self.fails = 0
@@ -204,10 +216,8 @@ class GreedyPolicy(Policy):
         """agent_energy: expected acts/s of each candidate if summoned now (see module docstring)."""
         from .energy import profile
         w, c = self.world, self.world.cfg
-        k = w.own_count[self.god]
-        marg = c.agent_income * ((k + 1) ** c.agent_income_alpha - k ** c.agent_income_alpha)
         per = np.array([profile(p, w.gtype).expected for p in progs]) * c.cost_scale
-        return np.minimum(marg / np.maximum(per, 1e-3), c.interaction_rate_hz / (len(w.agents) + 1))
+        return np.minimum(c.agent_income / np.maximum(per, 1e-3), c.interaction_rate_hz / (len(w.agents) + 1))
 
     def scale(self) -> float:
         if not self.learn or not self.pred:
@@ -308,10 +318,24 @@ class GreedyPolicy(Policy):
             self.pred[aid] = self.last_best[1]
 
     def on_commit(self, aid, oi, before, after):
+        i = self.god
+        pb, pa = before.sum() - before[i], after.sum() - after[i]
+        g = float(after[i] * pa - before[i] * pb)
+        self.gain[aid] = self.gain.get(aid, 0.0) + g
         if self.learn and aid in self.pred:
-            i = self.god
-            pb, pa = before.sum() - before[i], after.sum() - after[i]
-            self.realised[aid] = self.realised.get(aid, 0.0) + float(after[i] * pa - before[i] * pb)
+            self.realised[aid] = self.realised.get(aid, 0.0) + g
+
+    def destroy(self):
+        w = self.world
+        on = self.destroy_on if self.destroy_on is not None else w.cfg.economy == "agent_energy"
+        if not on:
+            return []
+        mine = [a for a in w.agents if w.agent_owner[a] == self.god]
+        rate = {a: self.gain.get(a, 0.0) / w.agent_attempts[a] for a in mine if w.agent_attempts[a] >= self.destroy_min_acts}
+        out = [a for a, v in rate.items() if v < 0]
+        if not out and len(mine) >= w.cfg.max_agents and rate:
+            out = [min(rate, key=rate.get)]
+        return out
 
 
 class OmniscientPolicy(GreedyPolicy):

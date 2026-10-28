@@ -162,7 +162,7 @@ def test_expected_matches_mean_charge():
 
 
 def test_conservation_eligibility_battery():
-    for kw in ({}, {"agent_income_alpha": 0.5}, {"agent_battery": 1.0, "agent_income": 0.3},
+    for kw in ({}, {"agent_battery": 1.0, "agent_income": 0.3},
                {"agent_start": "one"}, {"agent_half_life": 30.0}):
         log = game(seed=5, **kw)
         B = kw.get("agent_battery", 2.0)
@@ -191,18 +191,44 @@ def test_no_eligible_no_interaction():
         assert log.counters["attempts"] == 0 and log.counters["idle_ticks"] > 0
 
 
-def test_sublinear_income():
-    """alpha = 0.5: a god with k agents earns income * sqrt(k) in total."""
-    for alpha in (0.5, 1.0):
-        log = game(seed=7, agent_income_alpha=alpha, fixed_seconds=40.0, planning_seconds=20.0, agent_income=2.0,
-                   policies=["spammer", "spammer", "idle"], starting_energy=300.0, decision_interval=1.0)
-        for god in (0, 1):
-            ts = np.sort(log.a_time[log.a_owner == god].astype(float))
-            assert len(ts) > 5
-            edges = np.append(ts, log.duration)
-            want = sum(2.0 * (k + 1) ** alpha * (edges[k + 1] - edges[k]) for k in range(len(ts)))
-            got = float(log.a_income[log.a_owner == god].sum())
-            assert abs(got - want) < 1e-3 * want + 0.05, (alpha, god, got, want)
+def test_constant_income_separate_from_god():
+    """Each agent earns the same constant income whatever its owner's agent count; agent energy never
+    touches the god's account (the god pays exactly the description bits)."""
+    log = game(seed=7, fixed_seconds=40.0, planning_seconds=20.0, agent_income=2.0,
+               policies=["spammer", "spammer", "idle"], starting_energy=300.0, decision_interval=1.0)
+    assert (log.a_owner == 0).sum() > 5
+    life = np.minimum(log.a_death.astype(float), log.duration) - log.a_time.astype(float)
+    assert np.abs(log.a_income - 2.0 * life).max() < 0.05, np.abs(log.a_income - 2.0 * life).max()
+    assert abs(log.spent.sum() - log.a_summon_bits.sum()) < 1e-3 * log.spent.sum()
+
+
+def test_negative_balances():
+    """The full actual cost is deducted even below zero; eligibility still uses the expected cost."""
+    neg = 0
+    for seed in range(12, 16):
+        log = game(seed=seed, agent_income=0.5)
+        after = log.act_energy - log.act_bits
+        neg += int((after < -1e-9).sum())
+        ex = log.a_act_exp.astype(float)[log.act_agent]
+        assert (log.act_energy >= ex - 1e-6).all()
+    assert neg > 0, "no act took a balance below zero"
+
+
+def test_destroy_is_free():
+    log = game(seed=17, agent_income=1.0, fixed_seconds=120.0, policies=["greedy_private", "saver", "greedy_omniscient"],
+               policy_kwargs={"destroy_min_acts": 5})
+    d = log.a_destroyed
+    assert d.sum() == log.counters["destroys"] > 0
+    # free: the gods paid exactly the description bits of everything they summoned, nothing refunded
+    assert abs(log.spent.sum() - log.a_summon_bits.sum()) < 1e-3 * log.spent.sum()
+    # a destroyed agent never acts again, and stops earning
+    for a in np.flatnonzero(d):
+        t = log.c_time[log.c_agent == a]
+        assert (t <= log.a_death[a] + 1e-6).all()
+        assert abs(log.a_income[a] - 1.0 * (log.a_death[a] - log.a_time[a])) < 0.05
+    off = game(seed=17, agent_income=1.0, fixed_seconds=120.0, policies=["greedy_private", "saver", "greedy_omniscient"],
+               policy_kwargs={"destroy": False})
+    assert off.counters["destroys"] == 0
 
 
 def test_determinism():

@@ -27,32 +27,31 @@ from ..sim import draws_for, run_game
 TYPES = ["5,base10,rgby", "6,cards,rainbow6", "4,base12,rgb"]
 MIX = ("random", "greedy_private", "saver", "greedy_omniscient")
 SPAM_MIX = ("spammer", "greedy_private", "saver", "greedy_omniscient")
-EV = 1   # bump to invalidate this script's extra fields
+EV = 2   # bump to invalidate this script's extra fields
 
 
-def energy_setting(income: float, battery: float = 2.0, alpha: float = 1.0, **extra) -> dict:
-    cfg = {"economy": "agent_energy", "agent_income": income, "agent_battery": battery, "agent_income_alpha": alpha}
+def energy_setting(income: float, battery: float = 2.0, **extra) -> dict:
+    cfg = {"economy": "agent_energy", "agent_income": income, "agent_battery": battery}
     cfg.update(extra)
     return setting(config=cfg)
 
 
-def _name(i, b, a):
+def _name(i, b):
     f = lambda x: f"{x:g}".replace(".", "p")
-    return f"energy_I{f(i)}_B{f(b)}_A{f(a)}"
+    return f"energy_I{f(i)}_B{f(b)}"
 
 
 SETTINGS: dict = {"summon": BASE, "owner_pays": setting(config={"economy": "owner_pays"})}
 for _i in (0.25, 1.0, 2.0, 4.0, 16.0):
-    SETTINGS[_name(_i, 2, 1)] = energy_setting(_i)
+    SETTINGS[_name(_i, 2)] = energy_setting(_i)
 for _b in (1.0, 8.0):
-    SETTINGS[_name(1, _b, 1)] = energy_setting(1.0, _b)
-for _i in (1.0, 4.0):
-    SETTINGS[_name(_i, 2, 0.5)] = energy_setting(_i, 2.0, 0.5)
-SETTINGS["energy_I1_B2_A1_start1"] = energy_setting(1.0, agent_start="one")
-SETTINGS["energy_I1_B2_A1_naive"] = energy_setting(1.0, policy_kwargs={"energy_aware": False})
+    SETTINGS[_name(2, _b)] = energy_setting(2.0, _b)
+SETTINGS["energy_I2_B2_start1"] = energy_setting(2.0, agent_start="one")
+SETTINGS["energy_I2_B2_naive"] = energy_setting(2.0, policy_kwargs={"energy_aware": False})
+SETTINGS["energy_I2_B2_nodestroy"] = energy_setting(2.0, policy_kwargs={"destroy": False})
 MAIN = list(SETTINGS)
-FOCUS = ("energy_I1_B2_A1", "energy_I1_B2_A0p5")   # settings whose family moves vs summon are listed
-SPAM = ["summon", "owner_pays", "energy_I1_B2_A1", "energy_I2_B2_A1", "energy_I4_B2_A1", "energy_I1_B2_A0p5", "energy_I4_B2_A0p5"]
+FOCUS = ("energy_I2_B2",)   # settings whose family moves vs summon are listed
+SPAM = ["summon", "owner_pays", "energy_I1_B2", "energy_I2_B2", "energy_I4_B2"]
 
 
 def make_specs(types, n, seed0, mix=MIX) -> list[GameSpec]:
@@ -91,6 +90,9 @@ def energy_stats(log, progs) -> dict:
            "summon_bits": sb.round(2).tolist(), "exp_bits": ex.round(3).tolist(),
            "attempts_a": log.a_attempts.tolist(), "commits_a": commits.tolist(), "dpi_a": dpi.round(1).tolist(),
            "owner_a": owner.tolist(), "a_time": log.a_time.round(1).tolist(),
+           "a_end": (np.minimum(log.a_death, log.duration) if log.a_death is not None
+                     else np.full(A, log.duration)).round(1).tolist(),
+           "destroyed_a": (log.a_destroyed.tolist() if log.a_destroyed is not None else [False] * A),
            "bij_a": [bool(p.bijective) for p in progs], "nsteps_a": [len(p.steps) for p in progs],
            "guard_a": [p.guard.kind is not None for p in progs]}
     ticks = max(1.0, log.duration * log.config["interaction_rate_hz"])
@@ -103,6 +105,17 @@ def energy_stats(log, progs) -> dict:
         out["act_bits_mean"] = float(ab.mean())
         out["act_bits_commit_mean"] = float(ab[log.act_commit].mean()) if log.act_commit.any() else 0.0
         out["charged_per_god"] = np.bincount(owner[log.act_agent], weights=ab, minlength=G).round(1).tolist()
+    if log.snap_demand is not None and len(log.snap_demand):
+        dm = log.snap_demand.astype(float)
+        out["demand_mean"] = float(np.median(dm))
+        out["cap_bind_share"] = float((dm >= 1).mean())
+        # crowding: share of acts by the cheapest third of agents (by E[bits per act]) / their share of agent-seconds
+        if A >= 3 and len(log.act_agent):
+            life = np.maximum(np.array(out["a_end"]) - np.maximum(log.a_time.astype(float), 0.0), 0.0)
+            cheap = ex <= np.quantile(ex, 1 / 3)
+            acts = np.bincount(log.act_agent, minlength=A)
+            out["cheap_act_share"] = float(acts[cheap].sum() / max(acts.sum(), 1))
+            out["cheap_life_share"] = float(life[cheap].sum() / max(life.sum(), 1e-9))
     if log.a_income is not None:
         bal = log.a_start + log.a_income - log.a_charged - log.a_wasted - log.a_energy_end
         out["conservation_err"] = float(np.abs(bal).max()) if A else 0.0
@@ -215,7 +228,7 @@ def agent_rows(rs: list[dict]) -> dict:
         pols = [g["policy"] for g in r["gods"]]
         for j in range(len(r["owner_a"])):
             o = r["owner_a"][j]
-            life = max(r["duration"] - max(r["a_time"][j], 0.0), 1.0)
+            life = max(r.get("a_end", [r["duration"]] * len(r["owner_a"]))[j] - max(r["a_time"][j], 0.0), 1.0)
             cols["sb"].append(r["summon_bits"][j]); cols["ex"].append(r["exp_bits"][j])
             cols["att"].append(r["attempts_a"][j]); cols["com"].append(r["commits_a"][j])
             cols["dpi"].append(r["dpi_a"][j]); cols["life"].append(life); cols["rank"].append(ranks[o])
@@ -309,6 +322,33 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
     out.append(md_table(["setting"] + [f"agents {p}" for p in MIX] +
                         ["median summon bits", "median E[act bits]", "mean E[act bits]", "median acts/agent",
                          "median acts/s", "median charged bits/act", "bijective share", "guarded share"], rows))
+    # rate cap, crowding, destroy
+    rows = []
+    for n in names:
+        rs = results[n]
+        if "cap_bind_share" not in rs[0]:
+            continue
+        cb = [r["cap_bind_share"] for r in rs]
+        dmd = [r["demand_mean"] for r in rs]
+        cr = [r["cheap_act_share"] / max(r["cheap_life_share"], 1e-9) for r in rs if "cheap_act_share" in r]
+        per_pol = defaultdict(list)
+        for r in rs:
+            o = np.array(r["owner_a"], int)
+            dd = np.array(r["destroyed_a"], bool)
+            for i, g in enumerate(r["gods"]):
+                per_pol[g["policy"]].append(int(dd[o == i].sum()))
+        alld = np.concatenate([np.array(r["destroyed_a"], bool) for r in rs])
+        rows.append([n, f"{np.median(dmd):.2f}", f"{np.mean(cb):.2f}",
+                     f"{np.mean([r['cheap_act_share'] for r in rs if 'cheap_act_share' in r]):.2f}",
+                     f"{np.mean([r['cheap_life_share'] for r in rs if 'cheap_life_share' in r]):.2f}",
+                     f"{np.median(cr):.2f}"] + [f"{np.mean(per_pol[p]):.1f}" for p in MIX] + [f"{alld.mean():.2f}"])
+    if rows:
+        out.append("\n### Rate cap, crowding and destroy: median demand ratio Σ income/E[bits per act] ÷ cap; share of "
+                   "snapshots with demand ≥ 1 (cap binds); acts taken by the cheapest third of agents (by E[bits per act]) "
+                   "vs their share of agent-lifetime; destroys per god by policy; share of agents destroyed\n")
+        out.append(md_table(["setting", "demand / cap", "cap-binding share", "cheap third: act share",
+                             "cheap third: lifetime share", "crowding ratio (median)"] +
+                            [f"destroys {p}" for p in MIX] + ["agents destroyed"], rows))
     # who wins: simple and efficient?
     rows = []
     for n in names:
