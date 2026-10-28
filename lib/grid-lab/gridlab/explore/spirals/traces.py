@@ -32,6 +32,9 @@ def _side_by_side(blocks: list[tuple[str, str]]) -> str:
     return "\n".join(out)
 
 
+TWIN = 5.0
+
+
 def pick_episode(log, focus: str):
     eps = episodes(log)
     if focus == "spiral":
@@ -47,8 +50,8 @@ def pick_episode(log, focus: str):
     objs, cnt = np.unique(log.c_obj[sig], return_counts=True)
     o = int(objs[np.argmax(cnt)])
     t = log.c_time[sig & (log.c_obj == o)]
-    best = max(t, key=lambda x: ((t >= x) & (t < x + 30)).sum())
-    idx = np.flatnonzero((log.c_obj == o) & (log.c_time >= best) & (log.c_time < best + 30))
+    best = max(t, key=lambda x: ((t >= x) & (t < x + TWIN)).sum())
+    idx = np.flatnonzero((log.c_obj == o) & (log.c_time >= best) & (log.c_time < best + TWIN))
     return {"obj": o, "first": int(idx[0]), "last": int(idx[-1]), "tension": True}
 
 
