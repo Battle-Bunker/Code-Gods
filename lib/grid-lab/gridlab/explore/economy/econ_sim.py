@@ -28,6 +28,11 @@ Economy knobs (Econ):
   price_exp         convex (> 1) or concave (< 1) summon pricing: price = c * (c / price_ref)^(price_exp - 1)
                     for a program of c bits (after cost_scale); 1 = linear (the engine). price_ref = 20 bits,
                     about a typical program, so typical agents keep their price and jackpots get dearer.
+  split             split the agent price by time: summon pays the description terms only (agent base,
+                    tool naming + parameter description of every step and the guard, ratchet surcharge);
+                    each COMMITTED application pays split_scale x the erasure + motion + measurement terms
+                    (x cost_scale). An owner who cannot pay the application cost idles (skipped). Failed
+                    attempts (None result or rejected as a duplicate) pay split_fail x that cost.
   aware             policies price an agent at its total cost of ownership: summon cost + expected
                     gas over its expected applications (lifetime- and charge-limited).
 
@@ -76,6 +81,9 @@ class Econ:
     aware: bool = False
     price_exp: float = 1.0
     price_ref: float = 20.0
+    split: bool = False
+    split_scale: float = 1.0
+    split_fail: float = 0.0
 
     @property
     def mortal(self) -> bool:
@@ -95,6 +103,32 @@ class Econ:
         if self.charges and apps_rate > 0:
             L = min(L, self.charges / apps_rate)   # charge_on="commit" makes this pessimistic
         return L
+
+
+def split_terms(prog, gt) -> tuple[float, float]:
+    """(description bits, per-application bits) of a Program; they sum to prog.cost(gt)."""
+    t = prog.cost_terms(gt)
+    desc, app = t["agent_base"] + t["ratchet"], 0.0
+    g = prog.guard.cost_terms(gt)
+    desc += g["base"] + g["describe"]
+    app += g["measure"]
+    for st in prog.steps:
+        m = st.mutator.terms(st.params, gt)
+        k = m["mult"]
+        desc += k * (m["base"] + m["describe"])
+        app += k * (m["erase"] + m["move"] + m["measure"])
+    return float(desc), float(app)
+
+
+_SPLIT: dict = {}
+
+
+def split_of(prog, gt) -> tuple[float, float]:
+    k = (id(prog), gt)
+    v = _SPLIT.get(k)
+    if v is None or v[0] is not prog:
+        v = _SPLIT[k] = (prog, split_terms(prog, gt))
+    return v[1]
 
 
 class EconWorld(World):
@@ -201,13 +235,17 @@ def _wrap(cls):
     class Econ_(cls):
         def sample_programs(self, k):
             progs, costs = super().sample_programs(k)
+            w = self.world
+            if w.econ.split:
+                cs = w.cfg.cost_scale
+                costs = np.array([split_of(p, w.gtype)[0] * cs for p in progs], float)
             self._base_costs = costs
             return progs, self.world.price(self.god, costs)
 
         def evaluate(self, K):
             w = self.world
             e = w.econ
-            if not (e.aware and (e.gassy or e.mortal)) or not hasattr(self, "mean_delta"):
+            if not (e.aware and (e.gassy or e.mortal or e.split)) or not hasattr(self, "mean_delta"):
                 return super().evaluate(K)
             energy = self.energy()
             cands, costs = self.sample_programs(K)
@@ -224,6 +262,9 @@ def _wrap(cls):
             life = min(rem, e.expected_life(c, rate))
             apps = rate * life
             tco = costs + (e.gas + e.gas_frac * base) * apps
+            if e.split:
+                per = np.array([split_of(p, w.gtype)[1] for p in cands]) * c.cost_scale * e.split_scale
+                tco = tco + per * apps * 0.8
             y = d * apps * self.discount * self.scale() / np.maximum(tco, 1e-9)
             b = int(np.argmax(y))
             return cands[b], float(y[b]), float(d[b])
@@ -281,13 +322,20 @@ def run_econ_game(cfg: GameConfig, econ: Optional[Econ] = None, tables: Optional
     bin_live, bin_att, bin_com, bin_up, bin_abs = (np.zeros(N_BINS + 1) for _ in range(5))
     att_by_god = np.zeros(G)
     charges_left: list = []
+    app_cost: list = []
+    split, split_fail = econ.split, econ.split_fail
 
     def do_summons(god: int):
         for prog in pols[god].decide() or ():
-            cost = float(prog.cost(gt)) * cfg.cost_scale
+            if econ.split:
+                dbits, abits = split_of(prog, gt)
+                cost = dbits * cfg.cost_scale
+            else:
+                cost, abits = float(prog.cost(gt)) * cfg.cost_scale, 0.0
             aid = world.summon(god, prog, cost)
             if aid is None:
                 continue
+            app_cost.append(abits * cfg.cost_scale * econ.split_scale)
             counters["summons"] += 1
             a_cost.append(world.last_price)
             a_time.append(world.t)
@@ -406,6 +454,14 @@ def run_econ_game(cfg: GameConfig, econ: Optional[Econ] = None, tables: Optional
             world.spent[owner] += gas
             world.gas_paid[owner] += gas
             a_gas[aid] += gas
+        if split:
+            ac = app_cost[aid]
+            if world.energy(owner) < ac:
+                counters["metabolic_skips"] += 1
+                if starve:
+                    counters["starved"] += 1
+                    world.kill(aid)
+                continue
         counters["attempts"] += 1
         world.agent_attempts[aid] += 1
         att_by_god[owner] += 1
@@ -428,6 +484,12 @@ def run_econ_game(cfg: GameConfig, econ: Optional[Econ] = None, tables: Optional
                 counters["duplicate"] += 1
                 fail = True
         if fail:
+            if split and split_fail:
+                x = split_fail * ac
+                world.bank[owner] -= x
+                world.spent[owner] += x
+                world.gas_paid[owner] += x
+                a_gas[aid] += x
             if gas and refund:
                 world.bank[owner] += refund * gas
                 world.spent[owner] -= refund * gas
@@ -437,6 +499,11 @@ def run_econ_game(cfg: GameConfig, econ: Optional[Econ] = None, tables: Optional
                 counters["charge_deaths"] += 1
                 world.kill(aid)
             continue
+        if split:
+            world.bank[owner] -= ac
+            world.spent[owner] += ac
+            world.gas_paid[owner] += ac
+            a_gas[aid] += ac
         world.keys.discard(old.key)
         world.keys.add(nk)
         world.objects[oi] = new

@@ -5,6 +5,8 @@
    adds up (spent = summons + gas - refunds; income; caps; charge deaths)."""
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 
 from gridlab.sim import run_game
@@ -31,7 +33,8 @@ def test_knobs(real):
                 Econ(charges=20), Econ(charges=5, charge_on="commit"), Econ(half_life=10.0),
                 Econ(lifetime=15.0), Econ(crowd_tax=0.2), Econ(energy_cap=40.0), Econ(income_tilt=0.8),
                 Econ(income_tilt=-0.8), Econ(income_own=0.5), Econ(income_any=0.2),
-                Econ(gas=0.02, half_life=20.0, aware=True), Econ(price_exp=1.5), Econ(price_exp=2.0, crowd_tax=0.1)]
+                Econ(gas=0.02, half_life=20.0, aware=True), Econ(price_exp=1.5), Econ(price_exp=2.0, crowd_tax=0.1),
+                Econ(split=True, split_scale=0.05), Econ(split=True, split_scale=0.05, split_fail=1.0, aware=True)]
     for e in variants:
         cfg = small(real=real, policies=["random", "greedy_private", "saver"])
         log = run_econ_game(cfg, e)
@@ -57,7 +60,7 @@ def test_knobs(real):
 
 
 def main():
-    for real in (False, True):
+    for real in (True,) if len(sys.argv) > 1 else (False, True):
         print(f"providers: {'real' if real else 'toys'}")
         test_identity(real)
         print("  ok identity with gridlab.sim.run_game")

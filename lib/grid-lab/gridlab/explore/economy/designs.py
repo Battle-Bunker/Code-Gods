@@ -34,6 +34,10 @@ SWEEP: dict = {
     "iown": _g("iown", [0.1, 0.25, 0.5, 1.0], lambda v: esetting(econ={"income_own": v})),
     "iany": _g("iany", [0.05, 0.1, 0.25], lambda v: esetting(econ={"income_any": v})),
     "pexp": _g("pexp", [1.25, 1.5, 2.0], lambda v: esetting(econ={"price_exp": v})),
+    # time-split price (description at summon; erasure + motion + measurement per committed application)
+    "split": _g("split", [1.0, 0.1, 0.03, 0.01, 0.003], lambda v: esetting(econ={"split": True, "split_scale": v})),
+    "splitfail": _g("splitfail", [0.03, 0.01], lambda v: esetting(econ={"split": True, "split_scale": v, "split_fail": 1.0})),
+    "splitaware": _g("splitaware", [0.03, 0.01], lambda v: esetting(econ={"split": True, "split_scale": v, "aware": True})),
 }
 for _grp in SWEEP.values():
     for _n, _st in _grp:
