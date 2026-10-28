@@ -2,7 +2,8 @@
  * Offline calibration pipeline: builds the shipped survival tables (data/calibration/v1/).
  *
  *   pnpm --filter @workspace/game-utilities calibrate [--types Int,string,Grid] [--instances "Grid(5,base10,rgby)",...]
- *        [--families id,...] [--budget default|smoke|k=v,...] [--workers 4] [--force] [--check]
+ *        [--families id,...] [--budget default|smoke|k=v,...] [--workers 4] [--force] [--check] [--out dir]
+ *        [--pool pool.json]   (mixture-prior tables ½·uniform + ½·pool, from the uniform tables already built)
  *
  * Enumerates instantiations × available families (reward and penalty) × canonical(support), keys each table
  * (src/calibration.ts tableKey), skips keys already present in data/ (incremental), builds the rest on worker
@@ -17,10 +18,11 @@ import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { INT_PRESETS, STRING_PRESETS, instantiate, type Instantiation, type TypeArgs } from "@workspace/game-types";
 import { available, canonicalSupport, context, familiesFor, paramsKey } from "../src/catalog.ts";
 import {
-  CALIBRATION_FORMAT, ESTIMATOR, tableKey, type CalibrationBudget, type CalibrationFile, type CalibrationManifest,
+  CALIBRATION_FORMAT, ESTIMATOR, priorKey, tableKey, type CalibrationBudget, type CalibrationFile, type CalibrationManifest,
   type CalibrationTable,
 } from "../src/calibration.ts";
 import type { Params } from "../src/types.ts";
+import { mixtureTable, poolPrior, type PriorPool } from "./mixture.ts";
 import { BUDGETS, DEFAULT_BUDGET, budgetFor, buildTable, tableJson } from "./estimator.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -66,8 +68,8 @@ export function readFile(dir: string, instKey: string): CalibrationFile | null {
   return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) as CalibrationFile : null;
 }
 
-const tableOrder = (a: CalibrationTable, b: CalibrationTable) =>
-  a.family < b.family ? -1 : a.family > b.family ? 1 : paramsKey(a.canonicalParams) < paramsKey(b.canonicalParams) ? -1 : 1;
+const orderKey = (t: CalibrationTable) => `${t.family}\0${paramsKey(t.canonicalParams)}\0${t.prior ? priorKey(t.prior) : ""}`;
+const tableOrder = (a: CalibrationTable, b: CalibrationTable) => (orderKey(a) < orderKey(b) ? -1 : orderKey(a) > orderKey(b) ? 1 : 0);
 
 export function fileText(instKey: string, tables: readonly CalibrationTable[]): string {
   const sorted = [...tables].sort(tableOrder);
@@ -85,8 +87,12 @@ export function writeIndex(dir: string, order: readonly string[]): void {
     const objectType = k.slice(0, k.indexOf("("));
     const inst = instantiateKey(k);
     const tables: Record<string, Record<string, string>> = {};
-    for (const t of [...file.tables].sort(tableOrder)) (tables[t.family] ??= {})[paramsKey(t.canonicalParams)] = t.key;
-    instances[k] = { objectType, args: sortArgs(inst.args), file: fileName(k), tables };
+    const priors: Record<string, Record<string, Record<string, string>>> = {};
+    for (const t of [...file.tables].sort(tableOrder)) {
+      const into = t.prior ? (priors[priorKey(t.prior)] ??= {}) : tables;
+      (into[t.family] ??= {})[paramsKey(t.canonicalParams)] = t.key;
+    }
+    instances[k] = { objectType, args: sortArgs(inst.args), file: fileName(k), tables, ...(Object.keys(priors).length ? { priors } : {}) };
   }
   const manifest: CalibrationManifest = { format: CALIBRATION_FORMAT, estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version }, instances };
   writeFileSync(join(dir, "manifest.json"), JSON.stringify(manifest) + "\n");
@@ -192,6 +198,7 @@ function parseArgs(argv: readonly string[]) {
     if (!a.startsWith("--")) throw new Error(`Unexpected argument ${a}`);
     const name = a.slice(2);
     if (name === "force" || name === "check") opts[name] = true;
+    else if (name === "pool") opts[name] = argv[++i];
     else opts[name] = argv[++i];
   }
   return opts;
@@ -213,7 +220,8 @@ async function main() {
     const all = jobsFor(inst);
     const current = new Set(all.map(j => j.key));
     const existing = readFile(dir, inst.key)?.tables ?? [];
-    const kept = existing.filter(t => current.has(t.key));
+    // Uniform tables: kept iff their key is current. Other priors' tables: kept iff fresh for their prior.
+    const kept = existing.filter(t => (t.prior ? t.key === tableKey(t.family, t.canonicalParams, inst, t.prior) : current.has(t.key)));
     const have = new Set(kept.map(t => t.key));
     const wanted = all.filter(j => !families || families.has(j.familyId));
     const todo = wanted.filter(j => opts.force || !have.has(j.key));
@@ -222,6 +230,7 @@ async function main() {
   for (const p of plan) {
     console.error(`${p.inst.key}: ${p.total} tables, ${p.kept.length} current, ${p.todo.length} to build, ${p.stale} stale`);
   }
+  if (typeof opts.pool === "string") return buildMixtures(dir, opts.pool, families, order);
   if (opts.check) {
     const bad = plan.filter(p => p.todo.length || p.stale);
     if (bad.length) { console.error(`Calibration tables are missing or stale. Regenerate with: pnpm --filter @workspace/game-utilities calibrate`); process.exit(1); }
@@ -248,6 +257,27 @@ async function main() {
   }
   writeIndex(dir, order);
   console.error(`built ${jobs.length} tables in ${((performance.now() - t0) / 1000).toFixed(1)} s on ${workers} workers`);
+}
+
+/**
+ * --pool <file>: mixture-prior tables (½·uniform + ½·pool) for the pool's instance, from the fresh uniform tables
+ * already in `dir` (scripts/mixture.ts). Exact given the uniform tables, so no workers are needed.
+ */
+function buildMixtures(dir: string, poolPath: string, families: ReadonlySet<string> | undefined, order: readonly string[]): void {
+  const pool = JSON.parse(readFileSync(poolPath, "utf8")) as PriorPool;
+  const inst = instantiateKey(pool.instance), file = readFile(dir, inst.key);
+  if (!file) throw new Error(`no uniform tables for ${inst.key}; calibrate it first`);
+  const prior = poolPrior(pool);
+  const others = file.tables.filter(t => !(t.prior && priorKey(t.prior) === priorKey(prior)));
+  const made: CalibrationTable[] = [];
+  for (const j of jobsFor(inst, families)) {
+    const u = file.tables.find(t => !t.prior && t.key === j.key);
+    if (!u) throw new Error(`${j.familyId} ${paramsKey(j.params)} on ${inst.key}: uniform table missing or stale; calibrate first`);
+    made.push(mixtureTable(u, pool, inst));
+  }
+  writeFileSync(join(dir, fileName(inst.key)), fileText(inst.key, [...others, ...made]));
+  writeIndex(dir, order);
+  console.error(`built ${made.length} mixture tables for ${priorKey(prior)} on ${inst.key}`);
 }
 
 const weight = (j: Job) => (j.objectType === "Grid" ? 1000 * Number(j.args.size) ** 2 : j.objectType === "string" ? Number(j.args.maxLength) : 1);

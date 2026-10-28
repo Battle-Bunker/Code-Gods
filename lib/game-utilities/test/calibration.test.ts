@@ -276,3 +276,42 @@ test("exact tails reproduce the cards: Monte Carlo frequencies agree at every le
     }
   }
 });
+
+test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every level; keyed by the pool's content", async () => {
+  const { mixtureTable, poolPrior, MIXTURE_DISPLAY_SCALE } = await import("../scripts/mixture.ts");
+  const { UNIFORM_PRIOR, displayScale } = await import("../src/calibration.ts");
+  const inst = instantiate("Int", { min: 0, max: 9999 });
+  const uniform = buildTable("digit-devotee", { d: 7 }, inst).table; // exact enumeration: G_uniform is exact
+  assert.equal(uniform.estimator.budget, "exact");
+  const pool = { id: "synthetic", instance: inst.key, wires: [7777, 7770, 1234, 7, 0, 77] };
+  const mix = mixtureTable(uniform, pool, inst);
+  const count = (k: number) => pool.wires.filter(x => String(x).split("").filter(c => c === "7").length >= k).length;
+  const Gu = (k: number) => {
+    let c = 0;
+    for (let x = 0; x <= 9999; x++) if (String(x).split("").filter(ch => ch === "7").length >= k) c++;
+    return c / 10000;
+  };
+  for (const [o, bits] of uniform.levels) assert.ok(Math.abs(2 ** -bits - Gu(o as number)) < 1e-9 + 1e-6 * Gu(o as number));
+  for (const [o, bits] of mix.levels) {
+    const k = o as number, want = -Math.log2(0.5 * 2 ** -surprisal(uniform, k) + 0.5 * count(k) / pool.wires.length);
+    assert.ok(Math.abs(bits - Math.max(want, 1e-6)) < 1e-6, `k=${k}: ${bits} vs ${want}`);
+  }
+  // Above the top: ½·G_uniform, i.e. exactly one bit more than uniform, at the uniform slope.
+  assert.equal(mix.slope, uniform.slope);
+  assert.ok(Math.abs(surprisal(mix, 9) - (surprisal(uniform, 9) + 1)) < 1e-6);
+  assert.equal(displayScale(mix), MIXTURE_DISPLAY_SCALE);
+  assert.equal(displayScale(uniform), 1);
+  // Keys: the prior is part of the key, and the pool's content is part of the prior.
+  const prior = poolPrior(pool);
+  assert.notEqual(mix.key, uniform.key);
+  assert.equal(mix.key, tableKey("digit-devotee", { d: 7 }, inst, prior));
+  assert.equal(uniform.key, tableKey("digit-devotee", { d: 7 }, inst, UNIFORM_PRIOR));
+  assert.notEqual(poolPrior({ ...pool, wires: [...pool.wires, 1] }).version, prior.version);
+  assert.notEqual(tableKey("digit-devotee", { d: 7 }, inst, poolPrior({ ...pool, wires: [1] })), mix.key);
+  // Byte-identical, and strictly increasing.
+  assert.equal(tableJson(mixtureTable(uniform, pool, inst)), tableJson(mix));
+  for (let i = 1; i < mix.levels.length; i++) assert.ok(mix.levels[i][1] > mix.levels[i - 1][1]);
+  // Not shipped: the registry serves uniform tables only unless a mixture is shipped.
+  assert.equal(tableFor("digit-devotee", { d: 7 }, inst, prior), undefined);
+  assert.throws(() => mixtureTable(uniform, { ...pool, wires: [-5] }, inst));
+});

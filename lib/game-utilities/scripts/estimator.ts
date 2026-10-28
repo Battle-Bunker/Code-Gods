@@ -293,6 +293,7 @@ export function tableJson(t: CalibrationTable): string {
     key: t.key, family: t.family, canonicalParams: sortDeep(t.canonicalParams), instance: t.instance, shape: t.shape,
     levels: t.levels, slope: t.slope,
     ...(t.penaltyMeanBits !== undefined ? { penaltyMeanBits: t.penaltyMeanBits } : {}),
+    ...(t.prior ? { prior: { id: t.prior.id, version: t.prior.version } } : {}),
     estimator: {
       id: t.estimator.id, version: t.estimator.version, seed: t.estimator.seed,
       budget: typeof b === "string" ? b : {
@@ -303,6 +304,9 @@ export function tableJson(t: CalibrationTable): string {
     meta: {
       mcLevels: t.meta.mcLevels, splitLevels: t.meta.splitLevels, stoppedEarly: t.meta.stoppedEarly,
       topReached: t.meta.topReached, maxBits: t.meta.maxBits,
+      ...(t.meta.displayScale !== undefined ? { displayScale: t.meta.displayScale } : {}),
+      ...(t.meta.uniformKey !== undefined ? { uniformKey: t.meta.uniformKey } : {}),
+      ...(t.meta.poolSize !== undefined ? { poolSize: t.meta.poolSize } : {}),
     },
   };
   return JSON.stringify(ordered);

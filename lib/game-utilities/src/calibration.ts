@@ -68,6 +68,17 @@ export interface CalibrationBudget {
   readonly maxStuck: number;
 }
 
+/**
+ * The calibration prior ρ (what "surprising" is measured against). Versioned and part of the table key.
+ *  - uniform v1: the type's spawn prior μ (the default; every shipped table).
+ *  - mixture: ρ = ½·uniform + ½·(uniform draw from a frozen pool of objects, e.g. grids from earlier games);
+ *    version = "<pool id>:<sha256 of the pool's canonical JSON>", so a different pool is a different prior.
+ */
+export interface PriorRef { readonly id: string; readonly version: number | string }
+export const UNIFORM_PRIOR: PriorRef = Object.freeze({ id: "uniform", version: 1 });
+export const isUniform = (p: PriorRef | undefined): boolean => !p || (p.id === UNIFORM_PRIOR.id && p.version === UNIFORM_PRIOR.version);
+export const priorKey = (p: PriorRef = UNIFORM_PRIOR): string => `${p.id}@${p.version}`;
+
 /** One shipped table. `levels` are [ordinal, bits] pairs, strictly increasing in both. */
 export interface CalibrationTable {
   readonly key: string;
@@ -79,8 +90,10 @@ export interface CalibrationTable {
   readonly levels: readonly (readonly [Ordinal, number])[];
   /** Bits per ordinal step above the top level. */
   readonly slope: number;
-  /** E_μ[softHinge(s)] (penalty families only). */
+  /** E_ρ[softHinge(s)] (penalty families only). */
   readonly penaltyMeanBits?: number;
+  /** The prior; absent = UNIFORM_PRIOR. */
+  readonly prior?: PriorRef;
   readonly estimator: {
     readonly id: string;
     readonly version: number;
@@ -97,8 +110,19 @@ export interface CalibrationTable {
     /** Whether the exemplar's ordinal is among the levels (null without an exemplar). */
     readonly topReached: boolean | null;
     readonly maxBits: number;
+    /**
+     * For display only (default 1): multiply bits by this when showing them, so magnitudes stay comparable across
+     * priors (the ½-mixture caps every surprisal near 1 + its pool share, so it suggests 2). Lookups return raw bits.
+     */
+    readonly displayScale?: number;
+    /** Mixture tables: the uniform table they were derived from and the pool size. */
+    readonly uniformKey?: string;
+    readonly poolSize?: number;
   };
 }
+
+/** The table's display scale (1 unless the table says otherwise). */
+export const displayScale = (t: CalibrationTable): number => t.meta.displayScale ?? 1;
 
 /** One instance file: data/calibration/v1/<instance key>.json. */
 export interface CalibrationFile {
@@ -117,6 +141,8 @@ export interface CalibrationManifest {
     readonly args: Readonly<Record<string, number | string>>;
     readonly file: string;
     readonly tables: Readonly<Record<string, Readonly<Record<string, string>>>>;
+    /** Tables for non-uniform priors: priorKey → familyId → paramsKey → table key. */
+    readonly priors?: Readonly<Record<string, Readonly<Record<string, Readonly<Record<string, string>>>>>>;
   }>>;
 }
 
@@ -151,12 +177,17 @@ export interface TableKeyParts {
   readonly estimator: { readonly id: string; readonly version: number };
   /** EXACT_TAILS id, for families calibrated exactly (absent otherwise). */
   readonly exact?: string;
+  /**
+   * The prior, when it is not uniform v1. Uniform v1 is the implicit default (`spawn: "uniform"` and no `prior`
+   * field), so introducing priors left every uniform key unchanged.
+   */
+  readonly prior?: PriorRef;
 }
 
 export const keyFromParts = (parts: TableKeyParts): string => sha256(canonicalJson(parts));
 
 /** The parts of the current code's key for (family, canonical params, instantiation). */
-export function tableKeyParts(familyId: string, canonicalParams: Params, inst: Instantiation): TableKeyParts {
+export function tableKeyParts(familyId: string, canonicalParams: Params, inst: Instantiation, prior: PriorRef = UNIFORM_PRIOR): TableKeyParts {
   const f = family(familyId), ctx = context(inst);
   return {
     family: familyId,
@@ -169,6 +200,7 @@ export function tableKeyParts(familyId: string, canonicalParams: Params, inst: I
     spawn: "uniform",
     estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version },
     ...(EXACT_TAILS[familyId] && inst.objectType === "Grid" ? { exact: EXACT_TAILS[familyId] } : {}),
+    ...(isUniform(prior) ? {} : { prior: { id: prior.id, version: prior.version } }),
   };
 }
 
@@ -190,10 +222,10 @@ export function utilityPreludeHash(inst: Instantiation): string {
 
 const keyMemo = new Map<string, string>();
 /** sha256 of the canonical JSON of `tableKeyParts`: changes whenever the body, the prelude or the estimator does. */
-export function tableKey(familyId: string, canonicalParams: Params, inst: Instantiation): string {
-  const m = `${inst.key}\0${familyId}\0${paramsKey(canonicalParams)}`;
+export function tableKey(familyId: string, canonicalParams: Params, inst: Instantiation, prior: PriorRef = UNIFORM_PRIOR): string {
+  const m = `${inst.key}\0${familyId}\0${paramsKey(canonicalParams)}\0${priorKey(prior)}`;
   let k = keyMemo.get(m);
-  if (k === undefined) keyMemo.set(m, k = keyFromParts(tableKeyParts(familyId, canonicalParams, inst)));
+  if (k === undefined) keyMemo.set(m, k = keyFromParts(tableKeyParts(familyId, canonicalParams, inst, prior)));
   return k;
 }
 
@@ -298,40 +330,45 @@ export const meanBits = (table: CalibrationTable): number => priorMeanBits(table
 const files = TABLES as Readonly<Record<string, CalibrationFile>>;
 const manifest = MANIFEST as CalibrationManifest;
 const byInstance = new Map<string, Map<string, CalibrationTable>>();
+const slot = (familyId: string, canon: Params, prior: PriorRef | undefined) => `${familyId}\0${paramsKey(canon)}\0${priorKey(prior)}`;
 function shipped(instKey: string): Map<string, CalibrationTable> | undefined {
   let m = byInstance.get(instKey);
   if (!m) {
     const file = files[instKey];
     if (!file) return undefined;
-    m = new Map(file.tables.map(t => [`${t.family}\0${paramsKey(t.canonicalParams)}`, t]));
+    m = new Map(file.tables.map(t => [slot(t.family, t.canonicalParams, t.prior), t]));
     byInstance.set(instKey, m);
   }
   return m;
 }
 
-function toDraw(a: Draw | string, b?: Params | Instantiation, c?: Instantiation): [Draw, Instantiation] {
-  return typeof a === "string" ? [{ familyId: a, params: b as Params }, c!] : [{ familyId: a.familyId, params: a.params }, b as Instantiation];
+type Args = [Draw, Instantiation, PriorRef?] | [string, Params, Instantiation, PriorRef?];
+function toDraw(args: Args): [Draw, Instantiation, PriorRef] {
+  return typeof args[0] === "string"
+    ? [{ familyId: args[0], params: args[1] as Params }, args[2] as Instantiation, (args[3] as PriorRef | undefined) ?? UNIFORM_PRIOR]
+    : [{ familyId: args[0].familyId, params: args[0].params }, args[1] as Instantiation, (args[2] as PriorRef | undefined) ?? UNIFORM_PRIOR];
 }
 
 /**
- * The fresh shipped table for a draw (a reward draw, a descriptor (its reward channel), or a defence goal),
- * canonicalised through `family.canonical`; undefined when none is shipped or the shipped one is stale.
+ * The fresh shipped table for a draw (a reward draw, a descriptor (its reward channel), or a defence goal) under a
+ * prior (default uniform), canonicalised through `family.canonical`; undefined when none is shipped or the shipped
+ * one is stale.
  */
-export function tableFor(draw: Draw, inst: Instantiation): CalibrationTable | undefined;
-export function tableFor(familyId: string, params: Params, inst: Instantiation): CalibrationTable | undefined;
-export function tableFor(a: Draw | string, b?: Params | Instantiation, c?: Instantiation): CalibrationTable | undefined {
-  const [d, inst] = toDraw(a, b, c);
+export function tableFor(draw: Draw, inst: Instantiation, prior?: PriorRef): CalibrationTable | undefined;
+export function tableFor(familyId: string, params: Params, inst: Instantiation, prior?: PriorRef): CalibrationTable | undefined;
+export function tableFor(...args: Args): CalibrationTable | undefined {
+  const [d, inst, prior] = toDraw(args);
   const f = family(d.familyId);
   if (f.objectType !== inst.objectType) return undefined;
   const canon = f.canonical(d.params, context(inst));
-  const t = shipped(inst.key)?.get(`${d.familyId}\0${paramsKey(canon)}`);
-  return t && t.key === tableKey(d.familyId, canon, inst) ? t : undefined;
+  const t = shipped(inst.key)?.get(slot(d.familyId, canon, prior));
+  return t && t.key === tableKey(d.familyId, canon, inst, prior) ? t : undefined;
 }
 
-export function hasTable(draw: Draw, inst: Instantiation): boolean;
-export function hasTable(familyId: string, params: Params, inst: Instantiation): boolean;
-export function hasTable(a: Draw | string, b?: Params | Instantiation, c?: Instantiation): boolean {
-  return (typeof a === "string" ? tableFor(a, b as Params, c!) : tableFor(a, b as Instantiation)) !== undefined;
+export function hasTable(draw: Draw, inst: Instantiation, prior?: PriorRef): boolean;
+export function hasTable(familyId: string, params: Params, inst: Instantiation, prior?: PriorRef): boolean;
+export function hasTable(...args: Args): boolean {
+  return (tableFor as (...a: Args) => CalibrationTable | undefined)(...args) !== undefined;
 }
 
 /** Instance keys with shipped data, in manifest order. */
@@ -362,8 +399,9 @@ const coverageMemo = new Map<string, Coverage>();
  * Which dealable draws of an instantiation (every available reward and penalty family × canonical support, minus
  * `excludedFamilies`, default `defaultExcludedFamilies(inst)`) lack a fresh table.
  */
-export function coverage(inst: Instantiation, excludedFamilies: readonly string[] = defaultExcludedFamilies(inst)): Coverage {
-  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}`;
+export function coverage(inst: Instantiation, excludedFamilies: readonly string[] = defaultExcludedFamilies(inst),
+  prior: PriorRef = UNIFORM_PRIOR): Coverage {
+  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}`;
   let c = coverageMemo.get(memoKey);
   if (c) return c;
   const ctx = context(inst), entry = manifest.instances[inst.key], excluded = new Set(excludedFamilies);
@@ -372,8 +410,8 @@ export function coverage(inst: Instantiation, excludedFamilies: readonly string[
   for (const f of familiesFor(inst.objectType)) {
     if (excluded.has(f.id) || !available(f, inst).ok) continue;
     for (const p of canonicalSupport(f, ctx)) {
-      const stored = entry?.tables[f.id]?.[paramsKey(p)];
-      if (stored !== undefined && stored === tableKey(f.id, p, inst)) tables++;
+      const stored = (isUniform(prior) ? entry?.tables : entry?.priors?.[priorKey(prior)])?.[f.id]?.[paramsKey(p)];
+      if (stored !== undefined && stored === tableKey(f.id, p, inst, prior)) tables++;
       else missing.push({ familyId: f.id, params: p, stale: stored !== undefined });
     }
   }
@@ -387,6 +425,8 @@ export interface OfferOptions {
    * instantiation. Excluded families need no tables.
    */
   readonly excludedFamilies?: readonly string[];
+  /** The calibration prior (default uniform). */
+  readonly prior?: PriorRef;
 }
 
 /**
@@ -408,7 +448,7 @@ export function offeredInstantiations(objectTypeId: string, options: OfferOption
     .filter(e => e.objectType === objectTypeId)
     .map(e => T.instantiate(e.args))
     .filter(inst => !(inst.objectType === "Grid" && RETIRED_GRID_SIZES.includes(inst.terms.size)))
-    .filter(inst => coverage(inst, options.excludedFamilies ?? defaultExcludedFamilies(inst)).missing.length === 0);
+    .filter(inst => coverage(inst, options.excludedFamilies ?? defaultExcludedFamilies(inst), options.prior).missing.length === 0);
 }
 
 /** The manifest of shipped tables (for diagnostics and the freshness test). */
