@@ -21,8 +21,11 @@ const config = JSON.parse(readFileSync(`${root}/.convex/local/default/config.jso
 export const URL_ = process.env.CONVEX_URL ?? `http://127.0.0.1:${config.ports?.cloud ?? 3210}`;
 export const ADMIN_KEY: string = config.adminKey;
 
+/** ConvexHttpClient.setAdminAuth is untyped (admin-only API): act as the deployment admin, optionally as an identity. */
+const adminAuth = (c: ConvexHttpClient, identity?: Record<string, unknown>) =>
+  (c as unknown as { setAdminAuth(key: string, identity?: unknown): void }).setAdminAuth(ADMIN_KEY, identity);
 export const admin = new ConvexHttpClient(URL_);
-admin.setAdminAuth(ADMIN_KEY);
+adminAuth(admin);
 /** Leave no game loops (or AI chains) running after a test file: they would keep acting on the shared backend. */
 after(async () => { await admin.mutation(internal.testing.endGames, {}); });
 
@@ -31,7 +34,7 @@ export type God = { subject: string; name: string; sid: string; c: ConvexHttpCli
 /** A client acting as `subject` with the given scope (and player credential id). */
 export function clientFor(subject: string, scope: "browser" | "player" = "browser", extra: Record<string, unknown> = {}) {
   const c = new ConvexHttpClient(URL_);
-  c.setAdminAuth(ADMIN_KEY, { subject, issuer: "https://test.local", scope, ...extra } as any);
+  adminAuth(c, { subject, issuer: "https://test.local", scope, ...extra });
   return c;
 }
 
