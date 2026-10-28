@@ -41,8 +41,8 @@ SPACE: dict = {
     "config.metabolic_cost": [0.0, 0.002, 0.005, 0.01, 0.02],
     "config.agent_half_life": [None, 60.0, 150.0, 400.0],
     "config.max_agents": [200, 40, 12],
-    "config.spawn_rate_hz": [0.1, 0.25, 0.5],
-    "config.starting_objects": [10, 20, 40],
+    "config.spawn_rate_hz": [0.1, 0.25, 0.5, 1.0],
+    "config.starting_objects": [10, 20, 40, 80],
     "config.dealer": ["distinct", "balanced_camps", "uniform"],
     "config.dealer_require": [[], [CROSS_LAYER]],
     "knobs.move": [0.35, 0.15, 0.7, 1.2],
@@ -159,9 +159,23 @@ def sample_point(rng: np.random.Generator) -> dict:
     return pt
 
 
+# hand-made starting points from the one-at-a-time sweep (docs/experiments.md §4.1); the rest are random
+SEED_POINTS = [
+    {"config.spawn_rate_hz": 0.5, "config.starting_objects": 40},
+    {"config.spawn_rate_hz": 1.0, "config.starting_objects": 40},
+    {"config.spawn_rate_hz": 0.5, "config.starting_objects": 40, "knobs.kind.bijective": 2.0, "knobs.move": 1.2},
+    {"config.spawn_rate_hz": 0.5, "config.starting_objects": 40, "config.agent_half_life": 60.0,
+     "config.energy_per_second": 2.0},
+    {"config.spawn_rate_hz": 0.25, "config.starting_objects": 20, "config.cost_scale": 0.5,
+     "config.metabolic_cost": 0.005, "knobs.disabled": []},
+    {"config.spawn_rate_hz": 0.5, "config.starting_objects": 80, "config.dealer_require": [CROSS_LAYER],
+     "knobs.disabled": []},
+]
+
+
 def halving(n: int, rungs: list[int], processes: int, seed: int, seeds_from: list[dict] | None = None) -> list[dict]:
     rng = np.random.default_rng(seed)
-    pts = [dict(p) for p in (seeds_from or [])]
+    pts = [{**{k: v[0] for k, v in SPACE.items()}, **p} for p in (SEED_POINTS if seeds_from is None else seeds_from)]
     while len(pts) < n:
         pts.append(sample_point(rng))
     for ri, per in enumerate(rungs):
@@ -215,8 +229,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(prog="gridlab.experiments.search", description=__doc__.split("\n")[0])
     ap.add_argument("mode", choices=["sweep", "halving", "front"])
     ap.add_argument("--per-type", type=int, default=8, help="sweep: games per GridType")
-    ap.add_argument("--n", type=int, default=27, help="halving: initial random points")
-    ap.add_argument("--rungs", default="4,12,32", help="halving: games per GridType at each rung")
+    ap.add_argument("--n", type=int, default=18, help="halving: initial points (6 seeded + random)")
+    ap.add_argument("--rungs", default="8,24,64", help="halving: games per GridType at each rung")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--processes", type=int, default=4)
     ap.add_argument("--min-games", type=int, default=100, help="front: only points evaluated on >= this many games")

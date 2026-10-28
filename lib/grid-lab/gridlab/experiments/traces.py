@@ -15,7 +15,8 @@ from collections import Counter
 import numpy as np
 
 from ..sim import run_game, draws_for
-from .common import GTYPES, add_dyn2, config_for, make_specs, run_batch, sparkline, tables_for, apply_knobs
+from .common import (GTYPES, add_dyn2, config_for, load_manifest, make_specs, run_batch, sparkline, tables_for,
+                     apply_knobs)
 from .settings import SETTINGS
 
 
@@ -112,6 +113,8 @@ def main(argv=None):
     ap.add_argument("--mix", default="mixed")
     ap.add_argument("--setting", default="old", choices=sorted(SETTINGS))
     ap.add_argument("--pick", default="", help="GridType:seed[:focus] to replay one game")
+    ap.add_argument("--manifest", default="", help="choose games from a saved batch manifest (e.g. "
+                    "baseline-old-mixed-1) instead of running the batch; replays use the current code")
     a = ap.parse_args(argv)
     st = SETTINGS[a.setting]
     specs = make_specs(a.types.split(";"), a.games, a.seed, a.mix)
@@ -120,7 +123,7 @@ def main(argv=None):
         spec = next(s for s in specs if s.gtype == gt and s.seed == int(seed))
         replay(st, spec, rest[0] if rest else "spiral")
         return
-    rs = run_batch(st, specs, label="traces", verbose=False)
+    rs = load_manifest(a.manifest) if a.manifest else run_batch(st, specs, label="traces", verbose=False)
     picks = pick_games(rs)
     for focus, r in picks.items():
         spec = next(s for s in specs if s.seed == r["seed"] and s.gtype == r["gtype"].replace("Grid(", "").rstrip(")"))
