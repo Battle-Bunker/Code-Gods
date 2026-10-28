@@ -7,6 +7,10 @@
     ".": {
       "types": "./index.d.ts",
       "default": "./index.mjs"
+    },
+    "./benchmark": {
+      "types": "./benchmark.d.ts",
+      "default": "./benchmark.mjs"
     }
   },
   "scripts": {
@@ -14,7 +18,7 @@
     "build:python": "node scripts/build-python-bundle.mjs",
     "build:worker": "node scripts/build-worker.mjs",
     "test": "node scripts/build-worker.mjs --check && node --test test/*.test.mjs",
-    "benchmark": "node test/benchmark.mjs"
+    "benchmark": "node --experimental-strip-types test/benchmark.mjs"
   },
   "dependencies": {
     "quickjs-emscripten": "0.31.0",
