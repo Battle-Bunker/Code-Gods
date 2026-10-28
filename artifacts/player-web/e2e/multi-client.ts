@@ -200,7 +200,8 @@ await check("an AI seat with a budget joins the room (mock provider)", async () 
 // ------------------------------------------------------------------------------------------------
 const AGENTS = {
   Int: { language: "python", source: "def agent(x):\n    return [add(1)]" },
-  string: { language: "typescript", source: "function agent(s) { return [rotate(1)]; }" },
+  // A cheap move: rotating all 128 characters costs ~273 bits an act (≈ 2 minutes of agent income); a swap costs a few bits.
+  string: { language: "typescript", source: "function agent(s) { return [swapChars(0, 1)]; }" },
   Grid: { language: "python", source: "def agent(grid):\n    return [slide(row(0), 1)]" },
 } as const;
 
@@ -273,7 +274,7 @@ await playGame("string", async () => {
     const observation = JSON.parse(playerCli("bob", ["assistant", "observation"]));
     const gameId = JSON.stringify(observation).match(/"gameId":"([^"]+)"/)?.[1];
     const summon = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId,
-      command: { type: "summon", language: "typescript", source: "function agent(s) { return [rotate(2)]; }" } };
+      command: { type: "summon", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
     const result = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(summon)));
     assert(JSON.stringify(result).includes("\"accepted\":true"), `summon receipt ${JSON.stringify(result).slice(0, 300)}`);
     await pages.bob.waitForFunction(() => document.querySelectorAll("[data-testid^=row-agent-]").length >= 2, null, { timeout: 30_000 });
