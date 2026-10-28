@@ -1,0 +1,5506 @@
+{
+"corpus": {
+"failed": 0,
+"files": 537,
+"nodes": 697698,
+"python": "3.13.17",
+"source": "CPython standard library (Lib/), tests excluded"
+},
+"counts": {
+"attrs": {
+"ASCII": 1,
+"ArgumentParser": 30,
+"BufferedIncrementalDecoder": 27,
+"BytesIO": 51,
+"CancelledError": 28,
+"CloseHandle": 24,
+"Codec": 110,
+"CodecInfo": 123,
+"Command": 23,
+"DEBUG": 3,
+"DOTALL": 1,
+"Emax": 21,
+"Emin": 12,
+"Etiny": 9,
+"Etop": 5,
+"GenericAlias": 37,
+"Handler": 24,
+"HeaderParseError": 86,
+"IGNORECASE": 1,
+"IncrementalDecoder": 110,
+"IncrementalEncoder": 127,
+"InvalidHeaderDefect": 60,
+"LC_alt_digits": 26,
+"LOCALE": 1,
+"Lock": 30,
+"MAX_DIGEST_SIZE": 1,
+"MAX_KEY_SIZE": 1,
+"MULTILINE": 1,
+"MultibyteIncrementalDecoder": 25,
+"MultibyteIncrementalEncoder": 25,
+"MultibyteStreamReader": 25,
+"MultibyteStreamWriter": 25,
+"PERSON_SIZE": 1,
+"PIPE": 38,
+"POINTER": 38,
+"PathLike": 23,
+"Popen": 32,
+"RLock": 23,
+"SALT_SIZE": 1,
+"SOCK_STREAM": 27,
+"StreamReader": 127,
+"StreamWriter": 129,
+"StringIO": 37,
+"TextIOWrapper": 24,
+"Thread": 25,
+"UNICODE": 1,
+"VERBOSE": 1,
+"VERSION": 3,
+"__all__": 29,
+"__args__": 50,
+"__bases__": 26,
+"__cause__": 25,
+"__class__": 432,
+"__code__": 27,
+"__context__": 31,
+"__dict__": 227,
+"__doc__": 156,
+"__file__": 35,
+"__func__": 34,
+"__init__": 330,
+"__module__": 109,
+"__mro__": 32,
+"__name__": 498,
+"__new__": 107,
+"__origin__": 52,
+"__path__": 36,
+"__qualname__": 91,
+"__repr__": 47,
+"__setattr__": 24,
+"__traceback__": 44,
+"__write": 27,
+"__write_code": 22,
+"_address": 49,
+"_args": 26,
+"_astring": 33,
+"_attrs": 65,
+"_attrsNS": 28,
+"_authkey": 29,
+"_buffer": 162,
+"_cache": 40,
+"_callback": 22,
+"_callbacks": 27,
+"_callmethod": 28,
+"_canvas": 26,
+"_checkClosed": 42,
+"_check_closed": 29,
+"_check_nans": 34,
+"_closed": 57,
+"_closing": 53,
+"_cmp": 37,
+"_commit_removals": 30,
+"_cond": 61,
+"_condition": 23,
+"_conn_lost": 41,
+"_constants": 22,
+"_cont_handler": 31,
+"_context": 27,
+"_count": 37,
+"_cur": 33,
+"_current_line": 23,
+"_data": 56,
+"_day": 23,
+"_debug": 43,
+"_decoder": 24,
+"_decompressor": 28,
+"_defaults": 37,
+"_denominator": 49,
+"_deprecated": 41,
+"_empty_waiter": 32,
+"_encoding": 40,
+"_eof": 35,
+"_errors": 24,
+"_exception": 34,
+"_exp": 122,
+"_extra": 24,
+"_fatal_error": 28,
+"_fd": 43,
+"_file": 196,
+"_fileno": 32,
+"_filter": 23,
+"_fix": 48,
+"_formatMessage": 27,
+"_fp": 92,
+"_getframe": 29,
+"_handle": 61,
+"_hashcode": 23,
+"_headers": 44,
+"_hour": 25,
+"_index": 33,
+"_input": 35,
+"_int": 106,
+"_ip": 53,
+"_is_special": 71,
+"_isinfinity": 44,
+"_key": 34,
+"_last": 22,
+"_lines": 22,
+"_lock": 98,
+"_locked": 34,
+"_lookup": 24,
+"_loop": 250,
+"_max_prefixlen": 22,
+"_member_map_": 26,
+"_microsecond": 23,
+"_minute": 24,
+"_mock_name": 27,
+"_mode": 57,
+"_month": 24,
+"_mu": 32,
+"_name": 111,
+"_name_": 25,
+"_numerator": 51,
+"_offset": 45,
+"_parser": 112,
+"_path": 88,
+"_paused": 36,
+"_payload": 36,
+"_pending_removals": 46,
+"_pid": 28,
+"_pipe": 26,
+"_popen": 29,
+"_pos": 49,
+"_position": 38,
+"_prefixlen": 29,
+"_proactor": 31,
+"_proc": 23,
+"_protocol": 70,
+"_queue": 25,
+"_raise_error": 101,
+"_raw_path": 26,
+"_read": 24,
+"_read_fut": 28,
+"_readbuffer": 29,
+"_reader": 47,
+"_root": 46,
+"_sampwidth": 23,
+"_second": 26,
+"_sections": 27,
+"_seekable": 24,
+"_selector": 47,
+"_semlock": 32,
+"_seq": 27,
+"_sigma": 34,
+"_sign": 117,
+"_simple_command": 43,
+"_sock": 67,
+"_sock_fd": 25,
+"_source": 25,
+"_source_traceback": 53,
+"_ssl_protocol": 28,
+"_sslobj": 84,
+"_state": 188,
+"_table": 26,
+"_tail": 27,
+"_target": 26,
+"_toc": 31,
+"_transport": 64,
+"_type": 28,
+"_tzinfo": 36,
+"_unsupported_msg": 26,
+"_untagged_response": 26,
+"_update": 27,
+"_value": 65,
+"_value_": 54,
+"_verbose_message": 24,
+"_version": 33,
+"_waiters": 55,
+"_when": 23,
+"_write": 41,
+"_write_fut": 27,
+"_year": 24,
+"abs": 2,
+"abspath": 39,
+"abstractmethod": 35,
+"aclose": 6,
+"acquire": 68,
+"add": 155,
+"add_argument": 160,
+"add_done_callback": 34,
+"add_flag": 25,
+"add_note": 4,
+"address": 40,
+"addresslist": 23,
+"adjusted": 22,
+"ag_await": 1,
+"ag_code": 3,
+"ag_frame": 4,
+"ag_running": 2,
+"ag_suspended": 2,
+"altsep": 23,
+"annotation": 11,
+"append": 1806,
+"appendleft": 9,
+"arg": 34,
+"args": 115,
+"argv": 86,
+"as_integer_ratio": 11,
+"as_tuple": 3,
+"asend": 2,
+"asname": 4,
+"athrow": 3,
+"audit": 54,
+"basename": 46,
+"betavariate": 2,
+"bind": 22,
+"binomialvariate": 3,
+"bit_count": 2,
+"bit_length": 22,
+"block_size": 7,
+"body": 30,
+"bound": 3,
+"breaks": 26,
+"broadcast_address": 22,
+"buf": 43,
+"buffer": 166,
+"bufsize": 22,
+"call_exception_handler": 29,
+"call_soon": 56,
+"cancel": 66,
+"cancelled": 39,
+"canonical": 2,
+"capitalize": 7,
+"capitals": 8,
+"casefold": 6,
+"cause": 4,
+"cdf": 5,
+"center": 7,
+"charmap_build": 53,
+"charmap_decode": 143,
+"charmap_encode": 143,
+"childNodes": 53,
+"choice": 6,
+"choices": 17,
+"clamp": 11,
+"clear": 134,
+"clear_flags": 3,
+"clear_traps": 1,
+"client": 26,
+"close": 477,
+"closed": 88,
+"co_filename": 40,
+"co_flags": 22,
+"co_name": 23,
+"code": 37,
+"commands": 24,
+"compare": 11,
+"compare_signal": 2,
+"compare_total": 7,
+"compare_total_mag": 2,
+"compress": 22,
+"compress_type": 23,
+"config": 23,
+"conjugate": 1,
+"console": 38,
+"context": 30,
+"copy": 107,
+"copy_abs": 12,
+"copy_decimal": 1,
+"copy_negate": 5,
+"copy_sign": 3,
+"count": 89,
+"cr_await": 1,
+"cr_code": 5,
+"cr_frame": 5,
+"cr_origin": 3,
+"cr_running": 3,
+"cr_suspended": 2,
+"create_decimal": 1,
+"create_decimal_from_float": 1,
+"create_future": 47,
+"cur": 25,
+"curNode": 25,
+"curframe": 47,
+"current_frame": 25,
+"current_process": 28,
+"current_thread": 29,
+"cv": 78,
+"daemon": 22,
+"data": 370,
+"datetime": 28,
+"debug": 167,
+"debuglevel": 30,
+"decode": 335,
+"decoder": 32,
+"default": 54,
+"default_factory": 13,
+"default_value": 7,
+"defects": 97,
+"denominator": 22,
+"dest": 43,
+"detach": 25,
+"dict": 27,
+"difference": 3,
+"difference_update": 4,
+"digest": 14,
+"digest_size": 7,
+"digits": 10,
+"dims": 2,
+"dirname": 57,
+"dirty": 38,
+"discard": 46,
+"divide": 1,
+"divide_int": 1,
+"divmod": 1,
+"document": 74,
+"dom": 80,
+"domain": 40,
+"done": 56,
+"dump": 24,
+"elements": 1,
+"encode": 386,
+"encoder": 33,
+"encoding": 84,
+"end": 69,
+"end_col_offset": 7,
+"end_lineno": 19,
+"endpos": 1,
+"endswith": 164,
+"environ": 126,
+"errno": 49,
+"error": 230,
+"errors": 253,
+"escape": 31,
+"event": 24,
+"event_queue": 23,
+"events": 34,
+"exc": 14,
+"exc_info": 27,
+"exception": 39,
+"exceptions": 24,
+"executable": 32,
+"exists": 63,
+"exit": 86,
+"exp": 43,
+"expand": 1,
+"expandtabs": 14,
+"exponent": 1,
+"expovariate": 2,
+"extend": 158,
+"extendleft": 1,
+"f_back": 42,
+"f_code": 53,
+"f_globals": 37,
+"f_lineno": 27,
+"fd": 46,
+"field": 57,
+"file": 74,
+"file_size": 23,
+"filename": 126,
+"fileno": 123,
+"fileobj": 78,
+"fill": 41,
+"find": 106,
+"findall": 12,
+"finditer": 12,
+"flags": 90,
+"flush": 115,
+"fma": 2,
+"format": 466,
+"format_map": 2,
+"format_spec": 3,
+"fp": 81,
+"from_bytes": 19,
+"from_decimal": 1,
+"from_float": 7,
+"from_iterable": 12,
+"from_samples": 1,
+"fromhex": 4,
+"fromkeys": 11,
+"fsdecode": 35,
+"fsencode": 31,
+"fspath": 74,
+"full_url": 23,
+"fullmatch": 19,
+"func": 46,
+"futures": 23,
+"gammavariate": 4,
+"gauss": 2,
+"generic_visit": 5,
+"get": 637,
+"get_context": 27,
+"get_debug": 43,
+"get_running_loop": 23,
+"getcodec": 25,
+"getcwd": 28,
+"getpid": 37,
+"getrandbits": 5,
+"getstate": 14,
+"getvalue": 53,
+"gi_code": 8,
+"gi_frame": 7,
+"gi_running": 4,
+"gi_suspended": 3,
+"gi_yieldfrom": 2,
+"group": 169,
+"groupdict": 13,
+"groupindex": 3,
+"groups": 47,
+"guard": 3,
+"handlers": 39,
+"headers": 61,
+"height": 25,
+"hex": 5,
+"hexdigest": 9,
+"history": 34,
+"historyi": 25,
+"host": 54,
+"id": 26,
+"imag": 4,
+"indent": 55,
+"index": 53,
+"indices": 2,
+"infile": 24,
+"info": 43,
+"insert": 70,
+"instance": 26,
+"int": 75,
+"intercept": 1,
+"intersection": 5,
+"intersection_update": 2,
+"inv_cdf": 3,
+"is_canonical": 2,
+"is_dir": 27,
+"is_finite": 3,
+"is_infinite": 4,
+"is_integer": 1,
+"is_nan": 9,
+"is_normal": 2,
+"is_qnan": 5,
+"is_signed": 2,
+"is_snan": 7,
+"is_subnormal": 3,
+"is_zero": 3,
+"isalnum": 6,
+"isalpha": 8,
+"isascii": 21,
+"isdecimal": 9,
+"isdigit": 21,
+"isdir": 55,
+"isdisjoint": 9,
+"isfile": 42,
+"isidentifier": 11,
+"islink": 24,
+"islower": 3,
+"isnumeric": 2,
+"isprintable": 5,
+"isspace": 23,
+"issubset": 3,
+"issuperset": 4,
+"istitle": 2,
+"isupper": 7,
+"item_separator": 5,
+"items": 336,
+"iterencode": 4,
+"join": 850,
+"key_separator": 4,
+"keys": 98,
+"keywords": 26,
+"kind": 38,
+"kwarg": 7,
+"lastEvent": 36,
+"lastgroup": 2,
+"lastindex": 3,
+"length": 39,
+"level": 29,
+"limit_denominator": 1,
+"line": 27,
+"lineno": 138,
+"listdir": 30,
+"ljust": 9,
+"ln": 2,
+"loader": 60,
+"locale_time": 25,
+"lock": 33,
+"log10": 2,
+"logb": 2,
+"logger": 27,
+"logical_and": 2,
+"logical_invert": 2,
+"logical_or": 2,
+"logical_xor": 3,
+"lognormvariate": 2,
+"lower": 274,
+"lstrip": 57,
+"machinery": 27,
+"maketrans": 13,
+"mapping": 9,
+"maps": 24,
+"match": 113,
+"max": 7,
+"max_mag": 2,
+"maxlen": 3,
+"maxsize": 51,
+"mean": 1,
+"median": 1,
+"memo": 31,
+"message": 82,
+"min": 7,
+"min_mag": 2,
+"minus": 1,
+"mode": 69,
+"module": 34,
+"modules": 155,
+"most_common": 4,
+"move_to_end": 3,
+"mro": 3,
+"msg": 67,
+"msgout": 24,
+"multiply": 1,
+"n": 6,
+"n_fields": 1,
+"n_sequence_fields": 1,
+"n_unnamed_fields": 1,
+"name": 637,
+"namespaceURI": 28,
+"nargs": 36,
+"netmask": 29,
+"network": 25,
+"network_address": 50,
+"new_child": 2,
+"next": 64,
+"nextSibling": 34,
+"next_minus": 4,
+"next_plus": 4,
+"next_toward": 2,
+"nodeName": 30,
+"nodeType": 54,
+"normalize": 12,
+"normalvariate": 3,
+"normcase": 34,
+"normpath": 31,
+"number_class": 2,
+"numerator": 21,
+"offset": 65,
+"open": 121,
+"option_strings": 30,
+"optional_vars": 3,
+"origin": 23,
+"output": 37,
+"overlap": 1,
+"ownerDocument": 56,
+"pack": 52,
+"parent": 47,
+"parentNode": 36,
+"parents": 5,
+"paretovariate": 2,
+"parse": 69,
+"parse_args": 32,
+"parser": 90,
+"partition": 58,
+"path": 833,
+"pattern": 36,
+"pdf": 1,
+"pid": 34,
+"pipe": 25,
+"platform": 152,
+"plus": 1,
+"policy": 63,
+"poll": 28,
+"pop": 315,
+"popitem": 6,
+"popleft": 25,
+"port": 40,
+"pos": 178,
+"posxy": 38,
+"power": 1,
+"prec": 57,
+"prefix": 26,
+"prev": 26,
+"previousSibling": 27,
+"proto": 47,
+"push": 27,
+"put": 35,
+"quantiles": 1,
+"quantize": 3,
+"radix": 1,
+"randbytes": 3,
+"randint": 2,
+"random": 16,
+"randrange": 3,
+"raw": 41,
+"raw_decode": 2,
+"rawdata": 28,
+"re": 1,
+"read": 332,
+"reader": 131,
+"readline": 126,
+"real": 4,
+"recv": 29,
+"register": 132,
+"regs": 1,
+"release": 68,
+"remainder": 1,
+"remainder_near": 2,
+"remove": 118,
+"removeprefix": 8,
+"removesuffix": 5,
+"replace": 356,
+"repr": 26,
+"reset": 59,
+"rest": 2,
+"result": 45,
+"return_value": 32,
+"returncode": 62,
+"returns": 4,
+"reverse": 18,
+"rfind": 41,
+"rindex": 5,
+"rjust": 7,
+"root": 49,
+"rotate": 7,
+"rounding": 27,
+"rpartition": 36,
+"rsplit": 10,
+"rstrip": 105,
+"run": 41,
+"s": 2,
+"same_quantum": 2,
+"sample": 3,
+"samples": 1,
+"scaleb": 2,
+"scan": 1,
+"scanner": 4,
+"screen": 83,
+"search": 73,
+"seed": 5,
+"seek": 119,
+"seekable": 23,
+"send": 47,
+"send_header": 25,
+"sep": 66,
+"set": 45,
+"set_exception": 50,
+"set_precedence": 27,
+"set_result": 57,
+"setblocking": 25,
+"setdefault": 58,
+"setstate": 16,
+"setter": 39,
+"shift": 2,
+"shuffle": 2,
+"shutdown": 26,
+"sign": 25,
+"size": 68,
+"slope": 1,
+"sock": 87,
+"socket": 71,
+"sort": 69,
+"source": 27,
+"span": 8,
+"split": 402,
+"splitext": 25,
+"splitlines": 55,
+"sqrt": 3,
+"st_mode": 43,
+"st_mtime": 28,
+"stack": 100,
+"start": 63,
+"startswith": 356,
+"stat": 81,
+"state": 62,
+"stats": 45,
+"stderr": 157,
+"stdev": 1,
+"stdin": 103,
+"stdout": 181,
+"step": 3,
+"stop": 11,
+"stream": 184,
+"string": 13,
+"strip": 172,
+"sub": 44,
+"submodule_search_locations": 34,
+"subn": 2,
+"subtract": 2,
+"swapcase": 2,
+"symmetric_difference": 1,
+"symmetric_difference_update": 3,
+"systemId": 26,
+"tag": 26,
+"tail": 27,
+"target": 47,
+"tb_frame": 26,
+"tell": 115,
+"test": 26,
+"text": 61,
+"throw": 6,
+"timeout": 52,
+"title": 20,
+"tm_gmtoff": 2,
+"tm_hour": 1,
+"tm_isdst": 1,
+"tm_mday": 1,
+"tm_min": 1,
+"tm_mon": 1,
+"tm_sec": 1,
+"tm_wday": 1,
+"tm_yday": 1,
+"tm_year": 1,
+"tm_zone": 2,
+"to_bytes": 17,
+"to_eng_string": 2,
+"to_integral": 1,
+"to_integral_exact": 2,
+"to_integral_value": 4,
+"to_sci_string": 1,
+"token_type": 88,
+"total": 2,
+"trace_dispatch": 23,
+"translate": 32,
+"traverse": 127,
+"triangular": 2,
+"type": 123,
+"type_comment": 2,
+"undobuffer": 42,
+"uniform": 2,
+"union": 5,
+"unlink": 52,
+"unpack": 36,
+"update": 171,
+"upper": 41,
+"util": 39,
+"value": 243,
+"values": 117,
+"vararg": 8,
+"variance": 3,
+"version": 71,
+"visit": 12,
+"visit_Constant": 1,
+"voidcmd": 25,
+"vonmisesvariate": 2,
+"wait": 61,
+"warn": 157,
+"warning": 41,
+"weibullvariate": 2,
+"which": 25,
+"width": 36,
+"win": 37,
+"winerror": 23,
+"with_segments": 33,
+"with_traceback": 12,
+"write": 691,
+"writeln": 28,
+"writer": 24,
+"zfill": 4,
+"zscore": 1
+},
+"attrs_tail": 29969,
+"builtins": {
+"ArithmeticError": 1,
+"AssertionError": 54,
+"AttributeError": 372,
+"BaseException": 107,
+"BaseExceptionGroup": 3,
+"BlockingIOError": 33,
+"BrokenPipeError": 20,
+"BytesWarning": 5,
+"ChildProcessError": 12,
+"ConnectionAbortedError": 4,
+"ConnectionError": 7,
+"ConnectionResetError": 10,
+"DeprecationWarning": 93,
+"EOFError": 47,
+"Ellipsis": 7,
+"EncodingWarning": 5,
+"Exception": 272,
+"ExceptionGroup": 4,
+"FileExistsError": 22,
+"FileNotFoundError": 56,
+"FutureWarning": 10,
+"GeneratorExit": 7,
+"ImportError": 291,
+"ImportWarning": 7,
+"IndentationError": 4,
+"IndexError": 79,
+"InterruptedError": 34,
+"IsADirectoryError": 11,
+"KeyError": 275,
+"KeyboardInterrupt": 78,
+"LookupError": 18,
+"MemoryError": 2,
+"ModuleNotFoundError": 11,
+"NameError": 17,
+"NotADirectoryError": 9,
+"NotImplemented": 242,
+"NotImplementedError": 271,
+"OSError": 511,
+"OverflowError": 27,
+"PendingDeprecationWarning": 1,
+"PermissionError": 18,
+"ProcessLookupError": 5,
+"RecursionError": 4,
+"ResourceWarning": 19,
+"RuntimeError": 189,
+"RuntimeWarning": 18,
+"StopAsyncIteration": 11,
+"StopIteration": 73,
+"SyntaxError": 43,
+"SyntaxWarning": 2,
+"SystemError": 5,
+"SystemExit": 72,
+"TabError": 1,
+"TimeoutError": 9,
+"TypeError": 745,
+"UnicodeDecodeError": 39,
+"UnicodeEncodeError": 59,
+"UnicodeError": 22,
+"UserWarning": 4,
+"ValueError": 1298,
+"Warning": 12,
+"ZeroDivisionError": 11,
+"abs": 52,
+"all": 29,
+"any": 53,
+"ascii": 5,
+"bin": 1,
+"bool": 180,
+"bytearray": 82,
+"bytes": 333,
+"callable": 66,
+"chr": 54,
+"classmethod": 237,
+"complex": 24,
+"delattr": 15,
+"dict": 227,
+"dir": 32,
+"divmod": 61,
+"enumerate": 107,
+"filter": 26,
+"float": 133,
+"format": 4,
+"frozenset": 72,
+"getattr": 590,
+"hasattr": 523,
+"hash": 49,
+"hex": 8,
+"int": 825,
+"isinstance": 1640,
+"issubclass": 113,
+"iter": 101,
+"len": 2022,
+"list": 456,
+"map": 135,
+"max": 133,
+"min": 124,
+"next": 91,
+"object": 299,
+"ord": 67,
+"pow": 8,
+"print": 559,
+"property": 524,
+"range": 292,
+"repr": 210,
+"reversed": 49,
+"round": 16,
+"set": 259,
+"setattr": 95,
+"slice": 13,
+"sorted": 116,
+"staticmethod": 116,
+"str": 1271,
+"sum": 48,
+"super": 403,
+"tuple": 386,
+"type": 629,
+"zip": 61
+},
+"imports": {
+"ast": 8,
+"collections": 54,
+"collections.abc": 20,
+"decimal": 6,
+"fractions": 1,
+"functools": 54,
+"hashlib": 7,
+"itertools": 44,
+"json": 5,
+"math": 16,
+"operator": 15,
+"random": 7,
+"re": 107,
+"statistics": 1,
+"time": 51
+},
+"kwargs": {
+"__builtins__": 3,
+"__file__": 4,
+"__loader__": 3,
+"__name__": 4,
+"__spec__": 4,
+"_is_text_encoding": 7,
+"_new_name": 6,
+"_new_parent": 6,
+"_root": 15,
+"abcs": 4,
+"action": 84,
+"adaptive": 8,
+"after_in_child": 7,
+"allow_none": 9,
+"allow_special_forms": 5,
+"annotation": 7,
+"append": 7,
+"arg": 73,
+"arg_resolver": 6,
+"args": 25,
+"authkey": 20,
+"aware_datetime": 5,
+"block": 11,
+"boundary": 8,
+"buffering": 4,
+"bufsize": 7,
+"bytes": 5,
+"capture_locals": 6,
+"category": 16,
+"chain": 8,
+"charset": 8,
+"check": 4,
+"choices": 11,
+"close_fds": 7,
+"closefd": 5,
+"co_consts": 5,
+"co_positions": 5,
+"code": 69,
+"colorize": 19,
+"column": 5,
+"columnspan": 5,
+"compact": 6,
+"compression": 4,
+"compresslevel": 4,
+"const": 15,
+"context": 103,
+"covariant": 4,
+"create": 4,
+"ctx": 22,
+"daemon": 5,
+"data": 10,
+"debug": 8,
+"decode": 130,
+"default": 97,
+"default_factory": 16,
+"defaults": 10,
+"delay": 4,
+"delete": 4,
+"delim": 4,
+"deprecated": 9,
+"depth": 6,
+"description": 17,
+"dest": 63,
+"dir_fd": 11,
+"doc": 130,
+"dont_inherit": 4,
+"duplex": 5,
+"encode": 120,
+"encoding": 112,
+"end": 45,
+"end_lineno": 5,
+"ensure_ascii": 5,
+"env": 7,
+"errors": 69,
+"eval_str": 6,
+"evt": 7,
+"exc_info": 24,
+"exist_ok": 9,
+"exit_pid": 4,
+"exitpriority": 9,
+"extra": 15,
+"extra_tokens": 5,
+"factory": 4,
+"fallback": 14,
+"family": 12,
+"file": 178,
+"filename": 12,
+"fileno": 5,
+"fileobj": 6,
+"fill": 15,
+"filter": 4,
+"filter_function": 5,
+"filters": 5,
+"final": 4,
+"fix_imports": 4,
+"flags": 16,
+"fold": 11,
+"follow_symlinks": 35,
+"follow_wrapper_chains": 6,
+"force": 7,
+"globals": 5,
+"handle": 9,
+"hardlink_dupes": 4,
+"header": 11,
+"header_name": 4,
+"headers": 5,
+"help": 174,
+"hours": 11,
+"ignore_errors": 5,
+"in_": 5,
+"include_hidden": 9,
+"incrementaldecoder": 120,
+"incrementalencoder": 120,
+"indent": 9,
+"init": 18,
+"inst": 12,
+"invalidation_mode": 6,
+"is_argument": 4,
+"is_cli": 5,
+"is_package": 4,
+"k": 4,
+"keepends": 18,
+"key": 54,
+"kind": 7,
+"labels_map": 5,
+"level": 11,
+"limit": 31,
+"limit_sl_dest": 4,
+"line_offset": 5,
+"linesep": 8,
+"linestarts": 4,
+"loader": 9,
+"locals": 12,
+"lookup_lines": 6,
+"loop": 40,
+"max_line_length": 4,
+"maxsize": 6,
+"maxsplit": 6,
+"message": 14,
+"metaclass": 32,
+"metavar": 33,
+"method": 7,
+"microseconds": 8,
+"minutes": 13,
+"mode": 23,
+"module": 13,
+"msg": 7,
+"n": 27,
+"name": 329,
+"names": 5,
+"nargs": 37,
+"newline": 13,
+"obj": 13,
+"obtype": 18,
+"offset": 6,
+"onerror": 5,
+"opener": 4,
+"optimization": 5,
+"optimize": 9,
+"option_strings": 15,
+"optional": 20,
+"optionflags": 9,
+"origin": 9,
+"original_code": 5,
+"outline": 8,
+"output": 6,
+"overlapped": 9,
+"padx": 5,
+"pady": 5,
+"parameters": 4,
+"parent": 10,
+"parents": 4,
+"path": 31,
+"pendown": 6,
+"policy": 24,
+"prec": 4,
+"preferred": 4,
+"prependdir": 4,
+"prog": 14,
+"proto": 77,
+"quiet": 5,
+"quote": 4,
+"quotetabs": 5,
+"raiseit": 78,
+"raw": 13,
+"reader": 25,
+"recursive": 9,
+"remove": 37,
+"replace": 5,
+"required": 12,
+"resizemode": 5,
+"reverse": 18,
+"row": 5,
+"rowspan": 5,
+"safe": 15,
+"seconds": 10,
+"sep": 4,
+"separators": 5,
+"server": 6,
+"server_hostname": 18,
+"server_side": 12,
+"session": 7,
+"shell": 9,
+"short_empty_elements": 5,
+"show_caches": 12,
+"show_offsets": 8,
+"signed": 4,
+"size": 4,
+"skip_bound_arg": 4,
+"skipkeys": 5,
+"skipped": 4,
+"sort_keys": 4,
+"source": 26,
+"source_address": 4,
+"spec_set": 4,
+"ssl_handshake_timeout": 10,
+"ssl_shutdown_timeout": 10,
+"stack_after": 68,
+"stack_before": 68,
+"stacklevel": 100,
+"start": 9,
+"start_new_session": 4,
+"stderr": 28,
+"stdin": 16,
+"stdout": 24,
+"sticky": 5,
+"streamreader": 120,
+"streamwriter": 120,
+"strict": 11,
+"stripdir": 4,
+"stripquotes": 4,
+"symlinks": 4,
+"tagname": 4,
+"target": 23,
+"text": 8,
+"timeout": 30,
+"to": 9,
+"top": 5,
+"two": 6,
+"type": 38,
+"typed": 5,
+"tz": 4,
+"tzinfo": 13,
+"unixfrom": 6,
+"use_builtin_types": 6,
+"use_datetime": 5,
+"value": 6,
+"varname_from_oparg": 4,
+"vars": 6,
+"verbose": 12,
+"verbosity": 7,
+"version": 8,
+"wait": 4,
+"waiter": 5,
+"what": 4,
+"width": 18
+},
+"kwargs_tail": 884,
+"module_attrs": {
+"ast": {
+"Add": 1,
+"Assign": 1,
+"Attribute": 1,
+"BinOp": 1,
+"BitOr": 1,
+"Call": 3,
+"Constant": 6,
+"Expr": 1,
+"Interactive": 1,
+"Load": 1,
+"Module": 2,
+"Name": 3,
+"NodeTransformer": 1,
+"NodeVisitor": 1,
+"PyCF_ALLOW_TOP_LEVEL_AWAIT": 1,
+"PyCF_ONLY_AST": 1,
+"Return": 1,
+"Sub": 1,
+"Subscript": 1,
+"arg": 1,
+"literal_eval": 3,
+"parse": 4,
+"unparse": 1
+},
+"collections": {
+"ChainMap": 5,
+"Counter": 6,
+"OrderedDict": 7,
+"UserDict": 1,
+"UserList": 1,
+"UserString": 1,
+"defaultdict": 7,
+"deque": 31,
+"namedtuple": 29
+},
+"collections.abc": {
+"Callable": 3,
+"Collection": 1,
+"Iterable": 4,
+"Iterator": 3,
+"Mapping": 1,
+"MutableMapping": 2,
+"Sequence": 1
+},
+"decimal": {
+"Decimal": 5,
+"Inexact": 1,
+"MAX_EMAX": 1,
+"MAX_PREC": 1,
+"MIN_EMIN": 1,
+"getcontext": 1,
+"localcontext": 1
+},
+"fractions": {
+"Fraction": 1
+},
+"functools": {
+"cache": 3,
+"cached_property": 7,
+"cmp_to_key": 2,
+"lru_cache": 17,
+"partial": 40,
+"partialmethod": 2,
+"reduce": 5,
+"singledispatch": 3,
+"total_ordering": 3,
+"wraps": 15
+},
+"hashlib": {
+"md5": 4,
+"new": 2,
+"sha1": 3,
+"sha512": 1
+},
+"itertools": {
+"accumulate": 1,
+"batched": 1,
+"chain": 28,
+"count": 17,
+"filterfalse": 6,
+"groupby": 3,
+"islice": 8,
+"permutations": 1,
+"product": 1,
+"repeat": 7,
+"starmap": 3,
+"takewhile": 3,
+"tee": 1,
+"zip_longest": 2
+},
+"json": {
+"dump": 1,
+"dumps": 2,
+"load": 1,
+"loads": 4
+},
+"math": {
+"acos": 2,
+"asin": 1,
+"atan": 1,
+"atan2": 3,
+"ceil": 5,
+"copysign": 1,
+"cos": 5,
+"cosh": 1,
+"degrees": 3,
+"e": 1,
+"erf": 1,
+"exp": 2,
+"fabs": 2,
+"floor": 1,
+"fsum": 1,
+"gcd": 9,
+"hypot": 2,
+"inf": 1,
+"isfinite": 3,
+"isinf": 4,
+"isnan": 6,
+"isqrt": 2,
+"lgamma": 1,
+"log": 2,
+"log10": 1,
+"log2": 1,
+"modf": 4,
+"nan": 2,
+"pi": 2,
+"radians": 3,
+"sin": 6,
+"sqrt": 2,
+"sumprod": 1,
+"tan": 1,
+"tau": 5
+},
+"operator": {
+"add": 2,
+"attrgetter": 4,
+"eq": 2,
+"floordiv": 1,
+"ge": 1,
+"getitem": 3,
+"gt": 1,
+"index": 4,
+"itemgetter": 5,
+"le": 1,
+"lt": 1,
+"methodcaller": 2,
+"mod": 1,
+"mul": 1,
+"or_": 3,
+"sub": 1,
+"truediv": 1
+},
+"random": {
+"Random": 2,
+"SystemRandom": 1,
+"getrandbits": 2,
+"randint": 1,
+"random": 1,
+"randrange": 1
+},
+"re": {
+"ASCII": 41,
+"DOTALL": 12,
+"I": 8,
+"IGNORECASE": 12,
+"MULTILINE": 14,
+"Match": 3,
+"NOFLAG": 1,
+"Pattern": 1,
+"PatternError": 1,
+"UNICODE": 3,
+"VERBOSE": 27,
+"X": 2,
+"compile": 234,
+"escape": 33,
+"findall": 7,
+"finditer": 3,
+"fullmatch": 4,
+"match": 20,
+"search": 14,
+"split": 4,
+"sub": 31,
+"subn": 1
+},
+"statistics": {
+"fmean": 1,
+"stdev": 1
+},
+"time": {
+"altzone": 1,
+"asctime": 2,
+"ctime": 3,
+"daylight": 5,
+"get_clock_info": 1,
+"gmtime": 9,
+"localtime": 23,
+"mktime": 3,
+"monotonic": 26,
+"perf_counter": 6,
+"process_time": 2,
+"sleep": 10,
+"strftime": 14,
+"strptime": 3,
+"struct_time": 10,
+"time": 44,
+"time_ns": 3,
+"timezone": 2,
+"tzname": 5,
+"tzset": 1
+}
+},
+"nodes": {
+"AnnAssign.annotation": {
+"Attribute": 4,
+"BinOp": 24,
+"Name": 71,
+"Subscript": 50
+},
+"AnnAssign.target": {
+"Attribute": 8,
+"Name": 141
+},
+"AnnAssign.value": {
+"<none>": 36,
+"Attribute": 2,
+"BinOp": 2,
+"Call": 39,
+"Constant": 40,
+"Dict": 7,
+"List": 7,
+"Name": 1,
+"Subscript": 9,
+"Tuple": 3,
+"UnaryOp": 3
+},
+"Assert.msg": {
+"<none>": 313,
+"Attribute": 6,
+"BinOp": 12,
+"Call": 9,
+"Constant": 83,
+"JoinedStr": 8,
+"Name": 18,
+"Tuple": 9
+},
+"Assert.test": {
+"Attribute": 16,
+"BoolOp": 24,
+"Call": 65,
+"Compare": 291,
+"Constant": 8,
+"Name": 15,
+"UnaryOp": 39
+},
+"Assign.targets": {
+"<end>": 36412,
+"Attribute": 7123,
+"List": 7,
+"Name": 26139,
+"Subscript": 1729,
+"Tuple": 1804
+},
+"Assign.value": {
+"Attribute": 3147,
+"Await": 35,
+"BinOp": 2252,
+"BoolOp": 267,
+"Call": 13120,
+"Compare": 127,
+"Constant": 6749,
+"Dict": 697,
+"DictComp": 37,
+"GeneratorExp": 30,
+"IfExp": 307,
+"JoinedStr": 170,
+"Lambda": 60,
+"List": 1351,
+"ListComp": 222,
+"Name": 4930,
+"Set": 30,
+"SetComp": 11,
+"Subscript": 1685,
+"Tuple": 1020,
+"UnaryOp": 165
+},
+"AsyncFunctionDef.body": {
+"<end>": 175,
+"Assert": 7,
+"Assign": 181,
+"AsyncFunctionDef": 1,
+"AsyncWith": 5,
+"AugAssign": 2,
+"Delete": 4,
+"Expr": 155,
+"For": 4,
+"FunctionDef": 6,
+"If": 158,
+"Pass": 6,
+"Raise": 35,
+"Return": 81,
+"Try": 52,
+"While": 8,
+"With": 3
+},
+"AsyncFunctionDef.decorator_list": {
+"<end>": 175,
+"Attribute": 1,
+"Call": 3,
+"Name": 3
+},
+"AsyncFunctionDef.returns": {
+"<none>": 172,
+"Constant": 2,
+"Subscript": 1
+},
+"AsyncFunctionDef.type_params": {
+"<end>": 175
+},
+"AsyncWith.body": {
+"<end>": 6,
+"Assign": 1,
+"Expr": 4,
+"If": 1,
+"Return": 2,
+"Try": 1
+},
+"AsyncWith.items": {
+"<end>": 6,
+"withitem": 6
+},
+"Attribute.value": {
+"Attribute": 6622,
+"BinOp": 28,
+"BoolOp": 5,
+"Call": 1597,
+"Constant": 934,
+"Dict": 7,
+"JoinedStr": 2,
+"List": 3,
+"Name": 57578,
+"NamedExpr": 1,
+"Set": 3,
+"Subscript": 453
+},
+"AugAssign.op": {
+"Add": 992,
+"BitAnd": 31,
+"BitOr": 86,
+"BitXor": 8,
+"Div": 4,
+"FloorDiv": 27,
+"LShift": 10,
+"MatMult": 1,
+"Mod": 4,
+"Mult": 30,
+"Pow": 1,
+"RShift": 5,
+"Sub": 198
+},
+"AugAssign.target": {
+"Attribute": 291,
+"Name": 1070,
+"Subscript": 36
+},
+"AugAssign.value": {
+"Attribute": 68,
+"BinOp": 185,
+"Call": 139,
+"Constant": 603,
+"Dict": 1,
+"IfExp": 2,
+"JoinedStr": 23,
+"List": 17,
+"ListComp": 6,
+"Name": 295,
+"Subscript": 25,
+"Tuple": 11,
+"UnaryOp": 22
+},
+"Await.value": {
+"Attribute": 3,
+"Call": 113,
+"Name": 36
+},
+"BinOp.left": {
+"Attribute": 729,
+"BinOp": 1375,
+"BoolOp": 17,
+"Call": 739,
+"Compare": 4,
+"Constant": 3056,
+"DictComp": 1,
+"IfExp": 3,
+"JoinedStr": 8,
+"List": 63,
+"ListComp": 3,
+"Name": 3203,
+"NamedExpr": 1,
+"Set": 1,
+"SetComp": 1,
+"Subscript": 189,
+"Tuple": 33,
+"UnaryOp": 68
+},
+"BinOp.op": {
+"Add": 3616,
+"BitAnd": 324,
+"BitOr": 363,
+"BitXor": 32,
+"Div": 237,
+"FloorDiv": 167,
+"LShift": 144,
+"MatMult": 1,
+"Mod": 2119,
+"Mult": 979,
+"Pow": 160,
+"RShift": 84,
+"Sub": 1268
+},
+"BinOp.right": {
+"Attribute": 791,
+"BinOp": 569,
+"BoolOp": 32,
+"Call": 915,
+"Compare": 13,
+"Constant": 2821,
+"Dict": 17,
+"IfExp": 8,
+"JoinedStr": 7,
+"List": 26,
+"ListComp": 11,
+"Name": 3096,
+"Set": 6,
+"SetComp": 2,
+"Subscript": 206,
+"Tuple": 924,
+"UnaryOp": 50
+},
+"BoolOp.op": {
+"And": 2288,
+"Or": 1320
+},
+"BoolOp.values": {
+"<end>": 3608,
+"Attribute": 601,
+"BinOp": 71,
+"BoolOp": 240,
+"Call": 1181,
+"Compare": 3282,
+"Constant": 244,
+"Dict": 11,
+"JoinedStr": 1,
+"List": 13,
+"Name": 1112,
+"NamedExpr": 4,
+"Subscript": 48,
+"Tuple": 7,
+"UnaryOp": 874
+},
+"Call.args": {
+"<end>": 52035,
+"Attribute": 5343,
+"BinOp": 2741,
+"BoolOp": 98,
+"Call": 3605,
+"Compare": 44,
+"Constant": 12344,
+"Dict": 120,
+"DictComp": 6,
+"GeneratorExp": 297,
+"IfExp": 26,
+"JoinedStr": 716,
+"Lambda": 87,
+"List": 228,
+"ListComp": 50,
+"Name": 33240,
+"NamedExpr": 3,
+"Set": 13,
+"SetComp": 4,
+"Starred": 528,
+"Subscript": 1026,
+"Tuple": 771,
+"UnaryOp": 112
+},
+"Call.func": {
+"Attribute": 28539,
+"BoolOp": 2,
+"Call": 63,
+"Lambda": 1,
+"Name": 23391,
+"Subscript": 39
+},
+"Call.keywords": {
+"<end>": 52035,
+"keyword": 6130
+},
+"ClassDef.bases": {
+"<end>": 2315,
+"Attribute": 903,
+"Call": 7,
+"IfExp": 1,
+"Name": 1414,
+"Subscript": 3
+},
+"ClassDef.body": {
+"<end>": 2315,
+"AnnAssign": 102,
+"Assign": 2193,
+"AsyncFunctionDef": 151,
+"ClassDef": 15,
+"Delete": 3,
+"Expr": 931,
+"For": 1,
+"FunctionDef": 9809,
+"If": 30,
+"ImportFrom": 1,
+"Pass": 261
+},
+"ClassDef.decorator_list": {
+"<end>": 2315,
+"Attribute": 4,
+"Call": 16,
+"Name": 22
+},
+"ClassDef.keywords": {
+"<end>": 2315,
+"keyword": 49
+},
+"ClassDef.type_params": {
+"<end>": 2315,
+"TypeVar": 2
+},
+"Compare.comparators": {
+"Attribute": 1375,
+"BinOp": 146,
+"Call": 409,
+"Compare": 7,
+"Constant": 8023,
+"IfExp": 2,
+"JoinedStr": 1,
+"List": 49,
+"Name": 3460,
+"NamedExpr": 2,
+"Set": 69,
+"Subscript": 110,
+"Tuple": 350,
+"UnaryOp": 115
+},
+"Compare.left": {
+"Attribute": 2815,
+"BinOp": 188,
+"BoolOp": 4,
+"Call": 1412,
+"Compare": 9,
+"Constant": 706,
+"JoinedStr": 4,
+"Name": 7809,
+"NamedExpr": 18,
+"Set": 3,
+"Subscript": 937,
+"Tuple": 25,
+"UnaryOp": 8
+},
+"Compare.ops": {
+"<end>": 13938,
+"Eq": 3778,
+"Gt": 759,
+"GtE": 447,
+"In": 1603,
+"Is": 2592,
+"IsNot": 1995,
+"Lt": 835,
+"LtE": 502,
+"NotEq": 1026,
+"NotIn": 581
+},
+"Delete.targets": {
+"<end>": 394,
+"Attribute": 55,
+"Name": 130,
+"Subscript": 258
+},
+"Dict.keys": {
+"<end>": 993,
+"<none>": 23,
+"Attribute": 170,
+"Call": 5,
+"Constant": 16709,
+"JoinedStr": 16,
+"Name": 77,
+"Tuple": 91,
+"UnaryOp": 1
+},
+"Dict.values": {
+"Attribute": 150,
+"BinOp": 3,
+"Call": 76,
+"Constant": 16001,
+"Dict": 34,
+"DictComp": 1,
+"IfExp": 1,
+"JoinedStr": 5,
+"Lambda": 15,
+"List": 50,
+"Name": 428,
+"Subscript": 8,
+"Tuple": 310,
+"UnaryOp": 10
+},
+"DictComp.generators": {
+"<end>": 51,
+"comprehension": 54
+},
+"DictComp.key": {
+"Attribute": 6,
+"Call": 5,
+"JoinedStr": 1,
+"Name": 35,
+"Subscript": 4
+},
+"DictComp.value": {
+"Attribute": 3,
+"BinOp": 5,
+"Call": 18,
+"IfExp": 1,
+"JoinedStr": 2,
+"Name": 16,
+"Subscript": 5,
+"Tuple": 1
+},
+"ExceptHandler.body": {
+"<end>": 2528,
+"Assert": 4,
+"Assign": 663,
+"AugAssign": 14,
+"Break": 47,
+"ClassDef": 4,
+"Continue": 69,
+"Delete": 6,
+"Expr": 625,
+"For": 24,
+"FunctionDef": 21,
+"If": 358,
+"Import": 11,
+"ImportFrom": 18,
+"Pass": 495,
+"Raise": 562,
+"Return": 452,
+"Try": 69,
+"While": 1,
+"With": 6
+},
+"ExceptHandler.type": {
+"<none>": 117,
+"Attribute": 140,
+"Call": 3,
+"Name": 1979,
+"Tuple": 289
+},
+"Expr.value": {
+"Attribute": 10,
+"Await": 72,
+"Call": 13186,
+"Compare": 1,
+"Constant": 6682,
+"IfExp": 1,
+"Name": 4,
+"Subscript": 2,
+"Tuple": 1,
+"Yield": 334,
+"YieldFrom": 78
+},
+"For.body": {
+"<end>": 2177,
+"Assert": 13,
+"Assign": 1219,
+"AugAssign": 112,
+"Break": 4,
+"Delete": 14,
+"Expr": 924,
+"For": 139,
+"If": 1642,
+"Import": 1,
+"Match": 1,
+"Raise": 1,
+"Return": 9,
+"Try": 190,
+"While": 22,
+"With": 8
+},
+"For.iter": {
+"Attribute": 293,
+"BinOp": 13,
+"BoolOp": 2,
+"Call": 868,
+"Constant": 7,
+"GeneratorExp": 1,
+"List": 14,
+"ListComp": 1,
+"Name": 823,
+"Set": 1,
+"Subscript": 74,
+"Tuple": 80
+},
+"For.orelse": {
+"<end>": 2177,
+"Assign": 25,
+"AugAssign": 1,
+"Break": 1,
+"Continue": 5,
+"Expr": 11,
+"For": 2,
+"If": 9,
+"Raise": 17,
+"Return": 21
+},
+"For.target": {
+"Name": 1601,
+"Tuple": 576
+},
+"FormattedValue.format_spec": {
+"<none>": 1639,
+"JoinedStr": 44
+},
+"FormattedValue.value": {
+"Attribute": 374,
+"BinOp": 11,
+"BoolOp": 6,
+"Call": 171,
+"IfExp": 8,
+"Name": 1057,
+"Subscript": 56
+},
+"FunctionDef.body": {
+"<end>": 13263,
+"AnnAssign": 21,
+"Assert": 272,
+"Assign": 13589,
+"AsyncFunctionDef": 5,
+"AugAssign": 229,
+"ClassDef": 21,
+"Delete": 77,
+"Expr": 9581,
+"For": 1288,
+"FunctionDef": 283,
+"Global": 100,
+"If": 9306,
+"Import": 209,
+"ImportFrom": 113,
+"Match": 5,
+"Nonlocal": 21,
+"Pass": 135,
+"Raise": 492,
+"Return": 7126,
+"Try": 1255,
+"While": 438,
+"With": 355
+},
+"FunctionDef.decorator_list": {
+"<end>": 13263,
+"Attribute": 94,
+"Call": 47,
+"Name": 978
+},
+"FunctionDef.returns": {
+"<none>": 12758,
+"Attribute": 7,
+"BinOp": 20,
+"Constant": 209,
+"Name": 186,
+"Subscript": 83
+},
+"FunctionDef.type_params": {
+"<end>": 13263,
+"TypeVar": 3
+},
+"GeneratorExp.elt": {
+"Attribute": 15,
+"BinOp": 26,
+"BoolOp": 5,
+"Call": 152,
+"Compare": 36,
+"Constant": 3,
+"IfExp": 10,
+"JoinedStr": 11,
+"Lambda": 1,
+"Name": 54,
+"Subscript": 14,
+"Tuple": 14,
+"UnaryOp": 5
+},
+"GeneratorExp.generators": {
+"<end>": 346,
+"comprehension": 357
+},
+"If.body": {
+"<end>": 19040,
+"AnnAssign": 1,
+"Assert": 90,
+"Assign": 9876,
+"AsyncFunctionDef": 3,
+"AugAssign": 681,
+"Break": 406,
+"ClassDef": 53,
+"Continue": 341,
+"Delete": 156,
+"Expr": 5044,
+"For": 457,
+"FunctionDef": 203,
+"Global": 2,
+"If": 3186,
+"Import": 148,
+"ImportFrom": 71,
+"Match": 2,
+"Pass": 49,
+"Raise": 2646,
+"Return": 3865,
+"Try": 491,
+"While": 111,
+"With": 66
+},
+"If.orelse": {
+"<end>": 19040,
+"Assert": 35,
+"Assign": 2360,
+"AugAssign": 90,
+"Break": 33,
+"ClassDef": 9,
+"Continue": 16,
+"Delete": 18,
+"Expr": 820,
+"For": 66,
+"FunctionDef": 89,
+"If": 2433,
+"Import": 15,
+"ImportFrom": 8,
+"Pass": 5,
+"Raise": 290,
+"Return": 540,
+"Try": 110,
+"While": 27,
+"With": 23
+},
+"If.test": {
+"Attribute": 1108,
+"BinOp": 90,
+"BoolOp": 2390,
+"Call": 2201,
+"Compare": 9116,
+"Constant": 7,
+"Name": 1864,
+"NamedExpr": 25,
+"Subscript": 32,
+"UnaryOp": 2207
+},
+"IfExp.body": {
+"Attribute": 46,
+"BinOp": 22,
+"Call": 93,
+"Compare": 4,
+"Constant": 163,
+"Dict": 4,
+"DictComp": 1,
+"JoinedStr": 11,
+"List": 10,
+"Name": 95,
+"Subscript": 23,
+"Tuple": 7,
+"UnaryOp": 8
+},
+"IfExp.orelse": {
+"Attribute": 46,
+"BinOp": 17,
+"Call": 34,
+"Compare": 4,
+"Constant": 226,
+"Dict": 5,
+"DictComp": 2,
+"IfExp": 5,
+"JoinedStr": 3,
+"List": 15,
+"ListComp": 1,
+"Name": 99,
+"Subscript": 11,
+"Tuple": 10,
+"UnaryOp": 9
+},
+"IfExp.test": {
+"Attribute": 35,
+"BoolOp": 11,
+"Call": 55,
+"Compare": 227,
+"Name": 146,
+"Subscript": 2,
+"UnaryOp": 11
+},
+"Import.names": {
+"<end>": 1917,
+"alias": 2000
+},
+"ImportFrom.names": {
+"<end>": 1119,
+"alias": 1725
+},
+"JoinedStr.values": {
+"<end>": 1196,
+"Constant": 1923,
+"FormattedValue": 1683
+},
+"Lambda.body": {
+"Attribute": 6,
+"BinOp": 35,
+"BoolOp": 10,
+"Call": 81,
+"Compare": 26,
+"Constant": 17,
+"Dict": 2,
+"IfExp": 1,
+"JoinedStr": 1,
+"Name": 8,
+"Subscript": 10,
+"Tuple": 4,
+"UnaryOp": 2,
+"Yield": 1
+},
+"List.elts": {
+"<end>": 2195,
+"Attribute": 112,
+"BinOp": 28,
+"Call": 205,
+"Constant": 3325,
+"Dict": 4,
+"IfExp": 1,
+"JoinedStr": 14,
+"List": 8,
+"ListComp": 1,
+"Name": 588,
+"Starred": 15,
+"Subscript": 16,
+"Tuple": 296,
+"UnaryOp": 5
+},
+"ListComp.elt": {
+"Attribute": 20,
+"BinOp": 35,
+"Call": 129,
+"Compare": 1,
+"Constant": 1,
+"IfExp": 8,
+"JoinedStr": 7,
+"ListComp": 2,
+"Name": 119,
+"Subscript": 25,
+"Tuple": 38
+},
+"ListComp.generators": {
+"<end>": 385,
+"comprehension": 394
+},
+"Match.cases": {
+"<end>": 10,
+"match_case": 39
+},
+"Match.subject": {
+"Attribute": 2,
+"Call": 2,
+"Name": 6
+},
+"MatchAs.pattern": {
+"<none>": 8,
+"MatchAs": 1
+},
+"MatchClass.cls": {
+"Attribute": 8,
+"Name": 1
+},
+"MatchClass.kwd_patterns": {
+"MatchClass": 2
+},
+"MatchClass.patterns": {
+"<end>": 9,
+"MatchAs": 2
+},
+"MatchOr.patterns": {
+"<end>": 6,
+"MatchValue": 13
+},
+"MatchValue.value": {
+"Attribute": 7,
+"Constant": 25
+},
+"Module.body": {
+"<end>": 537,
+"AnnAssign": 18,
+"Assert": 11,
+"Assign": 3139,
+"AsyncFunctionDef": 15,
+"AugAssign": 1,
+"ClassDef": 2210,
+"Delete": 55,
+"Expr": 560,
+"For": 34,
+"FunctionDef": 2838,
+"If": 241,
+"Import": 1415,
+"ImportFrom": 804,
+"Try": 133,
+"TypeAlias": 9
+},
+"NamedExpr.target": {
+"Name": 84
+},
+"NamedExpr.value": {
+"Attribute": 6,
+"BinOp": 2,
+"Call": 74,
+"Subscript": 2
+},
+"Raise.cause": {
+"<none>": 3844,
+"Constant": 162,
+"Name": 67
+},
+"Raise.exc": {
+"<none>": 337,
+"Attribute": 8,
+"BoolOp": 1,
+"Call": 3348,
+"Name": 370,
+"Subscript": 9
+},
+"Return.value": {
+"<none>": 718,
+"Attribute": 778,
+"Await": 44,
+"BinOp": 683,
+"BoolOp": 223,
+"Call": 3953,
+"Compare": 359,
+"Constant": 1485,
+"Dict": 22,
+"DictComp": 3,
+"GeneratorExp": 11,
+"IfExp": 63,
+"JoinedStr": 120,
+"Lambda": 9,
+"List": 76,
+"ListComp": 74,
+"Name": 2554,
+"SetComp": 5,
+"Subscript": 469,
+"Tuple": 828,
+"UnaryOp": 108
+},
+"Set.elts": {
+"<end>": 127,
+"Attribute": 24,
+"BinOp": 1,
+"Call": 5,
+"Constant": 517,
+"Name": 51,
+"Starred": 1,
+"Subscript": 2,
+"Tuple": 4
+},
+"SetComp.elt": {
+"Attribute": 2,
+"BinOp": 1,
+"Call": 7,
+"JoinedStr": 3,
+"Name": 10
+},
+"SetComp.generators": {
+"<end>": 23,
+"comprehension": 24
+},
+"Slice.lower": {
+"<none>": 761,
+"Attribute": 23,
+"BinOp": 118,
+"Call": 40,
+"Constant": 487,
+"Name": 354,
+"Subscript": 1,
+"UnaryOp": 91
+},
+"Slice.step": {
+"<none>": 1849,
+"Constant": 4,
+"UnaryOp": 22
+},
+"Slice.upper": {
+"<none>": 787,
+"Attribute": 18,
+"BinOp": 190,
+"BoolOp": 5,
+"Call": 12,
+"Constant": 358,
+"IfExp": 1,
+"Name": 282,
+"UnaryOp": 222
+},
+"Starred.value": {
+"Attribute": 32,
+"BinOp": 4,
+"Call": 36,
+"GeneratorExp": 7,
+"IfExp": 1,
+"ListComp": 5,
+"Name": 489,
+"Subscript": 30,
+"Tuple": 1
+},
+"Subscript.slice": {
+"Attribute": 274,
+"BinOp": 145,
+"BoolOp": 10,
+"Call": 104,
+"Compare": 1,
+"Constant": 3199,
+"IfExp": 1,
+"JoinedStr": 3,
+"Name": 2113,
+"Slice": 1875,
+"Subscript": 119,
+"Tuple": 174,
+"UnaryOp": 487
+},
+"Subscript.value": {
+"Attribute": 1594,
+"Await": 1,
+"BinOp": 3,
+"Call": 553,
+"Constant": 12,
+"Dict": 6,
+"JoinedStr": 1,
+"List": 8,
+"Name": 6126,
+"Subscript": 194,
+"Tuple": 7
+},
+"Try.body": {
+"<end>": 2591,
+"AnnAssign": 7,
+"Assert": 13,
+"Assign": 1690,
+"AsyncWith": 1,
+"AugAssign": 23,
+"Break": 17,
+"Continue": 2,
+"Delete": 29,
+"Expr": 804,
+"For": 59,
+"FunctionDef": 4,
+"If": 518,
+"Import": 113,
+"ImportFrom": 100,
+"Raise": 18,
+"Return": 345,
+"Try": 82,
+"While": 50,
+"With": 46
+},
+"Try.finalbody": {
+"<end>": 2591,
+"Assert": 1,
+"Assign": 152,
+"AugAssign": 3,
+"Delete": 15,
+"Expr": 168,
+"For": 12,
+"If": 74,
+"Pass": 1,
+"Raise": 1,
+"Try": 12,
+"While": 5,
+"With": 2
+},
+"Try.handlers": {
+"<end>": 2591,
+"ExceptHandler": 2528
+},
+"Try.orelse": {
+"<end>": 2591,
+"Assert": 1,
+"Assign": 162,
+"AugAssign": 10,
+"Break": 10,
+"ClassDef": 3,
+"Continue": 2,
+"Delete": 4,
+"Expr": 97,
+"For": 11,
+"FunctionDef": 8,
+"Global": 1,
+"If": 120,
+"Import": 3,
+"ImportFrom": 3,
+"Nonlocal": 1,
+"Raise": 5,
+"Return": 45,
+"Try": 25,
+"While": 1,
+"With": 3
+},
+"Tuple.elts": {
+"<end>": 8478,
+"Attribute": 1670,
+"BinOp": 288,
+"BoolOp": 32,
+"Call": 841,
+"Compare": 3,
+"Constant": 4542,
+"Dict": 18,
+"IfExp": 24,
+"JoinedStr": 9,
+"List": 83,
+"ListComp": 5,
+"Name": 11217,
+"Starred": 61,
+"Subscript": 332,
+"Tuple": 404,
+"UnaryOp": 114
+},
+"TypeAlias.name": {
+"Name": 9
+},
+"TypeAlias.type_params": {
+"<end>": 9
+},
+"TypeAlias.value": {
+"Name": 2,
+"Subscript": 7
+},
+"TypeVar.bound": {
+"<none>": 4,
+"Name": 1
+},
+"TypeVar.default_value": {
+"<none>": 5
+},
+"UnaryOp.op": {
+"Invert": 46,
+"Not": 3246,
+"UAdd": 5,
+"USub": 1609
+},
+"UnaryOp.operand": {
+"Attribute": 510,
+"BinOp": 46,
+"BoolOp": 80,
+"Call": 1350,
+"Compare": 121,
+"Constant": 1374,
+"Name": 1374,
+"NamedExpr": 2,
+"Subscript": 49
+},
+"While.body": {
+"<end>": 715,
+"Assert": 9,
+"Assign": 814,
+"AugAssign": 210,
+"Break": 11,
+"Delete": 9,
+"Expr": 299,
+"For": 23,
+"If": 729,
+"Pass": 5,
+"Return": 3,
+"Try": 137,
+"While": 29,
+"With": 10
+},
+"While.orelse": {
+"<end>": 715,
+"Assign": 4,
+"AugAssign": 1,
+"Break": 1,
+"Expr": 4,
+"If": 1,
+"Raise": 1
+},
+"While.test": {
+"Attribute": 18,
+"BinOp": 1,
+"BoolOp": 108,
+"Call": 28,
+"Compare": 175,
+"Constant": 238,
+"Name": 91,
+"NamedExpr": 28,
+"Subscript": 4,
+"UnaryOp": 24
+},
+"With.body": {
+"<end>": 531,
+"Assert": 2,
+"Assign": 293,
+"AugAssign": 20,
+"Delete": 4,
+"Expr": 330,
+"For": 56,
+"FunctionDef": 2,
+"If": 228,
+"Import": 2,
+"ImportFrom": 1,
+"Match": 1,
+"Raise": 1,
+"Return": 93,
+"Try": 34,
+"While": 23,
+"With": 9
+},
+"With.items": {
+"<end>": 531,
+"withitem": 543
+},
+"Yield.value": {
+"<none>": 17,
+"Attribute": 4,
+"BinOp": 27,
+"Call": 63,
+"Constant": 21,
+"JoinedStr": 2,
+"Name": 121,
+"Subscript": 11,
+"Tuple": 69
+},
+"YieldFrom.value": {
+"Attribute": 5,
+"Call": 54,
+"ListComp": 3,
+"Name": 16
+},
+"arg.annotation": {
+"<none>": 27877,
+"Attribute": 10,
+"BinOp": 46,
+"Constant": 3,
+"Name": 335,
+"Subscript": 46
+},
+"arguments.args": {
+"<end>": 13642,
+"arg": 26144
+},
+"arguments.defaults": {
+"<end>": 13642,
+"Attribute": 93,
+"BinOp": 4,
+"Call": 16,
+"Compare": 1,
+"Constant": 3762,
+"Dict": 32,
+"Lambda": 4,
+"List": 6,
+"Name": 252,
+"Set": 1,
+"Subscript": 16,
+"Tuple": 65,
+"UnaryOp": 89
+},
+"arguments.kw_defaults": {
+"<none>": 40,
+"Attribute": 28,
+"BinOp": 1,
+"Call": 3,
+"Constant": 820,
+"Name": 66,
+"Tuple": 11,
+"UnaryOp": 6
+},
+"arguments.kwarg": {
+"<none>": 13232,
+"arg": 410
+},
+"arguments.kwonlyargs": {
+"<end>": 13642,
+"arg": 975
+},
+"arguments.posonlyargs": {
+"<end>": 13642,
+"arg": 235
+},
+"arguments.vararg": {
+"<none>": 13089,
+"arg": 553
+},
+"comprehension.ifs": {
+"<end>": 829,
+"Attribute": 8,
+"BinOp": 1,
+"BoolOp": 28,
+"Call": 58,
+"Compare": 82,
+"IfExp": 1,
+"Name": 17,
+"UnaryOp": 13
+},
+"comprehension.iter": {
+"Attribute": 98,
+"BinOp": 3,
+"BoolOp": 1,
+"Call": 276,
+"Constant": 4,
+"List": 1,
+"Name": 402,
+"Subscript": 28,
+"Tuple": 16
+},
+"comprehension.target": {
+"Name": 693,
+"Tuple": 136
+},
+"keyword.value": {
+"Attribute": 794,
+"BinOp": 32,
+"BoolOp": 7,
+"Call": 111,
+"Compare": 4,
+"Constant": 2093,
+"Dict": 6,
+"IfExp": 10,
+"JoinedStr": 3,
+"Lambda": 27,
+"List": 160,
+"ListComp": 1,
+"Name": 2816,
+"Subscript": 14,
+"Tuple": 86,
+"UnaryOp": 15
+},
+"match_case.body": {
+"<end>": 39,
+"Assign": 51,
+"Expr": 14,
+"For": 1,
+"If": 6,
+"Match": 1,
+"Nonlocal": 2,
+"Pass": 1,
+"Raise": 4,
+"Return": 3
+},
+"match_case.guard": {
+"<none>": 38,
+"UnaryOp": 1
+},
+"match_case.pattern": {
+"MatchAs": 6,
+"MatchClass": 7,
+"MatchOr": 6,
+"MatchSingleton": 1,
+"MatchValue": 19
+},
+"withitem.context_expr": {
+"Attribute": 138,
+"Call": 340,
+"IfExp": 1,
+"Name": 67,
+"Subscript": 3
+},
+"withitem.optional_vars": {
+"<none>": 323,
+"Name": 223,
+"Tuple": 3
+}
+},
+"small": {
+"ExceptHandler.name.present": {
+"False": 2028,
+"True": 500
+},
+"ImportFrom.module.present": {
+"False": 192,
+"True": 927
+},
+"MatchAs.name.present": {
+"False": 5,
+"True": 4
+},
+"alias.dotted_asname.present": {
+"False": 112,
+"True": 2
+},
+"alias.star": {
+"False": 1670,
+"True": 55
+},
+"const_kind": {
+"Ellipsis": 86,
+"None": 9897,
+"bool": 4545,
+"bytes": 915,
+"complex": 1,
+"float": 488,
+"int": 33043,
+"str": 51018
+},
+"conversion": {
+"-1": 1183,
+"114": 494,
+"115": 6
+},
+"is_async": {
+"0": 829
+},
+"keyword.arg.present": {
+"False": 390,
+"True": 5789
+},
+"simple": {
+"0": 8,
+"1": 141
+}
+}
+},
+"grammar": {
+"categories": {
+"alias": [
+"alias"
+],
+"arg": [
+"arg"
+],
+"arguments": [
+"arguments"
+],
+"boolop": [
+"And",
+"Or"
+],
+"cmpop": [
+"Eq",
+"Gt",
+"GtE",
+"In",
+"Is",
+"IsNot",
+"Lt",
+"LtE",
+"NotEq",
+"NotIn"
+],
+"comprehension": [
+"comprehension"
+],
+"excepthandler": [
+"ExceptHandler"
+],
+"expr": [
+"Attribute",
+"Await",
+"BinOp",
+"BoolOp",
+"Call",
+"Compare",
+"Constant",
+"Dict",
+"DictComp",
+"FormattedValue",
+"GeneratorExp",
+"IfExp",
+"JoinedStr",
+"Lambda",
+"List",
+"ListComp",
+"Name",
+"NamedExpr",
+"Set",
+"SetComp",
+"Slice",
+"Starred",
+"Subscript",
+"Tuple",
+"UnaryOp",
+"Yield",
+"YieldFrom"
+],
+"keyword": [
+"keyword"
+],
+"match_case": [
+"match_case"
+],
+"mod": [
+"Module"
+],
+"operator": [
+"Add",
+"BitAnd",
+"BitOr",
+"BitXor",
+"Div",
+"FloorDiv",
+"LShift",
+"MatMult",
+"Mod",
+"Mult",
+"Pow",
+"RShift",
+"Sub"
+],
+"pattern": [
+"MatchAs",
+"MatchClass",
+"MatchMapping",
+"MatchOr",
+"MatchSequence",
+"MatchSingleton",
+"MatchStar",
+"MatchValue"
+],
+"stmt": [
+"AnnAssign",
+"Assert",
+"Assign",
+"AsyncFor",
+"AsyncFunctionDef",
+"AsyncWith",
+"AugAssign",
+"Break",
+"ClassDef",
+"Continue",
+"Delete",
+"Expr",
+"For",
+"FunctionDef",
+"Global",
+"If",
+"Import",
+"ImportFrom",
+"Match",
+"Nonlocal",
+"Pass",
+"Raise",
+"Return",
+"Try",
+"TryStar",
+"TypeAlias",
+"While",
+"With"
+],
+"type_param": [
+"ParamSpec",
+"TypeVar",
+"TypeVarTuple"
+],
+"unaryop": [
+"Invert",
+"Not",
+"UAdd",
+"USub"
+],
+"withitem": [
+"withitem"
+]
+},
+"classes": {
+"Add": [],
+"And": [],
+"AnnAssign": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"annotation",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"simple",
+{
+"k": "int",
+"role": "simple"
+}
+]
+],
+"Assert": [
+[
+"test",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"msg",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"Assign": [
+[
+"targets",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq",
+"target": true
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"AsyncFor": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"iter",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"AsyncFunctionDef": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"args",
+{
+"cat": "arguments",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"decorator_list",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"returns",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+],
+[
+"type_params",
+{
+"cat": "type_param",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"AsyncWith": [
+[
+"items",
+{
+"cat": "withitem",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"Attribute": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"attr",
+{
+"k": "ident",
+"m": "one",
+"role": "attr"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"AugAssign": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"op",
+{
+"cat": "operator",
+"k": "node",
+"m": "one"
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"Await": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"BinOp": [
+[
+"left",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"op",
+{
+"cat": "operator",
+"k": "node",
+"m": "one"
+}
+],
+[
+"right",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"BitAnd": [],
+"BitOr": [],
+"BitXor": [],
+"BoolOp": [
+[
+"op",
+{
+"cat": "boolop",
+"k": "node",
+"m": "one"
+}
+],
+[
+"values",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Break": [],
+"Call": [
+[
+"func",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"args",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"keywords",
+{
+"cat": "keyword",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"ClassDef": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"bases",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"keywords",
+{
+"cat": "keyword",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"decorator_list",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_params",
+{
+"cat": "type_param",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Compare": [
+[
+"left",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"ops",
+{
+"cat": "cmpop",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"comparators",
+{
+"cat": "expr",
+"eopt": false,
+"k": "node",
+"len": "ops",
+"m": "implied"
+}
+]
+],
+"Constant": [
+[
+"value",
+{
+"k": "const"
+}
+],
+[
+"kind",
+{
+"k": "skip"
+}
+]
+],
+"Continue": [],
+"Delete": [
+[
+"targets",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq",
+"target": true
+}
+]
+],
+"Dict": [
+[
+"keys",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq_opt"
+}
+],
+[
+"values",
+{
+"cat": "expr",
+"eopt": false,
+"k": "node",
+"len": "keys",
+"m": "implied"
+}
+]
+],
+"DictComp": [
+[
+"key",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"generators",
+{
+"cat": "comprehension",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Div": [],
+"Eq": [],
+"ExceptHandler": [
+[
+"type",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"name",
+{
+"k": "ident",
+"m": "opt",
+"role": "bind"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Expr": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"FloorDiv": [],
+"For": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"iter",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"FormattedValue": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"conversion",
+{
+"k": "int",
+"role": "conversion"
+}
+],
+[
+"format_spec",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"FunctionDef": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"args",
+{
+"cat": "arguments",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"decorator_list",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"returns",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+],
+[
+"type_params",
+{
+"cat": "type_param",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"GeneratorExp": [
+[
+"elt",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"generators",
+{
+"cat": "comprehension",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Global": [
+[
+"names",
+{
+"k": "ident",
+"m": "seq",
+"role": "global"
+}
+]
+],
+"Gt": [],
+"GtE": [],
+"If": [
+[
+"test",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"IfExp": [
+[
+"test",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"orelse",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"Import": [
+[
+"names",
+{
+"cat": "alias",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"ImportFrom": [
+[
+"module",
+{
+"k": "ident",
+"m": "opt",
+"role": "modpath"
+}
+],
+[
+"names",
+{
+"cat": "alias",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"level",
+{
+"k": "int",
+"role": "level"
+}
+]
+],
+"In": [],
+"Invert": [],
+"Is": [],
+"IsNot": [],
+"JoinedStr": [
+[
+"values",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"LShift": [],
+"Lambda": [
+[
+"args",
+{
+"cat": "arguments",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"List": [
+[
+"elts",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"ListComp": [
+[
+"elt",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"generators",
+{
+"cat": "comprehension",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Lt": [],
+"LtE": [],
+"MatMult": [],
+"Match": [
+[
+"subject",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"cases",
+{
+"cat": "match_case",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"MatchAs": [
+[
+"pattern",
+{
+"cat": "pattern",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"name",
+{
+"k": "ident",
+"m": "opt",
+"role": "bind"
+}
+]
+],
+"MatchClass": [
+[
+"cls",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"patterns",
+{
+"cat": "pattern",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"kwd_attrs",
+{
+"k": "ident",
+"m": "seq",
+"role": "attr"
+}
+],
+[
+"kwd_patterns",
+{
+"cat": "pattern",
+"eopt": false,
+"k": "node",
+"len": "kwd_attrs",
+"m": "implied"
+}
+]
+],
+"MatchMapping": [
+[
+"keys",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"patterns",
+{
+"cat": "pattern",
+"eopt": false,
+"k": "node",
+"len": "keys",
+"m": "implied"
+}
+],
+[
+"rest",
+{
+"k": "ident",
+"m": "opt",
+"role": "bind"
+}
+]
+],
+"MatchOr": [
+[
+"patterns",
+{
+"cat": "pattern",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"MatchSequence": [
+[
+"patterns",
+{
+"cat": "pattern",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"MatchSingleton": [
+[
+"value",
+{
+"k": "const"
+}
+]
+],
+"MatchStar": [
+[
+"name",
+{
+"k": "ident",
+"m": "opt",
+"role": "bind"
+}
+]
+],
+"MatchValue": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"Mod": [],
+"Module": [
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_ignores",
+{
+"k": "skip"
+}
+]
+],
+"Mult": [],
+"Name": [
+[
+"id",
+{
+"k": "ident",
+"m": "one",
+"role": "name"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"NamedExpr": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"Nonlocal": [
+[
+"names",
+{
+"k": "ident",
+"m": "seq",
+"role": "nonlocal"
+}
+]
+],
+"Not": [],
+"NotEq": [],
+"NotIn": [],
+"Or": [],
+"ParamSpec": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"default_value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"Pass": [],
+"Pow": [],
+"RShift": [],
+"Raise": [
+[
+"exc",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"cause",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"Return": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"Set": [
+[
+"elts",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"SetComp": [
+[
+"elt",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"generators",
+{
+"cat": "comprehension",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Slice": [
+[
+"lower",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"upper",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"step",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"Starred": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"Sub": [],
+"Subscript": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"slice",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"Try": [
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"handlers",
+{
+"cat": "excepthandler",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"finalbody",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"TryStar": [
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"handlers",
+{
+"cat": "excepthandler",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"finalbody",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"Tuple": [
+[
+"elts",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"ctx",
+{
+"k": "skip"
+}
+]
+],
+"TypeAlias": [
+[
+"name",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"type_params",
+{
+"cat": "type_param",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"TypeVar": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"bound",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"default_value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"TypeVarTuple": [
+[
+"name",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"default_value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"UAdd": [],
+"USub": [],
+"UnaryOp": [
+[
+"op",
+{
+"cat": "unaryop",
+"k": "node",
+"m": "one"
+}
+],
+[
+"operand",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"While": [
+[
+"test",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"orelse",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"With": [
+[
+"items",
+{
+"cat": "withitem",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"Yield": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+]
+],
+"YieldFrom": [
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"alias": [
+[
+"name",
+{
+"k": "special"
+}
+],
+[
+"asname",
+{
+"k": "special"
+}
+]
+],
+"arg": [
+[
+"arg",
+{
+"k": "ident",
+"m": "one",
+"role": "bind"
+}
+],
+[
+"annotation",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"type_comment",
+{
+"k": "skip"
+}
+]
+],
+"arguments": [
+[
+"posonlyargs",
+{
+"cat": "arg",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"args",
+{
+"cat": "arg",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"vararg",
+{
+"cat": "arg",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"kwonlyargs",
+{
+"cat": "arg",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"kw_defaults",
+{
+"cat": "expr",
+"eopt": true,
+"k": "node",
+"len": "kwonlyargs",
+"m": "implied"
+}
+],
+[
+"kwarg",
+{
+"cat": "arg",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"defaults",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"comprehension": [
+[
+"target",
+{
+"cat": "expr",
+"k": "node",
+"m": "one",
+"target": true
+}
+],
+[
+"iter",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"ifs",
+{
+"cat": "expr",
+"k": "node",
+"m": "seq"
+}
+],
+[
+"is_async",
+{
+"k": "int",
+"role": "is_async"
+}
+]
+],
+"keyword": [
+[
+"arg",
+{
+"k": "ident",
+"m": "opt",
+"role": "kwarg"
+}
+],
+[
+"value",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+]
+],
+"match_case": [
+[
+"pattern",
+{
+"cat": "pattern",
+"k": "node",
+"m": "one"
+}
+],
+[
+"guard",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt"
+}
+],
+[
+"body",
+{
+"cat": "stmt",
+"k": "node",
+"m": "seq"
+}
+]
+],
+"withitem": [
+[
+"context_expr",
+{
+"cat": "expr",
+"k": "node",
+"m": "one"
+}
+],
+[
+"optional_vars",
+{
+"cat": "expr",
+"k": "node",
+"m": "opt",
+"target": true
+}
+]
+]
+}
+},
+"version": "ast-bits-v1",
+"vocab": {
+"api": [
+"D4_MOVES",
+"best_line",
+"blend",
+"block",
+"blue",
+"cell",
+"column",
+"core",
+"diagonal",
+"everything",
+"flatten",
+"green",
+"hue_turn",
+"majority_line",
+"mirror_fold",
+"motif",
+"move",
+"moves",
+"orange",
+"paint",
+"paint_all",
+"paint_by_key",
+"paint_cell",
+"paint_column",
+"paint_row",
+"pattern_line",
+"recolour",
+"red",
+"reverse_line",
+"ring",
+"row",
+"score",
+"shift_line",
+"sort_line",
+"stamp",
+"step_rank",
+"suit_set",
+"suit_swap",
+"swap_cells",
+"swap_colours",
+"swap_lines",
+"swap_symbols",
+"tally",
+"turn_block",
+"turn_grid",
+"violet",
+"write",
+"write_ramp",
+"yellow"
+],
+"api_attrs": [
+"after",
+"cell",
+"cells",
+"col",
+"colour",
+"colours",
+"columns",
+"count",
+"diagonals",
+"down",
+"down_left",
+"down_right",
+"edge_cells",
+"from_lab",
+"is_picture",
+"key",
+"kind",
+"left",
+"mid",
+"neighbours",
+"on_edge",
+"palette",
+"params",
+"quarter_turn",
+"reachable",
+"region",
+"regions",
+"right",
+"row",
+"rows",
+"size",
+"suit",
+"surrounding",
+"symbol",
+"up",
+"up_left",
+"up_right",
+"value"
+],
+"api_params": [
+"a",
+"area",
+"axis",
+"b",
+"block_area",
+"c",
+"colour",
+"d",
+"dir",
+"i",
+"j",
+"k",
+"key",
+"kind",
+"layer",
+"line",
+"move",
+"mutator",
+"near",
+"new",
+"old",
+"pair",
+"pattern",
+"r",
+"recipe",
+"region",
+"shift",
+"side",
+"size",
+"start",
+"style",
+"suit",
+"symbol"
+],
+"builtins": [
+"ArithmeticError",
+"AssertionError",
+"AttributeError",
+"BaseException",
+"BaseExceptionGroup",
+"BlockingIOError",
+"BrokenPipeError",
+"BufferError",
+"BytesWarning",
+"ChildProcessError",
+"ConnectionAbortedError",
+"ConnectionError",
+"ConnectionRefusedError",
+"ConnectionResetError",
+"DeprecationWarning",
+"EOFError",
+"Ellipsis",
+"EncodingWarning",
+"EnvironmentError",
+"Exception",
+"ExceptionGroup",
+"False",
+"FileExistsError",
+"FileNotFoundError",
+"FloatingPointError",
+"FutureWarning",
+"GeneratorExit",
+"IOError",
+"ImportError",
+"ImportWarning",
+"IndentationError",
+"IndexError",
+"InterruptedError",
+"IsADirectoryError",
+"KeyError",
+"KeyboardInterrupt",
+"LookupError",
+"MemoryError",
+"ModuleNotFoundError",
+"NameError",
+"None",
+"NotADirectoryError",
+"NotImplemented",
+"NotImplementedError",
+"OSError",
+"OverflowError",
+"PendingDeprecationWarning",
+"PermissionError",
+"ProcessLookupError",
+"PythonFinalizationError",
+"RecursionError",
+"ReferenceError",
+"ResourceWarning",
+"RuntimeError",
+"RuntimeWarning",
+"StopAsyncIteration",
+"StopIteration",
+"SyntaxError",
+"SyntaxWarning",
+"SystemError",
+"SystemExit",
+"TabError",
+"TimeoutError",
+"True",
+"TypeError",
+"UnboundLocalError",
+"UnicodeDecodeError",
+"UnicodeEncodeError",
+"UnicodeError",
+"UnicodeTranslateError",
+"UnicodeWarning",
+"UserWarning",
+"ValueError",
+"Warning",
+"ZeroDivisionError",
+"abs",
+"all",
+"any",
+"ascii",
+"bin",
+"bool",
+"bytearray",
+"bytes",
+"callable",
+"chr",
+"classmethod",
+"complex",
+"delattr",
+"dict",
+"dir",
+"divmod",
+"enumerate",
+"filter",
+"float",
+"format",
+"frozenset",
+"getattr",
+"hasattr",
+"hash",
+"hex",
+"int",
+"isinstance",
+"issubclass",
+"iter",
+"len",
+"list",
+"map",
+"max",
+"min",
+"next",
+"object",
+"oct",
+"ord",
+"pow",
+"print",
+"property",
+"range",
+"repr",
+"reversed",
+"round",
+"set",
+"setattr",
+"slice",
+"sorted",
+"staticmethod",
+"str",
+"sum",
+"super",
+"tuple",
+"type",
+"zip"
+],
+"externals": [
+"ArithmeticError",
+"AssertionError",
+"AttributeError",
+"BaseException",
+"BaseExceptionGroup",
+"BlockingIOError",
+"BrokenPipeError",
+"BufferError",
+"BytesWarning",
+"ChildProcessError",
+"ConnectionAbortedError",
+"ConnectionError",
+"ConnectionRefusedError",
+"ConnectionResetError",
+"D4_MOVES",
+"DeprecationWarning",
+"EOFError",
+"Ellipsis",
+"EncodingWarning",
+"EnvironmentError",
+"Exception",
+"ExceptionGroup",
+"False",
+"FileExistsError",
+"FileNotFoundError",
+"FloatingPointError",
+"FutureWarning",
+"GeneratorExit",
+"IOError",
+"ImportError",
+"ImportWarning",
+"IndentationError",
+"IndexError",
+"InterruptedError",
+"IsADirectoryError",
+"KeyError",
+"KeyboardInterrupt",
+"LookupError",
+"MemoryError",
+"ModuleNotFoundError",
+"NameError",
+"None",
+"NotADirectoryError",
+"NotImplemented",
+"NotImplementedError",
+"OSError",
+"OverflowError",
+"PendingDeprecationWarning",
+"PermissionError",
+"ProcessLookupError",
+"PythonFinalizationError",
+"RecursionError",
+"ReferenceError",
+"ResourceWarning",
+"RuntimeError",
+"RuntimeWarning",
+"StopAsyncIteration",
+"StopIteration",
+"SyntaxError",
+"SyntaxWarning",
+"SystemError",
+"SystemExit",
+"TabError",
+"TimeoutError",
+"True",
+"TypeError",
+"UnboundLocalError",
+"UnicodeDecodeError",
+"UnicodeEncodeError",
+"UnicodeError",
+"UnicodeTranslateError",
+"UnicodeWarning",
+"UserWarning",
+"ValueError",
+"Warning",
+"ZeroDivisionError",
+"abs",
+"all",
+"any",
+"ascii",
+"best_line",
+"bin",
+"blend",
+"block",
+"blue",
+"bool",
+"bytearray",
+"bytes",
+"callable",
+"cell",
+"chr",
+"classmethod",
+"column",
+"complex",
+"core",
+"delattr",
+"diagonal",
+"dict",
+"dir",
+"divmod",
+"enumerate",
+"everything",
+"filter",
+"flatten",
+"float",
+"format",
+"frozenset",
+"getattr",
+"green",
+"hasattr",
+"hash",
+"hex",
+"hue_turn",
+"int",
+"isinstance",
+"issubclass",
+"iter",
+"len",
+"list",
+"majority_line",
+"map",
+"max",
+"min",
+"mirror_fold",
+"motif",
+"move",
+"moves",
+"next",
+"object",
+"oct",
+"orange",
+"ord",
+"paint",
+"paint_all",
+"paint_by_key",
+"paint_cell",
+"paint_column",
+"paint_row",
+"pattern_line",
+"pow",
+"print",
+"property",
+"range",
+"recolour",
+"red",
+"repr",
+"reverse_line",
+"reversed",
+"ring",
+"round",
+"row",
+"score",
+"set",
+"setattr",
+"shift_line",
+"slice",
+"sort_line",
+"sorted",
+"stamp",
+"staticmethod",
+"step_rank",
+"str",
+"suit_set",
+"suit_swap",
+"sum",
+"super",
+"swap_cells",
+"swap_colours",
+"swap_lines",
+"swap_symbols",
+"tally",
+"tuple",
+"turn_block",
+"turn_grid",
+"type",
+"violet",
+"write",
+"write_ramp",
+"yellow",
+"zip"
+],
+"module_attrs": {
+"ast": [
+"AST",
+"Add",
+"And",
+"AnnAssign",
+"Assert",
+"Assign",
+"AsyncFor",
+"AsyncFunctionDef",
+"AsyncWith",
+"Attribute",
+"AugAssign",
+"AugLoad",
+"AugStore",
+"Await",
+"BinOp",
+"BitAnd",
+"BitOr",
+"BitXor",
+"BoolOp",
+"Break",
+"Call",
+"ClassDef",
+"Compare",
+"Constant",
+"Continue",
+"Del",
+"Delete",
+"Dict",
+"DictComp",
+"Div",
+"Eq",
+"ExceptHandler",
+"Expr",
+"Expression",
+"ExtSlice",
+"FloorDiv",
+"For",
+"FormattedValue",
+"FunctionDef",
+"FunctionType",
+"GeneratorExp",
+"Global",
+"Gt",
+"GtE",
+"If",
+"IfExp",
+"Import",
+"ImportFrom",
+"In",
+"Index",
+"IntEnum",
+"Interactive",
+"Invert",
+"Is",
+"IsNot",
+"JoinedStr",
+"LShift",
+"Lambda",
+"List",
+"ListComp",
+"Load",
+"Lt",
+"LtE",
+"MatMult",
+"Match",
+"MatchAs",
+"MatchClass",
+"MatchMapping",
+"MatchOr",
+"MatchSequence",
+"MatchSingleton",
+"MatchStar",
+"MatchValue",
+"Mod",
+"Module",
+"Mult",
+"Name",
+"NamedExpr",
+"NodeTransformer",
+"NodeVisitor",
+"Nonlocal",
+"Not",
+"NotEq",
+"NotIn",
+"Or",
+"Param",
+"ParamSpec",
+"Pass",
+"Pow",
+"PyCF_ALLOW_TOP_LEVEL_AWAIT",
+"PyCF_ONLY_AST",
+"PyCF_OPTIMIZED_AST",
+"PyCF_TYPE_COMMENTS",
+"RShift",
+"Raise",
+"Return",
+"Set",
+"SetComp",
+"Slice",
+"Starred",
+"Store",
+"Sub",
+"Subscript",
+"Suite",
+"Try",
+"TryStar",
+"Tuple",
+"TypeAlias",
+"TypeIgnore",
+"TypeVar",
+"TypeVarTuple",
+"UAdd",
+"USub",
+"UnaryOp",
+"While",
+"With",
+"Yield",
+"YieldFrom",
+"alias",
+"arg",
+"arguments",
+"auto",
+"boolop",
+"cmpop",
+"comprehension",
+"contextmanager",
+"copy_location",
+"dump",
+"excepthandler",
+"expr",
+"expr_context",
+"fix_missing_locations",
+"get_docstring",
+"get_source_segment",
+"increment_lineno",
+"iter_child_nodes",
+"iter_fields",
+"keyword",
+"literal_eval",
+"main",
+"match_case",
+"mod",
+"nullcontext",
+"operator",
+"parse",
+"pattern",
+"re",
+"slice",
+"stmt",
+"sys",
+"type_ignore",
+"type_param",
+"unaryop",
+"unparse",
+"walk",
+"withitem"
+],
+"collections": [
+"ChainMap",
+"Counter",
+"OrderedDict",
+"UserDict",
+"UserList",
+"UserString",
+"defaultdict",
+"deque",
+"namedtuple"
+],
+"collections.abc": [
+"AsyncGenerator",
+"AsyncIterable",
+"AsyncIterator",
+"Awaitable",
+"Buffer",
+"ByteString",
+"Callable",
+"Collection",
+"Container",
+"Coroutine",
+"Generator",
+"Hashable",
+"ItemsView",
+"Iterable",
+"Iterator",
+"KeysView",
+"Mapping",
+"MappingView",
+"MutableMapping",
+"MutableSequence",
+"MutableSet",
+"Reversible",
+"Sequence",
+"Set",
+"Sized",
+"ValuesView"
+],
+"decimal": [
+"BasicContext",
+"Clamped",
+"Context",
+"ConversionSyntax",
+"Decimal",
+"DecimalException",
+"DecimalTuple",
+"DefaultContext",
+"DivisionByZero",
+"DivisionImpossible",
+"DivisionUndefined",
+"ExtendedContext",
+"FloatOperation",
+"HAVE_CONTEXTVAR",
+"HAVE_THREADS",
+"Inexact",
+"InvalidContext",
+"InvalidOperation",
+"MAX_EMAX",
+"MAX_PREC",
+"MIN_EMIN",
+"MIN_ETINY",
+"Overflow",
+"ROUND_05UP",
+"ROUND_CEILING",
+"ROUND_DOWN",
+"ROUND_FLOOR",
+"ROUND_HALF_DOWN",
+"ROUND_HALF_EVEN",
+"ROUND_HALF_UP",
+"ROUND_UP",
+"Rounded",
+"Subnormal",
+"Underflow",
+"getcontext",
+"localcontext",
+"setcontext"
+],
+"fractions": [
+"Fraction"
+],
+"functools": [
+"WRAPPER_ASSIGNMENTS",
+"WRAPPER_UPDATES",
+"cache",
+"cached_property",
+"cmp_to_key",
+"lru_cache",
+"partial",
+"partialmethod",
+"reduce",
+"singledispatch",
+"singledispatchmethod",
+"total_ordering",
+"update_wrapper",
+"wraps"
+],
+"hashlib": [
+"algorithms_available",
+"algorithms_guaranteed",
+"blake2b",
+"blake2s",
+"file_digest",
+"md5",
+"new",
+"pbkdf2_hmac",
+"sha1",
+"sha224",
+"sha256",
+"sha384",
+"sha3_224",
+"sha3_256",
+"sha3_384",
+"sha3_512",
+"sha512",
+"shake_128",
+"shake_256"
+],
+"itertools": [
+"accumulate",
+"batched",
+"chain",
+"combinations",
+"combinations_with_replacement",
+"compress",
+"count",
+"cycle",
+"dropwhile",
+"filterfalse",
+"groupby",
+"islice",
+"pairwise",
+"permutations",
+"product",
+"repeat",
+"starmap",
+"takewhile",
+"tee",
+"zip_longest"
+],
+"json": [
+"JSONDecodeError",
+"JSONDecoder",
+"JSONEncoder",
+"dump",
+"dumps",
+"load",
+"loads"
+],
+"math": [
+"acos",
+"acosh",
+"asin",
+"asinh",
+"atan",
+"atan2",
+"atanh",
+"cbrt",
+"ceil",
+"comb",
+"copysign",
+"cos",
+"cosh",
+"degrees",
+"dist",
+"e",
+"erf",
+"erfc",
+"exp",
+"exp2",
+"expm1",
+"fabs",
+"factorial",
+"floor",
+"fma",
+"fmod",
+"frexp",
+"fsum",
+"gamma",
+"gcd",
+"hypot",
+"inf",
+"isclose",
+"isfinite",
+"isinf",
+"isnan",
+"isqrt",
+"lcm",
+"ldexp",
+"lgamma",
+"log",
+"log10",
+"log1p",
+"log2",
+"modf",
+"nan",
+"nextafter",
+"perm",
+"pi",
+"pow",
+"prod",
+"radians",
+"remainder",
+"sin",
+"sinh",
+"sqrt",
+"sumprod",
+"tan",
+"tanh",
+"tau",
+"trunc",
+"ulp"
+],
+"operator": [
+"abs",
+"add",
+"and_",
+"attrgetter",
+"call",
+"concat",
+"contains",
+"countOf",
+"delitem",
+"eq",
+"floordiv",
+"ge",
+"getitem",
+"gt",
+"iadd",
+"iand",
+"iconcat",
+"ifloordiv",
+"ilshift",
+"imatmul",
+"imod",
+"imul",
+"index",
+"indexOf",
+"inv",
+"invert",
+"ior",
+"ipow",
+"irshift",
+"is_",
+"is_not",
+"isub",
+"itemgetter",
+"itruediv",
+"ixor",
+"le",
+"length_hint",
+"lshift",
+"lt",
+"matmul",
+"methodcaller",
+"mod",
+"mul",
+"ne",
+"neg",
+"not_",
+"or_",
+"pos",
+"pow",
+"rshift",
+"setitem",
+"sub",
+"truediv",
+"truth",
+"xor"
+],
+"random": [
+"Random",
+"SystemRandom",
+"betavariate",
+"binomialvariate",
+"choice",
+"choices",
+"expovariate",
+"gammavariate",
+"gauss",
+"getrandbits",
+"getstate",
+"lognormvariate",
+"normalvariate",
+"paretovariate",
+"randbytes",
+"randint",
+"random",
+"randrange",
+"sample",
+"seed",
+"setstate",
+"shuffle",
+"triangular",
+"uniform",
+"vonmisesvariate",
+"weibullvariate"
+],
+"re": [
+"A",
+"ASCII",
+"DOTALL",
+"I",
+"IGNORECASE",
+"L",
+"LOCALE",
+"M",
+"MULTILINE",
+"Match",
+"NOFLAG",
+"Pattern",
+"PatternError",
+"RegexFlag",
+"S",
+"U",
+"UNICODE",
+"VERBOSE",
+"X",
+"compile",
+"error",
+"escape",
+"findall",
+"finditer",
+"fullmatch",
+"match",
+"purge",
+"search",
+"split",
+"sub",
+"subn"
+],
+"statistics": [
+"NormalDist",
+"StatisticsError",
+"correlation",
+"covariance",
+"fmean",
+"geometric_mean",
+"harmonic_mean",
+"kde",
+"kde_random",
+"linear_regression",
+"mean",
+"median",
+"median_grouped",
+"median_high",
+"median_low",
+"mode",
+"multimode",
+"pstdev",
+"pvariance",
+"quantiles",
+"stdev",
+"variance"
+],
+"time": [
+"CLOCK_BOOTTIME",
+"CLOCK_MONOTONIC",
+"CLOCK_MONOTONIC_RAW",
+"CLOCK_PROCESS_CPUTIME_ID",
+"CLOCK_REALTIME",
+"CLOCK_TAI",
+"CLOCK_THREAD_CPUTIME_ID",
+"altzone",
+"asctime",
+"clock_getres",
+"clock_gettime",
+"clock_gettime_ns",
+"clock_settime",
+"clock_settime_ns",
+"ctime",
+"daylight",
+"get_clock_info",
+"gmtime",
+"localtime",
+"mktime",
+"monotonic",
+"monotonic_ns",
+"perf_counter",
+"perf_counter_ns",
+"process_time",
+"process_time_ns",
+"pthread_getcpuclockid",
+"sleep",
+"strftime",
+"strptime",
+"struct_time",
+"thread_time",
+"thread_time_ns",
+"time",
+"time_ns",
+"timezone",
+"tzname",
+"tzset"
+]
+},
+"modules": [
+"ast",
+"collections",
+"collections.abc",
+"decimal",
+"fractions",
+"functools",
+"hashlib",
+"itertools",
+"json",
+"math",
+"operator",
+"random",
+"re",
+"statistics",
+"time"
+]
+}
+}
