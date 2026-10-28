@@ -174,12 +174,6 @@ export interface MutatorDef<V = unknown, P = unknown> {
   scopeOf?(params: P, inst: Instantiation): MutatorScope;
   /** M(params): runtime selection bits (relative targeting, e.g. line* = log2 2N), paid as decision. */
   measureBits?(params: P, inst: Instantiation): number;
-  /**
-   * Expected changed bits per layer (keys as ObjectTypeDef.changedBits): the call's "speed" in the
-   * motion term, motion = Σ_L expected_L · changed_L / layerBits_L (energy.py pointwise motion).
-   * Omitted: the actual changed bits are used, i.e. Σ_L changed_L² / layerBits_L.
-   */
-  expectedChange?(params: P, inst: Instantiation): Readonly<Record<string, number>>;
   /** Uniform draw of params (field by field), used by reference agents, tests and the AI prompt examples. */
   sample(rng: Rng, inst: Instantiation): P;
   /** Guest constructor(s) and their docs, emitted into the prelude by the type's prelude generator. */

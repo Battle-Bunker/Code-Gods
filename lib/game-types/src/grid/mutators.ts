@@ -8,9 +8,9 @@
  * The one deliberate difference: erasure is POINTWISE, log2 |f⁻¹(f(x))| given the call
  * (energy.py `pointwise_erasure`), whose expectation over the spawn prior is mutators.py's Shannon E.
  * Constant overwrites erase the same bits on every input; recolour, stamp, tally, blend, sort_line
- * and majority_line erase what they actually merge. Motion is energy.py's pointwise motion,
- * (log2 C · Ē_col · d_col + log2 S · Ē_sym · d_sym) / N², expressed through `expectedChange`
- * (Ē_L · log2 alphabet, keys "colour" / "symbol") and the type's changedBits / layerBits.
+ * and majority_line erase what they actually merge. Motion is charged per act by applyCalls
+ * (open-agents.md §4.1: move · (d_col² log2 C + d_sym² log2 S) / N² on the act's net change); the
+ * analytic expected changed cells (`terms().dcol / dsym`) are kept for docs, tests and parity.
  *
  * Guest constructors (Python / JS) take kid inputs: colours by name ("red") or letter, symbols as
  * shown ("7", "B", "K♥") or by value for digits, cells (grid.cell(2, 3), a loop variable) and areas:
@@ -300,10 +300,6 @@ function def(s: GridMutatorSpec): GridMutator {
     },
     scopeOf: (p: GP, inst: Instantiation) => full(p, gridCtx(inst)).scope,
     measureBits: (p: GP, inst: Instantiation) => full(p, gridCtx(inst)).measure,
-    expectedChange: (p: GP, inst: Instantiation) => {
-      const g = gridCtx(inst), t = full(p, g);
-      return { colour: t.dcol * Math.log2(g.C), symbol: t.dsym * Math.log2(g.S) };
-    },
     sample: (rng: Rng, inst: Instantiation) => sampleFields(s.fields, rng, gridCtx(inst)),
     terms: (p: GP, inst: Instantiation) => full(p, gridCtx(inst)),
     describe: (p: GP, inst: Instantiation) => s.text(p, gridCtx(inst)),

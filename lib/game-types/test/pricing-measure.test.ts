@@ -40,7 +40,7 @@ const CONSTANT_ERASURE = new Set(["paint_one_row", "fill_grid", "paint_best_line
   "recolour_by_hand", "copy_top_colour", "random_row", "hashed_row"]);
 /**
  * One move whose target does not depend on the grid: our pointwise motion and measure.py's expected motion
- * agree in expectation. Agents that pick their line (paint_best_line, reddest_row, majority_star) move fewer
+ * agree to within Jensen's gap (E[d²] vs E[d]²). Agents that pick their line (paint_best_line, reddest_row, majority_star) move fewer
  * cells than average, which pointwise motion sees and measure.py's does not.
  */
 const SAME_MOTION = new Set(["paint_one_row", "fill_grid", "recolour_tool", "random_row", "hashed_row"]);
@@ -81,8 +81,18 @@ for (const [name, lab] of Object.entries<any>(E2E.agents)) {
       runs.reduce((s, row, i) => s + row.slice(0, p.diagnostics.replicates).reduce((t, r, j) => t + (ok[i][j] ? f(r) : 0), 0)
         / p.diagnostics.replicates, 0) / runs.length;
     if (CONSTANT_ERASURE.has(name)) close(p.expectedErasure, meanOk(r => r[2][0]), 1e-9, "erasure on the acts that change");
-    // motion: ours is per call and pointwise (Ē · actual / total), measure.py's the run's expected change squared
-    if (SAME_MOTION.has(name)) close(p.expectedMotion, meanOk(r => r[2][1]), Math.max(0.05, 0.25 * lab.motion), "motion");
+    // motion: both are the whole act's change squared (open-agents.md §4.1); ours is pointwise (E[d²] ≥ E[d]²)
+    if (SAME_MOTION.has(name)) close(p.expectedMotion, meanOk(r => r[2][1]), Math.max(0.05, 0.1 * lab.motion), "motion");
+    // painting cell by cell moves what the one recolour moves: no discount for splitting (measure.py
+    // sums each cell paint's expected change, so it charges less than the tool here)
+    if (name === "recolour_by_hand") {
+      const tool = E2E.agents.recolour_tool.runs as [unknown[], number, unknown][][];
+      runs.forEach((row, i) => row.slice(0, p.diagnostics.replicates).forEach(([moves], j) => {
+        const a = applyCalls(GRID, inst, mix.values[i], moves), b = applyCalls(GRID, inst, mix.values[i], tool[i][j][0]);
+        if (a.ok && b.ok && a.value === b.value) close(a.cost.motion, b.cost.motion, 1e-12, "split motion");
+      }));
+      assert.ok(p.expectedMotion >= lab.motion, `${p.expectedMotion} vs ${lab.motion}`);
+    }
     close(p.perApplicationBits, p.decisionBits + p.expectedErasure + p.expectedMotion, 1e-12, "per application");
     assert.equal(p.ratchet, "off");
   });

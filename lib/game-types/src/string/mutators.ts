@@ -18,8 +18,9 @@
  * A run (write, fill) names one position and its characters, so it is much cheaper than the same
  * characters set one by one (each paying log2 M for its own position). Overwrites are idempotent
  * except delete (it removes what is there now); the insert/delete pair are the only length changers
- * besides truncate. No expectedChange: a call's speed is its own change (Σ B² / B_tot over "text"),
- * so shifting the whole text along (insert or delete near the front, rotate) moves a lot.
+ * besides truncate. Motion is charged per act on the act's net change
+ * (Σ B² / B_tot over "text"), so shifting the whole text along (insert or delete near the front,
+ * rotate) moves a lot.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
 import { checkFields, fail, intParam, lg, mdoc } from "../mutators.ts";

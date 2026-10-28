@@ -4,19 +4,23 @@
  * An agent changes an object ONLY by returning a list of calls to its type's closed set of mutators.
  * The engine validates the calls, applies them in order and charges the act's actual bit cost:
  *
- *   cost(call) = scope_mult · kind_mult · ( stepBase · log2 #available        which tool        (MDL)
- *                                         + describe · D(params)              which parameters  (MDL)
- *                                         + measure  · M(params)              runtime selection (Szilard)
- *                                         + erase    · E_pointwise            bits destroyed    (Landauer)
- *                                         + move     · motion )               how much moved    (thermo length)
- *   decision = the first three terms (paid on every act, even a failed one); act = Σ calls.
+ *   per call   mult · ( stepBase · log2 #available        which tool        (MDL)          decision
+ *                     + describe · D(params)              which parameters  (MDL)          decision
+ *                     + measure  · M(params)              runtime selection (Szilard)      decision
+ *                     + erase    · E_pointwise )          bits destroyed    (Landauer)     erasure
+ *   per act    move · Σ_L B_L(x₀ → x_final)² / B_L,tot    how much moved    (thermo length) motion
+ *   mult = scope_mult · kind_mult of that call;  act = Σ calls + motion.
  *
  * E_pointwise = log2 |f⁻¹(f(x))| given the call (lib/grid-lab energy.py), so E over the spawn prior is
- * the Shannon erasure of mutators.py. motion = Σ_L Ē_L · B_L(x) / B_L,tot: Ē_L the call's expected
- * changed bits in layer L (its "speed", MutatorDef.expectedChange), B_L(x) the bits this call actually
- * changed, B_L,tot the layer's total bits (energy.py pointwise motion, per call); without an
- * expectedChange the call's own change is its speed, Σ_L B_L(x)² / B_L,tot (Int and string).
- * Calls that change nothing pay decision only. A failed act (bad JSON, unknown or unavailable mutator, bad params, a null
+ * the Shannon erasure of mutators.py. A call's tool, parameters and the bits it destroys belong to that
+ * call, so they carry its scope/kind multipliers and add up over calls (erasure composes: the preimage
+ * of a chain is at least the product of the steps' preimages, so summing never undercharges).
+ * Motion is a property of the whole act, not of its calls: B_L is the information that differs in layer
+ * L between the object before the act and after it (ObjectTypeDef.changedBits), B_L,tot the layer's
+ * total (layerBits). It is quadratic, so it is charged once on the net change: splitting a move into
+ * many small calls cannot dodge it, and a call undone later in the act moved nothing. This is Grid Lab's
+ * open-agents.md §4.1 term, 0.35 · ((Σ dcol)² log2 C + (Σ dsym)² log2 S) / N², made pointwise. It
+ * carries no scope/kind multiplier (no single call owns it). Calls that change nothing pay decision only. A failed act (bad JSON, unknown or unavailable mutator, bad params, a null
  * apply, more than MAX_CALLS calls, or no change at all) pays the decision bits of the calls parsed so
  * far, at least MIN_FAILED_ACT_BITS. Uniqueness against other objects is the engine's job.
  *
@@ -31,7 +35,8 @@
  * busiest_line()) rides in the guest of `swap_cells`, the first and always-available Grid mutator,
  * so assemblePrelude needs nothing extra. Private helper names: _M_* (Python), __M_* (JS).
  * Motion uses ObjectTypeDef.changedBits / layerBits as they are: Grid {symbol, colour}, Int {value},
- * string {text}. Availability is prelude.ts availableOf (constraints over inst.classes / inst.terms).
+ * string {text}. The pricing module's actCharge replaces the naming decision with the measured I(X; A)
+ * but keeps erasure and motion; ActCost.decision is still reported. Availability is prelude.ts availableOf (constraints over inst.classes / inst.terms).
  */
 import { availableOf } from "./prelude.ts";
 import {
@@ -72,14 +77,12 @@ export function decisionBits<P>(m: MutatorDef<any, P>, p: P, inst: Instantiation
     + knobs.measure * (m.measureBits?.(p, inst) ?? 0));
 }
 
-/** Unweighted motion of one call: Σ_L Ē_L · changed_L / total_L. */
-export function motionBits<P>(m: MutatorDef<any, P>, p: P, inst: Instantiation,
-  changed: Readonly<Record<string, number>>, totals: Readonly<Record<string, number>>): number {
-  const speed = m.expectedChange?.(p, inst) ?? changed;
+/** Unweighted motion of a whole act: Σ_L changed_L² / total_L (changed: before → final). */
+export function motionBits(changed: Readonly<Record<string, number>>, totals: Readonly<Record<string, number>>): number {
   let out = 0;
   for (const [layer, b] of Object.entries(changed)) {
     const tot = totals[layer] ?? 0;
-    if (b > 0 && tot > 0) out += (speed[layer] ?? 0) * b / tot;
+    if (b > 0 && tot > 0) out += (b * b) / tot;
   }
   return out;
 }
@@ -141,15 +144,15 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
   const byId = new Map(avail.map(m => [m.id, m]));
   const codec = typeDef.codec(inst);
   const totals = typeDef.layerBits(inst);
-  let decision = 0, erasure = 0, motion = 0;
+  let decision = 0, erasure = 0;
   const failed = (reason: string): ActOutcome => {
     const d = Math.max(MIN_FAILED_ACT_BITS, decision);
     return { ok: false, reason, cost: cost(d, 0, 0) };
   };
-  let x: V, enc: ObjectValue = value;
+  let x0: V, x: V, enc: ObjectValue = value;
   const calls: MutatorCallWire[] = [];
   try {
-    x = codec.decode(value);
+    x = x0 = codec.decode(value);
     const list = parseWire(wire);
     for (let i = 0; i < list.length; i++) {
       if (i >= MAX_CALLS) return failed(`an act can make at most ${MAX_CALLS} calls`);
@@ -166,7 +169,6 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
       const yEnc = codec.encode(y);
       if (yEnc !== enc) {
         erasure += mult * knobs.erase * m.erasureBits(x, p, inst);
-        motion += mult * knobs.move * motionBits(m, p, inst, typeDef.changedBits(x, y, inst), totals);
         x = y;
         enc = yEnc;
       }
@@ -176,6 +178,7 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
     return failed(e instanceof MutatorError ? e.message : `invalid act: ${(e as Error).message}`);
   }
   if (enc === value) return failed("no change");
+  const motion = knobs.move * motionBits(typeDef.changedBits(x0!, x!, inst), totals);
   return { ok: true, value: enc, cost: cost(decision, erasure, motion), calls };
 }
 

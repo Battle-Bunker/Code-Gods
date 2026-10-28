@@ -10,7 +10,7 @@ const act = (calls: unknown, knobs = DEFAULT_COST_KNOBS) =>
 const PAINT_ROW = ["paint", { kind: "line", region: [0, 2], colour: 0 }];
 const PAINT_ROW_DECISION = Math.log2(23) + 3 + Math.log2(10) + 2;
 
-test("a successful act returns the new wire value, the calls and a cost summed over calls", () => {
+test("a successful act: new wire value, the calls, decision and erasure summed over calls, motion on the net change", () => {
   const one = act([PAINT_ROW]), turn = act([["turn_grid", { move: "rot90" }]]);
   assert.ok(one.ok && turn.ok);
   assert.ok(Math.abs(one.cost.decision - PAINT_ROW_DECISION) < 1e-12);
@@ -18,12 +18,32 @@ test("a successful act returns the new wire value, the calls and a cost summed o
   assert.equal(one.cost.erasure, 10);
   assert.deepEqual(one.calls, [PAINT_ROW]);
   assert.ok(GRID.codec(inst).isValid(one.value) && one.value !== g);
-  // two calls in sequence cost what each costs on the object it sees
+  // decision and erasure add up over calls; motion is charged once, on before -> final
   const both = act([PAINT_ROW, ["turn_grid", { move: "rot90" }]]);
   const second = applyCalls(GRID, inst, one.value, JSON.stringify([["turn_grid", { move: "rot90" }]]));
   assert.ok(both.ok && second.ok);
-  assert.ok(Math.abs(both.cost.total - one.cost.total - second.cost.total) < 1e-9);
   assert.equal(both.value, second.value);
+  assert.ok(Math.abs(both.cost.decision - one.cost.decision - second.cost.decision) < 1e-9);
+  assert.ok(Math.abs(both.cost.erasure - one.cost.erasure - second.cost.erasure) < 1e-9);
+  const net = GRID.changedBits(GRID.codec(inst).decode(g), GRID.codec(inst).decode(both.value), inst);
+  const totals = GRID.layerBits(inst);
+  const want = 0.35 * Object.keys(net).reduce((s, L) => s + net[L] ** 2 / totals[L], 0);
+  assert.ok(Math.abs(both.cost.motion - want) < 1e-12);
+});
+
+test("splitting a move into small calls cannot dodge motion (open-agents.md §4.1)", () => {
+  const row = act([PAINT_ROW]);
+  const byHand = act(Array.from({ length: 5 }, (_, c) => ["paint", { kind: "cell", region: [2, c], colour: 0 }]));
+  assert.ok(row.ok && byHand.ok && row.value === byHand.value);
+  assert.ok(Math.abs(byHand.cost.motion - row.cost.motion) < 1e-12, `${byHand.cost.motion} vs ${row.cost.motion}`);
+  assert.ok(byHand.cost.total > row.cost.total);
+  // Grid Lab's form: 0.35 · (d_col² log2 C + d_sym² log2 S) / N²
+  const before = GRID.codec(inst).decode(g), after = GRID.codec(inst).decode(row.value);
+  const dcol = before.col.filter((v, i) => v !== after.col[i]).length;
+  assert.ok(Math.abs(row.cost.motion - 0.35 * dcol ** 2 * Math.log2(4) / 25) < 1e-12);
+  // a change undone later in the same act moved nothing
+  const there = act([PAINT_ROW, ["turn_grid", { move: "rot180" }], ["turn_grid", { move: "rot180" }]]);
+  assert.ok(there.ok && there.value === row.value && Math.abs(there.cost.motion - row.cost.motion) < 1e-12);
 });
 
 test("a call that changes nothing pays decision only; an act that changes nothing fails", () => {
@@ -76,8 +96,9 @@ test("knobs weight the terms", () => {
   const freeLines = act([PAINT_ROW], { ...DEFAULT_COST_KNOBS, scope: { ...DEFAULT_COST_KNOBS.scope, line: 0 } });
   assert.ok(base.ok && noMove.ok && dear.ok && freeLines.ok);
   assert.equal(noMove.cost.motion, 0);
-  assert.ok(Math.abs(dear.cost.total - 2 * base.cost.total) < 1e-9);
-  assert.equal(freeLines.cost.total, 0);
+  // scope/kind multiply each call's decision and erasure; whole-act motion carries none
+  assert.ok(Math.abs(dear.cost.total - (2 * (base.cost.decision + base.cost.erasure) + base.cost.motion)) < 1e-9);
+  assert.ok(freeLines.cost.decision === 0 && freeLines.cost.erasure === 0 && freeLines.cost.motion === base.cost.motion);
 });
 
 test("every object type prices acts through the same model", () => {

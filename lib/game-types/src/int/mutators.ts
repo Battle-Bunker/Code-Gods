@@ -15,8 +15,8 @@
  * so a structured partial edit (one place, the low places) is far cheaper than overwriting the number.
  *
  * Places: P = max(2, decimal digits of max(|min|, |max|)), fixed width with leading zeros; place 0 is
- * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion has no
- * expectedChange here: the call's own change is its speed (Σ B² / B_tot over the type's "value" layer).
+ * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion is charged per act
+ * by applyCalls on the type's "value" layer (Σ B² / B_tot of the act's net change).
  * Every overwrite is idempotent; every bijection is injective. Int(v, v) offers no mutators.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";

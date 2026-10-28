@@ -148,7 +148,7 @@ test("act costs reproduce the mutators.md cost table at Grid(5,base10,rgby)", ()
   const row = cost([["paint", { kind: "line", region: [0, 2], colour: 0 }]]);
   const fill = cost([["paint", { kind: "all", colour: 0 }]]);
   near(cell, 16.2); near(row, 23.2); near(fill, 69.4, 2);
-  near(cost([["turn_grid", { move: "rot90" }]]), 38.1, 4);   // motion is pointwise
+  near(cost([["turn_grid", { move: "rot90" }]]), 38.1, 6);   // motion is pointwise: d² of this grid, not E[d]²
   near(cost([["swap_colours", { kind: "all", pair: [0, 1] }]]), 13.5, 1.5);
   assert.ok(fill > 4 * cell && row < (5 * cell) / 2);
   // a sum over calls

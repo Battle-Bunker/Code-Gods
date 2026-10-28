@@ -10,7 +10,8 @@
  * - if any run used `random`, R − 1 more times per value (replicates j = 1 … R − 1), and the
  *   decision is the jackknife I = Ĥ(A) − mean Ĥ(A|x); otherwise I = H(A) (estimators.ts).
  * Erasure and motion are those applyCalls charges for the moves actually returned (pointwise
- * erasure, per-call motion), averaged over the runs; a run that does nothing pays nothing.
+ * erasure per call, motion on the whole act's net change), averaged over the runs; a run that does
+ * nothing pays nothing.
  *
  * The ratchet (Grid Lab's closure surcharge) is OFF. Charging per application already pays for
  * compounding erasure as it happens, so §4.1 finds it mostly redundant (only full_greedy and
