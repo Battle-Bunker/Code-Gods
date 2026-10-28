@@ -64,7 +64,8 @@ def _knobs_fp() -> str:
 def _src_hash() -> str:
     h = hashlib.sha256()
     here = Path(__file__).resolve().parent
-    for f in sorted(here.glob("*.py")) + [here.parent / "mutators.py", here.parent / "program.py"]:
+    files = [here / f for f in ("lang.py", "grammar.py", "elab.py", "interp.py", "pricing.py")]
+    for f in files + [here.parent / "mutators.py", here.parent / "program.py"]:
         h.update(f.read_bytes())
     return h.hexdigest()[:16]
 

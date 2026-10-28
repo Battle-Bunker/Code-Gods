@@ -684,10 +684,8 @@ class Run:
         if self.owner is None:
             raise Abort("this agent has no owner to ask for a score")
         gt = self.gt
-        res = [self.result_of(m) for m in lst]
-        self.tick(self.N2 * len(lst))
-        sym = np.stack([g.sym for g in res])
-        col = np.stack([g.col for g in res])
+        self.tick(self.N2 * len(lst))           # score each candidate (applying it is charged below)
+        sym, col = batch_results(self.g, lst, gt, self)
         return list(self.owner.score_batch(sym, col, gt))
 
     def call_def(self, d: Node, args):
@@ -750,6 +748,87 @@ class Run:
         except (ValueError, KeyError, TypeError) as e:
             raise Abort(f"{mid}: {e}")
         return Move(mid, p), taint or fr.pc
+
+
+# ------------------------------------------------------------------------------------------------
+# vectorised candidate results (same grids as Mutator.apply; tests check this)
+# ------------------------------------------------------------------------------------------------
+def _batch_paint(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    k = np.array([m.params["colour"] for m in ms], np.uint8)[:, None, None]
+    return np.where(masks, k, g.col[None])
+
+
+def _batch_recolour(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    a = np.array([m.params["pair"][0] for m in ms], np.uint8)[:, None, None]
+    b = np.array([m.params["pair"][1] for m in ms], np.uint8)[:, None, None]
+    c = g.col[None]
+    return np.where(masks & (c == a), b, c)
+
+
+def _batch_swap_colours(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    a = np.array([m.params["pair"][0] for m in ms], np.uint8)[:, None, None]
+    b = np.array([m.params["pair"][1] for m in ms], np.uint8)[:, None, None]
+    c = g.col[None]
+    return np.where(masks & (c == a), b, np.where(masks & (c == b), a, c))
+
+
+def _batch_hue_turn(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    k = np.array([m.params["k"] for m in ms], np.int64)[:, None, None]
+    c = g.col[None].astype(np.int64)
+    return np.where(masks, (c + k) % gt.C, c).astype(np.uint8)
+
+
+def _batch_write(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    k = np.array([m.params["symbol"] for m in ms], np.uint8)[:, None, None]
+    return np.where(masks, k, g.sym[None])
+
+
+def _batch_step_rank(g, ms, gt):
+    masks = np.stack([mask_of(region_value(m.params["kind"], m.params["region"]), gt.N) for m in ms])
+    k = np.array([m.params["k"] for m in ms], np.int64)[:, None, None]
+    s = g.sym[None].astype(np.int64)
+    stepped = gt.step(np.broadcast_to(s, masks.shape), k)
+    return np.where(masks, stepped, s).astype(np.uint8)
+
+
+BATCH_COLOUR = {"paint": _batch_paint, "recolour": _batch_recolour, "swap_colours": _batch_swap_colours,
+                "hue_turn": _batch_hue_turn}
+BATCH_SYMBOL = {"write": _batch_write, "step_rank": _batch_step_rank}
+
+
+def region_value(kind, rv):
+    from .lang import region_value as rv_
+    return rv_(kind, rv)
+
+
+def batch_results(g: Grid, ms, gt: GridType, runner: Optional["Run"] = None):
+    """(sym, col) arrays of every move's result on g. Colour-only mutators with fixed regions are done
+    in one numpy operation; anything else (and best_line targets) goes through Mutator.apply."""
+    K = len(ms)
+    sym = np.broadcast_to(g.sym, (K,) + g.sym.shape).copy()
+    col = np.broadcast_to(g.col, (K,) + g.col.shape).copy()
+    groups: dict = {}
+    for i, m in enumerate(ms):
+        fast = (m.mid in BATCH_COLOUR or m.mid in BATCH_SYMBOL) and m.params.get("kind") != "line*"
+        groups.setdefault(m.mid if fast else None, []).append(i)
+    for mid, idx in groups.items():
+        if mid is None:
+            for i in idx:
+                y = runner.result_of(ms[i]) if runner is not None else (by_id(ms[i].mid).apply(g, ms[i].params, gt) or g)
+                sym[i], col[i] = y.sym, y.col
+        else:
+            if runner is not None:
+                runner.tick(runner.N2 * len(idx))
+            if mid in BATCH_COLOUR:
+                col[idx] = BATCH_COLOUR[mid](g, [ms[i] for i in idx], gt)
+            else:
+                sym[idx] = BATCH_SYMBOL[mid](g, [ms[i] for i in idx], gt)
+    return sym, col
 
 
 def _static_cap(l: Node, gt: GridType) -> int:

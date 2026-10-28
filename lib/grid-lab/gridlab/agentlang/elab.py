@@ -50,6 +50,7 @@ class Elaborator:
         self.defsrc: dict[str, _DefSrc] = {}
         self.order: list[str] = []
         self.current_def_index = 10 ** 9
+        self._ret_slot = None
 
     # --- program ---------------------------------------------------------------------------------
     def program(self, src: str) -> Node:
@@ -75,7 +76,11 @@ class Elaborator:
         for name in self.order:
             d = self.defsrc[name]
             if d.ir is None:
-                _err(f"the function {name} is never used", d.ast)
+                a = d.ast.args.args
+                if a and all(x.annotation is not None for x in a):
+                    self.resolve_def(name, None, d.ast)
+                else:
+                    _err(f"the function {name} is never used", d.ast)
             defs.append(d.ir)
         return Node("Program", "", (tuple(defs), main))
 
@@ -124,8 +129,18 @@ class Elaborator:
         self.current_def_index = d.index
         pnames = tuple(x.arg for x in a.args)
         ctx = Ctx(self.gt, tuple(Var(n, t) for n, t in zip(pnames, ptypes)), self._defs_ctx_upto(d.index), "def", None)
-        # return type: first `return` decides (Num or Bool)
-        ret = self._guess_ret(d.ast, ctx)
+        ret = self._ret_annotation(d.ast)
+        if ret is None:                 # the first `return` decides (Num or Bool)
+            saved_slot, self._ret_slot = getattr(self, "_ret_slot", None), []
+            try:
+                self.block(d.ast.body, ctx)
+            finally:
+                found, self._ret_slot = self._ret_slot, saved_slot
+            if not found:
+                _err(f"the function {name} needs a return line", d.ast)
+            ret = found[0]
+            if ret not in (NUM, BOOL):
+                _err(f"{name} must return a number or yes/no, not a {kid_type(ret)}", d.ast)
         ctx = Ctx(ctx.gt, ctx.scope, ctx.defs, "def", ret)
         body, _ = self.block(d.ast.body, ctx)
         self.current_def_index = saved
@@ -134,17 +149,15 @@ class Elaborator:
         d.ir = Node("Def", "", (body,), (name, pnames, ptypes, ret), d.ast.lineno)
         return d.sig
 
-    def _guess_ret(self, fn: ast.FunctionDef, ctx: Ctx) -> str:
-        for s in ast.walk(fn):
-            if isinstance(s, ast.Return) and s.value is not None:
-                v = s.value
-                if isinstance(v, (ast.Compare, ast.BoolOp)) or (isinstance(v, ast.UnaryOp) and isinstance(v.op, ast.Not)) \
-                        or (isinstance(v, ast.Constant) and isinstance(v.value, bool)):
-                    return BOOL
-                if isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id in ("any", "all"):
-                    return BOOL
-                return NUM
-        _err(f"the function {fn.name} needs a return line", fn)
+    @staticmethod
+    def _ret_annotation(fn: ast.FunctionDef):
+        r = fn.returns
+        if r is None:
+            return None
+        names = {"Num": NUM, "int": NUM, "Number": NUM, "Bool": BOOL, "bool": BOOL}
+        if not isinstance(r, ast.Name) or r.id not in names:
+            _err(f"a def returns Num or Bool, not {ast.unparse(r)}", fn)
+        return names[r.id]
 
     # --- statements ------------------------------------------------------------------------------
     def block(self, stmts, ctx: Ctx) -> tuple[tuple, Ctx]:
@@ -209,6 +222,11 @@ class Elaborator:
                 return Node("Return", "", (), None, s.lineno), ctx
             if s.value is None:
                 _err("a def must return a value", s)
+            if ctx.ret is None:             # first pass of return-type inference
+                e = self.expr(s.value, ctx)
+                if self._ret_slot is not None and not self._ret_slot:
+                    self._ret_slot.append(e.type)
+                return Node("Return", e.type, (e,), None, s.lineno), ctx
             return Node("Return", ctx.ret, (self.expr(s.value, ctx, ctx.ret),), None, s.lineno), ctx
         if isinstance(s, (ast.While,)):
             _err("no while loops: use  for ... in ...  (loops must have an end)", s)
@@ -707,8 +725,9 @@ COMPOUND = {"BinOp", "Compare", "And", "Or", "Not", "Neg"}
 def unparse(prog: Node, gt: GridType) -> str:
     out: list[str] = []
     for d in prog.kids[0]:
-        name, pnames, _, _ = d.val
-        out.append(f"def {name}({', '.join(pnames)}):")
+        name, pnames, ptypes, ret = d.val
+        args = ", ".join(f"{p}: {t}" for p, t in zip(pnames, ptypes))
+        out.append(f"def {name}({args}) -> {ret}:")
         _block(d.kids[0], 1, out, gt)
         out.append("")
     _block(prog.kids[1], 0, out, gt)

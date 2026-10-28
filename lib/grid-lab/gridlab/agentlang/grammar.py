@@ -387,15 +387,32 @@ def _dyncall(T, ctx, n, S, mk):
             svals.append(("lit", vals))
         else:
             base = slot.type[5:] if slot.type.startswith("Pair:") else slot.type
+            mine = []
             for _ in range(slot.arity):
-                kids.append(walk_expr(base, ctx.with_dom(slot.dom), None if n is None else n.kids[ki], S))
+                mine.append(walk_expr(base, ctx.with_dom(slot.dom), None if n is None else n.kids[ki], S))
                 ki += 1
+            if n is None and not dep and all(literal_form(e) for e in mine):
+                raise _TooBig()      # written out, this reads as a literal: the codeword is never used
+            kids += mine
             svals.append(("expr", slot.arity))
     if not any(s[0] == "expr" for s in svals):
         if n is None:
             raise _TooBig()          # all-literal calls are ConstCalls (this mass is simply unused)
         raise LangError("internal: DynCall without computed arguments")
     return mk(kids, (mid, tuple(svals)))
+
+
+def literal_form(e: Node) -> bool:
+    """True if the expression is spelled like a literal mutator argument (the elaborator reads it so)."""
+    lit = lambda x: x.tag == "Lit" or (x.tag == "Neg" and x.kids[0].tag == "Lit")
+    t = e.tag
+    if t in ("AsCell", "AsLine"):
+        return literal_form(e.kids[0])
+    if t in ("Row", "Column", "CellAt", "Block", "Ring", "Diag"):
+        return all(lit(k) for k in e.kids)
+    if t in ("Core", "Everything"):
+        return True
+    return lit(e)
 
 
 def walk_func(X: str, ctx: Ctx, f: Optional[Node], S) -> Node:
