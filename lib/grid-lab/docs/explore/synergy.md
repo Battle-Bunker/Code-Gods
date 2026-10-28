@@ -6,7 +6,7 @@ Session topic `synergy`, branch `claude/gridlab-explore-synergy`. Code: `gridlab
 - dealer games on training seeds for all three GridTypes;
 - the 5×5 held-out validation (seed 9000000) of dealers and exclusion lists.
 
-Pending: one robustness run under the new defaults (0.5 Hz spawns, 80 objects), §3.4.
+Also done: a robustness run under the new defaults (0.5 Hz spawns, 80 objects), §3.4. Not done: the PR #17 self-play prior.
 
 Exported matrices for the production dealer are in `docs/explore/synergy_matrices/` (§7).
 
@@ -344,6 +344,22 @@ The cost is fewer leaderboard crossings: allies' rankings move together. Varianc
 *avoidance*, not fights. Friendly tables produce the cooperative spirals the user asked for and,
 through contact, more tension. They do not produce more leaderboard reversals.
 
+### 3.4 Robustness under the new defaults (0.5 Hz spawns, 80 objects)
+
+Grid(5,base10,rgby), held-out seed 9000000, 100 specs, config `{"spawn_rate_hz": 0.5,
+"starting_objects": 80}`, otherwise as above (uniform prior):
+
+| dealer | dynamism2 | Δ vs uniform | sig. tension Δ | held accel. climbs /100 s Δ | durable lead changes Δ | hot objects Δ | z_sd_excess |
+|---|---|---|---|---|---|---|---|
+| uniform | 0.637 | – | – | – (9.9) | – | – | 0.232 |
+| **aligned** | 0.679 | **+0.043** | **+0.033** | **+4.1** | **+0.26** | **+0.12** | 0.165 |
+| **fair_aligned** | 0.672 | **+0.035** | **+0.029** | **+3.0** | **+0.30** | **+0.13** | 0.215 |
+| ally_rival | 0.657 | **+0.021** | **+0.029** | +1.3 | **+0.13** | +0.05 | 0.187 |
+
+The ranking and the effect size carry over. With many objects, the cooperative-climb gain is large:
++30–40% held accelerating climbs. Pair-level translation is the same: atlas W vs in-game Δ-correlation
+ρ = +0.34, s-correlation +0.36. The atlas itself does not depend on world settings.
+
 ## 4. Per-family fairness
 
 Fairness is policy-adjusted mean rank score z, where 0.5 is fair; `experiments.common.family_fairness`,
@@ -395,6 +411,7 @@ that raises dynamism2 on every GridType and on held-out seeds:
 | 4×4 train | +0.046 | +0.039 |
 | 6×6 train | +0.050 | +0.064 |
 | 5×5 held out | **+0.042** | **+0.033** |
+| 5×5 held out, new defaults | **+0.043** | **+0.035** |
 
 All CIs exclude 0. It works through more contact on shared objects: more snapshot tension, durable
 object lead changes, held cooperative climbs and hot objects. The cost is −0.2 to −0.6 leaderboard
