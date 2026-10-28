@@ -7,8 +7,9 @@
  * skipped when python3 or numpy is missing. Where grid-lab has an exact tail (seed3, conqueror, homebody) it is
  * the ground truth; elsewhere both sides are estimates with ~0.3–0.6 bits of noise at 40–60 bits.
  *
- * Tolerance per grid: 1 bit + 6% of the surprisal, compared only where both tables measured the value (at most
- * our deepest level); the median absolute difference must also stay under 0.5 bits.
+ * Tolerance per grid: 1 bit + 6% of the surprisal up to the 64-bit splitting target (12% beyond it, where only the
+ * final particle population resolves levels), compared only where both tables measured the value (at most our
+ * deepest level); the median absolute difference must also stay under 0.5 bits.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -86,7 +87,7 @@ test("cross-check: shipped tables agree with lib/grid-lab's survival on the same
   }
   const lab = JSON.parse(execFileSync("python3", ["-c", PY], { cwd: LAB, input: JSON.stringify(requests), maxBuffer: 1 << 26 }).toString()) as
     { bits: number[]; exact: boolean; max: number }[];
-  const report: string[] = [];
+  const report: string[] = [], bad: string[] = [];
   for (let i = 0; i < CASES.length; i++) {
     const o = ours[i], l = lab[i];
     const diffs: number[] = [];
@@ -95,7 +96,9 @@ test("cross-check: shipped tables agree with lib/grid-lab's survival on the same
       if (a > o.top || (!l.exact && b > l.max)) continue; // extrapolated on one side
       const d = Math.abs(a - b);
       diffs.push(d);
-      assert.ok(d <= 1 + 0.06 * Math.max(a, b), `${o.where}: ours ${a.toFixed(2)} vs grid-lab ${b.toFixed(2)} bits${l.exact ? " (exact)" : ""}`);
+      // Beyond the splitting target (64 bits) only the final population's leftovers resolve levels (fractions near
+      // 1/particles, correlated clones), so the tolerance doubles there.
+      if (d > 1 + (Math.max(a, b) <= 64 ? 0.06 : 0.12) * Math.max(a, b)) bad.push(`${o.where}: ours ${a.toFixed(2)} vs grid-lab ${b.toFixed(2)} bits${l.exact ? " (exact)" : ""}`);
     }
     diffs.sort((x, y) => x - y);
     const med = diffs[diffs.length >> 1], max = diffs[diffs.length - 1];
@@ -104,4 +107,5 @@ test("cross-check: shipped tables agree with lib/grid-lab's survival on the same
     assert.ok(diffs.length >= 100, `${o.where}: only ${diffs.length} comparable grids`);
   }
   console.log(report.join("\n"));
+  assert.deepEqual(bad, []);
 });

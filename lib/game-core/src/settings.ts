@@ -72,7 +72,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectType: "Int",
   typeArgs: Object.freeze({ min: -2147483648, max: 2147483647 }),
   grammarId: "python-agent-v1",
-  utilitySelectorId: "divine-lottery",
+  utilitySelectorId: "fair-aligned",
   complexityFunctionId: "ast-bits-v1",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
@@ -115,6 +115,7 @@ export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId"
     { id: "typescript-agent-v1", label: "TypeScript agent: function agent(obj) returns mutator calls", languages: ["typescript"], objectTypes: ALL_TYPES },
   ],
   utilitySelectorId: [
+    { id: "fair-aligned", label: "Fair Aligned (friendly, even tables from measured rule synergy)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
     { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
   ],
   complexityFunctionId: [

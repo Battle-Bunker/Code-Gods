@@ -4,13 +4,12 @@ import {
   chargeAct, instantiationOf, lifetimeSeconds, newAgentAccount, poissonIntervalSeconds,
   uniquePrefixes, validateSettings, type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
-import {
-  applyCalls, MIN_FAILED_ACT_BITS, objectType, type ActCost, type ActOutcome, type MutatorCallWire,
-} from "@workspace/game-types";
-import type { Room, Actor, Game, WorldEvent, WorldObject, Agent, AgentActState } from "./types";
+import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import type { Room, Actor, Game, WorldEvent, WorldObject, Agent, AgentActState, ActCharge } from "./types";
 import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
-import { cryptoRng, isAgentFault, referenceSpawns, REFERENCE_SPAWNS, requireAdapters } from "./adapters";
-export { referenceSpawns, REFERENCE_SPAWNS };
+import { cryptoRng, isAgentFault, requireAdapters } from "./adapters";
+import { examineAgent, type Examination } from "./pricing";
+import { seasonCommitment, seasonSalt } from "./season";
 import { hash, requireAct } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
@@ -52,48 +51,17 @@ function recordEvent(game: Game, event: WorldEvent) {
 }
 
 // ------------------------------------------------------------------------------------------------
-// agent validation: description bits, sample acts and the expected cost per act
+// acts
 // ------------------------------------------------------------------------------------------------
 
-/** The outcome of one act on `before`: applyCalls, or the failed-act minimum when the runtime refused it. */
-export function actOutcome(settings: GameSettings, before: ObjectValue, result: { calls: string } | { error: string }): ActOutcome {
-  if ("error" in result) {
-    const cost: ActCost = { decision: MIN_FAILED_ACT_BITS, erasure: 0, motion: 0, total: MIN_FAILED_ACT_BITS };
-    return { ok: false, reason: result.error, cost };
-  }
+/** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
+export function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
+  if ("error" in result) return { ok: false, reason: result.error, cost: { decision: 0, erasure: 0, motion: 0, total: 0 } };
   const inst = instantiationOf(settings);
   return applyCalls(objectType(inst.objectType), inst, before, result.calls);
 }
-
-export type Examination = { cost: number; expectedActCost: number; diagnostics: string[] };
-const describeOutcome = (label: string, outcome: ActOutcome) => outcome.ok
-  ? `${label}: ${outcome.calls.length} mutator call${outcome.calls.length === 1 ? "" : "s"} (${outcome.calls.map(c => c[0]).join(", ")}), ${outcome.cost.total.toFixed(2)} bits`
-  : `${label}: the act would fail (${outcome.reason}) and still cost ${outcome.cost.total.toFixed(2)} bits`;
-
-/**
- * Validate an agent: ast-bytes-v1 price (description bits), sample acts on the live objects, and the mean
- * act cost over the REFERENCE_SPAWNS fixed spawns. Throws (with the runtime's message) on the agent's own errors.
- */
-export async function examineAgent(settings: GameSettings, source: string, live: ObjectValue[]): Promise<Examination> {
-  const { runtime } = requireAdapters();
-  const references = referenceSpawns(settings);
-  // Measurement measures bits, not speed: a cold worker must not turn a fine agent into a failing one.
-  const measuring = { ...settings, interactionComputeMs: Math.min(1000, Math.max(settings.interactionComputeMs, 50)) };
-  let validated: { cost: number; outputs: string[] };
-  try { validated = await runtime.validate(source, [...references, ...live], measuring); }
-  catch (error) {
-    if (!isAgentFault(error)) throw error;
-    throw Object.assign(new Error((error as Error).message.slice(0, 1000)), { agentFault: true });
-  }
-  if (!Number.isSafeInteger(validated.cost) || validated.cost < 0) throw new Error("Invalid runtime cost");
-  const costs = references.map((value, i) => actOutcome(settings, value, { calls: validated.outputs[i] }).cost.total);
-  const expectedActCost = costs.reduce((a, b) => a + b, 0) / costs.length;
-  const diagnostics = (live.length ? live : references.slice(0, 1)).map((value, i) =>
-    describeOutcome(live.length ? `On object ${i + 1}` : "On a sample object",
-      actOutcome(settings, value, { calls: validated.outputs[live.length ? references.length + i : 0] })));
-  diagnostics.push(`Expected cost per act ${expectedActCost.toFixed(2)} bits (mean over ${REFERENCE_SPAWNS} reference objects); summon price ${validated.cost} bits.`);
-  return { cost: validated.cost, expectedActCost, diagnostics };
-}
+/** The seed of an agent's n-th act: the server's season salt, so no one can predict it. */
+export const playSeed = (gameId: string, agentId: string, actIndex: number) => deriveSeed(seasonSalt(), ["play", gameId, agentId, actIndex]);
 
 // ------------------------------------------------------------------------------------------------
 // lifecycle and commands
@@ -121,6 +89,7 @@ export async function startGame(room: Room, actor: Actor) {
   const aliases = uniquePrefixes([...gameIds, id]);
   const game: Game = {
     id, shortCode: aliases.find(a => a.id === id)!.shortCode, phase: "planning", scoring: "information-v1",
+    seasonCommitment: seasonCommitment(),
     settings: structuredClone(room.settings),
     roster: structuredClone(room.members), deities: room.members.map((m, i) => ({
       id: m.id, utility: dealt[i], spent: 0, pauseUsed: false,
@@ -151,7 +120,12 @@ export function endGame(room: Room, actor: Actor) {
   delete game.autoResume;
 }
 
-export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string; payload?: Record<string, unknown> }) {
+/**
+ * A command inside the authority lock. Validation and summon need the agent's measured price: callers
+ * measure it BEFORE taking the lock (`examined`, see player-api.ts); otherwise it is measured here.
+ */
+export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string;
+  payload?: Record<string, unknown>; examined?: { gameId: string; source: string; result: Examination | Error } }) {
   requireAct(actor);
   member(room, actor);
   if (!input.requestId || input.requestId.length > 100) throw new Error("Invalid request ID");
@@ -192,9 +166,13 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
     } else if (input.command === "agent.summon" || input.command === "agent.validate") {
       const source = payload.source;
       if (typeof source !== "string" || !source || Buffer.byteLength(source) > 16384) throw new Error("Source must be 1–16384 bytes");
-      const examined = await examineAgent(game.settings, source, game.objects.slice(0, 3).map(o => o.value));
+      const prior = input.examined?.gameId === game.id && input.examined.source === source ? input.examined.result : undefined;
+      if (prior instanceof Error) throw prior;
+      const examined = prior ?? await examineAgent(game.settings, source, liveSample(game));
       if (input.command === "agent.validate") {
-        result = { valid: true, cost: examined.cost, expectedActCost: examined.expectedActCost, diagnostics: examined.diagnostics };
+        result = { valid: true, cost: examined.cost, parts: examined.parts, decisionBits: examined.decisionBits,
+          expectedActCost: examined.expectedActCost, breakdown: examined.breakdown, randomized: examined.randomized,
+          diagnostics: examined.diagnostics };
         room.receipts[key] = { hash: digest, result };
         return result;
       }
@@ -203,12 +181,13 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
         throw new Error(`This god has reached the ${game.settings.maxAgentsPerGod}-agent resource limit`);
       const agent: Agent = {
         id: randomUUID(), ownerId: actor.id, source, createdAt: Date.now(),
-        summonCost: examined.cost, expectedActCost: examined.expectedActCost,
+        summonCost: examined.cost, decisionBits: examined.decisionBits, expectedActCost: examined.expectedActCost,
+        perActFloorBits: game.settings.perActFloorBits, breakdown: examined.breakdown, randomized: examined.randomized,
         account: newAgentAccount(worldNow(game)), acts: 0, spent: 0,
       };
       deity.spent += examined.cost;
       game.agents.push(agent);
-      result = { id: agent.id, summonCost: agent.summonCost, expectedActCost: agent.expectedActCost };
+      result = { id: agent.id, summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost };
     } else if (input.command === "agent.destroy") {
       // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.
       const index = game.agents.findIndex(a => a.id === payload.agentId && a.ownerId === actor.id);
@@ -220,6 +199,9 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
   room.receipts[key] = { hash: digest, result };
   return result;
 }
+
+/** The live objects a measurement adds to the reference mixture (its "game" component). */
+export const liveSample = (game: Game): ObjectValue[] => game.objects.slice(0, 16).map(o => o.value);
 
 /** World time is frozen in recovery, so resuming never skips simulated time. */
 export function resumeGame(game: Game) {
@@ -237,7 +219,7 @@ type ActSnapshot = {
   gameId: string; objectId: string; version: number; before: ObjectValue; agentId: string; ownerId: string;
   pauseEndsAt: number; epoch: number;
 };
-export type ActResult = { calls: string } | { error: string };
+export type ActResult = { calls: string; usedRandom?: boolean; steps?: number } | { error: string };
 
 /**
  * Commit one act inside the mutation lock. The agent pays the act's actual cost whatever happens (a
@@ -251,10 +233,8 @@ export function commitAct(g: Game, snapshot: ActSnapshot, result: ActResult, now
   const agent = g.agents[agentIndex];
   const outcome = actOutcome(g.settings, snapshot.before, result);
   const duplicate = outcome.ok && occupied(g, outcome.value); // Includes the object's own value.
-  const cost: ActCost = outcome.ok && !duplicate ? outcome.cost : (() => {
-    const decision = Math.max(MIN_FAILED_ACT_BITS, outcome.cost.decision);
-    return { decision, erasure: 0, motion: 0, total: decision };
-  })();
+  // The measured decision bits replace the calls' naming bits, which are only reported.
+  const cost: ActCharge = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
   const account = chargeAct(settledAccount(g.settings, agent, worldNow(g, nowMs)), cost.total);
   const state: AgentActState = { id: agent.id, account, acts: agent.acts + 1, spent: agent.spent + cost.total };
   g.agents[agentIndex] = { ...agent, account, acts: state.acts, spent: state.spent };
@@ -300,14 +280,17 @@ export function startTicker() {
         gameId: game.id, objectId: object.id, version: object.version, before: object.value,
         agentId: agent.id, ownerId: agent.ownerId, pauseEndsAt: game.pauseEndsAt, epoch: game.executionEpoch ?? 0,
       };
-      const source = agent.source;
+      const source = agent.source, seed = playSeed(game.id, agent.id, agent.acts);
       actingAgents.add(agent.id);
       let released = false;
       const release = () => { if (!released) { released = true; actingAgents.delete(agent.id); } };
       return {
         roomId, gameId: game.id, objectId: object.id, rate: game.settings.interactionRateHz,
         execute: async (): Promise<ActResult> => {
-          try { return { calls: (await requireAdapters().runtime.act(source, snapshot.before, settings)).calls }; }
+          try {
+            const act = await requireAdapters().runtime.act(source, snapshot.before, settings, seed);
+            return { calls: act.calls, usedRandom: act.usedRandom, steps: act.steps };
+          }
           catch (error) {
             // The agent's own failures still cost it; host capacity problems are not its fault.
             if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };

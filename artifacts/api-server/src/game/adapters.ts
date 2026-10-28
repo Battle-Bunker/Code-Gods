@@ -147,7 +147,7 @@ export function createUtilitiesAdapter(): UtilitiesAdapter {
       validateSettings(settings);
       const inst = instantiationOf(settings);
       return selector(settings.utilitySelectorId ?? divineLottery.id).select(inst, count, cryptoRng, {
-        defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)), exclude: settings.excludedFamilies,
+        defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)), exclude: settings.excludedFamilies, priorId: settings.priorId,
       });
     },
     score(settings, descriptor, value) {

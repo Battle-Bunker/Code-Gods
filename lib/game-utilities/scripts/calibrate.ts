@@ -36,6 +36,9 @@ export const CURATED_GRIDS: readonly TypeArgs[] = [
   { size: 7, symbols: "cards", colours: "rainbow6" },
   { size: 4, symbols: "base12", colours: "rgby" },       // set coverage
   { size: 5, symbols: "cards", colours: "rgb" },
+  { size: 5, symbols: "base10", colours: "rgb" },
+  { size: 5, symbols: "cards", colours: "rainbow6" },
+  { size: 6, symbols: "base10", colours: "rgby" },
 ];
 
 /** Everything the pipeline calibrates by default, in manifest order. */
