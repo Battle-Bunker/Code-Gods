@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from ._util import *  # noqa: F401,F403
-from ._util import hill_climb, label_links, runs
+from ._util import hill_climb, plateau_search, label_links, runs
 
 
 def _lines_scalar(a, axis):
@@ -902,7 +902,9 @@ def fi_exemplar(p, gtype):
     # 2-dominoes in a brick pattern separated by 1s, or a 1/other checkerboard.
     brick = np.where(((c + 3 * (r % 2)) % 3) == 2, one, two)
     cands = [grid(np.where((r + c) % 2 == 0, one, other), np.zeros((N, N))), grid(brick, np.zeros((N, N)))]
-    return best_of(fi_ord, cands, p, gtype)
+    choices = [sym_for_value(gtype, x) for x in range(1, 5)]
+    return plateau_search(fi_batch, best_of(fi_ord, cands, p, gtype), p, gtype, layers=("symbol",),
+                          sym_choices=choices)
 
 
 FILLOMINO = mk(

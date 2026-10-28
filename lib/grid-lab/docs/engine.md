@@ -82,8 +82,14 @@ seed families and GridTypes (ties make it < 1; the occasional > 1 is sampling no
 
 Failure modes:
 * **Kernel cannot reach a level.** If the high set is disconnected under single-cell moves and swaps,
-  splitting stops early ("stuck") and max_observed_bits is low. Extrapolation then gives +1 to +4
-  bits. This is visible in the table meta (`split_levels`), and an exact tail is the fix.
+  splitting stops early and max_observed_bits is low. Extrapolation then gives +1 to +4 bits.
+  `meta["stopped_early"]` (target_bits not reached) and `meta["top_reached"]` (the exemplar's ordinal
+  is among the levels) tell the cases apart: stopped early at the true top is fine, but stopped early
+  without reaching the top means the kernel got stuck. On Grid(5,base10,rgby), 35 of the 54 tables stop
+  early at their true top, and only `robin_hood` (60 bits) and `lone_peak` (54 bits) stop short of
+  their exemplar's ordinal.
+* **Binary all-or-nothing rules** (e.g. `picture_frame`, P = 4^-16) have no intermediate levels, so
+  splitting cannot climb at all. They need `exact_log2_tail`, which they have.
 * **Plateaus.** A big mass on one value just above ℓ makes f small for one stage. The estimate stays
   unbiased but has a higher se, and the se reports it.
 
@@ -179,6 +185,15 @@ yield = V / cost. All candidate results are stacked and scored in one `evaluate_
 | `saver` | waits until energy ≥ 60% of starting energy, K = 32, summons only if the best yield > 0 and ≥ the 75th percentile of its own past best yields |
 | `idle` | never summons (baseline) |
 
+**Program library.** A program's cost runs a closure probe for guarded and multi-step programs,
+about 3.5 ms. Pricing 12 fresh candidates at every decision took 85% of the game time. Policies
+therefore draw candidates from `policy.program_library(gtype, factory, 4096)`: 4096 distinct
+`random_program`s with precomputed costs, seeded from sha256(GridType, factory source, COST_KNOBS,
+LIB_VERSION), and cached in memory and under `.cache/programs/` (6 s to build once per GridType, 20 ms
+to load). Draws from it are as random as `random_program` itself. `GameConfig.program_library = 0`
+restores fresh sampling, which is also used automatically when `program_kwargs` are given. The
+change made long games about 20× faster.
+
 Per-policy parameters are passed through `GameConfig.policy_kwargs`, e.g. `{"K": 16}` for all
 policies, or `{"saver": {"q": 0.9}}` for one.
 
@@ -217,4 +232,38 @@ Other flags: `--dealer`, `--rate`, `--length fixed --seconds 300`, `--half-life`
 
 ## 6. Throughput (measured, this container: 4 cores)
 
-THROUGHPUT_PLACEHOLDER
+All numbers use real rules and programs, 4 gods, and fixed 300 s games at 20 Hz (6001 interactions,
+about 5000 commits per game). Tables and the program library were warm unless stated.
+
+**Simulation, one process** (interactions/s; wall time per 300 s game):
+
+| Policy | Grid(5,base10,rgby) | Grid(7,cards,rainbow6) |
+|---|---|---|
+| random | 10,400 (0.58 s) | ≈ 4,000 (≈ 1.5 s) |
+| greedy_private | 7,100 (0.85 s) | 5,400 (1.11 s) |
+| greedy_omniscient | 6,600 (0.91 s) | 5,400 (1.12 s) |
+| cooperative | 6,900 (0.86 s) | 5,200 (1.15 s) |
+| saver (K = 32) | 2,900 (2.07 s) | 2,900 (2.06 s) |
+
+The 7×7 random figure is an estimate. The measured 1,016/s included the one-time program library
+build, and a warm profiled game took about 1.5 s. Per-commit cost is dominated by the rules'
+`ordinal` calls (G per commit; component-labelling rules are the slowest). Policy cost is dominated
+by `Program.apply` on K × M_eval candidate results.
+
+**Batch CLI, 4 processes**: `--games 20 --policy greedy_private` (exponential length, mean 433 s):
+20 games in 7.8 s wall, 22,600 interactions/s aggregate. A mixed-policy batch of 40 games
+(random/greedy_private/saver/greedy_omniscient) took 13.9 s, at 18,900 interactions/s. Thousands of
+games therefore take minutes once tables are warm.
+
+**Calibration** (single table, one core; fork pool of 4 for whole batches):
+
+| GridType | tables (one draw per available family) | wall, 4 procs | per table median / mean / max |
+|---|---|---|---|
+| Grid(5,base10,rgby) | 54 | 19.9 s | 0.42 s / 1.24 s / 9.5 s (seed2_patchwork) |
+| Grid(7,cards,rainbow6) | 69 | 165 s | 2.5 s / 9.2 s / 74 s (swiss_cheese, border_baron) |
+
+Tables are cached by key, so each (family, canonical params, GridType) is paid once. A disk hit takes
+about 0.1 ms. Shared symmetry orbits (`canonical`) cut the table count further.
+
+**Rough budget for 1000 games on one GridType**: about 1–3 min to calibrate every reachable draw
+(a few hundred tables), plus about 1 min of simulation on 4 cores.

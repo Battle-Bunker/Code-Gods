@@ -45,6 +45,12 @@ def _factory_tag(factory: Callable) -> str:
                 h.update(f.read_bytes())
     except (TypeError, OSError):
         pass
+    try:  # runtime cost knobs (experiment sweeps) change prices without changing source
+        import json
+        from .mutators import COST_KNOBS
+        h.update(json.dumps(COST_KNOBS, sort_keys=True, default=str).encode())
+    except Exception:
+        pass
     return h.hexdigest()
 
 

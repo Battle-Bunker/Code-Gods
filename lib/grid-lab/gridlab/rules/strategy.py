@@ -92,7 +92,7 @@ def bb_exemplar(p, gtype):
     z = np.zeros((N, N))
     comb = np.where((r == 0) | ((c % 2 == 0) & (r < N - 1)), 0, 1)
     cands = [grid(z, c % C), grid(z, (c // 2) % C), grid(z, comb), grid(z, (c >= N // 2).astype(int))]
-    return multi_climb(bb_batch, cands, p, gtype)
+    return multi_climb(bb_batch, cands, p, gtype, restarts=3)
 
 
 BORDER_BARON = mk(

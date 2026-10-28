@@ -12,13 +12,19 @@ Requests to other owners (nothing blocks; the engine has fallbacks):
   Tables are cached by (family id, canonical params, GridType, estimator version, rules-file hash), so
   any edit to a rules file recalculates that file's tables. A well-defined `canonical` that collapses
   params onto symmetry orbits cuts the number of tables a lot.
-- **mutator worker**: the simulator needs, from `Program`: `.cost(gtype)`, `.apply(grid, gtype, rng)`,
-  `.describe(gtype)`, and the mutator ids it uses (it reads `prog.mutator_ids` if present, else
-  `step.mutator.id` / `step.mutator_id` / `step[0].id` per step). An optional
-  `apply_batch(sym, col, gtype, rng) -> (sym, col, ok)` would let policies evaluate candidates on
-  all objects in one vectorised call (now: one `apply` per object per candidate).
-  `random_program(rng, gtype, **kw)` is called with only `(rng, gtype)` unless the user passes
-  `policy_kwargs={"program_kwargs": {...}}`.
+- **rules worker**: AMS stops short of the exemplar's ordinal on Grid(5,base10,rgby) for
+  `robin_hood` (reaches 51 of 54, 60 bits) and `lone_peak` (17 of 19, 54 bits). Ordinals above the
+  deepest level get +1..+4 bits by extrapolation. An `exact_log2_tail` would make these exact. Every
+  other family either reaches 64 bits or reaches its exemplar's top (`Survival.meta["top_reached"]`,
+  `["stopped_early"]`). Binary all-or-nothing rules such as `picture_frame` only work via
+  `exact_log2_tail`, because splitting has no intermediate levels to climb, so keep exact tails on them.
+- **mutator worker**: thanks, the interface fits. The simulator uses `.cost`, `.apply`, `.describe` and
+  `.mutator_ids`. Pricing fresh programs at every decision made the closure probe 85% of game time,
+  so policies now draw candidates from a deterministic, disk-cached library of 4096 priced programs
+  per GridType (`policy.program_library`, `GameConfig.program_library`; 6 s to build once). The
+  library key includes the source of program.py/mutators.py and the current `COST_KNOBS`, so knob
+  sweeps get freshly priced libraries. A truly vectorised `apply_batch` would still
+  help policies.
 
 ## Mutator worker (mutators / program / affinity)
 

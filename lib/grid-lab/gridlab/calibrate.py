@@ -398,11 +398,12 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
     levels += tl
     log2p += tp
     var += tv
-    extra = []
+    extra, top = [], None
     if draw.family.exemplar is not None:
         try:
             ex = draw.family.exemplar(params, gtype)
-            extra.append(int(draw.family.ordinal(ex, params, gtype)))
+            top = int(draw.family.ordinal(ex, params, gtype))
+            extra.append(top)
         except Exception:  # exemplar is optional and advisory
             pass
     lv = np.asarray(levels, dtype=np.int64)
@@ -417,6 +418,9 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
             # True when splitting stopped before target_bits: the ordinal's maximum was reached, or the
             # kernel found no way up (e.g. a binary all-or-nothing rule: supply exact_log2_tail).
             "stopped_early": bool(-fin[4] < budget.target_bits),
+            # Whether the exemplar's ordinal (the family's claimed maximum) appears among the levels
+            # (None without an exemplar). stopped_early and not top_reached = the kernel got stuck.
+            "top_reached": None if top is None else bool(top <= int(max(levels))),
             "seconds": time.perf_counter() - t0}
     return Survival(cache_key(draw, gtype, budget), lv, lp, se, extra, meta)
 

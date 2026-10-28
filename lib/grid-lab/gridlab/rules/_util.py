@@ -154,22 +154,30 @@ def _pair_slices(N, dr, dc):
 
 
 def _propagate(pairs, B, N):
+    """Min-label propagation + pointer jumping, iterating only the grids whose labels still change."""
     NN = N * N
-    lab = np.broadcast_to(np.arange(NN, dtype=np.int64).reshape(N, N), (B, N, N)).copy()
+    lab = np.broadcast_to(np.arange(NN, dtype=np.int32).reshape(N, N), (B, N, N)).copy()
     pairs = [(s1, s2, c) for s1, s2, c in pairs if c.any()]
     if not pairs:
-        return lab
-    while True:
-        old = lab
-        lab = lab.copy()
-        for s1, s2, c in pairs:
-            mn = np.minimum(lab[s1], lab[s2])
-            lab[s1] = np.where(c, mn, lab[s1])
-            lab[s2] = np.where(c, np.minimum(mn, lab[s2]), lab[s2])
-        flat = lab.reshape(B, NN)
-        lab = np.take_along_axis(flat, flat, axis=1).reshape(B, N, N)
-        if np.array_equal(lab, old):
-            return lab
+        return lab.astype(np.int64)
+    active = np.arange(B)
+    sub = lab
+    links = [c for _, _, c in pairs]
+    while len(active):
+        old = sub.copy()
+        for (s1, s2, _), c in zip(pairs, links):
+            mn = np.minimum(sub[s1], sub[s2])
+            np.copyto(sub[s1], mn, where=c)
+            np.copyto(sub[s2], np.minimum(mn, sub[s2]), where=c)
+        flat = sub.reshape(len(sub), NN)
+        sub = np.take_along_axis(flat, flat, axis=1).reshape(len(sub), N, N)
+        changed = (sub != old).reshape(len(sub), NN).any(1)
+        lab[active] = sub
+        if not changed.all():
+            active = active[changed]
+            sub = sub[changed]
+            links = [c[changed] for c in links]
+    return lab.astype(np.int64)
 
 
 def label_batch(key: np.ndarray, mask: np.ndarray | None = None, diag: bool = False) -> np.ndarray:
@@ -395,3 +403,35 @@ def multi_climb(batch, starts: list[Grid], params, gtype, layers=("colour",), re
 
 
 __all__ += ["hill_climb", "multi_climb"]
+
+
+def plateau_search(batch, start: Grid, params, gtype, layers=("colour",), iters: int = 150, k: int = 128,
+                   sym_choices=None, seed: int = 0) -> Grid:
+    """Seeded random local search: each iteration proposes k random single-cell edits and moves to the best
+    one if it is at least as good (so it can drift across plateaus). Deterministic for a given seed."""
+    rng = np.random.default_rng(seed)
+    N = gtype.N
+    sym, col = start.sym.astype(np.uint8).copy(), start.col.astype(np.uint8).copy()
+    cur = int(batch(sym[None], col[None], params, gtype)[0])
+    best = (cur, sym.copy(), col.copy())
+    sc_ = np.array(list(range(gtype.S)) if sym_choices is None else list(sym_choices), dtype=np.uint8)
+    for _ in range(iters):
+        S_ = np.repeat(sym[None], k, 0)
+        C_ = np.repeat(col[None], k, 0)
+        rr, cc = rng.integers(0, N, k), rng.integers(0, N, k)
+        which = rng.integers(0, len(layers), k)
+        for i in range(k):
+            if layers[which[i]] == "symbol":
+                S_[i, rr[i], cc[i]] = sc_[rng.integers(len(sc_))]
+            else:
+                C_[i, rr[i], cc[i]] = rng.integers(gtype.C)
+        v = batch(S_, C_, params, gtype)
+        i = int(np.argmax(v))
+        if v[i] >= cur:
+            cur, sym, col = int(v[i]), S_[i].copy(), C_[i].copy()
+            if cur > best[0]:
+                best = (cur, sym.copy(), col.copy())
+    return Grid(best[1], best[2])
+
+
+__all__ += ["plateau_search"]
