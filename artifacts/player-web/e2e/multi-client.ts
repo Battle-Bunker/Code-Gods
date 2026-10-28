@@ -37,9 +37,14 @@ type Player = typeof PLAYERS[number];
 const PORTS: Record<Player, number> = { alice: 5501, bob: 5502, carol: 5503 };
 
 const results: { name: string; ok: boolean; detail?: string }[] = [];
+/** Set once the browsers are up: on a failure, screenshots of every app and what each one shows. */
+let diagnose: (label: string) => Promise<void> = async () => {};
 async function check(name: string, run: () => Promise<unknown> | unknown) {
   try { await run(); results.push({ name, ok: true }); console.log(`ok   ${name}`); }
-  catch (error) { const detail = (error as Error).message.split("\n")[0]; results.push({ name, ok: false, detail }); console.log(`FAIL ${name}: ${detail}`); }
+  catch (error) {
+    const detail = (error as Error).message.split("\n")[0]; results.push({ name, ok: false, detail }); console.log(`FAIL ${name}: ${detail}`);
+    await diagnose(name).catch(e => console.log(`     (diagnosis failed: ${(e as Error).message})`));
+  }
 }
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -155,6 +160,23 @@ for (const p of PLAYERS) {
   await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
   pages[p] = page;
 }
+diagnose = async (label: string) => {
+  const slug = label.replace(/[^a-z0-9]+/gi, "-").slice(0, 60);
+  for (const p of PLAYERS) {
+    const page = pages[p];
+    await page.screenshot({ path: join(WORK, `fail-${slug}-${p}.png`), fullPage: true }).catch(() => {});
+    const info = await page.evaluate(() => ({
+      phase: document.querySelector("[data-testid=text-phase]")?.textContent,
+      connection: document.querySelector("[data-testid=status-connection]")?.textContent,
+      unknown: document.querySelector("[data-testid=banner-unknown]")?.textContent?.slice(0, 160),
+      coreError: document.querySelector("[data-testid=banner-core-error]")?.textContent?.slice(0, 160),
+      notice: document.querySelector("[data-testid=text-notice]")?.textContent?.slice(0, 160),
+      agents: [...document.querySelectorAll("[data-testid^=row-agent-]")].map(e => e.textContent?.match(/(\d+) acts/)?.[1]).join(","),
+      transformations: document.querySelectorAll("[data-testid^=row-transformation-]").length,
+    })).catch(e => ({ error: (e as Error).message }));
+    console.log(`     ${p}: ${JSON.stringify(info)}`);
+  }
+};
 const sameDocument = async (p: Player) => navigations[p] === 1 && await pages[p].evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker === "same-document");
 
 await check("each app is connected to the shared engine as its own player, with full names", async () => {
