@@ -46,3 +46,11 @@ VARIANTS["tend_pay+sel1"] = combo("tend_pay+sel1", "tend_pay", "sel+1")
 VARIANTS["tend_pay+extend"] = combo("tend_pay+extend", "tend_pay", "extend")
 VARIANTS["tend_pay+extend+sel1"] = combo("tend_pay+extend+sel1", "tend_pay", "extend", "sel+1")
 VARIANTS["extend+sel1"] = combo("extend+sel1", "extend", "sel+1")
+
+# round 2: constructive agents + salience-weighted touch, and shelter
+VARIANTS["all_pay+sel1"] = combo("all_pay+sel1", "all_pay", "sel+1")
+VARIANTS["all_pay+sel-1"] = combo("all_pay+sel-1", "all_pay", "sel-1")
+VARIANTS["tend_pay+sel-1"] = combo("tend_pay+sel-1", "tend_pay", "sel-1")
+VARIANTS["tend_pay100"] = {"name": "tend_pay100", "tend_prob": 1.0, "tend_mode": "payoff"}
+VARIANTS["tend_pay100+sel1"] = combo("tend_pay100+sel1", "tend_pay100", "sel+1")
+VARIANTS["all_pay+extend"] = combo("all_pay+extend", "all_pay", "extend")
