@@ -21,7 +21,7 @@ const aiAgentSnapshot = v.object({
   id: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai")), model: v.string(),
   prompt: v.string(), revision: v.number(),
 });
-const rosterEntry = v.object({ id: v.string(), name: v.string(), kind, aiAgent: v.optional(aiAgentSnapshot) });
+const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
 const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() });
 const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
@@ -51,8 +51,6 @@ export const gameTables = {
     /** Settings revision for optimistic concurrency; `seq` counts every room change (observation revision). */
     revision: v.number(), seq: v.number(),
     settings: v.any(),
-    /** Public catalog of the families the next game might deal (computed in Node; absent until computed). */
-    utilityCatalog: v.optional(v.any()),
     aiBudget: v.number(), aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
     /** The active game (not ended), and the room's current game slot (active, or the latest until the next launch). */
@@ -61,16 +59,17 @@ export const gameTables = {
 
   members: defineTable({
     roomId: v.id("rooms"), godId: v.string(), name: v.string(), kind, ready: v.boolean(), joinedAt: v.number(),
+    /** Humans only: the Replit subject (= godId), indexed for auth's device approval (auth/rooms.ts isRoomMember). */
+    userId: v.optional(v.string()),
     aiAgent: v.optional(aiAgentSnapshot), status: v.optional(v.string()),
     /** AI seats: the turn chain generation (a stale scheduled turn exits) and consecutive failures. */
     aiChain: v.optional(v.number()), aiFailures: v.optional(v.number()),
-  }).index("by_room", ["roomId"]).index("by_room_god", ["roomId", "godId"]).index("by_god", ["godId"]),
+  }).index("by_room", ["roomId"]).index("by_room_god", ["roomId", "godId"]).index("by_god", ["godId"]).index("by_room_user", ["roomId", "userId"]),
 
   games: defineTable({
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
-    objectInstance: v.any(), utilityCatalog: v.any(),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
@@ -86,8 +85,6 @@ export const gameTables = {
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
-    /** Rolling engine samples (last 120 commits): acts, world window, simulate and previous commit latency (ms). */
-    perf: v.optional(v.array(v.object({ seq: v.number(), acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()), at: v.number() }))),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
     .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
 
@@ -95,6 +92,8 @@ export const gameTables = {
     gameId: v.id("games"), godId: v.string(), index: v.number(),
     /** PRIVATE: the dealt utility descriptor and its kid card (shown to its own god only). */
     utility: v.any(), card: v.any(),
+    /** PRIVATE: an AI seat's library agent, snapshotted at start (lobby edits never change a running seat). */
+    aiAgent: v.optional(aiAgentSnapshot),
     spent: v.number(), pauseUsed: v.boolean(),
   }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
 
@@ -118,7 +117,15 @@ export const gameTables = {
   tickBatches: defineTable({
     gameId: v.id("games"), seq: v.number(), at: v.number(), worldFrom: v.number(), worldTo: v.number(),
     events: v.array(eventV),
+    /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
+    perf: v.optional(v.object({ acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()) })),
   }).index("by_game_seq", ["gameId", "seq"]),
+
+  /**
+   * Large, rarely written public data kept OFF the hot docs (the game doc is rewritten every tick and Convex
+   * keeps every revision): the utility catalog of a room's next game ("room:<id>") or of a game ("game:<id>").
+   */
+  catalogs: defineTable({ key: v.string(), catalog: v.any(), revision: v.number() }).index("by_key", ["key"]),
 
   chat: defineTable({
     roomId: v.id("rooms"), authorId: v.string(), authorName: v.string(), kind, text: v.string(), timestamp: v.number(),

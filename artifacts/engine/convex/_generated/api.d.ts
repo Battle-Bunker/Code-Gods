@@ -13,7 +13,19 @@ import type * as ai_seats from "../ai/seats.js";
 import type * as ai_turn from "../ai/turn.js";
 import type * as aiTemplates from "../aiTemplates.js";
 import type * as auth_access from "../auth/access.js";
+import type * as auth_config from "../auth/config.js";
+import type * as auth_credentials from "../auth/credentials.js";
+import type * as auth_crypto from "../auth/crypto.js";
+import type * as auth_device from "../auth/device.js";
+import type * as auth_jwt from "../auth/jwt.js";
+import type * as auth_oidc from "../auth/oidc.js";
+import type * as auth_profileName from "../auth/profileName.js";
+import type * as auth_rooms from "../auth/rooms.js";
+import type * as auth_routes from "../auth/routes.js";
+import type * as auth_sessions from "../auth/sessions.js";
 import type * as auth_tables from "../auth/tables.js";
+import type * as auth_testing from "../auth/testing.js";
+import type * as auth_user from "../auth/user.js";
 import type * as commands from "../commands.js";
 import type * as crons from "../crons.js";
 import type * as engine_loop from "../engine/loop.js";
@@ -26,6 +38,7 @@ import type * as game_lobby from "../game/lobby.js";
 import type * as game_queries from "../game/queries.js";
 import type * as game_tables from "../game/tables.js";
 import type * as games from "../games.js";
+import type * as http from "../http.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_load from "../lib/load.js";
@@ -51,7 +64,19 @@ declare const fullApi: ApiFromModules<{
   "ai/turn": typeof ai_turn;
   aiTemplates: typeof aiTemplates;
   "auth/access": typeof auth_access;
+  "auth/config": typeof auth_config;
+  "auth/credentials": typeof auth_credentials;
+  "auth/crypto": typeof auth_crypto;
+  "auth/device": typeof auth_device;
+  "auth/jwt": typeof auth_jwt;
+  "auth/oidc": typeof auth_oidc;
+  "auth/profileName": typeof auth_profileName;
+  "auth/rooms": typeof auth_rooms;
+  "auth/routes": typeof auth_routes;
+  "auth/sessions": typeof auth_sessions;
   "auth/tables": typeof auth_tables;
+  "auth/testing": typeof auth_testing;
+  "auth/user": typeof auth_user;
   commands: typeof commands;
   crons: typeof crons;
   "engine/loop": typeof engine_loop;
@@ -64,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   "game/queries": typeof game_queries;
   "game/tables": typeof game_tables;
   games: typeof games;
+  http: typeof http;
   "lib/aiModels": typeof lib_aiModels;
   "lib/errors": typeof lib_errors;
   "lib/load": typeof lib_load;
@@ -104,4 +130,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  engineSite: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"engineSite">;
+  playerSite: import("@convex-dev/static-hosting/_generated/component.js").ComponentApi<"playerSite">;
+};

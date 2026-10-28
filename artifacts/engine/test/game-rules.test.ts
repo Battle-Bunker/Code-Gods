@@ -56,12 +56,12 @@ test("pause: once per god, freezes world time, discards in-flight windows, god e
   let secret = await raw(game.gameId);
   assert.equal(secret.game.phase, "paused");
   const frozen = { world: secret.game.worldSeconds, acts: secret.agents[0].acts, epoch: secret.game.executionEpoch };
-  const energy0 = (await bo.c.query(api.player.observation, { roomId: secret.game.roomId })).self.energy;
+  const energy0 = (await bo.c.query(api.player.observation, { roomId: secret.game.roomId, at: Date.now() })).self.energy;
   await sleep(2000);
   secret = await raw(game.gameId);
   assert.equal(secret.game.worldSeconds, frozen.world, "paused world time stays frozen");
   assert.equal(secret.agents[0].acts, frozen.acts, "no act commits while paused (in-flight windows are discarded)");
-  const obs = await bo.c.query(api.player.observation, { roomId: secret.game.roomId });
+  const obs = await bo.c.query(api.player.observation, { roomId: secret.game.roomId, at: Date.now() });
   assert.equal(obs.phase, "paused");
   assert.ok(obs.self.energy >= energy0 + 5, "god energy accrues on the wall clock even while paused");
   assert.ok(secret.batches.some((b: any) => b.events.some((e: any) => e.t === "phase" && e.phase === "paused")));

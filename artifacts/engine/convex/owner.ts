@@ -87,7 +87,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   return ctx.runMutation(internal.game.lobby.commitStart, {
     roomId: room._id, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId,
     seasonCommitment: seasonCommitment(), endAtWorld: lifetimeSeconds(settings.halfLifeSeconds, openUniform()),
-    nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: room.utilityCatalog ?? catalogFor(settings),
+    nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
     objects,
   });

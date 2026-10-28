@@ -10,7 +10,7 @@ export const roomForEngine = internalQuery({
 
 /** An AI seat's observation: exactly its own projection, like a human's. */
 export const observationAs = internalQuery({
-  args: { roomId: v.id("rooms"), godId: v.string() },
+  args: { roomId: v.id("rooms"), godId: v.string(), at: v.optional(v.number()) },
   handler: async (ctx, { roomId, godId }) => {
     const room = await ctx.db.get(roomId);
     return room ? buildObservation(ctx, room, godId) : null;

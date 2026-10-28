@@ -4,6 +4,7 @@
  * acting-as identity carrying `subject` and `scope`, which convex/auth/access.ts reads); `users` rows
  * and player credentials are seeded with test-only internal mutations (convex/testing.ts).
  */
+import { after } from "node:test";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -22,8 +23,10 @@ export const ADMIN_KEY: string = config.adminKey;
 
 export const admin = new ConvexHttpClient(URL_);
 admin.setAdminAuth(ADMIN_KEY);
+/** Leave no game loops (or AI chains) running after a test file: they would keep acting on the shared backend. */
+after(async () => { await admin.mutation(internal.testing.endGames, {}); });
 
-export type God = { subject: string; name: string; c: ConvexHttpClient };
+export type God = { subject: string; name: string; sid: string; c: ConvexHttpClient };
 
 /** A client acting as `subject` with the given scope (and player credential id). */
 export function clientFor(subject: string, scope: "browser" | "player" = "browser", extra: Record<string, unknown> = {}) {
@@ -37,8 +40,8 @@ export async function gods(...names: string[]): Promise<God[]> {
   const out: God[] = [];
   for (const name of names) {
     const subject = `test|${randomUUID()}`;
-    await admin.mutation(internal.testing.seedUser, { subject, name, email: `${subject.slice(5, 13)}@test.local`, emailVerified: true });
-    out.push({ subject, name, c: clientFor(subject) });
+    const sid = await admin.mutation(internal.testing.seedUser, { subject, name, email: `${subject.slice(5, 13)}@test.local`, emailVerified: true });
+    out.push({ subject, name, sid, c: clientFor(subject, "browser", { sid }) });
   }
   return out;
 }

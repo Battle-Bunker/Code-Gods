@@ -42,7 +42,7 @@ export const turnContext = internalQuery({
     if (!game) return { stop: "game gone" as const };
     const room = await ctx.db.get(game.roomId);
     const member = room ? await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", room._id).eq("godId", godId)).unique() : null;
-    const seat = game.roster.find(r => r.id === godId);
+    const seat = await ctx.db.query("deities").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).unique();
     if (!room || !member || member.aiChain !== chain || !seat?.aiAgent) return { stop: "stale chain" as const };
     if (game.phase === "ended" || game.phase === "recovery") return { stop: game.phase };
     if (isIdle(await lastHumanActivity(ctx))) return { stop: "idle" as const };

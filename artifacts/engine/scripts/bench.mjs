@@ -23,13 +23,13 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const config = JSON.parse(readFileSync(`${root}/.convex/local/default/config.json`, "utf8"));
 const url = process.env.CONVEX_URL ?? `http://127.0.0.1:${config.ports.cloud}`;
 const admin = new ConvexHttpClient(url); admin.setAdminAuth(config.adminKey);
-const as = subject => { const c = new ConvexHttpClient(url); c.setAdminAuth(config.adminKey, { subject, issuer: "https://bench.local", scope: "browser" }); return c; };
+const as = (subject, sid) => { const c = new ConvexHttpClient(url); c.setAdminAuth(config.adminKey, { subject, issuer: "https://bench.local", scope: "browser", sid }); return c; };
 
 const gods = [];
 for (const name of ["Bench Host", "Bench Two", "Bench Three"]) {
   const subject = `bench|${randomUUID()}`;
-  await admin.mutation(internal.testing.seedUser, { subject, name, emailVerified: false });
-  gods.push(as(subject));
+  const sid = await admin.mutation(internal.testing.seedUser, { subject, name, emailVerified: false });
+  gods.push(as(subject, sid));
 }
 await gods[0].mutation(api.activity.touch, {});
 const { roomId, shortCode } = await gods[0].mutation(api.rooms.create, {});
@@ -60,7 +60,7 @@ await new Promise(r => setTimeout(r, seconds * 1000));
 const after = (await read()).game, elapsed = (Date.now() - start) / 1000;
 await gods[0].mutation(api.rooms.endActiveGame, { roomId });
 
-const samples = (after.perf ?? []).filter(p => p.at >= start);
+const samples = (await read()).batches.filter(b => b.at >= start && b.perf).map(b => b.perf);
 const stat = (xs) => {
   const s = xs.filter(x => typeof x === "number").sort((a, b) => a - b);
   if (!s.length) return null;

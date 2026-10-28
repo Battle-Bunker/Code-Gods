@@ -80,6 +80,16 @@ export async function displayName(ctx: Ctx, godId: string): Promise<string> {
   return user?.name ?? godId;
 }
 
+/** The public utility catalog stored under `key` ("room:<id>" or "game:<id>"), or null. */
+export async function getCatalog(ctx: Ctx, key: string) {
+  return (await ctx.db.query("catalogs").withIndex("by_key", q => q.eq("key", key)).unique())?.catalog ?? null;
+}
+export async function putCatalog(ctx: MutationCtx, key: string, catalog: unknown, revision: number) {
+  const doc = await ctx.db.query("catalogs").withIndex("by_key", q => q.eq("key", key)).unique();
+  if (doc) await ctx.db.patch(doc._id, { catalog, revision });
+  else await ctx.db.insert("catalogs", { key, catalog, revision });
+}
+
 export async function lastHumanActivity(ctx: Ctx): Promise<number> {
   const doc = await ctx.db.query("activity").withIndex("by_key", q => q.eq("key", "global")).unique();
   return doc?.lastHumanActivityAt ?? 0;

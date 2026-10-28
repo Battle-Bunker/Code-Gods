@@ -42,10 +42,10 @@ export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: num
 }
 
 /** Append events to the game's log as one (or more) tickBatches docs. */
-export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number): Promise<number> {
+export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number, perf?: Doc<"tickBatches">["perf"]): Promise<number> {
   let next = game.nextBatch;
-  for (let i = 0; i < events.length; i += EVENTS_PER_BATCH) {
-    await ctx.db.insert("tickBatches", { gameId: game._id, seq: next++, at: Date.now(), worldFrom, worldTo, events: events.slice(i, i + EVENTS_PER_BATCH) });
+  for (let i = 0; i < events.length || (i === 0 && perf); i += EVENTS_PER_BATCH) {
+    await ctx.db.insert("tickBatches", { gameId: game._id, seq: next++, at: Date.now(), worldFrom, worldTo, events: events.slice(i, i + EVENTS_PER_BATCH), ...(i === 0 && perf ? { perf } : {}) });
   }
   return next;
 }
@@ -206,11 +206,11 @@ export const commit = internalMutation({
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
-    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds);
+    const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
+    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined);
     const patch: Partial<Doc<"games">> = {
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
-      perf: [...(game.perf ?? []).slice(-119), { seq: args.seq, acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, commitMs: args.stats.prevCommitMs, at: now }],
       stats: { acts: game.stats.acts + acts, commits: game.stats.commits + 1, discarded: game.stats.discarded, opportunities: game.stats.opportunities + args.stats.opportunities },
     };
     const updated = { ...game, ...patch, phase: clock.phase };

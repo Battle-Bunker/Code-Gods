@@ -5,7 +5,7 @@ import { requireViewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, publicGame } from "./lib/projection";
-import { findGame, recentChat } from "./lib/rooms";
+import { findGame, getCatalog, recentChat } from "./lib/rooms";
 
 async function readable(ctx: Parameters<typeof requireViewer>[0], code: string) {
   const viewer = await requireViewer(ctx);
@@ -48,7 +48,7 @@ export const view = query({
       winners: game.phase === "ended" ? record.winners : [],
       chat: chat.map(m => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp })),
       roomActiveGame: activeGameRef(active),
-      utilityCatalog: game.utilityCatalog,
+      utilityCatalog: await getCatalog(ctx, `game:${game._id}`),
       stats: game.stats,
       serverTime: Date.now(),
     };

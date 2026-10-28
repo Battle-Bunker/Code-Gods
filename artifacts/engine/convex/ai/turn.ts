@@ -80,7 +80,7 @@ export const run = internalAction({
         },
         transport: {
           observe: async () => {
-            const observation = await ctx.runQuery(internal.game.queries.observationAs, { roomId, godId });
+            const observation = await ctx.runQuery(internal.game.queries.observationAs, { roomId, godId, at: Date.now() });
             if (!observation) throw new Error("AI seat left the room");
             return observation;
           },

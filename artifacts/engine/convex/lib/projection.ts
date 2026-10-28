@@ -65,7 +65,7 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     recoveryReason: game.recoveryReason ?? null,
     settings: game.settings as GameSettings, roster: game.roster.map(rosterEntry),
-    objectInstance: game.objectInstance as InstanceInfo,
+    objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
   };
 }
@@ -73,7 +73,7 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
 type Chat = Doc<"chat">;
 const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
 
-export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string) {
+export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string, catalog: unknown) {
   const settings = room.settings as GameSettings;
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
@@ -88,7 +88,7 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     aiInputTokens: room.aiInputTokens, aiOutputTokens: room.aiOutputTokens,
     // The lobby describes the NEXT game: its object type and the families its gods might draw, never who drew which.
     objectInstance: objectInstance(settings),
-    utilityCatalog: room.utilityCatalog ?? null,
+    utilityCatalog: catalog ?? null,
     activeGame: activeGameRef(active),
   };
 }
@@ -191,7 +191,7 @@ export function observation(input: ObservationInput): Observation {
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: settings.language,
-    instance: game ? game.objectInstance : objectInstance(settings),
+    instance: objectInstance(settings),
     economy: {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,
       agentBatteryActs: settings.agentBatteryActs, maxAgentsPerGod: settings.maxAgentsPerGod,

@@ -11,7 +11,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import { touchActivity } from "../activity";
 import { nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
-import { objectInstance } from "../lib/projection";
+import { putCatalog } from "../lib/rooms";
 import { membersOf, requireOwner, requireRoom, shortCodeFor } from "../lib/rooms";
 import { LEASE_MS } from "../lib/world";
 import { scoreV } from "./tables";
@@ -52,8 +52,9 @@ export const commitSettings = internalMutation({
       fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
     }
     validateSettings(args.settings as GameSettings);
+    await putCatalog(ctx, `room:${room._id}`, args.catalog, room.revision + 1);
     await ctx.db.patch(room._id, {
-      settings: args.settings, utilityCatalog: args.catalog, revision: room.revision + 1, seq: room.seq + 1,
+      settings: args.settings, revision: room.revision + 1, seq: room.seq + 1,
       ...(args.aiBudget !== undefined ? { aiBudget: args.aiBudget } : {}),
     });
     return { revision: room.revision + 1 };
@@ -65,7 +66,7 @@ export const setCatalog = internalMutation({
   args: { roomId: v.id("rooms"), revision: v.number(), catalog: v.any() },
   handler: async (ctx, { roomId, revision, catalog }) => {
     const room = await ctx.db.get(roomId);
-    if (room && room.revision === revision) await ctx.db.patch(roomId, { utilityCatalog: catalog });
+    if (room && room.revision === revision) await putCatalog(ctx, `room:${roomId}`, catalog, revision);
   },
 });
 
@@ -93,18 +94,20 @@ export const commitStart = internalMutation({
     const { shortCode, encoded } = await shortCodeFor(ctx, "games", guid);
     const roster = args.deities.map(d => {
       const m = byGod.get(d.godId)!;
-      return { id: m.godId, name: m.name, kind: m.kind, ...(m.aiAgent ? { aiAgent: m.aiAgent } : {}) };
+      return { id: m.godId, name: m.name, kind: m.kind };
     });
     const planningEndsAt = now + settings.planningSeconds * 1000;
     const gameId: Id<"games"> = await ctx.db.insert("games", {
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
-      settings, roster, objectInstance: objectInstance(settings), utilityCatalog: args.catalog,
+      settings, roster,
       createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
       endAtWorld: args.endAtWorld, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
       nextBatch: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
     });
+    await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
-      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false });
+      const aiAgent = byGod.get(d.godId)!.aiAgent;
+      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}) });
     }
     const events = [];
     for (const o of args.objects) {

@@ -15,9 +15,15 @@ import { buildObservation, currentGame, deityOf } from "./lib/load";
 import { projectBatches, trajectories as trajectoriesOf } from "./lib/projection";
 import { findGame, requireMember, requireRoom } from "./lib/rooms";
 
-/** Protocol v3 observation of the caller in this room (parses with lib/player-client observationSchema). */
+/**
+ * Protocol v3 observation of the caller in this room (parses with lib/player-client observationSchema).
+ * Time-derived fields (god energy, agent energy and eligibility, world seconds) are computed when the
+ * query runs. Convex re-runs a subscribed query whenever its data changes (each engine commit), but not
+ * merely because time passes: a poller that needs fresh clocks while nothing changes (planning, pause)
+ * passes `at` (e.g. its wall clock, rounded to the second). `at` is only a cache key; its value is not used.
+ */
 export const observation = query({
-  args: { roomId: v.string() },
+  args: { roomId: v.string(), at: v.optional(v.number()) },
   handler: async (ctx, { roomId }) => {
     const room = await requireRoom(ctx, roomId);
     const { viewer } = await requireMember(ctx, room, "read");

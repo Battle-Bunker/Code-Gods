@@ -12,7 +12,7 @@ import { requireViewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
-import { displayName, membersOf, memberOf, recentChat, requireMember, requireOwner, requireReader, requireRoom, shortCodeFor } from "./lib/rooms";
+import { displayName, getCatalog, membersOf, memberOf, recentChat, requireMember, requireOwner, requireReader, requireRoom, shortCodeFor } from "./lib/rooms";
 import { touchActivity } from "./activity";
 
 export const MAX_GODS = 8;
@@ -39,7 +39,7 @@ export const create = mutation({
       settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
-    await ctx.db.insert("members", { roomId, godId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: now });
+    await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: now });
     await ctx.scheduler.runAfter(0, internal.owner.fillCatalog, { roomId });
     await ctx.scheduler.runAfter(0, internal.aiTemplates.ensureSeeded, {});
     await touchActivity(ctx);
@@ -77,7 +77,7 @@ export const get = query({
     const [members, chat] = await Promise.all([membersOf(ctx, room._id), recentChat(ctx, room._id)]);
     const game = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     const owner = members.find(m => m.godId === room.ownerId)?.name ?? await displayName(ctx, room.ownerId);
-    return { ...publicRoom(room, members, chat, game, owner), serverTime: Date.now() };
+    return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`)), serverTime: Date.now() };
   },
 });
 
@@ -90,7 +90,7 @@ export const join = mutation({
     if (viewer.scope !== "browser") fail("FORBIDDEN", "Browser login required to join");
     if (!await memberOf(ctx, room._id, viewer.subject)) {
       if ((await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "This room has reached its eight-player limit");
-      await ctx.db.insert("members", { roomId: room._id, godId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: Date.now() });
+      await ctx.db.insert("members", { roomId: room._id, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: Date.now() });
       await bump(ctx, room);
     }
     await touchActivity(ctx);
