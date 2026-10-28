@@ -1,36 +1,32 @@
 ---
 name: Room assistant trust boundary
-description: Human delegation, workspace trust and live authentication test limits.
+description: Human delegation through a room credential in Replit Secrets, workspace trust and live authentication test limits.
 ---
 The room assistant is the same approving human, not an AI competitor or a verified
 model/workspace identity. Same-OS-identity editors and processes are trusted.
 
 **Why:** The user scoped this as human delegation and excluded isolation
-from other workspace editors and persistent renewal. They subsequently explicitly
-requested full room-owner delegation, including configuration, game start and
-playing as themselves.
+from other workspace editors. They subsequently explicitly requested full room-owner
+delegation, including configuration, game start and playing as themselves, and onboarding
+that stores the scoped credential in Replit Secrets.
 
-**How to apply:** Owner powers require a separate explicit owner grant approved
-by the current room owner; read/act grants must never inherit those powers.
-Keep labels self-reported, grants room-bound and short-lived;
-never imply the bridge proves which model or chat made a command.
+**How to apply:** The assistant uses a room-scoped, revocable credential (`read`, `act` or
+`owner`; up to 7 days) from `pnpm player connect`, held in the Replit Secret
+`CODE_GODS_CREDENTIAL` and exchanged for 10-minute JWTs on every call. There is no
+persistent bridge or daemon: each `pnpm player assistant` command is one stateless engine
+call. Revocation is from the engine UI's player page or `pnpm player assistant disconnect`,
+and takes effect on the next call. Owner grants still need the current room owner's
+explicit consent, and read/act grants never inherit owner powers; a stronger grant is a new
+`connect`, never an upgrade. Labels are self-reported: never imply the credential proves
+which model or chat made a command. Never print, paste or commit the credential.
 
-Synthetic browser login helpers may not override this project's fixed Replit OIDC
-discovery endpoint.
+Synthetic browser login helpers may not override this project's fixed production Replit
+OIDC issuer.
 
 **Why:** A browser pilot reached the real Replit sign-in screen despite setting
 synthetic claims. Fixture tests alone cannot demonstrate a real browser approval.
 
-**How to apply:** Report the live-auth blocker honestly; do not extract cookies or
-weaken authentication to make a pilot pass.
-
-Run the in-memory assistant bridge under a persistent supervisor, never as a
-detached child of a one-off Agent shell.
-
-**Why:** Live approval attempts repeatedly lost their authorization because the
-detached process disappeared after the shell finished, despite Node unref().
-This was reproduced by checking the child PID in a subsequent shell call.
-
-**How to apply:** Keep the bridge workflow running across chat turns. A missing
-bridge must be reported, not silently recreated. Real restarts still require
-fresh consent; do not persist bearer tokens to work around process lifetime.
+**How to apply:** The stand-in OIDC provider is selected only by `REPLIT_OIDC_ISSUER`, a
+local-test-only Convex env var set by `pnpm --filter @workspace/engine dev`; production
+leaves it unset and uses `https://replit.com/oidc`. Report the live-auth blocker honestly;
+do not extract cookies or weaken authentication to make a pilot pass.
