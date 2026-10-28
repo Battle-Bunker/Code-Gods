@@ -33,6 +33,15 @@ import { MANIFEST, TABLES } from "../data/calibration/v1/index.js";
  *  are enumerated exactly instead.
  */
 export const ESTIMATOR = Object.freeze({ id: "mc-ams", version: 3 });
+/**
+ * Families calibrated from an exact tail instead of splitting (scripts/exact.ts implements each id). The id is
+ * part of the table key, so changing a formula (bump its version) regenerates exactly those tables.
+ */
+export const EXACT_TAILS: Readonly<Record<string, string>> = Object.freeze({
+  picture_frame: "picture-frame@1",
+  lone_peak: "lone-peak@1",
+});
+
 /** Data layout version: data/calibration/<FORMAT>/. */
 export const CALIBRATION_FORMAT = "v1";
 export const REGENERATE_COMMAND = "pnpm --filter @workspace/game-utilities calibrate";
@@ -77,8 +86,8 @@ export interface CalibrationTable {
     readonly version: number;
     /** Hex seed of the estimator's Rng (derived from the key). */
     readonly seed: string;
-    /** "exact": the whole domain was enumerated. */
-    readonly budget: CalibrationBudget | "exact";
+    /** "exact": the whole domain was enumerated; "exact:<id>": an exact tail (EXACT_TAILS). */
+    readonly budget: CalibrationBudget | "exact" | `exact:${string}`;
   };
   readonly meta: {
     readonly mcLevels: number;
@@ -140,6 +149,8 @@ export interface TableKeyParts {
   readonly prelude: string;
   readonly spawn: "uniform";
   readonly estimator: { readonly id: string; readonly version: number };
+  /** EXACT_TAILS id, for families calibrated exactly (absent otherwise). */
+  readonly exact?: string;
 }
 
 export const keyFromParts = (parts: TableKeyParts): string => sha256(canonicalJson(parts));
@@ -157,6 +168,7 @@ export function tableKeyParts(familyId: string, canonicalParams: Params, inst: I
     prelude: objectType(inst.objectType).prelude(inst).hash,
     spawn: "uniform",
     estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version },
+    ...(EXACT_TAILS[familyId] && inst.objectType === "Grid" ? { exact: EXACT_TAILS[familyId] } : {}),
   };
 }
 

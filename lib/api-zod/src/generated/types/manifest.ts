@@ -6,16 +6,19 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AIFunding } from './aIFunding';
-import type { GridManifest } from './gridManifest';
+import type { ObjectTypeInfo } from './objectTypeInfo';
 import type { Settings } from './settings';
 import type { SettingsOptions } from './settingsOptions';
 
 export interface Manifest {
-  grid?: GridManifest;
   protocolVersion: number;
+  /** Player protocol version accepted at /player/v1 (code-gods.player.v3). */
+  playerProtocol: string;
   minimumPlayers: number;
   defaults: Settings;
   options: SettingsOptions;
   aiFunding: AIFunding;
   runtimes: string[];
+  /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
+  objectTypes: ObjectTypeInfo[];
 }

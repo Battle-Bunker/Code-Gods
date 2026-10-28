@@ -76,7 +76,7 @@ export function tableFor(draw: Draw, inst: Instantiation): CalibrationTable | un
     : 1;
   const base: CalibrationTable = { key, family: draw.familyId, instance: inst.key, levels, slope };
   const table: CalibrationTable = f.role === "penalty"
-    ? { ...base, penaltyMeanBits: ordinals.reduce((sum, o) => sum + softHinge(lookup(base, o)), 0) / ordinals.length }
+    ? { ...base, penaltyMeanBits: ordinals.reduce<number>((sum, o) => sum + softHinge(lookup(base, o)), 0) / ordinals.length }
     : base;
   if (tables.size >= MAX_TABLES) tables.delete(tables.keys().next().value!);
   tables.set(key, table);

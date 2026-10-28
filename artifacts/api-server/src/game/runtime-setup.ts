@@ -1,6 +1,8 @@
-import { DEFAULT_SETTINGS } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
+import { OBJECT_TYPES } from "@workspace/game-types";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { referenceSpawns } from "./engine.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};
@@ -22,17 +24,19 @@ export function initializeRuntimeAdapters(): Promise<void> {
       const pool = createRuntime({ language, workers: 4, queueLimit: 32 });
       candidates[language] = pool;
       const probe = async () => {
-        for (const objectType of ["Int", "string"] as const) {
+        // Every object type's default instantiation: the prelude compiles and an empty agent round-trips.
+        for (const type of OBJECT_TYPES) {
           // The probe checks availability, not speed: a cold worker on a busy host can
           // exceed the 5 ms play budget, which must not disable a language until restart.
-          const settings = { ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1`, interactionComputeMs: 1000 };
-          const source = language === "python" ? "lambda x: x"
-            : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
-          const input = objectType === "Int" ? 37 : "identity\0\n";
-          const { cost } = await pool.inspect(source, settings);
-          const { value } = await pool.execute(source, input, settings);
-          if (!Number.isSafeInteger(cost) || cost <= 0 || value !== input) {
-            throw new RuntimeError("UNAVAILABLE", `${language} identity probe failed`);
+          const settings: GameSettings = { ...DEFAULT_SETTINGS, language, grammarId: `${language}-agent-v1`,
+            objectType: type.id, typeArgs: type.defaults, interactionComputeMs: 1000 };
+          const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+          const act = actSettings(settings);
+          const { cost } = await pool.inspect(source, act);
+          const input = referenceSpawns(settings)[0];
+          const { calls } = await pool.act(source, input, act);
+          if (!Number.isSafeInteger(cost) || cost <= 0 || calls !== "[]") {
+            throw new RuntimeError("UNAVAILABLE", `${language} ${type.id} agent probe failed`);
           }
         }
       };

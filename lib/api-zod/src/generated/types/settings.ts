@@ -5,41 +5,19 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { SettingsGridColours } from './settingsGridColours';
-import type { SettingsGridSymbols } from './settingsGridSymbols';
+import type { SettingsGrammarId } from './settingsGrammarId';
 import type { SettingsLanguage } from './settingsLanguage';
 import type { SettingsObjectType } from './settingsObjectType';
 import type { SettingsSpawnFunctionId } from './settingsSpawnFunctionId';
+import type { TypeArgs } from './typeArgs';
 
 export interface Settings {
   language: SettingsLanguage;
+  /** The object type constructor. */
   objectType: SettingsObjectType;
-  intMin: number;
-  intMax: number;
-  stringMaxLength: number;
-  /**
-     * Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
-     * @minimum 3
-     * @maximum 7
-     */
-  gridSize?: number;
-  /** Grid only. Symbols printed on cells. */
-  gridSymbols?: SettingsGridSymbols;
-  /** Grid only. Cell colours. */
-  gridColours?: SettingsGridColours;
-  /**
-     * Grid only. Bits each agent earns per second of world time into its own energy account.
-     * @minimum 0
-     * @maximum 1000
-     */
-  agentEnergyPerSecond?: number;
-  /**
-     * Grid only. An agent's energy is capped at this many of its expected acts.
-     * @minimum 0
-     * @maximum 1000
-     */
-  agentBatteryActs?: number;
-  grammarId: string;
+  /** Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted. */
+  typeArgs: TypeArgs;
+  grammarId: SettingsGrammarId;
   utilitySelectorId: string;
   complexityFunctionId: string;
   spawnFunctionId: SettingsSpawnFunctionId;
@@ -59,6 +37,36 @@ export interface Settings {
      */
   interactionComputeMs: number;
   pauseSeconds: number;
+  /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;
+  /** God income, bits per real-time second. */
   energyPerSecond: number;
+  /**
+     * Each agent's income, bits per second of world time.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentEnergyPerSecond?: number;
+  /**
+     * An agent's energy is capped at this many expected acts.
+     * @minimum 1
+     * @maximum 1000
+     */
+  agentBatteryActs?: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  maxAgentsPerGod?: number;
+  /**
+     * w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.
+     * @minimum 0
+     */
+  penaltyWeight?: number;
+  /**
+     * Probability that a god is also dealt a defence goal.
+     * @minimum 0
+     * @maximum 1
+     */
+  defenceRate?: number;
 }

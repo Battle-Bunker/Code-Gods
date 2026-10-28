@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings, type GameSettings } from "@workspace/game-core";
-import { gridManifest } from "@workspace/game-utilities";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, instantiationOf, validateSettings, type GameSettings } from "@workspace/game-core";
+import { OBJECT_TYPES, instanceInfo, objectType } from "@workspace/game-types";
+import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
+import { offeredInstantiations } from "../game/calibration";
 import { requireIdentity, requireAct } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
@@ -12,9 +14,31 @@ import { aiFundingStatus } from "../game/ai-provider";
 import { getAgentDefinition } from "../game/agent-library";
 
 const router = Router();
+/**
+ * Object types for the settings pickers: parameters (with presets), capability classes and their badges,
+ * and the instantiations the server offers (those whose every dealable utility function is calibrated).
+ */
+let objectTypes: unknown[] | undefined;
+export function objectTypesManifest() {
+  return objectTypes ??= OBJECT_TYPES.map(T => ({
+    id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
+    classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
+    offered: offeredInstantiations(T.id).map(inst => {
+      const info = instanceInfo(inst);
+      return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes };
+    }),
+  }));
+}
+/** Settings name an instantiation the server offers; otherwise no calibrated utility functions exist for it. */
+export function assertOffered(settings: GameSettings) {
+  const inst = instantiationOf(settings);
+  if (!offeredInstantiations(settings.objectType).some(offered => offered.key === inst.key))
+    throw new Error(`${inst.key} is not offered: choose one of the listed ${settings.objectType} settings`);
+}
 router.get("/manifest", (_req, res) => res.json({
-  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
-  grid: gridManifest(),
+  protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, defaults: DEFAULT_SETTINGS,
+  runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
+  objectTypes: objectTypesManifest(),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
@@ -88,9 +112,12 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
       if (!input.settings) throw new Error("Settings are required");
       // Clients that predate a setting omit it: keep its default rather than reject the whole form.
-      const settings: GameSettings = { ...DEFAULT_SETTINGS, ...input.settings };
+      const settings = { ...DEFAULT_SETTINGS, ...input.settings } as GameSettings;
+      // A changed object type without arguments takes that type's defaults, not the previous type's.
+      if (!input.settings.typeArgs) settings.typeArgs = objectType(settings.objectType).defaults;
       validateSettings(settings);
-      if (settings.stringMaxLength > 1024 || settings.startingObjectCount > 1000 ||
+      assertOffered(settings);
+      if (settings.startingObjectCount > 1000 ||
           settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
           settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) throw new Error("Settings exceed server resource limits");
       room.settings = settings;

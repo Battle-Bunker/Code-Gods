@@ -60,7 +60,8 @@ export type Room = {
   settings: GameSettings; members: Member[]; chat: Chat[]; game: Game | null;
   aiBudget: number; aiUsed: number; receipts: Record<string, { hash: string; result: unknown }>;
   aiReservedUsd: number; aiDaily: { day: string; usd: number; calls: number[] };
+  aiInputTokens?: number; aiOutputTokens?: number;
   seq: number;
 };
 export type Actor = { id: string; name: string; kind: "human" | "ai"; scope: "browser" | "player"; roomId?: string;
-  delegateId?: string; clientLabel?: string; permission?: "read" | "act"; expiresAt?: string; sessionHash?: string };
+  delegateId?: string; clientLabel?: string; permission?: "read" | "act" | "owner"; expiresAt?: string; sessionHash?: string };

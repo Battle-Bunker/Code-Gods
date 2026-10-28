@@ -43,6 +43,9 @@ import type {
   ListAdminAiAgents200,
   ListPublicAiAgents200,
   Manifest,
+  PlayerCommandResult,
+  PlayerEnvelope,
+  PlayerObservation,
   RoomActionInput,
   RoomInput,
   RoomState,
@@ -1926,4 +1929,164 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+
+export const getGetPlayerObservationUrl = (roomId: string,) => {
+
+
+
+
+  return `/api/player/v1/rooms/${roomId}/observation`
+}
+
+/**
+ * Player protocol v3 observation (lib/player-client/src/protocol.ts is the normative schema): your own scores and peer aggregates, your agents, the instance and your kid card. Browser session or room-scoped bearer.
+ */
+export const getPlayerObservation = async (roomId: string, options?: Parameters<typeof customFetch>[1]): Promise<PlayerObservation> => {
+
+  return customFetch<PlayerObservation>(getGetPlayerObservationUrl(roomId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPlayerObservationQueryKey = (roomId: string,) => {
+    return [
+    `/api/player/v1/rooms/${roomId}/observation`
+    ] as const;
+    }
+
+
+export const getGetPlayerObservationQueryOptions = <TData = Awaited<ReturnType<typeof getPlayerObservation>>, TError = ErrorType<void>>(roomId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerObservation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPlayerObservationQueryKey(roomId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPlayerObservation>>> = ({ signal }) => getPlayerObservation(roomId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: roomId !== null && roomId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPlayerObservation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPlayerObservationQueryResult = NonNullable<Awaited<ReturnType<typeof getPlayerObservation>>>
+export type GetPlayerObservationQueryError = ErrorType<void>
+
+
+
+export function useGetPlayerObservation<TData = Awaited<ReturnType<typeof getPlayerObservation>>, TError = ErrorType<void>>(
+ roomId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPlayerObservation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPlayerObservationQueryOptions(roomId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendPlayerCommandUrl = (roomId: string,) => {
+
+
+
+
+  return `/api/player/v1/rooms/${roomId}/commands`
+}
+
+/**
+ * Idempotent per (god, commandId). Validation is free; summon pays the source's description bits; destroy is free and owner-only.
+ */
+export const sendPlayerCommand = async (roomId: string,
+    playerEnvelope: PlayerEnvelope, options?: Parameters<typeof customFetch>[1]): Promise<PlayerCommandResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<PlayerCommandResult>(getSendPlayerCommandUrl(roomId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(playerEnvelope)
+  }
+);}
+
+
+
+
+
+export const getSendPlayerCommandMutationKey = () => ['sendPlayerCommand'] as const;
+
+export const getSendPlayerCommandMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPlayerCommand>>, TError,SendPlayerCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendPlayerCommand>>, TError,SendPlayerCommandMutationVariables, TContext> => {
+
+const mutationKey = getSendPlayerCommandMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendPlayerCommand>>, SendPlayerCommandMutationVariables> = (props) => {
+          const {roomId,data} = props ?? {};
+
+          return  sendPlayerCommand(roomId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendPlayerCommandMutationResult = NonNullable<Awaited<ReturnType<typeof sendPlayerCommand>>>
+    export type SendPlayerCommandMutationBody = BodyType<PlayerEnvelope>
+    export type SendPlayerCommandMutationError = ErrorType<unknown>
+    export type SendPlayerCommandMutationVariables = {roomId: string;data: BodyType<PlayerEnvelope>}
+
+    export const useSendPlayerCommand = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendPlayerCommand>>, TError,SendPlayerCommandMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendPlayerCommand>>,
+        TError,
+        SendPlayerCommandMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSendPlayerCommandMutationOptions(options));
+    }
 

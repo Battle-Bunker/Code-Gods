@@ -21,14 +21,15 @@
 import { objectType, seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
 import {
-  ESTIMATOR, MIN_SLOPE_BITS, MIN_STEP_BITS, SLOPE_LEVELS, cmpOrdinal, ordinalDistance, penaltyMeanBits, tableKey,
+  ESTIMATOR, EXACT_TAILS, MIN_SLOPE_BITS, MIN_STEP_BITS, SLOPE_LEVELS, cmpOrdinal, ordinalDistance, penaltyMeanBits, tableKey,
   type CalibrationBudget, type CalibrationTable,
 } from "../src/calibration.ts";
 import type { Ordinal, Params } from "../src/types.ts";
+import { exactLevels } from "./exact.ts";
 
-/** The shipped default (measured: ~30 µs per Grid evaluation; see README in data/calibration). */
+/** The shipped default (measured: 13–30 µs per Grid evaluation incl. encode + decode, 2–10 µs Int/string). */
 export const DEFAULT_BUDGET: CalibrationBudget = Object.freeze({
-  nMc: 1 << 15, minMcCount: 128, particles: 400, p0: 0.5, sweeps: 1, targetBits: 64, maxStages: 400, maxStuck: 3,
+  nMc: 1 << 15, minMcCount: 128, particles: 500, p0: 0.5, sweeps: 1, targetBits: 64, maxStages: 400, maxStuck: 3,
 });
 /** Small budget for tests and smoke runs. */
 export const SMOKE_BUDGET: CalibrationBudget = Object.freeze({
@@ -82,6 +83,23 @@ export function strictBits(log2p: readonly number[], se: readonly number[]): num
   return iso.map(x => (prev = Math.max(x, prev + MIN_STEP_BITS)));
 }
 
+/**
+ * Thinning (bounded table size): drop level i when the next kept level would still be within THIN_BITS of the
+ * last kept one. A dropped level lies between two kept levels whose bits differ by at most THIN_BITS, so the
+ * interpolated lookup there is off by at most THIN_BITS (well below the estimator's statistical error). The first
+ * and last levels are always kept.
+ */
+export const THIN_BITS = 0.1;
+export function thin(levels: readonly Ordinal[], bits: readonly number[]): { levels: Ordinal[]; bits: number[] } {
+  const keepL: Ordinal[] = [], keepB: number[] = [];
+  let last = -Infinity;
+  for (let i = 0; i < levels.length; i++) {
+    const isEdge = i === 0 || i === levels.length - 1;
+    if (isEdge || bits[i + 1] - last > THIN_BITS) { keepL.push(levels[i]); keepB.push(bits[i]); last = bits[i]; }
+  }
+  return { levels: keepL, bits: keepB };
+}
+
 interface Particle { v: unknown; o: Ordinal }
 
 export interface BuildResult { readonly table: CalibrationTable; readonly seconds: number; readonly evaluations: number }
@@ -105,8 +123,16 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   const levels: Ordinal[] = [], log2p: number[] = [], vars: number[] = [];
   let mcLevels = 0, splitLevels = 0, stoppedEarly = false, exactMode = false;
   const domain = options.exact === false ? null : enumerate(inst);
+  const exactTail = options.exact === false || inst.objectType !== "Grid" ? null : exactLevels(familyId, params, inst);
+  let budgetLabel: CalibrationTable["estimator"]["budget"] = budget;
 
-  if (domain) {
+  if (exactTail) {
+    exactMode = true;
+    budgetLabel = `exact:${EXACT_TAILS[familyId]}`;
+    for (const [o, l] of exactTail) { levels.push(o); log2p.push(l); vars.push(0); }
+    mcLevels = levels.length;
+  } else if (domain) {
+    budgetLabel = "exact";
     exactMode = true;
     const ords = domain.map(w => { evaluations++; return ev(w); });
     const sorted = ords.slice().sort(cmp), n = sorted.length;
@@ -204,13 +230,13 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
 
   // Sort (stable), dedupe keeping the deepest-stage estimate, inflate splitting se.
   const order = levels.map((_, i) => i).sort((a, b) => cmp(levels[a], levels[b]) || a - b);
-  const lv: Ordinal[] = [], lp: number[] = [], se: number[] = [];
+  const lvAll: Ordinal[] = [], lp: number[] = [], se: number[] = [];
   for (let j = 0; j < order.length; j++) {
     const i = order[j];
     if (j + 1 < order.length && cmp(levels[order[j + 1]], levels[i]) === 0) continue;
-    lv.push(levels[i]); lp.push(log2p[i]); se.push(Math.sqrt(vars[i]) * (i >= mcLevels ? SE_INFLATION : 1));
+    lvAll.push(levels[i]); lp.push(log2p[i]); se.push(Math.sqrt(vars[i]) * (i >= mcLevels ? SE_INFLATION : 1));
   }
-  const bits = strictBits(lp, se).map(round9);
+  const { levels: lv, bits } = thin(lvAll, strictBits(lp, se).map(round9));
   for (let i = 1; i < bits.length; i++) if (!(bits[i] > bits[i - 1])) throw new Error("internal: bits not strictly increasing");
   const top = bits.length - 1, back = Math.max(0, top - SLOPE_LEVELS);
   const fit = top > back ? (bits[top] - bits[back]) / ordinalDistance(lv[back], lv[top]) : 0;
@@ -228,7 +254,7 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
     key, family: familyId, canonicalParams: params, instance: inst.key, shape: f.shape(ctx),
     levels: frozenLevels, slope,
     ...(f.role === "penalty" ? { penaltyMeanBits: 0 } : {}),
-    estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version, seed, budget: exactMode ? "exact" : budget },
+    estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version, seed, budget: budgetLabel },
     meta: { mcLevels, splitLevels, stoppedEarly: exactMode ? false : stoppedEarly, topReached, maxBits: bits[top] },
   };
   const out = f.role === "penalty" ? { ...table, penaltyMeanBits: round9(penaltyMeanBits(table)) } : table;
@@ -257,7 +283,7 @@ export function tableJson(t: CalibrationTable): string {
     ...(t.penaltyMeanBits !== undefined ? { penaltyMeanBits: t.penaltyMeanBits } : {}),
     estimator: {
       id: t.estimator.id, version: t.estimator.version, seed: t.estimator.seed,
-      budget: b === "exact" ? "exact" : {
+      budget: typeof b === "string" ? b : {
         nMc: b.nMc, minMcCount: b.minMcCount, particles: b.particles, p0: b.p0, sweeps: b.sweeps,
         targetBits: b.targetBits, maxStages: b.maxStages, maxStuck: b.maxStuck,
       },

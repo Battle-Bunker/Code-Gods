@@ -5,7 +5,7 @@
 import {
   COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs,
   parseGridForDisplay, type GridTypeArgs,
-} from "@workspace/game-core";
+} from "@workspace/game-types";
 import type { GridSettings, ObjectValue } from "./registry.ts";
 
 export interface GridCellModel {

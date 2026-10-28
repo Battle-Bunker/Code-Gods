@@ -4,6 +4,8 @@ export type InteractionJob = {
   roomId: string; gameId: string; objectId: string; rate: number;
   execute: () => Promise<unknown>;
   commit: (value: unknown, stillCurrent: () => boolean) => Promise<void>;
+  /** Called exactly when the job ends, however it ends (discarded, failed or committed). */
+  release?: () => void;
 };
 
 /** Single-process, bounded, fair admission. There is deliberately no work queue or rate debt. */
@@ -55,13 +57,15 @@ export class InteractionScheduler {
       try {
         job = this.capture(roomId, (gameId, objectId) => !this.reserved.has(`${gameId}:${objectId}`));
       } catch (error) { this.onError(error); continue; }
-      if (!job || !(job.rate > 0) || !Number.isFinite(job.rate)) continue;
+      if (!job) continue;
+      if (!(job.rate > 0) || !Number.isFinite(job.rate)) { job.release?.(); continue; }
       if (deadline?.gameId === job.gameId && now < deadline.at) {
+        job.release?.();
         this.eligibleDeadline = Math.min(this.eligibleDeadline, deadline.at);
         continue;
       }
       const key = `${job.gameId}:${job.objectId}`;
-      if (this.reserved.has(key)) continue;
+      if (this.reserved.has(key)) { job.release?.(); continue; }
       this.reserved.add(key);
       this.cursor = roomId;
       // Set from actual dispatch, never from an old deadline (no catch-up burst).
@@ -73,6 +77,7 @@ export class InteractionScheduler {
         .then(value => current() ? job!.commit(value, current) : undefined)
         .catch(error => this.onError(error))
         .finally(() => {
+          job!.release?.();
           this.reserved.delete(key);
           this.flights.delete(flight);
           if (!this.stopped) this.wake();

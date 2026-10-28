@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
-import { DEFAULT_SETTINGS, uniquePrefixes, resolveIdentifier, encodeUuid } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, normalizeLegacySettings, uniquePrefixes, resolveIdentifier, encodeUuid, validateSettings, type GameSettings } from "@workspace/game-core";
 import type { Room, Actor, WorldEvent, Game } from "./types";
 import { gameRecord, type GameRecord } from "./projection";
 import { assertSessionActive } from "../lib/identity";
@@ -60,8 +60,12 @@ async function flushInteractions() {
   flushFailure = undefined;
 }
 
-/** Work must only transform objects and append events; no receipts, energy or commands. */
-export function mutateInteraction(id: string, objectId: string, work: (room: Room) => boolean): Promise<void> {
+/**
+ * Work must only transform objects, settle the acting agent's account and append ONE event; no
+ * receipts, god energy or commands. The target object and agent are copied; work replaces, never
+ * mutates, entries of `agents`.
+ */
+export function mutateInteraction(id: string, objectId: string, work: (room: Room) => boolean, agentId?: string): Promise<void> {
   return serialized(id, async () => {
     if (!interactionCapacity(id)) return;
     const original = resolveRoom(id);
@@ -70,15 +74,16 @@ export function mutateInteraction(id: string, objectId: string, work: (room: Roo
     if (targetIndex < 0) return;
     const objects = original.game.objects.slice();
     objects[targetIndex] = { ...objects[targetIndex] };
-    // Historical events, agents and descriptors are immutable here: avoid cloning the entire world.
+    // Historical events and descriptors are immutable here: avoid cloning the entire world.
     const draft: Room = { ...original, game: { ...original.game,
-      objects,
+      objects, agents: original.game.agents.slice(),
       events: original.game.events.slice(),
     } };
     if (!work(draft)) return;
     const added = draft.game!.events.at(-1)!;
-    const index = draft.game!.objects.findIndex(object => object.id === added.object.id);
-    if (index < 0 || added.id === original.game.events.at(-1)?.id) throw new Error("Invalid interaction mutation");
+    if (!added || added.id === original.game.events.at(-1)?.id || added.type === "object.spawned" ||
+        (added.type === "object.transformed" && !draft.game!.objects.some(object => object.id === added.object.id)) ||
+        (agentId !== undefined && added.agent?.id !== agentId)) throw new Error("Invalid interaction mutation");
     draft.seq++;
     const buffer: InteractionBuffer = interactionBuffers.get(id) ?? { latest: draft, events: [] };
     buffer.latest = draft;
@@ -93,12 +98,17 @@ export async function refreshStore() { /* Single-instance cache is authoritative
 
 export type InteractionBatch = { room_id: string; game_id: string; end_seq: number | string; events: WorldEvent[] };
 
-/** Reconstruct committed state without mutating a stored checkpoint. Fail closed on gaps/corruption. */
+/**
+ * Reconstruct committed state without mutating a stored checkpoint. Fail closed on gaps/corruption.
+ * Each batch event is one act: a transformation (new object version) and/or the acting agent's
+ * resulting account (absolute values), so replay restores agent balances, acts and spending too.
+ */
 export function rehydrateInteractions(checkpoint: Room, batches: InteractionBatch[]): Room {
   const room = structuredClone(checkpoint);
   const game = room.game;
   if (!game) return room;
   game.events ??= [];
+  game.agents ??= [];
   const byId = new Map(game.objects.map((object, index) => [object.id, index]));
   for (const batch of [...batches].sort((a, b) => Number(a.end_seq) - Number(b.end_seq))) {
     if (batch.room_id !== room.id || batch.game_id !== game.id) continue;
@@ -109,11 +119,20 @@ export function rehydrateInteractions(checkpoint: Room, batches: InteractionBatc
     const start = end - batch.events.length;
     if (start > room.seq) throw new Error("Durable interaction sequence gap");
     for (const event of batch.events.slice(room.seq - start)) {
-      const index = byId.get(event.object.id);
-      if (event.type !== "object.transformed" || event.gameId !== game.id || index === undefined ||
-          event.object.version !== game.objects[index].version + 1 || event.before !== game.objects[index].value)
-        throw new Error("Invalid durable interaction object transition");
-      game.objects[index] = structuredClone(event.object);
+      if (event.gameId !== game.id || (event.type !== "object.transformed" && event.type !== "agent.failed"))
+        throw new Error("Invalid durable interaction event");
+      if (event.type === "object.transformed") {
+        const index = byId.get(event.object.id);
+        if (index === undefined || event.object.version !== game.objects[index].version + 1 || event.before !== game.objects[index].value)
+          throw new Error("Invalid durable interaction object transition");
+        game.objects[index] = structuredClone(event.object);
+      }
+      if (event.agent) {
+        const agent = game.agents.findIndex(a => a.id === event.agent!.id);
+        if (agent < 0) throw new Error("Invalid durable interaction agent");
+        const { account, acts, spent } = structuredClone(event.agent);
+        game.agents[agent] = { ...game.agents[agent], account, acts, spent };
+      }
       game.events.push(structuredClone(event));
       room.seq++;
     }
@@ -168,9 +187,11 @@ export async function persist(room: Room) {
       const ended = room.game.phase === "ended";
       await client.query(`INSERT INTO cg_games(id,room_id,prefix_length,state,started_at,ended_at,summary)
         VALUES($1,$2,$3,$4,to_timestamp($5::double precision/1000),to_timestamp($6::double precision/1000),$7)
-        ON CONFLICT(id) DO UPDATE SET state=$4,prefix_length=$3,started_at=EXCLUDED.started_at,ended_at=EXCLUDED.ended_at,summary=EXCLUDED.summary`,
+        ON CONFLICT(id) DO UPDATE SET state=$4,prefix_length=$3,started_at=EXCLUDED.started_at,ended_at=EXCLUDED.ended_at,
+          summary=CASE WHEN $8::boolean THEN COALESCE(cg_games.summary,EXCLUDED.summary) ELSE EXCLUDED.summary END`,
+      // A legacy game's stored summary (old scoring) is kept exactly as it was written.
       [room.game.id, room.id, room.game.shortCode.length, JSON.stringify(room.game), room.game.createdAt,
-        room.game.endedAt ?? null, ended ? summarize(room.id, room.game) : null]);
+        room.game.endedAt ?? null, ended ? summarize(room.id, room.game) : null, isLegacyGame(room.game)]);
     }
     // Resolve the game alias first, then write the room exactly once.
     await client.query(`INSERT INTO cg_rooms(id,owner_id,prefix_length,state) VALUES($1,$2,$3,$4)
@@ -235,7 +256,7 @@ export async function roomHistory(roomId: string, limit = 100): Promise<GameReco
  * Resolve a game code to its room's live game, or else to its stored final state.
  * The fast path avoids a database read for the 1 s poll of an active game page.
  */
-export async function findGame(code: string): Promise<{ game: Game; roomId: string; live: boolean }> {
+export async function findGame(code: string): Promise<{ game: Game; roomId: string; live: boolean; summary?: GameRecord | null }> {
   const normalized = code.trim().toUpperCase();
   for (const room of rooms.values()) {
     const game = room.game;
@@ -248,24 +269,43 @@ export async function findGame(code: string): Promise<{ game: Game; roomId: stri
   const roomId = all.rows.find(row => row.id === id)!.room_id as string;
   const live = rooms.get(roomId)?.game;
   if (live?.id === id) return { game: live, roomId, live: true };
-  const row = await pool.query("SELECT state,prefix_length FROM cg_games WHERE id=$1", [id]);
+  const row = await pool.query("SELECT state,prefix_length,summary FROM cg_games WHERE id=$1", [id]);
   if (!row.rows.length) throw Object.assign(new Error("Game not found"), { status: 404 });
   const game = row.rows[0].state as Game;
   normalizeGame(game);
   game.shortCode = encodeUuid(id).slice(0, row.rows[0].prefix_length);
-  return { game, roomId, live: false };
+  return { game, roomId, live: false, summary: (row.rows[0].summary ?? null) as GameRecord | null };
 }
 
 /** Hydrate fields that older stored games lack. Ended games keep an unknown end time as null. */
 function normalizeGame(game: Game) {
-  game.settings = { ...DEFAULT_SETTINGS, ...game.settings };
+  game.settings = normalizedSettings(game.settings);
   game.events ??= [];
   game.agents ??= [];
+  legacyObjects(game);
+  if (game.phase === "ended" && game.endedAt === undefined) game.endedAt = null;
+}
+
+/** Games created before information scoring ([0, 1] utilities, free-form agents, objects with `utilities`). */
+export const isLegacyGame = (game: Game) => game.scoring !== "information-v1";
+
+/** COMPATIBILITY SHIM (plan §6.1): stored settings take the current shape; unusable lobby settings reset. */
+function normalizedSettings(raw: unknown, requireValid = false): GameSettings {
+  let settings: GameSettings;
+  try { settings = normalizeLegacySettings(raw); }
+  catch { return structuredClone(DEFAULT_SETTINGS) as GameSettings; }
+  delete (settings as { valueGeneratorId?: string }).valueGeneratorId;
+  if (requireValid) {
+    try { validateSettings(settings); }
+    catch { return structuredClone(DEFAULT_SETTINGS) as GameSettings; }
+  }
+  return settings;
+}
+function legacyObjects(game: Game) {
   type Legacy = { values?: Record<string, number>; utilities?: Record<string, number> };
-  for (const object of [...game.objects, ...game.events.map(e => e.object)] as Legacy[]) {
+  for (const object of [...game.objects, ...game.events.flatMap(e => "object" in e ? [e.object] : [])] as Legacy[]) {
     if (object.values) { object.utilities ??= object.values; delete object.values; }
   }
-  if (game.phase === "ended" && game.endedAt === undefined) game.endedAt = null;
 }
 
 /** Games that ended before results were recorded get their public summary once. */
@@ -321,9 +361,9 @@ export async function initializeStore() {
     const batches = await pool.query("SELECT room_id,game_id,end_seq,events FROM cg_interaction_batches WHERE room_id=$1 AND end_seq > $2 ORDER BY end_seq",
       [checkpoint.id, checkpoint.seq]);
     const room = rehydrateInteractions(checkpoint, batches.rows);
-    // JSON settings predate per-interaction budgets; no database migration needed.
-    room.settings = { ...DEFAULT_SETTINGS, ...room.settings };
-    if (room.game) room.game.settings = { ...DEFAULT_SETTINGS, ...room.game.settings };
+    // JSON settings predate typeArgs and the energy/scoring knobs; no database migration needed.
+    room.settings = normalizedSettings(room.settings, true);
+    if (room.game) room.game.settings = normalizedSettings(room.game.settings);
     // Legacy rooms did not record creation time; do not mislabel last-update time as creation.
     room.createdAt ??= null;
     room.aiReservedUsd ??= 0;
@@ -331,7 +371,7 @@ export async function initializeStore() {
     if (room.game) room.game.events ??= [];
     // Before migration: a game it ends now gets a real end time, not "unknown".
     if (room.game?.phase === "ended" && room.game.endedAt === undefined) room.game.endedAt = null;
-    migrateLegacyUtilities(room);
+    if (migrateLegacyUtilities(room)) await persist(room);
     if (room.game && room.game.phase !== "ended") {
       room.game.phase = "recovery";
       room.game.recoveryReason = "Server restarted. The game resumes when a player returns.";
@@ -344,22 +384,28 @@ export async function initializeStore() {
   await backfillHistory();
 }
 
-/** Rooms saved before value functions became utility functions (descriptors were incompatible). */
-function migrateLegacyUtilities(room: Room) {
-  type Legacy = { values?: Record<string, number>; utilities?: Record<string, number> };
-  const settings = (s: object) => { delete (s as { valueGeneratorId?: string }).valueGeneratorId; };
-  settings(room.settings);
+/**
+ * COMPATIBILITY SHIM (plan §6.1): a game still running from before information scoring (its objects
+ * carry [0, 1] `utilities`, its agents are free-form T → T functions) cannot continue under the
+ * current rules: it is closed with endReason "retired". Ended games are left as they are, and their
+ * stored summaries are never rewritten (persist keeps a legacy game's summary).
+ */
+function migrateLegacyUtilities(room: Room): boolean {
   const game = room.game;
-  if (!game) return;
-  settings(game.settings);
-  for (const object of [...game.objects, ...game.events.map(e => e.object)] as Legacy[]) {
-    if (object.values) { object.utilities ??= object.values; delete object.values; }
-  }
-  if (game.phase !== "ended" && game.deities.some(d => !d.utility)) {
+  if (!game) return false;
+  game.agents ??= [];
+  legacyObjects(game);
+  if (game.phase !== "ended" && (isLegacyGame(game) || game.deities.some(d => !d.utility))) {
     game.phase = "ended";
     game.endReason = "retired";
-    game.recoveryReason = "This game used retired value functions and was closed by a server upgrade.";
+    game.endedAt = Date.now();
+    game.executionEpoch = (game.executionEpoch ?? 0) + 1;
+    delete game.autoResume;
+    game.recoveryReason = "This game used retired scoring rules and was closed by a server upgrade.";
+    room.seq++;
+    return true;
   }
+  return false;
 }
 
 /** Refresh existing room labels after a verified login, preserving stable subject IDs. */

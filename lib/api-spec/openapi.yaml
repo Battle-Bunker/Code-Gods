@@ -42,7 +42,7 @@ paths:
                   agents:
                     type: array
                     items: { $ref: "#/components/schemas/PublicAiAgent" }
-        "401": { description: Authentication required }
+        "401": { description: "Authentication required" }
   /admin/ai-agents:
     get:
       operationId: listAdminAiAgents
@@ -61,8 +61,8 @@ paths:
                   models:
                     type: array
                     items: { $ref: "#/components/schemas/AiAgentModel" }
-        "401": { description: Authentication required }
-        "403": { description: Verified allowlisted browser identity required }
+        "401": { description: "Authentication required" }
+        "403": { description: "Verified allowlisted browser identity required" }
     post:
       operationId: createAdminAiAgent
       requestBody:
@@ -76,9 +76,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AiAgent" }
-        "400": { description: Invalid input }
-        "401": { description: Authentication required }
-        "403": { description: Verified allowlisted browser identity required }
+        "400": { description: "Invalid input" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Verified allowlisted browser identity required" }
   /admin/ai-agents/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }
@@ -95,22 +95,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AiAgent" }
-        "400": { description: Invalid input }
-        "401": { description: Authentication required }
-        "403": { description: Verified allowlisted browser identity required }
-        "404": { description: Agent not found }
-        "409": { description: Revision conflict }
+        "400": { description: "Invalid input" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Verified allowlisted browser identity required" }
+        "404": { description: "Agent not found" }
+        "409": { description: "Revision conflict" }
     delete:
       operationId: deleteAdminAiAgent
       parameters:
         - { name: revision, in: query, required: true, schema: { type: integer, minimum: 1 } }
       responses:
-        "204": { description: Deleted agent }
-        "400": { description: Invalid revision }
-        "401": { description: Authentication required }
-        "403": { description: Verified allowlisted browser identity required }
-        "404": { description: Agent not found }
-        "409": { description: Revision conflict }
+        "204": { description: "Deleted agent" }
+        "400": { description: "Invalid revision" }
+        "401": { description: "Authentication required" }
+        "403": { description: "Verified allowlisted browser identity required" }
+        "404": { description: "Agent not found" }
+        "409": { description: "Revision conflict" }
   /rooms:
     get:
       operationId: listRooms
@@ -137,7 +137,7 @@ paths:
               schema: { $ref: "#/components/schemas/RoomState" }
   /games/{code}:
     parameters:
-      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or legacy UUID }
+      - { name: code, in: path, required: true, schema: { type: string }, description: "Game short code or legacy UUID" }
     get:
       operationId: getGameLink
       responses:
@@ -146,9 +146,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GameLink" }
-        "401": { description: Authentication required }
-        "403": { description: Player token belongs to another room }
-        "404": { description: Game not found or identifier is ambiguous }
+        "401": { description: "Authentication required" }
+        "403": { description: "Player token belongs to another room" }
+        "404": { description: "Game not found or identifier is ambiguous" }
   /rooms/{roomId}:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -173,11 +173,11 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/GameRecord" }
-        "401": { description: Authentication required }
-        "403": { description: Player token belongs to another room }
+        "401": { description: "Authentication required" }
+        "403": { description: "Player token belongs to another room" }
   /games/{code}/state:
     parameters:
-      - { name: code, in: path, required: true, schema: { type: string }, description: Game short code or UUID }
+      - { name: code, in: path, required: true, schema: { type: string }, description: "Game short code or UUID" }
     get:
       operationId: getGameState
       responses:
@@ -186,9 +186,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/GameView" }
-        "401": { description: Authentication required }
-        "403": { description: Player token belongs to another room }
-        "404": { description: Game not found or identifier is ambiguous }
+        "401": { description: "Authentication required" }
+        "403": { description: "Player token belongs to another room" }
+        "404": { description: "Game not found or identifier is ambiguous" }
   /rooms/{roomId}/actions:
     parameters:
       - { name: roomId, in: path, required: true, schema: { type: string } }
@@ -222,9 +222,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceRequestResult" }
         "400": { description: "Invalid room, label, permission or challenge" }
-        "404": { description: Room not found or alias ambiguous }
-        "429": { description: Too many device requests }
-        "503": { description: Authority idle; a human must wake it }
+        "404": { description: "Room not found or alias ambiguous" }
+        "429": { description: "Too many device requests" }
+        "503": { description: "Authority idle; a human must wake it" }
   /device/details:
     get:
       operationId: getDeviceDetails
@@ -238,9 +238,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceDetails" }
-        "401": { description: Browser login required }
-        "403": { description: Not a room member or request belongs to another user }
-        "404": { description: Unknown code }
+        "401": { description: "Browser login required" }
+        "403": { description: "Not a room member or request belongs to another user" }
+        "404": { description: "Unknown code" }
   /device/approve:
     post:
       operationId: approveDevice
@@ -258,10 +258,10 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
         "400": { description: "Invalid, decided or expired code" }
-        "401": { description: Browser login required }
-        "403": { description: Browser identity and room membership required }
-        "409": { description: Request already decided concurrently }
-        "503": { description: Authority idle }
+        "401": { description: "Browser login required" }
+        "403": { description: "Browser identity and room membership required" }
+        "409": { description: "Request already decided concurrently" }
+        "503": { description: "Authority idle" }
   /device/deny:
     post:
       operationId: denyDevice
@@ -279,9 +279,9 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
         "400": { description: "Invalid, decided or expired code" }
-        "401": { description: Browser login required }
-        "403": { description: Browser identity and room membership required }
-        "409": { description: Request already decided concurrently }
+        "401": { description: "Browser login required" }
+        "403": { description: "Browser identity and room membership required" }
+        "409": { description: "Request already decided concurrently" }
   /device/poll:
     post:
       operationId: pollDevice
@@ -310,7 +310,7 @@ paths:
                 oneOf:
                   - { $ref: "#/components/schemas/DeviceEndedResult" }
                   - { $ref: "#/components/schemas/ErrorResult" }
-        "429": { description: Too many device requests }
+        "429": { description: "Too many device requests" }
   /device/cancel:
     post:
       operationId: cancelDevice
@@ -326,8 +326,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
-        "400": { description: Invalid proof or already cancelled request }
-        "429": { description: Too many device requests }
+        "400": { description: "Invalid proof or already cancelled request" }
+        "429": { description: "Too many device requests" }
   /device/grants:
     get:
       operationId: listDeviceGrants
@@ -339,8 +339,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceGrantList" }
-        "401": { description: Browser login required }
-        "403": { description: Browser identity required }
+        "401": { description: "Browser login required" }
+        "403": { description: "Browser identity required" }
   /device/grants/{delegateId}/revoke:
     parameters:
       - { name: delegateId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -354,9 +354,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
-        "401": { description: Browser login required }
-        "403": { description: Browser identity required }
-        "404": { description: Grant absent or owned by another user }
+        "401": { description: "Browser login required" }
+        "403": { description: "Browser identity required" }
+        "404": { description: "Grant absent or owned by another user" }
   /device/revoke:
     post:
       operationId: revokeDevice
@@ -368,8 +368,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
-        "401": { description: Valid player bearer required }
-        "403": { description: Browser identity cannot be revoked through this endpoint }
+        "401": { description: "Valid player bearer required" }
+        "403": { description: "Browser identity cannot be revoked through this endpoint" }
   /manifest:
     get:
       operationId: getManifest
@@ -392,6 +392,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /player/v1/rooms/{roomId}/observation:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getPlayerObservation
+      description: >-
+        Player protocol v3 observation (lib/player-client/src/protocol.ts is the normative schema): your own
+        scores and peer aggregates, your agents, the instance and your kid card. Browser session or room-scoped bearer.
+      responses:
+        "200":
+          description: Personal observation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlayerObservation" }
+        "403": { description: "Not a member of this room, or a credential for another room" }
+  /player/v1/rooms/{roomId}/commands:
+    parameters:
+      - { name: roomId, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: sendPlayerCommand
+      description: Idempotent per (god, commandId). Validation is free; summon pays the source's description bits; destroy is free and owner-only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlayerEnvelope" }
+      responses:
+        "200":
+          description: Command receipt (accepted or rejected)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlayerCommandResult" }
 components:
   securitySchemes:
     browserSession:
@@ -476,9 +508,9 @@ components:
       type: object
       required: [roomId, challenge]
       properties:
-        roomId: { type: string, description: Canonical room UUID or authority-resolved room alias }
-        challenge: { type: string, pattern: "^[A-Za-z0-9_-]{43}$", description: Base64url S256 digest of the private verifier }
-        clientLabel: { type: string, minLength: 1, maxLength: 120, default: "Room assistant", description: Self-reported printable label; not verified workspace or model identity }
+        roomId: { type: string, description: "Canonical room UUID or authority-resolved room alias" }
+        challenge: { type: string, pattern: "^[A-Za-z0-9_-]{43}$", description: "Base64url S256 digest of the private verifier" }
+        clientLabel: { type: string, minLength: 1, maxLength: 120, default: "Room assistant", description: "Self-reported printable label; not verified workspace or model identity" }
         permission:
           allOf: [{ $ref: "#/components/schemas/DevicePermission" }]
           default: act
@@ -487,8 +519,8 @@ components:
       required: [deviceId, delegateId, deviceSecret, roomId, userCode, verificationPath, expiresIn, interval, permission]
       properties:
         deviceId: { type: string, format: uuid }
-        delegateId: { type: string, format: uuid, description: Unique generated delegated request/session identifier; equals deviceId }
-        deviceSecret: { type: string, description: Private proof material; never display in chat or logs }
+        delegateId: { type: string, format: uuid, description: "Unique generated delegated request/session identifier; equals deviceId" }
+        deviceSecret: { type: string, description: "Private proof material; never display in chat or logs" }
         roomId: { type: string, format: uuid }
         userCode: { type: string }
         verificationPath: { type: string }
@@ -501,12 +533,12 @@ components:
       properties:
         deviceId: { type: string, minLength: 1, maxLength: 256 }
         deviceSecret: { type: string, minLength: 1, maxLength: 256 }
-        verifier: { type: string, minLength: 1, maxLength: 256, description: Private verifier whose S256 digest matches the request challenge }
+        verifier: { type: string, minLength: 1, maxLength: 256, description: "Private verifier whose S256 digest matches the request challenge" }
     DeviceCredential:
       type: object
       required: [token, expiresIn, roomId, godId, delegateId, permission]
       properties:
-        token: { type: string, description: Private opaque bearer; do not display or persist to assistant output }
+        token: { type: string, description: "Private opaque bearer; do not display or persist to assistant output" }
         expiresIn: { type: integer, enum: [900] }
         roomId: { type: string, format: uuid }
         godId: { type: string }
@@ -534,10 +566,10 @@ components:
       properties:
         roomId: { type: string, format: uuid }
         roomCode: { type: string }
-        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        clientLabel: { type: string, description: "Self-reported, not verified requester identity" }
         permission: { $ref: "#/components/schemas/DevicePermission" }
-        canApprove: { type: boolean, description: Whether the signed-in human may approve this request. Owner grants require the current room owner. }
-        expiresAt: { type: string, format: date-time, description: Approval-request deadline, not a redeemed grant's lifetime }
+        canApprove: { type: boolean, description: "Whether the signed-in human may approve this request. Owner grants require the current room owner." }
+        expiresAt: { type: string, format: date-time, description: "Approval-request deadline, not a redeemed grant's lifetime" }
         status: { type: string, enum: [pending, approved, denied, redeemed, expired] }
     DeviceGrant:
       type: object
@@ -545,9 +577,9 @@ components:
       properties:
         delegateId: { type: string, format: uuid }
         roomId: { type: string, format: uuid }
-        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        clientLabel: { type: string, description: "Self-reported, not verified requester identity" }
         permission: { $ref: "#/components/schemas/DevicePermission" }
-        expiresAt: { type: string, format: date-time, description: Persisted player-session expiry }
+        expiresAt: { type: string, format: date-time, description: "Persisted player-session expiry" }
     DeviceGrantList:
       type: object
       required: [grants]
@@ -582,10 +614,10 @@ components:
           items: { $ref: "#/components/schemas/AuthoredOption" }
     Manifest:
       type: object
-      required: [protocolVersion, defaults, runtimes, minimumPlayers, options, aiFunding]
+      required: [protocolVersion, playerProtocol, defaults, runtimes, minimumPlayers, options, aiFunding, objectTypes]
       properties:
-        grid: { $ref: "#/components/schemas/GridManifest" }
         protocolVersion: { type: integer }
+        playerProtocol: { type: string, description: "Player protocol version accepted at /player/v1 (code-gods.player.v3)." }
         minimumPlayers: { type: integer }
         defaults: { $ref: "#/components/schemas/Settings" }
         options: { $ref: "#/components/schemas/SettingsOptions" }
@@ -593,52 +625,118 @@ components:
         runtimes:
           type: array
           items: { type: string }
-    GridBadge:
+        objectTypes:
+          description: Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.
+          type: array
+          items: { $ref: "#/components/schemas/ObjectTypeInfo" }
+    Badge:
       type: object
-      description: A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
+      description: A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.
       required: [id, emoji, label, kid]
       properties:
         id: { type: string }
         emoji: { type: string }
         label: { type: string }
         kid: { type: string }
-    GridTypeOption:
+    TypeArgs:
       type: object
-      description: A GridType that ships calibration tables, so rooms may select it.
-      required: [key, size, symbols, colours, label, badges, familyCount]
-      properties:
-        key: { type: string }
-        size: { type: integer }
-        symbols: { type: string }
-        colours: { type: string }
-        label: { type: string }
-        badges: { type: array, items: { $ref: "#/components/schemas/GridBadge" } }
-        familyCount: { type: integer }
-    GridComponentOption:
+      description: Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.
+      additionalProperties:
+        oneOf:
+          - { type: number }
+          - { type: string }
+    ComponentOption:
       type: object
-      required: [id, label, emoji, kid, glyphs, names]
+      required: [id, label, emoji, kid]
       properties:
         id: { type: string }
         label: { type: string }
         emoji: { type: string }
         kid: { type: string }
-        glyphs:
-          description: Display glyph per index (symbols) or colour letter per index (colours).
-          type: array
-          items: { type: string }
-        names: { type: array, items: { type: string } }
-        css:
-          description: Colours only. Display colour per index.
-          type: array
-          items: { type: string }
-    GridManifest:
+    ParamSchema:
       type: object
-      required: [types, symbols, colours, maxCallsPerAct]
+      description: One type parameter. `component` picks one of `options`; `int` is a number in [min, max], with the calibrated `presets`.
+      required: [kind, id, label]
       properties:
-        types: { type: array, items: { $ref: "#/components/schemas/GridTypeOption" } }
-        symbols: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
-        colours: { type: array, items: { $ref: "#/components/schemas/GridComponentOption" } }
-        maxCallsPerAct: { type: integer }
+        kind: { type: string, enum: [component, int] }
+        id: { type: string }
+        label: { type: string }
+        slot: { type: string }
+        options: { type: array, items: { $ref: "#/components/schemas/ComponentOption" } }
+        min: { type: integer }
+        max: { type: integer }
+        presets: { type: array, items: { type: integer } }
+    CapabilityClass:
+      type: object
+      required: [id, slot, superclasses, badge]
+      properties:
+        id: { type: string }
+        slot: { type: string }
+        superclasses: { type: array, items: { type: string } }
+        badge: { $ref: "#/components/schemas/Badge" }
+    OfferedInstantiation:
+      type: object
+      description: An instantiation the server offers (every utility function dealable in it has a calibration table).
+      required: [key, args, label, badges, classes]
+      properties:
+        key: { type: string, description: "Canonical key, e.g. Grid(5,base10,rgby)." }
+        args: { $ref: "#/components/schemas/TypeArgs" }
+        label: { type: string }
+        badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
+        classes: { type: array, items: { type: string } }
+    ObjectTypeInfo:
+      type: object
+      required: [id, label, emoji, kid, params, defaults, classes, offered]
+      properties:
+        id: { type: string, description: "Int, string or Grid." }
+        label: { type: string }
+        emoji: { type: string }
+        kid: { type: string }
+        params: { type: array, items: { $ref: "#/components/schemas/ParamSchema" } }
+        defaults: { $ref: "#/components/schemas/TypeArgs" }
+        classes: { type: array, items: { $ref: "#/components/schemas/CapabilityClass" } }
+        offered: { type: array, items: { $ref: "#/components/schemas/OfferedInstantiation" } }
+    HelperDoc:
+      type: object
+      required: [name, signature, kid, group]
+      properties:
+        name:
+          type: object
+          required: [python, typescript]
+          properties: { python: { type: string }, typescript: { type: string } }
+        signature:
+          type: object
+          required: [python, typescript]
+          properties: { python: { type: string }, typescript: { type: string } }
+        kid: { type: string }
+        class: { type: string }
+        group: { type: string, enum: [read, mutator] }
+    MutatorSummary:
+      type: object
+      required: [id, name, emoji, summary]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        emoji: { type: string }
+        summary: { type: string }
+    InstanceInfo:
+      type: object
+      description: A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.
+      required: [objectType, args, key, label, badges, terms, display, codec, mutators, helpers]
+      properties:
+        objectType: { type: string }
+        args: { $ref: "#/components/schemas/TypeArgs" }
+        key: { type: string }
+        label: { type: string }
+        badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
+        terms: { type: object, additionalProperties: { type: number } }
+        display: { type: object, additionalProperties: true, description: "Type-specific display tables (Grid: symbols and colours)." }
+        codec:
+          type: object
+          required: [format, maxLength]
+          properties: { format: { type: string }, maxLength: { type: integer } }
+        mutators: { type: array, items: { $ref: "#/components/schemas/MutatorSummary" } }
+        helpers: { type: array, items: { $ref: "#/components/schemas/HelperDoc" } }
     AIFunding:
       type: object
       required: [provider, model, billing, inputUsdPerMillion, outputUsdPerMillion, configured, live]
@@ -675,31 +773,14 @@ components:
         aiAgentId: { type: string }
     Settings:
       type: object
-      required: [language, objectType, intMin, intMax, stringMaxLength, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
+      required: [language, objectType, typeArgs, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
       properties:
         language: { type: string, enum: [python, typescript] }
-        objectType: { type: string, enum: [Int, string, Grid] }
-        intMin: { type: integer }
-        intMax: { type: integer }
-        stringMaxLength: { type: integer }
-        gridSize:
-          description: Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
-          type: integer
-          minimum: 3
-          maximum: 7
-        gridSymbols: { type: string, enum: [base10, base12, base16, cards], description: Grid only. Symbols printed on cells. }
-        gridColours: { type: string, enum: [rgb, rgby, rainbow6], description: Grid only. Cell colours. }
-        agentEnergyPerSecond:
-          description: Grid only. Bits each agent earns per second of world time into its own energy account.
-          type: number
-          minimum: 0
-          maximum: 1000
-        agentBatteryActs:
-          description: Grid only. An agent's energy is capped at this many of its expected acts.
-          type: number
-          minimum: 0
-          maximum: 1000
-        grammarId: { type: string }
+        objectType: { type: string, enum: [Int, string, Grid], description: "The object type constructor." }
+        typeArgs:
+          description: Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.
+          allOf: [{ $ref: "#/components/schemas/TypeArgs" }]
+        grammarId: { type: string, enum: [python-agent-v1, typescript-agent-v1] }
         utilitySelectorId: { type: string }
         complexityFunctionId: { type: string }
         spawnFunctionId: { type: string, enum: [uniform] }
@@ -715,8 +796,13 @@ components:
           maximum: 1000
           default: 5
         pauseSeconds: { type: number }
-        startingEnergy: { type: number }
-        energyPerSecond: { type: number }
+        startingEnergy: { type: number, description: "God energy (bits) at the start; pays summon prices." }
+        energyPerSecond: { type: number, description: "God income, bits per real-time second." }
+        agentEnergyPerSecond: { type: number, minimum: 0, maximum: 1000, default: 2, description: "Each agent's income, bits per second of world time." }
+        agentBatteryActs: { type: number, minimum: 1, maximum: 1000, default: 2, description: "An agent's energy is capped at this many expected acts." }
+        maxAgentsPerGod: { type: integer, minimum: 1, maximum: 200, default: 200 }
+        penaltyWeight: { type: number, minimum: 0, default: 1, description: "w in n = s⁺ − w(h − E h): the weight of a defence-goal bit." }
+        defenceRate: { type: number, minimum: 0, maximum: 1, default: 0, description: "Probability that a god is also dealt a defence goal." }
     RoomSummary:
       type: object
       required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode]
@@ -756,7 +842,7 @@ components:
         timestamp: { type: number }
     PublicObject:
       type: object
-      required: [id, value, version, totalUtility]
+      required: [id, value, version, salience]
       properties:
         id: { type: string }
         value:
@@ -764,18 +850,85 @@ components:
             - { type: integer }
             - { type: string }
         version: { type: integer }
-        totalUtility:
+        salience:
           type: number
-          description: Sum of every god's utility for this object.
+          description: Σ over gods of their net bits for this object. Individual scores are never public.
     Standing:
       type: object
-      required: [deityId, name, kind, totalScore, rank]
+      required: [deityId, name, kind, totalPayoff, rank]
       properties:
         deityId: { type: string }
         name: { type: string }
         kind: { type: string }
-        totalScore: { type: number }
+        totalPayoff: { type: number, description: "Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits²." }
+        totalScore: { type: number, description: "Legacy summaries only (no `scoring` marker), from the old [0, 1] scoring." }
         rank: { type: integer }
+    GodScore:
+      type: object
+      description: One god's own score of one object (private to that god).
+      required: [ordinal, rewardBits, netBits]
+      properties:
+        ordinal:
+          description: The utility function's value, a number or a tuple compared lexicographically.
+          oneOf:
+            - { type: number }
+            - { type: array, items: { type: number } }
+        rewardBits: { type: number, description: "✨ surprisal of the ordinal under the spawn prior." }
+        penaltyBits: { type: number, description: "⚠️ defence-goal penalty bits (only with a defence goal)." }
+        netBits: { type: number }
+    PersonalObject:
+      type: object
+      description: An object as one god sees it. peerNetBits and peerCare are aggregates over all other gods.
+      required: [id, value, version, salience, own, peerNetBits, peerCare, payoff]
+      properties:
+        id: { type: string }
+        value:
+          oneOf:
+            - { type: integer }
+            - { type: string }
+        version: { type: integer }
+        salience: { type: number }
+        own: { $ref: "#/components/schemas/GodScore" }
+        peerNetBits: { type: number }
+        peerCare: { type: number, description: "max(0, peerNetBits)." }
+        payoff: { type: number, description: "own.netBits × peerCare." }
+    AgentInfo:
+      type: object
+      description: One of your own agents. It acts only while eligible (energy ≥ expectedActCost); negative energy is a cooldown.
+      required: [id, source, createdAt, summonCost, expectedActCost, energy, eligible, acts, spent]
+      properties:
+        id: { type: string }
+        source: { type: string }
+        createdAt: { type: number }
+        summonCost: { type: number, description: "Description bits paid once from god energy (ast-bytes-v1)." }
+        expectedActCost: { type: number, description: "Mean act cost over 16 reference objects, measured at summon." }
+        energy: { type: number }
+        eligible: { type: boolean }
+        acts: { type: integer }
+        spent: { type: number }
+    UtilityCardPenalty:
+      type: object
+      required: [familyId, emoji, name, summary, comparative, source]
+      properties:
+        familyId: { type: string }
+        emoji: { type: string }
+        name: { type: string }
+        summary: { type: string }
+        comparative: { type: string, description: "The ⚠️ line reads '⚠️ <comparative> than 90% of objects'." }
+        source: { type: string, description: "Defines penalty(x): bigger is worse." }
+    UtilityCard:
+      type: object
+      description: A god's own kid card, with an optional defence goal.
+      required: [familyId, emoji, name, theme, summary, language, source]
+      properties:
+        familyId: { type: string }
+        emoji: { type: string }
+        name: { type: string }
+        theme: { type: string }
+        summary: { type: string }
+        language: { type: string, enum: [python, typescript] }
+        source: { type: string }
+        penalty: { $ref: "#/components/schemas/UtilityCardPenalty" }
     GameLink:
       type: object
       required: [id, shortCode, roomShortCode, status]
@@ -833,6 +986,10 @@ components:
         worldSeconds: { type: number }
         objectCount: { type: integer }
         agentCount: { type: integer }
+        scoring:
+          type: string
+          enum: [information-v1]
+          description: Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore).
     GameView:
       description: A game's own page. Public information only.
       allOf:
@@ -875,13 +1032,18 @@ components:
         recoveryReason: { type: [string, "null"] }
         settings: { $ref: "#/components/schemas/Settings" }
         roster: { type: array, items: { $ref: "#/components/schemas/RosterEntry" } }
+        scoring: { type: [string, "null"], enum: [information-v1, null], description: "Null for legacy games." }
+        objectInstance:
+          oneOf:
+            - { $ref: "#/components/schemas/InstanceInfo" }
+            - { type: "null" }
     RoomState:
       type: object
       description: >-
         A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game.
         Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in
         GET /rooms/{roomId}/games.
-      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, game, activeGame, serverTime, utilityCatalog, aiBudget, aiUsed]
+      required: [id, shortCode, ownerId, ownerName, createdAt, revision, settings, members, chat, game, activeGame, serverTime, objectInstance, utilityCatalog, aiBudget, aiUsed]
       properties:
         id: { type: string }
         shortCode: { type: string }
@@ -908,23 +1070,164 @@ components:
             - { $ref: "#/components/schemas/PublicGame" }
             - { type: "null" }
         serverTime: { type: number }
+        objectInstance:
+          description: The instantiation the next game will play; null if the stored settings are no longer valid.
+          oneOf:
+            - { $ref: "#/components/schemas/InstanceInfo" }
+            - { type: "null" }
         utilityCatalog:
           type: array
-          description: Public list of utility-function families gods may have drawn for this object type.
+          description: Public list of utility-function families gods may draw for these settings, with availability.
           items: { $ref: "#/components/schemas/UtilityFamily" }
         aiBudget: { type: integer }
         aiUsed: { type: integer }
-        aiInputTokens: { type: integer, description: Provider-reported input tokens recorded for this game. }
-        aiOutputTokens: { type: integer, description: Provider-reported output tokens recorded for this game. }
+        aiInputTokens: { type: integer, description: "Provider-reported input tokens recorded for this game." }
+        aiOutputTokens: { type: integer, description: "Provider-reported output tokens recorded for this game." }
     UtilityFamily:
       type: object
-      required: [id, name, theme]
+      description: A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.
+      required: [id, name, emoji, theme, role, tags, available, badges]
       properties:
         id: { type: string }
         name: { type: string }
+        emoji: { type: string }
         theme: { type: string }
-        emoji: { type: string, description: Grid families only. }
-        defence: { type: boolean, description: Grid only. True when gods of this family also carry a defence goal (a penalty). }
+        role: { type: string, enum: [reward, penalty], description: "penalty families are dealt only as defence goals." }
+        tags: { type: array, items: { type: string } }
+        available: { type: boolean }
+        badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
+        locked:
+          type: object
+          required: [reason]
+          properties:
+            reason: { type: string, description: "Kid wording, e.g. needs ♠ Suits: pick Playing cards." }
+            unlock: { $ref: "#/components/schemas/TypeArgs" }
+    PlayerCommand:
+      type: object
+      description: "One of validate/summon {language, source}, ready {ready}, pause, chat {text}, destroy {agentId}."
+      required: [type]
+      properties:
+        type: { type: string, enum: [validate, summon, ready, pause, chat, destroy] }
+        language: { type: string, enum: [python, typescript] }
+        source: { type: string, maxLength: 16384, description: "Defines agent(obj) returning mutator calls, e.g. def agent(x): return [add(1)]." }
+        ready: { type: boolean }
+        text: { type: string, maxLength: 2000 }
+        agentId: { type: string, description: "destroy only. One of your own agents." }
+    PlayerEnvelope:
+      type: object
+      required: [version, commandId, command]
+      properties:
+        version: { type: string, enum: [code-gods.player.v3] }
+        commandId: { type: string, format: uuid }
+        gameId: { type: string, description: "Required for validate, summon, pause and destroy." }
+        command: { $ref: "#/components/schemas/PlayerCommand" }
+    AgentValidation:
+      type: object
+      required: [valid, cost, expectedActCost, diagnostics]
+      properties:
+        valid: { type: boolean }
+        cost: { type: number, description: "Summon price in bits (ast-bytes-v1)." }
+        expectedActCost: { type: number, description: "Mean act cost over 16 reference objects." }
+        diagnostics: { type: array, items: { type: string } }
+    PlayerCommandResult:
+      type: object
+      required: [commandId, accepted, message]
+      properties:
+        commandId: { type: string }
+        accepted: { type: boolean }
+        message: { type: string }
+        validation: { $ref: "#/components/schemas/AgentValidation" }
+    PlayerObjectView:
+      type: object
+      required: [id, value, own, peerNetBits, peerCare, payoff]
+      properties:
+        id: { type: string }
+        value:
+          oneOf:
+            - { type: integer }
+            - { type: string }
+        own: { $ref: "#/components/schemas/GodScore" }
+        peerNetBits: { type: number }
+        peerCare: { type: number }
+        payoff: { type: number }
+    PlayerAgentView:
+      allOf:
+        - $ref: "#/components/schemas/AgentInfo"
+        - type: object
+          required: [language]
+          properties:
+            language: { type: string, enum: [python, typescript] }
+    PlayerObservation:
+      type: object
+      required: [version, roomId, revision, phase, language, self, objects, agents, transformations, leaderboard, chat]
+      properties:
+        version: { type: string, enum: [code-gods.player.v3] }
+        roomId: { type: string }
+        revision: { type: integer }
+        gameId: { type: string }
+        roomShortCode: { type: string }
+        gameShortCode: { type: string }
+        seated: { type: boolean }
+        planningEndsAt: { type: number }
+        pauseEndsAt: { type: number }
+        phase: { type: string, enum: [lobby, planning, running, paused, ended] }
+        language: { type: string, enum: [python, typescript] }
+        instance: { $ref: "#/components/schemas/InstanceInfo" }
+        economy:
+          type: object
+          required: [energyPerSecond, agentEnergyPerSecond, agentBatteryActs, maxAgentsPerGod, penaltyWeight, worldSeconds]
+          properties:
+            energyPerSecond: { type: number }
+            agentEnergyPerSecond: { type: number }
+            agentBatteryActs: { type: number }
+            maxAgentsPerGod: { type: integer }
+            penaltyWeight: { type: number }
+            worldSeconds: { type: number }
+        self:
+          type: object
+          required: [godId, label, isAI, energy, ready]
+          properties:
+            godId: { type: string }
+            label: { type: string }
+            isAI: { type: boolean }
+            energy: { type: number }
+            ready: { type: boolean }
+            pauseUsed: { type: boolean }
+            utility: { $ref: "#/components/schemas/UtilityCard" }
+        objects: { type: array, items: { $ref: "#/components/schemas/PlayerObjectView" } }
+        agents: { type: array, items: { $ref: "#/components/schemas/PlayerAgentView" } }
+        transformations:
+          type: array
+          items:
+            type: object
+            required: [id, agentId, before, after]
+            properties:
+              id: { type: string }
+              agentId: { type: string }
+              before: { oneOf: [{ type: integer }, { type: string }] }
+              after: { oneOf: [{ type: integer }, { type: string }] }
+              calls: { type: array, items: { type: array, items: {} } }
+              cost: { type: number }
+        leaderboard:
+          type: array
+          items:
+            type: object
+            required: [godId, label, isAI, totalPayoff]
+            properties:
+              godId: { type: string }
+              label: { type: string }
+              isAI: { type: boolean }
+              totalPayoff: { type: number }
+        chat: { type: array, items: { $ref: "#/components/schemas/PlayerChat" } }
+    PlayerChat:
+      type: object
+      required: [id, godId, label, isAI, text]
+      properties:
+        id: { type: string }
+        godId: { type: string }
+        label: { type: string }
+        isAI: { type: boolean }
+        text: { type: string }
     HealthStatus:
       type: object
       properties:

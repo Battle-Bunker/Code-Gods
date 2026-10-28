@@ -6,12 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-/**
- * A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
- */
-export interface GridBadge {
+export interface MutatorSummary {
   id: string;
+  name: string;
   emoji: string;
-  label: string;
-  kid: string;
+  summary: string;
 }

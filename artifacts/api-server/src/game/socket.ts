@@ -2,11 +2,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
 import { lookupSession, assertSessionActive, watchSession, requireAct } from "../lib/identity";
 import { listeners, resolveRoom, member, mutate } from "./store";
-import { publicRoom, personalRoom, gameRecord } from "./projection";
+import { publicRoom, personalRoom, gameRecord, personalObject } from "./projection";
 import { playerCommand } from "./engine";
 import { observation, executePlayerEnvelope } from "./player-api";
 import { VERSION } from "@workspace/player-client";
-import { personalScore } from "@workspace/game-core";
 import { isServerActive, isLocallyIdle, recordHumanActivity, registerActivitySocket, closeIdleSocket } from "./activity";
 
 export function attachSockets(server: Server) {
@@ -74,12 +73,22 @@ export function attachSockets(server: Server) {
           }
           const events = changed.game?.events ?? [];
           const start = lastEvent ? events.findIndex(e => e.id === lastEvent) + 1 : 0;
-          if (changed.game?.deities.some(d => d.id === actor.id)) {
-            for (const event of events.slice(start)) send(event.type, {
-              id: event.id, gameId: event.gameId, agentId: event.agentId, before: event.before,
-              object: { id: event.object.id, value: event.object.value, version: event.object.version,
-                ...personalScore(new Map(Object.entries(event.object.utilities)), actor.id) },
-            });
+          const seatedGame = changed.game?.deities.some(d => d.id === actor.id) ? changed.game : undefined;
+          if (seatedGame) {
+            for (const event of events.slice(start)) {
+              // Failed acts are the owner's private bookkeeping; observations report agent energy.
+              if (event.type === "agent.failed") continue;
+              const own = personalObject(seatedGame, event.object, actor.id);
+              const mine = event.type === "object.transformed" && event.ownerId === actor.id;
+              send(event.type, {
+                id: event.id, gameId: event.gameId,
+                ...(event.type === "object.transformed" ? { agentId: event.agentId, before: event.before } : {}),
+                // Only an agent's owner learns which calls it made and what they cost.
+                ...(mine && event.type === "object.transformed" ? { calls: event.calls, cost: event.cost } : {}),
+                object: { id: event.object.id, value: event.object.value, version: event.object.version,
+                  ...(own ? { own: own.own, peerNetBits: own.peerNetBits, peerCare: own.peerCare, payoff: own.payoff } : {}) },
+              });
+            }
           }
           lastEvent = events.at(-1)?.id;
           send("leaderboard.updated", publicRoom(changed).game?.leaderboard ?? []);

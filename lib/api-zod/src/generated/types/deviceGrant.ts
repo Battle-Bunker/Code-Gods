@@ -10,7 +10,7 @@ import type { DevicePermission } from './devicePermission';
 export interface DeviceGrant {
   delegateId: string;
   roomId: string;
-  /** Self-reported */
+  /** Self-reported, not verified requester identity */
   clientLabel: string;
   permission: DevicePermission;
   /** Persisted player-session expiry */

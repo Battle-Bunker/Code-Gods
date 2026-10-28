@@ -7,6 +7,7 @@
  */
 import type { ActiveGameRef } from './activeGameRef';
 import type { ChatMessage } from './chatMessage';
+import type { InstanceInfo } from './instanceInfo';
 import type { Member } from './member';
 import type { PublicGame } from './publicGame';
 import type { Settings } from './settings';
@@ -34,7 +35,9 @@ export interface RoomState {
   /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
   game: PublicGame | null;
   serverTime: number;
-  /** Public list of utility-function families gods may have drawn for this object type. */
+  /** The instantiation the next game will play; null if the stored settings are no longer valid. */
+  objectInstance: InstanceInfo | null;
+  /** Public list of utility-function families gods may draw for these settings, with availability. */
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;

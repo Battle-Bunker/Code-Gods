@@ -241,12 +241,12 @@ export const DeviceDetailsStatus = {
 export interface DeviceDetails {
   roomId: string;
   roomCode: string;
-  /** Self-reported */
+  /** Self-reported, not verified requester identity */
   clientLabel: string;
   permission: DevicePermission;
   /** Whether the signed-in human may approve this request. Owner grants require the current room owner. */
   canApprove?: boolean;
-  /** Approval-request deadline */
+  /** Approval-request deadline, not a redeemed grant's lifetime */
   expiresAt: string;
   status: DeviceDetailsStatus;
 }
@@ -254,7 +254,7 @@ export interface DeviceDetails {
 export interface DeviceGrant {
   delegateId: string;
   roomId: string;
-  /** Self-reported */
+  /** Self-reported, not verified requester identity */
   clientLabel: string;
   permission: DevicePermission;
   /** Persisted player-session expiry */
@@ -278,48 +278,6 @@ export interface SettingsOptions {
   complexityFunctionId: AuthoredOption[];
 }
 
-/**
- * A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).
- */
-export interface GridBadge {
-  id: string;
-  emoji: string;
-  label: string;
-  kid: string;
-}
-
-/**
- * A GridType that ships calibration tables, so rooms may select it.
- */
-export interface GridTypeOption {
-  key: string;
-  size: number;
-  symbols: string;
-  colours: string;
-  label: string;
-  badges: GridBadge[];
-  familyCount: number;
-}
-
-export interface GridComponentOption {
-  id: string;
-  label: string;
-  emoji: string;
-  kid: string;
-  /** Display glyph per index (symbols) or colour letter per index (colours). */
-  glyphs: string[];
-  names: string[];
-  /** Colours only. Display colour per index. */
-  css?: string[];
-}
-
-export interface GridManifest {
-  types: GridTypeOption[];
-  symbols: GridComponentOption[];
-  colours: GridComponentOption[];
-  maxCallsPerAct: number;
-}
-
 export type SettingsLanguage = typeof SettingsLanguage[keyof typeof SettingsLanguage];
 
 
@@ -328,6 +286,9 @@ export const SettingsLanguage = {
   typescript: 'typescript',
 } as const;
 
+/**
+ * The object type constructor.
+ */
 export type SettingsObjectType = typeof SettingsObjectType[keyof typeof SettingsObjectType];
 
 
@@ -338,28 +299,16 @@ export const SettingsObjectType = {
 } as const;
 
 /**
- * Grid only. Symbols printed on cells.
+ * Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.
  */
-export type SettingsGridSymbols = typeof SettingsGridSymbols[keyof typeof SettingsGridSymbols];
+export interface TypeArgs {[key: string]: number | string}
+
+export type SettingsGrammarId = typeof SettingsGrammarId[keyof typeof SettingsGrammarId];
 
 
-export const SettingsGridSymbols = {
-  base10: 'base10',
-  base12: 'base12',
-  base16: 'base16',
-  cards: 'cards',
-} as const;
-
-/**
- * Grid only. Cell colours.
- */
-export type SettingsGridColours = typeof SettingsGridColours[keyof typeof SettingsGridColours];
-
-
-export const SettingsGridColours = {
-  rgb: 'rgb',
-  rgby: 'rgby',
-  rainbow6: 'rainbow6',
+export const SettingsGrammarId = {
+  'python-agent-v1': 'python-agent-v1',
+  'typescript-agent-v1': 'typescript-agent-v1',
 } as const;
 
 export type SettingsSpawnFunctionId = typeof SettingsSpawnFunctionId[keyof typeof SettingsSpawnFunctionId];
@@ -371,33 +320,11 @@ export const SettingsSpawnFunctionId = {
 
 export interface Settings {
   language: SettingsLanguage;
+  /** The object type constructor. */
   objectType: SettingsObjectType;
-  intMin: number;
-  intMax: number;
-  stringMaxLength: number;
-  /**
-     * Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.
-     * @minimum 3
-     * @maximum 7
-     */
-  gridSize?: number;
-  /** Grid only. Symbols printed on cells. */
-  gridSymbols?: SettingsGridSymbols;
-  /** Grid only. Cell colours. */
-  gridColours?: SettingsGridColours;
-  /**
-     * Grid only. Bits each agent earns per second of world time into its own energy account.
-     * @minimum 0
-     * @maximum 1000
-     */
-  agentEnergyPerSecond?: number;
-  /**
-     * Grid only. An agent's energy is capped at this many of its expected acts.
-     * @minimum 0
-     * @maximum 1000
-     */
-  agentBatteryActs?: number;
-  grammarId: string;
+  /** Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted. */
+  typeArgs: TypeArgs;
+  grammarId: SettingsGrammarId;
   utilitySelectorId: string;
   complexityFunctionId: string;
   spawnFunctionId: SettingsSpawnFunctionId;
@@ -417,8 +344,38 @@ export interface Settings {
      */
   interactionComputeMs: number;
   pauseSeconds: number;
+  /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;
+  /** God income, bits per real-time second. */
   energyPerSecond: number;
+  /**
+     * Each agent's income, bits per second of world time.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentEnergyPerSecond?: number;
+  /**
+     * An agent's energy is capped at this many expected acts.
+     * @minimum 1
+     * @maximum 1000
+     */
+  agentBatteryActs?: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  maxAgentsPerGod?: number;
+  /**
+     * w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.
+     * @minimum 0
+     */
+  penaltyWeight?: number;
+  /**
+     * Probability that a god is also dealt a defence goal.
+     * @minimum 0
+     * @maximum 1
+     */
+  defenceRate?: number;
 }
 
 export type AIFundingProvider = typeof AIFundingProvider[keyof typeof AIFundingProvider];
@@ -445,14 +402,149 @@ export interface AIFunding {
   live: boolean;
 }
 
+export type ParamSchemaKind = typeof ParamSchemaKind[keyof typeof ParamSchemaKind];
+
+
+export const ParamSchemaKind = {
+  component: 'component',
+  int: 'int',
+} as const;
+
+export interface ComponentOption {
+  id: string;
+  label: string;
+  emoji: string;
+  kid: string;
+}
+
+/**
+ * One type parameter. `component` picks one of `options`; `int` is a number in [min, max], with the calibrated `presets`.
+ */
+export interface ParamSchema {
+  kind: ParamSchemaKind;
+  id: string;
+  label: string;
+  slot?: string;
+  options?: ComponentOption[];
+  min?: number;
+  max?: number;
+  presets?: number[];
+}
+
+/**
+ * A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.
+ */
+export interface Badge {
+  id: string;
+  emoji: string;
+  label: string;
+  kid: string;
+}
+
+export interface CapabilityClass {
+  id: string;
+  slot: string;
+  superclasses: string[];
+  badge: Badge;
+}
+
+/**
+ * An instantiation the server offers (every utility function dealable in it has a calibration table).
+ */
+export interface OfferedInstantiation {
+  /** Canonical key, e.g. Grid(5,base10,rgby). */
+  key: string;
+  args: TypeArgs;
+  label: string;
+  badges: Badge[];
+  classes: string[];
+}
+
+export interface ObjectTypeInfo {
+  /** Int, string or Grid. */
+  id: string;
+  label: string;
+  emoji: string;
+  kid: string;
+  params: ParamSchema[];
+  defaults: TypeArgs;
+  classes: CapabilityClass[];
+  offered: OfferedInstantiation[];
+}
+
 export interface Manifest {
-  grid?: GridManifest;
   protocolVersion: number;
+  /** Player protocol version accepted at /player/v1 (code-gods.player.v3). */
+  playerProtocol: string;
   minimumPlayers: number;
   defaults: Settings;
   options: SettingsOptions;
   aiFunding: AIFunding;
   runtimes: string[];
+  /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
+  objectTypes: ObjectTypeInfo[];
+}
+
+export type HelperDocName = {
+  python: string;
+  typescript: string;
+};
+
+export type HelperDocSignature = {
+  python: string;
+  typescript: string;
+};
+
+export type HelperDocGroup = typeof HelperDocGroup[keyof typeof HelperDocGroup];
+
+
+export const HelperDocGroup = {
+  read: 'read',
+  mutator: 'mutator',
+} as const;
+
+export interface HelperDoc {
+  name: HelperDocName;
+  signature: HelperDocSignature;
+  kid: string;
+  class?: string;
+  group: HelperDocGroup;
+}
+
+export interface MutatorSummary {
+  id: string;
+  name: string;
+  emoji: string;
+  summary: string;
+}
+
+export type InstanceInfoTerms = {[key: string]: number};
+
+/**
+ * Type-specific display tables (Grid: symbols and colours).
+ */
+export type InstanceInfoDisplay = { [key: string]: unknown };
+
+export type InstanceInfoCodec = {
+  format: string;
+  maxLength: number;
+};
+
+/**
+ * A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.
+ */
+export interface InstanceInfo {
+  objectType: string;
+  args: TypeArgs;
+  key: string;
+  label: string;
+  badges: Badge[];
+  terms: InstanceInfoTerms;
+  /** Type-specific display tables (Grid: symbols and colours). */
+  display: InstanceInfoDisplay;
+  codec: InstanceInfoCodec;
+  mutators: MutatorSummary[];
+  helpers: HelperDoc[];
 }
 
 export interface RoomInput { [key: string]: unknown }
@@ -537,16 +629,98 @@ export interface PublicObject {
   id: string;
   value: number | string;
   version: number;
-  /** Sum of every god's utility for this object. */
-  totalUtility: number;
+  /** Σ over gods of their net bits for this object. Individual scores are never public. */
+  salience: number;
 }
 
 export interface Standing {
   deityId: string;
   name: string;
   kind: string;
-  totalScore: number;
+  /** Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits². */
+  totalPayoff: number;
+  /** Legacy summaries only (no `scoring` marker), from the old [0, 1] scoring. */
+  totalScore?: number;
   rank: number;
+}
+
+/**
+ * One god's own score of one object (private to that god).
+ */
+export interface GodScore {
+  /** The utility function's value, a number or a tuple compared lexicographically. */
+  ordinal: number | number[];
+  /** ✨ surprisal of the ordinal under the spawn prior. */
+  rewardBits: number;
+  /** ⚠️ defence-goal penalty bits (only with a defence goal). */
+  penaltyBits?: number;
+  netBits: number;
+}
+
+/**
+ * An object as one god sees it. peerNetBits and peerCare are aggregates over all other gods.
+ */
+export interface PersonalObject {
+  id: string;
+  value: number | string;
+  version: number;
+  salience: number;
+  own: GodScore;
+  peerNetBits: number;
+  /** max(0, peerNetBits). */
+  peerCare: number;
+  /** own.netBits × peerCare. */
+  payoff: number;
+}
+
+/**
+ * One of your own agents. It acts only while eligible (energy ≥ expectedActCost); negative energy is a cooldown.
+ */
+export interface AgentInfo {
+  id: string;
+  source: string;
+  createdAt: number;
+  /** Description bits paid once from god energy (ast-bytes-v1). */
+  summonCost: number;
+  /** Mean act cost over 16 reference objects, measured at summon. */
+  expectedActCost: number;
+  energy: number;
+  eligible: boolean;
+  acts: number;
+  spent: number;
+}
+
+export interface UtilityCardPenalty {
+  familyId: string;
+  emoji: string;
+  name: string;
+  summary: string;
+  /** The ⚠️ line reads '⚠️ <comparative> than 90% of objects'. */
+  comparative: string;
+  /** Defines penalty(x): bigger is worse. */
+  source: string;
+}
+
+export type UtilityCardLanguage = typeof UtilityCardLanguage[keyof typeof UtilityCardLanguage];
+
+
+export const UtilityCardLanguage = {
+  python: 'python',
+  typescript: 'typescript',
+} as const;
+
+/**
+ * A god's own kid card, with an optional defence goal.
+ */
+export interface UtilityCard {
+  familyId: string;
+  emoji: string;
+  name: string;
+  theme: string;
+  summary: string;
+  language: UtilityCardLanguage;
+  source: string;
+  penalty?: UtilityCardPenalty;
 }
 
 export type GameLinkStatus = typeof GameLinkStatus[keyof typeof GameLinkStatus];
@@ -610,6 +784,16 @@ export const GameRecordEndReason = {
 } as const;
 
 /**
+ * Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore).
+ */
+export type GameRecordScoring = typeof GameRecordScoring[keyof typeof GameRecordScoring];
+
+
+export const GameRecordScoring = {
+  'information-v1': 'information-v1',
+} as const;
+
+/**
  * Public result of one finished game, kept in its room's history.
  */
 export interface GameRecord {
@@ -632,6 +816,8 @@ export interface GameRecord {
   worldSeconds: number;
   objectCount: number;
   agentCount: number;
+  /** Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore). */
+  scoring?: GameRecordScoring;
 }
 
 export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
@@ -640,6 +826,17 @@ export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
 export const GameViewStatus = {
   active: 'active',
   ended: 'ended',
+} as const;
+
+/**
+ * Null for legacy games.
+ * @nullable
+ */
+export type PublicGameScoring = typeof PublicGameScoring[keyof typeof PublicGameScoring] | null;
+
+
+export const PublicGameScoring = {
+  'information-v1': 'information-v1',
 } as const;
 
 export interface PublicGame {
@@ -661,16 +858,45 @@ export interface PublicGame {
   recoveryReason?: string | null;
   settings?: Settings;
   roster?: RosterEntry[];
+  /**
+     * Null for legacy games.
+     * @nullable
+     */
+  scoring?: PublicGameScoring;
+  objectInstance?: InstanceInfo | null;
 }
 
+/**
+ * penalty families are dealt only as defence goals.
+ */
+export type UtilityFamilyRole = typeof UtilityFamilyRole[keyof typeof UtilityFamilyRole];
+
+
+export const UtilityFamilyRole = {
+  reward: 'reward',
+  penalty: 'penalty',
+} as const;
+
+export type UtilityFamilyLocked = {
+  /** Kid wording, e.g. needs ♠ Suits: pick Playing cards. */
+  reason: string;
+  unlock?: TypeArgs;
+};
+
+/**
+ * A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.
+ */
 export interface UtilityFamily {
   id: string;
   name: string;
+  emoji: string;
   theme: string;
-  /** Grid families only. */
-  emoji?: string;
-  /** Grid only. True when gods of this family also carry a defence goal (a penalty). */
-  defence?: boolean;
+  /** penalty families are dealt only as defence goals. */
+  role: UtilityFamilyRole;
+  tags: string[];
+  available: boolean;
+  badges: Badge[];
+  locked?: UtilityFamilyLocked;
 }
 
 /**
@@ -730,7 +956,9 @@ export interface RoomState {
   /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
   game: PublicGame | null;
   serverTime: number;
-  /** Public list of utility-function families gods may have drawn for this object type. */
+  /** The instantiation the next game will play; null if the stored settings are no longer valid. */
+  objectInstance: InstanceInfo | null;
+  /** Public list of utility-function families gods may draw for these settings, with availability. */
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;
@@ -738,6 +966,187 @@ export interface RoomState {
   aiInputTokens?: number;
   /** Provider-reported output tokens recorded for this game. */
   aiOutputTokens?: number;
+}
+
+export type PlayerCommandType = typeof PlayerCommandType[keyof typeof PlayerCommandType];
+
+
+export const PlayerCommandType = {
+  validate: 'validate',
+  summon: 'summon',
+  ready: 'ready',
+  pause: 'pause',
+  chat: 'chat',
+  destroy: 'destroy',
+} as const;
+
+export type PlayerCommandLanguage = typeof PlayerCommandLanguage[keyof typeof PlayerCommandLanguage];
+
+
+export const PlayerCommandLanguage = {
+  python: 'python',
+  typescript: 'typescript',
+} as const;
+
+/**
+ * One of validate/summon {language, source}, ready {ready}, pause, chat {text}, destroy {agentId}.
+ */
+export interface PlayerCommand {
+  type: PlayerCommandType;
+  language?: PlayerCommandLanguage;
+  /**
+     * Defines agent(obj) returning mutator calls, e.g. def agent(x): return [add(1)].
+     * @maxLength 16384
+     */
+  source?: string;
+  ready?: boolean;
+  /** @maxLength 2000 */
+  text?: string;
+  /** destroy only. One of your own agents. */
+  agentId?: string;
+}
+
+export type PlayerEnvelopeVersion = typeof PlayerEnvelopeVersion[keyof typeof PlayerEnvelopeVersion];
+
+
+export const PlayerEnvelopeVersion = {
+  'code-godsplayerv3': 'code-gods.player.v3',
+} as const;
+
+export interface PlayerEnvelope {
+  version: PlayerEnvelopeVersion;
+  commandId: string;
+  /** Required for validate, summon, pause and destroy. */
+  gameId?: string;
+  command: PlayerCommand;
+}
+
+export interface AgentValidation {
+  valid: boolean;
+  /** Summon price in bits (ast-bytes-v1). */
+  cost: number;
+  /** Mean act cost over 16 reference objects. */
+  expectedActCost: number;
+  diagnostics: string[];
+}
+
+export interface PlayerCommandResult {
+  commandId: string;
+  accepted: boolean;
+  message: string;
+  validation?: AgentValidation;
+}
+
+export interface PlayerObjectView {
+  id: string;
+  value: number | string;
+  own: GodScore;
+  peerNetBits: number;
+  peerCare: number;
+  payoff: number;
+}
+
+export type PlayerAgentViewLanguage = typeof PlayerAgentViewLanguage[keyof typeof PlayerAgentViewLanguage];
+
+
+export const PlayerAgentViewLanguage = {
+  python: 'python',
+  typescript: 'typescript',
+} as const;
+
+export type PlayerAgentView = AgentInfo & {
+  language: PlayerAgentViewLanguage;
+};
+
+export type PlayerObservationVersion = typeof PlayerObservationVersion[keyof typeof PlayerObservationVersion];
+
+
+export const PlayerObservationVersion = {
+  'code-godsplayerv3': 'code-gods.player.v3',
+} as const;
+
+export type PlayerObservationPhase = typeof PlayerObservationPhase[keyof typeof PlayerObservationPhase];
+
+
+export const PlayerObservationPhase = {
+  lobby: 'lobby',
+  planning: 'planning',
+  running: 'running',
+  paused: 'paused',
+  ended: 'ended',
+} as const;
+
+export type PlayerObservationLanguage = typeof PlayerObservationLanguage[keyof typeof PlayerObservationLanguage];
+
+
+export const PlayerObservationLanguage = {
+  python: 'python',
+  typescript: 'typescript',
+} as const;
+
+export type PlayerObservationEconomy = {
+  energyPerSecond: number;
+  agentEnergyPerSecond: number;
+  agentBatteryActs: number;
+  maxAgentsPerGod: number;
+  penaltyWeight: number;
+  worldSeconds: number;
+};
+
+export type PlayerObservationSelf = {
+  godId: string;
+  label: string;
+  isAI: boolean;
+  energy: number;
+  ready: boolean;
+  pauseUsed?: boolean;
+  utility?: UtilityCard;
+};
+
+export type PlayerObservationTransformationsItem = {
+  id: string;
+  agentId: string;
+  before: number | string;
+  after: number | string;
+  calls?: unknown[][];
+  cost?: number;
+};
+
+export type PlayerObservationLeaderboardItem = {
+  godId: string;
+  label: string;
+  isAI: boolean;
+  totalPayoff: number;
+};
+
+export interface PlayerChat {
+  id: string;
+  godId: string;
+  label: string;
+  isAI: boolean;
+  text: string;
+}
+
+export interface PlayerObservation {
+  version: PlayerObservationVersion;
+  roomId: string;
+  revision: number;
+  gameId?: string;
+  roomShortCode?: string;
+  gameShortCode?: string;
+  seated?: boolean;
+  planningEndsAt?: number;
+  pauseEndsAt?: number;
+  phase: PlayerObservationPhase;
+  language: PlayerObservationLanguage;
+  instance?: InstanceInfo;
+  economy?: PlayerObservationEconomy;
+  self: PlayerObservationSelf;
+  objects: PlayerObjectView[];
+  agents: PlayerAgentView[];
+  transformations: PlayerObservationTransformationsItem[];
+  leaderboard: PlayerObservationLeaderboardItem[];
+  chat: PlayerChat[];
 }
 
 export interface HealthStatus {

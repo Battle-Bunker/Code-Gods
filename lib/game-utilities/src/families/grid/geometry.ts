@@ -736,7 +736,8 @@ const tetrominoTamer = gridFamily<PieceP>({
         for cell in piece:
             if len([other for other in cell.neighbours if other in piece]) == 3:
                 return "T"
-            if (inside(cell.left, piece) and inside(cell.right, piece)) or (inside(cell.up, piece) and inside(cell.down, piece)):
+            across = inside(cell.left, piece) and inside(cell.right, piece)
+            if across or (inside(cell.up, piece) and inside(cell.down, piece)):
                 straight = True  # three in a straight line
         return "L" if straight else "S"
 
@@ -762,9 +763,8 @@ const tetrominoTamer = gridFamily<PieceP>({
       let straight = false;
       for (const cell of piece) {
         if (cell.neighbours.filter(other => piece.includes(other)).length === 3) return "T";
-        if ((inside(cell.left, piece) && inside(cell.right, piece)) || (inside(cell.up, piece) && inside(cell.down, piece))) {
-          straight = true;  // three in a straight line
-        }
+        const across = inside(cell.left, piece) && inside(cell.right, piece);
+        if (across || (inside(cell.up, piece) && inside(cell.down, piece))) straight = true;  // three in a line
       }
       return straight ? "L" : "S";
     }

@@ -1,8 +1,9 @@
 /** Games-kids-know lens rules (lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
+import { roundHalfEven } from "./arithmetic.ts";
 import {
-  RANK_NAMES, SCALAR, bestOf, chance, choose, climb, cname, fromFn, full, gridFamily, product, pyCard, range,
-  recolour, symForValue, thing, tsCard, tuple, wire,
+  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product,
+  pyCard, range, recolour, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 
 const lineWord = (dir: "rows" | "cols") => (dir === "rows" ? "row" : "column");
@@ -421,4 +422,514 @@ const fullHouse = gridFamily<HouseP>({
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
 });
 
-export const GAMES = [rummyMelder, othello, minesweeper, bingoCaller, sudoku, fullHouse];
+
+// ================================================================================================
+// Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
+// ================================================================================================
+
+const suitWord = (g: GridSpec) => (g.cards ? "suit" : "colour");
+const suitOf = (g: GridSpec) => (g.cards ? "cell.suit" : "cell.colour");
+type MaybeColour = number | null;
+
+// --- Flush Royale -------------------------------------------------------------------------------------
+const flushText = (g: GridSpec): CardText => ({
+  emoji: "♣️", name: "Flush Royale", consts: [],
+  about: `A row or column whose cells are all one ${suitWord(g)} is a flush and scores the total of its numbers; if its `
+    + "numbers are also a straight (all in a run, any order) it scores triple. If that's a tie, count the commonest "
+    + `${suitWord(g)} in each line.`,
+});
+const flushRoyale = gridFamily<Record<string, never>>({
+  id: "flush_royale", name: "Flush Royale", emoji: "♣️", theme: "Lines all in one suit",
+  requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2),
+  support: () => [{}],
+  summary: (_, g) => `A row or column whose cells are all one ${suitWord(g)} is a flush and scores the total of its `
+    + "numbers; if its numbers are also a straight (all in a run, any order) it scores triple.",
+  python: (_, g) => pyCard(flushText(g), `
+    def suit(cell):
+        return ${suitOf(g)}
+
+    def utility(grid):
+        score = 0
+        nearly = 0
+        for line in grid.rows + grid.columns:
+            suits = [suit(cell) for cell in line]
+            values = [cell.value for cell in line]
+            nearly += max(suits.count(s) for s in suits)
+            if suits.count(suits[0]) == len(suits):
+                straight = len(set(values)) == len(values) and max(values) - min(values) == len(values) - 1
+                if straight:
+                    score += 3 * sum(values)
+                else:
+                    score += sum(values)
+        return (score, nearly)`),
+  typescript: (_, g) => tsCard(flushText(g), `
+    function suit(cell) {
+      return ${suitOf(g)};
+    }
+
+    function count(list, x) {
+      return list.filter(y => y === x).length;
+    }
+
+    function utility(grid) {
+      let score = 0;
+      let nearly = 0;
+      for (const line of [...grid.rows, ...grid.columns]) {
+        const suits = line.map(suit);
+        const values = line.map(cell => cell.value);
+        nearly += Math.max(...suits.map(s => count(suits, s)));
+        if (count(suits, suits[0]) === suits.length) {
+          let total = 0;
+          for (const v of values) total += v;
+          const straight = new Set(values).size === values.length
+            && Math.max(...values) - Math.min(...values) === values.length - 1;
+          score += straight ? 3 * total : total;
+        }
+      }
+      return [score, nearly];
+    }`),
+  exemplar: (p, g, ctx) => {
+    const N = g.N, hi = g.vmax;
+    return bestOf("flush_royale", p, ctx, [
+      { sym: fromFn(N, (r, c) => symForValue(g, hi - N + 1 + ((r + c) % N))), col: full(N, 0) },
+      { sym: full(N, symForValue(g, hi)), col: full(N, 0) }]);
+  },
+});
+
+// --- Twenty-One -----------------------------------------------------------------------------------------
+type TwentyP = { T: number };
+/**
+ * Number grids: grid-lab draws T uniformly from 2N .. round(0.7·N·(S−1)), up to 61 targets. Calibration enumerates
+ * every target, so the product keeps at most 16 of them, evenly spaced and including both ends.
+ */
+function targets(g: GridSpec): number[] {
+  if (g.cards) return [21];
+  const lo = 2 * g.N, hi = roundHalfEven(0.7 * g.N * (g.S - 1)), n = Math.min(16, hi - lo + 1);
+  return [...new Set(range(n).map(k => lo + Math.round((k * (hi - lo)) / Math.max(1, n - 1))))];
+}
+const twentyText = (p: TwentyP, g: GridSpec): CardText => ({
+  emoji: "🃏", name: "Twenty-One", consts: [["TARGET", p.T]],
+  about: "Each row and column is a blackjack hand: add it up"
+    + (g.cards ? " (J, Q and K count 10; an ace counts 11 unless that would go bust)" : "")
+    + `. A hand of ${p.T} or less scores its total, exactly ${p.T} scores ${p.T} more, and going over scores nothing.`,
+});
+const twentyOne = gridFamily<TwentyP>({
+  id: "twenty_one", name: "Twenty-One", emoji: "🃏", theme: "Get close to your target without going bust",
+  requires: { classes: ["Valued"] }, shape: SCALAR,
+  support: g => targets(g).map(T => ({ T })),
+  summary: (p, g) => "Each row and column is a blackjack hand: add it up"
+    + (g.cards ? " (J, Q, K count 10; an ace counts 11 unless that busts)" : "")
+    + `. A hand of ${p.T} or less scores its total, exactly ${p.T} scores ${p.T} more, and going over scores nothing.`,
+  python: (p, g) => pyCard(twentyText(p, g), `
+    def utility(grid):
+        score = 0
+        for hand in grid.rows + grid.columns:
+            total = 0
+            for cell in hand:
+                total += ${g.cards ? "min(cell.value, 10)" : "cell.value"}${g.cards ? `
+            if any(cell.value == 1 for cell in hand) and total + 10 <= TARGET:
+                total += 10  # an ace counts 11` : ""}
+            if total <= TARGET:
+                score += total
+                if total == TARGET:
+                    score += TARGET
+        return score`),
+  typescript: (p, g) => tsCard(twentyText(p, g), `
+    function utility(grid) {
+      let score = 0;
+      for (const hand of [...grid.rows, ...grid.columns]) {
+        let total = 0;
+        for (const cell of hand) total += ${g.cards ? "Math.min(cell.value, 10)" : "cell.value"};${g.cards ? `
+        if (hand.some(cell => cell.value === 1) && total + 10 <= TARGET) total += 10;  // an ace counts 11` : ""}
+        if (total <= TARGET) {
+          score += total;
+          if (total === TARGET) score += TARGET;
+        }
+      }
+      return score;
+    }`),
+  exemplar: (p, g) => {
+    const N = g.N, [lo, hi] = g.cards ? [2, 10] : [g.vmin, g.vmax], row = Array<number>(N).fill(lo);
+    let rem = p.T - N * lo;
+    for (let i = 0; i < N; i++) { const add = Math.min(hi - lo, rem); row[i] += add; rem -= add; }
+    return wire(g, fromFn(N, (r, c) => symForValue(g, row[(c + r) % N])), full(N, 0));
+  },
+});
+
+// --- Go Fish Books ------------------------------------------------------------------------------------------
+type FishP = { r: number };
+const fishText = (p: FishP, g: GridSpec): CardText => ({
+  emoji: "🐟", name: "Go Fish Books",
+  consts: [["MY_FISH", rankValue(g, p.r), g.cards ? RANK_NAMES[rankValue(g, p.r)] ?? "" : ""], ["PERFECT", g.cards ? 4 : Math.min(4, g.C)]],
+  about: `Your fish is the ${thing(g)} worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""}. Every 2×2 block of four `
+    + `of them is a book (1 point), or a perfect book (2 points) with PERFECT different ${suitWord(g)}s. If that's a tie, `
+    + "count your fish in every 2×2 block.",
+});
+const goFish = gridFamily<FishP>({
+  id: "go_fish_books", name: "Go Fish Books", emoji: "🐟", theme: "2×2 blocks of your fish", shape: tuple(2),
+  support: g => range(g.ranks).map(r => ({ r })),
+  canonical: () => ({ r: 0 }),
+  summary: (p, g) => `Your fish is the ${thing(g)} worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""}. Every 2×2 `
+    + `block of four of them is a book (1 point), or a perfect book (2 points) if they are all different ${suitWord(g)}s.`,
+  python: (p, g) => pyCard(fishText(p, g), `
+    def utility(grid):
+        books = 0
+        fish = 0
+        for cell in grid.cells:
+            right, below = cell.right, cell.down
+            if right is None or below is None:
+                continue
+            block = [cell, right, below, below.right]
+            mine = [other for other in block if other.value == MY_FISH]
+            fish += len(mine)
+            if len(mine) == 4:
+                if len(set(other.${g.cards ? "suit" : "colour"} for other in block)) >= PERFECT:
+                    books += 2
+                else:
+                    books += 1
+        return (books, fish)`),
+  typescript: (p, g) => tsCard(fishText(p, g), `
+    function utility(grid) {
+      let books = 0;
+      let fish = 0;
+      for (const cell of grid.cells) {
+        const right = cell.right, below = cell.down;
+        if (right === null || below === null) continue;
+        const block = [cell, right, below, below.right];
+        const mine = block.filter(other => other.value === MY_FISH);
+        fish += mine.length;
+        if (mine.length === 4) {
+          books += new Set(block.map(other => other.${g.cards ? "suit" : "colour"})).size >= PERFECT ? 2 : 1;
+        }
+      }
+      return [books, fish];
+    }`),
+  exemplar: (p, g) => {
+    const N = g.N;
+    if (g.cards) return wire(g, fromFn(N, (r, c) => (2 * (r % 2) + (c % 2)) * 13 + p.r), full(N, 0));
+    return wire(g, full(N, p.r), fromFn(N, (r, c) => (g.C >= 4 ? 2 * (r % 2) + (c % 2) : (r + c) % 3)));
+  },
+});
+
+// --- Set Spotter --------------------------------------------------------------------------------------------
+type SetP = { diag: boolean };
+const setText = (p: SetP): CardText => ({
+  emoji: "🔺", name: "Set Spotter", consts: [],
+  about: `Three cells in a line (across or down${p.diag ? ", or diagonally" : ""}) are a SET if their colours are all the `
+    + "same or all different AND their numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores a point.",
+});
+const setSpotter = gridFamily<SetP>({
+  id: "set_spotter", name: "Set Spotter", emoji: "🔺", theme: "Three in a line that make a SET",
+  requires: { classes: ["Valued"] }, shape: SCALAR,
+  support: () => [{ diag: false }, { diag: true }],
+  sample: rng => ({ diag: chance(rng, 1, 2) }),
+  summary: p => setText(p).about,
+  python: p => pyCard(setText(p), `
+    def is_set(a, b, c):
+        if b is None or c is None:
+            return False
+        colours = set([a.colour, b.colour, c.colour])
+        return len(colours) != 2 and b.value - a.value == c.value - b.value
+
+    def utility(grid):
+        sets = 0
+        for cell in grid.cells:
+            if cell.right is not None and is_set(cell, cell.right, cell.right.right):
+                sets += 1
+            if cell.down is not None and is_set(cell, cell.down, cell.down.down):
+                sets += 1${p.diag ? `
+            if cell.down_right is not None and is_set(cell, cell.down_right, cell.down_right.down_right):
+                sets += 1
+            if cell.down_left is not None and is_set(cell, cell.down_left, cell.down_left.down_left):
+                sets += 1` : ""}
+        return sets`),
+  typescript: p => tsCard(setText(p), `
+    function isSet(a, b, c) {
+      if (b === null || c === null) return false;
+      const colours = new Set([a.colour, b.colour, c.colour]);
+      return colours.size !== 2 && b.value - a.value === c.value - b.value;
+    }
+
+    function utility(grid) {
+      let sets = 0;
+      for (const cell of grid.cells) {
+        if (cell.right !== null && isSet(cell, cell.right, cell.right.right)) sets += 1;
+        if (cell.down !== null && isSet(cell, cell.down, cell.down.down)) sets += 1;${p.diag ? `
+        if (cell.downRight !== null && isSet(cell, cell.downRight, cell.downRight.downRight)) sets += 1;
+        if (cell.downLeft !== null && isSet(cell, cell.downLeft, cell.downLeft.downLeft)) sets += 1;` : ""}
+      }
+      return sets;
+    }`),
+  exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+});
+
+// --- Knight Riders -------------------------------------------------------------------------------------------
+type KnightP = { X: MaybeColour };
+const knightText = (p: KnightP, g: GridSpec): CardText => ({
+  emoji: "🐴", name: "Knight Riders", consts: p.X === null ? [] : [["MY_COLOUR", cname(g, p.X)]],
+  about: "Every pair of cells a chess knight's jump apart that are exact twins (same symbol and same colour"
+    + (p.X === null ? "" : `, and ${cname(g, p.X)}`) + ") scores a point.",
+});
+const knightRiders = gridFamily<KnightP>({
+  id: "knight_riders", name: "Knight Riders", emoji: "🐴", theme: "Twins a knight's jump apart", shape: SCALAR,
+  support: g => [null, ...range(g.C)].map(X => ({ X })),
+  sample: (rng, g) => ({ X: chance(rng, 1, 2) ? rng.int(g.C) : null }),
+  canonical: p => recolour(p, ["X"]),
+  summary: (p, g) => knightText(p, g).about,
+  python: (p, g) => pyCard(knightText(p, g), `
+    JUMPS = [(1, 2), (2, 1), (2, -1), (1, -2)]  # each pair once: the jumps that land lower down
+
+    def utility(grid):
+        twins = 0
+        for cell in grid.cells:
+            for down, across in JUMPS:
+                row, col = cell.row + down, cell.col + across
+                if 0 <= row < grid.size and 0 <= col < grid.size:
+                    other = grid.cell(row, col)
+                    if other.symbol == cell.symbol and other.colour == cell.colour${p.X === null ? "" : " and cell.colour == MY_COLOUR"}:
+                        twins += 1
+        return twins`),
+  typescript: (p, g) => tsCard(knightText(p, g), `
+    const JUMPS = [[1, 2], [2, 1], [2, -1], [1, -2]];  // each pair once: the jumps that land lower down
+
+    function utility(grid) {
+      let twins = 0;
+      for (const cell of grid.cells) {
+        for (const [down, across] of JUMPS) {
+          const row = cell.row + down, col = cell.col + across;
+          if (row >= 0 && row < grid.size && col >= 0 && col < grid.size) {
+            const other = grid.cell(row, col);
+            if (other.symbol === cell.symbol && other.colour === cell.colour${p.X === null ? "" : " && cell.colour === MY_COLOUR"}) twins += 1;
+          }
+        }
+      }
+      return twins;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X ?? 0)),
+});
+
+// --- Uno Snake ---------------------------------------------------------------------------------------------------
+type UnoP = { axis: "rows" | "cols" };
+const unoText = (p: UnoP): CardText => ({
+  emoji: "🐍", name: "Uno Snake", consts: [],
+  about: "Walk the grid like a Snakes & Ladders board ("
+    + (p.axis === "rows" ? "along the first row, back along the next, and so on" : "down the first column, back up the next, and so on")
+    + "). Each step must match the colour or the number, like Uno. Score your longest unbroken walk.",
+});
+const unoSnake = gridFamily<UnoP>({
+  id: "uno_snake", name: "Uno Snake", emoji: "🐍", theme: "A zig-zag walk where every step matches", shape: SCALAR,
+  support: () => [{ axis: "rows" }, { axis: "cols" }],
+  canonical: () => ({ axis: "rows" }),
+  summary: p => unoText(p).about,
+  python: p => pyCard(unoText(p), `
+    def walk(grid):
+        path = []
+        for i, line in enumerate(${p.axis === "rows" ? "grid.rows" : "grid.columns"}):
+            if i % 2 == 1:
+                line = list(reversed(line))
+            path += line
+        return path
+
+    def utility(grid):
+        path = walk(grid)
+        best = 1
+        run = 1
+        for i in range(1, len(path)):
+            a, b = path[i - 1], path[i]
+            if a.colour == b.colour or a.value == b.value:
+                run += 1
+            else:
+                run = 1
+            best = max(best, run)
+        return best`),
+  typescript: p => tsCard(unoText(p), `
+    function walk(grid) {
+      const path = [];
+      ${p.axis === "rows" ? "grid.rows" : "grid.columns"}.forEach((line, i) => path.push(...(i % 2 === 1 ? [...line].reverse() : line)));
+      return path;
+    }
+
+    function utility(grid) {
+      const path = walk(grid);
+      let best = 1;
+      let run = 1;
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        if (a.colour === b.colour || a.value === b.value) run += 1;
+        else run = 1;
+        best = Math.max(best, run);
+      }
+      return best;
+    }`),
+  exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+});
+
+// --- Court Parade -------------------------------------------------------------------------------------------------
+type ParadeP = { suit: number | null; match: boolean };
+const paradeText = (p: ParadeP): CardText => ({
+  emoji: "🎺", name: "Court Parade", consts: p.suit === null ? [] : [["MY_SUIT", SUIT_NAMES[p.suit]]],
+  about: `A Jack, Queen and King of the same suit${p.suit === null ? "" : " (your suit)"} standing in that order (left to `
+    + `right or top to bottom)${p.match ? " and all one colour" : ""} is a parade; with its Ace just before the Jack it `
+    + "scores double. If that's a tie, count Jack-Queen and Queen-King pairs in a row.",
+});
+const courtParade = gridFamily<ParadeP>({
+  id: "court_parade", name: "Court Parade", emoji: "🎺", theme: "J, Q, K of one suit marching in a line",
+  requires: { classes: ["Suited", "Faced"] }, shape: tuple(2),
+  support: () => product<ParadeP>({ suit: [null, 0, 1, 2, 3], match: [false, true] }),
+  sample: rng => ({ suit: chance(rng, 1, 2) ? null : rng.int(4), match: chance(rng, 3, 10) }),
+  canonical: p => ({ suit: p.suit === null ? null : 0, match: p.match }),
+  summary: p => "A Jack, Queen and King of the same suit" + (p.suit === null ? "" : ` (${"♠♥♦♣"[p.suit]})`)
+    + " standing in that order (left to right or top to bottom)" + (p.match ? " and all one colour" : "")
+    + " is a parade; with its Ace just before the Jack it's a grand parade worth double.",
+  python: p => pyCard(paradeText(p), `
+    def one_suit(cells):
+        for cell in cells:
+            if cell.suit != cells[0].suit${p.suit === null ? "" : " or cell.suit != MY_SUIT"}:
+                return False
+        return True
+
+    def utility(grid):
+        parades = 0
+        pairs = 0
+        for line in grid.rows + grid.columns:
+            for i in range(len(line) - 1):
+                a, b = line[i], line[i + 1]
+                if one_suit([a, b]) and ((a.value == 11 and b.value == 12) or (a.value == 12 and b.value == 13)):
+                    pairs += 1
+            for i in range(len(line) - 2):
+                jack, queen, king = line[i], line[i + 1], line[i + 2]
+                if jack.value == 11 and queen.value == 12 and king.value == 13 and one_suit([jack, queen, king]):${p.match ? `
+                    if jack.colour != queen.colour or queen.colour != king.colour:
+                        continue` : ""}
+                    parades += 1
+                    if i > 0 and line[i - 1].value == 1 and line[i - 1].suit == jack.suit:
+                        parades += 1
+        return (parades, pairs)`),
+  typescript: p => tsCard(paradeText(p), `
+    function oneSuit(cells) {
+      return cells.every(cell => cell.suit === cells[0].suit${p.suit === null ? "" : " && cell.suit === MY_SUIT"});
+    }
+
+    function utility(grid) {
+      let parades = 0;
+      let pairs = 0;
+      for (const line of [...grid.rows, ...grid.columns]) {
+        for (let i = 0; i < line.length - 1; i++) {
+          const a = line[i], b = line[i + 1];
+          if (oneSuit([a, b]) && ((a.value === 11 && b.value === 12) || (a.value === 12 && b.value === 13))) pairs += 1;
+        }
+        for (let i = 0; i < line.length - 2; i++) {
+          const jack = line[i], queen = line[i + 1], king = line[i + 2];
+          if (jack.value === 11 && queen.value === 12 && king.value === 13 && oneSuit([jack, queen, king])) {${p.match ? `
+            if (jack.colour !== queen.colour || queen.colour !== king.colour) continue;` : ""}
+            parades += 1;
+            if (i > 0 && line[i - 1].value === 1 && line[i - 1].suit === jack.suit) parades += 1;
+          }
+        }
+      }
+      return [parades, pairs];
+    }`),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (p.suit ?? 0) * 13 + [0, 10, 11, 12][(r + c) % 4]), full(g.N, 0)),
+});
+
+// --- King's Court ------------------------------------------------------------------------------------------------
+type CourtRankP = { r: number };
+const kingsText = (p: CourtRankP, g: GridSpec): CardText => ({
+  emoji: "🤴", name: "King's Court",
+  consts: [["MY_VALUE", rankValue(g, p.r), g.cards ? RANK_NAMES[rankValue(g, p.r)] ?? "" : ""]],
+  about: `Every cell worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""} scores a point for each of the cells around `
+    + "it (corners too) that is a different colour from it.",
+});
+const kingsCourt = gridFamily<CourtRankP>({
+  id: "kings_court", name: "King's Court", emoji: "🤴", theme: "Your symbol surrounded by every other colour",
+  shape: SCALAR,
+  support: g => range(g.ranks).map(r => ({ r })),
+  canonical: () => ({ r: 0 }),
+  summary: (p, g) => kingsText(p, g).about,
+  python: (p, g) => pyCard(kingsText(p, g), `
+    def utility(grid):
+        points = 0
+        for cell in grid.cells:
+            if cell.value != MY_VALUE:
+                continue
+            for other in cell.surrounding:
+                if other.colour != cell.colour:
+                    points += 1
+        return points`),
+  typescript: (p, g) => tsCard(kingsText(p, g), `
+    function utility(grid) {
+      let points = 0;
+      for (const cell of grid.cells) {
+        if (cell.value !== MY_VALUE) continue;
+        for (const other of cell.surrounding) {
+          if (other.colour !== cell.colour) points += 1;
+        }
+      }
+      return points;
+    }`),
+  exemplar: (p, g, ctx) => {
+    const N = g.N, sym = full(N, p.r);
+    return climb("kings_court", p, ctx, [(r: number, c: number) => 2 * (r % 2) + (c % 2), (r: number, c: number) => r + c,
+      (r: number, c: number) => r + 2 * c, (r: number, c: number) => 2 * r + c].map(f => ({ sym, col: fromFn(N, (r, c) => f(r, c) % g.C) })), 0);
+  },
+});
+
+// --- Connect Four ------------------------------------------------------------------------------------------------
+type FourP = { X: number };
+const fourText = (p: FourP, g: GridSpec): CardText => ({
+  emoji: "🔴", name: "Connect Four", consts: [["MY_COLOUR", cname(g, p.X)]],
+  about: `Your counters are ${cname(g, p.X)} and they fall to the bottom: a counter only stands if everything below it is `
+    + `${cname(g, p.X)} too. Score every four-in-a-row of standing counters (across, down or diagonal); if that's a tie, `
+    + "count standing counters.",
+});
+const connectFour = gridFamily<FourP>({
+  id: "connect_four", name: "Connect Four", emoji: "🔴", theme: "Four in a row, stacked from the bottom",
+  requires: { minSize: 4 }, shape: tuple(2),
+  support: g => range(g.C).map(X => ({ X })),
+  canonical: p => recolour(p, ["X"]),
+  summary: (p, g) => `Your counters are ${cname(g, p.X)} and they fall to the bottom: a counter only stands if everything `
+    + `below it is ${cname(g, p.X)} too. Score every four-in-a-row of standing counters (across, down or diagonal).`,
+  python: (p, g) => pyCard(fourText(p, g), `
+    def standing(grid, row, col):
+        if not (0 <= row < grid.size and 0 <= col < grid.size):
+            return False
+        for below in range(row, grid.size):
+            if grid.cell(below, col).colour != MY_COLOUR:
+                return False
+        return True
+
+    def utility(grid):
+        rows_of_four = 0
+        counters = 0
+        for cell in grid.cells:
+            if standing(grid, cell.row, cell.col):
+                counters += 1
+            for down, across in [(0, 1), (1, 0), (1, 1), (1, -1)]:
+                if all(standing(grid, cell.row + i * down, cell.col + i * across) for i in range(4)):
+                    rows_of_four += 1
+        return (rows_of_four, counters)`),
+  typescript: (p, g) => tsCard(fourText(p, g), `
+    function standing(grid, row, col) {
+      if (!(row >= 0 && row < grid.size && col >= 0 && col < grid.size)) return false;
+      for (let below = row; below < grid.size; below++) {
+        if (grid.cell(below, col).colour !== MY_COLOUR) return false;
+      }
+      return true;
+    }
+
+    function utility(grid) {
+      let rowsOfFour = 0;
+      let counters = 0;
+      for (const cell of grid.cells) {
+        if (standing(grid, cell.row, cell.col)) counters += 1;
+        for (const [down, across] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+          if ([0, 1, 2, 3].every(i => standing(grid, cell.row + i * down, cell.col + i * across))) rowsOfFour += 1;
+        }
+      }
+      return [rowsOfFour, counters];
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+});
+
+export const GAMES = [rummyMelder, othello, minesweeper, bingoCaller, sudoku, fullHouse, flushRoyale, twentyOne, goFish,
+  setSpotter, knightRiders, unoSnake, courtParade, kingsCourt, connectFour];

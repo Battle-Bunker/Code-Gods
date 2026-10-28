@@ -32,6 +32,9 @@ from gridlab.rules import by_id, shortlist  # noqa: E402
 from tests.test_cards import grids_for  # noqa: E402
 
 FIX = os.path.join(HERE, "fixtures")
+# Families whose support the product deliberately thins (calibration enumerates canonical params, so it must stay
+# small): the support must be a subset of what grid-lab can draw, instead of containing every grid-lab draw.
+THINNED = {"twenty_one"}
 DIGITS = "0123456789ABCDEF"
 RANKS = "A23456789TJQK"
 LETTER = {"red": "R", "orange": "O", "yellow": "Y", "green": "G", "blue": "B", "violet": "V"}
@@ -90,11 +93,17 @@ def main(ids: list[str]) -> int:
                     errors.append(f"{fid} {gt.key}: canonical({norm(p)}) = {norm(c)}, grid-lab {norm(want)}")
                     break
             rng = np.random.default_rng(zlib.crc32(f"{fid}|{gt.key}".encode()))
-            for _ in range(200):
-                p = f.sample(rng, gt)
-                if norm(p) not in sup:
-                    errors.append(f"{fid} {gt.key}: grid-lab draw {norm(p)} is not in the support")
-                    break
+            if fid in THINNED:
+                lab = {norm(f.sample(rng, gt)) for _ in range(2000)}
+                extra = sup - lab
+                if extra:
+                    errors.append(f"{fid} {gt.key}: support has params grid-lab never draws: {sorted(extra)[:3]}")
+            else:
+                for _ in range(200):
+                    p = f.sample(rng, gt)
+                    if norm(p) not in sup:
+                        errors.append(f"{fid} {gt.key}: grid-lab draw {norm(p)} is not in the support")
+                        break
             for p in t["draws"]:
                 rng = np.random.default_rng(zlib.crc32(f"{fid}|{gt.key}|{norm(p)}".encode()))
                 lp = json.loads(norm(p))

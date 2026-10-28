@@ -10,6 +10,9 @@ export interface Standing {
   deityId: string;
   name: string;
   kind: string;
-  totalScore: number;
+  /** Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits². */
+  totalPayoff: number;
+  /** Legacy summaries only (no `scoring` marker), from the old [0, 1] scoring. */
+  totalScore?: number;
   rank: number;
 }

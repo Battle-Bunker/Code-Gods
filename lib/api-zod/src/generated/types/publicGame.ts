@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { InstanceInfo } from './instanceInfo';
+import type { PublicGameScoring } from './publicGameScoring';
 import type { PublicObject } from './publicObject';
 import type { RosterEntry } from './rosterEntry';
 import type { Settings } from './settings';
@@ -29,4 +31,10 @@ export interface PublicGame {
   recoveryReason?: string | null;
   settings?: Settings;
   roster?: RosterEntry[];
+  /**
+     * Null for legacy games.
+     * @nullable
+     */
+  scoring?: PublicGameScoring;
+  objectInstance?: InstanceInfo | null;
 }

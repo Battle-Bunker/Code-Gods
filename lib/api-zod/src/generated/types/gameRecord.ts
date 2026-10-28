@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameRecordEndReason } from './gameRecordEndReason';
+import type { GameRecordScoring } from './gameRecordScoring';
 import type { RosterEntry } from './rosterEntry';
 import type { Settings } from './settings';
 import type { Standing } from './standing';
@@ -34,4 +35,6 @@ export interface GameRecord {
   worldSeconds: number;
   objectCount: number;
   agentCount: number;
+  /** Present on games scored in bits. Absent on legacy records (old [0, 1] scoring, leaderboard totalScore). */
+  scoring?: GameRecordScoring;
 }
