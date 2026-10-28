@@ -36,7 +36,11 @@ function lint(src: string, lang: "python" | "typescript", f: UtilityFamily<any>,
   const banned = lang === "python" ? /\b(import|numpy|lambda|global|random|time|exec|eval|open)\b|np\./
     : /\b(import|require|eval|Function|globalThis|process|Date|setTimeout|async|await)\b|Math\.random/;
   assert.doesNotMatch(code, banned, `${where}: card uses a banned word`);
-  if (lang === "typescript") assert.doesNotMatch(code, /\)\s*:\s*\w|\w\s*:\s*(number|string|boolean|Cell|Grid)\b/, `${where}: type annotation`);
+  if (lang === "typescript") {
+    // parameter, return and variable annotations (ternaries and object literals are fine)
+    assert.doesNotMatch(code, /function\s+\w+\([^)]*:|\)\s*:\s*[\w[\]<>| ]+\{|\b(let|const)\s+\w+\s*:|\bas\s+[A-Z]\w*\b/,
+      `${where}: type annotation`);
+  }
   assert.ok(lines.length <= MAX_LINES, `${where}: card has ${lines.length} lines`);
   const wide = lines.find(l => l.length > MAX_WIDTH);
   assert.equal(wide, undefined, `${where}: line wider than ${MAX_WIDTH}`);

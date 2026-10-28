@@ -711,7 +711,8 @@ const harmony = gridFamily<HarmonyP>({
         return points`),
   typescript: (p, g) => tsCard(harmonyText(p, g), `
     function opposite(grid, a, b) {
-      return Math.abs(grid.palette.indexOf(a.colour) - grid.palette.indexOf(b.colour)) === Math.floor(grid.palette.length / 2);
+      const apart = Math.abs(grid.palette.indexOf(a.colour) - grid.palette.indexOf(b.colour));
+      return apart === Math.floor(grid.palette.length / 2);
     }
 
     function utility(grid) {
@@ -761,8 +762,9 @@ const warmHearts = gridFamily<WarmP>({
                 continue
             points += 1
             for other in (cell.right, cell.down):
-                if other is not None and dressed(grid, other) and other.suit == cell.suit and other.colour == cell.colour:
-                    points += 1
+                if other is not None and dressed(grid, other):
+                    if other.suit == cell.suit and other.colour == cell.colour:
+                        points += 1
         return points`),
   typescript: (p, g) => tsCard(warmText(p, g), `
     function dressed(grid, cell) {
@@ -777,7 +779,8 @@ const warmHearts = gridFamily<WarmP>({
         if (!dressed(grid, cell)) continue;
         points += 1;
         for (const other of [cell.right, cell.down]) {
-          if (other !== null && dressed(grid, other) && other.suit === cell.suit && other.colour === cell.colour) points += 1;
+          if (other === null || !dressed(grid, other)) continue;
+          if (other.suit === cell.suit && other.colour === cell.colour) points += 1;
         }
       }
       return points;

@@ -699,7 +699,8 @@ const knightRiders = gridFamily<KnightP>({
           const row = cell.row + down, col = cell.col + across;
           if (row >= 0 && row < grid.size && col >= 0 && col < grid.size) {
             const other = grid.cell(row, col);
-            if (other.symbol === cell.symbol && other.colour === cell.colour${p.X === null ? "" : " && cell.colour === MY_COLOUR"}) twins += 1;
+            const twin = other.symbol === cell.symbol && other.colour === cell.colour;
+            if (twin${p.X === null ? "" : " && cell.colour === MY_COLOUR"}) twins += 1;
           }
         }
       }
@@ -816,7 +817,8 @@ const courtParade = gridFamily<ParadeP>({
       for (const line of [...grid.rows, ...grid.columns]) {
         for (let i = 0; i < line.length - 1; i++) {
           const a = line[i], b = line[i + 1];
-          if (oneSuit([a, b]) && ((a.value === 11 && b.value === 12) || (a.value === 12 && b.value === 13))) pairs += 1;
+          const courtly = (a.value === 11 && b.value === 12) || (a.value === 12 && b.value === 13);
+          if (oneSuit([a, b]) && courtly) pairs += 1;
         }
         for (let i = 0; i < line.length - 2; i++) {
           const jack = line[i], queen = line[i + 1], king = line[i + 2];
@@ -923,7 +925,8 @@ const connectFour = gridFamily<FourP>({
       for (const cell of grid.cells) {
         if (standing(grid, cell.row, cell.col)) counters += 1;
         for (const [down, across] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
-          if ([0, 1, 2, 3].every(i => standing(grid, cell.row + i * down, cell.col + i * across))) rowsOfFour += 1;
+          const four = [0, 1, 2, 3].every(i => standing(grid, cell.row + i * down, cell.col + i * across));
+          if (four) rowsOfFour += 1;
         }
       }
       return [rowsOfFour, counters];

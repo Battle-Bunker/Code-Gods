@@ -1,6 +1,5 @@
 /**
- * Int families in ordinal form: each returns its natural ordinal (a count, a length, a distance), never a
- * normalised [0, 1] value. Params come from small fixed lists so `canonical(support)` stays tiny, because
+ * Int families: each returns its natural ordinal (a count, a length, a distance; bigger is better). Params come from small fixed lists so `canonical(support)` stays tiny, because
  * calibration enumerates it. Cards use the Int prelude (`digits(x)`, `from_digits(ds)` / `fromDigits(ds)`).
  */
 import type { CardText } from "./card.ts";
@@ -12,12 +11,12 @@ interface IntSpec { readonly min: number; readonly max: number }
 const intFamily = defineFamilies<IntSpec>("Int", (ctx: FamilyContext) => ({
   min: Number(ctx.inst.args.min), max: Number(ctx.inst.args.max),
 }));
-const legal = (s: IntSpec, x: number) => Number.isSafeInteger(x) && x >= s.min && x <= s.max;
-/** Best legal candidate (with ± versions), scored by the family's own card. */
+const inRange = (s: IntSpec, x: number) => Number.isSafeInteger(x) && x >= s.min && x <= s.max;
+/** Best in-range candidate (with ± versions), scored by the family's own card. */
 function bestOf(id: string, p: any, s: IntSpec, ctx: FamilyContext, xs: readonly number[]): number {
   // Small domains: the best value outright. Large ones: the family's ideal shapes that fit.
   if (s.max - s.min <= 100_000) return bestValue(id, p, ctx, range(s.min, s.max)) as number;
-  const ok = [...new Set([...xs, ...xs.map(x => -x), s.min, s.max, 0])].filter(x => legal(s, x));
+  const ok = [...new Set([...xs, ...xs.map(x => -x), s.min, s.max, 0])].filter(x => inRange(s, x));
   return bestValue(id, p, ctx, ok) as number;
 }
 const card = (emoji: string, name: string, about: string, consts: CardText["consts"] = []): CardText =>
@@ -225,7 +224,7 @@ const smoothOperator = intFamily<SmoothP>({
       for (const x of xs) for (let y = x; y <= B; y *= q) next.push(y);
       xs = next;
     }
-    const top = xs.sort((a, b) => b - a).filter(x => legal(s, x) || legal(s, -x)).slice(0, 4);
+    const top = xs.sort((a, b) => b - a).filter(x => inRange(s, x) || inRange(s, -x)).slice(0, 4);
     return bestOf("smooth-operator", p, s, ctx, top);
   },
 });
@@ -503,9 +502,9 @@ const sumText = (p: SumP) => card("🔯", "Numerologist",
 const numerologist = intFamily<SumP>({
   id: "numerologist", name: "Numerologist", emoji: "🔯", theme: "Wants the decimal digits of x to add up to a sacred number.",
   shape: SCALAR,
-  // Totals some legal x reaches (the digit sum of the top bound always qualifies).
+  // Totals some x in the domain reaches (the digit sum of the top bound always qualifies).
   support: s => {
-    const ok = TOTALS.filter(t => legal(s, smallestWithDigitSum(t)) || legal(s, -smallestWithDigitSum(t)));
+    const ok = TOTALS.filter(t => inRange(s, smallestWithDigitSum(t)) || inRange(s, -smallestWithDigitSum(t)));
     const top = [...String(Math.abs(s.max))].reduce((a, d) => a + Number(d), 0);
     return (ok.length ? ok : [top]).map(total => ({ total }));
   },

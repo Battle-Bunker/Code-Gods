@@ -947,7 +947,7 @@ const uphillText = (p: CornerP, g: GridSpec): CardText => ({
 const uphillLines = (p: CornerP, lang: "py" | "ts") => {
   const rows = p.K[1] === "R" ? "grid.rows" : lang === "py" ? "[list(reversed(row)) for row in grid.rows]" : "grid.rows.map(row => [...row].reverse())";
   const cols = p.K[0] === "B" ? "grid.columns" : lang === "py" ? "[list(reversed(c)) for c in grid.columns]" : "grid.columns.map(column => [...column].reverse())";
-  return lang === "py" ? `${rows} + ${cols}` : `[...${rows}, ...${cols}]`;
+  return lang === "py" ? `${rows} + ${cols}` : `[\n        ...${rows},\n        ...${cols},\n      ]`;
 };
 const youngTableau = gridFamily<CornerP>({
   id: "young_tableau", name: "Uphill", emoji: "⛷️", theme: "Numbers rise toward your corner",
@@ -973,7 +973,8 @@ const youngTableau = gridFamily<CornerP>({
     function utility(grid) {
       let whole = 0;
       let steps = 0;
-      for (const line of ${uphillLines(p, "ts")}) {
+      const lines = ${uphillLines(p, "ts")};
+      for (const line of lines) {
         let good = 0;
         for (let i = 0; i < line.length - 1; i++) {
           if (line[i + 1].value > line[i].value) good += 1;
