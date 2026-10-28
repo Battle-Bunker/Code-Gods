@@ -346,6 +346,20 @@ class Survival:
         i = bisect_right(self._lv, ordinal_key(t)) - 1
         return 0.0 if i < 0 else float(self.stderr_bits[min(i, len(self._lv) - 1)])
 
+    def prior_mean_bits(self, hinge: float = 0.0, f: Optional[Callable] = None) -> float:
+        """E_μ[f(s(u(X)))] for X ~ prior, f(s) = max(0, s - hinge) unless given; exact for the step table:
+        an ordinal in [level_k, level_k+1) scores s_k and has mass G_k - G_k+1 (docs/defence-goals.md)."""
+        memo = self.__dict__.setdefault("_mean_memo", {})
+        key = (hinge, f)
+        if key not in memo:
+            s = np.asarray(self.surprisal(self.levels), dtype=np.float64)
+            G = np.exp2(-s)
+            mass = np.maximum(G - np.r_[G[1:], 0.0], 0.0)
+            v = np.maximum(0.0, s - hinge) if f is None else np.asarray(f(s), dtype=np.float64)
+            # ordinals below the lowest level score 0 bits
+            memo[key] = float((v * mass).sum() + (0.0 if f is None else float(f(0.0)) * max(0.0, 1.0 - G[0])))
+        return memo[key]
+
     def __repr__(self):
         return (f"Survival({self.meta.get('family', '?')}, {len(self.levels)} levels, "
                 f"max {self.max_observed_bits:.1f} bits{', exact' if self.exact else ''})")
@@ -589,7 +603,9 @@ def _save(key: str, table: Survival) -> None:
 
 def survival(draw: Draw, gtype: GridType, use_exact: bool = True, budget: Budget | None = None,
              cache: bool = True) -> Survival:
-    """The draw's survival table (memory cache -> disk cache -> estimate)."""
+    """The draw's survival table (memory cache -> disk cache -> estimate). A defence variant's reward
+    channel is calibrated as its base family (Draw.reward_draw), so the tables are shared."""
+    draw = draw.reward_draw()
     key = cache_key(draw, gtype, budget)
     exact = _exact_fn(draw, gtype) if use_exact else None
     mk = key + (":exact" if exact else "")
@@ -612,6 +628,17 @@ def clear_memory_cache() -> None:
     _MEM.clear()
 
 
+def channel_draws(draws: Sequence[Draw]) -> list[Draw]:
+    """Every draw that needs a table: each reward channel (base family for variants) and each defence goal."""
+    out = []
+    for d in draws:
+        out.append(d.reward_draw())
+        pd = d.penalty_draw()
+        if pd is not None:
+            out.append(pd)
+    return out
+
+
 _POOL_JOBS: list = []
 
 
@@ -627,6 +654,7 @@ def precompute(draws: Sequence[Draw], gtype: GridType, processes: int = 4, budge
     Returns {"built": n, "cached": n, "seconds": [per-table build seconds]}."""
     global _POOL_JOBS
     todo, seen, cached = [], set(), 0
+    draws = channel_draws(draws)
     for d in draws:
         k = cache_key(d, gtype, budget)
         if k in seen:

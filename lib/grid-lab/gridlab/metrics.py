@@ -23,6 +23,20 @@ Definitions (Δ over one committed transformation of object x, s = surprisal vec
                         registered in gridlab.mutators, else #distinct used)
   family_rank           [(family id, final rank)], rank 1 = highest final total payoff
 
+Defence goals (docs/defence-goals.md). With scored penalties, tension and harmony use net bits
+s_i - h_i (unchanged when no god has one). For every god with a defence goal, scored or shadow:
+  floor_*               signed-bit floor statistics (always computed with the penalty scored, so shadow games
+                        report what the floor *would* do): floor_neg_share = share of (final object, god
+                        with a goal) where n_i < 0; floor_veto_share = share of final objects where some
+                        god's multiplier max(0, Σ_{j≠i} n_j) is clipped; floor_dead_share = share where the
+                        collective Σ_j n_j <= 0; trash_rate = share of commits whose owner had n < 0 on the
+                        object and that lowered the owner's peers' summed signed bits without raising its own
+  defence               per god: damage_bits / repair_bits (Σ of rises / falls of h over commits),
+                        by self / others, damage_commits, undone_share (damage commits whose object
+                        later returns to h <= its pre-damage level), undo_median_s, final_h_mean,
+                        h_auc (mean over snapshots of the mean h over objects), repair_agents (own
+                        agents whose committed Δh sums < 0) and own_agents
+
 Headline `dynamism` in [0, 1] (weights sum to 1):
   0.25 * tension_rate
 + 0.20 * sq(spirals per 100 commits)
@@ -39,7 +53,7 @@ from collections import Counter
 
 import numpy as np
 
-from .sim import GameLog, payoffs
+from .sim import GameLog, payoffs, log_payoffs
 
 DYNAMISM_WEIGHTS = {"tension": 0.25, "spirals": 0.20, "lead_changes": 0.20, "liveness": 0.20, "entropy": 0.15}
 EPS = 1e-9
@@ -108,6 +122,10 @@ def metrics(log: GameLog) -> dict:
     att = log.counters.get("attempts", 0)
     m["success_rate"] = K / att if att else 0.0
     d = log.c_after - log.c_before if K else np.zeros((0, G))
+    dc = log.defence
+    scored_h = dc is not None and dc.scored
+    if K and scored_h:
+        d = d - (log.c_hafter - log.c_hbefore) * dc.w[None, :]
     up, down = (d > EPS).any(1), (d < -EPS).any(1)
     m["tension_rate"] = float((up & down).mean()) if K else 0.0
     m["harmony_rate"] = float((up & ~down).mean()) if K else 0.0
@@ -154,7 +172,10 @@ def metrics(log: GameLog) -> dict:
 
     # per-object volatility of summed payoff
     if K:
-        dp = payoffs(log.c_after.astype(float)).sum(1) - payoffs(log.c_before.astype(float)).sum(1)
+        hb = log.c_hbefore.astype(float) if scored_h else None
+        ha = log.c_hafter.astype(float) if scored_h else None
+        dp = log_payoffs(log, log.c_after.astype(float), ha).sum(1) - \
+            log_payoffs(log, log.c_before.astype(float), hb).sum(1)
         vols = []
         for o in np.unique(log.c_obj):
             x = dp[log.c_obj == o]
@@ -199,9 +220,87 @@ def metrics(log: GameLog) -> dict:
     m["family_rank"] = [(f, int(r)) for f, r in zip(log.families, ranks)]
     m["policy_rank"] = [(p, int(r)) for p, r in zip(log.policies, ranks)]
 
+    m["defence"] = defence_metrics(log)
+    m["penalty_scored"] = bool(scored_h)
+    m["payoff_mode"] = dc.mode if dc is not None else "plain"
+    m.update(floor_metrics(log))
+
     w = DYNAMISM_WEIGHTS
     m["dynamism"] = (w["tension"] * m["tension_rate"] + w["spirals"] * _sq(m["spirals_per_100_commits"])
                      + w["lead_changes"] * _sq(m["lead_changes_per_100s"])
                      + w["liveness"] * min(1.0, m["late_activity"] / 0.2)
                      + w["entropy"] * m["mutator_entropy_norm"])
     return m
+
+
+def defence_metrics(log: GameLog) -> list[dict]:
+    """Damage and repair of each defence goal (see the module docstring); [] if no god has one."""
+    if log.has_penalty is None or not log.has_penalty.any():
+        return []
+    K = len(log.c_time)
+    owner = log.a_owner[log.c_agent] if K else np.zeros(0, int)
+    out = []
+    for i in np.flatnonzero(log.has_penalty):
+        dh = (log.c_hafter[:, i] - log.c_hbefore[:, i]).astype(float) if K else np.zeros(0)
+        own = owner == i
+        dmg, rep = dh > EPS, dh < -EPS
+        # undone: a later commit on the same object brings h back to <= the pre-damage level
+        undone, waits = 0, []
+        for o in np.unique(log.c_obj[dmg]) if K else []:
+            idx = np.flatnonzero(log.c_obj == o)
+            hb, ha, tt = log.c_hbefore[idx, i], log.c_hafter[idx, i], log.c_time[idx]
+            for a in np.flatnonzero(ha - hb > EPS):
+                later = np.flatnonzero(ha[a + 1:] <= hb[a] + EPS)
+                if later.size:
+                    undone += 1
+                    waits.append(float(tt[a + 1 + later[0]] - tt[a]))
+        agents = np.flatnonzero(log.a_owner == i)
+        per_agent = np.zeros(len(log.a_owner))
+        if K:
+            np.add.at(per_agent, log.c_agent, dh)
+        auc = [float(h[:, i].mean()) for h in (log.snap_h or []) if len(h)]
+        out.append({
+            "god": int(i), "family": log.families[i], "scored": bool(log.defence.w[i] > 0),
+            "K": float(log.penalty_K_prior[i]), "hbar": float(log.penalty_hbar[i]),
+            "damage_bits": float(dh[dmg].sum()), "repair_bits": float(-dh[rep].sum()),
+            "damage_by_others": float(dh[dmg & ~own].sum()), "damage_by_self": float(dh[dmg & own].sum()),
+            "repair_by_self": float(-dh[rep & own].sum()), "repair_by_others": float(-dh[rep & ~own].sum()),
+            "damage_commits": int(dmg.sum()), "undone_share": undone / max(1, int(dmg.sum())),
+            "undo_median_s": float(np.median(waits)) if waits else None,
+            "final_h_mean": float(log.final_h[:, i].mean()) if len(log.final_h) else 0.0,
+            "spawn_h_mean": float(log.s_hvec[:, i].mean()) if len(log.s_hvec) else 0.0,
+            "h_auc": float(np.mean(auc)) if auc else 0.0,
+            "own_agents": int(agents.size), "repair_agents": int((per_agent[agents] < -EPS).sum()),
+            "own_commits": int(own.sum()),
+        })
+    return out
+
+
+def floor_metrics(log: GameLog) -> dict:
+    """Floor occupancy and noise-trashing (module docstring); zeros if no god has a defence goal."""
+    out = {"floor_neg_share": 0.0, "floor_veto_share": 0.0, "floor_dead_share": 0.0, "trash_rate": 0.0,
+           "flank_repair_rate": 0.0}
+    dc = log.defence
+    if dc is None or not dc.any:
+        return out
+    from dataclasses import replace
+    from .defence import net_bits
+    dcs = replace(dc, w=dc.has.astype(float)) if not dc.scored else dc
+    if len(log.final_s):
+        n = net_bits(log.final_s.astype(float), log.final_h.astype(float), dcs)
+        peer = n.sum(1, keepdims=True) - n
+        out["floor_neg_share"] = float((n[:, dc.has] < -EPS).mean())
+        out["floor_veto_share"] = float((peer < -EPS).any(1).mean())
+        out["floor_dead_share"] = float((n.sum(1) <= EPS).mean())
+    K = len(log.c_time)
+    if K:
+        nb = net_bits(log.c_before.astype(float), log.c_hbefore.astype(float), dcs)
+        na = net_bits(log.c_after.astype(float), log.c_hafter.astype(float), dcs)
+        o = log.a_owner[log.c_agent].astype(int)
+        ar = np.arange(K)
+        own_b, own_a = nb[ar, o], na[ar, o]
+        peer_b, peer_a = nb.sum(1) - own_b, na.sum(1) - own_a
+        neg = own_b < -EPS
+        out["trash_rate"] = float((neg & (peer_a < peer_b - EPS) & (own_a <= own_b + EPS)).mean())
+        out["flank_repair_rate"] = float((neg & (own_a > own_b + EPS)).mean())
+    return out

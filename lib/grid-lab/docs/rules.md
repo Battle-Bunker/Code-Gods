@@ -223,6 +223,18 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `connect_four` | Connect Four | C+P | clumper | N>=4 | #4-in-a-row windows (any direction) of 'standing' X cells (all X below) | #standing X cells | S_k colours | canon | games cross-lens idea 'Connect Four with gravity'; tie-breaker = standing counters |
 
 
+### defence.py (opt-in: `gridlab.rules.DEFENCE_FAMILIES`, `gridlab.run --defence`)
+
+Defence goals (docs/defence-goals.md). Eight **penalty families** (badness ordinals, never dealt alone):
+`hate_colour` (exact binomial), `hate_value` (exact binomial), `hate_blob`, `hate_takeover`, `hate_big_blob`,
+`hate_same_corners`, `hate_repeat_row`, `hate_symbol_takeover`. Eight **defence variants** keep an existing
+reward and add one (`seed3_green_ones+hate_colour`, `seed1_line_painter+hate_blob`, `seed2_patchwork+hate_takeover`,
+`lucky_token+hate_colour`, `kingdom+hate_value`, `rainbow_road+hate_big_blob`, `number_bonds+hate_colour`,
+`magic_accountant+hate_value`). Five **protector families** whose main stake is the defence goal: `no_takeover`,
+`four_corners`, `rainbow_guardian`, `blob_warden`, `mixed_bag` (their reward channels `rarest_colour`,
+`corner_variety`, `rainbow_row`, `islands`, `symbol_variety` are registered in `by_id` but not dealt).
+All pass the same checks as every family (`tests.test_defence` runs `tests.test_rules.check_family` on them).
+
 ## 3. Merged, skipped and added
 
 **Merged as true duplicates (no separate family)**

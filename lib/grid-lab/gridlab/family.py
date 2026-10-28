@@ -106,6 +106,12 @@ class Family:
     card_source: Optional[Callable[[Params, GridType], str]] = None
     source: str = ""                             # brainstorm origin, e.g. "catalog#12 / games.md"
     tags: frozenset[str] = field(default_factory=frozenset)  # e.g. {"seed", "shortlist"}
+    # Optional defence goal (docs/defence-goals.md): a Family whose ordinal is *badness* (higher = worse),
+    # read with params["defence"]. Calibrated like any ordinal; scored as a penalty, never as a reward.
+    penalty: Optional["Family"] = None
+    # Set on variants built by `with_defence`: the family whose reward ordinal this one reuses. The reward
+    # channel is calibrated as the base (same survival table), with the "defence" params stripped.
+    base: Optional["Family"] = None
 
     def available(self, gtype: GridType) -> bool:
         return self.requires.check(gtype)
@@ -133,3 +139,58 @@ class Draw:
 
     def summary(self, gtype: GridType) -> str:
         return self.family.summary(self.params, gtype)
+
+    def reward_draw(self) -> "Draw":
+        """The draw whose survival table scores the reward channel (the base family for variants)."""
+        f = self.family
+        if f.base is None:
+            return self
+        return Draw(f.base, {k: v for k, v in self.params.items() if k != "defence"})
+
+    def penalty_draw(self) -> Optional["Draw"]:
+        """The defence goal as a draw of its own (badness ordinal), or None."""
+        f = self.family
+        return None if f.penalty is None else Draw(f.penalty, self.params["defence"])
+
+
+def with_defence(base: Family, penalty: Family, *, id: str | None = None, name: str | None = None,
+                 theme: str | None = None,
+                 sample_penalty: Optional[Callable[[np.random.Generator, GridType, Params], Params]] = None,
+                 source: str = "", tags=()) -> Family:
+    """A variant of `base` that keeps its reward and adds the defence goal `penalty`.
+
+    Params are base params plus params["defence"] = penalty params (`sample_penalty(rng, gtype, base_params)`
+    when the penalty must avoid the base's choices, e.g. hate a colour other than the favourite)."""
+    sp = sample_penalty or (lambda rng, gt, p: penalty.sample(rng, gt))
+
+    def sample(rng, gt):
+        p = base.sample(rng, gt)
+        return {**p, "defence": sp(rng, gt, p)}
+
+    def strip(p):
+        return {k: v for k, v in p.items() if k != "defence"}
+
+    def canonical(p, gt):
+        q = base.canonical(strip(p), gt) if base.canonical is not None else strip(p)
+        d = penalty.canonical(p["defence"], gt) if penalty.canonical is not None else p["defence"]
+        return {**q, "defence": d}
+
+    from dataclasses import replace
+    return replace(
+        base, id=id or f"{base.id}+{penalty.id}", name=name or f"{base.name}, hates {penalty.name}",
+        theme=theme or f"{base.theme}; hates {penalty.name.lower()}",
+        requires=Requires(base.requires.classes | penalty.requires.classes,
+                          max(base.requires.min_size, penalty.requires.min_size),
+                          min(base.requires.max_size, penalty.requires.max_size),
+                          base.requires.parity or penalty.requires.parity,
+                          max(base.requires.min_colours, penalty.requires.min_colours),
+                          max(base.requires.min_symbols, penalty.requires.min_symbols)),
+        sample=sample, summary=lambda p, gt: base.summary(strip(p), gt),
+        ordinal=lambda g, p, gt: base.ordinal(g, strip(p), gt),
+        batch=None if base.batch is None else (lambda s, c, p, gt: base.batch(s, c, strip(p), gt)),
+        canonical=canonical,
+        exact_log2_tail=None if base.exact_log2_tail is None else
+        (lambda t, p, gt: base.exact_log2_tail(t, strip(p), gt)),
+        exemplar=None if base.exemplar is None else (lambda p, gt: base.exemplar(strip(p), gt)),
+        source=source or f"{base.id} + defence goal {penalty.id}",
+        tags=frozenset(tags) | {"defence"}, penalty=penalty, base=base)
