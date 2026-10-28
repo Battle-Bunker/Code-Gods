@@ -677,16 +677,24 @@ components:
     OfferedInstantiation:
       type: object
       description: An instantiation the server offers (every utility function dealable in it has a calibration table).
-      required: [key, args, label, badges, classes]
+      required: [key, args, label, badges, classes, settingsDefaults]
       properties:
         key: { type: string, description: "Canonical key, e.g. Grid(5,base10,rgby)." }
         args: { $ref: "#/components/schemas/TypeArgs" }
         label: { type: string }
         badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
         classes: { type: array, items: { type: string } }
+        settingsDefaults: { $ref: "#/components/schemas/SettingsDefaults" }
+    SettingsDefaults:
+      type: object
+      description: "Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields."
+      additionalProperties:
+        oneOf:
+          - { type: number }
+          - { type: string }
     ObjectTypeInfo:
       type: object
-      required: [id, label, emoji, kid, params, defaults, classes, offered]
+      required: [id, label, emoji, kid, params, defaults, settingsDefaults, classes, offered]
       properties:
         id: { type: string, description: "Int, string or Grid." }
         label: { type: string }
@@ -694,6 +702,7 @@ components:
         kid: { type: string }
         params: { type: array, items: { $ref: "#/components/schemas/ParamSchema" } }
         defaults: { $ref: "#/components/schemas/TypeArgs" }
+        settingsDefaults: { $ref: "#/components/schemas/SettingsDefaults" }
         classes: { type: array, items: { $ref: "#/components/schemas/CapabilityClass" } }
         offered: { type: array, items: { $ref: "#/components/schemas/OfferedInstantiation" } }
     HelperDoc:

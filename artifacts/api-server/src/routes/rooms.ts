@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, instantiationOf, validateSettings, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, instantiationOf, typeDefaults, validateSettings, type GameSettings } from "@workspace/game-core";
 import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { offeredInstantiations } from "../game/calibration";
@@ -22,12 +22,31 @@ let objectTypes: unknown[] | undefined;
 export function objectTypesManifest() {
   return objectTypes ??= OBJECT_TYPES.map(T => ({
     id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
+    // Tuned settings for games of this type (e.g. Grid: more objects, faster spawns).
+    settingsDefaults: typeDefaults(T.id),
     classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
     offered: offeredInstantiations(T.id).map(inst => {
       const info = instanceInfo(inst);
-      return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes };
+      return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes,
+        settingsDefaults: typeDefaults(T.id, inst.args) };
     }),
   }));
+}
+/**
+ * When the owner switches instantiation, the tuned per-type defaults follow it: every tuned field the
+ * request left untouched (absent, or still the room's current value) takes the new instantiation's default.
+ */
+export function retuneSettings(previous: GameSettings, next: GameSettings, sent: Record<string, unknown>): GameSettings {
+  const before = instantiationOf(previous).key, after = instantiationOf(next).key;
+  if (before === after) return next;
+  const oldDefaults = typeDefaults(previous.objectType, previous.typeArgs);
+  const newDefaults = typeDefaults(next.objectType, next.typeArgs);
+  const tuned = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<keyof GameSettings>;
+  const out = { ...next } as Record<string, unknown>;
+  for (const key of tuned) {
+    if (!(key in sent) || sent[key] === previous[key]) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
+  }
+  return out as unknown as GameSettings;
 }
 /** Settings name an instantiation the server offers; otherwise no calibrated utility functions exist for it. */
 export function assertOffered(settings: GameSettings) {
@@ -111,7 +130,7 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (input.action === "settings") {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
       if (!input.settings) throw new Error("Settings are required");
-      const settings = input.settings as GameSettings;
+      const settings = retuneSettings(room.settings, input.settings as GameSettings, (req.body?.settings ?? {}) as Record<string, unknown>);
       validateSettings(settings);
       assertOffered(settings);
       if (settings.startingObjectCount > 1000 ||

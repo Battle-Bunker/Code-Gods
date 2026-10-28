@@ -133,6 +133,8 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
   };
 }
 
+/** Bits are compared and serialised: never let −0 (−log2 1) through. */
+const bits = (x: number) => (x === 0 ? 0 : x);
 export function createUtilitiesAdapter(): UtilitiesAdapter {
   const table = (draw: { familyId: string; params: UtilityDescriptor["params"] }, settings: GameSettings) => {
     const found = tableFor(draw, instantiationOf(settings));
@@ -150,14 +152,14 @@ export function createUtilitiesAdapter(): UtilitiesAdapter {
     score(settings, descriptor, value) {
       const inst = instantiationOf(settings);
       const ordinal = evaluator(descriptor, inst)(value);
-      const rewardBits = surprisal(table(descriptor, settings), ordinal);
-      if (!descriptor.penalty) return { ordinal, rewardBits, netBits: netBits({ rewardBits }, settings.penaltyWeight) };
+      const rewardBits = bits(surprisal(table(descriptor, settings), ordinal));
+      if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
       const penaltyTable = table(descriptor.penalty, settings);
       const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);
-      const penaltyBits = softHinge(surprisal(penaltyTable, penaltyOrdinal));
+      const penaltyBits = bits(softHinge(surprisal(penaltyTable, penaltyOrdinal)));
       return {
         ordinal, rewardBits, penaltyOrdinal, penaltyBits,
-        netBits: netBits({ rewardBits, penaltyBits, penaltyMeanBits: penaltyMeanBits(penaltyTable) }, settings.penaltyWeight),
+        netBits: bits(netBits({ rewardBits, penaltyBits, penaltyMeanBits: penaltyMeanBits(penaltyTable) }, settings.penaltyWeight)),
       };
     },
   };

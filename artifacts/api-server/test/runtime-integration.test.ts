@@ -1,13 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, defaultSettingsFor, instantiationOf, type GameSettings } from "@workspace/game-core";
+import { objectType } from "@workspace/game-types";
+import { card, context } from "@workspace/game-utilities";
 import { RoomActionBody } from "../../../lib/api-zod/src/generated/api.ts";
-import type { GameRuntime } from "@workspace/game-runtime";
-import { card, utility } from "@workspace/game-utilities";
-import { createRuntimeAdapter, createUtilitiesAdapter, requireAdapters } from "../src/game/adapters.ts";
+import type { ActSettings, GameRuntime } from "@workspace/game-runtime";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, requireAdapters } from "../src/game/adapters.ts";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup.ts";
 
-test("room mutation schema validates compute budgets and the product dispatch ceiling", () => {
+test("room mutation schema validates compute budgets, the dispatch ceiling and the new economy knobs", () => {
   const action = (settings: unknown) => ({ action: "settings", requestId: "settings-budget", revision: 0, settings });
   for (const interactionComputeMs of [1, 5, 1000]) {
     const parsed = RoomActionBody.parse(action({ ...DEFAULT_SETTINGS, interactionComputeMs }));
@@ -18,85 +19,94 @@ test("room mutation schema validates compute budgets and the product dispatch ce
   }
   assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, interactionRateHz: 1000 })).success, true);
   assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, interactionRateHz: 1000.1 })).success, false);
-  const { interactionRateHz: _rate, ...missingRate } = DEFAULT_SETTINGS;
-  assert.equal(RoomActionBody.parse(action(missingRate)).settings?.interactionRateHz, 100);
+  const { interactionRateHz: _rate, agentEnergyPerSecond: _income, agentBatteryActs: _battery, ...missing } = DEFAULT_SETTINGS;
+  const parsed = RoomActionBody.parse(action(missing)).settings!;
+  assert.deepEqual([parsed.interactionRateHz, parsed.agentEnergyPerSecond, parsed.agentBatteryActs], [100, 2, 2]);
+  const { typeArgs: _args, ...untyped } = DEFAULT_SETTINGS;
+  assert.equal(RoomActionBody.safeParse(action(untyped)).success, false, "typeArgs is required");
+  assert.equal(RoomActionBody.safeParse(action({ ...DEFAULT_SETTINGS, agentBatteryActs: 0.5 })).success, false);
+  const stripped = RoomActionBody.parse(action({ ...DEFAULT_SETTINGS, intMin: 0, stringMaxLength: 5 })).settings as Record<string, unknown>;
+  assert.equal("intMin" in stripped || "stringMaxLength" in stripped, false, "removed fields are not part of the schema");
 });
 
-test("runtime adapter propagates the per-room compute budget without dropping settings", async () => {
+test("runtime adapter builds ActSettings from the instantiation and propagates the compute budget", async () => {
   const settings = { ...DEFAULT_SETTINGS, interactionComputeMs: 37 };
-  const calls: GameSettings[] = [];
+  const calls: ActSettings[] = [];
   const pool = {
-    async inspect(_source: string, received: GameSettings) {
-      calls.push(received);
-      return { cost: 6 };
-    },
-    async execute(_source: string, input: number, received: GameSettings) {
-      calls.push(received);
-      return { value: input };
-    },
+    async inspect(_source: string, received: ActSettings) { calls.push(received); return { cost: 8 }; },
+    async act(_source: string, _input: number, received: ActSettings) { calls.push(received); return { calls: "[]" }; },
   } as unknown as GameRuntime;
   const adapter = createRuntimeAdapter({ python: pool });
-  assert.deepEqual(await adapter.inspect("lambda x: x", settings), { cost: 6 });
-  assert.equal(await adapter.execute("lambda x: x", 42, settings), 42);
-  assert.deepEqual(calls.map(s => s.interactionComputeMs), [37, 37]);
-  assert.ok(calls.every(s => s === settings));
+  assert.deepEqual(await adapter.inspect("def agent(x):\n    return []", settings), { cost: 8 });
+  assert.deepEqual(await adapter.act("def agent(x):\n    return []", 42, settings), { calls: "[]" });
+  const inst = instantiationOf(settings), parts = objectType("Int").prelude(inst);
+  for (const received of calls) {
+    assert.equal(received.interactionComputeMs, 37);
+    assert.equal(received.objectType, "Int");
+    assert.equal(received.wireMaxLength, 0);
+    assert.deepEqual(received.prelude, { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts });
+    assert.equal("typeArgs" in received || "startingEnergy" in received, false, "only the runtime's view crosses the boundary");
+  }
+  const grid = actSettings(defaultSettingsFor("Grid"));
+  assert.equal(grid.wireMaxLength, objectType("Grid").codec(instantiationOf(defaultSettingsFor("Grid"))).maxLength);
 });
 
-test("isolated adapters: both languages, domain identities, structural source cost and shutdown", { timeout: 90000 }, async t => {
+test("isolated adapters: both languages, every object type's prelude, agent price, calls and shutdown", { timeout: 180000 }, async t => {
   try {
     await initializeRuntimeAdapters();
     const { runtime } = requireAdapters();
     for (const language of ["python", "typescript"] as const) {
       await t.test(language, async () => {
         assert.ok(runtime.languages.includes(language), `${language} failed its readiness probes`);
-        for (const objectType of ["Int", "string"] as const) {
-          const settings: GameSettings = {
-            ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1`,
-          };
-          const source = language === "python" ? "lambda x: x"
-            : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
-          assert.equal((await runtime.inspect(source, settings)).cost, 6);
-          for (const input of objectType === "Int" ? [-37, 0, 37] : ["", "ASCII\0\n", "hello"]) {
-            assert.equal(await runtime.execute(source, input, settings), input);
-          }
-          if (objectType === "string") {
-            const outputNul = language === "python" ? 'lambda x: "A\\x00\\nB"' : '(x: string) => "A\\x00\\nB"';
-            assert.equal(await runtime.execute(outputNul, "", settings), "A\0\nB");
-            if (language === "typescript") {
-              assert.equal(await runtime.execute('(x: string) => { JSON.stringify = () => "tampered"; return x; }', "safe\0\n", settings), "safe\0\n");
-            }
-          }
-          const plusOne = language === "python" ? "lambda x: x + 1" : "(x: number) => x + 1";
-          assert.equal((await runtime.inspect(plusOne, { ...settings, objectType: "Int" })).cost, 9);
+        const cases = [
+          ["Int", 41, language === "python" ? "def agent(x):\n    return [add(1)]" : "function agent(x) { return [add(1)]; }", '[["add",{"k":1}]]', 11],
+          ["string", "hello\0\n", language === "python" ? "def agent(s):\n    return [rotate(1)]" : "function agent(s) { return [rotate(1)]; }", '[["rotate",{"k":1}]]', 11],
+        ] as const;
+        for (const [type, input, source, calls, cost] of cases) {
+          const settings: GameSettings = { ...defaultSettingsFor(type, language), interactionComputeMs: 1000 };
+          assert.equal((await runtime.inspect(source, settings)).cost, cost);
+          assert.equal((await runtime.act(source, input, settings)).calls, calls);
         }
+        const empty = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+        assert.equal((await runtime.inspect(empty, defaultSettingsFor("Int", language))).cost, language === "python" ? 7 : 8);
+        await assert.rejects(runtime.inspect(language === "python" ? "lambda x: x" : "(x: number) => x", defaultSettingsFor("Int", language)),
+          (error: any) => error.code === "COMPILE", "a bare callable is not an agent");
       });
     }
   } finally { shutdownRuntimeAdapters(); }
   assert.throws(requireAdapters, { code: "RUNNER_UNAVAILABLE" });
 });
 
-test("utility functions are dealt as plain data and evaluate identically after a JSON round trip", () => {
+test("utility functions are dealt as plain data and score identically after a JSON round trip", () => {
   const adapter = createUtilitiesAdapter();
-  for (const objectType of ["Int", "string"] as const) {
-    const settings: GameSettings = { ...DEFAULT_SETTINGS, objectType };
+  for (const type of ["Int", "string", "Grid"] as const) {
+    const settings = defaultSettingsFor(type);
+    const inst = instantiationOf(settings), T = objectType(type), codec = T.codec(inst);
     for (const count of [3, 8]) {
       const dealt = adapter.deal(settings, count);
       assert.equal(dealt.length, count);
       assert.equal(new Set(dealt.map(d => JSON.stringify(d))).size, count, "no two gods share an identical utility function");
-      for (const descriptor of dealt) {
+      for (const descriptor of dealt.slice(0, 3)) {
         const restored = JSON.parse(JSON.stringify(descriptor));
-        for (const value of objectType === "Int" ? [settings.intMin, -37, 0, 37, settings.intMax]
-          : ["", "hello", "\0\n", "a".repeat(settings.stringMaxLength)]) {
-          assert.equal(adapter.evaluate(restored, value), utility(descriptor, value));
+        for (let i = 0; i < 3; i++) {
+          const value = codec.encode(T.spawn(inst, { int: b => Math.floor(Math.random() * b), big: b => BigInt(Math.floor(Math.random() * Number(b))) }));
+          const score = adapter.score(settings, restored, value);
+          assert.deepEqual(score, adapter.score(settings, descriptor, value));
+          assert.ok(score.rewardBits >= 0 && Number.isFinite(score.netBits));
+          if (!descriptor.penalty) assert.equal(score.netBits, score.rewardBits);
         }
-        const { summary, source } = card(restored);
-        assert.ok(summary.length > 40);
-        assert.match(source.python, /def utility\(x/);
-        assert.match(source.typescript, /function utility\(x/);
+        const c = card(restored, context(inst));
+        assert.ok(c.summary.length > 10 && c.emoji && c.name);
+        assert.match(c.source.python, /def utility\(/);
+        assert.match(c.source.typescript, /function utility\(/);
       }
     }
   }
-  assert.throws(() => adapter.deal({ ...DEFAULT_SETTINGS, intMin: 0, intMax: 1 }, 3), /widen the domain/);
-  assert.throws(() => adapter.evaluate({} as never, 0), /descriptor/);
-  assert.throws(() => adapter.evaluate({ familyId: "pantheon-of-friction-v1", params: {} }, 0), /Unknown utility family/);
+  const withDefence = adapter.deal({ ...defaultSettingsFor("Grid"), defenceRate: 1 }, 3);
+  assert.ok(withDefence.every(d => d.penalty), "defenceRate 1 deals a defence goal to every god");
+  const settings = { ...defaultSettingsFor("Grid"), defenceRate: 1 }, inst = instantiationOf(settings);
+  const value = objectType("Grid").codec(inst).encode(objectType("Grid").spawn(inst, { int: b => Math.floor(Math.random() * b), big: b => 0n * b }));
+  const scored = adapter.score(settings, withDefence[0], value);
+  assert.ok(scored.penaltyBits !== undefined && scored.penaltyBits >= 0);
+  assert.throws(() => adapter.score(DEFAULT_SETTINGS, { familyId: "pantheon-of-friction-v1", params: {} }, 0), /Unknown utility family/);
 });

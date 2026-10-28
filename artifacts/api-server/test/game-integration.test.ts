@@ -40,7 +40,7 @@ test("bounded queued interactions preserve command durability and retry failed w
   const host: Actor = { id: randomUUID(), name: "Queue test", kind: "human", scope: "browser" };
   const room = await createRoom(host);
   await mutate(room.id, async draft => {
-    draft.game = { id: randomUUID(), shortCode: "fixture", phase: "ended", objects: [
+    draft.game = { id: randomUUID(), shortCode: "fixture", phase: "recovery", objects: [
       { id: "object", value: 0, version: 0, scores: {} },
     ], events: [], deities: [{ id: host.id, spent: 0 }] } as any;
   });
@@ -221,7 +221,9 @@ test("three-player authority: exact costs, receipts, pause energy, privacy and p
     assert.equal(resolveRoom(id).game!.agents.filter(a => a.ownerId === bot.id).length, 1, "AI uses game-scoped validation and summon commands");
     assert.equal(resolveRoom(id).game!.deities.find(d => d.id === bot.id)!.spent, 8);
     assert.equal(fixtureRooms.get(id).aiReservedUsd, 0.2);
-    assert.ok(fixtureRooms.get(id).aiUsed > 8192);
+    // The reservation (input bound + 8192 output tokens) settles to the provider-reported usage.
+    assert.equal(fixtureRooms.get(id).aiUsed, 110);
+    assert.deepEqual([fixtureRooms.get(id).aiInputTokens, fixtureRooms.get(id).aiOutputTokens], [100, 10]);
     await mutate(id, async draft => { draft.aiBudget = draft.aiUsed; });
     await assert.rejects(controller.step(), /budget/);
     assert.equal(calls, 1, "budget refusal must precede provider call");
@@ -922,7 +924,7 @@ test("graceful store shutdown flushes the bounded interaction window to disk", a
   const host: Actor = { id: randomUUID(), name: "Shutdown", kind: "human", scope: "browser" };
   const room = await createRoom(host);
   await mutate(room.id, async draft => {
-    draft.game = { id: randomUUID(), shortCode: "shutdown", phase: "ended",
+    draft.game = { id: randomUUID(), shortCode: "shutdown", phase: "recovery",
       objects: [{ id: "object", value: 0, version: 0, utilities: {} }], events: [] } as any;
   });
   await mutateInteraction(room.id, "object", draft => {

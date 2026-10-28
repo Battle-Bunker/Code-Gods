@@ -108,6 +108,13 @@ try {
                 fixtureGameRows.set(args[0],{id:args[0],room_id:args[1],prefix_length:args[2],started_at:args[4],ended_at:args[5],summary:args[6]&&JSON.parse(args[6])});
                 return {rows:[]};
               }
+              if (sql.startsWith("UPDATE cg_games SET prefix_length=$2")) {
+                const g=fixtureGames.get(args[0]);if(g)fixtureGames.set(args[0],{...g,shortCode:args[2]});
+                const r=fixtureGameRows.get(args[0]);if(r)fixtureGameRows.set(args[0],{...r,prefix_length:args[1]});return {rows:[]};
+              }
+              if (sql.startsWith("UPDATE cg_rooms SET state=jsonb_set(state,'{game,shortCode}'")) {
+                for(const [id,room] of fixtureRooms)if(room.game?.id===args[0])fixtureRooms.set(id,{...room,game:{...room.game,shortCode:args[1]}});return {rows:[]};
+              }
               if (sql==="UPDATE cg_rooms SET state=$2 WHERE id=$1") {fixtureRooms.set(args[0],JSON.parse(args[1]));return {rows:[]};}
               throw new Error("Unexpected fixture SQL: "+sql);
             }
