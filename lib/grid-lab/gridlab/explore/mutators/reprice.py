@@ -77,9 +77,11 @@ def main(argv=None):
     ap.add_argument("--type", default="5,base10,rgby")
     ap.add_argument("--presets", default="default")
     ap.add_argument("--draws", type=int, default=3)
+    ap.add_argument("--base", default="default", help="landscape preset whose stored Δs are re-priced "
+                    "(presets must keep its mutator set)")
     a = ap.parse_args(argv)
     gt = parse_type(a.type)
-    L = load_or_run(gt, "default", a.draws)
+    L = load_or_run(gt, a.base, a.draws)
     rows = []
     for p in a.presets.split(","):
         assert p in PRESETS, p

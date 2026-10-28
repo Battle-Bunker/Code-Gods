@@ -355,3 +355,10 @@ VARIANTS["extra"] = _extra_variant
 PRESETS["extra"] = {"knobs": {}, "variant": ["extra"]}
 PRESETS["composite+worstmove"] = {"knobs": {}, "variant": ["composite", "worstmove"]}
 PRESETS["full"] = {"knobs": {}, "variant": ["extra", "composite", "worstmove"]}
+
+
+# full proposal + scope/move knob variants (screened with reprice.py --base full)
+for _g in (1.25, 1.5):
+    PRESETS[f"full+global{_g}"] = {"knobs": {"scope": {"global": _g}}, "variant": ["extra", "composite", "worstmove"]}
+for _m in (0.7, 1.0):
+    PRESETS[f"full+move{_m}"] = {"knobs": {"move": _m}, "variant": ["extra", "composite", "worstmove"]}

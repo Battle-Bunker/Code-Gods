@@ -386,6 +386,9 @@ def path_for(gt: GridType, preset: str, k: int, multi: bool) -> "ST.Path":
 
 def load_or_run(gt: GridType, preset: str = "default", k: int = 3, multi: bool = True, **kw) -> dict:
     p = path_for(gt, preset, k, multi)
+    if not p.exists() and preset == "default":     # the default preset's key changed once (tag scheme); any is fine
+        old = sorted(ST.CACHE.glob(f"landscape-{gt.key}-default-*-k{k}{'-m' if multi else ''}.pkl"))
+        p = old[0] if old else p
     if p.exists():
         with open(p, "rb") as fh:
             return pickle.load(fh)
