@@ -60,7 +60,11 @@ SETTINGS["w80_energy_I0p25_B2_naming"] = energy_setting(0.25, agent_act_naming=1
 SETTINGS["w80_energy_I2_B2_naming"] = energy_setting(2.0, agent_act_naming=1.0, **WORLD80)
 for _i in (0.25, 2.0):
     SETTINGS["w80_" + _name(_i, 2) + "_floor2"] = energy_setting(_i, agent_act_floor_bits=2.0, **WORLD80)
-MAIN = list(SETTINGS)
+for _i in (8.0, 16.0, 32.0):
+    SETTINGS["w80_" + _name(_i, 2) + "_floor2"] = energy_setting(_i, agent_act_floor_bits=2.0, **WORLD80)
+SETTINGS["w80_" + _name(16, 2) + "_floor1"] = energy_setting(16.0, agent_act_floor_bits=1.0, **WORLD80)
+W80_HIGH = ["w80_summon"] + [k for k in SETTINGS if k.startswith("w80_energy_I") and k.split("_")[2] in ("I8", "I16", "I32")]
+MAIN = [k for k in SETTINGS if k not in W80_HIGH[1:]]
 FOCUS = ("energy_I0p25_B2", "energy_I2_B2")   # settings whose family moves vs summon are listed
 SPAM = ["summon", "energy_I0p25_B2", "energy_I2_B2", "energy_I2_B2_naming", "energy_I2_B2_floor2"]
 
