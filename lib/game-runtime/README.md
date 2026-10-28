@@ -40,14 +40,18 @@ const runtime = createRuntime({ language: "python", workers: 2, queueLimit: 32 }
 const parts = objectType.prelude(inst);              // lib/game-types PreludeParts
 const settings = {
   objectType: "Int", wireMaxLength: 0,               // 0 for numeric types
-  interactionComputeMs: 5,
-  prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts },
+  interactionComputeMs: 1000, stepBudget: 500000,    // CPU backstop; deterministic step budget
+  prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
+             pricing: { python: vocab, typescript: vocabTs } },   // see "Prelude contract"
 };
 const source = "def agent(n):\n    return [add(1)]\n";
-await runtime.inspect(source, settings);  // {cost: 11}; parses/compiles, never evaluates
-await runtime.act(source, 41, settings);  // {calls: '[["add",{"k":1}]]'}: UNTRUSTED text
-await runtime.validate(source, [0, 10], settings);
-// {cost, outputs: [calls, calls]}; each sample gets a fresh guest
+await runtime.inspect(source, settings);
+// {complexityFunctionId: "ast-bits-v1", cost, astBytes: 11, parts: {structure, names, literals, moveFlags},
+//  literalMoves: [["add", {"k": 1}]], literalMoveFallbackBits: [...]}; never evaluates the source
+await runtime.act(source, 41, settings, seed);  // seed: 64-bit decimal / 0x-hex string, per act
+// {calls: '[["add",{"k":1}]]' (UNTRUSTED text), usedRandom: false, steps: 2}
+await runtime.validate(source, [0, 10], settings, [seed0, seed1]);
+// {inspection, acts: [ActResult, ActResult]}; each sample gets a fresh guest
 runtime.close(); // shutdown hook: rejects outstanding work, kills workers
 ```
 
@@ -80,42 +84,113 @@ other fields (a full room settings object) are ignored and never sent to workers
 * `wireMaxLength`: 0–1024. An input is valid if it is a safe integer, or an
   ASCII string of at most `wireMaxLength` characters. No other check: the host
   validates objects with the type's codec. No coercion, wrapping or truncation.
-* `interactionComputeMs`: integer 1–1000, default 5.
+* `interactionComputeMs`: integer 1–1000, default 5: the CPU backstop, and (Python) the scale of the
+  deterministic fuel ceiling. Open agents should run with a generous value (1000) so the
+  deterministic step budget binds.
+* `stepBudget`: integer 1–10,000,000, default 500,000 (docs/open-agents.md §1.3).
 * `prelude.key`: 1–128 printable ASCII characters (`PreludeParts.hash`).
   `python`, `js`, `dts`: NUL-free, well-formed UTF-8, at most 64 KiB each; the
   whole IPC request (with the 16 KiB source) must fit 512 KiB.
+* `prelude.pricing`: `{python: PricingVocab, typescript?: PricingVocab}` (index.d.ts), the
+  game-specific half of the summon-price tables; `typescript` defaults to `python`.
+* `act`'s `seed`: a 64-bit unsigned integer as a decimal or `0x` hex string, supplied by the
+  host for every act (see "Determinism").
 
-## Grammar and price: ast-bytes-v1
+## Grammar
 
 **python-agent-v1.** A module (`exec` mode) with exactly one top-level
 `def agent(...)` that accepts one positional argument (`def agent(grid):`;
 extra parameters need defaults; `*args` is allowed; not `async`). Other
 top-level statements are allowed: helper defs, classes, constants, assignments,
 imports of the preloaded computational modules. They run at act time, inside the
-budget. Inspection parses and compiles but **never evaluates**. Each AST node
-costs one byte (the root `Module` included) except Constant: strings UTF-8
-length, bytes length, signed integers minimum two's-complement byte length (at
-least one), floats 8, complex 16, None/bool/Ellipsis 1. Operators and contexts
-count. `def agent(x):\n    return x` costs 7.
+budget. Inspection parses and compiles but **never evaluates** the player's source.
 
 **typescript-agent-v1.** A script whose top level declares
 `function agent(...) { ... }` once (not async, not a generator, no imports,
 exports, `import()` or reference directives). It is type-checked (strict,
-ES2022 library, TypeScript 5.9.3) together with the prelude's `dts` and a
-trusted check `__encode_calls(agent(__decode(wire)))`, so `agent` must accept
-what `__decode` returns and return what `__encode_calls` accepts. An
-unannotated first parameter of `agent` is typed as
+ES2022 library plus `performance.now()`, TypeScript 5.9.3) together with the
+prelude's `dts` and a trusted check `__encode_calls(agent(__decode(wire)))`, so
+`agent` must accept what `__decode` returns and return what `__encode_calls`
+accepts. An unannotated first parameter of `agent` is typed as
 `ReturnType<typeof __decode>` (other unannotated parameters are strict-mode
-errors, as before). Types are then erased and QuickJS runs the JavaScript.
-Price: every node of the player's source counts one (the SourceFile root
-included, the end-of-file token excluded, identifiers and type nodes included)
-except string/template text (UTF-8 length), nonnegative integer numeric literals
-(minimum signed byte length) and other numeric literals (8). Unary minus is a
-separate node. Whitespace and comments do not count.
-`function agent(x) { return []; }` costs 8.
+errors). Types are then erased and QuickJS runs the JavaScript.
 
-**Only the player's source is priced**, never the prelude or the trusted check.
-These are language-specific structural prices, not instruction counts.
+## Summon price: ast-bits-v1 (Python) and ts-ast-bits-v1-uniform (TypeScript)
+
+One interface for both languages: `inspect` returns the description length of
+the **player's source only** (never the prelude) in bits, by part, and the
+literal moves it found. The host completes the price:
+
+```
+summon bits = cost + Σ_i ( host accepts literalMoves[i]
+                             ? MOVE_FLAG_BITS + log2(#mutators available) + D(literalMoves[i])
+                             : literalMoveFallbackBits[i] )
+cost        = parts.structure + parts.names + parts.literals + parts.moveFlags
+```
+
+`D` is lib/game-types' `decisionBits` (grid-lab `Mutator.describe_bits`).
+`astBytes` (the old ast-bytes-v1 integer price) is still returned, for
+comparison only.
+
+**ast-bits-v1** (Python; docs/open-agents.md §2.1, grid-lab branch
+`claude/gridlab-open-agents`) is computed inside the guest during trusted
+inspection by `python/astbits_guest.py`, a faithful port of grid-lab's
+`astbits.Walker` in "code" mode: preorder over the `_fields` of the
+CPython 3.13 grammar in the tables, node classes drawn from corpus-weighted
+p(class | parent, field) with `<end>`/`<none>`, identifiers coded by scope with
+alpha-equivalence (LEGB, comprehension and class scoping, walrus, `global` /
+`nonlocal`, slot 0 = `agent`), externals at P_EXT = ½ (½ corpus builtins + ½
+uniform API), attributes / keywords / modules from published vocabularies with a
+spelled escape, the universal literal codes (Elias gamma, the 98-symbol string
+code with the API string vocabulary at p = ½, the 18-symbol float code), and a
+literal-move flag at Q_MOVE = ⅛ on every call. The game-independent tables are
+`python/ast_bits_v1.json`, copied from grid-lab and pinned by SHA-256
+`e965947993720ce41eb308ec2cc36c1950ee5a3689405139f3d9a75cbe0f1200` (the worker
+refuses any other bytes). The game vocabulary (API names, attributes, keyword
+parameters, strings, which names are mutator / area constructors) comes with the
+prelude as `pricing`, because our API names (`paint`, `recolour`, `swap_cells`,
+`row`, `column`, ...) are not grid-lab's.
+
+*Literal moves.* A call whose callee resolves (through the scopes: a user
+function named like a constructor is not one) to an API mutator constructor,
+with only literal arguments (constants, tuples / lists of them, ±numbers,
+non-callable API constants such as colour names, area constructors on literals),
+is evaluated by the **trusted prelude constructors** inside the guest (the
+arguments are literals and the code is the room's), encoded with the prelude's
+`__encode_calls` and returned as a wire call. The guest charges nothing for it;
+it returns the bits the same call costs coded as an ordinary call (flag false +
+its fields) as the fallback, for a call the host finds invalid. Every spelling of
+the same move (`paint_row(2, "red")`, `paint(row(2), red)`, the raw `move(...)`)
+gets one price.
+
+*Test vectors.* `python/test_astbits.py` runs the 17 programs of grid-lab's
+`test_vectors.json` (copied to `test/ast-bits-v1-vectors.json`) with a
+grid-lab-vocabulary config and prelude, under both schemes: `structure`, `names`
+and `literals` match to 1e-5 bits (all 17 × corpus and uniform, in the pinned
+CPython 3.15 guest); `astBytes` matches `ast_bytes`; programs without literal
+moves match grid-lab's `moves` with `moveFlags`, and so their `total` with
+`cost`; the four spellings of one move are detected as the same wire call
+(`["paint", {"colour": 0, "kind": "line", "region": [0, 2]}]`), whose
+log2(#available) + D the host adds. A program the 3.13 grammar tables do not cover
+(for example a 3.14 template string) is a `COMPILE` error.
+
+**ts-ast-bits-v1-uniform** (TypeScript, `ts-ast-bits.mjs`) is a principled but
+**approximate** analogue: there is no TypeScript grammar table or corpus in the
+spec. It uses the same structure (preorder; uniform choices over the node kinds
+of the slot's category: statement, expression, type, binary operator, modifier,
+class member, object member, binding name, with an end marker in node lists;
+other slots implied by their parent cost 0), names by scope with
+alpha-equivalence (file and function scopes; externals = ES2022 globals ½ + API
+½), property names (½ API attributes + ½ the frozen ES2022 member list
+`ts-ast-bits-es-members.json`, SHA-256
+`162d1a5d0df96ed4d49632f334d177c7e8bdd48fd0f15efd0777a920c104da2b`, with a spelled
+escape), the same literal codes, and the same literal-move flag and detection
+(evaluated by the trusted JS prelude in a separate QuickJS context). **Gaps:** no
+corpus weights (so it is higher than Python's corpus price for the same
+program); absent optional children are not coded (it is not a strict prefix
+code); categories come from node kinds rather than a per-(parent, field)
+grammar; block scopes are flattened to their function. Prices are comparable
+within TypeScript rooms, not across languages.
 
 ## Prelude contract
 
@@ -127,6 +202,13 @@ and JS parts must both define, at top level:
 * `__encode_calls(calls)`: the agent's return value → an ASCII JSON string of
   `MutatorCallWire[]`. Expected to raise on malformed calls.
 * the read helpers and one constructor per available mutator.
+
+`pricing` (see "Settings") lists, per language, the prelude's public names: all
+API names, the attributes of the objects it hands out, the constructors' keyword
+parameters, the strings the API gives meaning to, and which names are mutator and
+area constructors. Mutator constructors must be pure functions of their
+arguments (they are called on literal arguments during inspection) and should
+raise on invalid arguments.
 
 `dts` must type-check on its own and declare `__decode` and `__encode_calls`
 with the types above (e.g. `declare function __decode(wire: string): Grid;`,
@@ -142,10 +224,10 @@ code cannot break them by accident; this is a convenience, not a boundary.
 | Step | Python (Wasmtime CPython) | TypeScript (QuickJS) | Budget |
 |---|---|---|---|
 | compile | prelude and player module compiled by the trusted compiler in a pristine guest; marshal bytes cached | type-check + transpile cached | outside (3 s / startup wall) |
-| fresh guest | restore the one initialized snapshot; fresh globals (`__builtins__`, `__name__`) | fresh runtime and context | outside |
+| fresh guest | restore the one initialized snapshot; fresh agent builtins and import proxies, a private `Random(seed)`, the virtual clock and a seeded entropy stream restarted; fresh globals | fresh runtime and context; virtual `Date` / `performance`, seeded `Math.random` | outside |
 | prelude | prelude code `exec`'d into those globals | prelude script evaluated | outside |
 | decode | `obj = __decode(input)` | `obj = __decode(input)`; `__encode_calls` captured | outside |
-| player | player module executed in the same globals | player script evaluated | **inside** |
+| player | player module executed in the same globals; its code objects counted by `sys.monitoring` | player script evaluated; interrupt ticks counted | **inside** |
 | agent | `agent` looked up in globals, `calls = agent(obj)` | `agent` read from the global object, called | **inside** |
 | encode | `__encode_calls` looked up again (the guest owns its globals), called | captured `__encode_calls` called | **inside** |
 | result | exact `str` (type identity, no subclass), length ≤ 65536, UTF-8 copy, ASCII | string primitive, length ≤ 65536, copied through a captured `JSON.stringify` (exact, NULs included), ASCII | **inside** |
@@ -159,10 +241,11 @@ the budget and read back as an exact, length-capped string.
 
 ### Cache keys
 
-Both workers cache only trusted compiler output, keyed by the grammar id, the
-object type, `prelude.key`, a SHA-256 the worker computes over the exact prelude
-text (`JSON.stringify([python, js, dts])`), and the exact source (TypeScript
-also keys on its version and compiler options). A host that reuses a key for
+Both workers cache only trusted compiler output and inspection results, keyed by
+the grammar id, the complexity id (and, in Python, the pricing scheme), the object
+type, `prelude.key`, a SHA-256 the worker computes over the exact prelude text
+and pricing vocabulary (`[python, js, dts, pricing]`), and the exact source
+(TypeScript also keys on its version and compiler options). A host that reuses a key for
 different text therefore cannot get a stale compilation. Python caches compiled
 preludes (`("prelude", key, digest)`) and player modules in one LRU
 (128 entries, 4 MiB including keys); TypeScript caches compilations (128 entries,
@@ -179,15 +262,61 @@ These modules, plus `ast`, `operator`, `random` and `time`, are preloaded during
 trusted bootstrap. Lazy imports requiring a file read are unavailable once
 submitted code starts, even if that file belongs to the bundled standard library.
 This is a preloaded computational-module contract, **not full standard-library
-filesystem access**. Real time and entropy are available; sleeping is not.
+filesystem access**. Agents see these 14 modules only (`import` of anything else
+fails), as read-only proxies. Time is virtual and randomness seeded (see
+"Determinism"); sleeping is unavailable. The builtins `open eval exec compile
+input breakpoint globals locals vars id memoryview exit quit help` are absent and
+`print` does nothing.
 Native extensions not compiled into this build, pip packages, process creation,
 networking, threads, writable files, host environment and host files are excluded.
 No import-name blacklist is claimed as a security boundary.
 
 TypeScript supports QuickJS ECMAScript computational built-ins, including strings,
-arrays, maps, sets, JSON, Math, RegExp, real Date and Math.random. Node, DOM,
-network, module loading, package imports and timers are unavailable. The only
-installed host callbacks supply read-only time and entropy.
+arrays, maps, sets, JSON, Math, RegExp, a virtual Date and `performance.now()`, and
+a seeded Math.random. Node, DOM, network, module loading, package imports and
+timers are unavailable. The only installed host callbacks are the virtual clock
+and the seeded generator.
+
+## Determinism (docs/open-agents.md §1.3, §3.5)
+
+The same (source, input, settings, seed) gives the same act result, in
+measurement and in play:
+
+* **Clock.** Every act starts at 2026-01-01T00:00:00Z and the clock advances
+  1 µs per read. Python: the **host** answers WASI `clock_time_get` (all clock
+  ids) with the virtual clock, so `time.time()`, `perf_counter()`, `monotonic()`
+  and any escape past the proxies see the same instants. JS: `Date.now()` /
+  `new Date()` (integer ms) and `performance.now()` (ms since the act started)
+  share one tick counter. No sleep.
+* **Randomness.** Python's `random` is a private `random.Random(seed)` (so an
+  agent draws exactly what grid-lab's sandbox draws for that seed); `Random()`
+  and `seed()` with no argument draw from that stream; `SystemRandom` is
+  unavailable. WASI `random_get` (os.urandom past the proxies) is a SplitMix64
+  stream from the seed, answered by the host. JS: `Math.random()` is SplitMix64
+  (seed), top 53 bits / 2^53 (grid-lab's vector: seed 12345 → 2454886589211414944).
+* **`usedRandom`** is true if the act drew from the seeded generator (Python:
+  the proxy's flag; also any `random_get` the host saw during execution; JS: the
+  host callback).
+* **Steps.** Python: `sys.monitoring` LINE and JUMP events in the player's own
+  code objects (not the prelude's); over `stepBudget`, a `BaseException` is
+  raised at that event and every later one, so `except Exception` (or
+  `BaseException`) cannot swallow it, and the act is a `LIMIT` ("Step limit
+  exceeded"). Grid-lab's `full_greedy` uses 196k of the 500k default. JS:
+  QuickJS's interrupt handler, polled every 10,000 ticks (calls and backward
+  jumps), so the JS count has a 10,000-step granularity and includes prelude
+  helper code the agent calls. Both counters are deterministic. A further
+  deterministic ceiling in Python is Wasmtime fuel (2,000,000 instructions per
+  configured ms; on this host that is about 0.3–0.7 of the CPU budget, so it
+  binds first). The CPU-ms sampler and the wall watchdogs remain backstops; when
+  they fire the result is not deterministic.
+* **No state** survives an act (snapshot restore / fresh context); the decimal
+  context is reset; module attribute writes fail; `PYTHONHASHSEED=0`.
+* **Seeds** are the host's (`deriveSeed(salt, ["play", ...])` for play,
+  `["measure", instKey, gridIndex, replicate]` for measurement). The salt must be
+  a season secret, or an agent could recognise measurement seeds.
+
+What remains outside the deterministic semantics: the CPU/wall backstops, and
+memory exhaustion near the 128 MiB / 32 MiB limits.
 
 ## Capability and state-isolation boundary
 
@@ -197,7 +326,8 @@ Workers receive an empty host environment. Trusted WASI startup uses synthetic
 `PYTHONHOME=/` and `PYTHONHASHSEED=0`, no inherited descriptors, and a read-only
 bundled-library preopen. PYTHONHOME is removed from guest `os.environ` afterward.
 After bootstrap, **every WASI import except clock_time_get, clock_res_get and
-random_get is denied**. This includes bundled-file reads, writes, stdin/stdout,
+random_get is denied**, and those three are answered by the host from the
+virtual clock and the act's seeded stream (never the real clock or entropy). This includes bundled-file reads, writes, stdin/stdout,
 directory and metadata operations, sockets, process exit and blocking poll.
 Import-name filtering is not the boundary: recovered builtins face the same
 host-side capability checks. Guest stdout is not a result channel. Results cross
@@ -219,13 +349,11 @@ snapshot restoration, code is deserialized into fresh globals; the trusted
 prelude runs first, then the player's module. The cache is LRU-bounded to 128
 entries and 4 MiB including keys. There is no 40 MiB snapshot per source or
 per prelude.
-Real entropy reseeds Python's random module after every restore, so restoring the
-snapshot does not repeat the PRNG sequence. Hash seeding remains fixed.
+Restoring the snapshot restores the real `random` module's state too; agents use
+the per-act seeded proxy. Hash seeding is fixed.
 
-QuickJS uses a fresh context/runtime per act. Date and Math.random receive
-real read-only clock/entropy callbacks. Neither language is deterministic when
-these facilities are used. Random APIs are not a claim of application-level
-cryptographic protocol safety.
+QuickJS uses a fresh context/runtime per act. Seeded random APIs are not a claim
+of cryptographic safety.
 
 ## Resource limits and capacity
 
@@ -239,7 +367,8 @@ cryptographic protocol safety.
 * Python:128MiB linear memory,1MiB Wasm stack, one initialized snapshot
   (~40MiB measured,48MiB maximum), and a separate4MiB/128-entry code cache.
   Trusted compilation/preparation has a three-second epoch watchdog and10billion
-  fuel ceiling. Guest execution uses150,000 fuel units per configured millisecond,
+  fuel ceiling. Guest execution uses 2,000,000 fuel units per configured millisecond
+  (deterministic) and `stepBudget` monitored steps,
   process-CPU sampling at0.5ms intervals, and a post-execution CPU check including
   exact primitive extraction/domain validation. Fuel is a conservative
   instruction ceiling, **not an exact CPU-time conversion**.
@@ -247,8 +376,8 @@ cryptographic protocol safety.
   compute budget, whichever is larger. Scheduling, native host callbacks and
   sampling can overshoot; expired results are rejected. Host cyclic-GC and
   watchdog construction are trusted bookkeeping outside the timed guest phase.
-* QuickJS: 32 MiB heap, 512 KiB stack, CPU-based interrupt checks and an expiry
-  post-check. Each worker runs a trusted warm-up act before announcing
+* QuickJS: 32 MiB heap, 512 KiB stack, interrupt checks (deterministic steps, then
+  CPU) and an expiry post-check. Each worker runs a trusted warm-up act before announcing
   readiness, so V8's lazy compilation of QuickJS's Wasm is not charged to a
   player's first act. Thread CPU is used when available, otherwise conservative process
   CPU. Long native builtins may return late; the parent kills hard hangs.
