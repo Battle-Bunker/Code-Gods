@@ -42,7 +42,7 @@ from .policies import TEND_AWARE
 
 ROOT = Path(__file__).resolve().parents[3]
 CACHE = ROOT / ".cache" / "explore" / "spirals"
-RESULT_VERSION = 3
+RESULT_VERSION = 4
 GTYPES = ["5,base10,rgby", "4,base12,rgb", "6,cards,rainbow6", "7,base16,rainbow6", "3,base10,rgb"]
 
 
@@ -52,9 +52,12 @@ def parse_type(s: str) -> GridType:
 
 
 def _code_hash() -> str:
+    """Hash of everything that changes a game's outcome (not the analysis code: bump RESULT_VERSION)."""
     h = hashlib.sha256()
     g = ROOT / "gridlab"
-    files = sorted(list(g.glob("*.py")) + list((g / "rules").glob("*.py")) + list(Path(__file__).parent.glob("*.py")))
+    here = Path(__file__).parent
+    files = sorted(list(g.glob("*.py")) + list((g / "rules").glob("*.py")) +
+                   [here / f for f in ("simx.py", "policies.py", "extend.py")])
     for f in files:
         h.update(f.name.encode())
         h.update(f.read_bytes())
@@ -231,6 +234,20 @@ def result(log, tables) -> dict:
             for j in np.flatnonzero(d[k] <= -2):
                 if j != owner[k]:
                     theft[owner[k], j] += 1
+    # incentive check: commits binned by the peers' salience S_-o of the object (o = committing owner):
+    # mean Δs_o (what the owner gets) and mean ΔS_-o (what the owner does to everyone else's view)
+    inc = {}
+    if K:
+        ar = np.arange(K)
+        Sb = log.c_before.astype(float)
+        peer_b = Sb.sum(1) - Sb[ar, owner]
+        od = d[ar, owner]
+        pd = d.sum(1) - od
+        bins = np.searchsorted([4.0, 8.0, 16.0, 32.0, 64.0], peer_b, side="right")
+        for bi in range(6):
+            sel = bins == bi
+            inc[str(bi)] = [int(sel.sum()), float(od[sel].sum()), float(pd[sel].sum())]
+    m["incentive_bins"] = inc
     m["pair_spirals"] = [[fams[i], fams[j], float(co[i, j])] for i, j in _pairs(G)]
     m["pair_theft"] = [[fams[i], fams[j], float(theft[i, j] + theft[j, i])] for i, j in _pairs(G)]
     m["god_spiral_benefit"] = benef.tolist()
