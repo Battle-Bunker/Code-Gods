@@ -1,138 +1,107 @@
 # Code Gods pilot handoff
 
-## Publish the authoritative server
+## One engine deployment
 
-Use this project as the server. In Publishing, choose **Autoscale** with
-**maximum instances = 1**. Do not run multiple replicas.
+The engine is **one Convex deployment** (`artifacts/engine`). It is the only server and the only
+store. At `https://<dep>.convex.site` it serves:
 
-After 30 minutes without authenticated human activity, the application becomes
-idle. Socket close `4008` and HTTP `503` with `code: SERVER_IDLE` stop client
-polling and reconnects; AI commands, pings and passive page visibility do not
-keep rooms awake. Choose **Resume / reconnect** to send `POST /api/activity`
-and fetch a full snapshot. A genuine authenticated page visit can also resume.
-Infrastructure scale-to-zero timing is controlled by the platform, not a
-guaranteed shutdown deadline. Transient disconnects retry with bounded jitter;
-expired player credentials require reapproval, not automatic renewal.
+| Path | What |
+|---|---|
+| `/` | the engine UI (`artifacts/code-gods`): rooms, lobby, owner controls, game pages, AI library, `/device` approvals |
+| `/player/` | the hosted default player client (`artifacts/player-web`) |
+| `/api/*` | HTTP actions: Replit OIDC login, device flow, token exchange, JWKS, `/api/config`, `/api/health` |
 
-Confirm the published environment includes the built-in PostgreSQL database,
-`CODE_GODS_ADMIN_EMAILS`, and the provider keys you want to use. The allowlist is
-already configured as a shared environment variable. Never put keys in client code.
-Publish using Replit's Publish UI; the production database schema is applied there.
+Clients call Convex queries, mutations and actions at `https://<dep>.convex.cloud`. AI seats, the tick
+loop, idle parking and the agent sandboxes all run inside the deployment. There is no PostgreSQL, no
+Express server and no Replit Publish step for the engine. API reference: `docs/engine-api.md`; design:
+`docs/convex-migration-plan.md`.
 
-After publishing, visit `/api/manifest`: `runtimes` must contain both `python`
-and `typescript`. If it does not, stop and inspect the server build/startup logs.
-No inference requests are made by this check.
+## Connecting the real Convex account
 
-Log out/in once to obtain the verified email claim. Open **AI library** to
-create/edit named agent templates. The initial Sonnet Strategist uses Sonnet 5.5.
-Deleted defaults stay deleted. Both direct Anthropic and OpenAI are supported.
+Follow the checklist in `docs/convex-migration-plan.md` §12: the environment variables, the deploy
+commands, the OIDC redirect URI, the season salt and the runtime bundle upload. The essential
+commands, from the repository root unless noted:
 
-Create a room and share its full URL. All players log in with Replit and join.
-There must be at least three players; an owner may add AI seats from the library.
-Readiness is advisory. Approve a token budget before starting with AI seats.
-The room page is the lobby. **Start game** takes everyone to that game's page.
-When the game ends, its result is added to the room's history and players return
-to the lobby. There the owner can change settings and start the next game with
-the same members. Anyone who joins mid-game watches it and plays in the next one.
-AI usage bills the server's provider accounts. Current safety ceilings are
-$2 per game and $5 per UTC day across this server, plus the room token limit.
+```sh
+cd artifacts/engine && npx convex login && npx convex deploy && cd ../..   # push the functions; note the .convex.cloud / .convex.site URLs
+pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # CODE_GODS_JWT_PRIVATE_KEY + CODE_GODS_JWT_JWKS
+(cd artifacts/engine && npx convex env set --prod CODE_GODS_SEASON_SALT)  # ≥ 16 random characters, read from stdin; secret for the season
+(cd artifacts/engine && npx convex deploy)                                # push again so auth.config.ts picks up the JWKS
+pnpm --filter @workspace/game-runtime setup:python                        # once: the pinned CPython WASI download
+pnpm --filter @workspace/engine upload-runtime --prod                     # the Python runtime bundle → file storage
+pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the engine UI and /player/
+```
 
-## Fastest fallback: hosted player console
+Also set `REPLIT_OIDC_CLIENT_ID`, `CODE_GODS_ADMIN_EMAILS` and the provider keys
+(`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`, and register
+`https://<dep>.convex.site/api/callback` as the Replit OIDC redirect URI. Never set
+`REPLIT_OIDC_ISSUER`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` in production.
+Without `CODE_GODS_SEASON_SALT` the engine refuses to run games in production. Never share the salt
+during the season; game records carry its sha256 commitment.
 
-Each human opens the room's **Open player client** link, or:
+Smoke test: `/` loads and a real Replit login works; `/api/health` answers;
+`npx convex run --prod runtime/probe:smoke` (in `artifacts/engine`) runs one act per language; the
+AI library shows which providers are configured. Then create a room, connect one player app and play
+the "First steps" preset.
 
-`https://YOUR-PUBLISHED-SERVER/player/?room=ROOM_UUID`
+Log out and in once after setting `CODE_GODS_ADMIN_EMAILS` to get the verified-email admin check.
+Open **AI library** to create or edit named agent templates. The seeded Sonnet Strategist uses
+Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are supported.
 
-This is a functional player console without duplicating a Replit. It uses the
-same authenticated player API and WebSocket observations.
+## Running a pilot
 
-## Independent Replit clients
+- **Rooms.** Create a room and share its short code or URL. Rooms have no names; they are persistent
+  lobbies with a history of ended games. All humans sign in with Replit and join.
+- **Players.** A game needs at least three players. The owner may fill seats with AI players from the
+  library. Readiness is advisory. **Start game** takes everyone to that game's page. When it ends, the
+  result joins the room's history and everyone returns to the lobby, where the owner can change
+  settings and start the next game with the same members. Anyone who joins mid-game watches and plays
+  in the next one.
+- **AI seats and budgets.** Before starting with AI seats, the owner approves a token budget. AI usage
+  bills the deployment's provider keys. Reservations are taken before each call and capped at $2 per
+  game and $5 per UTC day across the deployment, plus the room's token budget and 6 calls per minute
+  per room (`docs/ai-player-billing.md`).
+- **Idle parking.** After 30 minutes without human activity (creating or joining a room, the owner's
+  start or resume, and the clients' activity touches on real interaction), the engine parks running games in `recovery`: no ticks and no AI turns are scheduled, so a
+  parked deployment costs nothing. AI turns, polling and subscriptions never count as activity. The
+  next human activity resumes parked games automatically; the room assistant can do it with
+  `pnpm player assistant wake`.
 
-Duplicate this repository for each player's editable client environment.
-Do not give players editor access to the authoritative server. Model-provider
-keys are not needed by player clients.
+### Hosted player client (no duplicate needed)
 
-In each copy, tell its Agent:
+Each human can play at `https://<dep>.convex.site/player/?room=CODE`, signed in on the engine site.
+Use it as the fallback for anyone without their own Replit app.
 
-> Read PILOT.md. Configure this copy as a player client of
-> https://YOUR-PUBLISHED-SERVER. Stop the existing
-> artifacts/player-web: web workflow so port 22772 is free. Use the existing
-> /player/ artifact route, not a new server. Run
-> bash scripts/player-pilot.sh https://YOUR-PUBLISHED-SERVER as the player
-> service. Do not start the copied authoritative API server.
-> Keep all launch and session credentials private.
+### Independent Replit player apps
 
-The script builds the UI under `/player/`, starts the client with a sanitized
-environment, and prints the location of a private file containing a single-use
-launch link. Open that file privately within 60 seconds, then open its link.
-The link establishes the local client session; it is not a shareable room URL.
-If it expires, restart the client with the script to generate a fresh link.
+Each player duplicates the repository as their own Replit app, a live-moddable client of the one
+engine. Player apps need no engine code, database or provider keys. Do not give players editor access
+to the engine's own workspace.
 
-Enter the room UUID. Follow the approval link to the authoritative server,
-sign in, join the room if needed, and approve the displayed code. The room
-credential stays in daemon memory and expires after 15 minutes; approve again
-when requested.
+1. Duplicate the repository.
+2. Set the Replit Secret `CODE_GODS_ENGINE_URL` to the engine's site URL (`https://<dep>.convex.site`).
+3. Run `pnpm player connect --room CODE` (add `--permission owner` for the room owner's full
+   delegation, or `read` for observation only; the default is `act`).
+4. Open the printed `/device` link in the browser where you are signed in to the engine, check the
+   comparison code, room, permission and label, and approve. An owner grant needs the current room
+   owner's extra consent.
+5. Store the printed credential as the Replit Secret `CODE_GODS_CREDENTIAL`. It is shown once; it is
+   room-bound, expires after 7 days and can be revoked on the engine's player page or with
+   `pnpm player assistant disconnect`.
+6. Run the **Player** workflow (`pnpm --filter @workspace/player-web dev`). The Vite dev server keeps
+   the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
 
-The client Agent uses the separate workspace-local assistant CLI described in
-`docs/room-assistant.md` to observe and act as its human player, without extracting
-browser cookies or copying tokens into chat.
-Unless the human approves an owner grant, it has no room-owner permissions; it never sees opponents' individual scores.
-Client UI and analytics are freely editable. Pull subsequent Git changes into
-each copy and restart its client service.
+`pnpm player status` checks the connection. The player's Replit Agent is their **room assistant**
+(`docs/room-assistant.md`): it uses the same credential through `pnpm player assistant …` and can
+build live panels in the running client (`docs/panels.md`). Client UI and analytics are freely
+editable; to update, pull from Git and restart the Player workflow. The engine stays authoritative:
+a modified client can do no more than its human could, and never sees opponents' individual scores.
 
 ## First smoke game
 
-### Room assistant live acceptance
-
-Use `docs/room-assistant.md` in a **separate player workspace**, with no authority
-database or provider secrets. Do not start the copied authority. Supply the real
-HTTPS player URL with room code `4B9A` (or the current canonical room link).
-
-1. Run assistant connect with read permission. Keep only its safe approval fields.
-2. In a real signed-in browser on the authority, verify resolved room, comparison
-   code, self-reported label, read permission, five-minute approval expiry and
-   fifteen-minute grant lifetime; approve.
-3. Confirm CLI status distinguishes the local bridge from authenticated WSS.
-   Observe personal data and bounded events through the intended Replit proxy.
-   Verify no individual opponent scores and that an attempted mutation fails.
-4. Revoke in the authority's player console during a passive subscription.
-   Confirm immediate disconnect/no further private delivery, while the human
-   browser remains signed in. Repeat with an action grant and a normal player
-   command, checking its receipt, not just local submission.
-5. Disconnect with the authority reachable, then while unreachable: the latter
-   must say remote revocation is unconfirmed and identify the expiry deadline.
-   Exercise denial, five-minute approval expiry, fifteen-minute grant expiry,
-   bridge restart and idle/wake. None should silently use browser identity.
-6. Interrupt WSS after sending a command. A missing receipt is uncertain; no
-   mutation is replayed automatically. Reconnect, inspect state and receipt, and
-   retry only the identical envelope explicitly if needed.
-
-Record date, server origin, workspace separation, browser/proxy results and
-blockers without recording cookies, device secrets, verifiers or bearers.
-Synthetic fixture tests are not evidence of real OIDC or independent cloud
-workspace access. Private preview/deployment gates may block headless requests
-before game authorization; report redirects without following them or trying
-to bypass the gate.
-
-#### Recorded verification — 2026-10-20
-
-- Workspace type checks and client tests passed. Authority integration tests
-  exercise the actual assistant with real HTTP/WebSocket transports against
-  isolated SQL fixtures, including read/action approval, receipts, revocation,
-  browser coexistence and disconnect. They do not verify real TLS or OIDC.
-- Development services started cleanly after applying the additive device schema.
-- Browser pass verified logged-out `/device` and `/player/` entry screens.
-  Synthetic login claims did not complete authentication: the app's fixed Replit
-  OIDC issuer redirected to the real Replit sign-up/login screen. No credentials
-  were extracted and no authentication bypass was added.
-- Signed-in consent/grant UI and real HTTPS/WSS approval remain **unverified**.
-  No independent Replit player workspace was available. The live checklist above
-  needs a browser-approved human session and a separate player workspace without
-  server/database credentials. This task branch was not published.
-
-Start with three humans or two humans and one AI. Use the "First steps" preset
-(Grid 4×4) or Int, a short planning phase and the default world rates. A valid
-first summon is an agent that returns mutator calls. Int, Python:
+Start with three humans, or two humans and one AI. Use the "First steps" preset (Grid 4×4) or Int, a
+short planning phase and the default world rates. A valid first summon is an agent that returns
+mutator calls. Int, Python:
 
 ```python
 def agent(x):
@@ -140,52 +109,67 @@ def agent(x):
 ```
 
 TypeScript: `function agent(x) { return [add(1)]; }`. On a Grid:
-`def agent(grid):\n    return [paint(row(2), "red")]`. The mutators and helpers of the
-room are listed in the observation's `instance` and in the player console. An agent
-that returns `[]`, or calls that change nothing, validates but every act fails: every
-object value is unique, so a change onto an existing value fails as well.
+`def agent(grid):\n    return [paint(row(2), "red")]`. The mutators and helpers of the room are listed
+in the observation's `instance` and in the player client. An agent that returns `[]`, or calls that
+change nothing, validates but every act fails: every object value is unique, so a change onto an
+existing value fails as well.
 
-Energy: summoning costs god energy: the source's description bits (Python ast-bits-v1,
-TypeScript ts-ast-bits-v1; a move helper on literal arguments is priced as that move),
-shown as the validation `cost`. Validation also runs the agent on a few hundred
-reference objects and reports `decisionBits` (the information its choices carry: an
-agent that always makes the same move pays about nothing for deciding) and
-`expectedActCost` with its breakdown. The new agent starts at 0 energy and earns 2 bits
-per second of world time on Int and string boards, 32 on Grid boards (none during
-planning or pauses). It is **eligible** to act once its energy reaches its
-`expectedActCost`; each act pays decisionBits plus the information it erases, how much
-it moves and a 2-bit floor, and a failed act still pays decisionBits + the floor, so
-energy can go negative: a **cooldown** until income brings it back.
-Agents run with a frozen clock and a server-seeded `random`. Destroying an agent is free.
+Energy: summoning costs god energy: the source's description bits (Python ast-bits-v1, TypeScript
+ts-ast-bits-v1; a move helper on literal arguments is priced as that move), shown as the validation
+`cost`. Validation also runs the agent on a few hundred reference objects and reports `decisionBits`
+(the information its choices carry: an agent that always makes the same move pays about nothing for
+deciding) and `expectedActCost` with its breakdown. The new agent starts at 0 energy and earns 2 bits
+per second of world time on Int and string boards, 32 on Grid boards (none during planning or
+pauses). It is **eligible** to act once its energy reaches its `expectedActCost`; each act pays
+decisionBits plus the information it erases, how much it moves and a 2-bit floor, and a failed act
+still pays decisionBits + the floor, so energy can go negative: a **cooldown** until income brings it
+back. Agents run on a virtual clock with a seeded `random`. Destroying an agent is free.
 
-Two experimental mechanics from the spirals study stay off unless the owner turns them
-on: the commit clause (agents may wrap moves in `only_if_better(...)`, committed only if
-they raise the owner's points) and `shelter` object selection.
+Two experimental mechanics from the spirals study stay off unless the owner turns them on: the commit
+clause (agents may wrap moves in `only_if_better(...)`, committed only if they raise the owner's
+points) and `shelter` object selection.
 
-Before publishing, set the secret `CODE_GODS_SEASON_SALT` (at least 16 characters):
-production refuses to start without it. Never share it during the season; game
-records carry its sha256 commitment.
+Read your utility card (emoji, summary, then source; a ⚠️ defence goal if dealt), validate, summon,
+watch your agent's energy and eligibility, observe transformations and your payoff in bits, send a
+public message, and try one pause. Then revoke and reconnect a player app.
 
-Read your utility card (emoji, summary, then source; a ⚠️ defence goal if dealt),
-validate, summon, watch your agent's energy and eligibility, observe transformations
-and your payoff in bits, send a public message, and try one pause. Then try
-reconnecting the client.
+## Local testing without a Convex account
 
-### Updating duplicated client copies (player protocol v3)
+```sh
+pnpm install
+pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399)
+pnpm --filter @workspace/engine upload-runtime    # Python runtime bundle → the local deployment
+pnpm --filter @workspace/engine deploy-static     # engine UI at http://127.0.0.1:3211/, player client at /player/
+```
 
-The server speaks only `code-gods.player.v3`. A player workspace duplicated before
-this change must pull the repository, rebuild (`pnpm install --frozen-lockfile`,
-`pnpm --filter @workspace/player-web build`) and restart its daemon or assistant
-service; an old client gets a version error rather than wrong numbers. Custom
-analytics must read `own.netBits`, `peerNetBits`, `peerCare` and `payoff` instead of
-`ownUtility`, `othersUtilitySum` and `score`, and agents' `energy`/`eligible`. See the
-migration note in `docs/player-client-integration.md`.
+`dev` runs the official Convex CLI's local backend (`npx convex dev`, anonymous) and a stand-in OIDC
+provider (`scripts/fake-oidc.mjs`) selected by the **local-only** Convex env var `REPLIT_OIDC_ISSUER`.
+Signing in offers the test identities alice, bob, carol, admin and unverified. It also sets a random
+season salt, a JWT key and `CODE_GODS_AI_MOCK=1` (an offline mock AI provider).
+
+A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room CODE --write-env .env.local`
+(gitignored), approve as a test identity, then `PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.
+`artifacts/engine/scripts/seed-players.ts` seeds a room with several connected simulated players.
+
+Tests that use the local backend: `pnpm --filter @workspace/engine test:game`,
+`pnpm --filter @workspace/engine test:auth`, `pnpm --filter @workspace/player-client test` and
+`pnpm --filter @workspace/code-gods run e2e` (Playwright, three signed-in browsers). Tests without an
+engine: `pnpm run typecheck`, `pnpm --filter @workspace/game-runtime test` (after
+`setup:python` and `build:python`), and the `lib/game-*`, `lib/object-views` and `lib/ai-player` tests.
 
 ## Verification boundary
 
-Browser testing covered admin CRUD, 10,000-character prompts, a three-human
-game, summoning, live transformations, cross-human chat and pause. Independent
-daemon processes passed real HTTP/WebSocket/PKCE/reconnection tests against
-an isolated authority fixture. Production-style build and relocated runtime
-smokes passed. Real Replit-copy routing, real admin OIDC claims, published-image
-startup and paid model inference still require this pilot's live verification.
+Tested locally, against the Convex local backend: the engine's functions and HTTP actions, full games
+on Int, string and Grid in both languages, disclosure, idle parking, the device flow and credentials,
+revocation, the room assistant, the player app's token endpoint, static hosting of both sites, mock AI
+seats, and the engine UI end to end in Playwright with stand-in identities.
+
+Needs the real account and is **not** yet verified:
+
+- a real Replit OIDC sign-in (the stand-in provider only imitates it), including whether Replit
+  accepts `https://<dep>.convex.site/api/callback` as a redirect URI (fallback: a forwarding callback
+  page on a Replit domain, plan §5);
+- cloud behaviour: Node action memory (512 MiB) and cold starts with the Python bundle, function time
+  limits, and throughput under real load;
+- independent player apps in separate real Replit workspaces, through Replit's preview proxy;
+- paid model inference with real provider keys.

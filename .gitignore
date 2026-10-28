@@ -10,7 +10,6 @@ out-tsc
 
 # dependencies
 node_modules
-.pythonlibs/
 __pycache__/
 *.pyc
 
@@ -50,8 +49,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-artifacts/api-server/test/.integration-*/
-artifacts/api-server/test/.client-integration-*/
 
 # Claude Code agent worktrees (temporary)
 .claude/worktrees/

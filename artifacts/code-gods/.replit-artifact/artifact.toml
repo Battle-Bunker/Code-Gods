@@ -14,15 +14,6 @@ localPort = 18323
 [services.development]
 run = "pnpm --filter @workspace/code-gods run dev"
 
-[services.production]
-build = [ "pnpm", "--filter", "@workspace/code-gods", "run", "build" ]
-serve = "static"
-publicDir = "artifacts/code-gods/dist/public"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
-
 [services.env]
 PORT = "18323"
 BASE_PATH = "/"
