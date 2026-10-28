@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { Server } from "node:http";
-import { lookupSession } from "../lib/identity";
+import { lookupSession, assertSessionActive, watchSession, requireAct } from "../lib/identity";
 import { listeners, resolveRoom, member, mutate } from "./store";
 import { publicRoom, personalRoom, gameRecord } from "./projection";
 import { playerCommand } from "./engine";
@@ -41,8 +41,18 @@ export function attachSockets(server: Server) {
       const room = resolveRoom(decodeURIComponent(match[1]));
       member(room, actor);
       wss.handleUpgrade(req, socket, head, ws => {
+        let authorized = true;
+        const closeSession = () => { authorized = false; ws.close(1008, "Session expired or revoked; reapproval required"); };
+        let unwatch: () => void;
+        try { unwatch = watchSession(actor, closeSession); }
+        catch { closeSession(); return; }
+        const active = () => {
+          if (!authorized) return false;
+          try { assertSessionActive(actor); return true; }
+          catch { closeSession(); return false; }
+        };
         const send = (type: string, payload: unknown, seq = resolveRoom(room.id).seq) => {
-          if (isLocallyIdle()) return;
+          if (!active() || isLocallyIdle()) return;
           if (ws.bufferedAmount > 1048576) { ws.close(1013, "Reconnect to resync"); return; }
           if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ protocolVersion: 1, type, seq, serverTime: Date.now(), payload }));
         };
@@ -53,7 +63,7 @@ export function attachSockets(server: Server) {
         let gameEnded = room.game?.phase === "ended";
         let lastEvent = room.game?.events.at(-1)?.id;
         const listener: Parameters<typeof listeners.add>[0] = changed => {
-          if (changed.id !== room.id) return;
+          if (changed.id !== room.id || !active()) return;
           send("room.snapshot", project());
           send("player.observation", observation(changed, actor));
           if (gameId !== changed.game?.id) {
@@ -81,7 +91,7 @@ export function attachSockets(server: Server) {
         let busy = false;
         registerActivitySocket(ws, () => busy);
         ws.on("message", data => {
-          if (closing) return;
+          if (closing || !active()) return;
           if (busy) { send("command.error", { error: "Previous command still pending" }); return; }
           busy = true;
           track((async () => {
@@ -96,6 +106,7 @@ export function attachSockets(server: Server) {
             }
             if (input.protocolVersion !== 1) throw new Error("Unsupported protocol");
             if (input.command === "subscribe" || input.command === "resume") { send("room.snapshot", project()); return; }
+            requireAct(actor);
             const result = await mutate(room.id, draft => playerCommand(draft, actor, input));
             if (actor.kind === "human") await recordHumanActivity();
             send("command.receipt", { requestId: input.requestId, result });
@@ -108,7 +119,7 @@ export function attachSockets(server: Server) {
             else ws.ping();
           }).catch(() => ws.close(1011, "Authentication unavailable"));
         }, 15000);
-        ws.on("close", () => { clearInterval(heartbeat); listeners.delete(listener); });
+        ws.on("close", () => { authorized = false; unwatch(); clearInterval(heartbeat); listeners.delete(listener); });
       });
     })().catch(() => { socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n"); socket.destroy(); }));
   });

@@ -4,7 +4,7 @@ import { uniformObject, lifetimeSeconds, poissonIntervalSeconds, assertObjectVal
 import type { Room, Actor, Game, WorldEvent } from "./types";
 import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
 import { requireAdapters } from "./adapters";
-import { hash } from "../lib/identity";
+import { hash, requireAct } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
 import { isLocallyIdle } from "./activity";
@@ -91,6 +91,7 @@ export function endGame(room: Room, actor: Actor) {
 }
 
 export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string; payload?: Record<string, unknown> }) {
+  requireAct(actor);
   member(room, actor);
   if (!input.requestId || input.requestId.length > 100) throw new Error("Invalid request ID");
   const key = `${actor.id}:${input.gameId ?? "room"}:${input.requestId}`;

@@ -24,6 +24,9 @@ try {
             export const fixtureActors = new Map();
             export const hash = x => createHash("sha256").update(x).digest("hex");
             export const lookupSession = async token => fixtureActors.get(token);
+            export const assertSessionActive = () => {};
+            export const requireAct = actor => {if(actor.permission==="read") throw new Error("Read-only authorization");};
+            export const watchSession = () => () => {};
             export function requireIdentity(req) {
               const actor = fixtureActors.get(req.headers.authorization?.slice(7));
               if (!actor) throw Object.assign(new Error("Unauthorized"),{status:401});

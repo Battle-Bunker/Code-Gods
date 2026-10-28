@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
+import { AssistantGrants } from "@/components/assistant-grants";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
   isDaemonMode, loginUrl, subscribeObservation, isServerIdle, resumeServer, trackHumanActivity,
@@ -293,6 +294,9 @@ export default function Console() {
                 <Btn testId="button-cancel-approval" tone="ghost" onClick={leave}>Cancel and disconnect</Btn>
               </div>
             )}
+            {(stage === "room" || stage === "approving") && (
+              <div className="mt-8"><Panel title="Your assistant grants"><AssistantGrants /></Panel></div>
+            )}
           </div>
         </main>
       </div>
@@ -460,6 +464,7 @@ export default function Console() {
                <Btn testId="button-pause" tone="ghost" disabled={!gameplay || !!busy || obs?.phase !== "running" || self?.pauseUsed} onClick={() => run({ type: "pause" })}><Pause size={14} /> {self?.pauseUsed ? "Pause used" : "Pause"}</Btn>
             </div>
           </Panel>
+          <Panel title="Your assistant grants"><AssistantGrants /></Panel>
           <Panel title="Leaderboard">
             {!obs ? <Empty>Waiting for observation.</Empty> : obs.leaderboard.length === 0 ? <Empty>No gods ranked yet.</Empty> : (
               <ol className="space-y-1">

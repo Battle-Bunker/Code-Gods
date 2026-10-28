@@ -108,10 +108,10 @@ player; do not share one process-global session among multiple users. Do not
 replace this with an open proxy. The unauthenticated Vite preview returns 503
 for daemon calls and never holds an upstream token.
 
-Replit Agent can use the same local session/Origin/CSRF command endpoints after
-the user approves the room; it receives no owner capabilities. A same-workspace
-code editor is trusted to customize its own player environment; this is not a
-security boundary against that player reading their own process memory.
+Replit Agent uses the separate workspace-local Unix socket bridge documented in
+[`room-assistant.md`](room-assistant.md), not browser session/Origin/CSRF endpoints.
+Never extract browser cookies or copy tokens into chat. A same-workspace editor
+is trusted; the bridge is not isolation from processes with the same OS identity.
 
 All local mutations require exact Origin and JSON content type. Every data route
 requires a live cookie; all mutations after login also require X-CSRF-Token.
@@ -259,9 +259,9 @@ prevents accidentally passing inherited keys to the daemon.
 
 The launch URL fragment establishes a Secure, HttpOnly cookie; it is not a room
 credential. The owner signs into GAME_HOST for approval, then uses the client
-console. A same-workspace Agent can use the daemon's local HTTP endpoints with
-the configured public Host and Origin headers, its private session cookie and
-CSRF token after that approval; never ask the user to paste a room token.
+console. A same-workspace Agent uses the separate assistant CLI in
+[`room-assistant.md`](room-assistant.md); it never reuses browser cookies or
+CSRF tokens.
 Actual Replit proxy/browser behavior remains a manual pilot check, not an
 automated cloud-copy claim.
 

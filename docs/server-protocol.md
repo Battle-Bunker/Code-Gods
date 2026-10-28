@@ -52,7 +52,9 @@ Player clients do not inherit Replit Agent credentials. They use an application
 device approval flow:
 
 1. Generate a random verifier locally and its base64url SHA-256 challenge.
-2. `POST /api/device/request` with `{roomId,challenge}`. Keep the returned
+2. `POST /api/device/request` with `{roomId,challenge,clientLabel,permission}`.
+   Permission is `read` or `act`; labels are self-reported, not verified identities.
+   Keep the returned
    `deviceSecret` in daemon memory, not in a browser bundle or URL.
 3. Ask the human to visit the returned `verificationPath` on the server domain.
    They log in, join the room, and approve the displayed code.
@@ -94,6 +96,17 @@ settings, members and AI seat strategies at launch and keeps that snapshot.
 active game, or the latest one until the next launch). Player observations keep
 following that slot, so after a game ends they show its final state with phase
 `ended` until the owner launches the next game.
+
+## Room assistant access
+
+For the Agent-facing CLI and lifecycle see [room-assistant.md](room-assistant.md).
+Authenticated browsers inspect `/api/device/details?code=...` before approving,
+may deny through `POST /api/device/deny`, and list their own delegated sessions at
+`GET /api/device/grants`. Owner-only
+`POST /api/device/grants/:delegateId/revoke` invalidates just that grant and its
+live sockets. Pending clients may cancel using `/api/device/cancel` with their
+device proof. Read-only grants cannot use either HTTP or socket mutation formats;
+all grants remain bound to one room and the approving human, with no host rights.
 
 ## Room actions
 

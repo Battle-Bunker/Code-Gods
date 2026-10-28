@@ -16,7 +16,7 @@ router.get("/manifest", (_req, res) => res.json({
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
-  res.json(allRooms().filter(r => r.members.some(m => m.id === actor.id)).map(r => ({
+  res.json(allRooms().filter(r => (actor.scope === "browser" || actor.roomId === r.id) && r.members.some(m => m.id === actor.id)).map(r => ({
     id: r.id, shortCode: r.shortCode, ownerId: r.ownerId,
     ownerName: r.members.find(m => m.id === r.ownerId)?.name ?? r.ownerId,
     createdAt: r.createdAt,

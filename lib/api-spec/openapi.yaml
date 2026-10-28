@@ -205,9 +205,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoomState" }
+  /device/request:
+    post:
+      operationId: requestDevice
+      summary: Request room-bound delegated player authorization
+      description: Public S256 PKCE initiation. Labels are self-reported, not verified workspace or model identities. Permission defaults to act for existing clients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceRequestInput" }
+      responses:
+        "200":
+          description: Five-minute human approval request; keep deviceSecret and verifier private
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceRequestResult" }
+        "400": { description: "Invalid room, label, permission or challenge" }
+        "404": { description: Room not found or alias ambiguous }
+        "429": { description: Too many device requests }
+        "503": { description: Authority idle; a human must wake it }
+  /device/details:
+    get:
+      operationId: getDeviceDetails
+      description: Signed-in browser room members only. Once decided, only the deciding user may read the request.
+      security: [{ browserSession: [] }]
+      parameters:
+        - { name: code, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Server-resolved room and self-reported requester label for explicit consent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceDetails" }
+        "401": { description: Browser login required }
+        "403": { description: Not a room member or request belongs to another user }
+        "404": { description: Unknown code }
   /device/approve:
     post:
       operationId: approveDevice
+      description: Explicit browser-only approval as an existing member of the requested room. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
       requestBody:
         required: true
         content:
@@ -219,6 +257,119 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: "Invalid, decided or expired code" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity and room membership required }
+        "409": { description: Request already decided concurrently }
+        "503": { description: Authority idle }
+  /device/deny:
+    post:
+      operationId: denyDevice
+      description: Browser-only denial by an existing room member. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceApprovalInput" }
+      responses:
+        "200":
+          description: Denied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: "Invalid, decided or expired code" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity and room membership required }
+        "409": { description: Request already decided concurrently }
+  /device/poll:
+    post:
+      operationId: pollDevice
+      description: Public secret-and-verifier proof. Redemption is single-use and atomically issues a fifteen-minute opaque room-bound player bearer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceProofInput" }
+      responses:
+        "200":
+          description: Approved and redeemed; keep token private
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceCredential" }
+        "202":
+          description: Awaiting explicit human approval
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DevicePendingResult" }
+        "400":
+          description: Denied, expired, cancelled, invalid proof or already redeemed; malformed requests may return an error instead of status
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: "#/components/schemas/DeviceEndedResult" }
+                  - { $ref: "#/components/schemas/ErrorResult" }
+        "429": { description: Too many device requests }
+  /device/cancel:
+    post:
+      operationId: cancelDevice
+      description: Public secret-and-verifier cancellation. Also revokes the session if this request was already redeemed. Remains reachable when idle.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceProofInput" }
+      responses:
+        "200":
+          description: Cancelled, with any corresponding live session revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "400": { description: Invalid proof or already cancelled request }
+        "429": { description: Too many device requests }
+  /device/grants:
+    get:
+      operationId: listDeviceGrants
+      description: List only the signed-in browser user's unexpired delegated sessions.
+      security: [{ browserSession: [] }]
+      responses:
+        "200":
+          description: Active grants belonging to this human, never bearer credentials
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceGrantList" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity required }
+  /device/grants/{delegateId}/revoke:
+    parameters:
+      - { name: delegateId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      operationId: revokeDeviceGrant
+      description: Owner-only browser revocation. Closes this delegate's passive sockets promptly without revoking unrelated browser sessions. Cookie requests require a same-origin Origin header.
+      security: [{ browserSession: [] }]
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "401": { description: Browser login required }
+        "403": { description: Browser identity required }
+        "404": { description: Grant absent or owned by another user }
+  /device/revoke:
+    post:
+      operationId: revokeDevice
+      description: Revoke the authenticated player bearer itself, including read-only sessions. Does not accept browser-cookie identity and remains reachable when idle.
+      security: [{ playerBearer: [] }]
+      responses:
+        "200":
+          description: Revoked and corresponding sockets invalidated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatusResult" }
+        "401": { description: Valid player bearer required }
+        "403": { description: Browser identity cannot be revoked through this endpoint }
   /manifest:
     get:
       operationId: getManifest
@@ -242,6 +393,16 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 components:
+  securitySchemes:
+    browserSession:
+      type: apiKey
+      in: cookie
+      name: cg_session
+      description: Human browser session issued by Replit OIDC; delegated player sessions cannot approve, deny or manage grants.
+    playerBearer:
+      type: http
+      scheme: bearer
+      description: Opaque room-bound fifteen-minute player credential; never a host or admin identity.
   schemas:
     AuthUser:
       type: object
@@ -307,6 +468,92 @@ components:
       required: [code]
       properties:
         code: { type: string, minLength: 4, maxLength: 32 }
+    DevicePermission:
+      type: string
+      enum: [read, act]
+      description: read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+    DeviceRequestInput:
+      type: object
+      required: [roomId, challenge]
+      properties:
+        roomId: { type: string, description: Canonical room UUID or authority-resolved room alias }
+        challenge: { type: string, pattern: "^[A-Za-z0-9_-]{43}$", description: Base64url S256 digest of the private verifier }
+        clientLabel: { type: string, minLength: 1, maxLength: 120, default: "Room assistant", description: Self-reported printable label; not verified workspace or model identity }
+        permission:
+          allOf: [{ $ref: "#/components/schemas/DevicePermission" }]
+          default: act
+    DeviceRequestResult:
+      type: object
+      required: [deviceId, delegateId, deviceSecret, roomId, userCode, verificationPath, expiresIn, interval, permission]
+      properties:
+        deviceId: { type: string, format: uuid }
+        delegateId: { type: string, format: uuid, description: Unique generated delegated request/session identifier; equals deviceId }
+        deviceSecret: { type: string, description: Private proof material; never display in chat or logs }
+        roomId: { type: string, format: uuid }
+        userCode: { type: string }
+        verificationPath: { type: string }
+        expiresIn: { type: integer, enum: [300] }
+        interval: { type: integer, enum: [2] }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+    DeviceProofInput:
+      type: object
+      required: [deviceId, deviceSecret, verifier]
+      properties:
+        deviceId: { type: string, minLength: 1, maxLength: 256 }
+        deviceSecret: { type: string, minLength: 1, maxLength: 256 }
+        verifier: { type: string, minLength: 1, maxLength: 256, description: Private verifier whose S256 digest matches the request challenge }
+    DeviceCredential:
+      type: object
+      required: [token, expiresIn, roomId, godId, delegateId, permission]
+      properties:
+        token: { type: string, description: Private opaque bearer; do not display or persist to assistant output }
+        expiresIn: { type: integer, enum: [900] }
+        roomId: { type: string, format: uuid }
+        godId: { type: string }
+        delegateId: { type: string, format: uuid }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+    DevicePendingResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending] }
+    DeviceEndedResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [denied, expired] }
+    ErrorResult:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        code: { type: string }
+    DeviceDetails:
+      type: object
+      required: [roomId, roomCode, clientLabel, permission, expiresAt, status]
+      properties:
+        roomId: { type: string, format: uuid }
+        roomCode: { type: string }
+        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+        expiresAt: { type: string, format: date-time, description: Approval-request deadline, not a redeemed grant's lifetime }
+        status: { type: string, enum: [pending, approved, denied, redeemed, expired] }
+    DeviceGrant:
+      type: object
+      required: [delegateId, roomId, clientLabel, permission, expiresAt]
+      properties:
+        delegateId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        clientLabel: { type: string, description: Self-reported, not verified requester identity }
+        permission: { $ref: "#/components/schemas/DevicePermission" }
+        expiresAt: { type: string, format: date-time, description: Persisted player-session expiry }
+    DeviceGrantList:
+      type: object
+      required: [grants]
+      properties:
+        grants:
+          type: array
+          items: { $ref: "#/components/schemas/DeviceGrant" }
     AuthoredOption:
       type: object
       required: [id, label, languages, objectTypes]

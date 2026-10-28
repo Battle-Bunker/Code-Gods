@@ -3,6 +3,7 @@ import { pool } from "@workspace/db";
 import { DEFAULT_SETTINGS, uniquePrefixes, resolveIdentifier, encodeUuid } from "@workspace/game-core";
 import type { Room, Actor, WorldEvent, Game } from "./types";
 import { gameRecord, type GameRecord } from "./projection";
+import { assertSessionActive } from "../lib/identity";
 
 const rooms = new Map<string, Room>();
 const tails = new Map<string, Promise<unknown>>();
@@ -134,6 +135,7 @@ export function resolveRoom(id: string): Room {
   catch (error) { throw Object.assign(error as Error, { status: 404 }); }
 }
 export function member(room: Room, actor: Actor) {
+  assertSessionActive(actor);
   if (actor.scope === "player" && actor.roomId !== room.id) throw Object.assign(new Error("Wrong room scope"), { status: 403 });
   if (!room.members.some(m => m.id === actor.id)) throw Object.assign(new Error("Join this room first"), { status: 403 });
 }

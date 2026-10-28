@@ -40,5 +40,8 @@ export const deviceTable = pgTable("cg_devices", {
   roomId: text("room_id").notNull(),
   userId: text("user_id"),
   userName: text("user_name"),
+  clientLabel: text("client_label").notNull().default("Room assistant"),
+  permission: text("permission").notNull().default("act"),
+  status: text("status").notNull().default("pending"),
   expires: timestamp("expires", { withTimezone: true }).notNull(),
 });

@@ -25,6 +25,22 @@ export function trackHumanActivity() {
 let gameId:string|undefined;
 const commandEnvelopes=new Map<string,Envelope>();
 export const isDaemonMode = () => daemon;
+export type AssistantGrant = {
+  delegateId: string; roomId: string; clientLabel: string;
+  permission: "read" | "act"; expiresAt: string | number;
+};
+function requireBrowserAuthority() {
+  if (daemon) throw new Error("Manage assistant grants in a signed-in browser on your authoritative room server, not through the local daemon.");
+  if (!signedIn) throw new Error("Sign in on the authoritative room server to manage your assistant grants.");
+}
+export async function getAssistantGrants() {
+  requireBrowserAuthority();
+  return request<{grants: AssistantGrant[]}>("/api/device/grants", undefined, false);
+}
+export async function revokeAssistantGrant(delegateId: string) {
+  requireBrowserAuthority();
+  return request(`/api/device/grants/${encodeURIComponent(delegateId)}/revoke`, {}, false);
+}
 export const loginUrl = () => `/api/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
 export function parseRoom(value: string): string {
   let id = value.trim();

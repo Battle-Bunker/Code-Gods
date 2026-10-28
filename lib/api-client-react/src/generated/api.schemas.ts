@@ -106,6 +106,162 @@ export interface DeviceApprovalInput {
   code: string;
 }
 
+/**
+ * read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+ */
+export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermission];
+
+
+export const DevicePermission = {
+  read: 'read',
+  act: 'act',
+} as const;
+
+export interface DeviceRequestInput {
+  /** Canonical room UUID or authority-resolved room alias */
+  roomId: string;
+  /**
+     * Base64url S256 digest of the private verifier
+     * @pattern ^[A-Za-z0-9_-]{43}$
+     */
+  challenge: string;
+  /**
+     * Self-reported printable label; not verified workspace or model identity
+     * @minLength 1
+     * @maxLength 120
+     */
+  clientLabel?: string;
+  permission?: DevicePermission;
+}
+
+export type DeviceRequestResultExpiresIn = typeof DeviceRequestResultExpiresIn[keyof typeof DeviceRequestResultExpiresIn];
+
+
+export const DeviceRequestResultExpiresIn = {
+  NUMBER_300: 300,
+} as const;
+
+export type DeviceRequestResultInterval = typeof DeviceRequestResultInterval[keyof typeof DeviceRequestResultInterval];
+
+
+export const DeviceRequestResultInterval = {
+  NUMBER_2: 2,
+} as const;
+
+export interface DeviceRequestResult {
+  deviceId: string;
+  /** Unique generated delegated request/session identifier; equals deviceId */
+  delegateId: string;
+  /** Private proof material; never display in chat or logs */
+  deviceSecret: string;
+  roomId: string;
+  userCode: string;
+  verificationPath: string;
+  expiresIn: DeviceRequestResultExpiresIn;
+  interval: DeviceRequestResultInterval;
+  permission: DevicePermission;
+}
+
+export interface DeviceProofInput {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  deviceSecret: string;
+  /**
+     * Private verifier whose S256 digest matches the request challenge
+     * @minLength 1
+     * @maxLength 256
+     */
+  verifier: string;
+}
+
+export type DeviceCredentialExpiresIn = typeof DeviceCredentialExpiresIn[keyof typeof DeviceCredentialExpiresIn];
+
+
+export const DeviceCredentialExpiresIn = {
+  NUMBER_900: 900,
+} as const;
+
+export interface DeviceCredential {
+  /** Private opaque bearer; do not display or persist to assistant output */
+  token: string;
+  expiresIn: DeviceCredentialExpiresIn;
+  roomId: string;
+  godId: string;
+  delegateId: string;
+  permission: DevicePermission;
+}
+
+export type DevicePendingResultStatus = typeof DevicePendingResultStatus[keyof typeof DevicePendingResultStatus];
+
+
+export const DevicePendingResultStatus = {
+  pending: 'pending',
+} as const;
+
+export interface DevicePendingResult {
+  status: DevicePendingResultStatus;
+}
+
+export type DeviceEndedResultStatus = typeof DeviceEndedResultStatus[keyof typeof DeviceEndedResultStatus];
+
+
+export const DeviceEndedResultStatus = {
+  denied: 'denied',
+  expired: 'expired',
+} as const;
+
+export interface DeviceEndedResult {
+  status: DeviceEndedResultStatus;
+}
+
+export interface ErrorResult {
+  error: string;
+  code?: string;
+}
+
+export type DeviceDetailsStatus = typeof DeviceDetailsStatus[keyof typeof DeviceDetailsStatus];
+
+
+export const DeviceDetailsStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  denied: 'denied',
+  redeemed: 'redeemed',
+  expired: 'expired',
+} as const;
+
+export interface DeviceDetails {
+  roomId: string;
+  roomCode: string;
+  /** Self-reported */
+  clientLabel: string;
+  permission: DevicePermission;
+  /** Approval-request deadline */
+  expiresAt: string;
+  status: DeviceDetailsStatus;
+}
+
+export interface DeviceGrant {
+  delegateId: string;
+  roomId: string;
+  /** Self-reported */
+  clientLabel: string;
+  permission: DevicePermission;
+  /** Persisted player-session expiry */
+  expiresAt: string;
+}
+
+export interface DeviceGrantList {
+  grants: DeviceGrant[];
+}
+
 export interface AuthoredOption {
   id: string;
   label: string;
@@ -504,5 +660,9 @@ export type DeleteAdminAiAgentParams = {
  * @minimum 1
  */
 revision: number;
+};
+
+export type GetDeviceDetailsParams = {
+code: string;
 };
 

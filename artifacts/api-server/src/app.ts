@@ -3,7 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import cookieParser from "cookie-parser";
-import { authenticate, sameOrigin, requireIdentity } from "./lib/identity";
+import { authenticate, sameOrigin, requireIdentity, requireAct } from "./lib/identity";
 import authRouter from "./routes/auth";
 import roomsRouter from "./routes/rooms";
 import gamesRouter from "./routes/games";
@@ -43,8 +43,14 @@ app.use(authenticate);
 app.use("/api", authRouter);
 app.use((req, res, next) => {
   // Device initiation/polling are non-cookie, challenge-bound public endpoints.
-  if (["/api/device/request", "/api/device/poll"].includes(req.path)) return next();
+  if (["/api/device/request", "/api/device/poll", "/api/device/cancel"].includes(req.path)) return next();
   sameOrigin(req, res, next);
+});
+app.use((req, _res, next) => {
+  // Lifecycle cancellation/revocation must remain usable by read-only grants.
+  if (req.identity && !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+      !/^\/api\/device\/(?:cancel|revoke)\/?$/.test(req.path)) requireAct(req.identity);
+  next();
 });
 app.post("/api/activity", async (req, res) => {
   const actor = requireIdentity(req);

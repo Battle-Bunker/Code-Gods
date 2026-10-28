@@ -3,7 +3,8 @@ import { pool } from "@workspace/db";
 import type { Request, Response, NextFunction } from "express";
 import * as oidc from "openid-client";
 
-export type Identity = { id: string; name: string; kind: "human"; scope: "browser" | "player"; roomId?: string; email?: string; emailVerified?: boolean; issuer?: string };
+export type Identity = { id: string; name: string; kind: "human"; scope: "browser" | "player"; roomId?: string; email?: string; emailVerified?: boolean; issuer?: string;
+  delegateId?: string; clientLabel?: string; permission?: "read" | "act"; expiresAt?: string; sessionHash?: string };
 declare global {
   namespace Express { interface Request { identity?: Identity } }
 }
@@ -23,15 +24,48 @@ export function safeReturn(value: unknown): string {
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\r\n]/.test(value)) return "/";
   return value;
 }
-export async function issueSession(identity: Identity, ttlMs: number) {
+export async function issueSession(identity: Identity, ttlMs: number, db: Pick<typeof pool, "query"> = pool) {
   const token = opaque();
-  await pool.query("INSERT INTO cg_sessions(hash,data,expires) VALUES($1,$2,$3)",
-    [hash(token), JSON.stringify(identity), new Date(Date.now() + ttlMs)]);
+  const expires = new Date(Date.now() + ttlMs);
+  await db.query("INSERT INTO cg_sessions(hash,data,expires) VALUES($1,$2,$3)",
+    [hash(token), JSON.stringify({ ...identity, expiresAt: expires.toISOString() }), expires]);
   return token;
 }
+const invalidated = new Map<string, number>();
+const sessionWatchers = new Map<string, Set<() => void>>();
+export function invalidateSession(sessionHash: string, expiresAt?: string) {
+  invalidated.set(sessionHash, expiresAt ? Date.parse(expiresAt) : Date.now() + 86400000);
+  for (const callback of sessionWatchers.get(sessionHash) ?? []) callback();
+  for (const [key, expiry] of invalidated) if (expiry <= Date.now()) invalidated.delete(key);
+}
+export function assertSessionActive(actor: Pick<Identity, "sessionHash" | "expiresAt">) {
+  if ((actor.sessionHash && invalidated.has(actor.sessionHash)) ||
+      (actor.expiresAt && Date.parse(actor.expiresAt) <= Date.now()))
+    throw Object.assign(new Error("Session expired or revoked; reapproval required"), { status: 401 });
+}
+export function requireAct(actor: Pick<Identity, "permission" | "sessionHash" | "expiresAt">) {
+  assertSessionActive(actor);
+  if (actor.permission === "read") throw Object.assign(new Error("Read-only authorization cannot submit commands"), { status: 403 });
+}
+/** Local invalidation and a deadline gate private pushes without a query per event. */
+export function watchSession(actor: Identity, close: () => void) {
+  assertSessionActive(actor);
+  const key = actor.sessionHash!;
+  const callbacks = sessionWatchers.get(key) ?? new Set<() => void>();
+  callbacks.add(close); sessionWatchers.set(key, callbacks);
+  const timer = actor.expiresAt ? setTimeout(close, Math.max(0, Date.parse(actor.expiresAt) - Date.now())).unref() : undefined;
+  return () => {
+    if (timer) clearTimeout(timer);
+    callbacks.delete(close);
+    if (!callbacks.size) sessionWatchers.delete(key);
+  };
+}
 export async function lookupSession(token: string): Promise<Identity | undefined> {
-  const result = await pool.query("SELECT data FROM cg_sessions WHERE hash=$1 AND expires > now()", [hash(token)]);
-  return result.rows[0]?.data;
+  const sessionHash = hash(token);
+  const result = await pool.query("SELECT data,expires FROM cg_sessions WHERE hash=$1 AND expires > now()", [sessionHash]);
+  const row = result.rows[0];
+  if (!row || invalidated.has(sessionHash)) return undefined;
+  return { ...row.data, sessionHash, expiresAt: row.expires ? new Date(row.expires).toISOString() : row.data.expiresAt };
 }
 export async function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -43,6 +77,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 }
 export function requireIdentity(req: Request): Identity {
   if (!req.identity) throw Object.assign(new Error("Please log in"), { status: 401 });
+  assertSessionActive(req.identity);
   return req.identity;
 }
 // Only signed OIDC claims persisted by the callback qualify. Device/player

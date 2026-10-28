@@ -25,10 +25,20 @@ import type {
   AiAgentUpdate,
   DeleteAdminAiAgentParams,
   DeviceApprovalInput,
+  DeviceCredential,
+  DeviceDetails,
+  DeviceEndedResult,
+  DeviceGrantList,
+  DevicePendingResult,
+  DeviceProofInput,
+  DeviceRequestInput,
+  DeviceRequestResult,
+  ErrorResult,
   GameLink,
   GameRecord,
   GameView,
   GetCurrentAuthUser200,
+  GetDeviceDetailsParams,
   HealthStatus,
   ListAdminAiAgents200,
   ListPublicAiAgents200,
@@ -1042,6 +1052,176 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getRoomActionMutationOptions(options));
     }
 
+export const getRequestDeviceUrl = () => {
+
+
+
+
+  return `/api/device/request`
+}
+
+/**
+ * Public S256 PKCE initiation. Labels are self-reported, not verified workspace or model identities. Permission defaults to act for existing clients.
+ * @summary Request room-bound delegated player authorization
+ */
+export const requestDevice = async (deviceRequestInput: DeviceRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<DeviceRequestResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DeviceRequestResult>(getRequestDeviceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deviceRequestInput)
+  }
+);}
+
+
+
+
+
+export const getRequestDeviceMutationKey = () => ['requestDevice'] as const;
+
+export const getRequestDeviceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDevice>>, TError,RequestDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestDevice>>, TError,RequestDeviceMutationVariables, TContext> => {
+
+const mutationKey = getRequestDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestDevice>>, RequestDeviceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestDevice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof requestDevice>>>
+    export type RequestDeviceMutationBody = BodyType<DeviceRequestInput>
+    export type RequestDeviceMutationError = ErrorType<void>
+    export type RequestDeviceMutationVariables = {data: BodyType<DeviceRequestInput>}
+
+    /**
+ * @summary Request room-bound delegated player authorization
+ */
+export const useRequestDevice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestDevice>>, TError,RequestDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestDevice>>,
+        TError,
+        RequestDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRequestDeviceMutationOptions(options));
+    }
+
+export const getGetDeviceDetailsUrl = (params: GetDeviceDetailsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/device/details?${stringifiedParams}` : `/api/device/details`
+}
+
+/**
+ * Signed-in browser room members only. Once decided, only the deciding user may read the request.
+ */
+export const getDeviceDetails = async (params: GetDeviceDetailsParams, options?: Parameters<typeof customFetch>[1]): Promise<DeviceDetails> => {
+
+  return customFetch<DeviceDetails>(getGetDeviceDetailsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDeviceDetailsQueryKey = (params?: GetDeviceDetailsParams,) => {
+    return [
+    `/api/device/details`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetDeviceDetailsQueryOptions = <TData = Awaited<ReturnType<typeof getDeviceDetails>>, TError = ErrorType<void>>(params: GetDeviceDetailsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDeviceDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDeviceDetailsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeviceDetails>>> = ({ signal }) => getDeviceDetails(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDeviceDetails>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDeviceDetailsQueryResult = NonNullable<Awaited<ReturnType<typeof getDeviceDetails>>>
+export type GetDeviceDetailsQueryError = ErrorType<void>
+
+
+
+export function useGetDeviceDetails<TData = Awaited<ReturnType<typeof getDeviceDetails>>, TError = ErrorType<void>>(
+ params: GetDeviceDetailsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDeviceDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDeviceDetailsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getApproveDeviceUrl = () => {
 
 
@@ -1050,6 +1230,9 @@ export const getApproveDeviceUrl = () => {
   return `/api/device/approve`
 }
 
+/**
+ * Explicit browser-only approval as an existing member of the requested room. Cookie requests require a same-origin Origin header.
+ */
 export const approveDevice = async (deviceApprovalInput: DeviceApprovalInput, options?: Parameters<typeof customFetch>[1]): Promise<StatusResult> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
@@ -1081,7 +1264,7 @@ return customFetch<StatusResult>(getApproveDeviceUrl(),
 
 export const getApproveDeviceMutationKey = () => ['approveDevice'] as const;
 
-export const getApproveDeviceMutationOptions = <TError = ErrorType<unknown>,
+export const getApproveDeviceMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveDevice>>, TError,ApproveDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof approveDevice>>, TError,ApproveDeviceMutationVariables, TContext> => {
 
@@ -1110,10 +1293,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ApproveDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof approveDevice>>>
     export type ApproveDeviceMutationBody = BodyType<DeviceApprovalInput>
-    export type ApproveDeviceMutationError = ErrorType<unknown>
+    export type ApproveDeviceMutationError = ErrorType<void>
     export type ApproveDeviceMutationVariables = {data: BodyType<DeviceApprovalInput>}
 
-    export const useApproveDevice = <TError = ErrorType<unknown>,
+    export const useApproveDevice = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveDevice>>, TError,ApproveDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof approveDevice>>,
@@ -1122,6 +1305,477 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getApproveDeviceMutationOptions(options));
+    }
+
+export const getDenyDeviceUrl = () => {
+
+
+
+
+  return `/api/device/deny`
+}
+
+/**
+ * Browser-only denial by an existing room member. Cookie requests require a same-origin Origin header.
+ */
+export const denyDevice = async (deviceApprovalInput: DeviceApprovalInput, options?: Parameters<typeof customFetch>[1]): Promise<StatusResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StatusResult>(getDenyDeviceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deviceApprovalInput)
+  }
+);}
+
+
+
+
+
+export const getDenyDeviceMutationKey = () => ['denyDevice'] as const;
+
+export const getDenyDeviceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof denyDevice>>, TError,DenyDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof denyDevice>>, TError,DenyDeviceMutationVariables, TContext> => {
+
+const mutationKey = getDenyDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof denyDevice>>, DenyDeviceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  denyDevice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DenyDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof denyDevice>>>
+    export type DenyDeviceMutationBody = BodyType<DeviceApprovalInput>
+    export type DenyDeviceMutationError = ErrorType<void>
+    export type DenyDeviceMutationVariables = {data: BodyType<DeviceApprovalInput>}
+
+    export const useDenyDevice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof denyDevice>>, TError,DenyDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof denyDevice>>,
+        TError,
+        DenyDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDenyDeviceMutationOptions(options));
+    }
+
+export const getPollDeviceUrl = () => {
+
+
+
+
+  return `/api/device/poll`
+}
+
+/**
+ * Public secret-and-verifier proof. Redemption is single-use and atomically issues a fifteen-minute opaque room-bound player bearer.
+ */
+export const pollDevice = async (deviceProofInput: DeviceProofInput, options?: Parameters<typeof customFetch>[1]): Promise<DeviceCredential | DevicePendingResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DeviceCredential | DevicePendingResult>(getPollDeviceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deviceProofInput)
+  }
+);}
+
+
+
+
+
+export const getPollDeviceMutationKey = () => ['pollDevice'] as const;
+
+export const getPollDeviceMutationOptions = <TError = ErrorType<DeviceEndedResult | ErrorResult | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollDevice>>, TError,PollDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pollDevice>>, TError,PollDeviceMutationVariables, TContext> => {
+
+const mutationKey = getPollDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pollDevice>>, PollDeviceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  pollDevice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PollDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof pollDevice>>>
+    export type PollDeviceMutationBody = BodyType<DeviceProofInput>
+    export type PollDeviceMutationError = ErrorType<DeviceEndedResult | ErrorResult | void>
+    export type PollDeviceMutationVariables = {data: BodyType<DeviceProofInput>}
+
+    export const usePollDevice = <TError = ErrorType<DeviceEndedResult | ErrorResult | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pollDevice>>, TError,PollDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pollDevice>>,
+        TError,
+        PollDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPollDeviceMutationOptions(options));
+    }
+
+export const getCancelDeviceUrl = () => {
+
+
+
+
+  return `/api/device/cancel`
+}
+
+/**
+ * Public secret-and-verifier cancellation. Also revokes the session if this request was already redeemed. Remains reachable when idle.
+ */
+export const cancelDevice = async (deviceProofInput: DeviceProofInput, options?: Parameters<typeof customFetch>[1]): Promise<StatusResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StatusResult>(getCancelDeviceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deviceProofInput)
+  }
+);}
+
+
+
+
+
+export const getCancelDeviceMutationKey = () => ['cancelDevice'] as const;
+
+export const getCancelDeviceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelDevice>>, TError,CancelDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelDevice>>, TError,CancelDeviceMutationVariables, TContext> => {
+
+const mutationKey = getCancelDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelDevice>>, CancelDeviceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  cancelDevice(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof cancelDevice>>>
+    export type CancelDeviceMutationBody = BodyType<DeviceProofInput>
+    export type CancelDeviceMutationError = ErrorType<void>
+    export type CancelDeviceMutationVariables = {data: BodyType<DeviceProofInput>}
+
+    export const useCancelDevice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelDevice>>, TError,CancelDeviceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelDevice>>,
+        TError,
+        CancelDeviceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCancelDeviceMutationOptions(options));
+    }
+
+export const getListDeviceGrantsUrl = () => {
+
+
+
+
+  return `/api/device/grants`
+}
+
+/**
+ * List only the signed-in browser user's unexpired delegated sessions.
+ */
+export const listDeviceGrants = async ( options?: Parameters<typeof customFetch>[1]): Promise<DeviceGrantList> => {
+
+  return customFetch<DeviceGrantList>(getListDeviceGrantsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeviceGrantsQueryKey = () => {
+    return [
+    `/api/device/grants`
+    ] as const;
+    }
+
+
+export const getListDeviceGrantsQueryOptions = <TData = Awaited<ReturnType<typeof listDeviceGrants>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeviceGrants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeviceGrantsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeviceGrants>>> = ({ signal }) => listDeviceGrants({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeviceGrants>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDeviceGrantsQueryResult = NonNullable<Awaited<ReturnType<typeof listDeviceGrants>>>
+export type ListDeviceGrantsQueryError = ErrorType<void>
+
+
+
+export function useListDeviceGrants<TData = Awaited<ReturnType<typeof listDeviceGrants>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeviceGrants>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDeviceGrantsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRevokeDeviceGrantUrl = (delegateId: string,) => {
+
+
+
+
+  return `/api/device/grants/${delegateId}/revoke`
+}
+
+/**
+ * Owner-only browser revocation. Closes this delegate's passive sockets promptly without revoking unrelated browser sessions. Cookie requests require a same-origin Origin header.
+ */
+export const revokeDeviceGrant = async (delegateId: string, options?: Parameters<typeof customFetch>[1]): Promise<StatusResult> => {
+
+  return customFetch<StatusResult>(getRevokeDeviceGrantUrl(delegateId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeDeviceGrantMutationKey = () => ['revokeDeviceGrant'] as const;
+
+export const getRevokeDeviceGrantMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeDeviceGrant>>, TError,RevokeDeviceGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeDeviceGrant>>, TError,RevokeDeviceGrantMutationVariables, TContext> => {
+
+const mutationKey = getRevokeDeviceGrantMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeDeviceGrant>>, RevokeDeviceGrantMutationVariables> = (props) => {
+          const {delegateId} = props ?? {};
+
+          return  revokeDeviceGrant(delegateId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeDeviceGrantMutationResult = NonNullable<Awaited<ReturnType<typeof revokeDeviceGrant>>>
+
+    export type RevokeDeviceGrantMutationError = ErrorType<void>
+    export type RevokeDeviceGrantMutationVariables = {delegateId: string}
+
+    export const useRevokeDeviceGrant = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeDeviceGrant>>, TError,RevokeDeviceGrantMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeDeviceGrant>>,
+        TError,
+        RevokeDeviceGrantMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRevokeDeviceGrantMutationOptions(options));
+    }
+
+export const getRevokeDeviceUrl = () => {
+
+
+
+
+  return `/api/device/revoke`
+}
+
+/**
+ * Revoke the authenticated player bearer itself, including read-only sessions. Does not accept browser-cookie identity and remains reachable when idle.
+ */
+export const revokeDevice = async ( options?: Parameters<typeof customFetch>[1]): Promise<StatusResult> => {
+
+  return customFetch<StatusResult>(getRevokeDeviceUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeDeviceMutationKey = () => ['revokeDevice'] as const;
+
+export const getRevokeDeviceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeDevice>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeDevice>>, TError,void, TContext> => {
+
+const mutationKey = getRevokeDeviceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeDevice>>, void> = () => {
+
+
+          return  revokeDevice(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof revokeDevice>>>
+
+    export type RevokeDeviceMutationError = ErrorType<void>
+
+
+    export const useRevokeDevice = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeDevice>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeDevice>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRevokeDeviceMutationOptions(options));
     }
 
 export const getGetManifestUrl = () => {

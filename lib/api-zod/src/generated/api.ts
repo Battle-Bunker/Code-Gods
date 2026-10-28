@@ -777,6 +777,56 @@ export const RoomActionResponse = zod.object({
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
+/**
+ * Public S256 PKCE initiation. Labels are self-reported, not verified workspace or model identities. Permission defaults to act for existing clients.
+ * @summary Request room-bound delegated player authorization
+ */
+export const requestDeviceBodyChallengeRegExp = new RegExp('^[A-Za-z0-9_-]{43}$');
+export const requestDeviceBodyClientLabelDefault = `Room assistant`;
+export const requestDeviceBodyClientLabelMax = 120;
+
+export const requestDeviceBodyPermissionDefault = `act`;
+
+export const RequestDeviceBody = zod.object({
+  "roomId": zod.string().describe('Canonical room UUID or authority-resolved room alias'),
+  "challenge": zod.string().regex(requestDeviceBodyChallengeRegExp).describe('Base64url S256 digest of the private verifier'),
+  "clientLabel": zod.string().min(1).max(requestDeviceBodyClientLabelMax).default(requestDeviceBodyClientLabelDefault).describe('Self-reported printable label; not verified workspace or model identity'),
+  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.').default(requestDeviceBodyPermissionDefault)
+})
+
+export const RequestDeviceResponse = zod.object({
+  "deviceId": zod.string().uuid(),
+  "delegateId": zod.string().uuid().describe('Unique generated delegated request/session identifier; equals deviceId'),
+  "deviceSecret": zod.string().describe('Private proof material; never display in chat or logs'),
+  "roomId": zod.string().uuid(),
+  "userCode": zod.string(),
+  "verificationPath": zod.string(),
+  "expiresIn": zod.literal(300),
+  "interval": zod.literal(2),
+  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+})
+
+
+/**
+ * Signed-in browser room members only. Once decided, only the deciding user may read the request.
+ */
+export const GetDeviceDetailsQueryParams = zod.object({
+  "code": zod.coerce.string()
+})
+
+export const GetDeviceDetailsResponse = zod.object({
+  "roomId": zod.string().uuid(),
+  "roomCode": zod.string(),
+  "clientLabel": zod.string().describe('Self-reported'),
+  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
+  "expiresAt": zod.coerce.date().describe('Approval-request deadline'),
+  "status": zod.enum(['pending', 'approved', 'denied', 'redeemed', 'expired'])
+})
+
+
+/**
+ * Explicit browser-only approval as an existing member of the requested room. Cookie requests require a same-origin Origin header.
+ */
 export const approveDeviceBodyCodeMin = 4;
 export const approveDeviceBodyCodeMax = 32;
 
@@ -787,6 +837,106 @@ export const ApproveDeviceBody = zod.object({
 })
 
 export const ApproveDeviceResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
+ * Browser-only denial by an existing room member. Cookie requests require a same-origin Origin header.
+ */
+export const denyDeviceBodyCodeMin = 4;
+export const denyDeviceBodyCodeMax = 32;
+
+
+
+export const DenyDeviceBody = zod.object({
+  "code": zod.string().min(denyDeviceBodyCodeMin).max(denyDeviceBodyCodeMax)
+})
+
+export const DenyDeviceResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
+ * Public secret-and-verifier proof. Redemption is single-use and atomically issues a fifteen-minute opaque room-bound player bearer.
+ */
+export const pollDeviceBodyDeviceIdMax = 256;
+
+export const pollDeviceBodyDeviceSecretMax = 256;
+
+export const pollDeviceBodyVerifierMax = 256;
+
+
+
+export const PollDeviceBody = zod.object({
+  "deviceId": zod.string().min(1).max(pollDeviceBodyDeviceIdMax),
+  "deviceSecret": zod.string().min(1).max(pollDeviceBodyDeviceSecretMax),
+  "verifier": zod.string().min(1).max(pollDeviceBodyVerifierMax).describe('Private verifier whose S256 digest matches the request challenge')
+})
+
+export const PollDeviceResponse = zod.object({
+  "token": zod.string().describe('Private opaque bearer; do not display or persist to assistant output'),
+  "expiresIn": zod.literal(900),
+  "roomId": zod.string().uuid(),
+  "godId": zod.string(),
+  "delegateId": zod.string().uuid(),
+  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+})
+
+
+/**
+ * Public secret-and-verifier cancellation. Also revokes the session if this request was already redeemed. Remains reachable when idle.
+ */
+export const cancelDeviceBodyDeviceIdMax = 256;
+
+export const cancelDeviceBodyDeviceSecretMax = 256;
+
+export const cancelDeviceBodyVerifierMax = 256;
+
+
+
+export const CancelDeviceBody = zod.object({
+  "deviceId": zod.string().min(1).max(cancelDeviceBodyDeviceIdMax),
+  "deviceSecret": zod.string().min(1).max(cancelDeviceBodyDeviceSecretMax),
+  "verifier": zod.string().min(1).max(cancelDeviceBodyVerifierMax).describe('Private verifier whose S256 digest matches the request challenge')
+})
+
+export const CancelDeviceResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
+ * List only the signed-in browser user's unexpired delegated sessions.
+ */
+export const ListDeviceGrantsResponse = zod.object({
+  "grants": zod.array(zod.object({
+  "delegateId": zod.string().uuid(),
+  "roomId": zod.string().uuid(),
+  "clientLabel": zod.string().describe('Self-reported'),
+  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
+  "expiresAt": zod.coerce.date().describe('Persisted player-session expiry')
+}))
+})
+
+
+/**
+ * Owner-only browser revocation. Closes this delegate's passive sockets promptly without revoking unrelated browser sessions. Cookie requests require a same-origin Origin header.
+ */
+export const RevokeDeviceGrantParams = zod.object({
+  "delegateId": zod.coerce.string().uuid()
+})
+
+export const RevokeDeviceGrantResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
+ * Revoke the authenticated player bearer itself, including read-only sessions. Does not accept browser-cookie identity and remains reachable when idle.
+ */
+export const RevokeDeviceResponse = zod.object({
   "status": zod.string()
 })
 
