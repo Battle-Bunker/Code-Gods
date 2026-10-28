@@ -1,0 +1,79 @@
+/**
+ * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
+ * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
+ */
+import { agentBattery, isEligible, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+
+/** Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no tickSeconds. */
+export const TICK_SECONDS = 1.0;
+/** Ticks run at most this often (subscriptions update at ≤ 4 Hz, never at the interaction rate). */
+export const MIN_TICK_MS = 250;
+/** A tick action that has not committed within this time loses its lease to the watchdog. */
+export const LEASE_MS = 30_000;
+export const MAX_OBJECTS = 2000;
+export const IDLE_MS = 30 * 60 * 1000;
+/** Every object a game holds; events per tickBatches doc. */
+export const EVENTS_PER_BATCH = 400;
+
+export type Clock = {
+  phase: "planning" | "running" | "paused" | "recovery" | "ended";
+  worldSeconds: number; lastTick: number; endAtWorld: number;
+  createdAt: number; settings: GameSettings;
+};
+export type AgentLike = { expectedActCost: number; account: AgentAccount };
+
+/** The world clock now, without mutating the game (world time stops outside `running`). */
+export function worldNow(game: Clock, nowMs = Date.now()): number {
+  const running = game.phase === "running" ? Math.max(0, nowMs - game.lastTick) / 1000 : 0;
+  return Math.min(game.endAtWorld, game.worldSeconds + running);
+}
+
+/** The agent's account accrued to `world`; a clock behind the account's own accrues nothing. */
+export function settledAccount(settings: GameSettings, agent: AgentLike, world: number): AgentAccount {
+  if (!(world > agent.account.settledWorldSeconds)) return agent.account;
+  return settleAgentEnergy(agent.account, world, settings.agentEnergyPerSecond, agentBattery(agent.expectedActCost, settings.agentBatteryActs));
+}
+export function agentStatus(settings: GameSettings, agent: AgentLike, world: number) {
+  const account = settledAccount(settings, agent, world);
+  return { energy: account.balance, eligible: isEligible(account, agent.expectedActCost) };
+}
+/** World seconds until the agent is eligible (0 if it is), or Infinity if it never earns. */
+export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, world: number): number {
+  const { energy } = agentStatus(settings, agent, world);
+  if (energy >= agent.expectedActCost) return 0;
+  if (!(settings.agentEnergyPerSecond > 0)) return Infinity;
+  return (agent.expectedActCost - energy) / settings.agentEnergyPerSecond;
+}
+
+/** God energy: starting energy plus real-time income, minus summon prices paid. */
+export function godEnergy(game: Pick<Clock, "settings" | "createdAt">, spent: number, nowMs = Date.now()): number {
+  return game.settings.startingEnergy + Math.max(0, nowMs - game.createdAt) / 1000 * game.settings.energyPerSecond - spent;
+}
+
+/** A god's own view of one object from the private score list: own score and peer aggregates only. */
+export function viewOf(scores: readonly { god: string; netBits: number }[], godId: string) {
+  return personalView(new Map(scores.map(s => [s.god, s.netBits])), godId);
+}
+/** The same from a roster-ordered net-bits vector (event log). */
+export function viewOfNet(net: readonly number[], index: number) {
+  let peer = 0;
+  for (let i = 0; i < net.length; i++) if (i !== index) peer += net[i];
+  const own = net[index], peerCare = Math.max(0, peer);
+  return { netBits: own, peerNetBits: peer, peerCare, payoff: peerCare === 0 ? 0 : own * peerCare };
+}
+export const salienceOf = (scores: readonly { netBits: number }[]) => scores.reduce((sum, s) => sum + s.netBits, 0);
+
+/**
+ * The interaction's target. "uniform": every object alike. "shelter": weight 1/(1 + σ⁺) with σ the
+ * object's salience, so salient objects are hit a little less. Never weighted toward salience.
+ */
+export function pickObject<T extends { salience: number }>(objects: readonly T[], mode: GameSettings["objectSelection"], uniform01: () => number): T {
+  if (mode !== "shelter") return objects[Math.min(objects.length - 1, Math.floor(uniform01() * objects.length))];
+  const weights = objects.map(o => 1 / (1 + Math.max(0, o.salience)));
+  let u = uniform01() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < objects.length; i++) { u -= weights[i]; if (u < 0) return objects[i]; }
+  return objects[objects.length - 1];
+}
+
+/** "YYYY-MM-DD" in UTC. */
+export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
