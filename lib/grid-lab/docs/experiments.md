@@ -276,5 +276,76 @@ Full House; write_ramp: Mountain Climb, Straight Shooter, Staircase Climber).
   only one-step Δ on a random sample.
 
 
+
+## 7. Three real games (baseline, `old`)
+
+`python3 -m gridlab.experiments.traces --manifest baseline-old-mixed-1` picks three games from the
+baseline batch: the most held accelerating climbs, the most durable tug-of-war, and the lowest
+dynamism2. It replays each one with programs recorded. (The replays use the current code, so the
+counts can differ slightly from the cached game, because the program library key now includes the
+`disabled` knob. The story is the same.)
+
+**A "spiral" that is really one jackpot: Grid(6,cards,rainbow6), seed 200070, 3 gods, 1388 s.**
+
+- **Rules:** Times-Table Territory (saver: the largest patch of cells whose numbers are in the 4
+  times table), Sunset Sky (greedy_private) and Colour-by-Number (greedy_omniscient).
+- **Tools:** the saver summoned only 9 agents (write ×4, stamp ×3, majority_line); the others had
+  about 90 each, mostly swap_colours, turn_block, blend, swap_cells and hue_turn.
+- **What happened:** the game has 32.7 held climbs per 100 s on paper, but the featured object shows
+  what they are. Object #128 sat at 0.2–2 bits for 60 commits. Then a single `write` of Q (12, in the
+  4 times table) over the grid took Times-Table to 77 bits in one step, and it stayed there.
+
+```
+t = 1335 s  s = [0.7, 2.5, 1.3]            t = 1365 s  s = [77.3, 7.5, 0.4]
+ 10♣O  6♣Y  6♠V  2♣G  4♥R  4♠G               Q♥R  Q♥Y  Q♥G  Q♥B  4♥R  Q♥O
+  7♥R  4♥Y  3♣V  3♥R  A♦V  J♦R               Q♥R  Q♥G  Q♥G  Q♥O  4♥Y  Q♥G
+ 10♦B  9♦Y  2♠G  Q♥G  5♥B  Q♥B               Q♥G  Q♥G  Q♥G  Q♥R  4♥O  Q♥B
+  Q♦Y  9♥G  2♠G  4♥G  4♥V  9♥Y               Q♥Y  Q♥G  Q♥G  Q♥R  4♥G  Q♥Y
+  K♥R  6♠G  4♥O 10♦O  K♥G  7♦G               Q♥V  Q♥B  Q♥O  Q♥Y  4♥V  Q♥G
+ 10♥O  4♣R  6♠O  J♥G 10♦O  Q♦B               Q♥V  Q♥V  Q♥G  Q♥O  4♥O  Q♥V
+```
+
+This is the low-entropy attractor in one picture: a symbol fill is a 2^-77 jackpot for a "patch"
+rule. Sunset Sky got a free 7.5 bits too, from the now-uniform columns. The Landauer pricing works
+as designed (a whole-grid `write` costs 288 bits on this GridType, a row 53), but the saver,
+which had banked 37% of its income instead of spending it on churn, could afford a whole-grid write
+late in a long game (about 1,400 energy accrued by t = 1,335 s).
+
+**Sharp tension: Grid(6,cards,rainbow6), seed 200015, 3 gods, 562 s.**
+
+- **Rules:** Connect Four (saver: orange counters that must stand on orange), Bullseye
+  (greedy_omniscient: monochrome rings from the outside in) and Straight Shooter
+  (greedy_omniscient).
+- **What happened:** Connect Four and Bullseye both want monochrome structure, but in incompatible
+  shapes: columns versus rings. Object #6 was rewritten 1,460 times and changed hands in long spells:
+  Bullseye at 10.9 → 15.8 bits (t = 30–60 s), dropping back to 6.5, then Connect Four taking over at
+  14.0 (t = 120 s). The agents that touched it most were "reverse column 1" (Bullseye), "make
+  column 5 all its most common colour, then slide…" (Connect Four), and Straight Shooter's
+  symbol-only reversals, which do not affect the colour fight at all.
+- **Result:** the final totals were 48.5k / 47.9k / 16.0k, so the top two finished 1% apart. This is
+  the kind of game the user wants. It arises when two dealt rules want *overlapping but
+  incompatible* structure.
+
+```
+t = 60 s  s = [15.8, 6.8, 2.9]          t = 150 s  s = [3.3, 0.6, 12.4]
+ 5♣Y  A♥O 10♠V  J♠V  J♠V  Q♦V            6♥R  8♥R 10♠R  J♠R  7♥R  9♣R
+ A♥R  2♣O  6♠V  4♠R  Q♣V  K♦Y            Q♦V  6♠V  2♣V  4♠V  Q♣V  K♥V
+ 7♥R  K♦V  K♦V  7♠V  K♦V  A♥R            7♠V  K♦B  A♠B  8♥B  3♦B  Q♦B
+ Q♦R  9♦O  A♠V  Q♥V  9♣V  Q♠V           10♥V  4♠B  2♠V  6♥V  6♦V  9♦V
+ 7♠Y 10♣O 10♠V  8♥V  K♣V  Q♥O            9♠Y 10♣Y 10♠Y  8♥Y  K♣V  Q♦Y
+ 3♣R  Q♦O  6♥R  Q♠V 10♥V  A♠V            6♣O  9♣O  K♠O  7♠O  3♦O  2♥O
+```
+
+**Stagnant: Grid(4,base12,rgb), seed 100083, 3 gods, 350 s (dynamism2 0.20).**
+
+- **Rules:** Stepping Stones, Mountain Climb and Sudoku Scholar. All three are high-entropy
+  "arrangement" rules, and Sudoku is all-or-nothing with a 9-bit ceiling at 4×4.
+- **What happened:** 31k commits by 55 agents (swap_cells, reverse_line, shift_line, step_rank,
+  write_ramp) churned every object, but no rule's surprisal ever held. Object #18's surprisal
+  flickered between 0 and 13 bits, with autocorrelation 0.05. Final payoffs were 43 / 34 / 9:
+  essentially zero.
+- **Cause:** no god in this game benefits from the low-entropy drift, so nothing accumulates. This is
+  the alternator's lot (§3.2).
+
 <!-- REST -->
 
