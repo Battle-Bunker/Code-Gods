@@ -7,51 +7,71 @@ suites are untouched. Caches go to `.cache/explore_priors/`, which is gitignored
 
 ## TL;DR
 
-* **Recommendation: keep the uniform spawn prior.** Present it to kids as "how rare is this among
-  fresh grids". The cost model already makes "rare" mean "hard". If you instead price difficulty in
-  the game's own currency, you get the Levin/Solomonoff "code-reachable" prior, where weight =
-  2^−(action cost). In tables and in games it is the uniform prior to within estimator noise:
-  * median ceiling discount 0.0 bits;
-  * p90 discount 0.8–1.1 bits;
-  * rank correlation of per-family yield with uniform 0.99;
-  * Δ dynamism2 −0.004 [−0.008, +0.000];
-  * Δ family-z SD −0.003 [−0.011, +0.007].
+* **Code-reachable priors (b) and (c) do not make utility functions fairer, and they barely change
+  games.**
+  * **Levin.** The exact Levin/Solomonoff mixture, with weight 2^−(action cost), is the uniform
+    prior to within estimator noise:
+    * median ceiling discount 0.0 bits, p90 0.8–1.1 bits;
+    * rank correlation of per-family yield with uniform 0.99;
+    * in 200 paired games, Δ dynamism2 −0.004 [−0.008, +0.000] and Δ family-z SD −0.003
+      [−0.011, +0.007];
+    * held-out (120 games): no change either.
 
-  The reason is the erasure bound in docs/mutators.md. A program making a 2^−k state costs at
-  least about k bits, so its Kraft weight 2^−cost buys back no rarity.
-* **Cost-blind code priors, (b) and (c), are a weak and unstable lever.** "k random programs costing
-  ≤ 30 bits" (reach1/2/4), the 2^−β·cost weights and their mixtures with uniform all behave this way.
-  * What they do: they cut 7–20 bits off the ceilings of about 15% of families, nearly all clumpers.
-    The reason is that a whole-grid `recolour` (23–26 bits) or a block `stamp` (≈28 bits) counts as
-    "free" within the cap. Best yield per bit for clumpers falls 13–25%.
-  * Who wins games does not change: the clumper−alternator gap is unchanged (Δ −0.005 [−0.031,
-    +0.019]), and so is the family-z SD.
-  * Dynamism moves only slightly: dynamism2 −0.006 [−0.011, −0.000], with fewer hot objects and
-    slightly less tension.
-  * They are fragile: a different 4096-program catalogue or a routine `move` knob retune shifts
-    ceilings by up to 13 bits (reach2) or 37 bits (β = ¼).
-  * So no, the code-reachable prior does **not** make every utility function fair. It only takes
-    bits away from families with cheap structural routes; it cannot give bits to starved families.
-    Those (Magic Accountant, Sudoku, Robin Hood, Number Sandwich, Lantern Lighter: best yield
-    < 0.06 bits/bit) need rules or mutators, not a different calibration.
-* **The empirical, self-play prior (d) is the only prior that changes fairness**, defined as
-  ρ = ½·uniform + ½·(grids seen in games).
-  * Fairness gains: family-z SD 0.208 → 0.148 (Δ −0.049 [−0.071, −0.025]); clumper−alternator gap
-    0.26 → 0.10 (Δ −0.16 [−0.21, −0.12]); share of families with a significantly unfair win rate
-    0.41 → 0.22.
-  * It converges to a fixed point in two iterations (mean |Δs| per iteration 0.67, then 0.044, then
-    0.014 bits).
-  * Costs: it halves bit magnitudes (peak salience 43 → 20 bits), so dynamism2 falls −0.098
-    [−0.11, −0.087]. Part of that drop is a change of units; the held-out rescaled run separates the
-    two (§7). It also depends on the simulated policies, and it changes whenever any rule, mutator
-    or policy changes.
-  * I would not ship it as the calibration. Use it as a **diagnostic and a design target**: the
-    families it moves most are the ones the mutator set over-serves.
-* **Sampler.** I built latent-space multilevel splitting, which calibrates any "spawn, then apply k
-  programs" prior exactly in principle and is validated four ways (§3). One side result: the
-  in-progress `gridlab/priors.py` estimates its tail by splicing on the uniform tail's shape. Against
-  the latent splitter on the same prior, that overstates clumper ceilings by up to +21 bits (mean
-  +3.6 bits over 82 families; > 5 bits for 21 of them) (§3.5).
+    The reason is the erasure bound in docs/mutators.md: a program that makes a 2^−k state costs at
+    least about k bits, so **the cost model already makes "rare" mean "hard"**.
+  * **Cost-blind priors.** These are reach1/2/4 (k random programs costing ≤ 30 bits), 2^−β·cost
+    weights, and their mixtures with uniform.
+    * They cut 7–20 bits off about 15% of families' ceilings, nearly all clumpers, because a
+      whole-grid `recolour` (23–26 bits) or a block `stamp` (≈ 28 bits) counts as free within
+      the cap.
+    * Who wins games does not change: clumper−alternator gap Δ −0.005 [−0.031, +0.019], family-z
+      SD unchanged.
+    * They are fragile: a different program catalogue or a `move` knob retune shifts ceilings by
+      up to 13 bits (reach2) or 37 bits (β = ¼).
+    * They cannot help starved families (Magic Accountant, Sudoku, Robin Hood, Number Sandwich,
+      Lantern Lighter: best yield < 0.06 bits/bit). A prior can only take bits away.
+* **The empirical, self-play prior (d) is the one lever that improved both fairness and dynamism.**
+  It is defined as ρ = ½·uniform + ½·(grids seen in games).
+  * **Converges.** It reaches a fixed point in two iterations (mean |Δs| 0.67, then 0.04, then
+    0.015 bits, on both GridTypes).
+  * **Fairer.** On the main seeds (200 paired games), family-z SD falls 0.208 → 0.148 (Δ −0.049
+    [−0.071, −0.025]) and the clumper−alternator gap falls 0.26 → 0.10 (Δ −0.16 [−0.21, −0.12]).
+    On held-out seeds (120 games), the gap Δ is −0.12 [−0.18, −0.06] and family-z SD Δ is −0.029
+    [−0.063, +0.000].
+  * **More dynamic, at matched units.** It halves bit magnitudes, and dynamism2 counts absolute bit
+    thresholds, so the raw dynamism2 reading of −0.10 is a unit artefact. Proof: the *same* uniform
+    games measured at half scale lose 0.12. Rescaled to the uniform's bit scale (×2.1, fitted on
+    the main seeds), dynamism2 is **+0.050 [+0.039, +0.060]** (main) and **+0.046 [+0.032,
+    +0.059]** (held-out). The gain comes from:
+    * tension 0.27 → 0.44;
+    * durable lead changes per object 0.82 → 1.53;
+    * climbs per 100 s +2.1;
+    * leaderboard crossings +0.42;
+    * spirals per 100 commits +0.12.
+
+    The unit-free signals (crossings, spirals, dynamism v1) improve with or without the rescale.
+  * **Costs.** The findings depend on the simulated policies. The pool must be rebuilt when rules,
+    mutators or the player population change. Objects' values persist slightly less (snapshot
+    autocorrelation −0.03).
+  * **λ.** λ = 0.9 has no measurable effect; λ = 0.25 behaves like 0.5.
+* **Recommendation: a seasonal empirical prior** (§10). Season 0 uses the uniform prior, which is
+  iteration 0 of the fixed point. Each later season calibrates against ½·uniform + ½·(a frozen pool
+  of grids from the previous season's games), and displays surprisal × ≈2 so magnitudes stay on
+  the familiar scale. Keep uniform as the fallback and for exact-tail families. Reject every code
+  prior. Fix the clumper routes the reach prior exposes in mutator pricing instead
+  (Hartley-priced `recolour` and `stamp`).
+* **Sampler and validation.** For non-uniform code priors I built latent-space multilevel splitting
+  and validated it four ways (§2–3):
+  * an exact toy;
+  * the K = 0 reduction against exact tails;
+  * 2^20-sample brute force on held-out seeds;
+  * replicates.
+
+  The empirical prior needs no sampler: its tail is exact given the uniform table.
+* **Bug in `gridlab/priors.py`.** The coordinator's in-progress module estimates the tail by
+  splicing on the uniform tail's shape. Against the latent splitter on the same prior, that
+  overstates clumper ceilings by up to +21 bits (mean +3.6 bits over 82 families; > 5 bits for 21
+  of them) (§3.5).
 
 ## 1. Priors compared
 
@@ -304,7 +324,8 @@ What this shows:
   p99 surprisal falls 18 → 7 bits. Payoffs flatten across families. Scale-free signals of
   dynamism *rise*: leaderboard crossings, spirals per commit and dynamism v1. The threshold-based
   dynamism2 falls, because its components count objects ≥ 20 bits, 2-bit tension steps and 8-bit
-  climbs. §7 separates the change of units from a real change.
+  climbs. §7 separates the change of units from a real change: rescaled to the uniform's bit scale,
+  the empirical prior *raises* dynamism2 by about 0.05 on both seed sets.
 
 ## 7. Empirical prior: fixed point and held-out confirmation
 
@@ -325,11 +346,76 @@ It converges (contracts) in two steps; the residual 0.015 bits is Monte Carlo no
 The λ mixture is what makes the map contractive: it bounds s_E ≤ s_μ + 1 and keeps every table
 finite.
 
-EMP5_PLACEHOLDER
+Grid(5,base10,rgby), same protocol, 3015 reference grids:
+
+| iteration | mean s | p99 s | mean \|Δs\| vs previous | max family mean \|Δs\| | training dyn2 |
+|---|---|---|---|---|---|
+| 0 (uniform) | 1.74 | 16.8 | — | — | 0.555 |
+| 1 | 1.18 | 6.6 | 0.664 | 3.84 | 0.459 |
+| 2 | 1.20 | 6.8 | 0.034 | 0.11 | 0.462 |
+| 3 | 1.20 | 6.8 | 0.016 | 0.22 | 0.474 |
+
+So `emp:0.5:1` is already within 0.04 bits of the fixed point, and the games in §6 use it.
 
 ### Held-out games (`python3 -m gridlab.explore.priors.heldout`)
 
-HELDOUT_PLACEHOLDER
+Two runs separate a change of units from a real change in play.
+
+* **`uniform*0.5`** halves every uniform surprisal. Policies rank by yield and summon when yield
+  > 0, so the games are identical: same commits, payoffs, ranks and Gini. It is purely a unit
+  change for the metrics.
+* **`emp:0.5:1*2.1`** puts the empirical prior back on the uniform scale. The factor 2.1 is the
+  ratio of mean peak salience, 43.3 / 20.4, fitted on the main seeds. Its games are again identical
+  to `emp:0.5:1`.
+
+Main seeds, 200 paired games (Δ vs uniform, 95% CI):
+
+| metric | uniform | uniform*0.5 | emp:0.5:1 | emp:0.5:1*2.1 | emp:0.5:2*2.1 (fixed point) | emp:0.25:1 |
+|---|---|---|---|---|---|---|
+| dynamism2 | 0.541 | −0.120* | −0.098* | **+0.050 [+0.039, +0.060]*** | +0.054 [+0.043, +0.064]* | −0.115* |
+| snap_tension | 0.275 | −0.180* | −0.099* | +0.164* | +0.173* | −0.119* |
+| durable lead changes /obj/100 s | 0.82 | −0.54* | −0.34* | +0.71* | +0.71* | −0.43* |
+| climbs /100 s | 16.2 | −7.1* | −7.7* | +2.1* | +2.6* | −8.6* |
+| held accelerating climbs /100 s | 0.98 | −0.41* | −0.54* | +0.09 [−0.05, +0.22] | +0.12 [−0.02, +0.26] | −0.56* |
+| objects ≥ 20 bits | 0.80 | −0.35* | −0.43* | +0.14* | +0.15* | −0.49* |
+| peak salience (bits) | 43.3 | −21.8* | −22.9* | −0.5 | +2.8 | −23.8* |
+| crossings /pair/100 s (unit-free) | 3.24 | +0.00 | +0.42* | +0.42* | +0.47* | +0.50* |
+| spirals /100 commits (unit-free) | 8.62 | −0.01 | +0.12* | +0.12* | +0.11* | +0.16* |
+| snapshot autocorrelation (unit-free) | 0.232 | +0.00 | −0.03* | −0.03* | −0.02 | −0.03* |
+| payoff Gini | 0.251 | +0.00 | −0.08* | −0.08* | −0.08* | −0.09* |
+| family z SD (Δ, game bootstrap) | 0.208 | — | −0.049 [−0.071, −0.025] | −0.049 [−0.071, −0.025] | −0.041 [−0.062, −0.019] | −0.049 [−0.071, −0.025] |
+| clum − alt gap (Δ) | 0.261 | — | −0.161 [−0.209, −0.115] | −0.161 | −0.117 [−0.167, −0.060] | −0.196 [−0.250, −0.134] |
+
+Held-out seeds 800000+, 120 paired games (60 per GridType). Nothing was tuned on these:
+
+| metric | uniform | levin | mix.5_reach2 | emp:0.5:1 | emp:0.5:1*2.1 | emp:0.9:1 | uniform*0.5 |
+|---|---|---|---|---|---|---|---|
+| dynamism2 | 0.533 | +0.003 [−0.002, +0.008] | −0.001 [−0.007, +0.006] | −0.100* | **+0.046 [+0.032, +0.059]*** | −0.041* | −0.119* |
+| snap_tension | 0.288 | −0.002 | −0.007* | −0.117* | +0.146* | −0.058* | −0.183* |
+| durable lead changes /obj/100 s | 0.87 | −0.01 | −0.01 | −0.36* | +0.71* | −0.06* | −0.58* |
+| climbs /100 s | 16.3 | −0.00 | −0.49* | −7.5* | +2.6* | −3.7* | −7.0* |
+| crossings /pair/100 s | 3.00 | −0.05 | −0.02 | +0.28* | +0.28* | −0.02 | −0.06 |
+| spirals /100 commits | 8.28 | −0.00 | +0.00 | +0.16* | +0.16* | +0.19* | −0.01 |
+| payoff Gini | 0.276 | +0.003 | −0.005 | −0.084* | −0.084* | −0.057* | +0.003 |
+| family z SD (Δ) | 0.212 | +0.006 [−0.007, +0.021] | +0.002 [−0.017, +0.019] | — | −0.029 [−0.063, +0.000] | −0.002 [−0.027, +0.023] | — |
+| clum − alt gap (Δ) | 0.173 | +0.021 [−0.002, +0.048] | +0.020 [−0.015, +0.053] | — | −0.118 [−0.177, −0.060] | +0.009 [−0.045, +0.058] | — |
+| share of families unfair | 0.45 | 0.45 | 0.52 | 0.29 | 0.29 | 0.48 | 0.42 |
+
+What the held-out runs show:
+
+* **dynamism2 depends on the unit.** The same games read 0.12 lower at half scale. So the raw −0.10
+  for the empirical prior is a unit effect.
+* **At matched scale the empirical prior is more dynamic on both seed sets.** The gain is in
+  tension, objects changing hands, climbs and hot objects, and unit-free signals improve too
+  (crossings, spirals). Payoff Gini falls. Objects' values persist a little less (autocorrelation
+  −0.03), and gods leave 2–3% more energy unspent.
+* **Why.** Calibrating on what games make devalues *routine* structure. What remains valuable is
+  the unusual, contested object, so gods fight over and build on fewer, more distinctive objects.
+* **Fairness.** It closes the camp gap on both seed sets (−0.16 and −0.12). The family-z SD
+  improvement is −0.049 on the main seeds and −0.029 [−0.063, +0.000] held-out: borderline.
+* **λ.** λ = 0.9 is too weak: fairness and the matched-scale gain both vanish. λ = 0.25 behaves
+  like 0.5. The fixed-point iterate (iteration 2) behaves like iteration 1.
+* **Code priors.** Levin and mix.5_reach2 show no effect held-out either.
 
 ## 8. Stability and determinism (production; `stability.py`)
 
@@ -372,43 +458,62 @@ ceiling. Perturbations:
 * **Reach:** "how rare this is among grids that a few random cheap agents make". This needs the
   catalogue, a 30-bit cliff (a 31-bit program counts as luck) and a count of programs, which has no
   unit kids can feel. Not explainable.
-* **Empirical:** "how unusual this is compared with grids people make in games". Easy to say, but
-  it changes from week to week, and kids would see their score for the same grid drift.
+* **Empirical:** "✨ rarity = how unusual this grid is compared with grids people made last
+  season". Easy to say, and it has a story kids like: "everyone made red grids last season, so red
+  grids aren't special any more". Scores for the same grid change between seasons, which has to be
+  said openly. Within a season they are fixed. Because of the ×2 display rescale, the unit is
+  "rarity points", not coin flips.
 
 ## 10. Recommendations
 
-1. **Production prior: uniform spawn, unchanged.** It is the Levin prior to within about 1 bit at
-   p90, and it is stable, exact where proven and explainable. Do not merge a code-reachable prior.
-   If `gridlab/priors.py` (`prior="reachable"`) is kept for experiments, replace the spliced tail
-   with `explore.priors.latent.survival(draw, gtype, "reach4")`: the splice is up to 21 bits off.
-2. **Fix the clumper advantage where the reach prior points, in mutator pricing rather than
-   calibration.** The programs that make clumper jackpots "free" under every cost-blind prior are
-   conditional overwrites priced at their *prior* (Shannon) erasure: whole-grid `recolour` (23–26
-   bits) and block/global `stamp` (≈28 bits). Candidates, for the worker who owns cost knobs:
-   * price conditional overwrites at Hartley erasure, which gives recolour-all 38.8 and stamp-3×3
-     48 bits on 5×5;
-   * or raise `scope.global` for `recolour` only.
+1. **Scoring prior: a seasonal empirical mixture.**
+   * Season 0 calibrates against the uniform spawn prior, which is iteration 0 of the fixed point.
+   * Each later season calibrates against ρ_s = ½·μ + ½·E_{s−1}. Here E_{s−1} is a frozen pool of
+     grids sampled at snapshots from season s−1's games: about 300 per game, at least 40 games per
+     GridType.
+   * Display 2·s, so magnitudes match the uniform scale; any absolute bit thresholds downstream
+     (dynamism metrics, "hot object" UI) assume it.
+   * Tables are exact given the uniform table: a count over the pool, no sampler. The
+     implementation is `explore/priors/empirical.py: survival(draw, gtype, lam, it)`.
 
-   The policy-free yields say this compresses the clum/alt yield ratio. Under reach priors, which
-   discount exactly these routes, that ratio drops from 1.7 to 1.4–1.5, and the empirical prior's
-   game result shows the camp gap can close from 0.26 to about 0.10. This is a hypothesis for the
-   integration run; I did not run games with Hartley pricing here.
-3. **Starved families need rules or mutator work, not calibration.** Magic Accountant, Sudoku
+   Evidence (§6–7): fairer on both seed sets (camp gap −0.16 and −0.12, family-z SD −0.049 and
+   −0.029), more dynamic at matched units (+0.050 and +0.046 dynamism2), and a fixed point after two
+   iterations.
+
+   Caveats:
+   * Every number comes from four simulated policies. Pilot with real games before adopting it, and
+     compare the uniform and empirical tables on the same live games, which costs nothing.
+   * Keep the pool per season and per GridType. A frozen pool makes scores deterministic within a
+     season.
+   * Pool poisoning: making many copies of a structure to devalue a rival's family only affects the
+     next season, which is a weak incentive. Sampling grids per game rather than per object bounds
+     it.
+2. **Fallback and reference: uniform spawn, unchanged.** Use it in season 0, for new GridTypes with
+   no history, and for the 8 families with exact tails. It is the Levin prior to within about 1 bit
+   at p90. It is stable (it never moves when mutators, costs or the catalogue change), exact where
+   proven, and explainable ("coin flips of luck = bits of energy to force it").
+3. **Do not adopt any code-reachable prior** (reach, β-tempered, or mixtures). They do not change
+   game fairness (all Δ CIs straddle 0) or dynamism, and they move by up to 13–37 bits under a
+   catalogue resample or a knob retune.
+
+   If `gridlab/priors.py` (`prior="reachable"`) stays for experiments, replace its spliced tail
+   with `explore.priors.latent.survival(draw, gtype, "reach4")`: the splice is up to 21 bits off,
+   and on clumpers it misses most of the effect it is meant to measure.
+4. **Fix the clumper routes in mutator pricing.** The reach prior acts as a diagnostic here: the
+   programs that make clumper jackpots cheap are conditional overwrites priced at their
+   *prior* (Shannon) erasure:
+   * whole-grid `recolour`: 23–26 bits;
+   * block/global `stamp`: ≈ 28 bits.
+
+   For the worker who owns cost knobs, price conditional overwrites at Hartley erasure (recolour-all
+   38.8 and stamp-3×3 48 bits on 5×5), or raise `scope.global` for these two only. This is a
+   hypothesis for the integration run: I did not run games with Hartley pricing.
+5. **Starved families need rules or mutator work, not calibration.** Magic Accountant, Sudoku
    Scholar, Robin Hood, Number Sandwich, Quilt Maker, Tetromino Tamer and Lantern Lighter have best
-   yield < 0.06 bits/bit under every prior. Either add a tool, or drop them from the dealer
-   (`dealer_exclude`).
-4. **Use the empirical prior as a monitoring and design tool, not as the score.** Rebuild it from
-   recent games, iterate once (it is at the fixed point after two), and watch:
-   * per-family ceiling discounts: a family whose ceiling the games routinely reach is over-served
-     by the mutators;
-   * the clum − alt gap under emp vs uniform.
-
-   If designers want its fairness in the score anyway, use a mixture with a large uniform share
-   (λ ≥ 0.9, §7 held-out) and a rescale that keeps the uniform prior's bit scale. Freeze the pool
-   per season so scores don't drift.
-5. **If a code prior is ever wanted**, use `levin` (exact Kraft weights) or `mix.9_reach2`, never
-   β-tempered weights. β = ¼ is the most unstable: up to 37 bits of shift from a knob retune and
-   20 bits of seed noise at the ceiling.
+   yield < 0.06 bits/bit under every prior. No prior can raise them, the empirical one included:
+   Sudoku Scholar is still the lowest-z family under it. Add a tool, or `dealer_exclude` them.
+6. **If a code prior is ever wanted anyway**, use `levin` (exact Kraft weights; stable to about 2
+   bits), never β-tempered weights (β = ¼: up to 37 bits of shift from one knob change).
 
 ## 11. Reproduce
 
@@ -427,6 +532,9 @@ python3 -m gridlab.explore.priors.fairdiff                       # §6 fairness 
 python3 -m gridlab.explore.priors.empirical --type 4,base12,rgb --lam 0.5 --iters 4       # §7
 python3 -m gridlab.explore.priors.heldout --seed 800000 --games 60 \
     --priors "uniform,levin,mix.5_reach2,emp:0.5:1,emp:0.5:1*2.1,emp:0.9:1,uniform*0.5"   # §7
+python3 -m gridlab.explore.priors.heldout --seed 700000 --games 100 \
+    --priors "uniform,emp:0.5:1,emp:0.5:1*2.1,uniform*0.5,emp:0.25:1,emp:0.5:2*2.1"         # §7 main-seed rescale
+python3 -m gridlab.explore.priors.fairdiff --seed 800000 --games 60 --priors "uniform,levin,mix.5_reach2,emp:0.5:1*2.1,emp:0.9:1"
 python3 -m gridlab.explore.priors.stability --type 4,base12,rgb  # §8
 ```
 
