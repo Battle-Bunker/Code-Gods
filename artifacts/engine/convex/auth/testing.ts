@@ -7,6 +7,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
 import { requireRoomPermission, requireViewer } from "./access";
 import { normalizeUserCode, sha256Hex } from "./crypto";
+import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
 
 function guard() {
   if (process.env.CODE_GODS_TEST_FIXTURES !== "1") throw new ConvexError({ code: "NOT_FOUND", message: "Not available" });
@@ -24,12 +25,19 @@ export const probe = query({
   },
 });
 
-/** A minimal room row. Uses only the fields auth reads (shortCode, ownerId, createdAt). */
+/** A schema-valid room row with default settings, plus the owner's membership (what rooms.create writes). */
 export const createRoom = internalMutation({
   args: { shortCode: v.string(), ownerId: v.string() },
   handler: async (ctx, { shortCode, ownerId }) => {
     guard();
-    return await ctx.db.insert("rooms", { shortCode, ownerId, createdAt: Date.now() } as never);
+    const now = Date.now();
+    const roomId = await ctx.db.insert("rooms", {
+      shortCode, guid: crypto.randomUUID(), encoded: shortCode, ownerId, createdAt: now, revision: 0, seq: 0,
+      settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
+      aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
+    });
+    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, joinedAt: now });
+    return roomId;
   },
 });
 
