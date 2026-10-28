@@ -523,21 +523,41 @@ The multi-client e2e covers:
 
 ## 12. Connecting the real Convex account (checklist)
 
-1. `cd artifacts/engine && npx convex login && npx convex deploy` (creates the project). Note
-   `CONVEX_URL` (`https://<dep>.convex.cloud`) and `CONVEX_SITE_URL` (`https://<dep>.convex.site`).
-2. Environment variables (`npx convex env set --prod NAME VALUE`):
-   - `CODE_GODS_SEASON_SALT`: ≥ 16 random characters, secret for the season;
-   - `CODE_GODS_JWT_PRIVATE_KEY`: RS256 PKCS#8 PEM from `pnpm engine:gen-jwt-key`;
-   - `REPLIT_OIDC_CLIENT_ID`: the engine Repl's `REPL_ID` (Replit Auth client id);
-   - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist (comma-separated verified emails);
-   - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`;
-   - do **not** set `REPLIT_OIDC_ISSUER` or `CODE_GODS_AI_MOCK` in production.
-3. Register `https://<dep>.convex.site/api/callback` as the redirect URI for the Replit OIDC client.
-   Verify one real login (§5 risk).
-4. `pnpm engine:upload-runtime --prod` (CPython bundle) and `pnpm engine:deploy` (backend + both
-   static sites).
-5. Smoke test: `/` loads and login works; `/api/health` shows `runtimes: ["python","typescript"]`; create
-   a room, connect one player app with `pnpm player connect`, and play the "First steps" preset.
+Run these from the repository root unless noted. `PILOT.md` has the same steps in pilot form.
+
+1. **Create the deployment:**
+   `cd artifacts/engine && npx convex login && npx convex deploy`. Note the client URL
+   (`https://<dep>.convex.cloud`) and the site URL (`https://<dep>.convex.site`).
+2. **Signing key:** `pnpm --filter @workspace/engine gen-jwt-key --set --prod`. This sets
+   `CODE_GODS_JWT_PRIVATE_KEY` and `CODE_GODS_JWT_JWKS`. Then run `npx convex deploy` again (in
+   `artifacts/engine`), so `auth.config.ts` inlines the JWKS.
+3. **Other environment variables** (`npx convex env set --prod NAME`; the value is read from stdin):
+   - `CODE_GODS_SEASON_SALT`: at least 16 random characters, secret for the season. Games refuse to
+     start in production without it, and game records carry its sha256 commitment;
+   - `REPLIT_OIDC_CLIENT_ID`: the Replit OIDC client id (the engine Repl's `REPL_ID`, as before);
+   - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist of verified emails;
+   - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`: the AI seats' provider keys;
+   - optionally, `CODE_GODS_SITE_URL` for a custom domain, and `CODE_GODS_VERSION`.
+
+   **Never** set `REPLIT_OIDC_ISSUER`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV`
+   in production. They exist only for local tests.
+4. **Replit OIDC redirect URI:** register `https://<dep>.convex.site/api/callback`, then verify one real
+   login (§5 risk). If Replit refuses a convex.site redirect, use the relay page fallback in §5.
+5. **Runtime and static sites:**
+   - `pnpm --filter @workspace/game-runtime setup:python` (once: the pinned CPython download);
+   - `pnpm --filter @workspace/game-runtime build:python`;
+   - `pnpm --filter @workspace/engine upload-runtime --prod` (the Python bundle into file storage);
+   - `pnpm --filter @workspace/engine deploy-static --prod` (builds and uploads the engine UI at `/` and
+     the player client at `/player/`).
+6. **Smoke test:**
+   - `/` loads and a real Replit login works;
+   - `/api/health` and `/api/config` answer;
+   - `npx convex run --prod runtime/probe:smoke` runs one act per language (in `artifacts/engine`);
+   - create a room, connect one player app (`pnpm player connect --room CODE`), and play the "First
+     steps" preset with at least three players or AI seats.
+7. **Cloud measurements:** re-run `runtime/probe:bench` and `pnpm --filter @workspace/engine bench`
+   against the cloud deployment. Local numbers (§11) don't enforce the 512 MiB Node-action limit or the
+   cloud's concurrency.
 
 ## 13. Risks
 
