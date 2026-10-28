@@ -347,5 +347,81 @@ t = 60 s  s = [15.8, 6.8, 2.9]          t = 150 s  s = [3.3, 0.6, 12.4]
 - **Cause:** no god in this game benefits from the low-entropy drift, so nothing accumulates. This is
   the alternator's lot (§3.2).
 
+
+## 4. Search around the edges
+
+`python3 -m gridlab.experiments.search sweep|halving|ablate|front`. All candidates run on the same
+training specs (spec seed 200000; paired). *Code version note:* the sweep and the halving ran on the
+code before main's PR #7 merge (lex-packed ordinals, ESTIMATOR_VERSION 1). The held-out validation
+(§5) re-ran everything that is reported as a before/after on the merged code (tuple ordinals,
+strictly increasing surprisal, ESTIMATOR_VERSION 3). The old point scores dyn2 0.549 (baseline,
+pre-merge) and 0.542 (held-out, merged), so the recalibration did not move the headline.
+
+### 4.1 One knob at a time (40 games per point: 5 GridTypes × 8)
+
+dyn2 SE ≈ ±0.02 per point. Structural unfairness and policy range carry about ±0.03 of noise at this
+size.
+
+| knob | value | J | dyn2 | struct. unfair | policy range | autocorr | held climbs/100 s | durable leads | crossings | hits/obj/s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **old** | – | 0.448 | 0.598 | 0.094 | 0.322 | 0.31 | 1.90 | 1.03 | 2.78 | 3.16 |
+| cost_scale | 0.5 / 2 / 4 | 0.488 / 0.414 / 0.406 | 0.599 / 0.561 / 0.490 | 0.11 / 0.10 / 0.06 | 0.21 / 0.30 / 0.23 | 0.24 / 0.38 / 0.42 | 1.9 / 1.8 / 1.1 | 1.10 / 0.73 / 0.48 | 3.0 / 2.9 / 3.6 | 3.2 |
+| starting_energy | 50 | 0.433 | 0.572 | 0.085 | 0.317 | 0.34 | 1.98 | 0.79 | 3.08 | 3.16 |
+| energy_per_second | 0.5 / 2 | 0.389 / 0.485 | 0.597 / 0.606 | 0.11 / 0.10 | 0.40 / 0.25 | 0.34 / 0.30 | 2.3 / 2.1 | 0.97 / 1.01 | 2.7 / 3.1 | 3.2 |
+| metabolic_cost | 0.002 / 0.005 / 0.01 / 0.02 | 0.43 / 0.48 / 0.46 / 0.43 | 0.584 / 0.588 / 0.585 / 0.590 | 0.12 / 0.07 / 0.10 / 0.10 | 0.27 / 0.29 / 0.28 / 0.33 | 0.31 | 2.0–2.2 | 0.92–0.99 | 2.9–3.1 | 3.2 |
+| agent_half_life | 60 / 150 / 400 s | 0.49 / 0.41 / 0.47 | 0.608 / 0.603 / 0.588 | 0.07 / 0.09 / 0.09 | 0.31 / 0.42 / 0.27 | 0.48 / 0.36 / 0.33 | 2.9 / 2.7 / 2.2 | 0.89 / 0.89 / 1.03 | 2.5 / 2.9 / 3.1 | 3.1 |
+| max_agents | 40 / 12 | 0.448 / 0.434 | 0.590 / 0.580 | 0.11 / 0.09 | 0.28 / 0.32 | 0.31 / 0.27 | 2.0 / 2.0 | 1.0 / 1.0 | 3.0 / 2.9 | 3.2 |
+| **spawn_rate_hz** | **0.25 / 0.5** | 0.505 / 0.508 | **0.634 / 0.654** | 0.09 / 0.11 | 0.29 / 0.28 | **0.47 / 0.60** | **6.5 / 11.2** | 1.05 / 1.05 | 2.4 / 1.7 | **1.95 / 1.28** |
+| **starting_objects** | **20 / 40** | 0.443 / 0.502 | **0.610 / 0.639** | 0.12 / 0.09 | 0.31 / 0.30 | 0.37 / 0.42 | 2.9 / 4.8 | 1.08 / 1.11 | 2.6 / 2.0 | 2.11 / 1.32 |
+| dealer | balanced_camps | 0.405 | 0.582 | 0.138 | 0.287 | 0.30 | 1.55 | 1.08 | 3.15 | 3.22 |
+| move | 0.15 / 0.7 / 1.2 | 0.45 / 0.43 / 0.45 | 0.592 / 0.604 / 0.599 | 0.11 / 0.13 / 0.09 | 0.28 / 0.32 / 0.32 | 0.31 / 0.34 / 0.38 | 2.0 / 2.3 / 2.8 | 0.93 / 1.12 / 1.03 | 3.1 / 2.6 / 2.4 | 3.1 / 3.1 / 2.9 |
+| erasure | hartley | 0.423 | 0.580 | 0.113 | 0.299 | 0.29 | 2.03 | 0.87 | 2.89 | 3.17 |
+| scope.global | 1.5 / 2.5 | 0.434 / 0.423 | 0.573 / 0.589 | 0.11 / 0.12 | 0.26 / 0.29 | 0.32 / 0.36 | 1.7 / 2.2 | 0.91 / 0.84 | 3.0 / 2.7 | 3.1 |
+| kind.bijective | 0.5 / 2 | 0.448 / 0.464 | 0.582 / 0.603 | 0.09 / 0.11 | 0.30 / 0.27 | 0.29 / 0.35 | 1.4 / 2.5 | 0.87 / 1.11 | 3.1 / 2.4 | 3.29 / 2.65 |
+| exclude_low_ceiling | < 20 bits | 0.398 | 0.587 | 0.086 | 0.418 | 0.29 | 1.43 | 1.08 | 3.13 | 3.17 |
+| interaction_rate_hz (room setting) | 50 / 20 / 10 | 0.44 / 0.47 / 0.41 | 0.611 / 0.622 / 0.599 | 0.11 / 0.09 / 0.12 | 0.34 / 0.34 / 0.35 | 0.45 / 0.64 / 0.75 | 2.7 / 2.9 / 1.7 | 1.07 / 1.01 / 0.81 | 2.8 / 2.6 / 2.1 | 1.61 / 0.65 / 0.33 |
+
+Readings:
+
+- **Hits per object per second governs memory.** Everything that moves it (spawn rate, starting
+  objects, the interaction rate, and to a lesser degree the price of bijections) moves memory and held
+  climbs. The economy knobs (energy, metabolism, half-life, the agent cap) barely move it, because at
+  a fixed 100 Hz the agent count only decides *which* map hits an object, not how often.
+- **There is an interior optimum.** Below about 0.5 hits/object/s (rate 10 Hz, or spawns at 1 Hz with
+  80 starting objects), memory keeps rising but climbs, tension and crossings collapse, because too
+  little happens. The edge sits at about **0.4–0.7 hits per object per second**, 5–8× below the
+  current 3.6.
+- **No knob fixes fairness.** Structural unfairness stays in 0.06–0.14 across the board, which is
+  noise around the old 0.09–0.10. Excluding low-ceiling families does not help either: their deficit
+  is only a small part of the family spread (§3.2). No knob fixes the saver dominance (policy range
+  0.21–0.42, noisy).
+
+### 4.2 Random search + successive halving
+
+18 points (6 hand-seeded from §4.1, 12 random over the 17-knob space) were evaluated at 40 games, the
+top third at 120, and the top 2 at 320.
+
+| rung | # | J | dyn2 | struct. unfair | policy range | autocorr | held climbs | durable leads | crossings | hits/obj/s | point (changes from old) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2 (320 games) | **A** | **0.531** | **0.647 ± 0.007** | 0.091 | 0.261 | 0.69 | 17.3 | 1.06 | 1.16 | 0.47 | metabolic 0.01, agent half-life 400, max_agents 12, spawn 0.5, start 80, dealer uniform, erasure hartley, bijective ×2, exclude < 20 bits, flatten on |
+| 2 (320) | B | 0.480 | 0.625 ± 0.008 | 0.109 | 0.282 | 0.40 | 5.7 | 1.10 | 2.37 | 1.57 | cost_scale 0.5, metabolic 0.005, spawn 0.25, start 20, flatten on |
+| 1 (120) | | 0.506 | 0.641 | 0.107 | 0.267 | 0.63 | 12.5 | 0.92 | 1.77 | 0.73 | income 2/s, agent half-life 60, spawn 0.5, start 40 |
+| 1 (120) | | 0.501 | 0.659 | 0.085 | 0.335 | 0.78 | 22.1 | 0.94 | 1.28 | 0.34 | 15 changes incl. spawn 1.0, start 80, max_agents 12, require cross-layer, balanced camps |
+| 1 (120) | | 0.498 | 0.668 | 0.150 | 0.250 | 0.44 | 8.2 | 1.31 | 1.97 | 1.30 | energy 200, metabolic 0.005, spawn 0.25, start 20, balanced camps, bijective ×2, exclude, flatten |
+| 1 (120) | | 0.487 | 0.643 | 0.108 | 0.305 | 0.68 | 16.0 | 0.98 | 1.40 | 0.50 | spawn 0.5, start 80, require cross-layer, flatten |
+| 0 (40) | worst | 0.285 | 0.376 | 0.113 | 0.166 | 0.95 | 0.38 | 0.13 | 0.97 | 0.33 | cost ×2, energy 50, income 0.5, metabolic 0.02, max_agents 12 … (frozen world) |
+
+**Pareto trade-offs** (all points with ≥ 120 games: dyn2 ↑, structural unfairness ↓, policy range ↓).
+The front is short, and every member shares "more objects":
+
+- the 0.66–0.67 dyn2 points (0.34–1.3 hits/obj/s) buy dynamism with either structural unfairness
+  (0.15) or policy range (0.34);
+- point A (0.647) is the best balance;
+- B (0.625) keeps more tension and crossings (1.6 hits/obj/s) at lower memory.
+
+Along the front the trade-off is **memory and climbs against per-object tension and leaderboard
+crossings**. The fairness axes are flat: no point reaches structural unfairness below 0.085 or a
+policy range below 0.25 at ≥ 120 games.
+
 <!-- REST -->
 
