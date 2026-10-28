@@ -150,7 +150,11 @@ Patchwork's component labelling is the outlier (noted in NOTES.md).
 * **Economy knobs**: `starting_energy`, `energy_per_second`, `cost_scale` (multiplies
   `Program.cost`), `max_agents` (200/god). Alternative designs: `metabolic_cost` (energy per
   application attempt; an agent whose owner cannot pay is skipped) and `agent_half_life`
-  (exponential agent lifetimes).
+  (exponential agent lifetimes). `economy` (default `"summon"`, unchanged) selects who pays: `"agent_energy"`
+  (the god pays the description bits at summon; each agent earns its own income and acts only once its
+  balance covers its expected per-act bits, paying each act's pointwise information cost) or `"owner_pays"`
+  (the owner pays per-application bits on each commit). Knobs `agent_income`, `agent_battery`,
+  `agent_income_alpha`, `agent_start`; see docs/agent-energy.md.
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
 * **Rate scaling**: the real engine caps interactions at 100 Hz, and the default here is 20 Hz.

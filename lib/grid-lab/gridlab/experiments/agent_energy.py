@@ -301,6 +301,16 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
                "summon-bits tercile × E[act bits] tercile; Spearman ρ with each\n")
     out.append(md_table(["setting", "cheap desc + cheap acts", "cheap desc + dear acts", "dear desc + cheap acts",
                          "dear desc + dear acts", "ρ(summon bits, value)", "ρ(E[act bits], value)"], rows))
+    rows = []
+    for n in names:
+        g = god_level(results[n])
+        rows.append([n] + [f"{g[k][0]:+.2f} ± {g[k][1]:.2f}" for k in ("sb", "ex", "k", "acts")] +
+                    [f"{g['coef'][j]:+.3f}" for j in range(3)])
+    out.append("\n### Same question at the god level: within-game Spearman ρ between a god's payoff and its agents' "
+               "mean summon bits, mean E[act bits], agent count and total acts (mean ± 95% CI over games); and the "
+               "policy-adjusted regression of z on the standardised god means (summon bits, E[act bits], agents)\n")
+    out.append(md_table(["setting", "ρ(payoff, summon bits)", "ρ(payoff, E[act bits])", "ρ(payoff, agents)",
+                         "ρ(payoff, acts)", "β summon bits", "β E[act bits]", "β agents"], rows))
     if spam:
         rows = []
         for n, rs in spam.items():
@@ -319,6 +329,47 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
         out.append(md_table(["setting", "spammer wins"] + [f"{p} wins" for p in SPAM_MIX[1:]] +
                             ["spammer agents", "spammer share of acts", "dynamism2", "welfare"], rows))
     return "\n".join(out)
+
+
+def god_level(rs: list[dict]) -> dict:
+    """Per game: Spearman ρ across its gods between payoff and (mean summon bits, mean E[act bits], agent
+    count, total acts); plus a pooled OLS of z on standardised god means with policy dummies."""
+    acc = defaultdict(list)
+    X, y, P = [], [], []
+    for r in rs:
+        o = np.array(r["owner_a"], int)
+        sb, ex, att = np.array(r["summon_bits"]), np.array(r["exp_bits"]), np.array(r["attempts_a"])
+        G = len(r["gods"])
+        pay = np.array([g["payoff"] for g in r["gods"]], float)
+        feats = {"sb": [], "ex": [], "k": [], "acts": []}
+        for i in range(G):
+            m = o == i
+            feats["sb"].append(sb[m].mean() if m.any() else np.nan)
+            feats["ex"].append(ex[m].mean() if m.any() else np.nan)
+            feats["k"].append(float(m.sum()))
+            feats["acts"].append(float(att[m].sum()))
+        for k, v in feats.items():
+            v = np.array(v, float)
+            ok = ~np.isnan(v)
+            if ok.sum() >= 3 and np.ptp(v[ok]) > 0 and np.ptp(pay[ok]) > 0:
+                acc[k].append(_spearman(v[ok], pay[ok]))
+        for i, g in enumerate(r["gods"]):
+            if not np.isnan(feats["sb"][i]):
+                X.append([feats["sb"][i], feats["ex"][i], feats["k"][i]])
+                y.append((G - g["rank"]) / (G - 1))
+                P.append(g["policy"])
+    out = {k: (float(np.mean(v)), 1.96 * float(np.std(v, ddof=1)) / math.sqrt(len(v))) if len(v) > 1 else (0.0, 0.0)
+           for k, v in ((k, acc[k]) for k in ("sb", "ex", "k", "acts"))}
+    X = np.array(X, float)
+    if len(X) > 10:
+        Z = (X - X.mean(0)) / np.maximum(X.std(0), 1e-9)
+        pols = sorted(set(P))
+        D = np.array([[p == q for q in pols] for p in P], float)
+        beta = np.linalg.lstsq(np.hstack([Z, D]), np.array(y), rcond=None)[0]
+        out["coef"] = beta[:3].tolist()
+    else:
+        out["coef"] = [0.0, 0.0, 0.0]
+    return out
 
 
 def _spearman(x, y) -> float:
