@@ -56,8 +56,12 @@ def main(argv=None):
     ap.add_argument("--games", type=int, default=600)
     ap.add_argument("--seed", default="1", help="spec seed(s), comma-separated (pooled)")
     ap.add_argument("--B", type=int, default=300)
+    ap.add_argument("--only", default="", help="keep only specs of this GridType (e.g. 6,cards,rainbow6); the spec "
+                    "seeds depend on the position of the type in --types, so pass the same --types as the batch")
     a = ap.parse_args(argv)
     specs = [s for sd in a.seed.split(",") for s in C.make_specs(a.types.split(";"), a.games, int(sd), "mixed")]
+    if a.only:
+        specs = [s for s in specs if s.gtype == a.only]
     ra, rb = run_preset(a.a, specs), run_preset(a.b, specs)
     out = paired(ra, rb, a.B)
     print(f"paired bootstrap over {len(specs)} game specs (seed {a.seed}), {a.B} replicates: {a.b} - {a.a}")

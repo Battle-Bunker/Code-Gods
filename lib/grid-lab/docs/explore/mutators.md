@@ -213,6 +213,19 @@ relational families need. Card-only mutators matter on cards:
 - `suit_set` is the best tool for Card Windmill, Flush Royale and Pinwheel;
 - `suit_swap` is best only for theft (Court Parade, rival).
 
+Focused v2 search on 6×6 cards for the suspected families (`focus_landscape.py`, 3 draws each), default →
+full:
+
+| family | default | full | full route |
+|---|---|---|---|
+| Lone Peak | 0.14 | 0.31 | crown + flatten |
+| Seed 2 | 0.07 | 0.23 | unclash + write Q everywhere |
+| Quilt Maker | 0.13 | 0.21 | – |
+| Rummy | 0.17 | 0.14 | crown + flatten + step |
+| Card Windmill | 0.01 | 0.01 | – |
+
+Rummy and Card Windmill stay starved on cards (§7.4).
+
 ## 4. Changes and why
 
 ### 4.1 `composite`: price a program's erasure as a whole (fixes §2.3)
@@ -373,4 +386,209 @@ combo, and global colour swaps aimed at a jackpot. The pricing changes are justi
 policy-independent landscape (§2.3, §2.5, §4.1, §4.3), which describes what a deliberate player can do. Their
 in-game cost is nil: dynamism, tension and lead changes are unchanged within CIs.
 
-<!-- TYPES -->
+### 5.5 Other GridTypes (300 paired games each, train specs)
+
+| GridType | SD family z default → full | Δ [95% CI] | payoff Gini Δ | mutators ≥ 1% |
+|---|---|---|---|---|
+| Grid(4,base12,rgb) | 0.180 → 0.193 | +0.012 [−0.003, +0.023] | −0.002 [−0.012, +0.008] | 24 → 26 (pooled with cards) |
+| Grid(6,cards,rainbow6) | 0.189 → 0.181 | −0.008 [−0.022, +0.009] | +0.004 [−0.008, +0.016] | |
+
+With 300 games and about 80 families (about 17 god-slots per family) neither is significant. The in-game
+fairness gain is **demonstrated on 5×5 only**. On 4×4 the point estimate goes the wrong way, and nothing
+here can rule out a small harm. Across both types, dynamism, tension and Gini are unchanged and the share
+of steals done by bijections falls (0.32 → 0.27).
+
+<!-- WM50 -->
+
+## 6. Policy-independent vs policy-dependent findings
+
+| finding | depends on simulated policies? |
+|---|---|
+| Landauer-consistent yields; median route 0.42 bits/bit; spread SD log2 0.91 (5×5) | no (landscape) |
+| paint+stamp composite exploit (Lucky Token, Seed 3, …) and the `composite` fix | no |
+| constant fills (`write all`, `paint all`) are the broadest coalition attractor; `motif` second | no |
+| bijections are theft tools (rival/foreign contexts), worth 2.4–3.2× building yield | no |
+| starved families: low ceilings, relational/arithmetic goals; Rummy, Lone Peak, Seed 2, Card Windmill on cards | no (route yield is a lower bound from a beam search; v1 → v2 search raised Seed 2 from 0.14 to 0.39) |
+| game fairness tracks library best-of-12 yield (ρ 0.81) more than route yield (0.60) | **yes** (4096 random programs, best of 12) |
+| `full` lowers the SD of family scores by 6% on 5×5; driven by the new mutators | **yes**; not significant on 4×4 or cards at 300 games |
+| pricing changes have no in-game fairness effect | **yes** (the gods do not find the repriced programs) |
+| mid-game objects are near-prior (2.0 vs 1.1 bits of own surprisal) | yes (mid states come from simulated games) |
+
+## 7. Recommendations for the coordinator
+
+### 7.1 Adopt (changes to shared modules, small and backward compatible)
+
+1. **Composite erasure pricing.** In `program.Program.cost_terms` add
+   `composite = max(0, _pinned_bits([self.run(x) for x in probes]) − Σ_step terms["erase"])` for programs with
+   ≥ 2 steps, and add it to the cost, e.g. inside `ratchet`. A one-step program is unchanged, because pinned
+   ≤ E.
+   - Evidence: §2.3, §4.1. Lucky Token 1.26 → 0.79 bits/bit; the max jackpot rate 0.95 → 0.59.
+   - It touches 0.3% of random multi-step programs.
+   - Reference implementation: `variants._composite_ratchet`.
+2. **New mutators `crown`, `balance`, `unclash`** (`newmuts.py`; port into `mutators.MUTATORS` and the docs
+   table).
+   - Evidence: §4.2 and §5.2. Quilt Maker +0.23, Round Numbers +0.12, Rummy +0.09 in game z, with
+     paired CIs excluding 0.
+   - Lone Peak 0.26 → 0.42 route yield at 5×5 and 0.14 → 0.31 at 6×6 cards; Seed 2 0.07 → 0.23 on cards.
+   - All three are picked up in games by 36–69 families.
+   - Tool-base inflation is +0.2 bit per step.
+3. **Worst-case motion for bijections, at half weight (`worstmove50`).** In `Mutator.terms`, for bijective
+   mutators use dcol/dsym = ½·(prior expectation) + ½·(max cells changed). The max can be analytic (region
+   size for colour/symbol/suit swaps and hue/rank steps) instead of the probe used here.
+   - It cuts theft yield while keeping the swaps as the theft tools (§4.3).
+   - The full worst-case version (`worstmove`) removes `swap_colours`/`swap_symbols` as anyone's best tool,
+     so use it only if theft should be rarer.
+   - Game evidence for wm50: §5.6.
+
+### 7.2 Optional
+
+- **`tile`.** Fair and the best tool for Looking Glass and Wallpaper Weaver, but only 0.3% of commits. Add
+  it only if a wallpaper-copy verb is wanted for kids.
+- **Retire nothing yet.**
+  - `flatten` is never the best single step, but it is the second step of Lone Peak's best route (with
+    `crown`).
+  - `turn_grid` is the least-used mutator in games (0.4–0.7% of commits). It is the theft/redirect tool for
+    the ordered families (Rainbow Road, Stripe, Staircase, Straight Shooter, Young Tableau).
+  - `blend` is the best tool only for Border Baron's completion. Revisit once Colour Mixer has a game share.
+
+### 7.3 Do not adopt
+
+- `structured` (reference-pool pricing): it is principled but does not move prices. Targeted use cannot be
+  priced at a fixed reference.
+- Any pure knob change for fairness, i.e. `scope.global`, `move`, `step_base`, `kind.bijective`, `hartley`.
+  Starved families lack tools, not discounts (§4.4).
+- `scope.global` = 1.25 adds no fairness in games and halves `motif` use.
+
+### 7.4 Outside the mutator set (for the rule and dealer owners)
+
+- **Low-ceiling families cannot be fair through mutators.** Yield ≤ ceiling / (about 12 bits of minimum
+  program cost). Options:
+  - give them graded tie-breakers so the ceiling rises above about 30 bits: Sudoku Scholar (9 bits), Ladder
+    of Numbers (7), Bridge Builder (7), Lantern Lighter (12), Column Addition (16), Divisibility (18),
+    Fair Weaver (20);
+  - or have the dealer avoid them in small GridTypes.
+- **Still starved after `full`:** Number Sandwich, Magic Window, Tetromino Tamer, Far Apart, Odds & Evens,
+  Feuding Families, Snake Charmer, Fillomino, Stepping Stones (5×5); Rummy and Card Windmill (6×6 cards).
+  - Card Windmill needs per-quadrant suits: a `suit_set` over a "quadrant" region kind would serve it.
+  - Rummy on cards needs run/set construction: for example, a `sort_line` variant that orders by suit then
+    rank.
+  - These are the next mutator candidates. Each should be tested with
+    `focus_landscape.py --families ... --presets default,<new>`.
+- **For the experiments worker (simulator).** Game fairness is limited by the random program library
+  (best-of-12 yield ρ 0.81 with outcome). Snap, Full House, Bullseye and Pinwheel win at z ≈ 0.9 because
+  random agents, theirs or anyone's, keep pushing objects into their upper sets. Two remedies:
+  - a policy that searches its own utility (e.g. `neighbour` local search seeded from the library);
+  - a library that guarantees each family's best single steps.
+  Either would make game fairness reflect the landscape, which is the right target for human play.
+
+## 8. Reproducibility and caveats
+
+- Caches: `.cache/explore_mutators/` holds landscapes (about 90 MB per 5×5 run), mid-game pools, library
+  yields and focus runs. `.cache/experiments/games/` holds per-game results, keyed by the preset's tagged
+  knobs. Both are gitignored.
+- Wall time on 4 cores:
+  - landscape 5×5: about 25–30 min per preset (v2);
+  - 4×4: about 11 min (v1); 3×3: 7 min; 6×6 cards: 51 min (v1);
+  - 600 games: about 13–17 min per preset.
+- Seeds: draws, states and probe pools are seeded from sha256 of their names. Game specs use seed 1
+  (train) and 9000000 (held out). The new presets were designed from the landscape, never tuned on game
+  outcomes, so the train and held-out game seeds are both honest tests. The pooled estimate is reported
+  next to each.
+- The landscape's multi-step search is a heuristic. v1 missed Seed 2's 2-step route; v2 always tries
+  whole-grid second steps. The 4×4, 3×3 and 6×6-cards matrices in §3 are v1, so their route yields are
+  lower bounds.
+- The yield is own surprisal per bit. The payoff multiplies it by peer surprisal, and that coalition value
+  is shown only by the breadth table (§2.4), not modelled per game.
+- `predict.py` correlations use 600 games (about 30–45 god-slots per family). The family z CIs are about
+  ±0.1.
+
+## Appendix A. Per-family table, Grid(5,base10,rgby) (landscape v2, games seed 1)
+
+Theft yield = best rival-context yield. Jackpot rate = ¾·ceiling / cheapest program reaching it on ≥ half
+of held-out states (0 = no such program found). Library best-of-12 = the default random library's expected
+best yield over 12 random candidates. Game z = policy-adjusted mean rank score (0.5 = fair), 600 games.
+
+| family | ceil (bits) | route yield, tool (default) | route yield, tool (full) | theft yield a/b | jackpot rate a/b | library best-of-12 (a) | game z (default) | game z (full) |
+|---|---|---|---|---|---|---|---|---|
+| sudoku_scholar | 9 | 0.03 write_ramp | 0.03 write_ramp | - | 0.00/0.00 | 0.007 | 0.21 | 0.18 |
+| number_sandwich | 57 | 0.07 tally | 0.09 tally | 0.74/0.54 | 0.00/0.00 | 0.007 | 0.21 | 0.19 |
+| far_apart | 25 | 0.11 recolour | 0.11 recolour | 0.37/0.30 | 0.00/0.00 | 0.014 | 0.47 | 0.40 |
+| magic_window | 26 | 0.11 paint | 0.11 paint | 1.69/1.62 | 0.00/0.00 | 0.017 | 0.36 | 0.35 |
+| magic_accountant | 26 | 0.13 write | 0.30 balance | 0.32/0.40 | 0.04/0.08 | 0.008 | 0.40 | 0.34 |
+| tetromino_tamer | 24 | 0.14 paint | 0.14 paint | 0.07/0.07 | 0.05/0.05 | 0.004 | 0.08 | 0.10 |
+| lantern_lighter | 12 | 0.16 motif | 0.16 motif | 0.52/0.46 | 0.13/0.13 | 0.008 | 0.19 | 0.20 |
+| odds_evens | 32 | 0.16 write | 0.17 write | 2.22/1.30 | 0.00/0.00 | 0.010 | 0.25 | 0.28 |
+| round_numbers | 21 | 0.17 write | 0.47 balance | - | 0.13/0.38 | 0.024 | 0.37 | 0.49 |
+| feuding_families | 39 | 0.17 recolour | 0.17 recolour | 0.70/0.44 | 0.00/0.00 | 0.018 | 0.41 | 0.38 |
+| column_addition | 16 | 0.18 write | 0.18 write | 0.51/0.50 | 0.16/0.16 | 0.008 | 0.28 | 0.34 |
+| fillomino | 55 | 0.18 write | 0.20 write | - | 0.00/0.00 | 0.011 | 0.35 | 0.32 |
+| quilt_maker | 42 | 0.19 hue_turn | 0.40 unclash | - | 0.00/0.00 | 0.008 | 0.09 | 0.38 |
+| stepping_stones | 54 | 0.20 write | 0.22 write | 1.50/0.53 | 0.00/0.00 | 0.014 | 0.36 | 0.39 |
+| snake_charmer | 32 | 0.20 paint | 0.20 paint | 0.73/0.53 | 0.00/0.00 | 0.013 | 0.25 | 0.19 |
+| ladder_of_numbers | 7 | 0.20 sort_line | 0.20 sort_line | 0.46/0.44 | 0.22/0.21 | 0.013 | 0.35 | 0.30 |
+| bridge_builder | 7 | 0.21 paint | 0.21 paint | 0.28/0.26 | 0.20/0.19 | 0.023 | 0.38 | 0.38 |
+| sunset_sky | 30 | 0.22 paint | 0.22 paint | 0.22/0.18 | 0.00/0.00 | 0.016 | 0.59 | 0.43 |
+| staircase_climber | 71 | 0.25 write_ramp | 0.25 write_ramp | 2.13/1.66 | 0.00/0.00 | 0.020 | 0.42 | 0.48 |
+| bingo_caller | 32 | 0.26 write | 0.25 write | 1.08/0.90 | 0.21/0.21 | 0.047 | 0.56 | 0.60 |
+| fair_weaver | 20 | 0.26 motif | 0.26 motif | - | 0.21/0.21 | 0.038 | 0.34 | 0.52 |
+| lone_peak | 55 | 0.26 tally | 0.42 crown | 2.68/2.64 | 0.30/0.34 | 0.011 | 0.22 | 0.34 |
+| twenty_one | 38 | 0.27 write_ramp | 0.27 balance | 0.57/0.38 | 0.21/0.15 | 0.009 | 0.39 | 0.45 |
+| divisibility_detective | 18 | 0.28 write | 0.27 write | - | 0.25/0.24 | 0.026 | 0.48 | 0.44 |
+| young_tableau | 76 | 0.28 write_ramp | 0.28 write_ramp | 0.99/0.77 | 0.00/0.00 | 0.029 | 0.40 | 0.43 |
+| robin_hood | 61 | 0.30 motif | 0.30 motif | - | 0.00/0.00 | 0.009 | 0.14 | 0.26 |
+| rooks_watch | 22 | 0.30 stamp | 0.30 stamp | 0.21/0.16 | 0.29/0.29 | 0.017 | 0.48 | 0.47 |
+| straight_shooter | 75 | 0.32 write_ramp | 0.32 write_ramp | 2.42/1.95 | 0.00/0.00 | 0.046 | 0.58 | 0.58 |
+| king_of_the_hill | 46 | 0.33 paint | 0.28 paint | 1.20/0.76 | 0.33/0.28 | 0.013 | 0.27 | 0.27 |
+| mountain_climb | 28 | 0.33 write_ramp | 0.33 write_ramp | - | 0.11/0.11 | 0.015 | 0.27 | 0.34 |
+| seesaw | 24 | 0.35 paint | 0.38 paint | 1.09/0.59 | 0.28/0.31 | 0.052 | 0.72 | 0.71 |
+| othello_sandwich | 32 | 0.36 motif | 0.35 motif | 0.38/0.35 | 0.28/0.31 | 0.033 | 0.50 | 0.55 |
+| colour_value_ladder | 39 | 0.36 stamp | 0.33 stamp | - | 0.28/0.17 | 0.021 | 0.37 | 0.51 |
+| honest_minesweeper | 63 | 0.37 tally | 0.37 tally | 1.99/1.26 | 0.00/0.00 | 0.022 | 0.38 | 0.42 |
+| rainbow_roads | 35 | 0.38 motif | 0.37 motif | - | 0.31/0.29 | 0.043 | 0.33 | 0.41 |
+| wallpaper_weaver | 30 | 0.38 paint | 0.47 tile | - | 0.32/0.39 | 0.111 | 0.66 | 0.64 |
+| rummy_melder | 76 | 0.39 write | 0.44 write | 2.44/1.90 | 0.30/0.40 | 0.034 | 0.62 | 0.68 |
+| border_baron | 30 | 0.39 motif | 0.39 motif | 0.25/0.24 | 0.31/0.31 | 0.062 | 0.61 | 0.68 |
+| seed2_patchwork | 76 | 0.39 motif | 0.53 unclash | - | 0.30/0.40 | 0.014 | 0.36 | 0.41 |
+| set_spotter | 75 | 0.40 write | 0.43 write | - | 0.38/0.41 | 0.094 | 0.74 | 0.76 |
+| neighbourhood_vote | 31 | 0.41 paint | 0.41 paint | 0.48/0.44 | 0.36/0.35 | 0.036 | 0.65 | 0.60 |
+| looking_glass | 38 | 0.43 write | 0.48 tile | - | 0.35/0.38 | 0.080 | 0.69 | 0.71 |
+| archipelago | 32 | 0.44 motif | 0.43 motif | 0.64/0.49 | 0.34/0.34 | 0.039 | 0.33 | 0.40 |
+| colour_mixer | 33 | 0.44 motif | 0.43 motif | 0.53/0.51 | 0.30/0.30 | 0.037 | 0.49 | 0.57 |
+| swiss_cheese | 43 | 0.45 motif | 0.44 motif | 0.46/0.37 | 0.35/0.34 | 0.040 | 0.57 | 0.58 |
+| kings_court | 75 | 0.45 write | 0.50 write | 0.64/0.63 | 0.47/0.47 | 0.025 | 0.55 | 0.55 |
+| pinwheel | 52 | 0.46 write | 0.46 write | - | 0.41/0.41 | 0.120 | 0.81 | 0.80 |
+| homebody | 28 | 0.48 paint | 0.48 paint | 0.70/0.44 | 0.38/0.38 | 0.022 | 0.51 | 0.48 |
+| twin_friends | 76 | 0.49 motif | 0.47 motif | 2.05/1.38 | 0.37/0.32 | 0.037 | 0.62 | 0.63 |
+| uno_snake | 39 | 0.49 paint | 0.49 paint | - | 0.41/0.40 | 0.084 | 0.80 | 0.74 |
+| rainbow_road | 39 | 0.53 motif | 0.53 motif | 2.36/1.98 | 0.41/0.41 | 0.067 | 0.47 | 0.49 |
+| full_house | 67 | 0.53 write | 0.53 write | - | 0.46/0.46 | 0.131 | 0.91 | 0.91 |
+| castle_keeper | 46 | 0.54 motif | 0.53 motif | 0.46/0.35 | 0.45/0.45 | 0.030 | 0.57 | 0.60 |
+| stripe_painter | 42 | 0.54 motif | 0.54 motif | 1.28/1.00 | 0.44/0.44 | 0.085 | 0.80 | 0.69 |
+| flush_royale | 76 | 0.55 paint | 0.41 paint | - | 0.54/0.34 | 0.084 | 0.86 | 0.81 |
+| rainbow_steps | 40 | 0.55 motif | 0.54 motif | 1.16/1.00 | 0.42/0.42 | 0.063 | 0.57 | 0.50 |
+| times_table_territory | 62 | 0.56 stamp | 0.38 stamp | 1.52/0.79 | 0.44/0.31 | 0.036 | 0.51 | 0.53 |
+| bullseye | 45 | 0.56 paint | 0.55 paint | - | 0.47/0.47 | 0.074 | 0.93 | 0.94 |
+| paint_mixer | 47 | 0.56 motif | 0.56 motif | - | 0.44/0.43 | 0.047 | 0.48 | 0.45 |
+| snap | 74 | 0.58 write | 0.58 write | - | 0.52/0.52 | 0.154 | 0.91 | 0.88 |
+| go_fish_books | 75 | 0.58 write | 0.58 write | 1.10/0.88 | 0.47/0.47 | 0.024 | 0.68 | 0.64 |
+| number_bonds | 74 | 0.61 write | 0.62 write | 2.56/3.14 | 0.54/0.47 | 0.016 | 0.41 | 0.34 |
+| constellation | 76 | 0.62 write | 0.62 write | 2.23/2.09 | 0.48/0.48 | 0.022 | 0.61 | 0.49 |
+| mirrormancer | 33 | 0.64 mirror_fold | 0.64 mirror_fold | - | 0.51/0.51 | 0.082 | 0.78 | 0.78 |
+| islander | 48 | 0.65 motif | 0.64 motif | 1.22/1.21 | 0.50/0.50 | 0.063 | 0.56 | 0.57 |
+| picture_frame | 32 | 0.65 paint | 0.65 paint | 0.96/0.72 | 0.49/0.49 | 0.014 | 0.32 | 0.20 |
+| connect_four | 50 | 0.66 paint | 0.65 paint | 2.02/1.33 | 0.52/0.52 | 0.035 | 0.56 | 0.52 |
+| flag_bearer | 50 | 0.66 paint | 0.66 paint | 0.72/0.69 | 0.52/0.52 | 0.037 | 0.64 | 0.56 |
+| rainbow_bands | 50 | 0.66 motif | 0.66 motif | 0.77/0.70 | 0.52/0.52 | 0.041 | 0.65 | 0.64 |
+| chessmaster | 49 | 0.67 motif | 0.66 motif | 0.98/0.75 | 0.51/0.51 | 0.034 | 0.60 | 0.65 |
+| kingdom | 49 | 0.67 paint | 0.67 paint | 1.79/1.05 | 0.52/0.52 | 0.042 | 0.55 | 0.37 |
+| best_friends | 49 | 0.67 motif | 0.67 motif | 1.00/0.76 | 0.51/0.51 | 0.037 | 0.50 | 0.50 |
+| parity_painter | 50 | 0.67 paint_by_key | 0.67 paint_by_key | 0.63/0.62 | 0.52/0.52 | 0.030 | 0.65 | 0.53 |
+| gravity | 50 | 0.69 paint | 0.68 paint | 1.36/1.15 | 0.53/0.53 | 0.036 | 0.63 | 0.63 |
+| colour_by_number | 50 | 0.69 paint_by_key | 0.68 paint_by_key | 0.83/0.82 | 0.53/0.53 | 0.032 | 0.54 | 0.45 |
+| seed1_line_painter | 76 | 0.70 paint | 0.47 paint | 2.04/1.31 | 0.54/0.39 | 0.032 | 0.56 | 0.50 |
+| treasure_map | 76 | 0.71 paint | 0.49 paint | 3.66/2.26 | 0.54/0.34 | 0.030 | 0.49 | 0.54 |
+| knight_riders | 76 | 0.75 stamp | 0.76 stamp | 2.39/1.40 | 0.54/0.34 | 0.072 | 0.73 | 0.63 |
+| number_painter | 83 | 0.78 stamp | 0.55 stamp | 2.25/2.23 | 0.59/0.37 | 0.021 | 0.48 | 0.37 |
+| conqueror | 78 | 0.87 paint | 0.71 paint | 1.08/1.04 | 0.67/0.55 | 0.042 | 0.62 | 0.64 |
+| seed3_green_ones | 133 | 1.24 stamp | 0.94 stamp | - | 0.95/0.59 | 0.029 | 0.54 | 0.65 |
+| lucky_token | 133 | 1.25 stamp | 0.79 stamp | 1.67/1.48 | 0.95/0.59 | 0.026 | 0.45 | 0.50 |
