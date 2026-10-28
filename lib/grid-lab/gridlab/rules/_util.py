@@ -205,11 +205,10 @@ def comp_sum(lab: np.ndarray, weights: np.ndarray, mask: np.ndarray) -> np.ndarr
     """Per cell: the sum of `weights` over the masked cells of its component (0 off-mask)."""
     B, N, _ = lab.shape
     NN = N * N
-    g = (lab.reshape(B, NN) + (np.arange(B, dtype=np.int64) * NN)[:, None])
-    mk_ = mask.reshape(B, NN)
-    tot = np.bincount(g[mk_], weights=weights.reshape(B, NN)[mk_].astype(np.float64), minlength=B * NN)
-    out = tot[g].reshape(B, N, N)
-    return np.where(mask, np.rint(out).astype(np.int64), 0)
+    g = lab.reshape(B, NN) + (np.arange(B, dtype=np.int64) * NN)[:, None]
+    w = np.where(mask, weights, 0).reshape(-1)
+    tot = np.bincount(g.ravel(), weights=w, minlength=B * NN)
+    return np.where(mask, tot[g].reshape(B, N, N), 0).astype(np.int64)
 
 
 def comps2d(key, mask, diag: bool = False) -> list[list[tuple[int, int]]]:

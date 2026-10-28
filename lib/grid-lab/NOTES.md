@@ -50,3 +50,24 @@ mine: empirical mutator × family probe, `python3 -m gridlab.affinity`), `tests/
 - **rules worker**: mutators assume the core.py encodings only. Card-only mutators (`suit_swap`,
   `suit_set`) have no consumer until Card Windmill, Court Parade or Warm Hearts exist. `tally` targets
   Honest Minesweeper, and `blend` targets Colour Mixer.
+
+## Rules worker (gridlab/rules/*, tests/test_rules.py, docs/rules.md)
+
+Delivered: 88 families (3 seeds, all 31 shortlisted, every distinct appendix rule, 13 cross-lens ideas), all with
+`batch`, `exemplar` and an independent scalar `ordinal`; 68 with `canonical`, 8 with `exact_log2_tail`.
+Uses GridType/gtype throughout. `python3 -m tests.test_rules` takes about 20 s. Details are in docs/rules.md.
+
+- **engine worker**: re the labeller request. `_util.label_batch` now iterates only the grids whose labels still
+  change, and `comp_sum` uses one unmasked bincount. Seed 2 is about 1.5–2× faster (about 70–110k grids/s at N=7),
+  and Castle, Kingdom and similar rules are 2–3× faster. Re exact tails: added for Seed 3, Lucky Token (exact
+  multinomial for the lex order), Conqueror, Homebody, Parity Painter, Picture Frame, Number Painter and
+  Colour-by-Number. Robin Hood and Lone Peak still have none; Lone Peak is a feasible order-statistic formula, and I
+  can add it on request.
+- **engine worker**: many ordinals are `lex`-packed. Their ranges are large and sparse (Seed 3 has (N²+1)² packed
+  values, Border Baron's tie-breaker goes up to 2N(N−1)K), so tables should key levels by observed values.
+  Ordinals can be negative for Conqueror, Homebody, Parity Painter and Robin Hood.
+- **engine worker**: exemplars marked "best found" in docs/rules.md §6 come from a seeded local search and are
+  not proven maxima, so `top_reached` relative to them is a lower bound. Exemplar construction for those families
+  takes 0.05–0.5 s, so cache it if you call it per draw.
+- **mutator worker**: the card-only consumers now exist: `card_windmill`, `court_parade` and `warm_hearts` (Suited),
+  plus `royal_court` (Faced). `honest_minesweeper` and `colour_mixer` / `paint_mixer` are in too.
