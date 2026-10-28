@@ -7,6 +7,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   DEFAULT_SETTINGS, instantiationOf, netBits, presetSettings, softHinge, typeDefaults, validateSettings, type GameSettings, type ObjectValue,
+  defaultSettingsFor,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
 import {
@@ -165,12 +166,26 @@ export function retuneSettings(previous: GameSettings, next: GameSettings, sent:
   }
   return out as unknown as GameSettings;
 }
+/**
+ * Fields implied by a partial request: a new object type without typeArgs takes that type's default
+ * arguments (the old type's arguments mean nothing to it), and a new language its grammar and complexity
+ * function. Explicitly sent fields still win.
+ */
+function derived(previous: GameSettings, sent: Record<string, unknown>): Partial<GameSettings> {
+  const objectType = typeof sent.objectType === "string" ? sent.objectType : previous.objectType;
+  const language = (sent.language as GameSettings["language"] | undefined) ?? previous.language;
+  const fresh = defaultSettingsFor(objectType, language);
+  return {
+    ...(objectType !== previous.objectType ? { typeArgs: fresh.typeArgs } : {}),
+    ...(language !== previous.language ? { grammarId: fresh.grammarId, complexityFunctionId: fresh.complexityFunctionId } : {}),
+  };
+}
 /** The next game's settings from an owner request: a preset (keeping the room's language) or explicit settings. */
 export function nextSettings(previous: GameSettings, input: { settings?: Record<string, unknown>; preset?: string }): GameSettings {
   let settings: GameSettings;
   try {
     if (input.preset) settings = presetSettings(input.preset, (input.settings?.language as GameSettings["language"]) ?? previous.language);
-    else if (input.settings) settings = retuneSettings(previous, { ...previous, ...input.settings } as GameSettings, input.settings);
+    else if (input.settings) settings = retuneSettings(previous, { ...previous, ...derived(previous, input.settings), ...input.settings } as GameSettings, input.settings);
     else return fail("BAD_REQUEST", "Settings or a preset are required");
     validateSettings(settings);
   } catch (error) {

@@ -187,7 +187,8 @@ async function summonThroughUi(p: Player, language: string, source: string) {
   await page.click(`[data-testid=button-lang-${language}]`);
   await page.fill("[data-testid=input-source]", source);
   await page.click("[data-testid=button-validate]");
-  await page.waitForFunction(() => /\bVALID\b/.test(document.querySelector("[data-testid=panel-validation]")?.textContent ?? ""), null, { timeout: 120_000 });
+  // The validation panel starts with VALID or INVALID (followed directly by the cost breakdown).
+  await page.waitForFunction(() => /^\s*VALID/.test(document.querySelector("[data-testid=panel-validation]")?.textContent ?? ""), null, { timeout: 120_000 });
   await page.waitForSelector("[data-testid=button-summon]:not([disabled])", { timeout: 30_000 });
   await page.click("[data-testid=button-summon]");
   await page.waitForSelector("[data-testid^=row-agent-]", { timeout: 120_000 });
