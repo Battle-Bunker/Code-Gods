@@ -1,33 +1,42 @@
-import type { GameSettings, ObjectValue } from "@workspace/game-core";
-import type { UtilityDescriptor } from "@workspace/game-utilities";
+import type { AgentAccount, GameSettings, ObjectValue } from "@workspace/game-core";
+import type { ActCost, MutatorCallWire } from "@workspace/game-types";
+import type { GodScore, UtilityDescriptor } from "@workspace/game-utilities";
 export type AISeatDefinition = { id: string; name: string; provider: "anthropic" | "openai"; model: string; prompt: string; revision: number };
 export type Member = { id: string; name: string; kind: "human" | "ai"; ready: boolean; status?: string; aiAgent?: AISeatDefinition };
 export type Chat = { id: string; authorId: string; authorName: string; kind: string; text: string; timestamp: number };
-/** `utilities` is server-private: each god's utility for this object. Only aggregates leave the server. */
-export type WorldObject = {
-  id: string; value: ObjectValue; version: number; utilities: Record<string, number>;
-  /** Grid only, server-private: what each god's utility function makes of this object. Only its owner sees an entry. */
-  rarity?: Record<string, GridRarity>;
-};
-/** One god's reading of one grid: reward surprisal and, with a defence goal, the badness surprisal and penalty bits. */
-export type GridRarity = { bits: number; penaltySurprisal: number | null; penaltyBits: number | null };
+/** `scores` is server-private: each god's evaluation of this object. Only the god's own and aggregates leave the server. */
+export type WorldObject = { id: string; value: ObjectValue; version: number; scores: Record<string, GodScore> };
 /**
- * Grid agents have their own energy account (bits), separate from their god's: it earns
- * agentEnergyPerSecond of world time, capped at agentBatteryActs × the expected cost of one act.
- * An agent may act only while its balance covers its expected cost; each act's actual cost is
- * deducted and the balance may go negative (a cooldown).
+ * A summoned agent. `summonCost` (description bits) was paid once from god energy; the agent has its own
+ * account (world-time income, capped battery) and is eligible while energy ≥ `expectedActCost`.
  */
-export type AgentEnergy = { balance: number; settledAtWorld: number; expectedCost: number; acts: number; charged: number };
-export type Agent = { id: string; ownerId: string; source: string; cost: number; createdAt: number; energy?: AgentEnergy };
-export type Deity = { id: string; utility: UtilityDescriptor; spent: number; pauseUsed: boolean };
-export type WorldEvent = {
-  id: string; gameId: string; type: "object.transformed" | "object.spawned"; timestamp: number;
-  object: WorldObject; agentId?: string; ownerId?: string; before?: ObjectValue;
-  /** Grid transformations: the mutator steps applied (kid-readable) and their total cost in bits. */
-  steps?: string[]; bits?: number;
+export type Agent = {
+  id: string; ownerId: string; source: string; createdAt: number;
+  summonCost: number; expectedActCost: number; account: AgentAccount;
+  /** Acts attempted and committed (successful or not), and the bits they cost in total. */
+  acts: number; spent: number;
 };
+/** The persisted result of one act for the agent: absolute values, so replay can restore the account. */
+export type AgentActState = { id: string; account: AgentAccount; acts: number; spent: number };
+export type Deity = { id: string; utility: UtilityDescriptor; spent: number; pauseUsed: boolean };
+export type WorldEvent =
+  | {
+    id: string; gameId: string; type: "object.spawned"; timestamp: number; object: WorldObject;
+  }
+  | {
+    id: string; gameId: string; type: "object.transformed"; timestamp: number; object: WorldObject;
+    agentId: string; ownerId: string; before: ObjectValue;
+    calls?: readonly MutatorCallWire[]; cost?: ActCost; agent?: AgentActState;
+  }
+  | {
+    /** An act that changed nothing (runtime error, invalid calls, no change, or a duplicate value): it still paid. */
+    id: string; gameId: string; type: "agent.failed"; timestamp: number; objectId: string;
+    agentId: string; ownerId: string; reason: string; cost: ActCost; agent: AgentActState;
+  };
 export type Game = {
   id: string; shortCode: string; phase: "planning" | "running" | "paused" | "recovery" | "ended";
+  /** Absent on games created before information scoring: those are legacy (retired or legacy history). */
+  scoring?: "information-v1";
   // Snapshot includes interactionComputeMs; changing lobby settings cannot change this budget.
   settings: GameSettings; roster: Member[]; deities: Deity[]; objects: WorldObject[]; agents: Agent[];
   createdAt: number; planningEndsAt: number; pauseEndsAt: number; worldSeconds: number;
@@ -51,8 +60,7 @@ export type Room = {
   settings: GameSettings; members: Member[]; chat: Chat[]; game: Game | null;
   aiBudget: number; aiUsed: number; receipts: Record<string, { hash: string; result: unknown }>;
   aiReservedUsd: number; aiDaily: { day: string; usd: number; calls: number[] };
-  aiInputTokens?: number; aiOutputTokens?: number;
   seq: number;
 };
 export type Actor = { id: string; name: string; kind: "human" | "ai"; scope: "browser" | "player"; roomId?: string;
-  delegateId?: string; clientLabel?: string; permission?: "read" | "act" | "owner"; expiresAt?: string; sessionHash?: string };
+  delegateId?: string; clientLabel?: string; permission?: "read" | "act"; expiresAt?: string; sessionHash?: string };
