@@ -79,7 +79,9 @@ function def(s: Spec): MutatorDef<string, SP> {
     requires: [{ term: "length.max", op: ">=" as const, value: s.minLength }],
     parse: (raw: Readonly<Record<string, unknown>>, inst: Instantiation) => {
       checkFields(raw, s.fields, s.optional);
-      return s.parse(raw, maxLen(inst));
+      const p = s.parse(raw, maxLen(inst));
+      if (p.range === undefined) delete p.range;
+      return p;
     },
     describeBits: (p: SP, inst: Instantiation) => s.describe(p, maxLen(inst)),
     apply: (x: string, p: SP, inst: Instantiation) => s.apply(x, p, maxLen(inst)),

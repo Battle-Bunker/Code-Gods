@@ -17,7 +17,7 @@
  * Places: P = max(2, decimal digits of max(|min|, |max|)), fixed width with leading zeros; place 0 is
  * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion has no
  * expectedChange here: the call's own change is its speed (Σ B² / B_tot over the type's "value" layer).
- * Every overwrite is idempotent; every bijection is injective.
+ * Every overwrite is idempotent; every bijection is injective. Int(v, v) offers no mutators.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
 import { checkFields, fail, intParam, lg, mdoc, mod } from "../mutators.ts";
@@ -58,11 +58,14 @@ interface Spec {
 
 function def(s: Spec): MutatorDef<number, IP> {
   return Object.freeze({
-    id: s.id, name: s.name, emoji: s.emoji, summary: s.summary, requires: [], scope: s.scope, kind: s.kind,
+    id: s.id, name: s.name, emoji: s.emoji, summary: s.summary,
+    // a one-value domain has nothing to change
+    requires: [{ term: "bounds.bits", op: ">=" as const, value: 1 }], scope: s.scope, kind: s.kind,
     parse: (raw: Readonly<Record<string, unknown>>, inst: Instantiation) => { checkFields(raw, s.fields); return s.parse(raw, ctx(inst)); },
     describeBits: (p: IP, inst: Instantiation) => s.describe(p, ctx(inst)),
     apply: (x: number, p: IP, inst: Instantiation) => s.apply(x, p, ctx(inst)),
-    erasureBits: (x: number, p: IP, inst: Instantiation) => (s.erase ? s.erase(x, p, ctx(inst)) : 0),
+    erasureBits: (x: number, p: IP, inst: Instantiation) =>
+      (s.erase && s.apply(x, p, ctx(inst)) !== null ? s.erase(x, p, ctx(inst)) : 0),
     sample: (rng: Rng, inst: Instantiation) => s.sample(rng, ctx(inst)),
     guest: { python: s.guest.py, js: s.guest.js, dts: s.guest.dts, docs: s.guest.doc.map(([p, t, k]) => mdoc(p, t, k)) },
   });

@@ -15,6 +15,8 @@ const intFamily = defineFamilies<IntSpec>("Int", (ctx: FamilyContext) => ({
 const legal = (s: IntSpec, x: number) => Number.isSafeInteger(x) && x >= s.min && x <= s.max;
 /** Best legal candidate (with ± versions), scored by the family's own card. */
 function bestOf(id: string, p: any, s: IntSpec, ctx: FamilyContext, xs: readonly number[]): number {
+  // Small domains: the best value outright. Large ones: the family's ideal shapes that fit.
+  if (s.max - s.min <= 100_000) return bestValue(id, p, ctx, range(s.min, s.max)) as number;
   const ok = [...new Set([...xs, ...xs.map(x => -x), s.min, s.max, 0])].filter(x => legal(s, x));
   return bestValue(id, p, ctx, ok) as number;
 }
