@@ -10,6 +10,7 @@ import { envelopeSchema, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, type ActionCtx } from "./_generated/server";
 import { AgentFault, examineAgent } from "./engine/pricing";
+import { envelopeHash } from "./game/commands";
 import { fail, messageOf } from "./lib/errors";
 
 /** Run one envelope as the authenticated caller, or as an AI seat (`asAi`, engine-internal callers only). */
@@ -18,7 +19,10 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
   if (!parsed.success) fail("BAD_REQUEST", `Invalid command envelope: ${parsed.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ").slice(0, 500)}`);
   const envelope = parsed.data;
   const prepared = await ctx.runQuery(internal.game.commands.prepare, { roomId, asAi, envelope });
-  if (prepared.prior) return prepared.prior.result; // apply() re-checks the hash and rejects a reused id
+  if (prepared.prior) {
+    if (prepared.prior.hash !== envelopeHash(envelope)) fail("CONFLICT", "Command ID was reused with different content");
+    return prepared.prior.result;
+  }
   let examined: { gameId: string; source: string; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
   if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
