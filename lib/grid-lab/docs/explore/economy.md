@@ -3,10 +3,28 @@
 Exploration of how the economy (energy, prices, running costs, income) and the agent lifecycle
 (lifetimes, charges, caps) shape dynamism and policy balance in Grid Lab games.
 
-**Shared modules are not modified.** Everything lives in `gridlab/explore/economy/`. `econ_sim.run_econ_game`
+**Shared modules: none modified.** Everything lives in `gridlab/explore/economy/`. `econ_sim.run_econ_game`
 is a copy of `gridlab.sim.run_game` with economy hooks. With `Econ()` (all knobs off) it reproduces
 `run_game` bit for bit, which the self-test checks for toy and real providers and for several policy
 mixes. Policies are wrapped, not edited, so they see taxed or split prices.
+
+## TL;DR
+
+- **The current economy is unbalanced.** In 4-god head-to-heads `saver` wins 49–51% of games (fair is
+  25%), with only 12% of the application attempts. It does this by banking energy for expensive whole-grid
+  jackpot programs, which all-at-summon linear pricing makes cheap per unit of impact.
+- **No stagnation.** Agents stay equally useful at every age, and the world keeps churning as they
+  accumulate. Standings do lock in early: the leader at 25% of the game wins 72–76% of the time.
+- **Knobs that change how many agents a god runs don't help.** Gas, refunds, agent caps, crowding tax,
+  starting energy, income rate, convex pricing and income tilt leave saver's z between 0.67 and 0.79.
+- **Lifetimes add dynamism but favour saver. Abundance or no banking restores balance.**
+- **Recommended:** earned income 1 energy per bit of own surprisal gained, an energy cap of 60, and a
+  120 s agent lifetime. On held-out seeds: dynamism2 0.557 → 0.623 (+0.066 ± 0.011), policy z range
+  0.37 → 0.17, saver win share 0.51 → 0.29, held cooperative climbs 2.06 → 3.61 per 100 s, tension
+  0.103 → 0.137, and live agents steady at about 80 instead of growing without bound.
+- **Time-split price** (description at summon; erasure + motion + measurement per commit): at full scale
+  the world freezes (Δ −0.20). At per-application scale 0.01 it is neutral on dynamism and mildly
+  balancing (saver z 0.66). It is a valid baseline but weaker than the recommendation (§4).
 
 ## 0. How to reproduce
 
@@ -351,7 +369,80 @@ All on the same 80 paired training games:
 
 ## 6. Held-out validation and recommendation
 
-VALIDATION_SECTION
+### 6.1 Held-out before/after
+
+The held-out games use spec seed 9500000, never used for selection: 5 GridTypes × 40 games, 4-god
+head-to-heads, paired. `rec` is earned income 1.0 + energy cap 60 + lifetime 120 s. `rec_nocap` is the same
+without the cap.Δ CIs are 1.96·sd/√n over the paired games.
+
+| setting | n | Δdyn2 [95% CI] | dyn2 | lead chg late | crossings | held climbs | tau25 | live agents | useful-life | unspent | z random | z greedy | z saver [CI] | z coop | range |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| old | 80 | +0.000 ± 0.000 | 0.561 | 18.1 | 2.96 | 2.03 | 0.53 | 71 | 0.70 | 0.14 | 0.40 | 0.55 | 0.60 [0.53, 0.67] | 0.44 | 0.20 |
+| rec | 80 | +0.054 ± 0.018 | 0.616 | 14.6 | 2.63 | 3.26 | 0.59 | 74 | 0.72 | 0.07 | 0.43 | 0.61 | 0.49 [0.41, 0.55] | 0.48 | 0.19 |
+| rec_nocap | 80 | +0.046 ± 0.019 | 0.607 | 14.5 | 2.64 | 2.55 | 0.68 | 83 | 0.71 | 0.49 | 0.45 | 0.61 | 0.49 [0.42, 0.56] | 0.45 | 0.16 |
+
+| | old | rec |
+|---|---|---|
+| dynamism2 | 0.557 | **0.623** (Δ +0.066 ± 0.011) |
+| saver z / win share (fair 0.25) | 0.73 / 0.51 | **0.55 / 0.29** |
+| greedy / random / coop z | 0.46 / 0.45 / 0.36 | 0.60 / 0.42 / 0.42 |
+| policy z range | 0.37 | **0.17** |
+| held accelerating climbs per 100 s (cooperative spirals) | 2.06 | **3.61** |
+| significant tension rate (≥ 1 bit up and down) | 0.103 | **0.137** |
+| P(leader at 25% wins) / tau25 | 0.72 / 0.64 | **0.62 / 0.53** |
+| lead changes per game / late lead changes | 18.1 / 14.8 | 16.9 / 13.4 (slightly fewer) |
+| live agents at 2 min / 6 min / 11 min | 35 / 86 / 137 (grows without bound) | 78 / 77 / 79 (steady) |
+| \|Δ salience\| per attempt, first minute → 11th | 1.99 → 2.29 | 2.17 → 2.94 |
+| agent lifespan / idle tail after its last useful commit | 302 s / 75 s | 91 s / **24 s** |
+| owner-improving commits per attempt | 0.196 | 0.209 |
+| unspent energy | 13% | 7% |
+| stagnation_frac / late activity | 1.00 / 0.21 | 1.00 / 0.21 |
+
+**Robustness: iid policies, 3–6 gods** (held-out seed, 16 per type, 80 games): Δdyn2 +0.054 ± 0.018.
+Saver's z goes from 0.60 to 0.49 and its win ratio from 1.48 to 1.02. The range is unchanged (0.20 → 0.19),
+because greedy becomes the top policy at 0.61. The income loop does not lock standings: the leader's final
+share is 0.38 against 0.37, and P(leader at 25% wins) is 0.56 against 0.58.
+
+### 6.2 Recommendation
+
+1. **Pay energy for your own agents' work:** +1 energy per bit of surprisal an agent's commit gains its
+   owner (`income_own` = 1.0). Keep the base 1 energy/s and starting energy 100.
+2. **Cap banked energy at 60** (`energy_cap`): anything above is lost.
+3. **Give agents a fixed lifetime of 120 s** (`lifetime`). The population settles at about 80 live agents
+   instead of growing without bound, and that also bounds simulation and UI cost.
+4. **Keep pricing all-at-summon and linear.** Keep the cap of 200 agents per god (it never binds now).
+   Use no gas.
+
+What each piece does:
+- **Lifetime: turnover.** It produces more climbs and more fluid standings, but on its own it favours saver.
+- **Earned income: abundance.** Big programs become affordable to everyone, so banking stops paying. It
+  also ties energy to real contribution, without runaway.
+- **Cap: no hoarding of that abundance.** Without it, 48% of energy goes unspent (`rec_nocap`), with
+  similar dynamism.
+
+If an income loop is unwanted, use `cost_scale` 0.25 + energy cap 30 + lifetime 120. On training it gave
+Δ +0.038 and saver z 0.65.
+
+### 6.3 Trade-off surface (training seeds, 80 games per point)
+
+- **Dynamism up, balance down:**
+  - fixed lifetimes of 60 to 120 s (Δ +0.02 to +0.04, saver z 0.78 to 0.85);
+  - half-lives of 30 to 60 s;
+  - 100 commit charges per agent.
+- **Balance up, dynamism down:**
+  - energy cap 20 to 30 (saver z 0.61 to 0.66, Δ −0.045 to −0.067);
+  - `cost_scale` 4 (Δ −0.11);
+  - time split at scale ≥ 0.03.
+- **Both up:**
+  - earned income (`income_own` 0.25 to 1, `income_any` 0.1 to 0.25);
+  - `cost_scale` 0.25;
+  - their combinations with a lifetime, and the recommended point.
+- **Neither:**
+  - gas in every form, starve/refund, crowding tax, agent caps;
+  - convex pricing;
+  - income tilt;
+  - starting energy and income rate within 0.25 to 4×.
+
 
 ## 7. What depends on the simulated policies
 
