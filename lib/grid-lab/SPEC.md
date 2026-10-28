@@ -43,9 +43,9 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 | Σ_i s_i(x) | **salience** of x | `salience` | Total information all gods see in x. | Salience (Schelling focal points) |
 | s_i + s_j − s_ij, with s_ij = −log₂ μ(U_i ∩ U_j) | **synergy** (pointwise mutual information) | `synergy` | >0: i and j's goals co-occur more than chance (aligned); <0 conflict. | Pointwise mutual information |
 | d_i : T → ℤ | **penalty** (a defence goal; returns a badness ordinal, higher = worse) | `penalty` | Optional second utility function: what god i wants to stop. Calibrated like u_i. | Loss function |
-| h_i(x) = max(0, −log₂ μ{d_i ≥ d_i(x)} − 1) | **penalty bits** (⚠️) | `penalty_bits` | 0 unless x is worse than half of all grids. P(h ≥ k) ≤ 2^−(k+1) for every penalty. | Surprisal of the bad event |
-| K_i = Σ_{j≠i} E_μ[s_j] | **penalty rate** | `penalty_K` | bits² per penalty bit: what one reward bit earns on a typical spawn. | Prior-mean exchange rate |
-| −K_i (h_i(x) − E_μ h_i) | **defence term** | `defence_term` | Added to π_i for gods with a defence goal; private, zero-mean on spawns. See docs/defence-goals.md. | |
+| h_i(x) = η(−log₂ μ{d_i ≥ d_i(x)}), η(s) = log₂(1+2^(s−1)) − log₂ 1.5 | **penalty bits** (⚠️) | `penalty_bits` | Soft hinge at the median: ≈ 0 for typical grids, strictly increasing. P(h ≥ k) ≤ ⅔·2^−k for every penalty. | Surprisal of the bad event |
+| n_i = s_i − w(h_i − E_μ h_i) | **net bits** (signed) | `net_bits` | + for surprisingly good, − for surprisingly bad; = s_i without a defence goal. Monotone in the card. | |
+| max(0, Σ_{j≠i} n_j) | **peer care** | `peer_care` | The floored multiplier: π_i = n_i · peer care. "If the others don't care, nobody scores." See docs/defence-goals.md. | |
 | cost(m) | **action cost** (bits) | `cost` | Bespoke per-mutator charge, from energy. | MDL / Landauer erasure cost |
 | Δπ_i / cost | **yield** | `yield_` | Payoff gained per bit spent. | Efficiency |
 | — | **cooperative spiral** | `spiral` | Run of consecutive transformations of one object by ≥2 owners in which salience rises each step. | Positive feedback |

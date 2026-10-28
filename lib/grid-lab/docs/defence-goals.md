@@ -33,12 +33,16 @@ below the median, and none of it is reachable once the object is bad. Spoilers (
    needs an equivalent ("no rule's defence goal is violated by chance more than any other's").
 3. **The fixed payoff** π_i = s_i · S_−i stays as it is for everything it already covers; families without a
    penalty behave exactly as before. Any change must be forced by the design and justified.
-4. **No sign pathologies**: no negative × negative = positive, no god profiting from another god's loss.
+4. **No sign pathologies**: no negative × negative = positive (no farming of mutual negatives). *Revised by the
+   user mid-design:* a god reducing the multiplier on its own negative score by trashing others' structure is a
+   **wanted** dynamic ("defend your flanks"), not a pathology.
 5. **No exploits**: no unbounded self-bonus (−∞ penalty), no profitable pinning of rivals' grids.
 6. **Kid-readable**: "+1 for each 3, −1 for each red cell", "✨ rarer than 976/1000 grids for your 3s,
    ⚠️ redder than 90% of grids".
 7. **Ordinal only**: only the order of what a kid returns matters (SPEC: utility representation theorem).
    This rules out any design where the kid's *numbers* set an exchange rate.
+8. **Monotone in the card** (coordinator invariant): more points never give fewer bits, more penalty never gives a
+   better net score, strictly wherever the calibration is strict, across the whole range (no flat zone).
 
 ## 2. Options
 
@@ -109,92 +113,88 @@ to stop, bigger is worse). Each is calibrated against the prior on *its own* sur
 * **Penalty as an anti-reward of the rival**: score −s_j for a named rival. Rejected: it is explicit spite
   (requirement 4) and contradicts the cooperative intent of S_−i.
 
-## 3. How penalties enter the payoff
+## 3. Signed bits
 
-Write h_i for god i's penalty bits (defined in §4) and s_i = s⁺_i. Candidates:
+Each god with a defence goal gets one **signed** number per object:
 
-| payoff | neg × neg | profit from others' loss | notes |
-|---|---|---|---|
-| (P1) net in both factors: n_i · Σ_{j≠i} n_j, n = s − h | **yes**: two unhappy gods score positive | yes: if n_i < 0, i gains when peers' n falls | broken |
-| (P2) n_i · S_−i (own net × peers' reward bits) | no | **yes**: if n_i < 0, i gains when peers' s falls (spite: "if it's ugly to me, nobody may admire it") | spite on every damaged object |
-| (P3) s_i · S_−i − h_i · S_−i, peers' penalties also enter S_−j | yes (via S_−j) | yes | and peers would want to lower *their own* s on objects others dislike |
-| **(P4) s_i · S_−i − K_i · h_i, K_i a constant** | **no** | **no** | penalties are private; the product formula is untouched |
+  n_i(x) = s⁺_i(x) − w · ( h_i(x) − h̄_i ),   h_i(x) = η( −log₂ μ{d_i ≥ d_i(x)} ),   h̄_i = E_μ[h_i]
 
-(P4) is the only form with **monotonicity**: ∂π_i/∂s_j = s_i ≥ 0 and ∂π_i/∂h_j = 0 for every j ≠ i, exactly as in
-the positive-only game. No god ever profits from another god's surprisal falling or penalty rising. Its cost is that
-peers have no *direct* reason to protect i's defence goal; they protect it only when their own goals align, which
-is the honest outcome.
+* s⁺ is the unchanged reward surprisal (✨). For a god without a defence goal, n_i = s⁺_i ≥ 0.
+* η is a **soft hinge at the median**: η(s) = log₂(1 + 2^(s−1)) − log₂(1.5). It is strictly increasing,
+  η(0) = 0, η(1) = 0.42 (a typical grid), and η(s) = s − 1.58 + o(1) for bad grids. A hard hinge max(0, s − 1)
+  was the first draft; it has a flat zone below the median and breaks requirement 8, while the soft hinge keeps
+  its purpose (cleaning an already-typical grid earns almost nothing: the slope below the median is < 1/3).
+* Centring by h̄ = E_μ[h] makes the defence part zero-mean on fresh spawns, so a defence goal is neither a
+  handicap nor a free lunch *by chance*. It is a constant per god, so it changes no incentive.
+* w = `penalty_weight` (default 1: a penalty bit weighs the same as a reward bit; §9 shows 0.25–1 behave alike).
 
-**The exchange rate K_i.** The penalty is in bits, the product in bits². The rate must not depend on the realised
-peer surprisal (that is (P2) and brings back spite), so it is the prior expectation of the factor it replaces:
+**Theorem (monotone in the card).** Let G⁺, G⁻ be the survival functions of the reward ordinal r and the penalty
+ordinal d. If r(x) ≥ r(y) and d(x) ≤ d(y) then n(x) ≥ n(y); if moreover G⁺(r(x)) < G⁺(r(y)) or
+G⁻(d(x)) > G⁻(d(y)), then n(x) > n(y).
+*Proof sketch.* s⁺ = −log₂ G⁺(r) is non-decreasing in r because G⁺ is non-increasing, strictly where G⁺ is strictly
+decreasing. Likewise s⁻ = −log₂ G⁻(d) is non-decreasing in d. η is strictly increasing, so −w·η(s⁻) is
+non-increasing in d, strictly where s⁻ is strictly increasing. n is a sum of the two parts plus a constant. ∎
+The survival function of every ordinal that has prior mass at each value is strictly decreasing on the values
+it can take. So with a strictly increasing calibration (branch `claude/gridlab-kid-cards` interpolates between
+levels and removes the extrapolation cap) n is strictly monotone in what the card says, across the whole range.
+With the current step tables it is monotone, and strict between table levels. `tests.test_defence.test_monotone_theorem`
+and `test_hinge_strict` check both.
 
-  K_i = E_μ[S_−i] = Σ_{j≠i} E_μ[s_j]
+Fairness of the negative side: for s ≥ 1, η(s) ≤ s − log₂ 1.5, so P_μ(h ≥ k) ≤ ⅔ · 2^−k for **every** penalty.
+No defence goal is violated by chance more often than any other's.
 
-"One ⚠️ bit costs what one ✨ bit earns on a typical fresh spawn." Equivalently the penalty term is the user's own
-product formula with the peer factor frozen at its prior mean: −h_i · E_μ[S_−i]. For fine-grained rules
-E_μ[s_j] = log₂ e, so K ≈ 1.44 (G − 1) (≈ 4.3 bits with 4 gods); coarse rules contribute less. K_i is a per-game
-constant shown to the god ("each ⚠️ bit costs you 4.1 points this game"); it reveals nothing about any one rival.
-`GameConfig.penalty_rate` can replace it with a fixed number of bits per peer, and `penalty_weight` scales it.
+## 4. How signed bits enter the payoff
 
-**Is a change to the fixed formula unavoidable?** Yes, an additive term is: the product only contains s ≥ 0, and
-we showed that putting negative values into either factor creates sign pathologies or spite. The change is the
-minimum one: π_i = s_i · S_−i is kept verbatim for every god, and gods with a defence goal get one extra additive
-term. With no penalties in the game, payoffs are bit-for-bit the old ones (tested).
+Candidates, with N_−i = Σ_{j≠i} n_j:
 
-## 4. Penalty bits: the median hinge and centring
+| mode | payoff | own − × peers + | own − × peers − | own + × peers − |
+|---|---|---|---|---|
+| net product | n_i · N_−i | negative | **positive: farming** | negative |
+| **floored** (chosen) | n_i · max(0, N_−i) | negative: defend your flank, or shrink the multiplier | 0 | 0: a big negative god vetoes the object |
+| gated | n_i · N_−i if Σ_j n_j > 0, else 0 | negative | 0 if the gate is shut | **negative while the gate is open** |
+| private (first draft) | s⁺_i · S⁺_−i − K_i (h_i − h̄_i), K_i = E_μ[S⁺_−i] | penalty priced at the prior mean | none in the product | none |
 
-Raw badness bits s⁻ have E_μ[s⁻] ≈ 1.44 and are ~1 bit on a typical grid. Two adjustments:
+* **Net product** fails requirement 4: two gods who both hate an object score from it.
+* **Gated** has a real pathology. If i is positive, its peers are negative and the total is still positive, i's
+  payoff is negative, and i can raise it to 0 by *destroying its own structure* until the gate shuts. A god
+  should never want to wreck what it loves.
+* **Private** was the first design. It is the only mode with full monotonicity across gods (no god ever gains
+  when another's bits fall), at the cost of an extra exchange rate K_i and no cross-god consequences for
+  penalties. The user then asked for flank defence and trashing to be possible, which private rules out.
+* **Floored** is the user's suggestion and the recommendation. It is exactly the original formula whenever no
+  god's penalty is scored (all n ≥ 0, so the max is the identity). It has no farming: an own negative is
+  never multiplied by a negative. Its new mechanics are the ones asked for:
+  1. *Flank defence.* A god with no positive bits on an object others care about pays n_i · N_−i < 0, so it must
+     repair its penalty there.
+  2. *Shrinking the multiplier.* The same god can instead reduce N_−i, by scrambling others' structure (noise).
+  3. *Veto.* A god whose penalty is large makes N_−j < 0 for every peer j and zeroes their payoff on that
+     object. In turn, peers want to *protect that god's defence goal* to reopen the object: cooperative defence.
 
-1. **Hinge at the median: h = max(0, s⁻ − 1).** One bit is the median (half of all grids are at least this bad).
-   Below it the penalty is exactly 0: "only counts when the grid is worse than usual". This keeps defence goals
-   *defensive*: without the hinge, a god hating reds earns up to 1.44 K per object by *cleaning* typical grids (recolour
-   every red away), which is just a weak positive target "no reds" in disguise. With the hinge, cleaning a typical grid
-   is worth nothing, and only repairing damage pays. Fairness: P_μ(h ≥ k) = P_μ(s⁻ ≥ k + 1) ≤ 2^−(k+1) for every
-   penalty.
-2. **Centre for the leaderboard: subtract h̄ = E_μ[h].** Without this, every spawn costs a penalty god
-   K·E_μ[h] ≈ 0.72 K on average and penalty families would be handicapped by object count alone. The centring constant
-   changes no incentive (gods cannot choose spawns; it is the same constant on every object) and makes the defence term
-   zero-mean under the prior: **E_μ[π_i] is exactly what it would be without the defence goal.** The defence term
-   per object is at most +K h̄ (any grid at or better than typical) and falls only through genuine badness, so there
-   is no "make my own penalty −∞" exploit.
+  The floored multiplier max(0, N_−i) is named **peer care** (`peer_care`): how much, net, the other gods care
+  about the object.
 
-**Final per-object payoff:**
+**For a 12-year-old:** "Each grid gives you ✨ for what you love and takes ⚠️ for what you hate. You score
+your number times how much everyone else cares about the grid. If, overall, the others don't care about a grid,
+nobody scores from it. So you can't win points by hating things together, and if you hate a grid that others
+love, you lose points until you fix it or until they stop caring."
 
-  π_i(x) = s⁺_i(x) · Σ_{j≠i} s⁺_j(x)  −  K_i · ( h_i(x) − h̄_i ),
+### Properties of the chosen design
 
-  h_i(x) = max(0, −log₂ μ{d_i ≥ d_i(x)} − 1),   h̄_i = E_μ[h_i],   K_i = Σ_{j≠i} E_μ[s⁺_j].
-
-For a god without a defence goal the second term is absent. Total payoff Π_i = Σ_x π_i(x), as before. E_μ[s] and
-E_μ[h] are computed exactly from the survival tables (`Survival.prior_mean_bits`): for the step table,
-E_μ[f(s)] = Σ_k f(s_k)·(G_k − G_{k+1}).
-
-### Properties
-
-* **Defence pays**: damaging a typical grid by k ⚠️ bits costs K·k bits². Running example (K ≈ 4.3): a red row
-  costs 12, a red grid 211, the same order as a jackpot (a 20-bit object with 10 peer bits is worth 200).
-* **Positive fairness unchanged**: s⁺ and the product are untouched.
-* **Negative fairness**: P_μ(h ≥ k) ≤ 2^−(k+1) for every penalty, and E_μ[defence term] = 0 exactly, so a defence
-  goal is neither a handicap nor a free lunch under the prior.
-* **No pathologies**: no product of negatives exists; ∂π_i/∂(anything of j) ≥ 0.
-* **Exploits**: self-bonus ≤ K h̄ per object (≈ 3 bits² for 4 gods). "Pinning" a rival's grids into their bad
-  state is never profitable *in itself* (∂π_j/∂h_i = 0); it only happens as a by-product of j's own reward, which is
-  exactly the spoiler/protector tension we want (Kingdom builds big blobs, Blob Warden hates them).
-* **Protectors still need a positive target** to win: the defence term alone has expectation 0 and a ceiling of
-  K h̄ per object, while builders' jackpots are unbounded. So every protector family has a modest reward channel
-  too, and the defence goal is its *main* stake. This matches the user's framing: "both a positive target and a
-  defence goal".
+* Payoffs equal the original formula bit for bit when no defence goal is scored (tested).
+* Reward fairness unchanged: P(s⁺ ≥ k) ≤ 2^−k. Penalty fairness: P(h ≥ k) ≤ ⅔ · 2^−k. Both channels are zero-cost
+  by chance in expectation (centring).
+* No farming: π_i > 0 requires n_i > 0 and N_−i > 0.
+* The self-bonus from cleaning is bounded: at most w · h̄ ≈ 0.5 bits of n per object.
+* Defence pays: damaging a typical grid by k ⚠️ bits costs about k · N_−i bits², and N_−i is ≈ (G−1)·1.4 on a
+  typical spawn and much more on a jackpot.
 
 ## 5. Policies and disclosure
 
-A god sees its own reward and penalty tables, its own K_i, and per object its own s⁺, h and the peers' summed
-reward bits S_−i (unchanged disclosure). Greedy policies value a transformation x → y as
-
-  Δπ_i = (s⁺_i(y) − s⁺_i(x)) · S_−i(x) − K_i · (h_i(y) − h_i(x)),
-
-the same peers-fixed approximation as before plus the exact private penalty change. Omniscient and cooperative
-policies evaluate every god's full payoff including penalties. A defence goal makes *counter-agents* worth summoning:
-programs that repaint, recolour or swap away damage have positive Δπ only when damaged objects exist (hinge), so a
-protector's spending tracks the threat.
+A god sees its own reward and penalty tables, its own n_i per object, and the peers' summed **signed** bits N_−i
+(the old disclosure, with penalties included). Greedy private policies value x → y with peers held fixed:
+Δπ_i = n_i(y) · max(0, N_−i(x)) − n_i(x) · max(0, N_−i(x)). Omniscient and cooperative policies evaluate every
+god's bits of y, so only they can *see* that scrambling a grid lowers N_−i (§9: trashing does not emerge with
+private policies, as expected). `policy.py` computes every mode with the same `defence.payoff_matrix`.
 
 ## 6. Kid-facing card and API
 
@@ -202,20 +202,18 @@ protector's spending tracks the threat.
 
 ```
 ✨ Green Ones        +1 for each green 1 (more is better)
-⚠️ Hates red         −1 for each red cell (only counts when a grid is redder than usual)
-                    each ⚠️ costs you about 4 points this game
+⚠️ Hates red         −1 for each red cell (only counts when a grid is worse than usual)
 ```
 
 **Per object** (what the god sees on each grid):
 
 ```
-✨ rarer than 976/1000 grids for your green 1s       (s⁺ = 5.4 bits)
-⚠️ redder than 90% of grids                         (h = 2.3 bits → −9.5 points)
+✨ rarer than 976/1000 grids (5.4 bits) · ⚠️ redder than 90% of grids (1.8 ⚠️)
 ```
 
-The ✨ line is 1 − μ{r ≥ r(x)} written per mille; the ⚠️ line is 1 − μ{d ≥ d(x)} as a percentage, shown only
-when h > 0 (the grid is worse than half of all grids), with the penalty family's comparative word ("redder",
-"blobbier", "more taken over"). `gridlab.defence.card(draw, gtype)` and `object_line(...)` render both.
+The ✨ line is 1 − μ{r ≥ r(x)} per mille. The ⚠️ line is 1 − μ{d ≥ d(x)} as a percentage, with the penalty's
+comparative ("redder", "blobbier", "more taken over by one colour"). It is shown only when the grid is worse than
+half of all grids, and reads "⚠️ fine" otherwise. `gridlab.defence.card` and `object_line` render both lines.
 
 **API for junior coders**: a second, optional function next to `utility`:
 
@@ -244,16 +242,23 @@ calibrates its reward on the *base* family, so it shares the base's survival tab
 * `family.py`: `Family.penalty`, `Family.base` (optional, default None); `Draw.reward_draw()`,
   `Draw.penalty_draw()`; `with_defence(...)`. Works with int ordinals and with lex tuples (the penalty is just
   another ordinal and goes through whatever calibration path the reward uses).
-* `calibrate.py`: reward calibration of a variant uses its base draw; `precompute` also builds penalty tables;
-  `Survival.prior_mean_bits(hinge)`.
-* `defence.py`: `hinge`, `penalty_constants`, `payoffs_with_defence`, card rendering.
-* `sim.py`: a penalty matrix H (objects × gods) beside S; payoffs and snapshots include the defence term;
-  the log stores penalty bits per commit and the constants. `GameConfig.score_penalties=False` computes and logs
-  penalties without scoring them (the shadow control used by the experiments).
-* `policy.py`, `metrics.py`: Δπ with the penalty, tension on net bits, damage/repair metrics.
-* `rules/defence.py`: generic penalties, defence variants of existing rules, protector families
-  (`DEFENCE_FAMILIES`, opt-in via `--defence`, so the default 88-family pool and its dealing are unchanged).
+* `calibrate.py` (additive): reward calibration of a variant uses its base draw; `precompute` also builds penalty
+  tables (`channel_draws`); `Survival.prior_mean_bits(hinge, f)`.
+* `defence.py`: `hinge` (soft), `constants`, `net_bits`, `payoff_matrix` (floored / gated / private), card text.
+* `sim.py`: a penalty matrix H (objects × gods) beside S; `GameConfig.payoff_mode`, `penalty_weight`,
+  `score_penalties` (False = shadow: penalties computed and logged but not scored, the experiments' control);
+  the log carries penalty bits per commit, spawn, snapshot and the `DefenceConstants`.
+* `policy.py`: one value model for every mode. `metrics.py`: tension on net bits, damage/repair per defence goal,
+  floor occupancy (`floor_neg_share`, `floor_veto_share`, `floor_dead_share`), `trash_rate`, `flank_repair_rate`.
+* `rules/defence.py`: 8 penalties, 8 variants, 5 protectors (`DEFENCE_FAMILIES`, opt-in via `--defence`, so the
+  default 88-family pool and its dealing are unchanged).
+* `run.py`: `--defence`, `--families`, `--shadow-penalties`, `--penalty-weight`; `--trace` prints the cards.
 
-## 8. Evidence
+## 8. SPEC §2 names
 
-See §9 (filled in from `python3 -m gridlab.experiments.defence`).
+`penalty` (d_i), `penalty_bits` (h_i, ⚠️), `net_bits` (n_i, signed bits), `peer_care` (max(0, N_−i), the floored
+multiplier), `payoff_mode`. The SPEC table is updated.
+
+## 9. Evidence
+
+RESULTS_PLACEHOLDER
