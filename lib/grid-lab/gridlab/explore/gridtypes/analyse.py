@@ -175,6 +175,15 @@ def per_game_extra(r: dict) -> None:
     r["ceil_rank_corr"] = float(np.corrcoef(ce, z)[0, 1]) if ce.std() > 1e-9 and z.std() > 1e-9 else 0.0
     r["dead_god_share"] = float(np.mean([g["gain_own"] < 1.0 for g in gods]))
     r["max_s_peak_mean"] = float(np.mean(r["max_s_peak"]))
+    # treadmill stagnation: in the last 40% of the game (60 s bins), how much of the gross salience
+    # movement is net progress. 1 - progress = churn without anything building up.
+    nb = int(min(20, max(1, np.ceil(r["duration"] / 60.0))))
+    net = np.asarray(r["bin_net_dsal"][:nb], float)
+    gross = np.asarray(r["bin_abs_dsal"][:nb], float)
+    lo = int(0.6 * nb)
+    r["late_progress"] = float(net[lo:].sum() / max(gross[lo:].sum(), 1e-9)) if nb >= 3 else float("nan")
+    r["early_progress"] = float(net[:max(lo, 1)].sum() / max(gross[:max(lo, 1)].sum(), 1e-9))
+    r["treadmill"] = 1.0 - r["late_progress"] if nb >= 3 else float("nan")
 
 
 def type_table(results: list[dict], keys) -> str:
@@ -188,7 +197,7 @@ def type_table(results: list[dict], keys) -> str:
         rs = by[t]
         line = [t.replace("Grid", ""), len(rs)]
         for k in keys:
-            v = [x[k] for x in rs if k in x]
+            v = [x[k] for x in rs if k in x and np.isfinite(x[k])]
             p, lo, hi = C.boot_ci(v, B=300)
             line.append(f"{p:.3g}±{(hi - lo) / 2:.2g}")
         tab.append(line)
@@ -196,13 +205,14 @@ def type_table(results: list[dict], keys) -> str:
 
 
 def model_table(results: list[dict], keys, test: list[dict] | None = None) -> str:
-    rows = [key3(r["gtype"]) for r in results]
     out = []
     hdr = ["metric", "R² (games)", "R² type means", "held-out r (type means)"] + \
           [f"size {n}" for n in SIZES if n != 5] + [s for s in SYMS if s != "base10"] + [c for c in COLS if c != "rgby"]
     tab = []
     for k in keys:
-        y = np.array([r[k] for r in results], float)
+        ok = [r for r in results if np.isfinite(r[k])]
+        rows = [key3(r["gtype"]) for r in ok]
+        y = np.array([r[k] for r in ok], float)
         m = fit(rows, y)
         # R² of the additive model on per-type means
         tm = defaultdict(list)
@@ -216,7 +226,8 @@ def model_table(results: list[dict], keys, test: list[dict] | None = None) -> st
         if test:
             tt = defaultdict(list)
             for r in test:
-                tt[key3(r["gtype"])].append(r[k])
+                if np.isfinite(r[k]):
+                    tt[key3(r["gtype"])].append(r[k])
             qs = [q for q in tt if q in tm]
             if len(qs) >= 4:
                 a = np.array([np.mean(tt[q]) for q in qs])
@@ -300,12 +311,23 @@ def main(argv=None):
                   "## Policy-free marginal means by parameter", marginal_table(lr, LAND_KEYS), ""]
         tab = [[k, *(f"{lr[k][m]:.3g}" for m in LAND_KEYS)] for k in sorted(lr, key=key3)]
         parts += ["## Per GridType (policy-free)", C.md_table(["GridType"] + LAND_KEYS, tab), ""]
+        fm = family_ceiling_matrix(db)
+        ft = []
+        for f, d in fm.items():
+            bys = defaultdict(list)
+            for k, v in d.items():
+                bys[key3(k)[0]].append(v)
+            ft.append([f, len(d)] + [f"{np.mean(bys[n]):.1f}" if bys.get(n) else "–" for n in SIZES])
+        ft.sort(key=lambda x: float(x[2]) if x[2] != "–" else 99)
+        parts += ["## Family ceiling (bits) by size, mean over symbol and colour sets (sorted by 3x3)",
+                  C.md_table(["family", "#GridTypes"] + [f"N={n}" for n in SIZES], ft), ""]
     types = a.types.split(";")
     train = GM.run(types, a.games, a.train_seed, a.mix, a.processes)
     test = GM.run(types, a.test_games, a.test_seed, a.mix, a.processes) if a.test_games else []
     for r in train + test:
         per_game_extra(r)
-    keys = GAME_KEYS + ["stagnated", "ceil_spread", "ceil_rank_corr", "dead_god_share", "max_s_peak_mean"]
+    keys = GAME_KEYS + ["stagnated", "late_progress", "treadmill", "ceil_spread", "ceil_rank_corr", "dead_god_share",
+                       "max_s_peak_mean"]
     parts += [f"# Games: {len(train)} training (seed {a.train_seed}), {len(test)} held out (seed {a.test_seed}), "
               f"mix {a.mix}", "", "## Per GridType (training; mean ± 95% CI half-width)",
               type_table(train, keys), "", "## Models metric ~ size + symbols + colours (training games)",
