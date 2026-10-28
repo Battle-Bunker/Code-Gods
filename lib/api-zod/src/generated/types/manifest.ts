@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AIFunding } from './aIFunding';
+import type { GridManifest } from './gridManifest';
 import type { Settings } from './settings';
 import type { SettingsOptions } from './settingsOptions';
 
 export interface Manifest {
+  grid?: GridManifest;
   protocolVersion: number;
   minimumPlayers: number;
   defaults: Settings;

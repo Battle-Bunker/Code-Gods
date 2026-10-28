@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import { uniformObject, lifetimeSeconds, poissonIntervalSeconds, assertObjectValue, uniquePrefixes } from "@workspace/game-core";
-import type { Room, Actor, Game, WorldEvent } from "./types";
+import type { Room, Actor, Game, WorldEvent, WorldObject } from "./types";
 import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
 import { requireAdapters } from "./adapters";
 import { hash, requireAct } from "../lib/identity";
@@ -9,6 +9,22 @@ import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
 import { isLocallyIdle } from "./activity";
 import { advanceWorld, completionTarget, InteractionScheduler } from "./interaction-scheduler";
+import { accrued, charged, eligible, newAgentEnergy, worldNow, FAILED_ACT_BITS } from "./agent-energy";
+import { applyCalls, describeCall, gridArgsOf, parseCalls, MAX_CALLS_PER_ACT } from "@workspace/game-utilities";
+import type { GameSettings } from "@workspace/game-core";
+
+/**
+ * A Grid agent's act: its output is a JSON list of mutator calls. They are validated against the
+ * shipped parameter spaces, priced from the shipped cost tables and applied in order (host side).
+ * Throws on invalid output.
+ */
+export function gridAct(settings: GameSettings, before: string, output: unknown) {
+  if (typeof output !== "string") throw new Error("A Grid agent must return a list of mutator calls");
+  const args = gridArgsOf(settings);
+  const calls = parseCalls(output, { maxCalls: MAX_CALLS_PER_ACT });
+  const result = applyCalls(before, calls, args, { maxCalls: MAX_CALLS_PER_ACT });
+  return { ...result, describe: calls.map(c => describeCall(args, c)) };
+}
 
 const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
 function below(bound: bigint): bigint {
@@ -19,9 +35,19 @@ function below(bound: bigint): bigint {
     if (n < limit) return n % bound;
   }
 }
-function valuate(game: Game, value: number | string) {
+/** Every god's utility for a value (server-private); for Grid also each god's rarity detail. */
+function valuate(game: Game, value: number | string): Pick<WorldObject, "utilities" | "rarity"> {
   const { utilities } = requireAdapters();
-  return Object.fromEntries(game.deities.map(d => [d.id, utilities.evaluate(d.utility, value)]));
+  if (game.settings.objectType !== "Grid" || !utilities.evaluateGrid) {
+    return { utilities: Object.fromEntries(game.deities.map(d => [d.id, utilities.evaluate(d.utility, value, game.settings)])) };
+  }
+  const out: Pick<WorldObject, "utilities" | "rarity"> = { utilities: {}, rarity: {} };
+  for (const d of game.deities) {
+    const e = utilities.evaluateGrid(d.utility, String(value), game.settings);
+    out.utilities[d.id] = e.net;
+    out.rarity![d.id] = { bits: e.bits, penaltySurprisal: e.penaltySurprisal, penaltyBits: e.penaltyBits };
+  }
+  return out;
 }
 /** Every object in a world is unique: spawns redraw, and transformations onto an existing value fail. */
 const occupied = (game: Game, value: number | string) => game.objects.some(o => o.value === value);
@@ -31,7 +57,7 @@ function spawn(game: Game) {
     if (attempt >= 100) return; // Only a nearly-full tiny domain can get here; skip this spawn.
     value = uniformObject(game.settings, below);
   }
-  const object = { id: randomUUID(), value, version: 0, utilities: valuate(game, value) };
+  const object: WorldObject = { id: randomUUID(), value, version: 0, ...valuate(game, value) };
   game.objects.push(object);
   recordEvent(game, { id: randomUUID(), gameId: game.id, type: "object.spawned", object: structuredClone(object), timestamp: Date.now() });
 }
@@ -136,20 +162,37 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
       const inspection = await runtime.inspect(source, game.settings);
       if (!Number.isSafeInteger(inspection.cost) || inspection.cost < 0) throw new Error("Invalid runtime cost");
       const samples = game.objects.slice(0, 3).map(o => o.value);
-      if (!samples.length) samples.push(game.settings.objectType === "Int" ? game.settings.intMin : "");
-      for (const value of samples) assertObjectValue(await runtime.execute(source, value, game.settings), game.settings);
+      if (!samples.length) samples.push(game.settings.objectType === "Int" ? game.settings.intMin
+        : game.settings.objectType === "Grid" ? uniformObject(game.settings, below) : "");
+      const diagnostics: string[] = [];
+      for (const value of samples) {
+        const output = await runtime.execute(source, value, game.settings);
+        if (game.settings.objectType !== "Grid") { assertObjectValue(output, game.settings); continue; }
+        // Validation proves the output is a legal call list; it never changes the world.
+        const act = gridAct(game.settings, String(value), output);
+        diagnostics.push(act.describe.length
+          ? `On a sample grid it would ${act.describe.join(", then ")} (about ${(act.decisionBits + act.physicalBits).toFixed(1)} bits).`
+          : "On a sample grid it would do nothing (no mutator calls).");
+      }
       if (input.command === "agent.validate") {
-        result = { valid: true, cost: inspection.cost, diagnostics: [] };
+        result = { valid: true, cost: inspection.cost, diagnostics: diagnostics.slice(0, 3) };
         room.receipts[key] = { hash: digest, result };
         return result;
       }
       const available = game.settings.startingEnergy + (Date.now() - game.createdAt) / 1000 * game.settings.energyPerSecond - deity.spent;
       if (available < inspection.cost) throw new Error("Insufficient energy");
       if (game.agents.filter(a => a.ownerId === actor.id).length >= 200) throw new Error("This god has reached the 200-agent resource limit");
-      const agent = { id: randomUUID(), ownerId: actor.id, source, cost: inspection.cost, createdAt: Date.now() };
+      const agent: Game["agents"][number] = { id: randomUUID(), ownerId: actor.id, source, cost: inspection.cost, createdAt: Date.now() };
+      if (game.settings.objectType === "Grid") agent.energy = newAgentEnergy(worldNow(game, Date.now()));
       deity.spent += inspection.cost;
       game.agents.push(agent);
       result = agent;
+    } else if (input.command === "agent.destroy") {
+      // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.
+      const index = game.agents.findIndex(a => a.id === payload.agentId && a.ownerId === actor.id);
+      if (index < 0) throw new Error("You have no agent with that ID");
+      const [agent] = game.agents.splice(index, 1);
+      result = { destroyed: agent.id };
     } else throw new Error("Unknown command");
   }
   room.receipts[key] = { hash: digest, result };
@@ -164,7 +207,38 @@ export function resumeGame(game: Game) {
   delete game.autoResume;
 }
 
+/**
+ * Commit one Grid act inside the mutation lock: charge the agent (decision bits always, physical
+ * bits only when the grid changes), then apply the result unless it duplicates an object.
+ * Returns whether the game changed.
+ */
+function commitGrid(g: Game, snapshot: { objectId: string; version: number; before: number | string; agentId: string; ownerId: string; settings: GameSettings; gameId: string; pauseEndsAt: number; epoch: number },
+  result: { value?: unknown; failed?: unknown }) {
+  const now = Date.now(), agent = g.agents.find(a => a.id === snapshot.agentId);
+  const target = completionTarget(g, snapshot, now);
+  if (!agent?.energy || !target) return false; // destroyed, paused, ended or superseded: nothing is charged
+  let energy = accrued(agent.energy, worldNow(g, now), g.settings);
+  let act: ReturnType<typeof gridAct> | undefined;
+  try {
+    if (result.failed !== undefined) throw result.failed;
+    act = gridAct(snapshot.settings, String(snapshot.before), result.value);
+  } catch {
+    agent.energy = charged(energy, FAILED_ACT_BITS);
+    return true;
+  }
+  const after = act.after;
+  const commits = after !== null && !occupied(g, after);
+  agent.energy = charged(energy, act.decisionBits + (commits ? act.physicalBits : 0));
+  if (!commits) return true;
+  target.value = after!; target.version++; Object.assign(target, valuate(g, after!));
+  recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: now,
+    object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before,
+    steps: act.describe, bits: act.decisionBits + act.physicalBits });
+  return true;
+}
+
 export function startTicker() {
+  const actingAgents = new Set<string>();
   let pending: Promise<void> | undefined;
   let stopped = false;
   const scheduler = new InteractionScheduler(
@@ -181,32 +255,46 @@ export function startTicker() {
       if (game.worldSeconds + Math.max(0, Date.now() - game.lastTick) / 1000 >= game.endAtWorld) return;
       const objects = game.objects.filter(o => available(game.id, o.id));
       if (!objects.length) return;
+      const grid = game.settings.objectType === "Grid";
+      // Grid agents act only while their own energy covers their expected cost, one act at a time.
+      const world = worldNow(game, Date.now());
+      const agents = !grid ? game.agents : game.agents.filter(a => !actingAgents.has(a.id) &&
+        (!a.energy || eligible(accrued(a.energy, world, game.settings))));
+      if (!agents.length) return;
       const object = objects[Number(below(BigInt(objects.length)))];
-      const agent = game.agents[Number(below(BigInt(game.agents.length)))];
+      const agent = agents[Number(below(BigInt(agents.length)))];
       // Copy every runtime input: cached rooms can be replaced during a serialized mutation.
       const snapshot = {
         gameId: game.id, objectId: object.id, version: object.version, before: object.value,
         source: agent.source, settings: structuredClone(game.settings), agentId: agent.id,
         ownerId: agent.ownerId, pauseEndsAt: game.pauseEndsAt, epoch: game.executionEpoch ?? 0,
       };
+      if (grid) actingAgents.add(agent.id);
       return {
         roomId, gameId: game.id, objectId: object.id, rate: game.settings.interactionRateHz,
-        execute: () => requireAdapters().runtime.execute(snapshot.source, snapshot.before, snapshot.settings),
+        execute: () => {
+          const run = requireAdapters().runtime.execute(snapshot.source, snapshot.before, snapshot.settings);
+          // A failed Grid act still costs its agent a little, so a broken agent cannot hog the world.
+          return grid ? run.then(value => ({ value }), error => ({ failed: error })) : run;
+        },
         commit: async (result: unknown, current: () => boolean) => {
-          if (!current() || stopped || isLocallyIdle()) return;
-          await mutateInteraction(roomId, snapshot.objectId, draft => {
-            const g = draft.game;
-            if (!current() || stopped || isLocallyIdle() || !g) return false;
-            const target = completionTarget(g, snapshot, Date.now());
-            if (!target) return false;
-            assertObjectValue(result, snapshot.settings);
-            const value = result as number | string;
-            if (occupied(g, value)) return false; // Includes identity: the object already holds this value.
-            target.value = value; target.version++; target.utilities = valuate(g, value);
-            recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
-              object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
-            return true;
-          });
+          try {
+            if (!current() || stopped || isLocallyIdle()) return;
+            await mutateInteraction(roomId, snapshot.objectId, draft => {
+              const g = draft.game;
+              if (!current() || stopped || isLocallyIdle() || !g) return false;
+              if (grid) return commitGrid(g, snapshot, result as { value?: unknown; failed?: unknown });
+              const target = completionTarget(g, snapshot, Date.now());
+              if (!target) return false;
+              assertObjectValue(result, snapshot.settings);
+              const value = result as number | string;
+              if (occupied(g, value)) return false; // Includes identity: the object already holds this value.
+              target.value = value; target.version++; Object.assign(target, valuate(g, value));
+              recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
+                object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
+              return true;
+            });
+          } finally { actingAgents.delete(snapshot.agentId); }
         },
       };
     },

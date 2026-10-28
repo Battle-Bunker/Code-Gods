@@ -638,6 +638,118 @@ test("room lobby lifecycle: launch, end, history recorded, second game launched 
   }
 });
 
+test("Grid game through the real routes: scoring by rarity, mutator agents with their own energy, destroy, privacy", { timeout: 180000 }, async () => {
+  await initializeRuntimeAdapters();
+  await recordHumanActivity();
+  const actors = ["Grid Host", "Grid Ada", "Grid Bo"].map(name => ({ id: randomUUID(), name, kind: "human" as const, scope: "browser" as const }));
+  const [host, ada, bo] = actors;
+  for (const actor of actors) fixtureActors.set(`grid:${actor.name}`, actor);
+  const app = express();
+  app.use(express.json(), roomsRouter, playerRouter, gamesRouter);
+  app.use((error: any, _req: any, res: any, _next: any) => res.status(error.status ?? 400).json({ error: error.message }));
+  const server = createServer(app);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const headers = (actor: Actor) => ({ authorization: `Bearer grid:${actor.name}`, "content-type": "application/json" });
+  const get = (path: string, actor = host) => fetch(`${base}${path}`, { headers: headers(actor) });
+  const post = (path: string, body: unknown, actor = host) => fetch(`${base}${path}`, { method: "POST", headers: headers(actor), body: JSON.stringify(body) });
+  const json = async (response: Response | Promise<Response>) => {
+    const r = await response, body = await r.json();
+    assert.equal(r.status, 200, JSON.stringify(body));
+    return body;
+  };
+  const act = (id: string, body: Record<string, unknown>, actor = host) => json(post(`/rooms/${id}/actions`, { requestId: randomUUID(), ...body }, actor));
+  const command = (id: string, gameId: string, cmd: Record<string, unknown>, actor = host) =>
+    json(post(`/player/v1/rooms/${id}/commands`, { version: "code-gods.player.v2", commandId: randomUUID(), gameId, command: cmd }, actor));
+  let stop: (() => Promise<void>) | undefined;
+  try {
+    const manifest = await json(get("/manifest"));
+    assert.deepEqual(manifest.grid.types.map((t: any) => t.key).sort(),
+      ["Grid(3,base10,rgb)", "Grid(4,base12,rgb)", "Grid(5,base10,rgby)", "Grid(6,cards,rainbow6)"]);
+    assert.ok(manifest.grid.types.every((t: any) => t.badges.length >= 3 && t.familyCount >= 30));
+    const { id } = await createRoom(host);
+    await act(id, { action: "join" }, ada);
+    await act(id, { action: "join" }, bo);
+    let room = await json(get(`/rooms/${id}`));
+    // Old clients omit the Grid fields: their defaults fill in.
+    const { gridSize: _g, gridSymbols: _s, gridColours: _c, agentEnergyPerSecond: _e, agentBatteryActs: _b, ...legacy } = room.settings;
+    room = await act(id, { action: "settings", revision: room.revision, settings: legacy });
+    assert.equal(room.settings.gridSize, 5);
+    await assert.rejects(act(id, { action: "settings", revision: room.revision, settings: { ...room.settings, objectType: "Grid", gridSize: 7 } }), /Unsupported grid/);
+    const settings = { ...room.settings, objectType: "Grid", gridSize: 5, gridSymbols: "base10", gridColours: "rgby", language: "python",
+      grammarId: "python-standard-v1", startingObjectCount: 6, spawnRateHz: 0, interactionComputeMs: 200, agentEnergyPerSecond: 50 };
+    room = await act(id, { action: "settings", revision: room.revision, settings });
+    assert.ok(room.utilityCatalog.length >= 30 && room.utilityCatalog.every((f: any) => f.emoji && f.name && f.theme));
+    room = await act(id, { action: "start" });
+    const game = room.activeGame;
+    let view = await json(get(`/games/${game.shortCode}/state`));
+    assert.equal(view.objects.length, 6);
+    assert.ok(view.objects.every((o: any) => typeof o.value === "string" && /^([0-9][RYGB],){4}[0-9][RYGB](\/([0-9][RYGB],){4}[0-9][RYGB]){4}$/.test(o.value)));
+
+    let obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+    assert.equal(obs.objectType, "Grid");
+    assert.deepEqual(obs.grid, { size: 5, symbols: "base10", colours: "rgby" });
+    assert.ok(obs.self.utility.emoji && obs.self.utility.source.includes("def utility(grid):"), "the kid card is the shown source");
+    for (const o of obs.objects) {
+      assert.match(o.rarity.text, /^Rarer than [\d,]+ of 1,000 random grids \(1 in [\d,]+\)$/);
+      assert.equal(o.score, o.ownUtility * Math.max(0, o.othersUtilitySum));
+    }
+
+    // Validation runs the agent on a sample grid and describes what it would do; it changes nothing.
+    const source = `lambda grid: [paint(row(0), grid.cell(4, 4).colour), write(at(2, 2), "7")]`;
+    await command(id, game.id, { type: "ready", ready: true }, ada);
+    await mutate(id, async draft => { draft.game!.planningEndsAt = Date.now() - 1; });
+    const validation = await command(id, game.id, { type: "validate", language: "python", source }, ada);
+    assert.equal(validation.accepted, true, validation.message);
+    assert.match(validation.validation.diagnostics[0], /would paint row 1 .* bits\)/);
+    const bad = await command(id, game.id, { type: "validate", language: "python", source: "lambda grid: [paint(row(9), 'red')]" }, ada);
+    assert.equal(bad.accepted, false);
+    assert.match(bad.message, /row 9/);
+    const summoned = await command(id, game.id, { type: "summon", language: "python", source }, ada);
+    assert.equal(summoned.accepted, true, summoned.message);
+
+    stop = startTicker();
+    const deadline = Date.now() + 60000;
+    for (;;) {
+      obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+      if (obs.transformations.length >= 2) break;
+      assert.ok(Date.now() < deadline, "the agent transforms grids");
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    const [t1] = obs.transformations;
+    assert.match(t1.steps[0], /paint row 1/);
+    assert.ok(t1.bits > 0);
+    assert.ok(t1.after.split("/")[2].split(",")[2].startsWith("7"), "write(at(2, 2), '7') applied host-side");
+    const agent = obs.agents[0];
+    assert.ok(agent.energy.acts >= 2 && agent.energy.charged > 0, "each act is charged to the agent's own energy");
+    assert.equal(agent.energy.expectedCost > 0, true);
+
+    // Gods destroy their own agents, for free; never someone else's.
+    const refused = await command(id, game.id, { type: "destroy", agentId: agent.id }, bo);
+    assert.equal(refused.accepted, false);
+    const energyBefore = obs.self.energy;
+    assert.equal((await command(id, game.id, { type: "destroy", agentId: agent.id }, ada)).accepted, true);
+    obs = await json(get(`/player/v1/rooms/${id}/observation`, ada));
+    assert.equal(obs.agents.length, 0);
+    assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
+
+    // Privacy: public views carry only aggregates, never per-god utilities or rarity.
+    await act(id, { action: "endGame" });
+    view = await json(get(`/games/${game.shortCode}/state`));
+    const history = await json(get(`/rooms/${id}/games`));
+    for (const leak of ["utilities", "rarity", "penaltySurprisal", "deities", "source"]) {
+      assert.ok(!JSON.stringify(view).includes(`"${leak}"`) && !JSON.stringify(history).includes(`"${leak}"`), `public views never disclose ${leak}`);
+    }
+    const bobs = await json(get(`/player/v1/rooms/${id}/observation`, bo));
+    assert.ok(bobs.objects.every((o: any) => !("utilities" in o)));
+  } finally {
+    await stop?.();
+    server.close();
+    shutdownRuntimeAdapters();
+  }
+});
+
 test("graceful store shutdown flushes the bounded interaction window to disk", async () => {
   const host: Actor = { id: randomUUID(), name: "Shutdown", kind: "human", scope: "browser" };
   const room = await createRoom(host);

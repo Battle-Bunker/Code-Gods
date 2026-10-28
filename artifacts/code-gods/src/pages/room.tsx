@@ -142,7 +142,7 @@ export default function Room() {
           </div>
           <div className="space-y-6">
             {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => void manifest.refetch()} />}
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} />
+            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} grid={manifest.data?.grid} />
               : <ReadOnlySettings settings={room.settings} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
             <Repertoire catalog={room.utilityCatalog} />
           </div>

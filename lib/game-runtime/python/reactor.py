@@ -13,7 +13,8 @@ ABI = (
     "PyEval_EvalCode PyObject_CallOneArg PyLong_FromLong PyLong_AsLong "
     "PyUnicode_FromStringAndSize PyUnicode_AsUTF8AndSize PyObject_Type "
     "PyErr_Clear PyErr_Occurred PyImport_AddModule PyModule_GetDict PyDict_GetItemString "
-    "PyMarshal_WriteObjectToString PyMarshal_ReadObjectFromString PyBytes_AsStringAndSize"
+    "PyMarshal_WriteObjectToString PyMarshal_ReadObjectFromString PyBytes_AsStringAndSize "
+    "Py_IncRef PyErr_GetRaisedException"
 ).split()
 
 

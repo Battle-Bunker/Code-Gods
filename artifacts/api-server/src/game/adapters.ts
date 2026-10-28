@@ -1,6 +1,9 @@
 import { validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { divineLottery, readDescriptor, selector, utility, type UtilityDescriptor } from "@workspace/game-utilities";
+import { RuntimeError, type DomainSettings, type GameRuntime, type Language } from "@workspace/game-runtime";
+import {
+  divineLottery, evaluateGrid, gridArgsOf, readDescriptor, selector, utility,
+  type GridEvaluation, type UtilityDescriptor,
+} from "@workspace/game-utilities";
 import { randomInt } from "node:crypto";
 
 // Explicit injection boundary for the independently developed packages.
@@ -11,7 +14,10 @@ export interface RuntimeAdapter {
 }
 export interface UtilitiesAdapter {
   deal(settings: GameSettings, count: number): UtilityDescriptor[];
-  evaluate(descriptor: UtilityDescriptor, value: ObjectValue): number;
+  /** One god's utility for one object: [0, 1] for Int and string, signed net bits for Grid. */
+  evaluate(descriptor: UtilityDescriptor, value: ObjectValue, settings?: GameSettings): number;
+  /** Grid only: the god-private detail behind `evaluate` (rarity and defence-goal bits). */
+  evaluateGrid?(descriptor: UtilityDescriptor, value: string, settings: GameSettings): GridEvaluation;
 }
 export let runtime: RuntimeAdapter | undefined;
 export let utilities: UtilitiesAdapter | undefined;
@@ -51,6 +57,7 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
       else active--;
     }
   }
+  // Settings are validated first, so the cast to the runtime's narrower Grid types is sound.
   function pool(settings: GameSettings): GameRuntime {
     validateSettings(settings);
     const selected = pools[settings.language];
@@ -61,12 +68,12 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
     languages: Object.keys(pools),
     async inspect(source, settings) {
       const selected = pool(settings);
-      return admitted(() => selected.inspect(source, settings));
+      return admitted(() => selected.inspect(source, settings as DomainSettings));
     },
     async execute(source, input, settings) {
       const selected = pool(settings);
       // Pass the complete room snapshot, including interactionComputeMs, to the guest runtime.
-      return (await admitted(() => selected.execute(source, input, settings))).value;
+      return (await admitted(() => selected.execute(source, input, settings as DomainSettings))).value;
     },
   };
 }
@@ -77,8 +84,12 @@ export function createUtilitiesAdapter(): UtilitiesAdapter {
       validateSettings(settings);
       return selector(settings.utilitySelectorId ?? divineLottery.id).select(settings, count, randomInt);
     },
-    evaluate(descriptor, value) {
+    evaluate(descriptor, value, settings) {
+      if (settings?.objectType === "Grid") return evaluateGrid(descriptor, String(value), gridArgsOf(settings)).net;
       return utility(readDescriptor(descriptor), value);
+    },
+    evaluateGrid(descriptor, value, settings) {
+      return evaluateGrid(readDescriptor(descriptor, settings), value, gridArgsOf(settings));
     },
   };
 }

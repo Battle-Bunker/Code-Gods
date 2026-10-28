@@ -154,12 +154,30 @@ export const CreateRoomBody = zod.object({
 
 })
 
+export const createRoomResponseSettingsOneGridSizeMin = 3;
+export const createRoomResponseSettingsOneGridSizeMax = 7;
+
+export const createRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const createRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const createRoomResponseSettingsOneAgentBatteryActsMin = 0;
+export const createRoomResponseSettingsOneAgentBatteryActsMax = 1000;
+
 export const createRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const createRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const createRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
 export const createRoomResponseSettingsOneInteractionComputeMsDefault = 5;
 export const createRoomResponseSettingsOneInteractionComputeMsMax = 1000;
+
+export const createRoomResponseGameOneSettingsGridSizeMin = 3;
+export const createRoomResponseGameOneSettingsGridSizeMax = 7;
+
+export const createRoomResponseGameOneSettingsAgentEnergyPerSecondMin = 0;
+export const createRoomResponseGameOneSettingsAgentEnergyPerSecondMax = 1000;
+
+export const createRoomResponseGameOneSettingsAgentBatteryActsMin = 0;
+export const createRoomResponseGameOneSettingsAgentBatteryActsMax = 1000;
 
 export const createRoomResponseGameOneSettingsInteractionRateHzDefault = 100;
 export const createRoomResponseGameOneSettingsInteractionRateHzMin = 0;
@@ -179,10 +197,15 @@ export const CreateRoomResponse = zod.object({
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(createRoomResponseSettingsOneGridSizeMin).max(createRoomResponseSettingsOneGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(createRoomResponseSettingsOneAgentEnergyPerSecondMin).max(createRoomResponseSettingsOneAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(createRoomResponseSettingsOneAgentBatteryActsMin).max(createRoomResponseSettingsOneAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -250,10 +273,15 @@ export const CreateRoomResponse = zod.object({
   "recoveryReason": zod.string().nullish(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(createRoomResponseGameOneSettingsGridSizeMin).max(createRoomResponseGameOneSettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(createRoomResponseGameOneSettingsAgentEnergyPerSecondMin).max(createRoomResponseGameOneSettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(createRoomResponseGameOneSettingsAgentBatteryActsMin).max(createRoomResponseGameOneSettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -278,7 +306,9 @@ export const CreateRoomResponse = zod.object({
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
+  "theme": zod.string(),
+  "emoji": zod.string().optional().describe('Grid families only.'),
+  "defence": zod.boolean().optional().describe('Grid only. True when gods of this family also carry a defence goal (a penalty).')
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int(),
@@ -303,12 +333,30 @@ export const GetRoomParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const getRoomResponseSettingsOneGridSizeMin = 3;
+export const getRoomResponseSettingsOneGridSizeMax = 7;
+
+export const getRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const getRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const getRoomResponseSettingsOneAgentBatteryActsMin = 0;
+export const getRoomResponseSettingsOneAgentBatteryActsMax = 1000;
+
 export const getRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const getRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const getRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
 export const getRoomResponseSettingsOneInteractionComputeMsDefault = 5;
 export const getRoomResponseSettingsOneInteractionComputeMsMax = 1000;
+
+export const getRoomResponseGameOneSettingsGridSizeMin = 3;
+export const getRoomResponseGameOneSettingsGridSizeMax = 7;
+
+export const getRoomResponseGameOneSettingsAgentEnergyPerSecondMin = 0;
+export const getRoomResponseGameOneSettingsAgentEnergyPerSecondMax = 1000;
+
+export const getRoomResponseGameOneSettingsAgentBatteryActsMin = 0;
+export const getRoomResponseGameOneSettingsAgentBatteryActsMax = 1000;
 
 export const getRoomResponseGameOneSettingsInteractionRateHzDefault = 100;
 export const getRoomResponseGameOneSettingsInteractionRateHzMin = 0;
@@ -328,10 +376,15 @@ export const GetRoomResponse = zod.object({
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(getRoomResponseSettingsOneGridSizeMin).max(getRoomResponseSettingsOneGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(getRoomResponseSettingsOneAgentEnergyPerSecondMin).max(getRoomResponseSettingsOneAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(getRoomResponseSettingsOneAgentBatteryActsMin).max(getRoomResponseSettingsOneAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -399,10 +452,15 @@ export const GetRoomResponse = zod.object({
   "recoveryReason": zod.string().nullish(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(getRoomResponseGameOneSettingsGridSizeMin).max(getRoomResponseGameOneSettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(getRoomResponseGameOneSettingsAgentEnergyPerSecondMin).max(getRoomResponseGameOneSettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(getRoomResponseGameOneSettingsAgentBatteryActsMin).max(getRoomResponseGameOneSettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -427,7 +485,9 @@ export const GetRoomResponse = zod.object({
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
+  "theme": zod.string(),
+  "emoji": zod.string().optional().describe('Grid families only.'),
+  "defence": zod.boolean().optional().describe('Grid only. True when gods of this family also carry a defence goal (a penalty).')
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int(),
@@ -439,6 +499,15 @@ export const GetRoomResponse = zod.object({
 export const ListRoomGamesParams = zod.object({
   "roomId": zod.coerce.string()
 })
+
+export const listRoomGamesResponseSettingsGridSizeMin = 3;
+export const listRoomGamesResponseSettingsGridSizeMax = 7;
+
+export const listRoomGamesResponseSettingsAgentEnergyPerSecondMin = 0;
+export const listRoomGamesResponseSettingsAgentEnergyPerSecondMax = 1000;
+
+export const listRoomGamesResponseSettingsAgentBatteryActsMin = 0;
+export const listRoomGamesResponseSettingsAgentBatteryActsMax = 1000;
 
 export const listRoomGamesResponseSettingsInteractionRateHzDefault = 100;
 export const listRoomGamesResponseSettingsInteractionRateHzMin = 0;
@@ -458,10 +527,15 @@ export const ListRoomGamesResponseItem = zod.object({
   "endReason": zod.union([zod.literal('lifetime'),zod.literal('owner'),zod.literal('retired'),zod.literal(null)]).nullable(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(listRoomGamesResponseSettingsGridSizeMin).max(listRoomGamesResponseSettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(listRoomGamesResponseSettingsAgentEnergyPerSecondMin).max(listRoomGamesResponseSettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(listRoomGamesResponseSettingsAgentBatteryActsMin).max(listRoomGamesResponseSettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -504,6 +578,15 @@ export const GetGameStateParams = zod.object({
   "code": zod.coerce.string().describe('Game short code or UUID')
 })
 
+export const getGameStateResponseOneSettingsGridSizeMin = 3;
+export const getGameStateResponseOneSettingsGridSizeMax = 7;
+
+export const getGameStateResponseOneSettingsAgentEnergyPerSecondMin = 0;
+export const getGameStateResponseOneSettingsAgentEnergyPerSecondMax = 1000;
+
+export const getGameStateResponseOneSettingsAgentBatteryActsMin = 0;
+export const getGameStateResponseOneSettingsAgentBatteryActsMax = 1000;
+
 export const getGameStateResponseOneSettingsInteractionRateHzDefault = 100;
 export const getGameStateResponseOneSettingsInteractionRateHzMin = 0;
 export const getGameStateResponseOneSettingsInteractionRateHzMax = 1000;
@@ -540,10 +623,15 @@ export const GetGameStateResponse = zod.object({
   "recoveryReason": zod.string().nullable(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(getGameStateResponseOneSettingsGridSizeMin).max(getGameStateResponseOneSettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(getGameStateResponseOneSettingsAgentEnergyPerSecondMin).max(getGameStateResponseOneSettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(getGameStateResponseOneSettingsAgentBatteryActsMin).max(getGameStateResponseOneSettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -595,7 +683,9 @@ export const GetGameStateResponse = zod.object({
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
+  "theme": zod.string(),
+  "emoji": zod.string().optional().describe('Grid families only.'),
+  "defence": zod.boolean().optional().describe('Grid only. True when gods of this family also carry a defence goal (a penalty).')
 })),
   "serverTime": zod.number()
 })).describe('A game\'s own page. Public information only.')
@@ -604,6 +694,15 @@ export const GetGameStateResponse = zod.object({
 export const RoomActionParams = zod.object({
   "roomId": zod.coerce.string()
 })
+
+export const roomActionBodySettingsGridSizeMin = 3;
+export const roomActionBodySettingsGridSizeMax = 7;
+
+export const roomActionBodySettingsAgentEnergyPerSecondMin = 0;
+export const roomActionBodySettingsAgentEnergyPerSecondMax = 1000;
+
+export const roomActionBodySettingsAgentBatteryActsMin = 0;
+export const roomActionBodySettingsAgentBatteryActsMax = 1000;
 
 export const roomActionBodySettingsInteractionRateHzDefault = 100;
 export const roomActionBodySettingsInteractionRateHzMin = 0;
@@ -625,10 +724,15 @@ export const RoomActionBody = zod.object({
   "revision": zod.number().int().optional(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(roomActionBodySettingsGridSizeMin).max(roomActionBodySettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(roomActionBodySettingsAgentEnergyPerSecondMin).max(roomActionBodySettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(roomActionBodySettingsAgentBatteryActsMin).max(roomActionBodySettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -650,12 +754,30 @@ export const RoomActionBody = zod.object({
   "aiAgentId": zod.string().optional()
 })
 
+export const roomActionResponseSettingsOneGridSizeMin = 3;
+export const roomActionResponseSettingsOneGridSizeMax = 7;
+
+export const roomActionResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const roomActionResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const roomActionResponseSettingsOneAgentBatteryActsMin = 0;
+export const roomActionResponseSettingsOneAgentBatteryActsMax = 1000;
+
 export const roomActionResponseSettingsOneInteractionRateHzDefault = 100;
 export const roomActionResponseSettingsOneInteractionRateHzMin = 0;
 export const roomActionResponseSettingsOneInteractionRateHzMax = 1000;
 
 export const roomActionResponseSettingsOneInteractionComputeMsDefault = 5;
 export const roomActionResponseSettingsOneInteractionComputeMsMax = 1000;
+
+export const roomActionResponseGameOneSettingsGridSizeMin = 3;
+export const roomActionResponseGameOneSettingsGridSizeMax = 7;
+
+export const roomActionResponseGameOneSettingsAgentEnergyPerSecondMin = 0;
+export const roomActionResponseGameOneSettingsAgentEnergyPerSecondMax = 1000;
+
+export const roomActionResponseGameOneSettingsAgentBatteryActsMin = 0;
+export const roomActionResponseGameOneSettingsAgentBatteryActsMax = 1000;
 
 export const roomActionResponseGameOneSettingsInteractionRateHzDefault = 100;
 export const roomActionResponseGameOneSettingsInteractionRateHzMin = 0;
@@ -675,10 +797,15 @@ export const RoomActionResponse = zod.object({
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(roomActionResponseSettingsOneGridSizeMin).max(roomActionResponseSettingsOneGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(roomActionResponseSettingsOneAgentEnergyPerSecondMin).max(roomActionResponseSettingsOneAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(roomActionResponseSettingsOneAgentBatteryActsMin).max(roomActionResponseSettingsOneAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -746,10 +873,15 @@ export const RoomActionResponse = zod.object({
   "recoveryReason": zod.string().nullish(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(roomActionResponseGameOneSettingsGridSizeMin).max(roomActionResponseGameOneSettingsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(roomActionResponseGameOneSettingsAgentEnergyPerSecondMin).max(roomActionResponseGameOneSettingsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(roomActionResponseGameOneSettingsAgentBatteryActsMin).max(roomActionResponseGameOneSettingsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),
@@ -774,7 +906,9 @@ export const RoomActionResponse = zod.object({
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
+  "theme": zod.string(),
+  "emoji": zod.string().optional().describe('Grid families only.'),
+  "defence": zod.boolean().optional().describe('Grid only. True when gods of this family also carry a defence goal (a penalty).')
 })).describe('Public list of utility-function families gods may have drawn for this object type.'),
   "aiBudget": zod.number().int(),
   "aiUsed": zod.number().int(),
@@ -948,6 +1082,15 @@ export const RevokeDeviceResponse = zod.object({
 })
 
 
+export const getManifestResponseDefaultsGridSizeMin = 3;
+export const getManifestResponseDefaultsGridSizeMax = 7;
+
+export const getManifestResponseDefaultsAgentEnergyPerSecondMin = 0;
+export const getManifestResponseDefaultsAgentEnergyPerSecondMax = 1000;
+
+export const getManifestResponseDefaultsAgentBatteryActsMin = 0;
+export const getManifestResponseDefaultsAgentBatteryActsMax = 1000;
+
 export const getManifestResponseDefaultsInteractionRateHzDefault = 100;
 export const getManifestResponseDefaultsInteractionRateHzMin = 0;
 export const getManifestResponseDefaultsInteractionRateHzMax = 1000;
@@ -958,14 +1101,54 @@ export const getManifestResponseDefaultsInteractionComputeMsMax = 1000;
 
 
 export const GetManifestResponse = zod.object({
+  "grid": zod.object({
+  "types": zod.array(zod.object({
+  "key": zod.string(),
+  "size": zod.number().int(),
+  "symbols": zod.string(),
+  "colours": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability a GridType has, in kid-friendly words (e.g. 🔟 Place value).')),
+  "familyCount": zod.number().int()
+}).describe('A GridType that ships calibration tables, so rooms may select it.')),
+  "symbols": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "emoji": zod.string(),
+  "kid": zod.string(),
+  "glyphs": zod.array(zod.string()).describe('Display glyph per index (symbols) or colour letter per index (colours).'),
+  "names": zod.array(zod.string()),
+  "css": zod.array(zod.string()).optional().describe('Colours only. Display colour per index.')
+})),
+  "colours": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "emoji": zod.string(),
+  "kid": zod.string(),
+  "glyphs": zod.array(zod.string()).describe('Display glyph per index (symbols) or colour letter per index (colours).'),
+  "names": zod.array(zod.string()),
+  "css": zod.array(zod.string()).optional().describe('Colours only. Display colour per index.')
+})),
+  "maxCallsPerAct": zod.number().int()
+}).optional(),
   "protocolVersion": zod.number().int(),
   "minimumPlayers": zod.number().int(),
   "defaults": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']),
   "intMin": zod.number().int(),
   "intMax": zod.number().int(),
   "stringMaxLength": zod.number().int(),
+  "gridSize": zod.number().int().min(getManifestResponseDefaultsGridSizeMin).max(getManifestResponseDefaultsGridSizeMax).optional().describe('Grid only. Side length N of the N×N grid. Only GridTypes listed in Manifest.grid.types are accepted.'),
+  "gridSymbols": zod.enum(['base10', 'base12', 'base16', 'cards']).optional().describe('Grid only. Symbols printed on cells.'),
+  "gridColours": zod.enum(['rgb', 'rgby', 'rainbow6']).optional().describe('Grid only. Cell colours.'),
+  "agentEnergyPerSecond": zod.number().min(getManifestResponseDefaultsAgentEnergyPerSecondMin).max(getManifestResponseDefaultsAgentEnergyPerSecondMax).optional().describe('Grid only. Bits each agent earns per second of world time into its own energy account.'),
+  "agentBatteryActs": zod.number().min(getManifestResponseDefaultsAgentBatteryActsMin).max(getManifestResponseDefaultsAgentBatteryActsMax).optional().describe('Grid only. An agent\'s energy is capped at this many of its expected acts.'),
   "grammarId": zod.string(),
   "utilitySelectorId": zod.string(),
   "complexityFunctionId": zod.string(),

@@ -905,6 +905,10 @@ importers:
         version: 5.9.3
 
   lib/game-utilities:
+    dependencies:
+      '@workspace/game-core':
+        specifier: workspace:*
+        version: link:../game-core
     devDependencies:
       typescript:
         specifier: ~5.9.3

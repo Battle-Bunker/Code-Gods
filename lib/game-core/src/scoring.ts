@@ -1,14 +1,21 @@
 export interface PersonalScore {
   ownUtility: number;
   othersUtilitySum: number;
-  /** ownUtility × othersUtilitySum: an object only pays you if other gods also value it. */
+  /**
+   * ownUtility × max(0, othersUtilitySum): an object only pays you if other gods also value it.
+   * Int and string utilities lie in [0, 1], so the floor never applies and this is the original
+   * product. Grid utilities are signed net bits (surprisal minus a defence goal's excess penalty);
+   * the floor means "if, overall, the other gods don't care about a grid, nobody scores from it".
+   */
   score: number;
 }
 
+/**
+ * Utilities are finite numbers. game-utilities guarantees the range per object type: [0, 1] for
+ * Int and string, signed net bits for Grid.
+ */
 function assertUtility(utility: number): void {
-  if (!Number.isFinite(utility) || utility < 0 || utility > 1) {
-    throw new Error("A god's utility must be finite and within [0, 1]");
-  }
+  if (!Number.isFinite(utility)) throw new Error("A god's utility must be finite");
 }
 
 /** Server-only input; never put the input map into a public or player event. */
@@ -20,7 +27,7 @@ export function personalScore(utilities: ReadonlyMap<string, number>, deityId: s
     assertUtility(utility);
     if (id !== deityId) othersUtilitySum += utility;
   }
-  return { ownUtility, othersUtilitySum, score: ownUtility * othersUtilitySum };
+  return { ownUtility, othersUtilitySum, score: ownUtility * Math.max(0, othersUtilitySum) };
 }
 
 export function totalUtility(utilities: ReadonlyMap<string, number>): number {

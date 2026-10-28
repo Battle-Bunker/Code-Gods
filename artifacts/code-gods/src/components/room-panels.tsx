@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetRoomQueryKey, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord,
+  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type GridManifest,
 } from "@workspace/api-client-react";
 import { Panel, Empty, ErrorLine } from "@/components/shell";
 import { relevantToType } from "@/components/game-panels";
@@ -104,11 +104,12 @@ const numFields: [keyof Settings, string, number?][] = [
   ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction cap (Hz)"],
   ["interactionComputeMs", "Compute budget / interaction (ms)", 1], ["pauseSeconds", "Pause (s)"],
   ["startingEnergy", "Starting energy"], ["energyPerSecond", "Power (energy / s)"],
+  ["agentEnergyPerSecond", "Agent ⚡ bits / s"], ["agentBatteryActs", "Agent battery (acts)"],
 ];
 const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
 const typeKeys = ["intMin", "intMax", "stringMaxLength"];
 
-export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding }) {
+export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, grid }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; grid?: GridManifest }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
@@ -123,6 +124,8 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     (options?.[k] ?? []).filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
   const set = (k: keyof Settings, v: string) => setDraft((d) => {
     const next = { ...d, [k]: v };
+    // Grid agents read a whole grid; Python needs more than the 5 ms default (see lib/game-runtime README).
+    if (k === "objectType" && v === "Grid" && Number(next.interactionComputeMs ?? room.settings.interactionComputeMs) < 25) next.interactionComputeMs = "25";
     if (k === "language" || k === "objectType") {
       for (const [key] of optionFields) {
         const choices = available(key, next.language ?? room.settings.language, next.objectType ?? room.settings.objectType);
@@ -136,7 +139,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     for (const [k, v] of Object.entries(draft)) {
       // Hidden type drafts are retained for switching back, but never submitted.
       if (!relevantToType(k, val("objectType"))) continue;
-      s[k] = numFields.some(([n]) => n === k) ? Number(v) : v;
+      s[k] = numFields.some(([n]) => n === k) || k === "gridSize" ? Number(v) : v;
     }
     return s as unknown as Settings;
   };
@@ -158,7 +161,21 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         <label className="space-y-1 col-span-2"><span className="label-mono">Language</span>
           <select value={val("language")} onChange={(e) => set("language", e.target.value)} className={field} data-testid="select-language"><option value="python">python</option><option value="typescript">typescript</option></select></label>
         <label className="space-y-1 col-span-2"><span className="label-mono">Object type</span>
-          <select value={val("objectType")} onChange={(e) => set("objectType", e.target.value)} className={field} data-testid="select-objectType"><option value="Int">Int</option><option value="string">string</option></select></label>
+          <select value={val("objectType")} onChange={(e) => set("objectType", e.target.value)} className={field} data-testid="select-objectType"><option value="Int">Int</option><option value="string">string</option>{grid && <option value="Grid">🟥 Grid: a square of coloured symbols</option>}</select></label>
+        {val("objectType") === "Grid" && grid && (() => {
+          const key = `Grid(${val("gridSize")},${val("gridSymbols")},${val("gridColours")})`;
+          const chosen = grid.types.find(t => t.key === key);
+          return (
+            <div className="col-span-2 space-y-2 border-l-2 border-primary/25 pl-3" data-testid="grid-parameters">
+              <label className="space-y-1 block"><span className="label-mono">Grid</span>
+                <select value={chosen ? key : ""} onChange={(e) => { const t = grid.types.find(x => x.key === e.target.value); if (t) setDraft(d => ({ ...d, gridSize: String(t.size), gridSymbols: t.symbols, gridColours: t.colours })); }} className={field} data-testid="select-gridType">
+                  {!chosen && <option value="" disabled>Pick a grid</option>}
+                  {grid.types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select></label>
+              {chosen && <p className="text-xs text-muted-foreground" data-testid="text-grid-badges">{chosen.familyCount} utility functions can be dealt. {chosen.badges.map(b => <span key={b.id} title={b.kid} className="mr-2 whitespace-nowrap">{b.emoji} {b.label}</span>)}</p>}
+            </div>
+          );
+        })()}
         <div className="col-span-2 grid grid-cols-2 gap-3 border-l-2 border-primary/25 pl-3" data-testid="type-parameters">
           {visibleNumFields.filter(([k]) => typeKeys.includes(k)).map(([k, label, step]) => (
             <label key={k} className={`space-y-1 ${val("objectType") === "string" ? "col-span-2" : ""}`}>
@@ -176,7 +193,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
               {available(k).map(o => <option key={o.id} value={o.id}>{o.label} ({o.id})</option>)}
             </select></label>
         ))}
-        {numFields.filter(([k]) => !typeKeys.includes(k)).map(([k, l, step]) => (
+        {numFields.filter(([k]) => !typeKeys.includes(k) && relevantToType(k, val("objectType"))).map(([k, l, step]) => (
           <label key={k} className="space-y-1"><span className="label-mono">{l}</span>
             <input type="number" step={step ?? "any"} min={k === "interactionComputeMs" ? 1 : k === "interactionRateHz" ? 0 : undefined} max={k === "interactionComputeMs" || k === "interactionRateHz" ? 1000 : undefined} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
         ))}

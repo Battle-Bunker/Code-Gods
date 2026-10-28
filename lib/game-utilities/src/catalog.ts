@@ -1,6 +1,8 @@
 import type { Domain, Language, ObjectType, ObjectValue, Params, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { INT_FAMILIES } from "./families/int.ts";
 import { STRING_FAMILIES } from "./families/string.ts";
+import type { GridTypeArgs } from "@workspace/game-core";
+import { gridCatalog, gridData } from "./grid/index.ts";
 
 export const FAMILIES: readonly UtilityFamily<any>[] = [...INT_FAMILIES, ...STRING_FAMILIES];
 const byId = new Map(FAMILIES.map(family => [family.id, family]));
@@ -14,15 +16,24 @@ export function family(id: string): UtilityFamily<any> {
 }
 
 /** Public knowledge: which kinds of gods might be in the pantheon, without parameters. */
-export const publicCatalog = (objectType: ObjectType) =>
-  familiesFor(objectType).map(({ id, name, theme }) => ({ id, name, theme }));
+export const publicCatalog = (objectType: ObjectType, domain?: Partial<Domain>) =>
+  objectType === "Grid" && domain ? gridCatalog(gridArgsOf(domain))
+    : familiesFor(objectType).map(({ id, name, theme }) => ({ id, name, theme }));
 
-export function readDescriptor(value: unknown): UtilityDescriptor {
+/** The GridType of Grid settings. */
+export function gridArgsOf(domain: Partial<Domain>): GridTypeArgs {
+  return { size: domain.gridSize!, symbols: domain.gridSymbols as GridTypeArgs["symbols"], colours: domain.gridColours as GridTypeArgs["colours"] };
+}
+
+/** Checks a persisted descriptor; Grid descriptors must be one of the GridType's shipped draws. */
+export function readDescriptor(value: unknown, domain?: Partial<Domain>): UtilityDescriptor {
   const d = value as UtilityDescriptor | null;
   if (!d || typeof d !== "object" || typeof d.familyId !== "string" || !d.params || typeof d.params !== "object") {
     throw new Error("Invalid utility descriptor");
   }
-  family(d.familyId);
+  if (domain?.objectType === "Grid") {
+    if (!gridData(gridArgsOf(domain)).draw(d.familyId, d.params)) throw new Error(`Unknown Grid utility: ${d.familyId}`);
+  } else family(d.familyId);
   return d;
 }
 

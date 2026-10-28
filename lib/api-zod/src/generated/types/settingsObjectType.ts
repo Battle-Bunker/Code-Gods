@@ -12,4 +12,5 @@ export type SettingsObjectType = typeof SettingsObjectType[keyof typeof Settings
 export const SettingsObjectType = {
   Int: 'Int',
   string: 'string',
+  Grid: 'Grid',
 } as const;

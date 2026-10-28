@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings, type GameSettings } from "@workspace/game-core";
+import { gridManifest } from "@workspace/game-utilities";
 import { requireIdentity, requireAct } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
@@ -13,6 +14,7 @@ import { getAgentDefinition } from "../game/agent-library";
 const router = Router();
 router.get("/manifest", (_req, res) => res.json({
   protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
+  grid: gridManifest(),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
@@ -85,11 +87,13 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (input.action === "settings") {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
       if (!input.settings) throw new Error("Settings are required");
-      validateSettings(input.settings);
-      if (input.settings.stringMaxLength > 1024 || input.settings.startingObjectCount > 1000 ||
-          input.settings.interactionRateHz > 1000 || input.settings.spawnRateHz > 10 ||
-          input.settings.planningSeconds > 3600 || input.settings.pauseSeconds > 3600) throw new Error("Settings exceed server resource limits");
-      room.settings = input.settings;
+      // Clients that predate a setting omit it: keep its default rather than reject the whole form.
+      const settings: GameSettings = { ...DEFAULT_SETTINGS, ...input.settings };
+      validateSettings(settings);
+      if (settings.stringMaxLength > 1024 || settings.startingObjectCount > 1000 ||
+          settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
+          settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) throw new Error("Settings exceed server resource limits");
+      room.settings = settings;
       if (input.aiBudget !== undefined) room.aiBudget = input.aiBudget;
       room.revision++;
     } else if (input.action === "addAi") {
