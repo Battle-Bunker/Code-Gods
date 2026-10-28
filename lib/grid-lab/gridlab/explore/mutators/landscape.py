@@ -39,6 +39,7 @@ from . import states as ST
 from .variants import install_preset, preset_tag
 
 TAU = (0.5, 0.75)        # jackpot thresholds as fractions of the draw's ceiling
+LANDSCAPE_V = "-v2"      # v2: stores program steps; whole-grid steps always in the beam's extension pool
 
 
 # ------------------------------------------------------------------------------------------------
@@ -184,7 +185,18 @@ def _ext_pool(dtr, bank, rng, top_d=6, top_y=4, rand=3):
         b = idx[np.argsort(-y[idx])[:top_y]]
         c = rng.choice(idx, min(rand, idx.size), replace=False)
         sel.extend(set(a.tolist()) | set(b.tolist()) | set(c.tolist()))
+    sel.extend(_global_idx(bank).tolist())
     return np.array(sorted(set(sel)))
+
+
+def _global_idx(bank) -> np.ndarray:
+    """Bank steps acting on the whole grid (kind 'all', or global-only mutators): always worth trying as a
+    second step, whatever their single-step yield for this family (e.g. Seed 2: write 9 everywhere, then unclash)."""
+    if not hasattr(bank, "_glob"):
+        g = [i for i, st in enumerate(bank.steps)
+             if st.params.get("kind") == "all" or st.mutator.scopes == ("global",) or st.params.get("which") == "all"]
+        bank._glob = np.array(g, int)
+    return bank._glob
 
 
 def _multi(draw, table, X, Ys, Yc, S1, s0, bank, ceil, rng, n_seed=12, n_exact=24, beam3=6):
@@ -283,7 +295,8 @@ def _multi(draw, table, X, Ys, Yc, S1, s0, bank, ceil, rng, n_seed=12, n_exact=2
         s1 = test(prog)
         dte = float((s1 - s0[te]).mean())
         out[name] = {"d": dte, "y": dte / c, "cost": c, "d_tr": float(d), "desc": prog.describe(gt),
-                     "mutators": prog.mutator_ids,
+                     "mutators": prog.mutator_ids, "steps": [(st.mutator_id, st.params) for st in prog.steps],
+                     "top": [([(st.mutator_id, st.params) for st in r[4].steps], float(r[0])) for r in lst[:4]],
                      "jack": {tau: float((s1 >= tau * ceil).mean()) for tau in TAU}}
     # cheapest multi-step jackpot among exact-priced candidates
     jack = {}
@@ -381,13 +394,20 @@ def run(gt: GridType, k: int = 3, preset: str = "default", multi: bool = True, p
 
 
 def path_for(gt: GridType, preset: str, k: int, multi: bool) -> "ST.Path":
-    return ST.CACHE / f"landscape-{gt.key}-{preset}-{preset_tag(preset)[:10]}-k{k}{'-m' if multi else ''}.pkl"
+    return ST.CACHE / f"landscape-{gt.key}-{preset}-{preset_tag(preset)[:10]}-k{k}{'-m' if multi else ''}{LANDSCAPE_V}.pkl"
 
 
-def load_or_run(gt: GridType, preset: str = "default", k: int = 3, multi: bool = True, **kw) -> dict:
+def load_or_run(gt: GridType, preset: str = "default", k: int = 3, multi: bool = True, allow_old: bool = False,
+                **kw) -> dict:
+    """Cached landscape; allow_old=True also accepts an earlier landscape version (v1: no stored program steps,
+    narrower beam) instead of computing a new one."""
     p = path_for(gt, preset, k, multi)
-    if not p.exists() and preset == "default":     # the default preset's key changed once (tag scheme); any is fine
-        old = sorted(ST.CACHE.glob(f"landscape-{gt.key}-default-*-k{k}{'-m' if multi else ''}.pkl"))
+    if not p.exists():
+        tag = "*" if preset == "default" else preset_tag(preset)[:10]      # the default key changed once
+        pat = f"landscape-{gt.key}-{preset}-{tag}-k{k}{'-m' if multi else ''}"
+        old = sorted(ST.CACHE.glob(pat + LANDSCAPE_V + ".pkl"))
+        if not old and allow_old:
+            old = sorted(ST.CACHE.glob(pat + "*.pkl"), reverse=True)
         p = old[0] if old else p
     if p.exists():
         with open(p, "rb") as fh:

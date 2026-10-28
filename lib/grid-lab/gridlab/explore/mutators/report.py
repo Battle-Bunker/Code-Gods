@@ -165,4 +165,4 @@ if __name__ == "__main__":
     ap.add_argument("--full", action="store_true")
     a = ap.parse_args()
     for t in a.type.split(";"):
-        print(render(load_or_run(parse_type(t), a.preset, a.draws), full=a.full))
+        print(render(load_or_run(parse_type(t), a.preset, a.draws, allow_old=True), full=a.full))

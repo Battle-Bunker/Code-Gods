@@ -362,3 +362,102 @@ for _g in (1.25, 1.5):
     PRESETS[f"full+global{_g}"] = {"knobs": {"scope": {"global": _g}}, "variant": ["extra", "composite", "worstmove"]}
 for _m in (0.7, 1.0):
     PRESETS[f"full+move{_m}"] = {"knobs": {"move": _m}, "variant": ["extra", "composite", "worstmove"]}
+
+
+# ================================================================================================
+# Variant "recipes_<preset>": an EXPERT condition for the simulated gods (a policy stand-in, not a rule)
+# ================================================================================================
+# The simulated gods draw candidates from a library of 4096 random programs, where the routes the
+# landscape finds are rare (median best-of-12 library yield 0.03 bits/bit vs 0.42 for the searched
+# route on Grid(5,base10,rgby)). To see whether landscape fairness carries into games played by skilled
+# gods, the library is mixed with a shared, public RECIPE BOOK: the landscape's best single steps per
+# (family draw, mutator) and best 2-3 step programs. Every god draws from the same book; greedy policies
+# pick what suits their own utility function. RECIPE_Q of library slots are offered to recipes.
+RECIPE_Q = 0.2
+_RECIPES: dict = {}
+
+
+def recipe_book(gt, base_preset: str, top_single: int = 3) -> list:
+    from ...program import ALWAYS, Program, Step
+    from .landscape import path_for
+    import pickle
+    k = (gt, base_preset)
+    if k not in _RECIPES:
+        p = path_for(gt, base_preset, 3, True)
+        out, seen = [], set()
+        if p.exists():
+            with open(p, "rb") as fh:
+                L = pickle.load(fh)
+            for r in L["draws"]:
+                rows = r["ctx"]["game"]["rows"]
+                best = sorted(((v["y"], m, v["params"]) for m, v in rows.items() if v["params"] is not None and v["y"] > 0),
+                              key=lambda t: -t[0])[:top_single]
+                cands = [[(m, prm)] for _, m, prm in best]
+                for nm in ("two", "three"):
+                    for steps, _y in r.get("multi", {}).get(nm, {}).get("top", [])[:2]:
+                        cands.append(steps)
+                for steps in cands:
+                    prog = Program(ALWAYS, tuple(Step.make(m, prm) for m, prm in steps))
+                    if prog.key not in seen:
+                        seen.add(prog.key)
+                        out.append(prog)
+        _RECIPES[k] = out
+    return _RECIPES[k]
+
+
+def _make_recipe_variant(base_preset: str):
+    def variant(ms: list, _base=base_preset) -> list:
+        from ... import sim as SIM
+        from ...program import random_program
+
+        def recipe_factory(rng, gtype):
+            book = recipe_book(gtype, _base)
+            if book and rng.random() < RECIPE_Q:
+                return book[int(rng.integers(len(book)))]
+            return random_program(rng, gtype)
+        recipe_factory.__qualname__ = f"recipe_factory_{_base}"
+        SIM.default_program_factory = lambda: recipe_factory
+        return ms
+    variant.deps = (recipe_book, f"base={base_preset}", f"q={RECIPE_Q}", "landscape" + "-v2")
+    return variant
+
+
+from ... import sim as _SIM  # noqa: E402
+_ORIG_FACTORY = _SIM.default_program_factory
+_prev_unpatch = _unpatch_program
+
+
+def _unpatch_program() -> None:  # noqa: F811  (also restores the program factory)
+    _prev_unpatch()
+    _SIM.default_program_factory = _ORIG_FACTORY
+
+
+for _b in ("default", "full"):
+    VARIANTS[f"recipes_{_b}"] = _make_recipe_variant(_b)
+PRESETS["default+recipes"] = {"knobs": {}, "variant": ["recipes_default"]}
+PRESETS["full+recipes"] = {"knobs": {}, "variant": ["extra", "composite", "worstmove", "recipes_full"]}
+
+
+# softer worst-case motion: average of the prior expectation and the worst case (a = 0.5)
+def _worstmove50_variant(ms: list, a: float = 0.5) -> list:
+    import dataclasses
+    from ...mutators import Terms
+    out = []
+    for m in ms:
+        if not m.bijective:
+            out.append(m)
+            continue
+
+        def tf(p, gt, _m=m, _f=m.terms_fn):
+            t = _f(p, gt)
+            dc, ds = _worst_changed(_m, p, gt)
+            return Terms(erase=t.erase, dcol=(1 - a) * t.dcol + a * max(t.dcol, dc),
+                         dsym=(1 - a) * t.dsym + a * max(t.dsym, ds), measure=t.measure, scope=t.scope)
+        out.append(dataclasses.replace(m, terms_fn=tf))
+    return out
+
+
+_worstmove50_variant.deps = (_worst_pool, _worst_changed, reference_pool)
+VARIANTS["worstmove50"] = _worstmove50_variant
+PRESETS["full_wm50"] = {"knobs": {}, "variant": ["extra", "composite", "worstmove50"]}
+PRESETS["full_nowm"] = {"knobs": {}, "variant": ["extra", "composite"]}

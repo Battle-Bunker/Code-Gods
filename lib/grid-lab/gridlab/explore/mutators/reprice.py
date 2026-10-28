@@ -81,7 +81,7 @@ def main(argv=None):
                     "(presets must keep its mutator set)")
     a = ap.parse_args(argv)
     gt = parse_type(a.type)
-    L = load_or_run(gt, a.base, a.draws)
+    L = load_or_run(gt, a.base, a.draws, allow_old=True)
     rows = []
     for p in a.presets.split(","):
         assert p in PRESETS, p
