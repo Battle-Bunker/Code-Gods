@@ -135,8 +135,9 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
   assert.ok(grid.excludedFamilies.includes("sudoku_scholar"));
-  assert.equal(grid.agentEnergyPerSecond, 16); // provisional flat Grid income (grid-lab PR #14)
-  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 16);
+  assert.equal(grid.agentEnergyPerSecond, 32); // measured Grid income (grid-lab PR #14 §4.9)
+  assert.equal(grid.perActFloorBits, 2);
+  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
   assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
   for (const p of SETTINGS_PRESETS) validateSettings(presetSettings(p.id));
   assert.equal(presetSettings("grid-first-steps").interactionRateHz, 25);

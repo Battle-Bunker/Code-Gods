@@ -143,7 +143,7 @@ instantiation's tuned defaults (`settingsDefaults`, e.g. Grid's object count, sp
 agent income scaled with the board and, on the beginner board, excluded families).
 `excludedFamilies` lists family ids never dealt in the game (validated against the
 type's catalog). `Manifest.presets` are named starting points in display order
-(`grid-first-steps`, `grid-classic`, `grid-big`, `grid-master`); the settings action
+(`grid-first-steps`, `grid-classic`, `grid-low-income`, `grid-big`, `grid-master`); the settings action
 `{action:"settings",revision,preset:"grid-first-steps"}` applies one, keeping the
 room's language.
 `RoomState.objectInstance` and `GameView.objectInstance` describe the instantiation
@@ -192,7 +192,7 @@ calls against the instantiation's closed set of bit-priced mutators and applies 
 - **Validate** (free) returns `{valid, cost, parts, decisionBits, expectedActCost,
   breakdown: {decision, erasure, motion, floor}, randomized, diagnostics}`.
 - **Agent energy.** A new agent starts at 0 and earns `agentEnergyPerSecond` bits per
-  second of world time (default 2; Grid 16, provisional pending grid-lab PR #14's follow-up) (nothing during planning, pauses or recovery), capped at
+  second of world time (default 2; Grid 32, measured in grid-lab PR #14 §4.9; the `grid-low-income` preset uses 16 with a 1-bit floor) (nothing during planning, pauses or recovery), capped at
   `agentBatteryActs` × expectedActCost. It is **eligible** while energy ≥ expectedActCost.
 - **Interactions.** Each dispatch picks a uniform random object and a uniform random
   eligible agent (one act per agent at a time). Acts are deterministic: a frozen clock,

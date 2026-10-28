@@ -703,7 +703,7 @@ test("settings: presets, tuned defaults follow the instantiation, excluded famil
   };
   try {
     const manifest = (await call("/manifest")).body;
-    assert.deepEqual(manifest.presets.map((p: any) => p.id), ["grid-first-steps", "grid-classic", "grid-big", "grid-master"]);
+    assert.deepEqual(manifest.presets.map((p: any) => p.id), ["grid-first-steps", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
     assert.ok(manifest.objectTypes.find((t: any) => t.id === "Grid").offered.every((o: any) => o.args.size !== 3), "3×3 is not offered");
     const { id } = await createRoom(host);
     let room = (await call(`/rooms/${id}`)).body;

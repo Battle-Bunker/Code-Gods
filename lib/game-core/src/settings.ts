@@ -247,8 +247,11 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
   Grid: {
-    // TODO: agentEnergyPerSecond 16 is provisional (grid-lab PR #14 follow-up measuring 8–32 for the 80-object world).
-    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 16 },
+    // Agent income 32 bits/s with the 2-bit floor (perActFloorBits, a global default): the measured value of
+    // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
+    // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
+    // alternative is the "grid-low-income" preset (16 bits/s, floor 1).
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32 },
     byKey: {
       "Grid(4,base10,rgb)": {
         excludedFamilies: ["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"],
@@ -278,6 +281,9 @@ export const SETTINGS_PRESETS: readonly {
     objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, patch: { interactionRateHz: 25 } },
   { id: "grid-classic", label: "Classic", kid: "5×5 with four colours: the standard game",
     objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: {} },
+  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
+  { id: "grid-low-income", label: "Low income", kid: "Classic 5×5, but agents earn half as fast and acts cost a little less",
+    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: { agentEnergyPerSecond: 16, perActFloorBits: 1 } },
   { id: "grid-big", label: "Big board", kid: "6×6 in hex digits and six colours",
     objectType: "Grid", typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" }, patch: {} },
   { id: "grid-master", label: "Master", kid: "7×7 playing cards in rainbow colours",
