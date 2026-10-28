@@ -16,7 +16,7 @@ import sys
 import sysconfig
 from pathlib import Path
 
-from .astbits import (TABLE_PATH, VERSION, Tables, Walker, allowed_builtins, api_attrs, api_params,
+from .astbits import (TABLE_PATH, VERSION, Tables, Walker, allowed_builtins, api_attrs, api_params, api_strings,
                       derive_grammar, externals)
 from .sandbox import PRELOADED
 
@@ -69,7 +69,7 @@ def corpus_files() -> list:
 def empty_data() -> dict:
     return {"version": VERSION, "grammar": derive_grammar(),
             "vocab": {"builtins": allowed_builtins(), "api": list(__import__("gridlab.openagents.api", fromlist=["x"]).API_NAMES),
-                      "externals": externals(), "api_attrs": api_attrs(), "api_params": api_params(),
+                      "externals": externals(), "strings": api_strings(), "api_attrs": api_attrs(), "api_params": api_params(),
                       "modules": modules(), "module_attrs": module_attrs()},
             "counts": {"nodes": {}, "small": {}, "builtins": {}, "attrs": {}, "kwargs": {}, "imports": {},
                        "module_attrs": {}}}

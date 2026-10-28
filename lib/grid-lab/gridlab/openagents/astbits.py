@@ -17,9 +17,11 @@ costs -log2 p(choice | context):
   store chooses among the current scope's variables, "a new one", and names declared global/nonlocal.
   Attributes, keyword-argument names and module paths come from published vocabularies with an
   escape to a spelled-out string.
-* **literals** — universal codes: non-negative ints Elias gamma γ(v+1); strings γ(len+1) + log2 98
-  per printable ASCII character (an escape codes any other code point as γ(cp+1)); bytes γ(len+1) +
-  8/byte; floats γ(len(repr)+1) + log2 18 per character of repr; bools 1 bit.
+* **literals** — universal codes: non-negative ints Elias gamma γ(v+1); strings are, with probability
+  P_STRVOC, a uniform pick from the published API string vocabulary (colour names, mutator ids, field
+  values, suits, digit glyphs) and otherwise spelled: γ(len+1) + log2 98 per printable ASCII
+  character (an escape codes any other code point as γ(cp+1)); bytes γ(len+1) + 8/byte; floats
+  γ(len(repr)+1) + log2 18 per character of repr; bools 1 bit.
 * **moves** — a call whose callee is an API mutator constructor and whose arguments are all literal
   (constants, colour names, area constructors on literals) is a *literal move*: a flag (p = Q_MOVE),
   then the existing mutator code: log2(#mutators available) + the mutator's field code D
@@ -52,6 +54,7 @@ VERSION = "ast-bits-v1"
 TABLE_PATH = Path(__file__).resolve().parent / "ast_bits_v1.json"
 P_EXT = 0.5          # p(a load names an external: a builtin or an API name) when user variables are visible
 Q_MOVE = 1 / 8       # p(a call is a literal move)
+P_STRVOC = 0.5       # p(a str constant is drawn from the API string vocabulary rather than spelled out)
 END, NONE, NEW, ESC, STAR = "<end>", "<none>", "<new>", "<esc>", "*"
 STR_ALPHABET = [chr(c) for c in range(32, 127)] + ["\n", "\t"]      # 97 symbols + escape = 98
 FLOAT_ALPHABET = "0123456789.e+-infa"                               # 18 symbols: repr(float)
@@ -202,6 +205,17 @@ def api_params() -> list:
     return sorted(out)
 
 
+def api_strings() -> list:
+    """Strings the API gives meaning to: colour names, mutator ids and string field values, suits, digits."""
+    from ..core import COLOUR_NAMES, DIGIT_GLYPHS
+    from ..mutators import MUTATORS, FOLDS, D4_MOVES, PAINT_KINDS
+    from .api import SUIT_NAMES
+    out = set(COLOUR_NAMES["rainbow6"]) | {m.id for m in MUTATORS} | set(FOLDS) | set(D4_MOVES) | set(PAINT_KINDS)
+    out |= {"both", "colour", "symbol", "next door", "anywhere", "ramp", "alternate", "stripes", "checker",
+            "diagonal", "parity", "mod", "redblack", "block"} | set(SUIT_NAMES) | set(DIGIT_GLYPHS)
+    return sorted(out)
+
+
 def externals() -> list:
     from .api import API_NAMES
     return sorted(set(allowed_builtins()) | set(API_NAMES))
@@ -225,6 +239,8 @@ class Tables:
         self._node: dict = {}
         self._dist: dict = {}
         self.ext_set = frozenset(self.voc["externals"])
+        self.strings = list(self.voc["strings"])
+        self.string_set = frozenset(self.strings)
         b = self._closed(self.voc["builtins"], self.counts["builtins"])
         api = {n: 1.0 / len(self.voc["api"]) for n in self.voc["api"]}
         ext = {}
@@ -411,13 +427,14 @@ def bind(tree: ast.AST) -> dict:
 
 
 class Scope:
-    __slots__ = ("kind", "parent", "info", "slots", "declared", "sid", "module_of")
+    __slots__ = ("kind", "parent", "info", "slots", "declared", "sid", "module_of", "stored")
 
     def __init__(self, kind: str, parent: Optional["Scope"], info: Optional[ScopeInfo], sid: int):
         self.kind, self.parent, self.info, self.sid = kind, parent, info, sid
         self.slots: list = []           # names in order of first appearance
         self.declared: list = []        # (scope, name) declared global / nonlocal here
         self.module_of: dict = {}       # slot name -> module path while it has only been bound by an import
+        self.stored: set = set()        # sample mode: slots that some binding occurrence assigns
 
     def is_comp(self):
         return self.kind in ("ListComp", "SetComp", "DictComp", "GeneratorExp")
@@ -523,6 +540,8 @@ class Walker:
         self.nodes = 0
         self.max_nodes = max_nodes
         self.counts: dict = {}                         # count mode
+        self.noncanonical = False                      # sample mode: the drawn path is not a canonical form
+        self.scopes: list = []
         self.sid = 0
         self.info: dict = {}
         self.ext = tables.ext_set
@@ -617,6 +636,7 @@ class Walker:
         info = self.info.get(id(node)) if self.mode != "sample" else None
         S = Scope(kind, parent, info, self.sid)
         self.sid += 1
+        self.scopes.append(S)
         return S
 
     # --- nodes ---------------------------------------------------------------------------------------
@@ -960,6 +980,7 @@ class Walker:
                 j = len(V.slots)
                 V.slots.append(V.render(j))
             nm = V.slots[j] if isinstance(j, int) else j
+            V.stored.add(nm)
             V.module_of.pop(nm, None)
             if module is not None:
                 V.module_of[nm] = module
@@ -1045,8 +1066,9 @@ class Walker:
                     y.name = nm
                     y.asname = b if (has_as or not dotted) else None
                     if dotted and not has_as:
-                        # `import a.b` binds `a`: keep the binding's rendered name equal to the top package
+                        # `import a.b` binds `a`, not the rendered slot name: this path is not canonical
                         y.asname = None
+                        self.noncanonical = True
             else:
                 module = x.module if self.mode != "sample" else getattr(x, "module", None)
                 dist = self.T.modattr.get(module, self.T.attr)
@@ -1101,7 +1123,7 @@ class Walker:
         if kind in ("None", "Ellipsis"):
             return None if kind == "None" else ...
         if kind == "str":
-            return self.string("literals", v)
+            return self.str_literal(v)
         if kind == "bytes":
             if self.mode == "sample":
                 L = self.gamma("literals", None) - 1
@@ -1129,6 +1151,24 @@ class Walker:
                 self._charge("literals", len(r) * log2(len(FLOAT_ALPHABET)))
             return v
         raise Unencodable(f"constant of kind {kind}")
+
+    def str_literal(self, v: Optional[str]) -> str:
+        voc = self.T.strings
+        if self.mode == "sample":
+            if self.rng.random() < P_STRVOC:
+                self.logp += log2(P_STRVOC / len(voc))
+                return voc[int(self.rng.integers(0, len(voc)))]
+            self.logp += log2(1 - P_STRVOC)
+            return self.string("literals", None)
+        if self.mode == "code" and not self.bytes:
+            if v in self.T.string_set:
+                self._charge("literals", -log2(P_STRVOC / len(voc)))
+                return v
+            self._charge("literals", -log2(1 - P_STRVOC))
+            return self.string("literals", v)
+        if self.mode == "count":
+            self._count("small:str_in_vocab", v in self.T.string_set)
+        return v
 
     # --- literal moves --------------------------------------------------------------------------------
     def literal_move(self, call: ast.Call, S: Scope):
@@ -1223,5 +1263,8 @@ def sample_program(rng: np.random.Generator, gt: GridType = GridType(), scheme: 
     try:
         tree = w.program(None)
     except Overflow:
+        return None, w.logp
+    # a function-like scope's variable that is never assigned there is, to Python, a global: not canonical
+    if w.noncanonical or any(S.kind != "Module" and not set(S.slots) <= S.stored for S in w.scopes):
         return None, w.logp
     return ast.fix_missing_locations(tree), w.logp

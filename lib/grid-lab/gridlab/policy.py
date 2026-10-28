@@ -141,7 +141,10 @@ class Policy:
         """agent_language "mix": each candidate is a language agent with probability lang_share, else a
         program (library or factory); "only": language agents only."""
         cfg, (agents, acosts) = self.world.cfg, lang
-        share = 1.0 if cfg.agent_language == "only" else cfg.lang_share
+        if cfg.open_agents != "off":
+            share = 1.0 if cfg.open_agents == "only" else cfg.open_share
+        else:
+            share = 1.0 if cfg.agent_language == "only" else cfg.lang_share
         progs, costs = [], []
         for u in self.rng.random(k):
             if u < share:
@@ -263,7 +266,12 @@ class GreedyPolicy(Policy):
         cands = [p for p, o in zip(cands, ok) if o]
         costs = costs[ok]
         d = self.mean_delta(cands)
-        y = d * self.horizon_apps() * self.discount * self.scale() / np.maximum(costs, 1e-9)
+        apps = self.horizon_apps()
+        cfg = self.world.cfg
+        if cfg.open_agents != "off":      # open agents also pay per application: value against lifetime cost
+            pa = np.array([getattr(p, "per_application_bits", 0.0) for p in cands], float)
+            costs = costs + pa * cfg.open_app_scale * cfg.cost_scale * apps * self.discount
+        y = d * apps * self.discount * self.scale() / np.maximum(costs, 1e-9)
         b = int(np.argmax(y))
         return cands[b], float(y[b]), float(d[b])
 

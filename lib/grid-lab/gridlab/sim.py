@@ -129,6 +129,17 @@ class GameConfig:
     lang_share: float = 0.5
     lang_gods: Optional[Sequence[int]] = None            # gods allowed language agents (default: all)
     lang_pricing: dict = field(default_factory=dict)     # overrides of agentlang.pricing.PRICING
+    # open agents (gridlab/openagents, docs/open-agents.md): plain-Python agents behind the closed mutation
+    # interface. "off" (default) | "mix" (candidates are open-agent templates with probability open_share,
+    # else library Programs) | "only". The summon price is the description (× open_summon_scale); every
+    # application then costs its owner per_application_bits × open_app_scale (skipped if unaffordable).
+    open_agents: str = "off"
+    open_templates: Optional[Sequence[str]] = None       # template names (default: openagents.examples.TEMPLATES)
+    open_share: float = 0.5
+    open_gods: Optional[Sequence[int]] = None            # gods allowed open agents (default: all)
+    open_pricing: dict = field(default_factory=dict)     # overrides of openagents.measure.PRICING
+    open_summon_scale: float = 1.0                       # energy per description bit
+    open_app_scale: float = 0.01                         # energy per per-application bit, paid on each application
     # logging
     snapshot_interval: float = 5.0
     keep_programs: bool = False                          # store Program.describe() per agent
@@ -417,6 +428,15 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     if cfg.program_library:
         from .policy import program_library
         world.library = program_library(gt, factory, cfg.program_library)
+    if cfg.open_agents != "off":
+        assert cfg.agent_language == "off", "agent_language and open_agents are alternatives"
+        from .openagents.simlib import open_libraries
+        allowed = range(cfg.n_gods) if cfg.open_gods is None else sorted(set(cfg.open_gods))
+        libs = open_libraries(gt, [draws[i] for i in allowed], [tables[i] for i in allowed], cfg.open_templates,
+                              cfg.open_pricing, cfg.open_summon_scale)
+        world.lang_libraries = [None] * cfg.n_gods
+        for i, lib in zip(allowed, libs):
+            world.lang_libraries[i] = lib
     if cfg.agent_language != "off":
         from .agentlang.simlib import lang_libraries
         allowed = range(cfg.n_gods) if cfg.lang_gods is None else sorted(set(cfg.lang_gods))
@@ -437,6 +457,9 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     a_cost, a_time, a_mut, a_desc, a_label = [], [], [], [], []
     counters = {"attempts": 0, "none": 0, "duplicate": 0, "commits": 0, "metabolic_skips": 0,
                 "decisions": 0, "summons": 0}
+    app_scale = cfg.open_app_scale * cfg.cost_scale if cfg.open_agents != "off" else 0.0
+    if app_scale:
+        counters.update(open_skips=0, open_applications=0, open_app_energy=0.0)
 
     def do_summons(god: int):
         for prog in pols[god].decide() or ():
@@ -536,10 +559,21 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 counters["metabolic_skips"] += 1
                 continue
             world.spent[owner] += met
+        prog = world.agent_prog[aid]
+        if app_scale:
+            pa = getattr(prog, "per_application_bits", 0.0)
+            if pa:
+                charge = pa * app_scale
+                if world.energy(owner) < charge:
+                    counters["open_skips"] += 1
+                    continue
+                world.spent[owner] += charge
+                counters["open_applications"] += 1
+                counters["open_app_energy"] += charge
         counters["attempts"] += 1
         world.agent_attempts[aid] += 1
         old = world.objects[oi]
-        new = world.agent_prog[aid].apply(old, gt, rng)
+        new = prog.apply(old, gt, rng)
         if new is None:
             counters["none"] += 1
             continue
