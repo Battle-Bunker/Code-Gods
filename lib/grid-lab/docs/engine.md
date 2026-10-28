@@ -182,7 +182,12 @@ means used by the defence term. The scoring, policy and metric changes are descr
 * **Economy knobs**: `starting_energy`, `energy_per_second`, `cost_scale` (multiplies
   `Program.cost`), `max_agents` (200/god). Alternative designs: `metabolic_cost` (energy per
   application attempt; an agent whose owner cannot pay is skipped) and `agent_half_life`
-  (exponential agent lifetimes).
+  (exponential agent lifetimes). `economy` (default `"summon"`, unchanged) selects who pays: `"agent_energy"`
+  (the god pays the description bits at summon; each agent earns its own income and acts only once its
+  balance covers its expected per-act bits, paying each act's pointwise information cost) or `"owner_pays"`
+  (the owner pays per-application bits on each commit). Knobs `agent_income`, `agent_battery`,
+  `agent_start`, `agent_act_floor_bits`, `agent_act_naming`; gods can destroy their own agents for free
+  (`World.destroy`, `Policy.destroy`). See docs/agent-energy.md.
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
 * **Rate scaling**: the real engine runs interactions at 100 Hz, which is now the default here (it was 20 Hz;

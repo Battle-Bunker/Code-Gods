@@ -92,3 +92,16 @@ Findings and numbers: docs/experiments.md.
   as they help (§3.4).
 - **cache gotcha**: per-game results are keyed by a hash of all gridlab/*.py and rules; use
   `common.load_manifest(name)` to analyse an old batch after editing code.
+
+## Agent-energy session (gridlab/energy.py, docs/agent-energy.md)
+
+Added `GameConfig.economy` ("summon" default, unchanged and bit-identical; "agent_energy"; "owner_pays"),
+the `agent_*` knobs, optional energy fields on `GameLog`, an energy-aware value model in the greedy family
+(`energy_aware` kwarg) and a `spammer` baseline policy. `gridlab/energy.py` is new: the summon / per-act
+split of `Program.cost` and pointwise per-act costs. No changes to calibrate.py, family.py, mutators.py or
+program.py.
+
+- **mutator worker**: the pointwise erasure check (docs/agent-energy.md §2) shows the analytic terms are
+  biased for line\* steps: the selected line is the one where the target is already most common, so
+  "recolour A→B on the line with most B" erases about 3.2 bits, not 2n/C = 2.0, on Grid(6,cards,rainbow6),
+  and paint line\* changes 3.5 cells, not 5.0. `flatten`'s price is about 4–10 bits above its exact preimage.

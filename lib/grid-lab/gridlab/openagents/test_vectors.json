@@ -29,15 +29,15 @@
     "structure": 28.765231,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 45.672121
+    "moves": 15.84549,
+    "total": 45.610721
    },
    "uniform": {
     "structure": 61.083408,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 77.990299
+    "moves": 15.84549,
+    "total": 77.928898
    },
    "ast_bytes": 14
   },
@@ -47,15 +47,15 @@
     "structure": 28.765231,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 45.672121
+    "moves": 15.84549,
+    "total": 45.610721
    },
    "uniform": {
     "structure": 61.083408,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 77.990299
+    "moves": 15.84549,
+    "total": 77.928898
    },
    "ast_bytes": 27
   },
@@ -65,15 +65,15 @@
     "structure": 28.765231,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 45.672121
+    "moves": 15.84549,
+    "total": 45.610721
    },
    "uniform": {
     "structure": 61.083408,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 77.990299
+    "moves": 15.84549,
+    "total": 77.928898
    },
    "ast_bytes": 16
   },
@@ -83,15 +83,15 @@
     "structure": 28.765231,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 45.672121
+    "moves": 15.84549,
+    "total": 45.610721
    },
    "uniform": {
     "structure": 61.083408,
     "names": 1.0,
     "literals": 0.0,
-    "moves": 15.906891,
-    "total": 77.990299
+    "moves": 15.84549,
+    "total": 77.928898
    },
    "ast_bytes": 14
   },
@@ -544,7 +544,7 @@
    "joint": 0.0,
    "positional": 0.0,
    "set": 0.0,
-   "naming": 17.228818690495878,
+   "naming": 17.167418145831736,
    "decision": 0.0,
    "binding": "joint"
   },
@@ -731,7 +731,7 @@
    "joint": 1.0901684400555602,
    "positional": 1.0901684400555602,
    "set": 2.0,
-   "naming": 17.228818690495878,
+   "naming": 17.167418145831736,
    "decision": 1.0901684400555602,
    "binding": "joint"
   },
@@ -916,7 +916,7 @@
    "joint": 2.2705053201666807,
    "positional": 9.670799711825092,
    "set": 2.0,
-   "naming": 16.728818690495878,
+   "naming": 16.667418145831736,
    "decision": 2.0,
    "binding": "set"
   },
@@ -1279,7 +1279,7 @@
    "joint": "inf",
    "positional": 5.78135971352466,
    "set": 6.117988586316704,
-   "naming": 17.228818690495878,
+   "naming": 17.167418145831736,
    "decision": 5.78135971352466,
    "binding": "positional"
   },
