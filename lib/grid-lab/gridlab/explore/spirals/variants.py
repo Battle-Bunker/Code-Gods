@@ -54,3 +54,9 @@ VARIANTS["tend_pay+sel-1"] = combo("tend_pay+sel-1", "tend_pay", "sel-1")
 VARIANTS["tend_pay100"] = {"name": "tend_pay100", "tend_prob": 1.0, "tend_mode": "payoff"}
 VARIANTS["tend_pay100+sel1"] = combo("tend_pay100+sel1", "tend_pay100", "sel+1")
 VARIANTS["all_pay+extend"] = combo("all_pay+extend", "all_pay", "extend")
+
+# round 3: bijections (the main scramblers, ~45% of commits, spiral lift < 1) priced up
+VARIANTS["bij2"] = {"name": "bij2", "knobs": {"kind": {"bijective": 2.0}}}
+VARIANTS["bij2+tend_pay"] = combo("bij2+tend_pay", "bij2", "tend_pay")
+VARIANTS["bij2+tend_pay+sel-1"] = combo("bij2+tend_pay+sel-1", "bij2", "tend_pay", "sel-1")
+VARIANTS["bij2+all_pay"] = combo("bij2+all_pay", "bij2", "all_pay")
