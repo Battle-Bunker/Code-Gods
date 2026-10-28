@@ -166,7 +166,8 @@ const describe = memo((inst): InstanceInfo => {
 export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of coloured cells, each with a symbol on it",
   params: PARAMS,
-  defaults: Object.freeze({ size: 5, symbols: "base10", colours: "rgby" }),
+  // Beginner board (lib/grid-lab/docs/explore/gridtypes.md); bigger boards via the settings presets.
+  defaults: Object.freeze({ size: 4, symbols: "base10", colours: "rgb" }),
   classes: CLASSES.filter(c => c.slot === "symbols" || c.slot === "colours"),
   instantiate,
   representatives: () => GRID_SIZES.flatMap(size => GRID_SYMBOL_SETS.flatMap(symbols => GRID_COLOUR_SETS.map(colours => ({ size, symbols, colours })))),

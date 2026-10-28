@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SETTINGS_PRESETS, presetSettings, type GameSettings,
 } from "../src/settings.ts";
 
 const settings = (patch: Partial<GameSettings>): GameSettings => ({ ...DEFAULT_SETTINGS, ...patch });
@@ -127,4 +127,11 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(grid.spawnRateHz, 0.5); // tuned Grid defaults (grid-lab experiments)
   assert.equal(grid.startingObjectCount, 80);
   assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
+  assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
+  assert.ok(grid.excludedFamilies.includes("sudoku_scholar"));
+  assert.equal(grid.agentEnergyPerSecond, 1.28); // income scales with cells (2 bits/s at 5×5)
+  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 3.92);
+  for (const p of SETTINGS_PRESETS) validateSettings(presetSettings(p.id));
+  assert.equal(presetSettings("grid-first-steps").interactionRateHz, 25);
+  assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));
 });

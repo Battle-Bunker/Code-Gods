@@ -10,6 +10,8 @@ export interface SelectOptions {
    * through `family.canonical`). Default: every draw has one.
    */
   readonly hasTable?: (draw: Draw) => boolean;
+  /** Family ids never dealt in this game (settings.excludedFamilies). */
+  readonly exclude?: readonly string[];
 }
 
 /**
@@ -38,8 +40,8 @@ function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation
 }
 
 /** The families of this instantiation that `resolve` makes available, of one role. */
-export const availableFamilies = (inst: Instantiation, role: "reward" | "penalty") =>
-  familiesFor(inst.objectType, role).filter(f => available(f, inst).ok);
+export const availableFamilies = (inst: Instantiation, role: "reward" | "penalty", exclude: readonly string[] = []) =>
+  familiesFor(inst.objectType, role).filter(f => available(f, inst).ok && !exclude.includes(f.id));
 
 export const divineLottery: UtilitySelector = {
   id: "divine-lottery",
@@ -50,8 +52,8 @@ export const divineLottery: UtilitySelector = {
   select(inst, godCount, rng, options = {}) {
     const hasTable = options.hasTable ?? (() => true);
     const rate = Math.min(1, Math.max(0, options.defenceRate ?? 0));
-    const rewards = availableFamilies(inst, "reward");
-    const penalties = rate > 0 ? availableFamilies(inst, "penalty") : [];
+    const rewards = availableFamilies(inst, "reward", options.exclude);
+    const penalties = rate > 0 ? availableFamilies(inst, "penalty", options.exclude) : [];
     const chosen: UtilityDescriptor[] = [];
     const seen = new Set<string>();
     for (let attempt = 0; chosen.length < godCount; attempt++) {

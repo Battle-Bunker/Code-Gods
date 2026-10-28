@@ -53,6 +53,8 @@ export interface GameSettings {
   penaltyWeight: number;
   /** Probability that a god is dealt a defence goal (0: opt-in, as in grid-lab). */
   defenceRate: number;
+  /** Family ids the dealer never deals in this game (e.g. rules too hard on a beginner board). */
+  excludedFamilies: readonly string[];
 }
 
 // These IDs describe the contract, not a claim that runners are installed.
@@ -78,6 +80,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
   defenceRate: 0,
+  excludedFamilies: Object.freeze([]) as readonly string[],
 } satisfies GameSettings);
 
 export interface SettingsOption {
@@ -153,6 +156,10 @@ export function validateSettings(settings: GameSettings): void {
     throw new Error(`maxAgentsPerGod must be an integer from 1 to ${MAX_AGENTS_PER_GOD}`);
   }
   if (settings.defenceRate > 1) throw new Error("defenceRate must be a probability in [0, 1]");
+  if (!Array.isArray(settings.excludedFamilies) || settings.excludedFamilies.length > 200 ||
+      settings.excludedFamilies.some(id => typeof id !== "string" || !/^[a-z0-9_+-]{1,64}$/.test(id))) {
+    throw new Error("excludedFamilies must be a list of family ids");
+  }
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
   for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
     if (!settingsOptionsFor(key, settings.language, settings.objectType).some(o => o.id === settings[key])) {
@@ -202,24 +209,63 @@ export function assertObjectValue(
 }
 
 /**
- * Tuned defaults per object type, and optionally per instantiation key, layered over DEFAULT_SETTINGS.
- * Grid: lib/grid-lab/docs/experiments.md (held-out seeds) found hits per object per second the only lever
- * that clearly matters, targeting about 0.4–0.7 at 100 Hz; more objects and faster spawns get there.
- * Edit this table to retune a type or a single GridType (e.g. `byKey: { "Grid(7,cards,rainbow6)": {...} }`).
+ * Tuned defaults per object type, layered over DEFAULT_SETTINGS: type-wide (`all`), computed from the
+ * instantiation (`of`), then per instantiation key (`byKey`). Sources (lib/grid-lab/docs):
+ * - experiments.md (held-out seeds): hits per object per second is the lever that matters, about 0.4–0.7;
+ *   more objects and faster spawns get there.
+ * - explore/gridtypes.md (2,344 games): bigger boards make whole-board moves dearer, so agent income scales
+ *   with the cell count (2 bits/s at 5×5); the beginner board Grid(4,base10,rgb) excludes five rules that
+ *   are too hard there.
+ * Edit this table to retune a type or a single GridType.
  */
 export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly all?: Partial<GameSettings>;
+  readonly of?: (inst: Instantiation) => Partial<GameSettings>;
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
-  Grid: { all: { spawnRateHz: 0.5, startingObjectCount: 80 } },
+  Grid: {
+    all: { spawnRateHz: 0.5, startingObjectCount: 80 },
+    of: inst => ({ agentEnergyPerSecond: Math.round(2 * inst.terms.cells / 25 * 100) / 100 }),
+    byKey: {
+      "Grid(4,base10,rgb)": {
+        excludedFamilies: ["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"],
+      },
+    },
+  },
 };
 
-/** The tuned overrides for one instantiation (type-wide first, then the instantiation's own). */
+/** The tuned overrides for one instantiation. */
 export function typeDefaults(objectType: string, typeArgs?: TypeArgs): Partial<GameSettings> {
   const entry = TYPE_DEFAULTS[objectType];
   if (!entry) return {};
-  const key = typeArgs ? instantiate(objectType, typeArgs).key : undefined;
-  return { ...entry.all, ...(key ? entry.byKey?.[key] : undefined) };
+  const inst = instantiate(objectType, typeArgs ?? objectTypeDef(objectType).defaults);
+  return { ...entry.all, ...entry.of?.(inst), ...entry.byKey?.[inst.key] };
+}
+
+/**
+ * Named starting points for the settings picker, in the suggested learning order. A preset is a settings
+ * patch; owners can change anything afterwards. "Gentle" slows interactions so kids can follow their own
+ * scores (explore/gridtypes.md: at 100 Hz an own score changes 10–17 times a minute).
+ */
+export const SETTINGS_PRESETS: readonly {
+  readonly id: string; readonly label: string; readonly kid: string;
+  readonly objectType: string; readonly typeArgs: TypeArgs; readonly patch: Partial<GameSettings>;
+}[] = [
+  { id: "grid-first-steps", label: "First steps", kid: "A small 4×4 board, slowed down so you can watch your score",
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, patch: { interactionRateHz: 25 } },
+  { id: "grid-classic", label: "Classic", kid: "5×5 with four colours: the standard game",
+    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: {} },
+  { id: "grid-big", label: "Big board", kid: "6×6 in hex digits and six colours",
+    objectType: "Grid", typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" }, patch: {} },
+  { id: "grid-master", label: "Master", kid: "7×7 playing cards in rainbow colours",
+    objectType: "Grid", typeArgs: { size: 7, symbols: "cards", colours: "rainbow6" }, patch: {} },
+];
+
+/** Settings for a preset: the instantiation's tuned defaults, then the preset's own patch. */
+export function presetSettings(id: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language): GameSettings {
+  const preset = SETTINGS_PRESETS.find(p => p.id === id);
+  if (!preset) throw new Error(`Unknown settings preset: ${id}`);
+  return { ...defaultSettingsFor(preset.objectType, language, preset.typeArgs), ...preset.patch };
 }
 
 /** Default settings for one instantiation and language: tuned type defaults and the language's grammar. */
