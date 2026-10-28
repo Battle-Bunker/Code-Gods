@@ -16,10 +16,11 @@
     "@workspace/ai-player": "workspace:*",
     "@convex-dev/static-hosting": "0.2.1",
     "convex": "1.48.0",
-    "jose": "6.2.13"
+    "jose": "6.2.13",
+    "quickjs-emscripten": "0.31.0",
+    "typescript": "5.9.3"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "typescript": "~5.9.3"
+    "@types/node": "catalog:"
   }
 }
