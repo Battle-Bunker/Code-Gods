@@ -55,3 +55,6 @@ artifacts/api-server/test/.client-integration-*/
 
 # Claude Code agent worktrees (temporary)
 .claude/worktrees/
+
+# Local player-app Secrets for tests (pnpm player connect --write-env); never commit
+.env.local
