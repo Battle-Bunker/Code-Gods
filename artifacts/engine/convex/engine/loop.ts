@@ -141,7 +141,7 @@ export const commit = internalMutation({
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number() })),
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
     events: v.array(eventV),
-    stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number() }),
+    stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -210,6 +210,7 @@ export const commit = internalMutation({
     const patch: Partial<Doc<"games">> = {
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
+      perf: [...(game.perf ?? []).slice(-119), { seq: args.seq, acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, commitMs: args.stats.prevCommitMs, at: now }],
       stats: { acts: game.stats.acts + acts, commits: game.stats.commits + 1, discarded: game.stats.discarded, opportunities: game.stats.opportunities + args.stats.opportunities },
     };
     const updated = { ...game, ...patch, phase: clock.phase };

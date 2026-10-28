@@ -86,6 +86,8 @@ export const gameTables = {
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
+    /** Rolling engine samples (last 120 commits): acts, world window, simulate and previous commit latency (ms). */
+    perf: v.optional(v.array(v.object({ seq: v.number(), acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()), at: v.number() }))),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
     .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
 

@@ -30,6 +30,9 @@ type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
 type ActResult = { calls: string } | { error: string };
 
+/** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
+const lastCommitMs = new Map<string, number>();
+
 /** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
 const MAX_SIMULATE_MS = 4000;
 
@@ -181,14 +184,17 @@ export const run = internalAction({
     }
     const simulateMs = performance.now() - started;
     const changed = objects.filter(o => o.changed);
-    return ctx.runMutation(internal.engine.loop.commit, {
+    const commitStarted = Date.now();
+    const committed = await ctx.runMutation(internal.engine.loop.commit, {
       ...base, kind: "window",
       clock: { phase, worldSeconds: until, lastTick: now, nextSpawn, ...(recoveryReason ? { recoveryReason } : {}) },
       objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
-      events, stats: { opportunities, acts, simulateMs }, wakeAt,
+      events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
     });
+    lastCommitMs.set(gameId, Date.now() - commitStarted);
+    return committed;
   },
 });
 
