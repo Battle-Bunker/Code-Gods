@@ -7,7 +7,7 @@ Topic: players. Code: `gridlab/explore/players/`. Raw tables from every run: `do
 
 ## 0. Summary
 
-1. **Being selective dominates.** The engine's `saver` is the only strategy no other strategy can
+1. **Being selective dominates greedy play.** The engine's `saver` is the only strategy no other strategy can
    invade on all three GridTypes tested. It invades every other field, and replicator dynamics
    converge to it (§3). The ingredient that matters is the **quality bar**: accept a candidate only if
    its yield is at least the 75th percentile of your own past best yields. Saving up without the bar
@@ -15,7 +15,9 @@ Topic: players. Code: `gridlab/explore/players/`. Raw tables from every run: `do
    32 candidates instead of 12 adds nothing (`k12_saver` ≈ saver) (§4). So the earlier "saver won
    19/40" is not an artefact. `greedy_private` is a poor player: it buys every positive-yield program
    it sees, so it fields about 18 cheap agents where a selective god fields about 7 dearer ones at
-   ~37 bits each.
+   ~37 bits each. Among selective strategies alone, the evolutionary analysis finds a mixed
+   equilibrium (saver 0.46, saver_planner 0.29, k32_bar 0.26), so variety returns once everyone is
+   selective.
 2. **Is it degenerate?** Partly. One simple strategy dominates. No economy knob tested removes its
    advantage: erasure ×1.5, global scope ×2, cost scale ×0.5 or ×2, agent half-life 120 s, and a
    metabolic cost (§6). However, the dominant strategy produces *better* games. All-saver populations
@@ -161,7 +163,15 @@ All 126 compositions of 4 gods from {random, greedy_private, saver, k32_bar, aff
 seeds each (1,008 games), Grid(5,base10,rgby). Payoff to a strategy in the uniform mix: saver 0.69,
 k32_bar 0.68, greedy 0.51, afford 0.45, random 0.35, parasite 0.31. Replicator dynamics from 40
 Dirichlet starts all end at **100% saver** (Nash regret 0.000). Over 30 seed bootstraps, saver is
-the largest share 28 times and k32_bar 2 times. EGTA_STRONG_PLACEHOLDER
+the largest share 28 times and k32_bar 2 times.
+
+Second EGTA among selective strategies only: {greedy_private, saver, k32_bar, saver_planner,
+saver_afford, saver_ridge}, 126 compositions × 8 seeds. Here no single strategy dominates. Every
+start converges to the same **mixed** equilibrium: saver 0.46, saver_planner 0.29, k32_bar 0.26 (regret
+0.000). Over 30 bootstraps the mean end state is saver 0.52, saver_planner 0.22, k32_bar 0.15,
+saver_afford 0.11. Within the selective class there is cyclic structure: saver_planner beats saver
+(0.58), k32_bar beats saver_ridge (0.67), and saver_planner loses to k32_bar (0.38). So the degeneracy
+is "be selective". Once everyone is, strategic variety returns.
 
 ## 4. What makes saver strong (attribution) and do learners add anything?
 
@@ -184,7 +194,14 @@ Grid(5,base10,rgby), 20 seeds per cell. Δz vs the incumbent, and mean z of the 
 
 The bar is the active ingredient. The savings threshold, K and the bar's exact quantile matter
 little. Adding learning or planning on top of a good timing rule makes a strategy beat greedy more
-clearly, but it never beats saver by a significant margin. HELDOUT_PLACEHOLDER
+clearly, but it never beats saver by a significant margin.
+
+**Held-out validation** (seeds 100–123 on Grid(5,base10,rgby) and Grid(4,base12,rgb), 48 seeds per
+cell, not used for any choice above): saver vs greedy field +0.20*; greedy in saver field −0.19*;
+k32_bar +0.21* / −0.07*; k32_save +0.11* / −0.08*; saver_planner +0.13* / +0.01; saver_afford +0.21* /
+−0.01; ridge (afford timing) −0.03 / −0.13*; parasite −0.07 / −0.22*; talker +0.01 / −0.12*. This
+confirms saver's dominance over greedy and the learners' failure to beat it. On the larger held-out
+sample the bar alone is slightly worse than bar + saving (−0.07*), so saving adds a little.
 
 Learnability of the hidden information: ridge out-of-sample skill (1 − SSE/SST on observed object
 changes) has median 0.22 (IQR 0.08–0.43) on Grid(5,base10,rgby), 0.33 (0.17–0.55) on
