@@ -138,11 +138,15 @@ type in `objectTypes[]` with its parameters (and presets), capability classes an
 badges, its tuned `settingsDefaults`, and the `offered` instantiations: those whose
 every dealable utility function has a calibration table. The `settings` room action
 refuses any other instantiation. When the owner switches instantiation, tuned fields
-the request leaves untouched (absent, or still the room's current value) take the new
+the request leaves untouched and that are still at the old instantiation's default take the new
 instantiation's tuned defaults (`settingsDefaults`, e.g. Grid's object count, spawn rate,
-agent income scaled with the board and, on the beginner board, excluded families).
+agent income and excluded families).
 `excludedFamilies` lists family ids never dealt in the game (validated against the
-type's catalog). `Manifest.presets` are named starting points in display order
+type's catalog). By default every Grid board leaves out 11 weak families
+(`WEAK_GRID_FAMILIES` in lib/game-core: tetromino_tamer, quilt_maker, robin_hood,
+sudoku_scholar, odds_evens, lantern_lighter, lone_peak, number_sandwich, picture_frame,
+bridge_builder, ladder_of_numbers; lib/grid-lab/docs/explore/synergy.md), plus
+fair_weaver on the beginner board; they stay in the catalogue and owners can deal them. `Manifest.presets` are named starting points in display order
 (`grid-first-steps`, `grid-classic`, `grid-low-income`, `grid-big`, `grid-master`); the settings action
 `{action:"settings",revision,preset:"grid-first-steps"}` applies one, keeping the
 room's language.
@@ -230,8 +234,8 @@ No spiral analytics are exposed. If any are, use held spirals per 100 s, spiral 
 per-object permutation null), drift at 16 bits, and tension event and reversal rates, not
 per-commit spiral counts (most "spirals" in a raw count are random-walk noise).
 
-Dealing: `utilitySelectorId` `fair-aligned` (default) keeps the friendliest even deal of
-32 Divine Lottery deals using the shipped synergy matrices of the instantiation and
+Dealing: `utilitySelectorId` `fair-aligned` (default) keeps, of 32 Divine Lottery deals,
+the one whose rules most tend to want the same objects (not a fairness mechanism), using the shipped synergy matrices of the instantiation and
 `priorId`; without a matrix it is the Divine Lottery (`divine-lottery`). `priorId`
 (default `uniform`, listed in `Manifest.priors`) is the rarity prior the calibration
 tables are keyed by.

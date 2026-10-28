@@ -125,7 +125,7 @@ export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId"
     { id: "typescript-agent-v1", label: "TypeScript agent: function agent(obj) returns mutator calls", languages: ["typescript"], objectTypes: ALL_TYPES },
   ],
   utilitySelectorId: [
-    { id: "fair-aligned", label: "Fair Aligned (friendly, even tables from measured rule synergy)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
+    { id: "fair-aligned", label: "Aligned Lottery (tables of rules that tend to want the same objects)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
     { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
   ],
   complexityFunctionId: [
@@ -250,11 +250,19 @@ export function assertObjectValue(
  * instantiation (`of`), then per instantiation key (`byKey`). Sources (lib/grid-lab/docs):
  * - experiments.md (held-out seeds): hits per object per second is the lever that matters, about 0.4–0.7;
  *   more objects and faster spawns get there.
- * - explore/gridtypes.md (2,344 games): bigger boards make whole-board moves dearer, so agent income scales
- *   with the cell count (2 bits/s at 5×5); the beginner board Grid(4,base10,rgb) excludes five rules that
+ * - explore/gridtypes.md (2,344 games): the beginner board Grid(4,base10,rgb) also excludes five rules that
  *   are too hard there.
+ * - explore/synergy.md §3.1b–c, §5 (held out): not dealing 11 weak families costs no dynamism (+0.010 to
+ *   +0.016) and lowers unfairness (0.20 → 0.16). They stay in the catalogue; owners can deal them again.
+ * This table is the single source of default dealer exclusions (settings.excludedFamilies).
  * Edit this table to retune a type or a single GridType.
  */
+/** Weak Grid families, not dealt by default (synergy.md). The six "attractor" families stay dealt (flagged for rework). */
+export const WEAK_GRID_FAMILIES: readonly string[] = Object.freeze([
+  "tetromino_tamer", "quilt_maker", "robin_hood", "sudoku_scholar", "odds_evens", "lantern_lighter", "lone_peak",
+  "number_sandwich", "picture_frame", "bridge_builder", "ladder_of_numbers",
+]);
+
 export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly all?: Partial<GameSettings>;
   readonly of?: (inst: Instantiation) => Partial<GameSettings>;
@@ -265,11 +273,9 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" preset (16 bits/s, floor 1).
-    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32 },
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
     byKey: {
-      "Grid(4,base10,rgb)": {
-        excludedFamilies: ["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"],
-      },
+      "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
     },
   },
 };

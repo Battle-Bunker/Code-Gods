@@ -96,7 +96,10 @@ export const synergyFor = (inst: Instantiation, priorId = "uniform") => SYNERGY.
 // Shipped matrices (scripts/import-synergy.mjs): exported by lib/grid-lab's synergy atlas.
 for (const m of MATRICES as readonly SynergyMatrix[]) registerSynergy(m);
 
-/** Friendly but even: mean pairwise W minus the spread of each god's mean W to the rest of the table. */
+/**
+ * Mean pairwise W minus the spread of each god's mean W to the rest of the table (grid-lab `fair_aligned`). Held out,
+ * the spread term measured no fairness gain over plain mean W (synergy.md §5); it is kept as the validated recipe.
+ */
 export function fairAlignedScore(deal: readonly string[], m: SynergyMatrix): number {
   const ix = deal.map(f => m.families.indexOf(f));
   const w = (a: number, b: number) => (a < 0 || b < 0 ? 0 : m.w[a][b]);
@@ -118,15 +121,15 @@ export function fairAlignedScore(deal: readonly string[], m: SynergyMatrix): num
 export const FAIR_ALIGNED_CANDIDATES = 32;
 
 /**
- * The recommended dealer (synergy.md §3, §5): the best of 32 Divine Lottery deals by `fairAlignedScore`.
+ * The default dealer (synergy.md §3, §5): the best of 32 Divine Lottery deals by `fairAlignedScore`. It makes
+ * tables of rules that tend to want the same objects (more lasting climbs); it is not a fairness mechanism.
  * Without a synergy matrix for this instantiation and prior it deals exactly like the Divine Lottery.
  */
 export const fairAligned: UtilitySelector = {
   id: "fair-aligned",
-  name: "Fair Aligned",
-  description: "Deals 32 random tables and keeps the friendliest one in which no god is much friendlier with the "
-    + "table than another, using the measured synergy between rules. Where synergy has not been measured, it is the "
-    + "Divine Lottery.",
+  name: "Aligned Lottery",
+  description: "Deals 32 random tables and keeps the one whose rules most tend to want the same objects, using the "
+    + "measured synergy between rules. Where synergy has not been measured, it is the Divine Lottery.",
   select(inst, godCount, rng, options = {}) {
     const matrix = synergyFor(inst, options.priorId);
     if (!matrix) return divineLottery.select(inst, godCount, rng, options);

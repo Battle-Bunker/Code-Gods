@@ -723,6 +723,15 @@ test("settings: presets, tuned defaults follow the instantiation, excluded famil
     assert.equal(room.settings.startingObjectCount, 7);
     assert.deepEqual(room.settings.excludedFamilies, typeDefaults("Grid", { size: 4, symbols: "base10", colours: "rgb" }).excludedFamilies ?? []);
     assert.ok(room.utilityCatalog.some((f: any) => f.excluded) === room.settings.excludedFamilies.length > 0);
+    // A value the owner customised survives a later switch of board; defaults still follow.
+    r = await settings({ excludedFamilies: ["seed2_patchwork"] });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    room = r.body;
+    r = await settings({ typeArgs: { size: 5, symbols: "base10", colours: "rgby" } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    room = r.body;
+    assert.deepEqual(room.settings.excludedFamilies, ["seed2_patchwork"]);
+    assert.equal(room.settings.startingObjectCount, 7);
     // Excluded families must exist.
     r = await settings({ excludedFamilies: ["no-such-family"] });
     assert.equal(r.status, 400);

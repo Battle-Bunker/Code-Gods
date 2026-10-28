@@ -26,7 +26,8 @@ export function objectTypesManifest() {
     // Tuned settings for games of this type (e.g. Grid: more objects, faster spawns).
     settingsDefaults: typeDefaults(T.id),
     classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
-    offered: offeredInstantiations(T.id).map(inst => {
+    // Offered with each instantiation's default exclusions (rules not dealt by default need no tables).
+    offered: offeredInstantiations(T.id, { excludedFamilies: inst => typeDefaults(T.id, inst.args).excludedFamilies ?? [] }).map(inst => {
       const info = instanceInfo(inst);
       return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes,
         settingsDefaults: typeDefaults(T.id, inst.args) };
@@ -34,8 +35,9 @@ export function objectTypesManifest() {
   }));
 }
 /**
- * When the owner switches instantiation, the tuned per-type defaults follow it: every tuned field the
- * request left untouched (absent, or still the room's current value) takes the new instantiation's default.
+ * When the owner switches instantiation, the tuned per-type defaults follow it: every tuned field the request
+ * left untouched (absent, or still the room's current value) and that was still at the old instantiation's
+ * default takes the new instantiation's default; customised values are kept.
  */
 export function retuneSettings(previous: GameSettings, next: GameSettings, sent: Record<string, unknown>): GameSettings {
   const before = instantiationOf(previous).key, after = instantiationOf(next).key;
@@ -45,7 +47,10 @@ export function retuneSettings(previous: GameSettings, next: GameSettings, sent:
   const tuned = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<keyof GameSettings>;
   const out = { ...next } as Record<string, unknown>;
   for (const key of tuned) {
-    if (!(key in sent) || JSON.stringify(sent[key]) === JSON.stringify(previous[key])) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
+    // Only fields still at the old instantiation's default follow; values the owner customised are kept.
+    const untouched = !(key in sent) || JSON.stringify(sent[key]) === JSON.stringify(previous[key]);
+    const wasDefault = JSON.stringify(previous[key]) === JSON.stringify(oldDefaults[key] ?? DEFAULT_SETTINGS[key]);
+    if (untouched && wasDefault) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
   }
   return out as unknown as GameSettings;
 }

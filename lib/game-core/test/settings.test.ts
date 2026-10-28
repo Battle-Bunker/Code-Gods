@@ -138,7 +138,11 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(grid.startingObjectCount, 80);
   assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
-  assert.ok(grid.excludedFamilies.includes("sudoku_scholar"));
+  assert.ok(grid.excludedFamilies.includes("sudoku_scholar") && grid.excludedFamilies.includes("fair_weaver"));
+  const classic = defaultSettingsFor("Grid", "python", { size: 5, symbols: "base10", colours: "rgby" });
+  assert.equal(classic.excludedFamilies.length, 11); // weak families, every Grid board
+  for (const attractor of ["snap", "full_house", "bullseye", "flush_royale", "pinwheel", "stripe_painter"])
+    assert.ok(!classic.excludedFamilies.includes(attractor));
   assert.equal(grid.agentEnergyPerSecond, 32); // measured Grid income (grid-lab PR #14 §4.9)
   assert.equal(grid.perActFloorBits, 2);
   assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);

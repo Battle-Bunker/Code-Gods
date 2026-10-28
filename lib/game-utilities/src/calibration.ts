@@ -381,25 +381,15 @@ export interface Coverage {
   readonly tables: number;
 }
 
-/**
- * Families the dealer leaves out by default on particular instantiations (the default of
- * settings.excludedFamilies there; lib/grid-lab/docs/explore/gridtypes.md). Their tables are optional: they never
- * count against `offeredInstantiations` for that instantiation.
- */
-export const DEFAULT_EXCLUDED_FAMILIES: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  "Grid(4,base10,rgb)": Object.freeze(["sudoku_scholar", "bridge_builder", "ladder_of_numbers", "lantern_lighter", "fair_weaver"]),
-});
-export const defaultExcludedFamilies = (inst: Instantiation): readonly string[] => DEFAULT_EXCLUDED_FAMILIES[inst.key] ?? [];
-
 /** Grid sizes retired from play (3×3: too small for most families' structure). Never offered, tables or not. */
 export const RETIRED_GRID_SIZES: readonly number[] = Object.freeze([3]);
 
 const coverageMemo = new Map<string, Coverage>();
 /**
  * Which dealable draws of an instantiation (every available reward and penalty family × canonical support, minus
- * `excludedFamilies`, default `defaultExcludedFamilies(inst)`) lack a fresh table.
+ * `excludedFamilies`, default none) lack a fresh table.
  */
-export function coverage(inst: Instantiation, excludedFamilies: readonly string[] = defaultExcludedFamilies(inst),
+export function coverage(inst: Instantiation, excludedFamilies: readonly string[] = [],
   prior: PriorRef = UNIFORM_PRIOR): Coverage {
   const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}`;
   let c = coverageMemo.get(memoKey);
@@ -421,10 +411,10 @@ export function coverage(inst: Instantiation, excludedFamilies: readonly string[
 
 export interface OfferOptions {
   /**
-   * Families the room will never deal (settings.excludedFamilies). Default: `defaultExcludedFamilies(inst)` per
-   * instantiation. Excluded families need no tables.
+   * Families the room will never deal (settings.excludedFamilies): a fixed list, or one per instantiation (e.g. the
+   * tuned defaults, game-core `typeDefaults`). Default: none. Excluded families need no tables.
    */
-  readonly excludedFamilies?: readonly string[];
+  readonly excludedFamilies?: readonly string[] | ((inst: Instantiation) => readonly string[]);
   /** The calibration prior (default uniform). */
   readonly prior?: PriorRef;
 }
@@ -448,7 +438,7 @@ export function offeredInstantiations(objectTypeId: string, options: OfferOption
     .filter(e => e.objectType === objectTypeId)
     .map(e => T.instantiate(e.args))
     .filter(inst => !(inst.objectType === "Grid" && RETIRED_GRID_SIZES.includes(inst.terms.size)))
-    .filter(inst => coverage(inst, options.excludedFamilies ?? defaultExcludedFamilies(inst), options.prior).missing.length === 0);
+    .filter(inst => coverage(inst, (typeof options.excludedFamilies === "function" ? options.excludedFamilies(inst) : options.excludedFamilies) ?? [], options.prior).missing.length === 0);
 }
 
 /** The manifest of shipped tables (for diagnostics and the freshness test). */

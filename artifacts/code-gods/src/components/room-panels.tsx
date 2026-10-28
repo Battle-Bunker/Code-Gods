@@ -169,9 +169,17 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
     const prev = choice;
     setTypeDraft(next);
     setHighlight(changedParams(prev.objectType === next.objectType ? prev.typeArgs : {}, next.typeArgs).filter(k => prev.objectType === next.objectType));
-    // The server applies tuned defaults for a new type or instantiation; show them in the draft.
-    const tuned = { ...(prev.objectType !== next.objectType ? t?.settingsDefaults : {}), ...offered?.settingsDefaults };
-    setDraft(d => fixOptions({ ...d, ...Object.fromEntries(Object.entries(tuned).map(([k, v]) => [k, String(v)])) }, d.language ?? String(source.language), next.objectType));
+    // The server moves fields still at the old instantiation's tuned defaults to the new ones; mirror it in the draft.
+    const pt = types.find(x => x.id === prev.objectType), po = pt ? findOffered(pt, prev.typeArgs) : undefined;
+    const before: Record<string, unknown> = { ...pt?.settingsDefaults, ...po?.settingsDefaults };
+    const tuned: Record<string, unknown> = { ...(prev.objectType !== next.objectType ? t?.settingsDefaults : {}), ...offered?.settingsDefaults };
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+    const follows = (k: string, current: unknown) => !(k in before) || same(current, before[k]) || String(current) === String(before[k]);
+    if ("excludedFamilies" in tuned && follows("excludedFamilies", excludedDraft ?? source.excludedFamilies ?? [])) setExcludedDraft([...(tuned.excludedFamilies as string[])]);
+    const scalars = Object.entries(tuned).filter(([k]) => k !== "excludedFamilies");
+    setDraft(d => fixOptions({ ...d, ...Object.fromEntries(scalars
+      .filter(([k]) => follows(k, k in d ? d[k as keyof typeof d] : source[k as keyof Settings]))
+      .map(([k, v]) => [k, String(v)])) }, d.language ?? String(source.language), next.objectType));
   };
   const unlock = (patch: Record<string, string | number>) => {
     const t = types.find(x => x.id === choice.objectType);
