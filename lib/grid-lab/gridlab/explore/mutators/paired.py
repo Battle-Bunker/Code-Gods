@@ -54,10 +54,10 @@ def main(argv=None):
     ap.add_argument("--b", default="full")
     ap.add_argument("--types", default="5,base10,rgby")
     ap.add_argument("--games", type=int, default=600)
-    ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--seed", default="1", help="spec seed(s), comma-separated (pooled)")
     ap.add_argument("--B", type=int, default=300)
     a = ap.parse_args(argv)
-    specs = C.make_specs(a.types.split(";"), a.games, a.seed, "mixed")
+    specs = [s for sd in a.seed.split(",") for s in C.make_specs(a.types.split(";"), a.games, int(sd), "mixed")]
     ra, rb = run_preset(a.a, specs), run_preset(a.b, specs)
     out = paired(ra, rb, a.B)
     print(f"paired bootstrap over {len(specs)} game specs (seed {a.seed}), {a.B} replicates: {a.b} - {a.a}")

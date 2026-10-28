@@ -275,4 +275,102 @@ them as the theft tool for 13 + 10 families and still cuts the 1-step theft rati
   - `scope.global` 1.25 on top of `full` compresses the top (p90 0.66 → 0.54) but gives no further fairness
     gain in games (§5.1), so it is not recommended.
 
-<!-- GAMES -->
+## 5. Validation in full simulated games (Grid(5,base10,rgby))
+
+Setup: 600 games per preset per spec seed. Seed 1 is the training specs and 9000000 the held-out specs. The
+specs are paired across presets (§1.2). Throughput is about 1.3–1.7 s per game per core.
+
+### 5.1 Headline (train / held out / pooled)
+
+| statistic | default | full | Δ, paired 95% CI |
+|---|---|---|---|
+| SD of family adj. z, train (seed 1) | 0.189 | 0.175 | −0.014 [−0.022, −0.004] |
+| SD of family adj. z, held out (seed 9000000) | 0.187 | 0.179 | −0.009 [−0.018, +0.001] |
+| SD of family adj. z, pooled (1200 specs) | 0.184 | 0.173 | −0.011 [−0.018, −0.005] |
+| mean \|z − 0.5\| over families, pooled | 0.145 | 0.132 | −0.013 [−0.019, −0.004] |
+| payoff Gini, pooled | 0.263 | 0.252 | −0.011 [−0.016, −0.005] |
+| share of families whose CI excludes 0.5 (train / held out) | 0.65 / 0.52 | 0.52 / 0.45 | – |
+| effective number of mutators used (perplexity of commit shares; train / held out) | 19.8 / 19.7 | 22.6 / 22.4 | +2.8 |
+| mutators with ≥ 1% of commits | 23 | 26 | – |
+| dynamism (train / held out) | 0.724 / 0.717 | 0.726 / 0.717 | n.s. |
+| tension (sig_tension_rate) | 0.125 / 0.128 | 0.131 / 0.132 | ≈ +0.005 |
+| share of steals done by bijections | 0.288 / 0.298 | 0.250 / 0.258 | −0.04 |
+| lead changes per 100 s | 5.34 / 4.89 | 5.65 / 4.90 | n.s. |
+
+*Normalised* mutator entropy falls slightly (0.834 → 0.824) only because the denominator grows from
+log 24 to log 28. The absolute entropy rises from 4.31 to 4.50 bits.
+
+`full+global1.25` (train only): SD 0.175, the same as `full`; Gini 0.246; it loses `motif` usage
+(1.3% → 0.7%). Not recommended.
+
+### 5.2 Per family (pooled 1200 paired specs, Δ adj. z with paired 95% CI)
+
+| family | default | full | Δ [95% CI] | landscape change (route yield) |
+|---|---|---|---|---|
+| quilt_maker | 0.10 | 0.33 | **+0.23 [+0.13, +0.34]** | 0.19 → 0.40 (`unclash`) |
+| fair_weaver | 0.35 | 0.52 | **+0.17 [+0.08, +0.28]** | 0.26 → 0.26 (less theft? unexplained) |
+| round_numbers | 0.41 | 0.53 | **+0.12 [+0.04, +0.19]** | 0.17 → 0.47 (`balance`) |
+| rummy_melder | 0.59 | 0.68 | **+0.09 [+0.03, +0.16]** | 0.39 → 0.44 |
+| seed3_green_ones | 0.56 | 0.66 | +0.09 [+0.00, +0.19] | 1.24 → 0.94 (composite: the sim gods never found the exploit) |
+| lone_peak | 0.27 | 0.33 | +0.06 [−0.05, +0.15] | 0.26 → 0.42 (`crown` + flatten) |
+| robin_hood | 0.17 | 0.23 | +0.06 [−0.00, +0.14] | 0.30 → 0.30 |
+| seed2_patchwork | 0.38 | 0.41 | +0.03 [−0.04, +0.10] | 0.39 → 0.53 |
+| odds_evens | 0.21 | 0.24 | +0.03 [−0.06, +0.12] | 0.16 → 0.17 |
+| magic_accountant | 0.39 | 0.35 | −0.03 [−0.10, +0.03] | 0.13 → 0.30 |
+| lucky_token | 0.53 | 0.52 | −0.01 [−0.08, +0.08] | 1.26 → 0.79 |
+| number_painter | 0.47 | 0.39 | −0.08 [−0.18, +0.01] | 0.78 → 0.55 |
+| knight_riders | 0.66 | 0.60 | −0.06 [−0.13, +0.03] | 0.75 → 0.76 |
+| stripe_painter | 0.81 | 0.76 | −0.05 [−0.10, +0.01] | 0.54 → 0.54 |
+| snap / full_house | 0.91 / 0.91 | 0.90 / 0.92 | ≈ 0 | 0.58 / 0.53 (unchanged) |
+
+### 5.3 What decides fairness in the *simulated* games (policy-dependent)
+
+Spearman ρ across the 82 families between game adj. z (default, train) and static measures:
+
+| predictor | ρ [95% CI] |
+|---|---|
+| library best-of-12 yield (what one greedy decision sees) | **+0.81 [+0.69, +0.89]** |
+| passive gain: mean positive Δs from a random library agent (anyone's) | +0.78 [+0.64, +0.86] |
+| landscape best single-step yield | +0.67 [+0.51, +0.78] |
+| library share of programs with positive yield | +0.62 [+0.46, +0.75] |
+| landscape route yield (skilled play) | +0.59 [+0.43, +0.70] |
+| calibrated ceiling | +0.33 [+0.13, +0.50] |
+
+Under `full` the library best-of-12 gives ρ = 0.82, and in the expert condition 0.86. So the simulated gods
+are limited by *what a random 4096-program library contains*:
+- the median best-of-12 library yield is 0.03 bits/bit against 0.42 for the searched route;
+- a family is helped when its goal lies in the basin of common actions, both its own and other gods'
+  agents.
+
+Snap, Full House, Bullseye and Pinwheel (z ≈ 0.9) have only middling route yields (0.46–0.58), but the
+largest library yields (0.12–0.15) and passive gains. Constant fills (`write all s`, `flatten`) and
+line-level writes push grids into their upper sets whoever summons them.
+
+This is why the landscape fixes move game fairness only modestly (a 6% lower SD): the remaining in-game
+spread is mostly library prevalence and ceilings. It is a property of the simulator's policies and does not
+carry over to skilled players.
+
+**Expert condition** (`default+recipes` vs `full+recipes`). 20% of library slots are offered to a public
+recipe book of the landscape's best programs (about 1100 per preset; `variants.recipe_book`). The family SD
+falls by the same amount (pooled −0.010 [−0.015, −0.003]), and tension and steals rise (sig_tension 0.14,
+steal rate 0.034). Even here the landscape route yield predicts game z at only ρ = 0.60, the same as without
+recipes. Gods still pick from 12 random candidates, so a recipe for one's own family is rarely among them.
+A real skilled player would search *for their own utility*, so the landscape is the better guide for game
+design. The simulated numbers are a lower bound on how much the fixes matter.
+
+### 5.4 Ablation: which part moves the games (train specs, 600 paired games)
+
+| preset | SD family z | Δ vs default [95% CI] | payoff Gini | share of steals done by bijections | mutators ≥ 1% |
+|---|---|---|---|---|---|
+| default | 0.189 | – | 0.264 | 0.288 | 23 |
+| `extra` (4 new mutators only) | 0.177 | −0.013 [−0.021, −0.002] | 0.251 | 0.259 | 26 |
+| `composite+worstmove` (pricing only) | 0.189 | −0.000 [−0.009, +0.010] | 0.264 | 0.285 | 23 |
+| `full` | 0.175 | −0.014 [−0.022, −0.004] | 0.254 | 0.250 | 26 |
+
+In the simulated games the new mutators do all the work. The pricing changes have no measurable effect on
+game fairness, because the simulated gods almost never draw the programs they reprice: the paint+stamp
+combo, and global colour swaps aimed at a jackpot. The pricing changes are justified by the
+policy-independent landscape (§2.3, §2.5, §4.1, §4.3), which describes what a deliberate player can do. Their
+in-game cost is nil: dynamism, tension and lead changes are unchanged within CIs.
+
+<!-- TYPES -->
