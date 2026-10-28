@@ -123,4 +123,8 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   for (const language of ["python", "typescript"] as const)
     for (const objectType of ["Int", "string", "Grid"]) validateSettings(defaultSettingsFor(objectType, language));
   assert.throws(() => defaultSettingsFor("Unicorn"));
+  const grid = defaultSettingsFor("Grid");
+  assert.equal(grid.spawnRateHz, 0.5); // tuned Grid defaults (grid-lab experiments)
+  assert.equal(grid.startingObjectCount, 80);
+  assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
 });

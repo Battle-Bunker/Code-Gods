@@ -201,10 +201,34 @@ export function assertObjectValue(
   codec.assert(value);
 }
 
-/** Default settings for one object type and language: the type's default args and the language's grammar. */
-export function defaultSettingsFor(objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language): GameSettings {
+/**
+ * Tuned defaults per object type, and optionally per instantiation key, layered over DEFAULT_SETTINGS.
+ * Grid: lib/grid-lab/docs/experiments.md (held-out seeds) found hits per object per second the only lever
+ * that clearly matters, targeting about 0.4–0.7 at 100 Hz; more objects and faster spawns get there.
+ * Edit this table to retune a type or a single GridType (e.g. `byKey: { "Grid(7,cards,rainbow6)": {...} }`).
+ */
+export const TYPE_DEFAULTS: Readonly<Record<string, {
+  readonly all?: Partial<GameSettings>;
+  readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
+}>> = {
+  Grid: { all: { spawnRateHz: 0.5, startingObjectCount: 80 } },
+};
+
+/** The tuned overrides for one instantiation (type-wide first, then the instantiation's own). */
+export function typeDefaults(objectType: string, typeArgs?: TypeArgs): Partial<GameSettings> {
+  const entry = TYPE_DEFAULTS[objectType];
+  if (!entry) return {};
+  const key = typeArgs ? instantiate(objectType, typeArgs).key : undefined;
+  return { ...entry.all, ...(key ? entry.byKey?.[key] : undefined) };
+}
+
+/** Default settings for one instantiation and language: tuned type defaults and the language's grammar. */
+export function defaultSettingsFor(
+  objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language, typeArgs?: TypeArgs,
+): GameSettings {
+  const args = typeArgs ?? objectTypeDef(objectType).defaults;
   return {
-    ...DEFAULT_SETTINGS, language, objectType, typeArgs: objectTypeDef(objectType).defaults,
+    ...DEFAULT_SETTINGS, ...typeDefaults(objectType, args), language, objectType, typeArgs: args,
     grammarId: `${language}-agent-v1` as GrammarId,
   };
 }
