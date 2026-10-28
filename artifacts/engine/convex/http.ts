@@ -28,6 +28,24 @@ http.route({
   }),
 });
 
+/**
+ * Discovery for player apps: a player configures only the engine's website URL (this origin), and
+ * learns the Convex client URL here. Public, no secrets.
+ */
+http.route({
+  path: "/api/config",
+  method: "GET",
+  handler: httpAction(async () => {
+    const body = {
+      convexUrl: process.env.CONVEX_CLOUD_URL, siteUrl: process.env.CODE_GODS_SITE_URL || process.env.CONVEX_SITE_URL,
+      version: process.env.CODE_GODS_VERSION || VERSION,
+    };
+    return new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },
+    });
+  }),
+});
+
 registerAuthRoutes(http);
 registerStaticRoutes(http, components.playerSite, { pathPrefix: "/player/" });
 registerStaticRoutes(http, components.engineSite);
