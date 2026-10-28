@@ -1,0 +1,59 @@
+## Grid(6,cards,rainbow6), seed 200027, variant base: 5 gods, 1680 s, 134883 commits, 386 agents
+Gods (private rule; final payoff, rank):
+  g0 greedy_omniscient  quilt_maker            Every little 2×2 square whose four patches are all different colours scores a point.  payoff 980 (#5)
+  g1 saver              seed3_green_ones       Count the green aces. More is better; a cell with only the right colour or only the right number is a small step.  payoff 69184 (#1)
+  g2 greedy_omniscient  rainbow_road           Count the lines, read left to right, where every colour is the next one round the rainbow (red → orange → yellow → green → blue → violet → red again).  payoff 4970 (#3)
+  g3 random             mirrormancer           Count the rows whose symbols read the same forwards and backwards.  payoff 65470 (#2)
+  g4 random             fair_weaver            A row or column is fair when every colour appears about equally often (never more than one extra). Score a point for each fair line; fairer is better.  payoff 2349 (#4)
+Featured: object 112, spiral of 25 commits over 51.1 s, salience 25.8 -> 282.6 (+256.8 bits), 5 contributing owners, 2 gods gain >= 1 bit, accel +0.88, retention 1.00
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t=1530.09 g0 Δσ   -0.1 s=[  0.5  30.5  10.3   4.5   2.5]  If column 1 is not all one colour: slide the colours of row 1 2 steps right, wrapping round.
+   t=1530.15 g2 Δσ   +0.4 s=[  0.9  30.5  10.4   4.5   2.5]  Reverse row 1.
+   t=1537.70 g2 Δσ  -11.5 s=[  1.3  17.3  11.6   4.5   2.6]  Swap red and green in ring 2 in from the edge.
+   t=1541.82 g0 Δσ  -11.6 s=[  0.9  17.3   3.1   4.5   0.0]  Move every colour in the cell at row 4, column 2 2 steps along the rainbow.
+ * t=1541.98 g4 Δσ   +3.2 s=[  0.9  21.5   2.2   4.5   0.0]  Make column 6 a palindrome: mirror its second half onto the first (colours).
+ * t=1543.61 g2 Δσ   +3.6 s=[  0.9  25.9   1.4   4.5   0.0]  Move every colour in the cell at row 2, column 2 5 steps along the rainbow.
+ * t=1544.45 g2 Δσ   +0.0 s=[  0.9  25.9   1.4   4.5   0.0]  Give the 2x2 square at row 5, column 1 a flip across the main diagonal.
+ * t=1546.52 g2 Δσ   +0.0 s=[  0.9  25.9   1.4   4.5   0.0]  Swap the symbols of cells at (6,4) and (6,5).
+ * t=1548.10 g0 Δσ   +1.1 s=[  2.0  25.9   1.4   4.5   0.1]  Move every colour in the cell at row 5, column 4 1 step along the rainbow.
+ * t=1552.42 g3 Δσ   +1.5 s=[  2.7  25.9   2.2   4.5   0.1]  Swap blue and violet in column 4.
+ * t=1553.60 g0 Δσ   -1.5 s=[  2.0  25.9   1.4   4.5   0.1]  Slide the colours of column 3 2 steps down, wrapping round.
+ * t=1553.94 g4 Δσ   +2.5 s=[  0.9  30.5   2.2   2.7   0.0]  Make row 5 all its most common colour, then slide column 3 4 steps down, wrapping round.
+ * t=1558.42 g4 Δσ   +0.0 s=[  0.9  30.5   2.2   2.7   0.0]  Make every card in row 6 a ♥.
+ * t=1558.95 g2 Δσ   +0.0 s=[  0.9  30.5   2.2   2.7   0.0]  Swap red and green in column 5.
+ * t=1563.28 g0 Δσ   +0.0 s=[  0.9  30.5   2.2   2.7   0.0]  Slide the colours of row 5 3 steps right, wrapping round.
+ * t=1563.71 g2 Δσ   +4.8 s=[  0.9  35.4   2.2   2.7   0.0]  Swap green and blue in column 4.
+ * t=1564.71 g3 Δσ   -0.0 s=[  0.9  35.4   2.2   2.7   0.0]  Stamp Q♣ on every violet cell in the 2x2 square at row 5, column 5.
+ * t=1565.28 g3 Δσ   +0.0 s=[  0.9  35.4   2.2   2.7   0.0]  Swap ♦ and ♣ in row 1.
+ * t=1570.94 g2 Δσ  +10.0 s=[  0.9  40.4   1.4   8.5   0.0]  In ring 2 in from the edge, every number except the highest drops to the lowest one there, then make row 2 a palindrome: mirror its first half onto the second (colours).
+ * t=1572.27 g0 Δσ   -0.4 s=[  0.5  40.4   1.4   8.5   0.0]  Swap the cells at (1,3) and (6,3).
+ * t=1574.38 g2 Δσ   +0.0 s=[  0.5  40.4   1.4   8.5   0.0]  Swap the symbols of cells at (1,4) and (2,4).
+ * t=1575.06 g3 Δσ   -0.1 s=[  1.3  40.4   0.4   8.5   0.0]  If the cell at row 3, column 2 is not green: reverse column 3.
+ * t=1580.29 g1 Δσ  +38.3 s=[  0.0  80.4   0.0   8.5   0.0]  Paint the outer edge green.
+ * t=1580.64 g1 Δσ +113.3 s=[  0.0 151.1   0.0  51.1   0.0]  Stamp A♦ on every green cell in the whole grid.
+ * t=1580.77 g1 Δσ  +57.6 s=[  0.0 208.8   0.0  51.1   0.0]  Paint everything off the edge violet, then paint everything off the edge green.
+ * t=1589.20 g2 Δσ   +0.0 s=[  0.0 208.8   0.0  51.1   0.0]  Sort row 2 smallest first.
+ * t=1589.34 g2 Δσ   -7.7 s=[  0.0 201.1   0.0  51.1   0.0]  Count every number in the cell at row 3, column 4 on by 8.
+ * t=1589.48 g0 Δσ   -7.7 s=[  0.0 193.3   0.0  51.1   0.0]  Move every colour in the cell at row 4, column 2 2 steps along the rainbow.
+ * t=1593.05 g1 Δσ  +38.2 s=[  0.0 217.0   0.0  65.6   0.0]  Stamp A♦ on every green cell in the whole grid.
+   t=1595.17 g4 Δσ   +0.0 s=[  0.0 217.0   0.0  65.6   0.0]  Swap ♦ and ♣ in the 3x3 square at row 1, column 1.
+   t=1598.82 g4 Δσ   +0.0 s=[  0.0 217.0   0.0  65.6   0.0]  If the grid has at most 3 violet cells: swap ♠ and ♣ in row 1.
+   t=1616.24 g2 Δσ  -32.0 s=[  0.0 185.0   0.0  65.6   0.0]  Move every colour in the 2x2 square at row 1, column 2 3 steps along the rainbow.
+   t=1618.24 g1 Δσ  +23.8 s=[  0.0 208.8   0.0  65.6   0.0]  Paint everything off the edge violet, then paint everything off the edge green.
+
+t=1541.8 σ=25.8                       t=1542.0 σ=29.0                       t=1558.4 σ=36.2                       t=1574.4 σ=50.8                    
+  A♠R   A♠O   4♣B   A♠B   J♣O   A♣O     A♠R   A♠O   4♣B   A♠B   J♣O   A♣V     A♠R   A♠O   9♠B   A♠V   J♣O   A♣V     A♠R   A♠O   2♥G   A♥V   J♦O   A♦V
+  7♠G   A♦B   2♠R   9♥O   A♠R   A♦G     7♠G   A♦B   2♠R   9♥O   A♠R   A♦G     7♠G   A♦G   A♠R   9♥O   A♠R   A♦G     7♠G   A♦G   A♠R   A♠R   A♠G   A♦G
+  7♠G   2♠R   9♠Y   A♠V   A♦R   A♠O     7♠G   2♠R   9♠Y   A♠V   A♦R   A♠G     7♠G   2♠R   3♠G   A♠B   A♦R   A♠G     7♠G   A♠R   3♠G   A♠G   A♦G   A♠G
+  7♠B   8♦O   A♠R   A♦O   A♦Y   A♠G     7♠B   8♦O   A♠R   A♦O   A♦Y   A♠G     7♠B   8♦O   7♦R   A♦O   A♦Y   A♠G     7♠B   A♦O   7♦R   A♦O   A♦Y   A♠G
+  7♠O   7♦R   3♠R   K♠G   A♠R   A♠G     7♠O   7♦R   3♠R   K♠G   A♠R   A♠G     7♠G   8♠G   4♣R   K♠G   A♠G   A♠G     7♠G   A♠R   A♣G   K♠B   A♠G   A♠R
+  8♠G   A♦G   7♦G   A♦O   A♠G   A♠V     8♠G   A♦G   7♦G   A♦O   A♠G   A♠V     7♥R   A♥G   2♥G   A♥O   A♥G   A♥V     7♥R   A♥G   9♠B   A♥O   A♥R   Q♣V
+
+t=1593.1 σ=282.6                      t=1618.2 σ=274.3                   
+  A♦G   A♦G   A♦G   A♦G   A♦G   A♦G     A♠G   A♠R   A♠R   A♦G   A♦G   A♦G
+  A♦G   A♦G   A♦G   A♦G   A♦G   A♦G     A♣G   A♣G   A♣G   A♦G   A♦G   A♦G
+  A♦G   A♦G   A♦G   A♦G   A♦G   A♦G     A♣G   A♣G   A♣G   A♦G   A♦G   A♦G
+  A♦G   A♦V   A♦G   A♦G   A♦G   A♦G     A♦G   A♦G   A♦G   A♦G   A♦G   A♦G
+  A♦G   A♦G   A♦G   A♦G   A♦G   A♦G     A♦G   A♦G   A♦G   A♦G   A♦G   A♦G
+  A♦G   A♦G   A♦G   A♦G   A♦G   A♦G     A♦G   A♦G   A♦G   A♦G   A♦G   A♦G

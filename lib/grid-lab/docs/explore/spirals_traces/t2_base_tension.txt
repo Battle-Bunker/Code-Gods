@@ -1,0 +1,77 @@
+## Grid(5,base10,rgby), seed 22, variant base: 6 gods, 223 s, 19986 commits, 60 agents
+Gods (private rule; final payoff, rank):
+  g0 saver              mirrormancer           Count the rows whose colours read the same forwards and backwards.  payoff 17300 (#3)
+  g1 saver              seed1_line_painter     Every straight line of 2 or more blue cells touching in a row (across or down, or diagonally) scores the sum of its numbers.  payoff 7745 (#5)
+  g2 saver              treasure_map           Every green cell scores its number times how close it is to the middle (corners count nothing).  payoff 12695 (#4)
+  g3 saver              go_fish_books          Your fish is 6. Every 2×2 block of four of them is a book (1 point), or a perfect book (2 points) if they are all different colours.  payoff 23453 (#2)
+  g4 greedy_omniscient  swiss_cheese           Your cheese is red. A hole is a patch of other colours completely surrounded by red (not touching the edge). Count the holes.  payoff 1003 (#6)
+  g5 saver              snap                   Shout Snap! for every pair of touching cells showing the same symbol.  payoff 34168 (#1)
+Featured: object 0, its busiest tension window (44 commits)
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t=  67.28 g4 Δσ   -8.8 s=[ 11.3   0.9   0.0   2.6   5.3   3.3]  Swap the colours of cells at (4,4) and (5,4).
+   t=  67.31 g4 Δσ  -11.3 s=[  6.3   0.9   0.0   2.6   0.0   2.3]  Give the 2x2 square at row 3, column 1 a quarter turn anticlockwise.
+   t=  67.49 g0 Δσ   +4.3 s=[  9.5   0.3   0.6   2.6   0.0   3.3]  Paint row 4 green, then sort row 4 biggest first.
+   t=  67.64 g4 Δσ   +9.5 s=[ 11.3   8.6   0.0   2.6   0.0   3.3]  Paint everything off the edge blue.
+ * t=  67.98 g4 Δσ   -3.0 s=[ 11.3   0.3   0.0   2.6   5.3   3.3]  Move every colour in ring 2 in from the edge 1 step along the rainbow.
+ * t=  68.02 g2 Δσ   -0.7 s=[ 11.3   0.3   4.7   2.6   0.0   3.3]  Turn every red cell in the whole grid green.
+ * t=  68.11 g1 Δσ   -1.2 s=[  9.5   0.6   4.7   2.6   0.3   3.3]  In row 5, paint even numbers blue and odd numbers red.
+ * t=  68.20 g4 Δσ   +0.5 s=[  9.5   0.6   0.1   2.6   5.4   3.3]  Move every colour in the 3x3 square at row 2, column 2 2 steps along the rainbow.
+ * t=  68.34 g3 Δσ   +0.9 s=[  9.5   0.6   0.1   3.6   5.4   3.3]  Slide the symbols of column 3 2 steps down, wrapping round.
+ * t=  68.47 g2 Δσ   -4.5 s=[  9.5   0.8   0.5   3.6   0.3   3.3]  Move every colour in row 3 1 step along the rainbow.
+ * t=  68.66 g5 Δσ   +2.6 s=[  9.5   0.8   0.5   3.6   0.3   6.0]  Treat blue cells as mines: every other cell in row 2 shows how many mines touch it, then in column 5, every number except the highest drops to the lowest one there.
+ * t=  68.79 g4 Δσ   +9.4 s=[  9.5  10.7   0.0   3.6   0.3   6.0]  Paint everything off the edge blue.
+ * t=  68.88 g1 Δσ   -1.6 s=[  8.0  10.5   0.0   3.6   0.3   6.0]  Reverse the colours of column 4, then paint the row or column with the most blue blue.
+ * t=  69.30 g2 Δσ   -8.6 s=[  3.7   4.3   1.9   3.6   0.3   6.0]  Paint the 2x2 square at row 2, column 2 green.
+ * t=  69.44 g1 Δσ   -0.9 s=[  3.7   3.4   1.9   3.6   0.3   6.0]  In row 5, paint even numbers blue and odd numbers red.
+ * t=  69.56 g3 Δσ   -0.3 s=[  3.7   3.4   1.9   4.6   0.3   4.6]  Write a counting run in row 1 starting at 8, counting down.
+ * t=  69.83 g5 Δσ   +0.2 s=[  3.7   3.4   2.1   4.6   0.3   4.6]  Treat blue cells as mines: every other cell in row 2 shows how many mines touch it, then in column 5, every number except the highest drops to the lowest one there.
+ * t=  69.90 g1 Δσ   +2.9 s=[  3.7   3.3   2.1   4.6   0.3   7.6]  If column 4 has fewer than 4 green cells: swap rows 1 and 5.
+ * t=  69.92 g2 Δσ  +23.3 s=[ 20.1   0.0  12.7   4.6   0.0   7.6]  Paint the whole grid green.
+ * t=  69.93 g0 Δσ   -5.6 s=[ 20.1   0.0   7.1   4.6   0.0   7.6]  Paint row 4 blue, yellow, blue, ... alternating.
+ * t=  70.08 g2 Δσ   -1.9 s=[ 20.1   0.0  11.6   1.2   0.0   4.6]  If column 2 is not all one colour: count every number in the 3x3 square at row 2, column 2 on by 6.
+ * t=  70.09 g1 Δσ   -3.8 s=[ 20.1   0.0  11.6   1.2   0.0   0.8]  Swap the colours of cells at (2,1) and (2,3), then stamp 9 on every blue cell in the whole grid.
+ * t=  70.11 g5 Δσ   +9.8 s=[ 20.1   0.0   5.9   0.3   0.0  17.2]  Write 3 in every cell of everything off the edge.
+ * t=  70.13 g3 Δσ   +9.4 s=[ 20.1   0.0   4.5   1.9   0.0  26.5]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5.
+ * t=  70.32 g2 Δσ   +1.4 s=[ 20.1   2.7   3.2   1.9   0.0  26.5]  Move every colour in row 3 1 step along the rainbow.
+ * t=  70.34 g0 Δσ   -8.3 s=[ 20.1   4.5   0.0   1.9   0.0  19.6]  Reverse the symbols of column 4, then paint the whole grid as a yellow/blue chessboard.
+ * t=  70.39 g1 Δσ   +1.9 s=[ 20.1   6.5   0.0   1.9   0.0  19.6]  Reverse the colours of column 4, then paint the row or column with the most blue blue.
+ * t=  70.48 g3 Δσ  -10.6 s=[ 20.1   7.1   0.0   2.6   0.0   7.6]  Slide the symbols of column 3 2 steps down, wrapping round.
+ * t=  70.50 g4 Δσ  -11.9 s=[  8.9   8.0   0.0   2.6   0.0   6.0]  Give the 2x2 square at row 3, column 1 a quarter turn anticlockwise.
+ * t=  70.64 g1 Δσ  +14.1 s=[  8.9  22.8   0.0   0.3   0.0   7.6]  Swap the colours of cells at (2,1) and (2,3), then stamp 9 on every blue cell in the whole grid.
+ * t=  70.80 g5 Δσ  +13.9 s=[  9.5  32.5   0.0   0.3   0.0  11.2]  Swap columns 2 and 4, then in row 3, paint even numbers green and odd numbers blue.
+ * t=  71.00 g4 Δσ  -14.3 s=[  9.5  15.2   3.1   0.3   0.0  11.2]  Move every colour in row 3 3 steps along the rainbow.
+ * t=  71.07 g3 Δσ   +5.1 s=[  9.5  14.1   1.6   1.9   0.0  17.2]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5.
+ * t=  71.13 g1 Δσ   -2.5 s=[  9.5  13.7   1.6   1.9   0.0  15.2]  If column 4 has fewer than 4 green cells: swap rows 1 and 5.
+ * t=  71.35 g2 Δσ  -13.2 s=[  3.7   4.9   2.9   1.9   0.0  15.2]  Paint column 4 as a rainbow starting green, backwards along the rainbow, then slide the colours of column 4 3 steps down, wrapping round.
+ * t=  71.43 g4 Δσ   +4.7 s=[  1.0   5.4   2.9   2.1   0.0  21.8]  If column 3 has fewer than 4 red cells: sort column 5 smallest first, then in the 3x3 square at row 2, column 1, every number except the highest drops to the lowest one there.
+ * t=  71.48 g5 Δσ   +5.5 s=[  1.0   3.4   0.9   2.1   0.0  31.3]  Write 3 in every cell of everything off the edge.
+ * t=  71.52 g2 Δσ  +13.3 s=[  1.0   5.4   4.5   2.1   0.0  38.9]  If column 2 is not all one colour: count every number in the 3x3 square at row 2, column 2 on by 6.
+ * t=  71.72 g1 Δσ   +2.9 s=[  2.6   8.4   2.9   2.1   0.0  38.9]  Reverse the colours of column 4, then paint the row or column with the most blue blue.
+ * t=  71.81 g3 Δσ   +6.8 s=[  2.6   7.7   6.6   5.8   0.0  38.9]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5.
+ * t=  71.82 g4 Δσ   -8.4 s=[  2.6   3.1   2.9   5.8   0.0  38.9]  Move every colour in ring 2 in from the edge 1 step along the rainbow.
+ * t=  72.05 g3 Δσ  +22.4 s=[  0.4   4.1   2.4  29.8   0.1  38.9]  Slide the colours of row 2 1 step right, wrapping round, then write 6 in every cell of ring 2 in from the edge.
+ * t=  72.10 g5 Δσ  -35.8 s=[  0.4   3.4   0.8  17.9   0.1  17.2]  Stamp 4 on every blue cell in column 2, then stamp 5 on every green cell in the whole grid.
+ * t=  72.31 g3 Δσ  -12.8 s=[  0.4   3.7   0.8  12.7   0.1   9.3]  Write a counting run in row 1 starting at 8, counting down.
+ * t=  72.39 g4 Δσ   +0.6 s=[  0.4   4.4   0.8  12.7   0.1   9.3]  Swap red and blue in ring 2 in from the edge.
+ * t=  72.44 g2 Δσ  +41.4 s=[ 20.1   0.0  27.0  12.7   0.0   9.3]  Paint the whole grid green.
+ * t=  72.58 g5 Δσ  +47.4 s=[ 20.1   0.0  22.9   0.0   0.0  73.6]  Stamp 4 on every blue cell in column 2, then stamp 5 on every green cell in the whole grid.
+ * t=  72.88 g3 Δσ   -8.2 s=[ 20.1   0.0  19.3   1.4   0.0  67.6]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5.
+   t=  73.05 g4 Δσ   -9.2 s=[ 20.1   0.0  10.1   1.4   0.0  67.6]  Move every colour in row 3 3 steps along the rainbow.
+   t=  73.53 g0 Δσ  -14.8 s=[ 20.1   5.9   0.0   1.4   0.0  57.0]  Reverse the symbols of column 4, then paint the whole grid as a yellow/blue chessboard.
+   t=  73.62 g5 Δσ  -18.1 s=[ 20.1   5.9   0.0   1.4   0.0  38.9]  Treat blue cells as mines: every other cell in row 2 shows how many mines touch it, then in column 5, every number except the highest drops to the lowest one there.
+   t=  73.68 g4 Δσ   -8.1 s=[ 11.3   6.6   0.0   1.4   0.0  38.9]  Swap the colours of cells at (4,4) and (5,4).
+
+t=67.6 σ=25.9         t=68.0 σ=22.9         t=69.9 σ=45.0         t=71.1 σ=41.8      
+ 8Y  7B  6Y  4B  4Y    8Y  7B  6Y  4B  4Y    6G  4G  5G  5G  0G    6Y  6B  6Y  6B  6Y
+ 0B  4B  6B  2B  0B    0B  4R  6R  2R  0B    0G  3G  3G  2G  0G    9B  9B  9B  9B  9B
+ 4R  5B  5B  1B  0Y    4R  5R  5B  1R  0Y    4G  5G  6G  1G  0G    9G  9G  5Y  3G  0Y
+ 8G  6B  5B  0B  0G    8G  6R  5R  0R  0G    8G  6G  6G  0G  0G    4Y  3Y  9B  9B  9B
+ 6Y  4B  7Y  5Y  1Y    6Y  4B  7Y  5Y  1Y    8G  7G  6G  5G  4G    6Y  9B  3Y  9B  0Y
+
+t=72.9 σ=108.3        t=73.7 σ=58.1      
+ 5G  5G  5G  5G  5G    5Y  5B  5Y  6B  5Y
+ 5G  5G  5G  5G  5G    5B  4Y  5B  4Y  5B
+ 5G  5G  5Y  5G  5G    5Y  5B  5Y  5B  5Y
+ 5G  5G  5G  5G  5G    5B  5Y  5B  5B  5B
+ 6G  6G  6G  6G  6G    6Y  6B  6Y  5Y  6Y

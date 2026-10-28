@@ -1,0 +1,59 @@
+## Grid(5,base10,rgby), seed 22, variant tend_pay+sel-1: 6 gods, 223 s, 15357 commits, 65 agents
+Gods (private rule; final payoff, rank):
+  g0 saver              mirrormancer           Count the rows whose colours read the same forwards and backwards.  payoff 22629 (#3)
+  g1 saver              seed1_line_painter     Every straight line of 2 or more blue cells touching in a row (across or down, or diagonally) scores the sum of its numbers.  payoff 13669 (#5)
+  g2 saver              treasure_map           Every green cell scores its number times how close it is to the middle (corners count nothing).  payoff 21801 (#4)
+  g3 saver              go_fish_books          Your fish is 6. Every 2×2 block of four of them is a book (1 point), or a perfect book (2 points) if they are all different colours.  payoff 74484 (#2)
+  g4 greedy_omniscient  swiss_cheese           Your cheese is red. A hole is a patch of other colours completely surrounded by red (not touching the edge). Count the holes.  payoff 1927 (#6)
+  g5 saver              snap                   Shout Snap! for every pair of touching cells showing the same symbol.  payoff 82273 (#1)
+Featured: object 7, spiral of 26 commits over 11.2 s, salience 47.6 -> 169.8 (+122.2 bits), 6 contributing owners (3 major, top owner 32%), 5 gods gain >= 1 bit, accel +0.12, retention 0.96
+
+Commits on the object (t, owner, Δ salience, surprisal per god after, program):
+   t= 194.00 g4 Δσ   -0.1 s=[  2.0   0.5   0.9  12.7   0.1  33.8]  Swap red and green in the outer edge.
+   t= 194.18 g4 Δσ   +1.9 s=[  2.0   0.5   2.9  12.7   0.0  33.8]  Move every colour in row 3 1 step along the rainbow.
+   t= 194.44 g4 Δσ   -2.4 s=[  2.0   0.5   0.4  12.7   0.1  33.8]  Move every colour in the 3x3 square at row 2, column 1 2 steps along the rainbow, but only if it raises my points on the object.
+   t= 194.55 g4 Δσ   -1.9 s=[  0.1   0.5   0.4  12.7   0.1  33.8]  Swap the cells at (1,4) and (1,5).
+ * t= 194.60 g3 Δσ  +19.4 s=[  0.1   0.6   1.2  26.1   0.1  38.9]  Slide the colours of row 2 1 step right, wrapping round, then write 6 in every cell of ring 2 in from the edge, but only if it raises my points on the object.
+ * t= 194.88 g4 Δσ   +1.8 s=[  0.1   0.6   3.1  26.1   0.0  38.9]  Swap red and green in the outer edge.
+ * t= 196.23 g2 Δσ   +0.0 s=[  0.1   0.6   3.1  26.1   0.0  38.9]  Write 9 in every cell of the centre cell.
+ * t= 196.29 g2 Δσ   +0.2 s=[  0.1   0.3   3.7  26.1   0.0  38.9]  Paint the 2x2 square at row 2, column 1 green.
+ * t= 196.51 g2 Δσ  +10.9 s=[  0.4   0.3  14.3  26.1   0.0  38.9]  Turn every red cell in the whole grid green, but only if it raises my points on the object.
+ * t= 196.85 g1 Δσ   +3.6 s=[  1.0   6.4   2.7  29.8   0.0  43.7]  Turn every green cell in ring 2 in from the edge blue, then swap rows 2 and 4.
+ * t= 197.27 g4 Δσ   +5.0 s=[  1.0   6.4   2.7  29.8   5.0  43.7]  Swap red and yellow in the outer edge, but only if it raises my points on the object.
+ * t= 197.53 g1 Δσ   +2.4 s=[  1.0  10.9   0.6  29.8   5.0  43.7]  If the cell at row 1, column 1 is not yellow: turn every green cell in the 2x2 square at row 2, column 2 blue.
+ * t= 197.56 g4 Δσ   +0.3 s=[  0.1   1.2   7.4  33.9   5.0  43.7]  Move every colour in the 3x3 square at row 2, column 1 3 steps along the rainbow, but only if it raises my points on the object.
+ * t= 197.74 g5 Δσ  +23.0 s=[  0.1   1.2   5.9  47.7   5.0  54.3]  Stamp 6 on every green cell in the whole grid, but only if it raises my points on the object.
+ * t= 198.53 g1 Δσ   +0.1 s=[  0.4   6.4   0.5  47.7   5.0  54.3]  If the cell at row 1, column 1 is not yellow: turn every green cell in the 2x2 square at row 2, column 2 blue.
+ * t= 198.75 g1 Δσ  -13.3 s=[  0.4   5.3   0.5  40.8   5.0  49.1]  If column 4 has fewer than 4 green cells: swap rows 1 and 5.
+ * t= 200.31 g4 Δσ   +0.6 s=[  1.0   5.3   0.5  40.8   5.0  49.1]  Swap the cells at (4,1) and (5,1).
+ * t= 201.45 g2 Δσ   +1.3 s=[  1.0   5.3   1.8  40.8   5.0  49.1]  Turn every yellow cell in the outer edge green.
+ * t= 201.82 g5 Δσ  +11.6 s=[  1.0   5.3   1.2  47.8   5.0  54.3]  Stamp 6 on every green cell in the whole grid, but only if it raises my points on the object.
+ * t= 201.89 g4 Δσ   -0.4 s=[  1.0   4.9   1.2  47.8   5.0  54.3]  Move every colour in row 5 1 step along the rainbow.
+ * t= 201.93 g4 Δσ   -4.4 s=[  2.0   0.3   0.1  47.8   5.2  54.3]  Move every colour in the 3x3 square at row 2, column 1 2 steps along the rainbow, but only if it raises my points on the object.
+ * t= 202.69 g3 Δσ   +0.3 s=[  2.6   0.3   0.1  47.8   5.0  54.3]  Slide the colours of row 2 1 step right, wrapping round, then write 6 in every cell of ring 2 in from the edge, but only if it raises my points on the object.
+ * t= 202.97 g2 Δσ   +4.5 s=[  6.3   0.3   1.6  47.8   4.3  54.3]  Paint row 4 green, then sort row 4 biggest first.
+ * t= 203.25 g4 Δσ   +6.9 s=[  6.3   0.3   7.4  51.0   2.3  54.3]  Move every colour in row 3 1 step along the rainbow.
+ * t= 203.90 g0 Δσ   +0.4 s=[ 20.1   0.0   5.2  44.3   3.3  49.1]  If some row or column has at least 3 green cells: swap rows 2 and 3, then mirror the whole grid right->left (colours), but only if it raises my points on the object.
+ * t= 204.46 g3 Δσ  +14.3 s=[ 20.1   0.0   8.1  47.8   3.3  57.0]  Swap yellow and green in the centre cell, then write 6 in every cell of row 5, but only if it raises my points on the object.
+ * t= 204.52 g1 Δσ   -1.0 s=[ 20.1   1.0   8.1  47.8   1.4  57.0]  In row 5, paint even numbers blue and odd numbers red.
+ * t= 204.99 g5 Δσ  +10.6 s=[  5.2   1.0  14.3  57.8   0.0  67.6]  Paint the 3x3 square at row 1, column 3 green, then swap rows 1 and 4.
+ * t= 205.07 g4 Δσ   +1.9 s=[  5.2   2.9  14.3  57.8   0.0  67.6]  Swap red and blue in ring 2 in from the edge, but only if it raises my points on the object.
+ * t= 205.82 g0 Δσ  +22.0 s=[ 20.1   2.6  21.8  57.8   0.0  67.6]  Swap the cells at (4,3) and (5,1), then mirror the whole grid right->left (colours), but only if it raises my points on the object.
+   t= 206.83 g4 Δσ   -7.5 s=[ 20.1   2.6   9.0  57.8   5.3  67.6]  Swap red and green in the outer edge.
+   t= 207.30 g1 Δσ   -5.2 s=[ 14.9   2.6   9.0  57.8   5.2  67.6]  Reverse the colours of column 4, then paint the row or column with the most blue blue.
+   t= 207.39 g4 Δσ  -11.1 s=[ 14.9   2.6   9.0  54.6   5.2  59.7]  Swap the cells at (1,4) and (1,5).
+   t= 209.55 g1 Δσ   -9.7 s=[  8.0   7.2   1.6  54.6   5.2  59.7]  If the cell at row 1, column 1 is not yellow: turn every green cell in the 2x2 square at row 2, column 2 blue.
+
+t=194.6 σ=47.6        t=194.6 σ=67.1        t=197.6 σ=91.2        t=202.7 σ=110.1    
+ 9Y  3B  6Y  6Y  6B    9Y  3B  6Y  6Y  6B    9R  3B  6R  6R  6B    6B  6R  6R  6R  6R
+ 6G  6G  6R  6Y  3B    6B  6G  6G  6R  3Y    9Y  6G  6G  6B  6B    6B  6R  6Y  6Y  6B
+ 9R  3G  3R  3Y  3Y    9R  6G  3R  6Y  3Y    9Y  6G  9G  6Y  3R    6R  6Y  6Y  6Y  3R
+ 9R  3R  3R  3B  6B    9R  6R  6R  6B  6B    6Y  6G  6G  6B  3R    9G  6R  6R  6B  3R
+ 6B  6Y  6Y  6Y  6Y    6B  6Y  6Y  6Y  6Y    6B  6R  6R  6R  6R    6B  3R  6Y  6Y  6R
+
+t=205.8 σ=169.8       t=209.6 σ=136.3    
+ 9G  6G  6G  6G  3G    9R  6R  6R  3R  6B
+ 6G  6G  6G  6G  3G    6R  6B  6B  6G  3R
+ 6G  6G  6G  6G  6G    6R  6B  6B  6G  6R
+ 6G  6G  6B  6G  6G    6R  6G  6B  6G  6R
+ 6B  6B  6B  6B  6B    6B  6B  6B  6B  6B
