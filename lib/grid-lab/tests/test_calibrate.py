@@ -155,6 +155,37 @@ def test_joint_and_synergy():
     assert abs(sii - si) < 1.0, (sii, si)
 
 
+def test_tuple_ordinals():
+    """A tuple ordinal calibrates exactly like an int ordinal with the same order: wrapping a toy as
+    (count, 0) under the same family id (same seed) gives the identical table; a real tuple family's
+    estimated table matches its exact multinomial tail; batch (B, k) lookups agree with scalar ones."""
+    from dataclasses import replace
+    from gridlab.rules import by_id
+    tup_fam = replace(COLOUR_COUNT_EST, ordinal=lambda g, p, gt: (COLOUR_COUNT_EST.ordinal(g, p, gt), 0),
+                      batch=lambda s, c, p, gt: np.stack([COLOUR_COUNT_EST.batch(s, c, p, gt),
+                                                          np.zeros(len(s), np.int64)], axis=1))
+    for gt in (GT5, GT7):
+        a = cal.build_table(Draw(COLOUR_COUNT_EST, {"colour": 1}), gt)
+        b = cal.build_table(Draw(tup_fam, {"colour": 1}), gt)
+        assert b.levels.dtype.kind == "S" and len(a.levels) == len(b.levels)
+        assert np.array_equal(a.log2p, b.log2p), gt.key
+        for t in range(-1, gt.N * gt.N + 3):
+            assert a.surprisal(t) == b.surprisal((t, 0)), (gt.key, t)
+        assert b.surprisal((3, 5)) == a.surprisal(3) and b.surprisal((3, -5)) == a.surprisal(2)
+    f = by_id("seed3_green_ones")
+    d = Draw(f, f.sample(np.random.default_rng(0), GT5))
+    est, ex = cal.survival(d, GT5, use_exact=False), cal.survival(d, GT5)
+    for t in est.levels[::3]:
+        e, s = ex.surprisal(t), est.surprisal(t)
+        if e <= 50:
+            assert abs(e - s) < max(1.0, 3 * est.stderr(t)), (t, e, s)
+    sym, col = spawn_batch(GT5, np.random.default_rng(1), 300)
+    u = f.evaluate_batch(sym, col, d.params, GT5)
+    assert u.shape == (300, 2)
+    vec = est.surprisal(u)
+    assert all(abs(vec[i] - est.surprisal(tuple(int(x) for x in u[i]))) < 1e-12 for i in range(300))
+
+
 def main():
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

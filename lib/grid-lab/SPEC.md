@@ -31,7 +31,7 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 
 | Symbol | Name | Code name | Meaning | Resonance |
 |---|---|---|---|---|
-| u_i : T → ℤ | **utility function** (returns an **ordinal utility**) | `ordinal` | Rule output; only its order matters. Ties allowed. | Ordinal utility / utility representation theorem (decision theory) |
+| u_i : T → ℤ or ℤᵏ (lexicographic) | **utility function** (returns an **ordinal utility**) | `ordinal` | Rule output; only its order matters. Ties allowed. | Ordinal utility / utility representation theorem (decision theory) |
 | U_i(x) = {y : u_i(y) ≥ u_i(x)} | **upper contour set** | `contour` | Everything at least as good as x for god i. | Microeconomics (preference upper contour sets) |
 | μ | **prior** | `prior` | Reference measure: the grid type's uniform spawn distribution. | Bayesian prior / base measure |
 | G_i(t) = μ{u_i ≥ t} | **survival function** | `Survival` | Tail mass of god i's ordinal under the prior. | Statistics (survival / complementary CDF) |
@@ -54,7 +54,7 @@ Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "poin
 | File | Owner | Contract |
 |---|---|---|
 | `gridlab/core.py` | coordinator (done) | `GridType`, `Grid`, `Requires`/`req`, `spawn`, `spawn_batch`, `D4`, `lines`, `neighbours4`, `all_grid_types`. Encodings documented in the module docstring. |
-| `gridlab/family.py` | coordinator (done) | `Family`, `Draw`, `lex`. |
+| `gridlab/family.py` | coordinator (done) | `Family`, `Draw`, `Ordinal` (int or fixed-length int tuple), `ordinal_keys`, `dense_rank`. |
 | `gridlab/rules/*.py`, `gridlab/rules/__init__.py` | rules worker | `FAMILIES: list[Family]`, `by_id(id)`. All brainstorm rules converted to ordinal form. |
 | `gridlab/calibrate.py` | engine worker | `survival(draw, gtype) -> Survival` with `.surprisal(t) -> float` (bits, ≥ 0, non-decreasing in t), `.log2_tail(t)`, `.max_observed_bits`; deterministic (seeded from a stable hash of family id, canonical params, gtype key, estimator version); disk cache under `lib/grid-lab/.cache/` (gitignored). Monte Carlo body + multilevel splitting tail; uses `exact_log2_tail` when provided. |
 | `gridlab/mutators.py`, `gridlab/program.py` | mutator worker | `MUTATORS: list[Mutator]`; `Mutator(id, name, summary, requires, sample(rng, gtype)->params, cost(params, gtype)->float bits, apply(grid, params, gtype, rng)->Grid|None)`. `Program(guard, steps)` = an agent, with `.cost(gtype)`, `.apply(grid, gtype, rng)->Grid|None`, `.describe(gtype)`; `random_program(rng, gtype, ...)` and enumeration helpers for policies. |

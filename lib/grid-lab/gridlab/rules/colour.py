@@ -22,14 +22,13 @@ def _plur_batch(L, C):
 
 # --- Stripe Painter (merged with Zebra) --------------------------------------------------------------
 def sp_ord(g, p, gtype):
-    N = gtype.N
     s, prev, plur = 0, -1, 0
     for ln in _lines2(g.col, p["axis"]):
         solid = len(set(ln)) == 1
         s += solid and ln[0] != prev
         prev = ln[0] if solid else -1
         plur += _plur(ln)
-    return lex((s, N + 1), (plur, N * N + 1))
+    return tup(s, plur)
 
 
 def sp_batch(sym, col, p, gtype):
@@ -42,7 +41,7 @@ def sp_batch(sym, col, p, gtype):
     for i in range(N):
         s += solid[:, i] & (first[:, i] != prev)
         prev = np.where(solid[:, i], first[:, i], -1)
-    return lexb((s, N + 1), (_plur_batch(L, gtype.C).sum(1), N * N + 1))
+    return tupb(s, _plur_batch(L, gtype.C).sum(1))
 
 
 def sp_exemplar(p, gtype):
@@ -71,7 +70,7 @@ def ff_ord(g, p, gtype):
             ns = [col[a][b] for a, b in nbrs4(N, r, c)]
             sx += col[r][c] == X and Y not in ns
             sy += col[r][c] == Y and X not in ns
-    return lex((min(sx, sy), N * N + 1), (sx + sy, 2 * N * N + 1))
+    return tup(min(sx, sy), sx + sy)
 
 
 def _nbr_has(col, k):
@@ -82,10 +81,10 @@ def _nbr_has(col, k):
 
 
 def ff_batch(sym, col, p, gtype):
-    N, X, Y = gtype.N, p["X"], p["Y"]
+    X, Y = p["X"], p["Y"]
     sx = ((col == X) & ~_nbr_has(col, Y)).sum((1, 2))
     sy = ((col == Y) & ~_nbr_has(col, X)).sum((1, 2))
-    return lexb((np.minimum(sx, sy), N * N + 1), (sx + sy, 2 * N * N + 1))
+    return tupb(np.minimum(sx, sy), sx + sy)
 
 
 def ff_exemplar(p, gtype):
@@ -128,11 +127,11 @@ def cm_ord(g, p, gtype):
                 s += ok
             else:
                 s += P1 in ns and P2 in ns
-    return lex((s, N * N + 1), (near, N * N + 1))
+    return tup(s, near)
 
 
 def cm_batch(sym, col, p, gtype):
-    N, P1, M, P2 = gtype.N, p["P1"], p["M"], p["P2"]
+    P1, M, P2 = p["P1"], p["M"], p["P2"]
     isM = col == M
     h1, h2 = _nbr_has(col, P1), _nbr_has(col, P2)
     if p["strict"]:
@@ -142,7 +141,7 @@ def cm_batch(sym, col, p, gtype):
             ok |= ((a == P1) & (b == P2)) | ((a == P2) & (b == P1))
     else:
         ok = h1 & h2
-    return lexb(((isM & ok).sum((1, 2)), N * N + 1), ((isM & (h1 | h2)).sum((1, 2)), N * N + 1))
+    return tupb((isM & ok).sum((1, 2)), (isM & (h1 | h2)).sum((1, 2)))
 
 
 def cm_sample(rng, gtype):
@@ -185,7 +184,7 @@ def fw_ord(g, p, gtype):
         d = max(n) - min(n)
         fair += d <= 1
         spread += d
-    return lex((fair, 2 * N + 1), (2 * N * N - spread, 2 * N * N + 1))
+    return tup(fair, 2 * N * N - spread)
 
 
 def fw_batch(sym, col, p, gtype):
@@ -193,7 +192,7 @@ def fw_batch(sym, col, p, gtype):
     L = lines_rc(col, "both")
     n = np.stack([(L == k).sum(2) for k in range(gtype.C)], 2)
     d = n.max(2) - n.min(2)
-    return lexb(((d <= 1).sum(1), 2 * N + 1), (2 * N * N - d.sum(1), 2 * N * N + 1))
+    return tupb((d <= 1).sum(1), 2 * N * N - d.sum(1))
 
 
 FAIR_WEAVER = mk(
@@ -327,7 +326,7 @@ def fb_ord(g, p, gtype):
         other = max(n[k] for k in range(gtype.C) if k != C)
         s += n[C] > other
         marg += n[C] - other + N
-    return lex((s, N + 1), (marg, 2 * N * N + 1))
+    return tup(s, marg)
 
 
 def fb_batch(sym, col, p, gtype):
@@ -335,7 +334,7 @@ def fb_batch(sym, col, p, gtype):
     L = lines_rc(col, p["axis"])
     n = np.stack([(L == k).sum(2) for k in range(gtype.C)], 2)
     other = np.delete(n, C, axis=2).max(2)
-    return lexb(((n[:, :, C] > other).sum(1), N + 1), ((n[:, :, C] - other + N).sum(1), 2 * N * N + 1))
+    return tupb((n[:, :, C] > other).sum(1), (n[:, :, C] - other + N).sum(1))
 
 
 FLAG_BEARER = mk(
@@ -420,16 +419,15 @@ def ss_ord(g, p, gtype):
         ok = [0 <= ln[i + 1] - ln[i] <= 1 for i in range(N - 1)]
         good += sum(ok)
         s += all(ok) and len(set(ln)) >= 3
-    return lex((s, N + 1), (good, N * (N - 1) + 1))
+    return tup(s, good)
 
 
 def ss_batch(sym, col, p, gtype):
-    N = gtype.N
     a = orient(col, p["dir"]).astype(np.int64)
     d = a[:, :, 1:] - a[:, :, :-1]
     ok = (d >= 0) & (d <= 1)
     distinct = 1 + (d == 1).sum(2)  # monotone steps of 0/+1: distinct colours = 1 + number of +1 steps
-    return lexb(((ok.all(2) & (distinct >= 3)).sum(1), N + 1), (ok.sum((1, 2)), N * (N - 1) + 1))
+    return tupb((ok.all(2) & (distinct >= 3)).sum(1), ok.sum((1, 2)))
 
 
 SUNSET_SKY = mk(
@@ -541,18 +539,18 @@ def tf_ord(g, p, gtype):
             for r2, c2 in ((r, c + 1), (r + 1, c)):
                 if r2 < N and c2 < N and {col[r][c], col[r2][c2]} == {A, B} and k[r][c] == k[r2][c2]:
                     gated += 1
-    return lex((gated, 2 * N * (N - 1) + 1), (_seams_scalar(col, N, A, B), 2 * N * (N - 1) + 1))
+    return tup(gated, _seams_scalar(col, N, A, B))
 
 
 def tf_batch(sym, col, p, gtype):
-    N, A, B = gtype.N, p["A"], p["B"]
+    A, B = p["A"], p["B"]
     k = rank_key(sym, gtype)
 
     def pr(x, y):
         return ((x == A) & (y == B)) | ((x == B) & (y == A))
     g = (pr(col[:, :, :-1], col[:, :, 1:]) & (k[:, :, :-1] == k[:, :, 1:])).sum((1, 2)) + \
         (pr(col[:, :-1, :], col[:, 1:, :]) & (k[:, :-1, :] == k[:, 1:, :])).sum((1, 2))
-    return lexb((g, 2 * N * (N - 1) + 1), (_seams_batch(col, A, B), 2 * N * (N - 1) + 1))
+    return tupb(g, _seams_batch(col, A, B))
 
 
 TWIN_FRIENDS = mk(

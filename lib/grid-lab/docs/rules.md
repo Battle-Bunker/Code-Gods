@@ -10,7 +10,7 @@ over `(B, N, N)`), an independent scalar `ordinal`, and an `exemplar`. 68 have `
 
 ## 1. How the brainstorm was converted
 
-An ordinal utility is an `int` where only the order matters. Each rule was converted in four steps.
+An ordinal utility is an `int`, or a fixed-length tuple of ints compared lexicographically, where only the order matters. Each rule was converted in four steps.
 
 1. **Drop monotone calibration.** All `[0,1]` normalisation, `÷ max`, squaring, cubing, `count²`, `×2`, `+5 per parade`
    and bonuses that never reorder grids were removed. Examples: Bridge Builder's `2N` for a full crossing (span `N`
@@ -28,7 +28,7 @@ An ordinal utility is an `int` where only the order matters. Each rule was conve
    - Castle Keeper requires MinSize 4, and Rainbow Roads requires MinColours 4.
 3. **Add a lexicographic tie-breaker where the raw score is coarse.** "Coarse" means most random grids tie, usually at 0
    (catalog §2b "High"). The tie-breaker measures *partial progress toward the same goal*, and the primary score
-   always dominates (`lex((primary, P), (secondary, S))`). So the top state and the meaning of the rule are unchanged.
+   always dominates (the ordinal is the tuple `(primary, secondary)`, built with `tup` / `tupb` in `_util.py`). So the top state and the meaning of the rule are unchanged.
    What changes is that the upper contour sets below the top form a smooth ladder of rarer and rarer events, so
    surprisal is informative off the jackpot too. Every tie-breaker is listed in the table. The patterns are:
    - *half-tokens*: a cell matching one of the two required attributes (Seed 3, Lucky Token, Rook's Watch);
@@ -70,7 +70,7 @@ An ordinal utility is an `int` where only the order matters. Each rule was conve
    map statistically (KS test on 2000 + 2000 random grids, α ≈ 1e-6) and check that it is idempotent.
 
 Exact tails (`exact_log2_tail`) exist for:
-- Seed 3 and Lucky Token: the multinomial of tokens and half-tokens, so the lex order is handled exactly;
+- Seed 3 and Lucky Token: the multinomial of tokens and half-tokens, so the tuple order is handled exactly;
 - Conqueror (both weights), Homebody and Parity Painter: exact convolution of the per-cell laws;
 - Picture Frame: `−(4N−4)·log₂K`;
 - Number Painter and Colour-by-Number: binomial.
@@ -83,8 +83,9 @@ The tests check each one against the empirical tail.
 - games.md's `suit` is the printed suit for cards and the colour elsewhere (Rummy, Flush Royale, Go Fish).
 - Rainbow order wraps (`c+1 mod K`) on every Spectral set, following the catalog D1 verdict (Rainbow Road, Rainbow
   Steps). Sunset Sky and Rainbow Roads do not wrap.
-- Ordinals may be negative for Conqueror, Homebody, Parity Painter and Robin Hood. Every `lex` component lies in
-  `[0, bound)` with GridType-dependent bounds.
+- Ordinals may be negative for Conqueror, Homebody, Parity Painter and Robin Hood. Tuple components need no
+  bounds and may be negative. A family's tuple length is the same in every GridType (Sudoku Scholar at N ≤ 4
+  returns `(all_distinct, 0)` and Column Addition `(0, 0)` for an all-zero top row to keep the length fixed).
 
 **Exemplars.** Most are closed-form constructions (checkerboards, stripes, rings, addition tables, circulants
 summing to T, Lo Shu, Latin squares). Where the optimum has no simple form, the exemplar is the best grid found by a
@@ -103,7 +104,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 
 ### seeds.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `seed1_line_painter` **seed** ★ | Line Painter | C+S+P | clumper | Valued | Σ value over cells in maximal runs (len ≥ 2) of colour X along rows, cols (+ all diagonals if diag); a cell counts once per direction | — | S_k colours (X→0) | canon | seed rule 1 / catalog#13 (D7: colour=mine, runs>=2, diag option) |
 | `seed2_patchwork` **seed** ★ | Patchwork | C+S+P | alternator | Valued | Σ size×value over same-rank 4-regions of size ≥ 2 with no orthogonally adjacent equal colours inside | — | none needed (no params) | — | seed rule 2 / catalog#12 (min region size 2; cards compare rank) |
@@ -111,7 +112,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 
 ### strategy.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `rainbow_road` ★ | Rainbow Road | C+P | alternator | Spectral | #lines read in direction D where every step is c→c+1 mod K | #good steps | D4 (dir→→) | canon | catalog#1 (D1, strat#4 line version; wrap on every Spectral set); tie-breaker = rainbow steps |
 | `border_baron` ★ | Border Baron | C+P | clumper | generic | #edges between two different same-colour regions both of size ≥ K | Σ over region borders of min(size_a, size_b, K) | — | — | catalog#2 (strat#1); tie-breaker = Σ min(size_a, size_b, K) over country borders |
@@ -130,7 +131,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 
 ### geometry.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `castle_keeper` ★ | Castle Keeper | C+P | clumper | N>=4 | non-W cells the border flood can't reach: count (plain) / count of T cells (treasure) / count + 3·pockets (eyes) | #W cells on the rim | S_k colours ((W,T)→(0,1)) | canon | catalog#4 (D4: geo#5 + games#8 Go Territory; treasure and eyes variants; MinSize 4); tie-breaker = wall cells on the rim |
 | `chessmaster` ★ | Chessmaster | C+P | alternator | generic | #2×2 windows that are A/B checkerboards | #A–B seams | S_k colours | canon | catalog#6 (D2 windows, geo#8); tie-breaker = A–B seams (Best Friends) |
@@ -147,15 +148,15 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `constellation` | Constellation | S+P | clumper | generic | size of the largest 8-connected cluster of rank S | — | S_ranks (→0) | canon | geo#13 (8-connectivity; cards sample a rank) |
 | `rainbow_roads` | Rainbow Roads | C+P | alternator | Spectral, colours>=4 | #complete 4-connected roads colour 0→1→…→K−1 (DP, no wrap) | — | — | — | geo#14 (catalog D1 'roads'; NEW MinColours 4) |
 | `paint_mixer` | Paint Mixer | C+P | alternator | Mixable | Σ over mixed-colour cells of [left/right = its parents] + [up/down = its parents] | #mixed cells touching a parent | — | — | geo#15 (catalog D12 'strict', both axes) |
-| `colour_carousel` | Colour Carousel | C+P | alternator | Wheel, N>=4 | lex(border loop all steps 0/+1 and ≥ 1 full lap, #advancing steps, #0/+1 steps) | (inside the lex) | D4 (dir→cw) | canon | geo#18 (catalog fix: count only advancing steps; full lap ranked first) |
+| `colour_carousel` | Colour Carousel | C+P | alternator | Wheel, N>=4 | (border loop all steps 0/+1 and ≥ 1 full lap, #advancing steps, #0/+1 steps) | (inside the tuple) | D4 (dir→cw) | canon | geo#18 (catalog fix: count only advancing steps; full lap ranked first) |
 | `gravity` | Falling Sand | C+P | clumper | generic | #X cells with only X below them in their column | — | S_k colours | canon | geo cross-lens idea 'Gravity / falling sand' |
 | `swiss_cheese` | Swiss Cheese | C+P | clumper | N>=4 | #non-X 4-regions not touching the border (holes) | #X cells on the rim | S_k colours | canon | geo cross-lens idea 'Hole counting (Euler number)'; tie-breaker = rim cells of your colour |
-| `mountain_climb` | Mountain Climb | S+P | alternator | Valued | lex(+1-step path from top-left reaches bottom-right, length of longest +1 path from top-left) | (inside the lex) | — | — | geo cross-lens idea 'climb the mountain' (+1 steps from the top-left corner) |
+| `mountain_climb` | Mountain Climb | S+P | alternator | Valued | (+1-step path from top-left reaches bottom-right, length of longest +1 path from top-left) | (inside the tuple) | — | — | geo cross-lens idea 'climb the mountain' (+1 steps from the top-left corner) |
 | `treasure_map` | Treasure Map | C+S+P | clumper | Valued | Σ over X cells of value × doubled closeness to the centre | — | S_k colours | canon | geo cross-lens idea 'distance-weighted rules' (value × doubled closeness to centre, your colour) |
 
 ### arithmetic.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `straight_shooter` ★ | Straight Shooter | C+S+P | alternator | Ranked, Valued | Σ L² over maximal ±1 runs (L ≥ 3) in rows L→R and cols T→B, ×2 if flush and monochrome; aceHigh option | #counting steps | rot180 (step→+1) | canon | catalog#9 (D11: arith#2 + games#3; flush and aceHigh); tie-breaker = counting steps |
 | `number_bonds` ★ | Number Bonds | C+S+P | clumper | Valued | #adjacent pairs with v1+v2 = V+1 (cards 14) satisfying colour mode any/same/different | — | — | — | catalog#10 (arith#3; T = V+1, cards 14) |
@@ -180,7 +181,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 
 ### colour.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `stripe_painter` ★ | Stripe Painter | C+P | clumper | generic | #lines that are monochrome and differ from the previous solid line (col code) | Σ per-line plurality | D4 (cols→rows) | canon | catalog#17 (D3: col#2 + geo#7 Zebra, col code); tie-breaker = Σ per-line plurality |
 | `feuding_families` ★ | Feuding Families | C+P | clumper | generic | min(#X with no Y neighbour, #Y with no X neighbour) (×2 dropped) | #safe X + #safe Y | S_k colours | canon | catalog#18 (col#11; ×2 dropped); tie-breaker = total safe cells |
@@ -201,7 +202,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 
 ### games.py
 
-| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (lex) | invariance → canonical | extras | source |
+| id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `rummy_melder` ★ | Rummy Melder | C+S+P | neutral | Ranked, Valued | Σ value over cells in a set (equal rank, 3 suits) or run (+1,+1, one suit) 3-window along dir | #half-melds (adjacent pairs) | D4 (cols→rows) | canon | catalog#3 (games#4; suits = colours outside cards); tie-breaker = half-melds (adjacent pairs) |
 | `othello_sandwich` ★ | Othello Sandwich | C+P | alternator | generic | #X ? X triples with exactly one non-X cell between (rows, cols, + diagonals) | — | S_k colours | canon | catalog#7 (games#7 with the catalog fix: exactly one cell between) |
@@ -293,7 +294,7 @@ distance. For the ordinal pipeline, each should return the **integer before norm
   reason the top is not unique.
 - **`palette-keeper` is not a function of one integer.** It returns `0.7^|distinct − c| × min(1, len/32)`, a product
   of two factors, so its order mixes distinct-count distance with length. As an ordinal, use
-  `lex((−|distinct − c|, ·), (min(len, 32), 33))` or keep the product exactly, but not both. The other
+  the tuple `(−|distinct − c|, min(len, 32))` or keep the product exactly, but not both. The other
   `base^(−distance)` families (`numerologist`, `tallykeeper`, `haiku-master`, `scale-keeper`) are just `−|Δ|`.
 - `smooth-operator` (`log2(smooth part)⁴`) is a real-valued monotone transform of the integer smooth part. Use the
   smooth part, or `⌊log2⌋` if ties should be coarser.
@@ -316,8 +317,8 @@ about 70–110k grids/s after the labeller rewrite requested in NOTES.md.
   in mind for: Border Baron, Castle Keeper (eyes), Swiss Cheese, Rainbow Roads, Othello, Colour Mixer, Feuding
   Families, King's Court, Fillomino, Mountain Climb, Young Tableau, Honest Minesweeper (pattern search) and Tetromino
   Tamer (greedy packing).
-- Lex ordinals have many distinct levels. Seed 3, for example, has (N²+1)² packed values. Calibration tables should
-  key levels by observed values, not assume a small dense range.
+- Tuple ordinals have many distinct levels. Seed 3, for example, has up to (N²+1)² values. Calibration tables key
+  levels by observed values (ordinal keys), never by a dense range.
 - Fair Weaver at N = 3 with rainbow6, Bridge Builder, Mirrormancer (colour, small N), Lantern Lighter and Sudoku at
   N ≤ 4 have low ceilings (5–16 bits). This is inherent and was left unpatched (catalog §4.6 #8): the dealer should
   weigh it.

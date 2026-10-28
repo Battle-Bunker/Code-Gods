@@ -16,6 +16,10 @@ Estimator (ESTIMATOR_VERSION below; see docs/engine.md for error behaviour):
     can climb (the ordinal's maximum has been reached or is unreachable by the kernel).
   * Exact: if the family supplies `exact_log2_tail`, lookups use it (estimation still possible via
     `survival(..., use_exact=False)`, which the tests use for the cross-check).
+  * Ordinals may be ints or fixed-length tuples (lexicographic). Internally every ordinal is
+    turned into its *key* (`family.ordinal_keys`: int64 for ints, an order-preserving byte string
+    for tuples), so levels are simply the observed key values, compared natively by numpy and
+    Python. No bounds or packing are involved; dense integer ranks are never stored.
   * Lookup: `log2_tail(t)` uses the largest level <= t (conservative: never claims more bits than an
     observed level supports). Below the smallest level: 0 bits.
   * Extrapolation above the highest observed level: s(max level) + 1 bit per further *known*
@@ -36,7 +40,7 @@ import math
 import multiprocessing as mp
 import os
 import pickle
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Callable, Optional, Sequence
@@ -44,9 +48,10 @@ from typing import Callable, Optional, Sequence
 import numpy as np
 
 from .core import Grid, GridType
-from .family import Draw, Family
+from .family import Draw, Family, key_to_ordinal, ordinal_key, ordinal_keys
 
-ESTIMATOR_VERSION = 1
+# 2: ordinals may be tuples; levels are ordinal keys (lex-packed ints before).
+ESTIMATOR_VERSION = 2
 EXTRAP_CAP_BITS = 4.0
 LN2 = math.log(2.0)
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "survival"
@@ -152,20 +157,23 @@ def rng_from(hexkey: str) -> np.random.Generator:
 class Survival:
     """Survival function G(t) = μ{u >= t} as a step table over observed ordinals.
 
-    levels: strictly increasing int64 ordinals; log2p: log2 G(level), non-increasing, <= 0;
+    Lookups accept an ordinal (int or tuple), its key, or a batch: a (B,) / (B, k) array as returned
+    by `Family.evaluate_batch`, or a 1-D array of keys.
+    levels: strictly increasing ordinal keys (int64, or bytes for tuple ordinals); log2p: log2 G(level), non-increasing, <= 0;
     stderr_bits: standard error of -log2p in bits at each level (0 where exact)."""
 
     def __init__(self, key: str, levels, log2p, stderr_bits, extra_levels=(), meta=None,
                  exact: Optional[Callable[[int], float]] = None):
         self.key = key
-        self.levels = np.asarray(levels, dtype=np.int64)
+        levels = np.asarray(levels)
+        self.levels = levels if levels.dtype.kind == "S" else levels.astype(np.int64)
         self.log2p = np.minimum.accumulate(np.minimum(np.asarray(log2p, dtype=np.float64), 0.0))
         self.stderr_bits = np.asarray(stderr_bits, dtype=np.float64)
-        self.extra_levels = np.asarray(sorted(int(x) for x in extra_levels if x > self.levels[-1]),
-                                       dtype=np.int64)
+        self.extra_levels = np.asarray(sorted(ordinal_key(x) for x in extra_levels if ordinal_key(x) > self.levels[-1]),
+                                       dtype=self.levels.dtype)
         self.meta = dict(meta or {})
         self.exact = exact
-        self._exact_memo: dict[int, float] = {}
+        self._exact_memo: dict = {}
         self._lv = self.levels.tolist()
         self._lp = self.log2p.tolist()
         self._ex = self.extra_levels.tolist()
@@ -179,29 +187,32 @@ class Survival:
     def floor_bits(self) -> float:
         return self.max_observed_bits
 
-    def _scalar_log2(self, t: int) -> float:
+    def _scalar_log2(self, t) -> float:
+        """t: one ordinal key (int or bytes)."""
         if self.exact is not None:
             v = self._exact_memo.get(t)
             if v is None:
-                v = min(0.0, float(self.exact(t)))
+                v = min(0.0, float(self.exact(key_to_ordinal(t))))
                 self._exact_memo[t] = v
             return v
         lv = self._lv
         if t > lv[-1]:
-            j = bisect_right(self._ex, t - 1) if self._ex else 0  # extras strictly below t
+            j = bisect_left(self._ex, t) if self._ex else 0  # extras strictly below t
             return self._lp[-1] - min(1.0 + j, EXTRAP_CAP_BITS)
         i = bisect_right(lv, t) - 1
         return 0.0 if i < 0 else self._lp[i]
 
+    @staticmethod
+    def _is_scalar(t) -> bool:
+        return isinstance(t, (int, tuple, bytes, np.integer)) or (isinstance(t, np.ndarray) and t.ndim == 0)
+
     def log2_tail(self, t):
-        """log2 μ{u >= t}; scalar or array."""
-        if isinstance(t, int):
-            return self._scalar_log2(t)
-        if np.ndim(t) == 0:
-            return self._scalar_log2(int(t))
-        t = np.asarray(t, dtype=np.int64)
+        """log2 μ{u >= t}; scalar (an ordinal or key) or a batch (see the class docstring)."""
+        if self._is_scalar(t):
+            return self._scalar_log2(ordinal_key(t.item() if isinstance(t, np.ndarray) else t))
+        t = ordinal_keys(t)
         if self.exact is not None:
-            return np.array([self._scalar_log2(int(x)) for x in t.ravel()]).reshape(t.shape)
+            return np.array([self._scalar_log2(ordinal_key(x)) for x in t.tolist()])
         i = np.searchsorted(self.levels, t, side="right") - 1
         out = np.where(i < 0, 0.0, self.log2p[np.clip(i, 0, None)])
         above = t > self.levels[-1]
@@ -212,8 +223,8 @@ class Survival:
 
     def surprisal(self, t):
         """Bits, >= 0, non-decreasing in t; scalar or array."""
-        if isinstance(t, int):
-            return 0.0 - self._scalar_log2(t)
+        if isinstance(t, (int, tuple)):
+            return 0.0 - self._scalar_log2(ordinal_key(t))
         v = self.log2_tail(t)
         return 0.0 - v if np.ndim(v) == 0 else 0.0 - np.asarray(v)
 
@@ -221,7 +232,7 @@ class Survival:
         """Standard error (bits) of the surprisal at ordinal t (0 when exact)."""
         if self.exact is not None:
             return 0.0
-        i = bisect_right(self._lv, int(t)) - 1
+        i = bisect_right(self._lv, ordinal_key(t)) - 1
         return 0.0 if i < 0 else float(self.stderr_bits[min(i, len(self._lv) - 1)])
 
     def __repr__(self):
@@ -344,19 +355,22 @@ def split(score: ScoreFn, sym: np.ndarray, col: np.ndarray, vals: np.ndarray, le
 # ------------------------------------------------------------------------------------------------
 def _score_fn(draw: Draw, gtype: GridType, params=None) -> ScoreFn:
     f, p = draw.family, (draw.params if params is None else params)
-    return lambda s, c: f.evaluate_batch(s, c, p, gtype)
+    return lambda s, c: f.evaluate_keys(s, c, p, gtype)
 
 
 def _mc_samples(score: ScoreFn, gtype: GridType, rng: np.random.Generator, n: int, chunk: int = 1 << 14):
     N = gtype.N
     S = np.empty((n, N, N), np.uint8)
     C = np.empty((n, N, N), np.uint8)
-    V = np.empty(n, np.int64)
+    V = None
     for a in range(0, n, chunk):
         b = min(n, a + chunk)
         S[a:b] = rng.integers(0, gtype.S, (b - a, N, N), dtype=np.uint8)
         C[a:b] = rng.integers(0, gtype.C, (b - a, N, N), dtype=np.uint8)
-        V[a:b] = score(S[a:b], C[a:b])
+        v = score(S[a:b], C[a:b])
+        if V is None:
+            V = np.empty(n, v.dtype)  # int64 keys, bytes keys (tuple ordinals) or float scores
+        V[a:b] = v
     return S, C, V
 
 
@@ -402,11 +416,11 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
     if draw.family.exemplar is not None:
         try:
             ex = draw.family.exemplar(params, gtype)
-            top = int(draw.family.ordinal(ex, params, gtype))
+            top = ordinal_key(draw.family.ordinal(ex, params, gtype))
             extra.append(top)
         except Exception:  # exemplar is optional and advisory
             pass
-    lv = np.asarray(levels, dtype=np.int64)
+    lv = np.asarray(levels, dtype=V.dtype)
     order = np.argsort(lv, kind="stable")
     lv, lp, se = lv[order], np.asarray(log2p)[order], np.sqrt(np.asarray(var)[order])
     keep = np.r_[lv[1:] != lv[:-1], True]  # dedupe (keep the deepest-stage estimate)
@@ -420,7 +434,7 @@ def build_table(draw: Draw, gtype: GridType, budget: Budget | None = None, salt:
             "stopped_early": bool(-fin[4] < budget.target_bits),
             # Whether the exemplar's ordinal (the family's claimed maximum) appears among the levels
             # (None without an exemplar). stopped_early and not top_reached = the kernel got stuck.
-            "top_reached": None if top is None else bool(top <= int(max(levels))),
+            "top_reached": None if top is None else bool(top <= lv[-1]),
             "seconds": time.perf_counter() - t0}
     return Survival(cache_key(draw, gtype, budget), lv, lp, se, extra, meta)
 
@@ -540,7 +554,7 @@ def joint_surprisal(draw_i: Draw, draw_j: Draw, gtype: GridType, x: Grid, budget
     intersection indicator among the final particles (the φ >= 1 set contains the intersection)."""
     budget = budget or JOINT_BUDGET
     Ti, Tj = tables or (survival(draw_i, gtype), survival(draw_j, gtype))
-    ti, tj = draw_i.ordinal(x, gtype), draw_j.ordinal(x, gtype)
+    ti, tj = ordinal_key(draw_i.ordinal(x, gtype)), ordinal_key(draw_j.ordinal(x, gtype))
     si, sj = Ti.surprisal(ti), Tj.surprisal(tj)
     if si <= 0.0:
         return sj, Tj.stderr(tj)

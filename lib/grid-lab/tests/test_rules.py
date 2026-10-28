@@ -2,7 +2,8 @@
 
 For every family × every GridType where it is available:
   - sampled params are JSON-like and draw only from the GridType's own colours/symbols (indices in range);
-  - `ordinal` returns a Python int and is deterministic;
+  - `ordinal` returns a Python int, or a tuple of Python ints whose length is constant within the
+    family (across grids, params and GridTypes), and is deterministic;
   - `batch` agrees with `ordinal` on 200 random grids plus structured grids (exemplar, one-cell
     perturbations of it, monochrome / constant-symbol grids);
   - `canonical` is idempotent and preserves the ordinal's distribution (KS test, loose);
@@ -23,6 +24,7 @@ from multiprocessing import Pool
 import numpy as np
 
 from gridlab.core import Grid, all_grid_types, spawn_batch
+from gridlab.family import dense_rank, ordinal_keys
 from gridlab.rules import FAMILIES, by_id, shortlist
 
 N_AGREE = 200
@@ -35,10 +37,16 @@ def _seed(*parts) -> int:
 
 
 def _ks(a: np.ndarray, b: np.ndarray) -> float:
+    a, b = dense_rank(a, b)  # tuple ordinals -> ints with the same order
     xs = np.union1d(a, b)
     fa = np.searchsorted(np.sort(a), xs, side="right") / len(a)
     fb = np.searchsorted(np.sort(b), xs, side="right") / len(b)
     return float(np.max(np.abs(fa - fb)))
+
+
+def _pyords(u: np.ndarray) -> list:
+    """Batch ordinals as Python ints or tuples (native comparison)."""
+    return [tuple(x) if isinstance(x, list) else x for x in u.tolist()]
 
 
 def _structured(f, p, gt, rng):
@@ -81,6 +89,7 @@ def check_family(fid: str) -> tuple[str, int, float, list[str]]:
     t0 = time.perf_counter()
     errors: list[str] = []
     n = 0
+    width = None  # tuple length (0 = int ordinal); must be the same in every GridType
     for gt in all_grid_types():
         if not f.available(gt):
             continue
@@ -97,14 +106,23 @@ def check_family(fid: str) -> tuple[str, int, float, list[str]]:
             sc = []
             for g in grids:
                 u = f.ordinal(g, p, gt)
-                assert isinstance(u, int) and not isinstance(u, bool), f"{where}: ordinal type {type(u)}"
+                parts = u if isinstance(u, tuple) else (u,)
+                assert all(isinstance(x, int) and not isinstance(x, bool) for x in parts), \
+                    f"{where}: ordinal type {type(u)} {u!r}"
+                w = len(u) if isinstance(u, tuple) else 0
+                assert w != 1, f"{where}: use an int, not a 1-tuple"
+                if width is None:
+                    width = w
+                assert w == width, f"{where}: ordinal width {w} != {width} (tuple length must be constant)"
                 sc.append(u)
             assert f.ordinal(grids[0], p, gt) == sc[0], f"{where}: nondeterministic"
             S = np.stack([g.sym for g in grids])
             C = np.stack([g.col for g in grids])
             b = f.evaluate_batch(S, C, p, gt)
-            assert b.dtype == np.int64 and b.shape == (len(grids),)
-            bad = np.nonzero(b != np.array(sc, dtype=np.int64))[0]
+            assert b.dtype == np.int64 and b.shape == ((len(grids), width) if width else (len(grids),)), \
+                f"{where}: batch shape {b.shape}"
+            ref = np.array(sc, dtype=np.int64)
+            bad = np.nonzero((b != ref).reshape(len(grids), -1).any(1))[0]
             assert len(bad) == 0, f"{where}: batch {b[bad[0]]} != scalar {sc[bad[0]]} on\n{gt.render(grids[bad[0]])}"
             # distribution sample
             s2, c2 = spawn_batch(gt, rng, N_DIST)
@@ -126,21 +144,23 @@ def check_family(fid: str) -> tuple[str, int, float, list[str]]:
                 assert e.sym.shape == (gt.N, gt.N) and e.col.shape == (gt.N, gt.N)
                 assert int(e.sym.max()) < gt.S and int(e.col.max()) < gt.C, f"{where}: exemplar out of range"
                 ue = f.ordinal(e, p, gt)
-                assert ue >= int(u2.max()), f"{where}: exemplar {ue} < random max {int(u2.max())}"
+                umax = max(_pyords(u2))
+                assert ue >= umax, f"{where}: exemplar {ue} < random max {umax}"
             # exact tail
             if f.exact_log2_tail is not None:
-                levels = np.unique(u2)
+                k2 = ordinal_keys(u2)
                 prev = 0.0
-                for t in levels:
-                    lt = f.exact_log2_tail(int(t), p, gt)
+                for t in sorted(set(_pyords(u2))):
+                    lt = f.exact_log2_tail(t, p, gt)
                     assert lt <= prev + 1e-9, f"{where}: exact tail not monotone at {t}"
                     prev = lt
-                    emp = float(np.mean(u2 >= t))
+                    emp = float(np.mean(k2 >= ordinal_keys(np.array([t]))[0]))
                     pe = 2.0 ** lt
                     if pe >= 0.01:
                         se = math.sqrt(pe * (1 - pe) / N_DIST)
                         assert abs(emp - pe) <= 5 * se + 1e-3, f"{where}: tail at {t}: exact {pe:.4f} vs emp {emp:.4f}"
-                assert f.exact_log2_tail(-10 ** 9, p, gt) == 0.0, f"{where}: tail below the minimum must be 0 bits"
+                low = tuple([-10 ** 9] * width) if width else -10 ** 9
+                assert f.exact_log2_tail(low, p, gt) == 0.0, f"{where}: tail below the minimum must be 0 bits"
         except AssertionError as ex:
             errors.append(str(ex))
         except Exception as ex:  # noqa: BLE001

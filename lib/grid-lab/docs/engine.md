@@ -9,11 +9,19 @@ Names follow SPEC §2. "GridType" (`gtype`) is the object type, never "room" (SP
 
 For god i with utility function u_i, the **survival function** is G_i(t) = μ{u_i ≥ t} under the
 uniform spawn prior μ of the GridType, and **surprisal** is s_i(x) = −log₂ G_i(u_i(x)).
-`survival(draw, gtype)` returns a `Survival` table:
+`survival(draw, gtype)` returns a `Survival` table.
+
+An ordinal is an int or a fixed-length tuple of ints compared lexicographically (`family.py`). The
+table stores each ordinal as its **key** (`family.ordinal_keys`): int64 for int ordinals, and for
+k-tuples a `S{8k+1}` byte string (each component big-endian with the sign bit flipped, plus a
+trailing 0x01 so numpy never strips NULs). Byte order equals tuple order, so `np.unique`,
+`searchsorted`, `>=` and `bisect` work unchanged and nothing needs bounds. Lookups accept an
+ordinal, its key, a `(B,)` / `(B, k)` batch from `evaluate_batch`, or an array of keys.
+
 
 | API | Meaning |
 |---|---|
-| `.levels` | strictly increasing ordinals seen during estimation |
+| `.levels` | strictly increasing ordinal keys seen during estimation |
 | `.log2p` | log₂ G at each level (non-increasing, ≤ 0) |
 | `.stderr_bits` | standard error of each level's surprisal, in bits |
 | `.log2_tail(t)`, `.surprisal(t)` | lookups, scalar or vectorised over arrays |
@@ -21,7 +29,7 @@ uniform spawn prior μ of the GridType, and **surprisal** is s_i(x) = −log₂ 
 | `.max_observed_bits` | surprisal of the deepest level estimated |
 | `.exact` | set when the family's `exact_log2_tail` backs the lookups |
 
-### 1.1 Estimator (ESTIMATOR_VERSION = 1)
+### 1.1 Estimator (ESTIMATOR_VERSION = 2; 2 = tuple ordinals keyed by value, 1 = `lex`-packed ints)
 
 1. **Body (Monte Carlo).** `n_mc = 2^16` prior samples, evaluated with `family.evaluate_batch` in
    chunks of 2^14. Every distinct ordinal with at least `min_mc_count = 256` samples at or above it

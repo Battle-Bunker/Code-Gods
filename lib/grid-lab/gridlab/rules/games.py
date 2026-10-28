@@ -40,7 +40,7 @@ def rm_ord(g, p, gtype):
         for i in range(N - 1):
             half += (rk[r][i] == rk[r][i + 1] and su[r][i] != su[r][i + 1]) or \
                     (v[r][i + 1] == v[r][i] + 1 and su[r][i] == su[r][i + 1])
-    return lex((score, N * N * vmax(gtype) + 1), (half, N * (N - 1) + 1))
+    return tup(score, half)
 
 
 def rm_batch(sym, col, p, gtype):
@@ -56,7 +56,7 @@ def rm_batch(sym, col, p, gtype):
         mel[:, :, k:k + N - 2] |= w
     half = ((rk[:, :, 1:] == rk[:, :, :-1]) & (su[:, :, 1:] != su[:, :, :-1])) | \
            ((v[:, :, 1:] == v[:, :, :-1] + 1) & (su[:, :, 1:] == su[:, :, :-1]))
-    return lexb(((v * mel).sum((1, 2)), N * N * vmax(gtype) + 1), (half.sum((1, 2)), N * (N - 1) + 1))
+    return tupb((v * mel).sum((1, 2)), half.sum((1, 2)))
 
 
 def rm_exemplar(p, gtype):
@@ -221,12 +221,13 @@ def su_ord(g, p, gtype):
     N = gtype.N
     k = rank_key(g.sym, gtype).tolist()
     if N <= 4:
-        return int(all(len({k[r][c] for r, c in ln}) == N for ln in _bingo_lines(N)))
+        # All or nothing; the constant second component keeps the tuple length the same at every N.
+        return tup(all(len({k[r][c] for r, c in ln}) == N for ln in _bingo_lines(N)), 0)
     ls = [list(r) for r in k] if p["dir"] != "cols" else []
     if p["dir"] != "rows":
         ls += [[k[r][c] for r in range(N)] for c in range(N)]
     ok = sum(len(set(l)) == N for l in ls)
-    return lex((ok, 2 * N + 1), (sum(len(set(l)) for l in ls), 2 * N * N + 1))
+    return tup(ok, sum(len(set(l)) for l in ls))
 
 
 def _distinct(L):
@@ -240,9 +241,9 @@ def su_batch(sym, col, p, gtype):
     if N <= 4:
         L = np.concatenate([k, np.swapaxes(k, 1, 2), np.diagonal(k, axis1=1, axis2=2)[:, None],
                             np.diagonal(k[:, :, ::-1], axis1=1, axis2=2)[:, None]], axis=1)
-        return (_distinct(L) == N).all(1).astype(np.int64)
+        return tupb((_distinct(L) == N).all(1), np.zeros(len(sym)))
     d = _distinct(lines_rc(k, p["dir"]))
-    return lexb(((d == N).sum(1), 2 * N + 1), (d.sum(1), 2 * N * N + 1))
+    return tupb((d == N).sum(1), d.sum(1))
 
 
 def su_exemplar(p, gtype):
@@ -315,7 +316,7 @@ def fl_ord(g, p, gtype):
         if len(set(ls)) == 1:
             straight = len(set(lv)) == N and max(lv) - min(lv) == N - 1
             score += sum(lv) * (3 if straight else 1)
-    return lex((score, 6 * N * N * vmax(gtype) + 1), (plur, 2 * N * N + 1))
+    return tup(score, plur)
 
 
 def fl_batch(sym, col, p, gtype):
@@ -326,7 +327,7 @@ def fl_batch(sym, col, p, gtype):
     score = (flush * v.sum(2) * np.where(straight, 3, 1)).sum(1)
     K = 4 if gtype.suit is not None else gtype.C
     plur = np.max(np.stack([(su == k).sum(2) for k in range(K)]), axis=0).sum(1)
-    return lexb((score, 6 * N * N * vmax(gtype) + 1), (plur, 2 * N * N + 1))
+    return tupb(score, plur)
 
 
 def fl_exemplar(p, gtype):
@@ -426,11 +427,10 @@ def gf_ord(g, p, gtype):
             part += n
             if n == 4:
                 score += 2 if len({su[x][y] for x, y in cells}) >= need else 1
-    return lex((score, 2 * (N - 1) ** 2 + 1), (part, 4 * (N - 1) ** 2 + 1))
+    return tup(score, part)
 
 
 def gf_batch(sym, col, p, gtype):
-    N = gtype.N
     m = rank_key(sym, gtype) == p["r"]
     su = suits(sym, col, gtype)
     need = 4 if gtype.suit is not None else min(4, gtype.C)
@@ -440,7 +440,7 @@ def gf_batch(sym, col, p, gtype):
     full = n == 4
     nu = _nuniq4(q[0][1], q[1][1], q[2][1], q[3][1])
     score = (full * np.where(nu >= need, 2, 1)).sum((1, 2))
-    return lexb((score, 2 * (N - 1) ** 2 + 1), (n.sum((1, 2)), 4 * (N - 1) ** 2 + 1))
+    return tupb(score, n.sum((1, 2)))
 
 
 def gf_exemplar(p, gtype):
@@ -613,7 +613,7 @@ def cp_ord(g, p, gtype):
                     score += 1
                     if i > 0 and R[r][i - 1] == 0 and S[r][i - 1] == S[r][i]:
                         score += 1
-    return lex((score, 4 * N * N + 1), (pairs, 2 * N * N + 1))
+    return tup(score, pairs)
 
 
 def cp_batch(sym, col, p, gtype):
@@ -629,7 +629,7 @@ def cp_batch(sym, col, p, gtype):
         ok &= (c[:, :, a] == c[:, :, b]) & (c[:, :, b] == c[:, :, d])
     grand = np.zeros(ok.shape, bool)
     grand[:, :, 1:] = ok[:, :, 1:] & (rk[:, :, :N - 3] == 0) & (su[:, :, :N - 3] == su[:, :, 1:N - 2])
-    return lexb((ok.sum((1, 2)) + grand.sum((1, 2)), 4 * N * N + 1), (pr.sum((1, 2)), 2 * N * N + 1))
+    return tupb(ok.sum((1, 2)) + grand.sum((1, 2)), pr.sum((1, 2)))
 
 
 def cp_exemplar(p, gtype):
@@ -700,11 +700,10 @@ def c4_ord(g, p, gtype):
                 cells = [(r + i * dr, c + i * dc) for i in range(4)]
                 if all(_cells_in(N, a, b) and sup[a][b] for a, b in cells):
                     w += 1
-    return lex((w, 4 * N * N + 1), (sum(map(sum, sup)), N * N + 1))
+    return tup(w, sum(map(sum, sup)))
 
 
 def c4_batch(sym, col, p, gtype):
-    N = gtype.N
     sup = np.logical_and.accumulate((col == p["X"])[:, ::-1, :], axis=1)[:, ::-1, :]
     w = 0
     for dr, dc in DIRS4D:
@@ -712,7 +711,7 @@ def c4_batch(sym, col, p, gtype):
         for i in range(1, 4):
             ok &= shift(sup, i * dr, i * dc, False)
         w = w + ok.sum((1, 2))
-    return lexb((w, 4 * N * N + 1), (sup.sum((1, 2)), N * N + 1))
+    return tupb(w, sup.sum((1, 2)))
 
 
 CONNECT_FOUR = mk(
