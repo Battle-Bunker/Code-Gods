@@ -30,6 +30,10 @@ Deleted defaults stay deleted. Both direct Anthropic and OpenAI are supported.
 Create a room and share its full URL. All players log in with Replit and join.
 There must be at least three players; an owner may add AI seats from the library.
 Readiness is advisory. Approve a token budget before starting with AI seats.
+The room page is the lobby. **Start game** takes everyone to that game's page.
+When the game ends, its result is added to the room's history and players return
+to the lobby. There the owner can change settings and start the next game with
+the same members. Anyone who joins mid-game watches it and plays in the next one.
 AI usage bills the server's provider accounts. Current safety ceilings are
 $2 per game and $5 per UTC day across this server, plus the room token limit.
 
@@ -69,13 +73,62 @@ sign in, join the room if needed, and approve the displayed code. The room
 credential stays in daemon memory and expires after 15 minutes; approve again
 when requested.
 
-The client Agent may use the secured local daemon APIs described in
-`docs/player-client-integration.md` to observe and act as its human player.
+The client Agent uses the separate workspace-local assistant CLI described in
+`docs/room-assistant.md` to observe and act as its human player, without extracting
+browser cookies or copying tokens into chat.
 It has no room-owner permissions or access to opponents' individual utilities.
 Client UI and analytics are freely editable. Pull subsequent Git changes into
 each copy and restart its client service.
 
 ## First smoke game
+
+### Room assistant live acceptance
+
+Use `docs/room-assistant.md` in a **separate player workspace**, with no authority
+database or provider secrets. Do not start the copied authority. Supply the real
+HTTPS player URL with room code `4B9A` (or the current canonical room link).
+
+1. Run assistant connect with read permission. Keep only its safe approval fields.
+2. In a real signed-in browser on the authority, verify resolved room, comparison
+   code, self-reported label, read permission, five-minute approval expiry and
+   fifteen-minute grant lifetime; approve.
+3. Confirm CLI status distinguishes the local bridge from authenticated WSS.
+   Observe personal data and bounded events through the intended Replit proxy.
+   Verify no individual opponent utilities and that an attempted mutation fails.
+4. Revoke in the authority's player console during a passive subscription.
+   Confirm immediate disconnect/no further private delivery, while the human
+   browser remains signed in. Repeat with an action grant and a normal player
+   command, checking its receipt, not just local submission.
+5. Disconnect with the authority reachable, then while unreachable: the latter
+   must say remote revocation is unconfirmed and identify the expiry deadline.
+   Exercise denial, five-minute approval expiry, fifteen-minute grant expiry,
+   bridge restart and idle/wake. None should silently use browser identity.
+6. Interrupt WSS after sending a command. A missing receipt is uncertain; no
+   mutation is replayed automatically. Reconnect, inspect state and receipt, and
+   retry only the identical envelope explicitly if needed.
+
+Record date, server origin, workspace separation, browser/proxy results and
+blockers without recording cookies, device secrets, verifiers or bearers.
+Synthetic fixture tests are not evidence of real OIDC or independent cloud
+workspace access. Private preview/deployment gates may block headless requests
+before game authorization; report redirects without following them or trying
+to bypass the gate.
+
+#### Recorded verification — 2026-10-20
+
+- Workspace type checks and client tests passed. Authority integration tests
+  exercise the actual assistant with real HTTP/WebSocket transports against
+  isolated SQL fixtures, including read/action approval, receipts, revocation,
+  browser coexistence and disconnect. They do not verify real TLS or OIDC.
+- Development services started cleanly after applying the additive device schema.
+- Browser pass verified logged-out `/device` and `/player/` entry screens.
+  Synthetic login claims did not complete authentication: the app's fixed Replit
+  OIDC issuer redirected to the real Replit sign-up/login screen. No credentials
+  were extracted and no authentication bypass was added.
+- Signed-in consent/grant UI and real HTTPS/WSS approval remain **unverified**.
+  No independent Replit player workspace was available. The live checklist above
+  needs a browser-approved human session and a separate player workspace without
+  server/database credentials. This task branch was not published.
 
 Start with three humans or two humans and one AI. Use TypeScript, Int, a short
 planning phase and the default world rates. A valid first summon is

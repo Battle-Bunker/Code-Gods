@@ -30,6 +30,7 @@ import numpy as np
 from .core import Grid, GridType, spawn
 from .family import Draw, Family
 from . import calibrate as cal
+from . import defence as dfn
 
 
 # ------------------------------------------------------------------------------------------------
@@ -132,6 +133,11 @@ class GameConfig:
     snapshot_interval: float = 5.0
     keep_programs: bool = False                          # store Program.describe() per agent
     seed: int = 0
+    # defence goals (docs/defence-goals.md); inert unless a dealt family has a `penalty`
+    score_penalties: bool = True                         # False: compute and log penalties but do not score them
+    payoff_mode: str = "floored"                         # "floored" | "gated" | "private" (defence.payoff_matrix)
+    penalty_rate: str | float = "prior"                  # "private" mode: K_i = Σ_{j≠i} E_μ[s⁺_j], or bits per peer
+    penalty_weight: float = 1.0                          # multiplies penalty bits
 
     def policy_list(self) -> list[str]:
         p = [self.policies] * self.n_gods if isinstance(self.policies, str) else list(self.policies)
@@ -242,6 +248,18 @@ class GameLog:
     final_energy: np.ndarray = None
     spent: np.ndarray = None
     counters: dict = None
+    # defence goals: penalty bits h (soft-hinged, uncentred; 0 for gods without one). Present in every log.
+    c_hbefore: np.ndarray = None  # float32 (K, G)
+    c_hafter: np.ndarray = None
+    s_hvec: np.ndarray = None     # float32 (n, G) at spawn
+    snap_h: list = None           # list of float32 (M_t, G)
+    final_h: np.ndarray = None    # float32 (M, G)
+    has_penalty: np.ndarray = None  # bool (G,)
+    penalty_K: np.ndarray = None    # float (G,) rate used in the payoff (0 if unscored)
+    penalty_K_prior: np.ndarray = None
+    penalty_hbar: np.ndarray = None
+    score_penalties: bool = True
+    defence: "dfn.DefenceConstants" = None
 
     @property
     def n_gods(self) -> int:
@@ -256,9 +274,15 @@ class GameLog:
         return np.array([1 + int((p > x).sum()) for x in p])
 
 
-def payoffs(S: np.ndarray) -> np.ndarray:
-    """Per-object payoff matrix π[x, i] = s_i(x) * S_-i(x) for a surprisal matrix S (M, G)."""
-    return S * (S.sum(axis=1, keepdims=True) - S)
+def payoffs(S: np.ndarray, H: np.ndarray | None = None, dc: "dfn.DefenceConstants | None" = None) -> np.ndarray:
+    """Per-object payoff matrix π[x, i] = s_i(x) * S_-i(x) for a surprisal matrix S (M, G); with penalty
+    bits H (M, G) and defence constants, the defence scoring of docs/defence-goals.md (defence.payoff_matrix)."""
+    return dfn.payoff_matrix(S, H, dc)
+
+
+def log_payoffs(log: "GameLog", S: np.ndarray, H: np.ndarray | None) -> np.ndarray:
+    """payoffs() with a log's defence constants."""
+    return payoffs(S, H, log.defence)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -267,9 +291,18 @@ def payoffs(S: np.ndarray) -> np.ndarray:
 class World:
     """Mutable game state; policies read it through policy.Observation."""
 
-    def __init__(self, cfg: GameConfig, draws: list[Draw], tables: list[cal.Survival], rng: np.random.Generator):
+    def __init__(self, cfg: GameConfig, draws: list[Draw], tables: list[cal.Survival], rng: np.random.Generator,
+                 ptables: Optional[list] = None):
         self.cfg, self.gtype, self.draws, self.tables, self.rng = cfg, cfg.gtype, draws, tables, rng
         self.G = len(draws)
+        # defence goals: penalty draws/tables (None per god without one) and the payoff constants
+        self.pdraws = [d.penalty_draw() for d in draws]
+        self.ptables = ptables if ptables is not None else [None if pd is None else cal.survival(pd, cfg.gtype)
+                                                            for pd in self.pdraws]
+        self.dc = dfn.constants(tables, self.ptables, cfg.penalty_rate, cfg.penalty_weight, cfg.score_penalties,
+                                cfg.payoff_mode)
+        self.has_penalty = bool(self.dc.any)
+        self.H = np.zeros((64, self.G))
         self.objects: list[Grid] = []
         self.obj_ids: list[int] = []
         self.keys: set[bytes] = set()
@@ -299,21 +332,35 @@ class World:
         gt = self.gtype
         return np.array([tb.surprisal(d.ordinal(g, gt)) for d, tb in zip(self.draws, self.tables)])
 
+    def hvec(self, g: Grid) -> np.ndarray:
+        """Penalty bits h_i(g) per god (0 for gods without a defence goal)."""
+        gt = self.gtype
+        return np.array([dfn.penalty_bits(pd, pt, g, gt) for pd, pt in zip(self.pdraws, self.ptables)])
+
     def surprisal_matrix(self) -> np.ndarray:
         return self.S[:self.M]
 
+    def payoff_matrix(self) -> np.ndarray:
+        M = self.M
+        if not self.has_penalty:
+            return payoffs(self.S[:M])
+        return payoffs(self.S[:M], self.H[:M], self.dc)
+
     def total_payoff(self) -> np.ndarray:
-        return payoffs(self.S[:self.M]).sum(axis=0)
+        return self.payoff_matrix().sum(axis=0)
 
     def add_object(self, g: Grid) -> np.ndarray:
         if self.M >= len(self.S):
             self.S = np.vstack([self.S, np.zeros_like(self.S)])
+            self.H = np.vstack([self.H, np.zeros_like(self.H)])
         self.objects.append(g)
         self.obj_ids.append(self.next_obj_id)
         self.next_obj_id += 1
         self.keys.add(g.key)
         v = self.svec(g)
         self.S[self.M - 1] = v
+        if self.has_penalty:
+            self.H[self.M - 1] = self.hvec(g)
         return v
 
     def spawn_unique(self) -> Grid:
@@ -366,6 +413,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     if tables is None:
         tables = [cal.survival(d, gt) for d in draws]
     world = World(cfg, draws, tables, r_world)
+    hp = world.has_penalty
     if cfg.program_library:
         from .policy import program_library
         world.library = program_library(gt, factory, cfg.program_library)
@@ -385,6 +433,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     c_time, c_obj, c_agent, c_before, c_after = [], [], [], [], []
     s_time, s_obj, s_vec = [], [], []
     snap_time, snap_payoff, snap_objs, snap_s = [], [], [], []
+    c_hb, c_ha, s_h, snap_h = [], [], [], []
     a_cost, a_time, a_mut, a_desc, a_label = [], [], [], [], []
     counters = {"attempts": 0, "none": 0, "duplicate": 0, "commits": 0, "metabolic_skips": 0,
                 "decisions": 0, "summons": 0}
@@ -410,6 +459,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         g = world.spawn_unique()
         v = world.add_object(g)
         s_time.append(0.0); s_obj.append(world.obj_ids[-1]); s_vec.append(v)
+        s_h.append(world.H[world.M - 1].copy())
     t = -cfg.planning_seconds
     while t < 0:
         world.t = t
@@ -443,9 +493,11 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 M = world.M
                 Sm = world.S[:M]
                 snap_time.append(ev_t)
-                snap_payoff.append(payoffs(Sm).sum(axis=0))
+                snap_payoff.append(world.total_payoff())
                 snap_objs.append(np.array(world.obj_ids, np.int32))
                 snap_s.append(Sm.astype(np.float32))
+                if hp:
+                    snap_h.append(world.H[:M].astype(np.float32))
                 if hook:
                     hook(world, "snapshot")
                 next_snap += cfg.snapshot_interval
@@ -453,6 +505,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
                 g = world.spawn_unique()
                 v = world.add_object(g)
                 s_time.append(ev_t); s_obj.append(world.obj_ids[-1]); s_vec.append(v)
+                s_h.append(world.H[world.M - 1].copy())
                 next_spawn += rng.exponential(1.0 / cfg.spawn_rate_hz)
             else:
                 i = next_dec.index(nd)
@@ -504,7 +557,14 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         counters["commits"] += 1
         c_time.append(t); c_obj.append(world.obj_ids[oi]); c_agent.append(aid)
         c_before.append(before); c_after.append(after)
-        pols[owner].on_commit(aid, oi, before, after)
+        if hp:
+            hb = world.H[oi].copy()
+            ha = world.hvec(new)
+            world.H[oi] = ha
+            c_hb.append(hb); c_ha.append(ha)
+            pols[owner].on_commit(aid, oi, before, after, hb, ha)
+        else:
+            pols[owner].on_commit(aid, oi, before, after)
 
     world.t = duration
     if hook:
@@ -513,6 +573,8 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
     G = cfg.n_gods
     f32 = np.float32
     Sm = world.S[:M]
+    Hm = world.H[:M]
+    nc = len(c_time)
     return GameLog(
         config=cfg.summary(), gtype=gt, families=[d.family.id for d in draws],
         params=[cal.canonical_json(d.params) for d in draws], policies=names, duration=duration,
@@ -527,9 +589,16 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         final_obj=np.array(world.obj_ids, np.int32), final_s=Sm.astype(f32),
         final_sym=np.array([g.sym for g in world.objects], np.uint8),
         final_col=np.array([g.col for g in world.objects], np.uint8),
-        final_payoff=payoffs(Sm).sum(axis=0).astype(f32),
+        final_payoff=world.total_payoff().astype(f32),
         final_energy=np.array([world.energy(i) for i in range(G)], f32), spent=world.spent.astype(f32),
         counters=counters,
+        c_hbefore=np.array(c_hb, f32).reshape(-1, G) if hp else np.zeros((nc, G), f32),
+        c_hafter=np.array(c_ha, f32).reshape(-1, G) if hp else np.zeros((nc, G), f32),
+        s_hvec=np.array(s_h, f32).reshape(-1, G),
+        snap_h=snap_h if hp else [np.zeros_like(x) for x in snap_s],
+        final_h=Hm.astype(f32), has_penalty=world.dc.has.copy(), penalty_K=world.dc.K.copy(),
+        penalty_K_prior=world.dc.K_prior.copy(), penalty_hbar=world.dc.hbar.copy(),
+        score_penalties=bool(cfg.score_penalties), defence=world.dc,
     )
 
 

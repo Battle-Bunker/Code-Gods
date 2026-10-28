@@ -3,7 +3,7 @@ import { personalScore } from "@workspace/game-core";
 import { member, mutate, resolveRoom } from "./store";
 import { standings, utilityCard } from "./projection";
 import { playerCommand } from "./engine";
-import { hash } from "../lib/identity";
+import { hash, requireAct } from "../lib/identity";
 import type { Actor, Room } from "./types";
 
 export function observation(room: Room, actor: Actor) {
@@ -12,6 +12,7 @@ export function observation(room: Room, actor: Actor) {
   const self = room.members.find(m => m.id === actor.id)!;
   return observationSchema.parse({
     version: VERSION, roomId: room.id, revision: room.seq,
+    roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?.id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: game?.settings.language ?? room.settings.language,
@@ -29,8 +30,10 @@ export function observation(room: Room, actor: Actor) {
   });
 }
 export async function executePlayerEnvelope(roomId: string, actor: Actor, raw: unknown): Promise<CommandResult> {
+  requireAct(actor);
   const envelope = envelopeSchema.parse(raw);
   return mutate(resolveRoom(roomId).id, async room => {
+    requireAct(actor);
     member(room, actor);
     const key = `client:${actor.id}:${envelope.commandId}`, digest = hash(JSON.stringify(envelope));
     if (room.receipts[key]) {

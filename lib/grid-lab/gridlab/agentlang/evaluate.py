@@ -313,7 +313,7 @@ def _game_job(job):
     cond, pset, seed, gtkey = job
     n, s, c = gtkey.split(",")
     gt = GridType(int(n), s, c)
-    key = hashlib.sha256(json.dumps([cond, pset, seed, gtkey, CONDITIONS[cond], src_hash(), "v2"]).encode()).hexdigest()[:24]
+    key = hashlib.sha256(json.dumps([cond, pset, seed, gtkey, CONDITIONS[cond], src_hash(), "v3"]).encode()).hexdigest()[:24]
     path = GAME_DIR / f"{key}.json"
     if path.exists():
         return json.loads(path.read_text())

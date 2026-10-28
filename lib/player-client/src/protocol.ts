@@ -23,6 +23,9 @@ export const observationSchema = z.object({
   gameId: id.optional(), planningEndsAt: finite.optional(), pauseEndsAt: finite.optional(),
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
   language: z.enum(["python", "typescript"]),
+  // Optional additions (servers before the room-lobby lifecycle omit them). `seated` is false
+  // for a member who joined after this game launched: they spectate and play in the next one.
+  roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Your private utility function: a plain-language summary of its incentives, then its source.
     utility: z.object({ name: z.string().max(128), summary: z.string().max(2000), language: z.enum(["python", "typescript"]), source: z.string().max(16384) }).optional() }),

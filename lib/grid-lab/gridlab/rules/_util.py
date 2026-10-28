@@ -4,8 +4,9 @@ Conventions used by every rule module:
 - `gtype` is the GridType. `sym`, `col` are uint8 arrays: (N, N) for a scalar grid, (B, N, N) for a batch.
 - Scalar `ordinal` implementations are written independently of the vectorised `batch` ones (plain
   Python loops / BFS), so the tests' scalar-vs-batch agreement check is a real cross-check.
-- Lexicographic ordinals are packed with `family.lex` (scalar) or `lexb` (batch); both compute
-  ((a * A) + b) * B + c ... with every component in [0, bound).
+- Lexicographic ordinals are tuples: `tup(a, b, ...)` (scalar, a tuple of Python ints) or
+  `tupb(a, b, ...)` (batch, int64 (B, k)). Python compares them "first component first; if tied,
+  the next", so no bounds are needed.
 """
 from __future__ import annotations
 
@@ -16,9 +17,9 @@ from typing import Iterable
 import numpy as np
 
 from ..core import Grid, GridType, Requires, req
-from ..family import Family, lex
+from ..family import Family
 
-__all__ = ["np", "math", "Grid", "GridType", "Requires", "req", "Family", "lex", "lexb", "mk",
+__all__ = ["np", "math", "Grid", "GridType", "Requires", "req", "Family", "tup", "tupb", "mk",
            "vmax", "vmin", "vals", "rank_key", "suits", "colour", "colours", "cname", "sglyph",
            "recolour", "shift", "valid", "orient", "label_batch", "label_links", "comp_sum", "comps2d",
            "log2_binom_tail", "log2_dist_tail", "dist_conv", "grid", "best_of", "DIRS4",
@@ -234,13 +235,15 @@ def comps2d(key, mask, diag: bool = False) -> list[list[tuple[int, int]]]:
     return out
 
 
-# --- lex in batch ---------------------------------------------------------------------------------
-def lexb(*parts) -> np.ndarray:
-    out = None
-    for v, bound in parts:
-        v = np.asarray(v, dtype=np.int64)
-        out = v if out is None else out * bound + v
-    return out
+# --- tuple ordinals ------------------------------------------------------------------------------
+def tup(*parts) -> tuple[int, ...]:
+    """Scalar lexicographic ordinal: a tuple of Python ints."""
+    return tuple(int(v) for v in parts)
+
+
+def tupb(*parts) -> np.ndarray:
+    """Batch lexicographic ordinal: int64 (B, k), one column per component."""
+    return np.stack([np.asarray(v, dtype=np.int64) for v in parts], axis=-1)
 
 
 # --- exact tails ------------------------------------------------------------------------------------
@@ -355,13 +358,23 @@ def rim_mask(N: int) -> np.ndarray:
 __all__ += ["unorient", "rim_mask"]
 
 
+def _ords(batch, S, C, params, gtype) -> list:
+    """Batch ordinals as Python values (ints or tuples) so plain `max` / `>` compare them correctly."""
+    v = np.asarray(batch(S, C, params, gtype)).tolist()
+    return [tuple(x) if isinstance(x, list) else x for x in v]
+
+
+def _argmax(v: list) -> int:
+    return max(range(len(v)), key=v.__getitem__)  # first maximum, like np.argmax
+
+
 def hill_climb(batch, start: Grid, params, gtype, layers=("colour",), max_steps: int = 200,
                sym_choices=None) -> Grid:
     """Deterministic steepest-ascent search over single-cell edits, scored with the family's `batch`.
     Used for exemplars of rules whose optimum has no simple closed form ("best found")."""
     N = gtype.N
     sym, col = start.sym.astype(np.uint8).copy(), start.col.astype(np.uint8).copy()
-    cur = int(batch(sym[None], col[None], params, gtype)[0])
+    cur = _ords(batch, sym[None], col[None], params, gtype)[0]
     schoices = list(range(gtype.S)) if sym_choices is None else list(sym_choices)
     for _ in range(max_steps):
         cs, cc = [], []
@@ -378,11 +391,11 @@ def hill_climb(batch, start: Grid, params, gtype, layers=("colour",), max_steps:
                             x = sym.copy(); x[r, c] = k
                             cs.append(x); cc.append(col)
         S_, C_ = np.stack(cs), np.stack(cc)
-        sc = batch(S_, C_, params, gtype)
-        i = int(np.argmax(sc))
+        sc = _ords(batch, S_, C_, params, gtype)
+        i = _argmax(sc)
         if sc[i] <= cur:
             break
-        cur, sym, col = int(sc[i]), S_[i].copy(), C_[i].copy()
+        cur, sym, col = sc[i], S_[i].copy(), C_[i].copy()
     return Grid(sym, col)
 
 
@@ -395,7 +408,7 @@ def multi_climb(batch, starts: list[Grid], params, gtype, layers=("colour",), re
     best, bv = None, None
     for g in starts:
         h = hill_climb(batch, g, params, gtype, layers, sym_choices=sym_choices)
-        v = int(batch(h.sym[None], h.col[None], params, gtype)[0])
+        v = _ords(batch, h.sym[None], h.col[None], params, gtype)[0]
         if bv is None or v > bv:
             best, bv = h, v
     return best
@@ -411,7 +424,7 @@ def plateau_search(batch, start: Grid, params, gtype, layers=("colour",), iters:
     rng = np.random.default_rng(seed)
     N = gtype.N
     sym, col = start.sym.astype(np.uint8).copy(), start.col.astype(np.uint8).copy()
-    cur = int(batch(sym[None], col[None], params, gtype)[0])
+    cur = _ords(batch, sym[None], col[None], params, gtype)[0]
     best = (cur, sym.copy(), col.copy())
     sc_ = np.array(list(range(gtype.S)) if sym_choices is None else list(sym_choices), dtype=np.uint8)
     for _ in range(iters):
@@ -424,10 +437,10 @@ def plateau_search(batch, start: Grid, params, gtype, layers=("colour",), iters:
                 S_[i, rr[i], cc[i]] = sc_[rng.integers(len(sc_))]
             else:
                 C_[i, rr[i], cc[i]] = rng.integers(gtype.C)
-        v = batch(S_, C_, params, gtype)
-        i = int(np.argmax(v))
+        v = _ords(batch, S_, C_, params, gtype)
+        i = _argmax(v)
         if v[i] >= cur:
-            cur, sym, col = int(v[i]), S_[i].copy(), C_[i].copy()
+            cur, sym, col = v[i], S_[i].copy(), C_[i].copy()
             if cur > best[0]:
                 best = (cur, sym.copy(), col.copy())
     return Grid(best[1], best[2])

@@ -40,7 +40,12 @@ Observation requires version, roomId, monotonically increasing revision, phase,
 language, self (godId/label/isAI/energy/ready/utility{name,summary,language,source}),
 objects (id/value/ownUtility/othersUtilitySum/score), own agents (id/source/language/cost),
 own transformations (id/agentId/before/after), public leaderboard and public chat
-with visibly labelled AI identities. See schemas for caps. Arrays are bounded
+with visibly labelled AI identities. Optional fields (newer servers):
+`roomShortCode`, `gameShortCode` and `seated`. `seated: false` means the player
+joined after this game launched: they spectate and play in the room's next game.
+Phase `lobby` means no game has been played yet. Phase `ended` shows the finished
+game's final state until the owner launches the next game, which arrives with a
+new `gameId`. See schemas for caps. Arrays are bounded
 windows, not full world histories; coordinator must window larger rooms.
 Agents and transformation history must already be filtered to the requesting god.
 Only the player's own utility function and aggregate opponent utilities are allowed.
@@ -103,10 +108,10 @@ player; do not share one process-global session among multiple users. Do not
 replace this with an open proxy. The unauthenticated Vite preview returns 503
 for daemon calls and never holds an upstream token.
 
-Replit Agent can use the same local session/Origin/CSRF command endpoints after
-the user approves the room; it receives no owner capabilities. A same-workspace
-code editor is trusted to customize its own player environment; this is not a
-security boundary against that player reading their own process memory.
+Replit Agent uses the separate workspace-local Unix socket bridge documented in
+[`room-assistant.md`](room-assistant.md), not browser session/Origin/CSRF endpoints.
+Never extract browser cookies or copy tokens into chat. A same-workspace editor
+is trusted; the bridge is not isolation from processes with the same OS identity.
 
 All local mutations require exact Origin and JSON content type. Every data route
 requires a live cookie; all mutations after login also require X-CSRF-Token.
@@ -254,9 +259,9 @@ prevents accidentally passing inherited keys to the daemon.
 
 The launch URL fragment establishes a Secure, HttpOnly cookie; it is not a room
 credential. The owner signs into GAME_HOST for approval, then uses the client
-console. A same-workspace Agent can use the daemon's local HTTP endpoints with
-the configured public Host and Origin headers, its private session cookie and
-CSRF token after that approval; never ask the user to paste a room token.
+console. A same-workspace Agent uses the separate assistant CLI in
+[`room-assistant.md`](room-assistant.md); it never reuses browser cookies or
+CSRF tokens.
 Actual Replit proxy/browser behavior remains a manual pilot check, not an
 automated cloud-copy claim.
 

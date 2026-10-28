@@ -202,6 +202,18 @@ def diff_str(pt: dict) -> str:
     return ", ".join(out) or "(old)"
 
 
+def ablate(pt: dict, per: int, processes: int) -> None:
+    """Leave-one-out: the point, the old setting, and the point with each changed knob reverted to old."""
+    specs = make_specs(GTYPES, per, TRAIN_SEED + 50_000)
+    changed = [k for k, v in pt.items() if k in SPACE and v != SPACE[k][0]]
+    rows = []
+    for name, p in [("point", pt), ("old", {})] + [(f"revert {k.split('.', 1)[-1]}", {**pt, k: SPACE[k][0]})
+                                                   for k in changed]:
+        o = evaluate(p, specs, f"ablate:{name}", processes)
+        rows.append([name] + fmt(o))
+        print("| " + " | ".join(str(x) for x in rows[-1]) + " |", flush=True)
+
+
 def load_points() -> list[dict]:
     if not POINTS.exists():
         return []
@@ -227,7 +239,8 @@ def pareto(points: list[dict], keys=(("dyn2", 1), ("struct_unfair", -1), ("polic
 
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="gridlab.experiments.search", description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=["sweep", "halving", "front"])
+    ap.add_argument("mode", choices=["sweep", "halving", "front", "ablate"])
+    ap.add_argument("--point", default="", help="ablate: JSON point (knob -> value)")
     ap.add_argument("--per-type", type=int, default=8, help="sweep: games per GridType")
     ap.add_argument("--n", type=int, default=18, help="halving: initial points (6 seeded + random)")
     ap.add_argument("--rungs", default="8,24,64", help="halving: games per GridType at each rung")
@@ -239,6 +252,9 @@ def main(argv=None):
         sweep(a.per_type, a.processes)
     elif a.mode == "halving":
         halving(a.n, [int(x) for x in a.rungs.split(",")], a.processes, a.seed)
+    elif a.mode == "ablate":
+        print(md_table(["variant"] + HDR, []), flush=True)
+        ablate(json.loads(a.point), a.per_type, a.processes)
     else:
         pts = [p for p in load_points() if p["n"] >= a.min_games]
         uniq = {}

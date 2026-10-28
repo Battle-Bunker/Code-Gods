@@ -65,7 +65,12 @@ def _src_hash() -> str:
     h = hashlib.sha256()
     here = Path(__file__).resolve().parent
     files = [here / f for f in ("lang.py", "grammar.py", "elab.py", "interp.py", "pricing.py")]
-    for f in files + [here.parent / "mutators.py", here.parent / "program.py"]:
+    # everything that shapes the reference grids too (the game-state corpus is simulated)
+    up = here.parent
+    files += [up / f for f in ("mutators.py", "program.py", "sim.py", "policy.py", "calibrate.py", "family.py",
+                               "core.py")]
+    files += sorted((up / "rules").glob("*.py"))
+    for f in files:
         h.update(f.read_bytes())
     return h.hexdigest()[:16]
 

@@ -3,9 +3,10 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import cookieParser from "cookie-parser";
-import { authenticate, sameOrigin, requireIdentity } from "./lib/identity";
+import { authenticate, sameOrigin, requireIdentity, requireAct } from "./lib/identity";
 import authRouter from "./routes/auth";
 import roomsRouter from "./routes/rooms";
+import gamesRouter from "./routes/games";
 import deviceRouter from "./routes/device";
 import playerRouter from "./routes/player";
 import adminAgentsRouter from "./routes/admin-agents";
@@ -42,8 +43,14 @@ app.use(authenticate);
 app.use("/api", authRouter);
 app.use((req, res, next) => {
   // Device initiation/polling are non-cookie, challenge-bound public endpoints.
-  if (["/api/device/request", "/api/device/poll"].includes(req.path)) return next();
+  if (["/api/device/request", "/api/device/poll", "/api/device/cancel"].includes(req.path)) return next();
   sameOrigin(req, res, next);
+});
+app.use((req, _res, next) => {
+  // Lifecycle cancellation/revocation must remain usable by read-only grants.
+  if (req.identity && !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+      !/^\/api\/device\/(?:cancel|revoke)\/?$/.test(req.path)) requireAct(req.identity);
+  next();
 });
 app.post("/api/activity", async (req, res) => {
   const actor = requireIdentity(req);
@@ -58,7 +65,7 @@ app.use(async (req, res, next) => {
   // refresh activity; device challenge polling is also explicitly passive.
   if (req.path === "/api/healthz" || req.path === "/api/health" ||
       req.path === "/api/device/poll" || req.path === "/api/device/revoke") return next();
-  const protectedPath = /^\/api\/(?:manifest|rooms(?:\/[^/]+(?:\/(?:actions|chat))?)?|player\/v1\/rooms\/[^/]+\/(?:observation|commands)|ai-agents|admin\/ai-agents(?:\/[^/]+)?|device\/(?:request|approve))\/?$/.test(req.path);
+  const protectedPath = /^\/api\/(?:manifest|games\/[^/]+|rooms(?:\/[^/]+(?:\/(?:actions|chat))?)?|player\/v1\/rooms\/[^/]+\/(?:observation|commands)|ai-agents|admin\/ai-agents(?:\/[^/]+)?|device\/(?:request|approve))\/?$/.test(req.path);
   if (!protectedPath) return next();
   if (req.path !== "/api/device/request" && req.path !== "/api/manifest") requireIdentity(req);
   if (!await isServerActive()) {
@@ -84,7 +91,7 @@ app.use(async (req, res, next) => {
   }
   next();
 });
-app.use("/api", deviceRouter, roomsRouter, playerRouter);
+app.use("/api", deviceRouter, roomsRouter, gamesRouter, playerRouter);
 app.use("/api", adminAgentsRouter);
 
 app.use("/api", router);
