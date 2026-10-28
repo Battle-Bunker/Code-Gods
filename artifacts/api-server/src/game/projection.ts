@@ -66,8 +66,9 @@ export function objectInstance(settings: GameSettings): InstanceInfo {
   return instanceInfo(instantiationOf(settings));
 }
 /** The public catalog of families any god might draw here, with availability, badges and locked reasons. */
-export function catalogFor(settings: GameSettings): CatalogEntry[] {
-  return publicCatalog(instantiationOf(settings));
+export function catalogFor(settings: GameSettings): (CatalogEntry & { excluded: boolean })[] {
+  // `excluded`: the owner (or the board's tuned defaults) took this family out of the lottery.
+  return publicCatalog(instantiationOf(settings)).map(f => ({ ...f, excluded: settings.excludedFamilies.includes(f.id) }));
 }
 const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 const isActive = (game: Game | null): game is Game => !!game && game.phase !== "ended";

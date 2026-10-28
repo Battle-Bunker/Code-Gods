@@ -8,6 +8,7 @@
 import type { CapabilityClass } from './capabilityClass';
 import type { OfferedInstantiation } from './offeredInstantiation';
 import type { ParamSchema } from './paramSchema';
+import type { SettingsDefaults } from './settingsDefaults';
 import type { TypeArgs } from './typeArgs';
 
 export interface ObjectTypeInfo {
@@ -18,6 +19,7 @@ export interface ObjectTypeInfo {
   kid: string;
   params: ParamSchema[];
   defaults: TypeArgs;
+  settingsDefaults: SettingsDefaults;
   classes: CapabilityClass[];
   offered: OfferedInstantiation[];
 }

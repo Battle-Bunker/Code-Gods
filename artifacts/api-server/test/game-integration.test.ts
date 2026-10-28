@@ -42,7 +42,7 @@ test("bounded queued interactions preserve command durability and retry failed w
   await mutate(room.id, async draft => {
     draft.game = { id: randomUUID(), shortCode: "fixture", phase: "recovery", objects: [
       { id: "object", value: 0, version: 0, scores: {} },
-    ], events: [], deities: [{ id: host.id, spent: 0 }] } as any;
+    ], agents: [], events: [], deities: [{ id: host.id, spent: 0 }] } as any;
   });
   const beforeInteractions = resolveRoom(room.id);
   const transform = () => mutateInteraction(room.id, "object", draft => {
@@ -452,7 +452,7 @@ test("objects stay unique: spawns never duplicate; duplicate results fail but st
     await recordHumanActivity();
     stop = startTicker();
     const deadline = Date.now() + 20000;
-    while (resolveRoom(room.id).game!.events.filter(e => e.type === "agent.failed").length < 2) {
+    while (resolveRoom(room.id).game!.events.filter(e => e.type === "agent.failed" && /already has this value/.test(e.reason)).length < 2) {
       assert.ok(Date.now() < deadline, "a first constant transformation commits, later ones collide");
       await new Promise(resolve => setTimeout(resolve, 20));
     }
@@ -463,7 +463,7 @@ test("objects stay unique: spawns never duplicate; duplicate results fail but st
     assert.equal(values.filter(v => v === 5).length, 1, "only the first constant transformation can succeed");
     assert.equal(game.events.filter(e => e.type === "object.transformed").length, 1);
     const failed = game.events.filter(e => e.type === "agent.failed");
-    assert.ok(failed.every(e => e.type === "agent.failed" && /already has this value/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision));
+    assert.ok(failed.every(e => e.type === "agent.failed" && /already has this value|no change/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision));
     const agent = game.agents[0];
     assert.equal(agent.acts, game.events.filter(e => e.type !== "object.spawned").length, "every act is charged, successful or not");
     const transformed = game.events.find(e => e.type === "object.transformed")!;
@@ -925,7 +925,7 @@ test("graceful store shutdown flushes the bounded interaction window to disk", a
   const room = await createRoom(host);
   await mutate(room.id, async draft => {
     draft.game = { id: randomUUID(), shortCode: "shutdown", phase: "recovery",
-      objects: [{ id: "object", value: 0, version: 0, utilities: {} }], events: [] } as any;
+      objects: [{ id: "object", value: 0, version: 0, scores: {} }], agents: [], events: [] } as any;
   });
   await mutateInteraction(room.id, "object", draft => {
     const g = draft.game!, object = g.objects[0];

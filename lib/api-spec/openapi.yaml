@@ -614,7 +614,7 @@ components:
           items: { $ref: "#/components/schemas/AuthoredOption" }
     Manifest:
       type: object
-      required: [protocolVersion, playerProtocol, defaults, runtimes, minimumPlayers, options, aiFunding, objectTypes]
+      required: [protocolVersion, playerProtocol, defaults, runtimes, minimumPlayers, options, aiFunding, objectTypes, presets]
       properties:
         protocolVersion: { type: integer }
         playerProtocol: { type: string, description: "Player protocol version accepted at /player/v1 (code-gods.player.v3)." }
@@ -629,6 +629,21 @@ components:
           description: Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.
           type: array
           items: { $ref: "#/components/schemas/ObjectTypeInfo" }
+        presets:
+          description: Named starting points, in display order.
+          type: array
+          items: { $ref: "#/components/schemas/SettingsPreset" }
+    SettingsPreset:
+      type: object
+      required: [id, label, kid, objectType, typeArgs, settings, offered]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        kid: { type: string }
+        objectType: { type: string }
+        typeArgs: { $ref: "#/components/schemas/TypeArgs" }
+        settings: { $ref: "#/components/schemas/Settings" }
+        offered: { type: boolean, description: Whether its instantiation is currently offered. }
     Badge:
       type: object
       description: A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.
@@ -780,6 +795,7 @@ components:
         deityId: { type: string }
         aiBudget: { type: integer, minimum: 0, maximum: 1000000 }
         aiAgentId: { type: string }
+        preset: { type: string, description: "settings only: apply a Manifest.presets entry instead of `settings` (keeps the room's language unless settings.language is sent)." }
     Settings:
       type: object
       required: [language, objectType, typeArgs, grammarId, utilitySelectorId, complexityFunctionId, spawnFunctionId, planningSeconds, halfLifeSeconds, startingObjectCount, spawnRateHz, interactionRateHz, interactionComputeMs, pauseSeconds, startingEnergy, energyPerSecond]
@@ -812,6 +828,12 @@ components:
         maxAgentsPerGod: { type: integer, minimum: 1, maximum: 200, default: 200 }
         penaltyWeight: { type: number, minimum: 0, default: 1, description: "w in n = s⁺ − w(h − E h): the weight of a defence-goal bit." }
         defenceRate: { type: number, minimum: 0, maximum: 1, default: 0, description: "Probability that a god is also dealt a defence goal." }
+        excludedFamilies:
+          description: Utility families never dealt in this game (ids from the catalog of this object type).
+          type: array
+          maxItems: 200
+          default: []
+          items: { type: string }
     RoomSummary:
       type: object
       required: [id, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode]
@@ -1081,7 +1103,7 @@ components:
     UtilityFamily:
       type: object
       description: A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.
-      required: [id, name, emoji, theme, role, tags, available, badges]
+      required: [id, name, emoji, theme, role, tags, available, excluded, badges]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1090,6 +1112,7 @@ components:
         role: { type: string, enum: [reward, penalty], description: "penalty families are dealt only as defence goals." }
         tags: { type: array, items: { type: string } }
         available: { type: boolean }
+        excluded: { type: boolean, description: "Taken out of the lottery by settings.excludedFamilies." }
         badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
         locked:
           type: object

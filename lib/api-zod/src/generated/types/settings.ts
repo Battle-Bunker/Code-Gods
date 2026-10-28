@@ -69,4 +69,9 @@ export interface Settings {
      * @maximum 1
      */
   defenceRate?: number;
+  /**
+     * Utility families never dealt in this game (ids from the catalog of this object type).
+     * @maxItems 200
+     */
+  excludedFamilies?: string[];
 }

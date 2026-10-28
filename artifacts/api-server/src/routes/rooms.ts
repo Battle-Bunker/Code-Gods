@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, instantiationOf, typeDefaults, validateSettings, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, SETTINGS_PRESETS, instantiationOf, presetSettings, typeDefaults, validateSettings, type GameSettings } from "@workspace/game-core";
+import { familiesFor } from "@workspace/game-utilities";
 import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { offeredInstantiations } from "../game/calibration";
@@ -44,20 +45,33 @@ export function retuneSettings(previous: GameSettings, next: GameSettings, sent:
   const tuned = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<keyof GameSettings>;
   const out = { ...next } as Record<string, unknown>;
   for (const key of tuned) {
-    if (!(key in sent) || sent[key] === previous[key]) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
+    if (!(key in sent) || JSON.stringify(sent[key]) === JSON.stringify(previous[key])) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
   }
   return out as unknown as GameSettings;
 }
-/** Settings name an instantiation the server offers; otherwise no calibrated utility functions exist for it. */
-export function assertOffered(settings: GameSettings) {
+const isOffered = (settings: GameSettings) => {
   const inst = instantiationOf(settings);
-  if (!offeredInstantiations(settings.objectType).some(offered => offered.key === inst.key))
-    throw new Error(`${inst.key} is not offered: choose one of the listed ${settings.objectType} settings`);
+  return offeredInstantiations(settings.objectType).some(offered => offered.key === inst.key);
+};
+/** Settings name an instantiation the server offers (otherwise no calibrated utility functions exist) and known families. */
+export function assertOffered(settings: GameSettings) {
+  if (!isOffered(settings))
+    throw new Error(`${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
+  const known = new Set(familiesFor(settings.objectType).map(f => f.id));
+  const unknown = settings.excludedFamilies.filter(id => !known.has(id));
+  if (unknown.length) throw new Error(`Unknown ${settings.objectType} utility families: ${unknown.join(", ")}`);
+}
+/** The named starting points, in order, with the full settings each applies. */
+export function presetsManifest() {
+  return SETTINGS_PRESETS.map(p => {
+    const settings = presetSettings(p.id);
+    return { id: p.id, label: p.label, kid: p.kid, objectType: p.objectType, typeArgs: p.typeArgs, settings, offered: isOffered(settings) };
+  });
 }
 router.get("/manifest", (_req, res) => res.json({
   protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, defaults: DEFAULT_SETTINGS,
   runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
-  objectTypes: objectTypesManifest(),
+  objectTypes: objectTypesManifest(), presets: presetsManifest(),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
@@ -129,8 +143,10 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (room.game && room.game.phase !== "ended") throw new Error("Settings and seats are frozen during games");
     if (input.action === "settings") {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
-      if (!input.settings) throw new Error("Settings are required");
-      const settings = retuneSettings(room.settings, input.settings as GameSettings, (req.body?.settings ?? {}) as Record<string, unknown>);
+      if (!input.settings && !input.preset) throw new Error("Settings or a preset are required");
+      // A preset replaces the whole draft (keeping the room's language); explicit settings are retuned to their instantiation.
+      const settings = input.preset ? presetSettings(input.preset, input.settings?.language ?? room.settings.language)
+        : retuneSettings(room.settings, input.settings as GameSettings, (req.body?.settings ?? {}) as Record<string, unknown>);
       validateSettings(settings);
       assertOffered(settings);
       if (settings.startingObjectCount > 1000 ||

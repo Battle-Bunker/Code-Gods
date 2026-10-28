@@ -1,6 +1,6 @@
 import { codecOf, instantiationOf, netBits, softHinge, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { RuntimeError, type ActSettings, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { objectType, type Rng } from "@workspace/game-types";
+import { objectType, seededRng, type Rng } from "@workspace/game-types";
 import { divineLottery, evaluator, selector, type GodScore, type UtilityDescriptor } from "@workspace/game-utilities";
 import { randomBytes } from "node:crypto";
 import { hasTable, penaltyMeanBits, surprisal, tableFor } from "./calibration.ts";
@@ -70,6 +70,21 @@ export function actSettings(settings: GameSettings): ActSettings {
     actSettingsCache.set(cacheKey, cached);
   }
   return cached;
+}
+
+/** Reference spawns for the expected act cost: fixed per instantiation, so the measure is deterministic per source. */
+export const REFERENCE_SPAWNS = 16;
+const referenceCache = new Map<string, ObjectValue[]>();
+export function referenceSpawns(settings: GameSettings): ObjectValue[] {
+  const inst = instantiationOf(settings);
+  let values = referenceCache.get(inst.key);
+  if (!values) {
+    const T = objectType(inst.objectType), codec = T.codec(inst), rng = seededRng(`code-gods:reference-spawns:${inst.key}`);
+    values = Array.from({ length: REFERENCE_SPAWNS }, () => codec.encode(T.spawn(inst, rng)));
+    if (referenceCache.size >= 64) referenceCache.delete(referenceCache.keys().next().value!);
+    referenceCache.set(inst.key, values);
+  }
+  return values;
 }
 
 export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime>>): RuntimeAdapter {
@@ -146,7 +161,7 @@ export function createUtilitiesAdapter(): UtilitiesAdapter {
       validateSettings(settings);
       const inst = instantiationOf(settings);
       return selector(settings.utilitySelectorId ?? divineLottery.id).select(inst, count, cryptoRng, {
-        defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst),
+        defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst), exclude: settings.excludedFamilies,
       });
     },
     score(settings, descriptor, value) {

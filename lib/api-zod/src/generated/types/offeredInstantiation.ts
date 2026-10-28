@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Badge } from './badge';
+import type { SettingsDefaults } from './settingsDefaults';
 import type { TypeArgs } from './typeArgs';
 
 /**
@@ -18,4 +19,5 @@ export interface OfferedInstantiation {
   label: string;
   badges: Badge[];
   classes: string[];
+  settingsDefaults: SettingsDefaults;
 }

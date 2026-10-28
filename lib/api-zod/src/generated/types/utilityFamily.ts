@@ -21,6 +21,8 @@ export interface UtilityFamily {
   role: UtilityFamilyRole;
   tags: string[];
   available: boolean;
+  /** Taken out of the lottery by settings.excludedFamilies. */
+  excluded: boolean;
   badges: Badge[];
   locked?: UtilityFamilyLocked;
 }

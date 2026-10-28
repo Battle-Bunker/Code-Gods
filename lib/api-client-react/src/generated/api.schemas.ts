@@ -376,6 +376,11 @@ export interface Settings {
      * @maximum 1
      */
   defenceRate?: number;
+  /**
+     * Utility families never dealt in this game (ids from the catalog of this object type).
+     * @maxItems 200
+     */
+  excludedFamilies?: string[];
 }
 
 export type AIFundingProvider = typeof AIFundingProvider[keyof typeof AIFundingProvider];
@@ -432,6 +437,11 @@ export interface ParamSchema {
 }
 
 /**
+ * Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.
+ */
+export interface SettingsDefaults {[key: string]: number | string}
+
+/**
  * A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.
  */
 export interface Badge {
@@ -458,6 +468,7 @@ export interface OfferedInstantiation {
   label: string;
   badges: Badge[];
   classes: string[];
+  settingsDefaults: SettingsDefaults;
 }
 
 export interface ObjectTypeInfo {
@@ -468,8 +479,20 @@ export interface ObjectTypeInfo {
   kid: string;
   params: ParamSchema[];
   defaults: TypeArgs;
+  settingsDefaults: SettingsDefaults;
   classes: CapabilityClass[];
   offered: OfferedInstantiation[];
+}
+
+export interface SettingsPreset {
+  id: string;
+  label: string;
+  kid: string;
+  objectType: string;
+  typeArgs: TypeArgs;
+  settings: Settings;
+  /** Whether its instantiation is currently offered. */
+  offered: boolean;
 }
 
 export interface Manifest {
@@ -483,6 +506,8 @@ export interface Manifest {
   runtimes: string[];
   /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
   objectTypes: ObjectTypeInfo[];
+  /** Named starting points, in display order. */
+  presets: SettingsPreset[];
 }
 
 export type HelperDocName = {
@@ -584,6 +609,8 @@ export interface RoomActionInput {
      */
   aiBudget?: number;
   aiAgentId?: string;
+  /** settings only: apply a Manifest.presets entry instead of `settings` (keeps the room's language unless settings.language is sent). */
+  preset?: string;
 }
 
 export interface RoomSummary {
@@ -876,6 +903,8 @@ export interface UtilityFamily {
   role: UtilityFamilyRole;
   tags: string[];
   available: boolean;
+  /** Taken out of the lottery by settings.excludedFamilies. */
+  excluded: boolean;
   badges: Badge[];
   locked?: UtilityFamilyLocked;
 }

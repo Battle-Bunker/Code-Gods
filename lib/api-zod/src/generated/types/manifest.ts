@@ -9,6 +9,7 @@ import type { AIFunding } from './aIFunding';
 import type { ObjectTypeInfo } from './objectTypeInfo';
 import type { Settings } from './settings';
 import type { SettingsOptions } from './settingsOptions';
+import type { SettingsPreset } from './settingsPreset';
 
 export interface Manifest {
   protocolVersion: number;
@@ -21,4 +22,6 @@ export interface Manifest {
   runtimes: string[];
   /** Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`. */
   objectTypes: ObjectTypeInfo[];
+  /** Named starting points, in display order. */
+  presets: SettingsPreset[];
 }

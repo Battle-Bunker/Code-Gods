@@ -21,7 +21,7 @@ import {
   type CalibrationTable,
 } from "../src/calibration.ts";
 import type { Params } from "../src/types.ts";
-import { BUDGETS, DEFAULT_BUDGET, buildTable, tableJson } from "./estimator.ts";
+import { BUDGETS, DEFAULT_BUDGET, budgetFor, buildTable, tableJson } from "./estimator.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = join(HERE, "..", "data", "calibration", CALIBRATION_FORMAT);
@@ -130,6 +130,8 @@ export function instantiateKey(key: string): Instantiation {
 // ------------------------------------------------------------------------------------------------
 
 interface WorkMsg { job: Job; budget: CalibrationBudget }
+/** --budget applies to every job; otherwise each type's default (estimator.ts budgetFor). */
+type BudgetChoice = CalibrationBudget | null;
 interface DoneMsg { key: string; json: string; seconds: number; evaluations: number }
 
 if (!isMainThread && parentPort) {
@@ -143,7 +145,7 @@ if (!isMainThread && parentPort) {
 }
 
 /** Builds `jobs` on `workers` threads; resolves with the table JSON by key (order-independent). */
-export function runJobs(jobs: readonly Job[], budget: CalibrationBudget, workers: number,
+export function runJobs(jobs: readonly Job[], budget: BudgetChoice, workers: number,
   onDone?: (job: Job, msg: DoneMsg, done: number) => void): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!jobs.length) return Promise.resolve(out);
@@ -152,7 +154,7 @@ export function runJobs(jobs: readonly Job[], budget: CalibrationBudget, workers
     const byKey = new Map(jobs.map(j => [j.key, j]));
     const pool = Array.from({ length: Math.min(workers, jobs.length) }, () => new Worker(fileURLToPath(import.meta.url)));
     const feed = (w: Worker) => {
-      if (next < jobs.length) w.postMessage({ job: jobs[next++], budget } satisfies WorkMsg);
+      if (next < jobs.length) { const job = jobs[next++]; w.postMessage({ job, budget: budget ?? budgetFor(job.objectType) } satisfies WorkMsg); }
       else void w.terminate();
     };
     for (const w of pool) {
@@ -171,8 +173,8 @@ export function runJobs(jobs: readonly Job[], budget: CalibrationBudget, workers
 // CLI
 // ------------------------------------------------------------------------------------------------
 
-function parseBudget(s: string | undefined): CalibrationBudget {
-  if (!s) return DEFAULT_BUDGET;
+function parseBudget(s: string | undefined): CalibrationBudget | null {
+  if (!s) return null;
   if (BUDGETS[s]) return BUDGETS[s];
   const out: Record<string, number> = { ...DEFAULT_BUDGET };
   for (const kv of s.split(",")) {
@@ -228,16 +230,21 @@ async function main() {
   // Longest first (grids, by cell count) for load balancing; results are keyed, so order never reaches the output.
   const jobs = plan.flatMap(p => p.todo).sort((a, b) => weight(b) - weight(a));
   const t0 = performance.now();
-  const built = await runJobs(jobs, budget, workers, (job, m, done) => {
+  const byInst = new Map(plan.map(p => [p.inst.key, { p, done: [] as CalibrationTable[] }]));
+  await runJobs(jobs, budget, workers, (job, m, done) => {
     const t = JSON.parse(m.json) as CalibrationTable;
+    // Checkpoint: rewrite the instance file after every table, so an interrupted run resumes incrementally.
+    const e = byInst.get(job.instance)!;
+    e.done.push(t);
+    writeFileSync(join(dir, fileName(job.instance)), fileText(job.instance, [...e.p.kept, ...e.done]));
+    if (e.done.length === e.p.todo.length) writeIndex(dir, order);
     console.error(`[${done}/${jobs.length}] ${job.instance} ${job.familyId} ${paramsKey(job.params)}: ${t.levels.length} levels, `
       + `${t.meta.maxBits.toFixed(1)} bits${t.meta.stoppedEarly ? " (stopped early" + (t.meta.topReached === false ? ", top NOT reached)" : ")") : ""}, `
       + `${m.seconds.toFixed(1)} s, ${(1e6 * m.seconds / m.evaluations).toFixed(1)} µs/eval`);
   });
   for (const p of plan) {
-    if (!p.todo.length && !p.stale && existsSync(join(dir, fileName(p.inst.key)))) continue;
-    const tables = [...p.kept, ...p.todo.map(j => JSON.parse(built.get(j.key)!) as CalibrationTable)];
-    if (tables.length) writeFileSync(join(dir, fileName(p.inst.key)), fileText(p.inst.key, tables));
+    // Instances with nothing to build but stale tables to drop.
+    if (!p.todo.length && p.stale && p.kept.length) writeFileSync(join(dir, fileName(p.inst.key)), fileText(p.inst.key, p.kept));
   }
   writeIndex(dir, order);
   console.error(`built ${jobs.length} tables in ${((performance.now() - t0) / 1000).toFixed(1)} s on ${workers} workers`);

@@ -1,8 +1,7 @@
 import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
 import { OBJECT_TYPES } from "@workspace/game-types";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
-import { referenceSpawns } from "./engine.ts";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, referenceSpawns, registerAdapters, unregisterAdapters } from "./adapters.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};

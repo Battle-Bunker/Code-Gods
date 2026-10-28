@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   getGetRoomQueryKey, useRoomAction,
-  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type GridManifest,
+  type RoomState, type Settings, type RoomActionInput, type SettingsOptions, type AIFunding, type GameRecord, type ObjectTypeInfo,
 } from "@workspace/api-client-react";
 import { Panel, Empty, ErrorLine } from "@/components/shell";
-import { relevantToType } from "@/components/game-panels";
+import { ObjectTypePicker, RuleShelf, catalogFor, changedParams, findOffered, sameArgs, snapToOffered, type TypeChoice } from "@workspace/object-views";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAgentOptions } from "@/hooks/use-agents";
@@ -98,111 +98,145 @@ export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomSt
   );
 }
 
-const numFields: [keyof Settings, string, number?][] = [
-  ["intMin", "Int min", 1], ["intMax", "Int max", 1], ["stringMaxLength", "String max length", 1],
-  ["planningSeconds", "Planning (s)"], ["halfLifeSeconds", "Game Half-life (s)"], ["startingObjectCount", "Starting objects", 1],
-  ["spawnRateHz", "Spawn rate (Hz)"], ["interactionRateHz", "Interaction cap (Hz)"],
-  ["interactionComputeMs", "Compute budget / interaction (ms)", 1], ["pauseSeconds", "Pause (s)"],
-  ["startingEnergy", "Starting energy"], ["energyPerSecond", "Power (energy / s)"],
-  ["agentEnergyPerSecond", "Agent ⚡ bits / s"], ["agentBatteryActs", "Agent battery (acts)"],
+type NumField = { key: keyof Settings; label: string; unit?: string; min?: number; max?: number; int?: boolean; help?: string };
+const NUM_GROUPS: { title: string; fields: NumField[] }[] = [
+  { title: "World", fields: [
+    { key: "planningSeconds", label: "Planning", unit: "s", min: 0 },
+    { key: "halfLifeSeconds", label: "Half-life", unit: "s", min: 0 },
+    { key: "startingObjectCount", label: "Starting objects", min: 0, int: true },
+    { key: "spawnRateHz", label: "Spawn rate", unit: "/s", min: 0 },
+    { key: "interactionRateHz", label: "Interaction cap", unit: "Hz", min: 0, max: 1000, help: "A ceiling, not guaranteed throughput (default 100 Hz)." },
+    { key: "interactionComputeMs", label: "Compute / interaction", unit: "ms", min: 1, max: 1000, int: true, help: "Guest CPU per interaction, not compilation or worker startup." },
+    { key: "pauseSeconds", label: "Pause", unit: "s", min: 0 },
+  ] },
+  { title: "God energy", fields: [
+    { key: "startingEnergy", label: "Starting energy", unit: "bits", min: 0, help: "Pays summon prices (an agent's description bits)." },
+    { key: "energyPerSecond", label: "Income", unit: "bits/s", min: 0 },
+  ] },
+  { title: "Agent energy", fields: [
+    { key: "agentEnergyPerSecond", label: "Agent income", unit: "bits/s", min: 0, max: 1000, help: "Each agent earns this per second of world time." },
+    { key: "agentBatteryActs", label: "Agent battery", unit: "acts", min: 1, max: 1000, help: "Income stops at this many expected acts." },
+    { key: "maxAgentsPerGod", label: "Agents per god", min: 1, max: 200, int: true },
+  ] },
+  { title: "Defence goals", fields: [
+    { key: "defenceRate", label: "Defence goal rate", min: 0, max: 1, help: "Chance a god is also dealt a ⚠️ defence goal (0 = off)." },
+    { key: "penaltyWeight", label: "Penalty weight", min: 0, help: "How much a ⚠️ bit weighs against a ✨ bit (default 1)." },
+  ] },
 ];
+const NUM_KEYS = NUM_GROUPS.flatMap(g => g.fields);
 const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
-const typeKeys = ["intMin", "intMax", "stringMaxLength"];
 
-export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, grid }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; grid?: GridManifest }) {
+const badNum = (f: NumField, raw: string) => {
+  const v = Number(raw);
+  return raw.trim() === "" || !Number.isFinite(v) || (f.int && !Number.isInteger(v)) || (f.min !== undefined && v < f.min) || (f.max !== undefined && v > f.max);
+};
+
+export function OwnerSettings({ room, act, defaults, options, optionsFailed = false, aiFunding, objectTypes }: { room: RoomState; act: RoomAct; defaults?: Settings; options?: SettingsOptions; optionsFailed?: boolean; aiFunding?: AIFunding; objectTypes?: ObjectTypeInfo[] }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [typeDraft, setTypeDraft] = useState<TypeChoice | null>(null);
+  const [highlight, setHighlight] = useState<string[]>([]);
   const [budget, setBudget] = useState(String(room.aiBudget));
   const [confirmBudget, setConfirmBudget] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const baseRev = useRef(room.revision);
-  const dirty = Object.keys(draft).length > 0;
+  const dirty = Object.keys(draft).length > 0 || typeDraft !== null;
   const frozen = !!room.activeGame;
   useEffect(() => { if (!dirty) baseRev.current = room.revision; }, [room.revision, dirty]);
-  const sourceSettings = { ...defaults, ...room.settings };
-  const val = (k: keyof Settings) => draft[k] ?? String(sourceSettings[k]);
-  const visibleNumFields = numFields.filter(([key]) => relevantToType(key, val("objectType")));
-  const available = (k: keyof SettingsOptions, language = val("language"), objectType = val("objectType")) =>
+  useEffect(() => { if (!highlight.length) return; const t = setTimeout(() => setHighlight([]), 2500); return () => clearTimeout(t); }, [highlight]);
+  const source: Settings = { ...defaults, ...room.settings } as Settings;
+  const choice: TypeChoice = typeDraft ?? { objectType: source.objectType, typeArgs: source.typeArgs };
+  const val = (k: keyof Settings) => draft[k] ?? String(source[k] ?? "");
+  const available = (k: keyof SettingsOptions, language = val("language"), objectType = choice.objectType) =>
     (options?.[k] ?? []).filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
-  const set = (k: keyof Settings, v: string) => setDraft((d) => {
-    const next = { ...d, [k]: v };
-    // Grid agents read a whole grid; Python needs more than the 5 ms default (see lib/game-runtime README).
-    if (k === "objectType" && v === "Grid" && Number(next.interactionComputeMs ?? room.settings.interactionComputeMs) < 25) next.interactionComputeMs = "25";
-    if (k === "language" || k === "objectType") {
-      for (const [key] of optionFields) {
-        const choices = available(key, next.language ?? room.settings.language, next.objectType ?? room.settings.objectType);
-        if (!choices.some(o => o.id === (next[key] ?? room.settings[key]))) next[key] = choices[0]?.id ?? "";
-      }
+  const fixOptions = (next: Record<string, string>, language: string, objectType: string) => {
+    for (const [key] of optionFields) {
+      const choices = available(key, language, objectType);
+      if (!choices.some(o => o.id === (next[key] ?? String(source[key])))) next[key] = choices[0]?.id ?? "";
     }
     return next;
+  };
+  const set = (k: keyof Settings, v: string) => setDraft(d => {
+    const next = { ...d, [k]: v };
+    return k === "language" ? fixOptions(next, v, choice.objectType) : next;
   });
+  const types = objectTypes ?? [];
+  const pickType = (next: TypeChoice) => {
+    const t = types.find(x => x.id === next.objectType);
+    const offered = t ? findOffered(t, next.typeArgs) : undefined;
+    const prev = choice;
+    setTypeDraft(next);
+    setHighlight(changedParams(prev.objectType === next.objectType ? prev.typeArgs : {}, next.typeArgs).filter(k => prev.objectType === next.objectType));
+    // The server applies tuned defaults for a new type or instantiation; show them in the draft.
+    const tuned = { ...(prev.objectType !== next.objectType ? t?.settingsDefaults : {}), ...offered?.settingsDefaults };
+    setDraft(d => fixOptions({ ...d, ...Object.fromEntries(Object.entries(tuned).map(([k, v]) => [k, String(v)])) }, d.language ?? String(source.language), next.objectType));
+  };
+  const unlock = (patch: Record<string, string | number>) => {
+    const t = types.find(x => x.id === choice.objectType);
+    const snap = t && snapToOffered(t, choice.typeArgs, patch);
+    if (!t || !snap) return;
+    pickType({ objectType: t.id, typeArgs: { ...t.defaults, ...snap.args } });
+    setHighlight(changedParams(choice.typeArgs, { ...t.defaults, ...snap.args }));
+    pickerRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
   const build = (): Settings => {
-    const s = { ...sourceSettings } as Record<string, unknown>;
-    for (const [k, v] of Object.entries(draft)) {
-      // Hidden type drafts are retained for switching back, but never submitted.
-      if (!relevantToType(k, val("objectType"))) continue;
-      s[k] = numFields.some(([n]) => n === k) || k === "gridSize" ? Number(v) : v;
-    }
+    const s = { ...source, objectType: choice.objectType, typeArgs: choice.typeArgs } as Record<string, unknown>;
+    for (const [k, v] of Object.entries(draft)) s[k] = NUM_KEYS.some(f => f.key === k) ? Number(v) : v;
     return s as unknown as Settings;
   };
-  const invalid = visibleNumFields.some(([k]) => draft[k] !== undefined && (draft[k] === "" || !Number.isFinite(Number(draft[k])))) ||
-    Number(val("interactionRateHz")) < 0 || Number(val("interactionRateHz")) > 1000 ||
-    !Number.isInteger(Number(val("interactionComputeMs"))) ||
-    Number(val("interactionComputeMs")) < 1 || Number(val("interactionComputeMs")) > 1000 ||
-    optionFields.some(([k]) => !available(k).some(o => o.id === val(k)));
+  const currentType = types.find(t => t.id === choice.objectType);
+  const offered = currentType ? findOffered(currentType, choice.typeArgs) : undefined;
+  const invalid = NUM_KEYS.some(f => source[f.key] !== undefined || draft[f.key] !== undefined ? badNum(f, val(f.key)) : false) ||
+    optionFields.some(([k]) => !available(k).some(o => o.id === val(k))) || (types.length > 0 && !offered);
   const conflict = dirty && baseRev.current !== room.revision;
+  const savedType = typeDraft === null || (typeDraft.objectType === source.objectType && sameArgs(typeDraft.typeArgs, source.typeArgs));
+  const shelf = useMemo(() => savedType ? room.utilityCatalog : catalogFor(choice.objectType, choice.typeArgs),
+    [savedType, room.utilityCatalog, choice.objectType, choice.typeArgs]);
+  const badges = useMemo(() => (currentType?.classes ?? []).map(c => c.badge), [currentType]);
   const b = Number(budget);
   const budgetOk = budget.trim() !== "" && Number.isInteger(b) && b >= 0 && b <= 1000000;
-  const field = "w-full border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
+  const field = "w-full min-w-0 border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
+  const discard = () => { setDraft({}); setTypeDraft(null); setHighlight([]); };
   return (
     <Panel title="Settings for the next game" meta={conflict ? "changed by another edit" : dirty ? "unsaved" : `rev ${room.revision}`}>
       {frozen ? <p className="px-4 pt-3 text-xs text-accent" data-testid="text-settings-frozen">Settings are frozen while game {room.activeGame?.shortCode} runs. Edit them for the next game once it ends.</p>
         : <p className="px-4 pt-3 text-xs text-muted-foreground">Each game keeps a snapshot of these settings from the moment you start it.</p>}
       <fieldset disabled={frozen} className="min-w-0">
-      <div className="p-4 grid grid-cols-2 gap-3">
-        <label className="space-y-1 col-span-2"><span className="label-mono">Language</span>
+      <div className="p-4 space-y-4">
+        <label className="space-y-1 block"><span className="label-mono">Language</span>
           <select value={val("language")} onChange={(e) => set("language", e.target.value)} className={field} data-testid="select-language"><option value="python">python</option><option value="typescript">typescript</option></select></label>
-        <label className="space-y-1 col-span-2"><span className="label-mono">Object type</span>
-          <select value={val("objectType")} onChange={(e) => set("objectType", e.target.value)} className={field} data-testid="select-objectType"><option value="Int">Int</option><option value="string">string</option>{grid && <option value="Grid">🟥 Grid: a square of coloured symbols</option>}</select></label>
-        {val("objectType") === "Grid" && grid && (() => {
-          const key = `Grid(${val("gridSize")},${val("gridSymbols")},${val("gridColours")})`;
-          const chosen = grid.types.find(t => t.key === key);
-          return (
-            <div className="col-span-2 space-y-2 border-l-2 border-primary/25 pl-3" data-testid="grid-parameters">
-              <label className="space-y-1 block"><span className="label-mono">Grid</span>
-                <select value={chosen ? key : ""} onChange={(e) => { const t = grid.types.find(x => x.key === e.target.value); if (t) setDraft(d => ({ ...d, gridSize: String(t.size), gridSymbols: t.symbols, gridColours: t.colours })); }} className={field} data-testid="select-gridType">
-                  {!chosen && <option value="" disabled>Pick a grid</option>}
-                  {grid.types.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
-                </select></label>
-              {chosen && <p className="text-xs text-muted-foreground" data-testid="text-grid-badges">{chosen.familyCount} utility functions can be dealt. {chosen.badges.map(b => <span key={b.id} title={b.kid} className="mr-2 whitespace-nowrap">{b.emoji} {b.label}</span>)}</p>}
-            </div>
-          );
-        })()}
-        <div className="col-span-2 grid grid-cols-2 gap-3 border-l-2 border-primary/25 pl-3" data-testid="type-parameters">
-          {visibleNumFields.filter(([k]) => typeKeys.includes(k)).map(([k, label, step]) => (
-            <label key={k} className={`space-y-1 ${val("objectType") === "string" ? "col-span-2" : ""}`}>
-              <span className="label-mono">{label}</span>
-              <input type="number" step={step} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} />
-            </label>
-          ))}
+        <div ref={pickerRef} className="space-y-1">
+          <span className="label-mono">World</span>
+          {types.length ? <ObjectTypePicker types={types} value={choice} onChange={pickType} highlight={highlight} disabled={frozen} />
+            : <p className="text-xs text-muted-foreground">{optionsFailed ? "Object types unavailable — retry above." : "Loading object types…"}</p>}
         </div>
-        <label className="space-y-1 col-span-2"><span className="label-mono">Spawn function</span>
-          <select value={val("spawnFunctionId")} onChange={(e) => set("spawnFunctionId", e.target.value)} className={field} data-testid="select-spawnFunctionId"><option value="uniform">uniform</option></select></label>
+        <div className="border-t pt-3"><RuleShelf title="Rule shelf" entries={shelf} badges={badges} onUnlock={unlock} unlockDisabled={frozen} /></div>
         {optionFields.map(([k, l]) => (
-          <label key={k} className="space-y-1 col-span-2"><span className="label-mono">{l}</span>
+          <label key={k} className="space-y-1 block"><span className="label-mono">{l}</span>
             <select value={available(k).some(o => o.id === val(k)) ? val(k) : ""} disabled={!options} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`select-${k}`}>
               {!available(k).some(o => o.id === val(k)) && <option value="" disabled>{options ? "Select a supported option" : optionsFailed ? "Options unavailable — retry above" : "Loading options…"}</option>}
               {available(k).map(o => <option key={o.id} value={o.id}>{o.label} ({o.id})</option>)}
             </select></label>
         ))}
-        {numFields.filter(([k]) => !typeKeys.includes(k) && relevantToType(k, val("objectType"))).map(([k, l, step]) => (
-          <label key={k} className="space-y-1"><span className="label-mono">{l}</span>
-            <input type="number" step={step ?? "any"} min={k === "interactionComputeMs" ? 1 : k === "interactionRateHz" ? 0 : undefined} max={k === "interactionComputeMs" || k === "interactionRateHz" ? 1000 : undefined} value={val(k)} onChange={(e) => set(k, e.target.value)} className={field} data-testid={`input-${k}`} /></label>
+        {NUM_GROUPS.map(g => (
+          <fieldset key={g.title} className="border-t pt-3 min-w-0" data-testid={`settings-group-${g.title.toLowerCase().replace(/ /g, "-")}`}>
+            <legend className="label-mono !text-foreground pr-2">{g.title}</legend>
+            <div className="grid grid-cols-2 gap-3">
+              {g.fields.map(f => (
+                <label key={f.key} className="space-y-1 min-w-0" title={f.help}>
+                  <span className="label-mono block truncate">{f.label}{f.unit ? ` (${f.unit})` : ""}</span>
+                  <input type="number" step={f.int ? 1 : "any"} min={f.min} max={f.max} value={val(f.key)} onChange={(e) => set(f.key, e.target.value)}
+                    aria-invalid={badNum(f, val(f.key)) || undefined} className={`${field} ${badNum(f, val(f.key)) ? "border-destructive" : ""}`} data-testid={`input-${f.key}`} />
+                </label>
+              ))}
+            </div>
+            {g.fields.some(f => f.help) && <p className="mt-2 text-xs text-muted-foreground">{g.fields.filter(f => f.help).map(f => `${f.label}: ${f.help}`).join(" ")}</p>}
+          </fieldset>
         ))}
       </div>
-      <p className="px-4 pb-3 text-xs text-muted-foreground">Compute budget: 1–1000 ms of guest CPU per interaction (default 5 ms), not compilation or worker startup. Interaction cap: 0–1000 Hz (default 100 Hz), a ceiling, not guaranteed throughput.</p>
       <div className="border-t p-3 flex flex-wrap gap-2">
-        <button disabled={!dirty || invalid || act.pending} onClick={() => act.run({ action: "settings", revision: baseRev.current, settings: build() }, () => setDraft({}))} className="flex-1 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-40" data-testid="button-save-settings">Save settings</button>
-        <button disabled={!dirty} onClick={() => setDraft({})} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-discard-settings">Discard</button>
-        <button disabled={!defaults} onClick={() => defaults && setDraft(Object.fromEntries(Object.entries(defaults).map(([k, v]) => [k, String(v)])))} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-load-defaults">Load defaults</button>
+        <button disabled={!dirty || invalid || act.pending} onClick={() => act.run({ action: "settings", revision: baseRev.current, settings: build() }, discard)} className="flex-1 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-40" data-testid="button-save-settings">Save settings</button>
+        <button disabled={!dirty} onClick={discard} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-discard-settings">Discard</button>
+        <button disabled={!defaults} onClick={() => { if (!defaults) return; setTypeDraft({ objectType: defaults.objectType, typeArgs: defaults.typeArgs }); setDraft(Object.fromEntries(Object.entries(defaults).filter(([k]) => k !== "typeArgs" && k !== "objectType").map(([k, v]) => [k, String(v)]))); }} className="border px-3 py-2 text-sm disabled:opacity-40" data-testid="button-load-defaults">Load defaults</button>
       </div>
       {conflict && <p className="px-4 pb-3 text-xs text-accent">The room revision moved to {room.revision} since you began editing. Saving submits revision {baseRev.current}; the server may reject it. Discard to reload.</p>}
       <div className="border-t p-4 space-y-3">
@@ -217,17 +251,15 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         </div>
         <div className="h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left transition-transform" style={{ transform: `scaleX(${room.aiBudget ? Math.min(1, ((room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0)) / room.aiBudget) : 0})` }} /></div>
         <p className="text-xs text-muted-foreground">Provider-reported: {fmt(room.aiInputTokens ?? 0)} input + {fmt(room.aiOutputTokens ?? 0)} output tokens recorded.</p>
-        {room.aiUsed > (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0) && <p className="text-xs text-muted-foreground">{fmt(room.aiUsed - (room.aiInputTokens ?? 0) - (room.aiOutputTokens ?? 0))} tokens held separately for pending calls or calls without recorded usage (including older calls). This is not confirmed consumption.</p>}
-        <div className="flex gap-2">
-          <input type="number" min={0} max={1000000} step={1} value={budget} onChange={(e) => { setBudget(e.target.value); setConfirmBudget(false); }} className={field} data-testid="input-ai-budget" />
-        </div>
+        {room.aiUsed > (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0) && <p className="text-xs text-muted-foreground">{fmt(room.aiUsed - (room.aiInputTokens ?? 0) - (room.aiOutputTokens ?? 0))} tokens held separately for pending calls or calls without recorded usage. This is not confirmed consumption.</p>}
+        <input type="number" min={0} max={1000000} step={1} value={budget} onChange={(e) => { setBudget(e.target.value); setConfirmBudget(false); }} className={field} data-testid="input-ai-budget" />
         {!budgetOk && <p role="alert" className="text-xs text-accent">Enter a whole number from 0 to 1,000,000 tokens.</p>}
-        <p className="text-xs text-muted-foreground">Per-game allowance shared by all AI seats; resets when a new game starts. Usage above counts only provider-reported tokens recorded since usage tracking was enabled. Pending and unconfirmed reservations also reduce available allowance. Separate dollar safety limits still apply.</p>
+        <p className="text-xs text-muted-foreground">Per-game allowance shared by all AI seats; resets when a new game starts. Pending and unconfirmed reservations also reduce available allowance. Separate dollar safety limits still apply.</p>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
           I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.
         </label>
-        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: sourceSettings, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
+        <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run({ action: "settings", revision: room.revision, settings: source, aiBudget: b }, () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
       </fieldset>
     </Panel>
@@ -250,14 +282,11 @@ function HistoryRow({ g }: { g: GameRecord }) {
         <span>{g.winners.length ? g.winners.map((w) => w.name).join(", ") : "no winner recorded"}{g.winners.length > 1 && <span className="label-mono ml-2">tie</span>}</span>
       </div>
       <details className="text-xs">
-        <summary className="cursor-pointer label-mono">final leaderboard · {g.roster.length} gods · {s.language} / {s.objectType} · {fmt(g.worldSeconds, 1)}s world · {g.objectCount} objects · {g.agentCount} agents</summary>
+        <summary className="cursor-pointer label-mono">final leaderboard · {g.roster.length} gods · {s.language} / {s.objectType} {Object.values(s.typeArgs).join(",")} · {fmt(g.worldSeconds, 1)}s world · {g.objectCount} objects · {g.agentCount} agents</summary>
         <ol className="mt-2 space-y-0.5">
-          {top.map((r) => <li key={r.deityId} className="flex gap-2 font-mono"><span className="w-6 text-muted-foreground">{r.rank}</span><span className="flex-1 truncate">{r.name} <span className="text-muted-foreground">{r.kind}</span></span><span className="tabular-nums">{fmt(r.totalScore, 2)}</span></li>)}
+          {top.map((r) => <li key={r.deityId} className="flex gap-2 font-mono"><span className="w-6 text-muted-foreground">{r.rank}</span><span className="flex-1 truncate">{r.name} <span className="text-muted-foreground">{r.kind}</span></span><span className="tabular-nums" title="total payoff, bits²">{fmt(r.totalPayoff, 1)}</span></li>)}
           {top.length === 0 && <li className="text-muted-foreground">No standings were recorded.</li>}
         </ol>
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
-          {Object.entries(s).filter(([k]) => relevantToType(k, s.objectType)).map(([k, v]) => (<div key={k} className="contents"><dt className="text-muted-foreground font-mono truncate">{k}</dt><dd className="font-mono text-right truncate">{String(v)}</dd></div>))}
-        </dl>
       </details>
     </li>
   );

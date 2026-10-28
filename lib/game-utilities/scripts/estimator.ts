@@ -31,6 +31,18 @@ import { exactLevels } from "./exact.ts";
 export const DEFAULT_BUDGET: CalibrationBudget = Object.freeze({
   nMc: 1 << 15, minMcCount: 128, particles: 500, p0: 0.5, sweeps: 1, targetBits: 64, maxStages: 400, maxStuck: 3,
 });
+/**
+ * Per-type defaults. Int and string evaluations are 5–10× cheaper than Grid ones, so their Monte Carlo body is
+ * much deeper (2^20 / 2^18 samples): it resolves levels down to ~2^-13 / 2^-11 directly, below which a few
+ * arithmetic families (Residue Oracle, Many-Faced) have level sets the splitting kernel cannot climb.
+ */
+export const TYPE_BUDGETS: Readonly<Record<string, CalibrationBudget>> = Object.freeze({
+  Grid: DEFAULT_BUDGET,
+  Int: Object.freeze({ ...DEFAULT_BUDGET, nMc: 1 << 20 }),
+  string: Object.freeze({ ...DEFAULT_BUDGET, nMc: 1 << 18 }),
+});
+export const budgetFor = (objectType: string): CalibrationBudget => TYPE_BUDGETS[objectType] ?? DEFAULT_BUDGET;
+
 /** Small budget for tests and smoke runs. */
 export const SMOKE_BUDGET: CalibrationBudget = Object.freeze({
   nMc: 1 << 11, minMcCount: 32, particles: 64, p0: 0.5, sweeps: 0.5, targetBits: 24, maxStages: 100, maxStuck: 2,

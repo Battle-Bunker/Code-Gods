@@ -178,6 +178,9 @@ export const createRoomResponseSettingsOneDefenceRateDefault = 0;
 export const createRoomResponseSettingsOneDefenceRateMin = 0;
 export const createRoomResponseSettingsOneDefenceRateMax = 1;
 
+export const createRoomResponseSettingsOneExcludedFamiliesDefault = [];
+export const createRoomResponseSettingsOneExcludedFamiliesMax = 200;
+
 
 
 export const CreateRoomResponse = zod.object({
@@ -208,7 +211,8 @@ export const CreateRoomResponse = zod.object({
   "agentBatteryActs": zod.number().min(1).max(createRoomResponseSettingsOneAgentBatteryActsMax).default(createRoomResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(createRoomResponseSettingsOneMaxAgentsPerGodMax).default(createRoomResponseSettingsOneMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(createRoomResponseSettingsOnePenaltyWeightMin).default(createRoomResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(createRoomResponseSettingsOneDefenceRateMin).max(createRoomResponseSettingsOneDefenceRateMax).default(createRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(createRoomResponseSettingsOneDefenceRateMin).max(createRoomResponseSettingsOneDefenceRateMax).default(createRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(createRoomResponseSettingsOneExcludedFamiliesMax).default(createRoomResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -282,6 +286,7 @@ export const CreateRoomResponse = zod.object({
   "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
   "tags": zod.array(zod.string()),
   "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
   "badges": zod.array(zod.object({
   "id": zod.string(),
   "emoji": zod.string(),
@@ -340,6 +345,9 @@ export const getRoomResponseSettingsOneDefenceRateDefault = 0;
 export const getRoomResponseSettingsOneDefenceRateMin = 0;
 export const getRoomResponseSettingsOneDefenceRateMax = 1;
 
+export const getRoomResponseSettingsOneExcludedFamiliesDefault = [];
+export const getRoomResponseSettingsOneExcludedFamiliesMax = 200;
+
 
 
 export const GetRoomResponse = zod.object({
@@ -370,7 +378,8 @@ export const GetRoomResponse = zod.object({
   "agentBatteryActs": zod.number().min(1).max(getRoomResponseSettingsOneAgentBatteryActsMax).default(getRoomResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(getRoomResponseSettingsOneMaxAgentsPerGodMax).default(getRoomResponseSettingsOneMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(getRoomResponseSettingsOnePenaltyWeightMin).default(getRoomResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(getRoomResponseSettingsOneDefenceRateMin).max(getRoomResponseSettingsOneDefenceRateMax).default(getRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(getRoomResponseSettingsOneDefenceRateMin).max(getRoomResponseSettingsOneDefenceRateMax).default(getRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getRoomResponseSettingsOneExcludedFamiliesMax).default(getRoomResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -444,6 +453,7 @@ export const GetRoomResponse = zod.object({
   "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
   "tags": zod.array(zod.string()),
   "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
   "badges": zod.array(zod.object({
   "id": zod.string(),
   "emoji": zod.string(),
@@ -490,6 +500,9 @@ export const listRoomGamesResponseSettingsDefenceRateDefault = 0;
 export const listRoomGamesResponseSettingsDefenceRateMin = 0;
 export const listRoomGamesResponseSettingsDefenceRateMax = 1;
 
+export const listRoomGamesResponseSettingsExcludedFamiliesDefault = [];
+export const listRoomGamesResponseSettingsExcludedFamiliesMax = 200;
+
 
 
 export const ListRoomGamesResponseItem = zod.object({
@@ -520,7 +533,8 @@ export const ListRoomGamesResponseItem = zod.object({
   "agentBatteryActs": zod.number().min(1).max(listRoomGamesResponseSettingsAgentBatteryActsMax).default(listRoomGamesResponseSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(listRoomGamesResponseSettingsMaxAgentsPerGodMax).default(listRoomGamesResponseSettingsMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(listRoomGamesResponseSettingsPenaltyWeightMin).default(listRoomGamesResponseSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(listRoomGamesResponseSettingsDefenceRateMin).max(listRoomGamesResponseSettingsDefenceRateMax).default(listRoomGamesResponseSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(listRoomGamesResponseSettingsDefenceRateMin).max(listRoomGamesResponseSettingsDefenceRateMax).default(listRoomGamesResponseSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(listRoomGamesResponseSettingsExcludedFamiliesMax).default(listRoomGamesResponseSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "roster": zod.array(zod.object({
   "id": zod.string(),
@@ -575,6 +589,9 @@ export const getGameStateResponseOneSettingsDefenceRateDefault = 0;
 export const getGameStateResponseOneSettingsDefenceRateMin = 0;
 export const getGameStateResponseOneSettingsDefenceRateMax = 1;
 
+export const getGameStateResponseOneSettingsExcludedFamiliesDefault = [];
+export const getGameStateResponseOneSettingsExcludedFamiliesMax = 200;
+
 
 
 export const GetGameStateResponse = zod.object({
@@ -623,7 +640,8 @@ export const GetGameStateResponse = zod.object({
   "agentBatteryActs": zod.number().min(1).max(getGameStateResponseOneSettingsAgentBatteryActsMax).default(getGameStateResponseOneSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(getGameStateResponseOneSettingsMaxAgentsPerGodMax).default(getGameStateResponseOneSettingsMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(getGameStateResponseOneSettingsPenaltyWeightMin).default(getGameStateResponseOneSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(getGameStateResponseOneSettingsDefenceRateMin).max(getGameStateResponseOneSettingsDefenceRateMax).default(getGameStateResponseOneSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(getGameStateResponseOneSettingsDefenceRateMin).max(getGameStateResponseOneSettingsDefenceRateMax).default(getGameStateResponseOneSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getGameStateResponseOneSettingsExcludedFamiliesMax).default(getGameStateResponseOneSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "roster": zod.array(zod.object({
   "id": zod.string(),
@@ -704,6 +722,7 @@ export const GetGameStateResponse = zod.object({
   "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
   "tags": zod.array(zod.string()),
   "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
   "badges": zod.array(zod.object({
   "id": zod.string(),
   "emoji": zod.string(),
@@ -747,6 +766,9 @@ export const roomActionBodySettingsDefenceRateDefault = 0;
 export const roomActionBodySettingsDefenceRateMin = 0;
 export const roomActionBodySettingsDefenceRateMax = 1;
 
+export const roomActionBodySettingsExcludedFamiliesDefault = [];
+export const roomActionBodySettingsExcludedFamiliesMax = 200;
+
 export const roomActionBodyTextMax = 4000;
 
 export const roomActionBodyAiBudgetMin = 0;
@@ -779,13 +801,15 @@ export const RoomActionBody = zod.object({
   "agentBatteryActs": zod.number().min(1).max(roomActionBodySettingsAgentBatteryActsMax).default(roomActionBodySettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(roomActionBodySettingsMaxAgentsPerGodMax).default(roomActionBodySettingsMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(roomActionBodySettingsPenaltyWeightMin).default(roomActionBodySettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(roomActionBodySettingsDefenceRateMin).max(roomActionBodySettingsDefenceRateMax).default(roomActionBodySettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(roomActionBodySettingsDefenceRateMin).max(roomActionBodySettingsDefenceRateMax).default(roomActionBodySettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(roomActionBodySettingsExcludedFamiliesMax).default(roomActionBodySettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).optional(),
   "ready": zod.boolean().optional(),
   "text": zod.string().max(roomActionBodyTextMax).optional(),
   "deityId": zod.string().optional(),
   "aiBudget": zod.number().int().min(roomActionBodyAiBudgetMin).max(roomActionBodyAiBudgetMax).optional(),
-  "aiAgentId": zod.string().optional()
+  "aiAgentId": zod.string().optional(),
+  "preset": zod.string().optional().describe('settings only: apply a Manifest.presets entry instead of `settings` (keeps the room\'s language unless settings.language is sent).')
 })
 
 export const roomActionResponseSettingsOneInteractionRateHzDefault = 100;
@@ -811,6 +835,9 @@ export const roomActionResponseSettingsOnePenaltyWeightMin = 0;
 export const roomActionResponseSettingsOneDefenceRateDefault = 0;
 export const roomActionResponseSettingsOneDefenceRateMin = 0;
 export const roomActionResponseSettingsOneDefenceRateMax = 1;
+
+export const roomActionResponseSettingsOneExcludedFamiliesDefault = [];
+export const roomActionResponseSettingsOneExcludedFamiliesMax = 200;
 
 
 
@@ -842,7 +869,8 @@ export const RoomActionResponse = zod.object({
   "agentBatteryActs": zod.number().min(1).max(roomActionResponseSettingsOneAgentBatteryActsMax).default(roomActionResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(roomActionResponseSettingsOneMaxAgentsPerGodMax).default(roomActionResponseSettingsOneMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(roomActionResponseSettingsOnePenaltyWeightMin).default(roomActionResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(roomActionResponseSettingsOneDefenceRateMin).max(roomActionResponseSettingsOneDefenceRateMax).default(roomActionResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(roomActionResponseSettingsOneDefenceRateMin).max(roomActionResponseSettingsOneDefenceRateMax).default(roomActionResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(roomActionResponseSettingsOneExcludedFamiliesMax).default(roomActionResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -916,6 +944,7 @@ export const RoomActionResponse = zod.object({
   "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
   "tags": zod.array(zod.string()),
   "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
   "badges": zod.array(zod.object({
   "id": zod.string(),
   "emoji": zod.string(),
@@ -1123,6 +1152,36 @@ export const getManifestResponseDefaultsDefenceRateDefault = 0;
 export const getManifestResponseDefaultsDefenceRateMin = 0;
 export const getManifestResponseDefaultsDefenceRateMax = 1;
 
+export const getManifestResponseDefaultsExcludedFamiliesDefault = [];
+export const getManifestResponseDefaultsExcludedFamiliesMax = 200;
+
+export const getManifestResponsePresetsItemSettingsInteractionRateHzDefault = 100;
+export const getManifestResponsePresetsItemSettingsInteractionRateHzMin = 0;
+export const getManifestResponsePresetsItemSettingsInteractionRateHzMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsInteractionComputeMsDefault = 5;
+export const getManifestResponsePresetsItemSettingsInteractionComputeMsMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault = 2;
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin = 0;
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsAgentBatteryActsDefault = 2;
+export const getManifestResponsePresetsItemSettingsAgentBatteryActsMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsMaxAgentsPerGodDefault = 200;
+export const getManifestResponsePresetsItemSettingsMaxAgentsPerGodMax = 200;
+
+export const getManifestResponsePresetsItemSettingsPenaltyWeightDefault = 1;
+export const getManifestResponsePresetsItemSettingsPenaltyWeightMin = 0;
+
+export const getManifestResponsePresetsItemSettingsDefenceRateDefault = 0;
+export const getManifestResponsePresetsItemSettingsDefenceRateMin = 0;
+export const getManifestResponsePresetsItemSettingsDefenceRateMax = 1;
+
+export const getManifestResponsePresetsItemSettingsExcludedFamiliesDefault = [];
+export const getManifestResponsePresetsItemSettingsExcludedFamiliesMax = 200;
+
 
 
 export const GetManifestResponse = zod.object({
@@ -1150,7 +1209,8 @@ export const GetManifestResponse = zod.object({
   "agentBatteryActs": zod.number().min(1).max(getManifestResponseDefaultsAgentBatteryActsMax).default(getManifestResponseDefaultsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
   "maxAgentsPerGod": zod.number().int().min(1).max(getManifestResponseDefaultsMaxAgentsPerGodMax).default(getManifestResponseDefaultsMaxAgentsPerGodDefault),
   "penaltyWeight": zod.number().min(getManifestResponseDefaultsPenaltyWeightMin).default(getManifestResponseDefaultsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
-  "defenceRate": zod.number().min(getManifestResponseDefaultsDefenceRateMin).max(getManifestResponseDefaultsDefenceRateMax).default(getManifestResponseDefaultsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.')
+  "defenceRate": zod.number().min(getManifestResponseDefaultsDefenceRateMin).max(getManifestResponseDefaultsDefenceRateMax).default(getManifestResponseDefaultsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getManifestResponseDefaultsExcludedFamiliesMax).default(getManifestResponseDefaultsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "options": zod.object({
   "grammarId": zod.array(zod.object({
@@ -1203,6 +1263,7 @@ export const GetManifestResponse = zod.object({
   "presets": zod.array(zod.number().int()).optional()
 }).describe('One type parameter. `component` picks one of `options`; `int` is a number in [min, max], with the calibrated `presets`.')),
   "defaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "settingsDefaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.'),
   "classes": zod.array(zod.object({
   "id": zod.string(),
   "slot": zod.string(),
@@ -1224,9 +1285,42 @@ export const GetManifestResponse = zod.object({
   "label": zod.string(),
   "kid": zod.string()
 }).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
-  "classes": zod.array(zod.string())
+  "classes": zod.array(zod.string()),
+  "settingsDefaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.')
 }).describe('An instantiation the server offers (every utility function dealable in it has a calibration table).'))
-})).describe('Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.')
+})).describe('Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.'),
+  "presets": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string(),
+  "objectType": zod.string(),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "settings": zod.object({
+  "language": zod.enum(['python', 'typescript']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string(),
+  "complexityFunctionId": zod.string(),
+  "spawnFunctionId": zod.enum(['uniform']),
+  "planningSeconds": zod.number(),
+  "halfLifeSeconds": zod.number(),
+  "startingObjectCount": zod.number().int(),
+  "spawnRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(getManifestResponsePresetsItemSettingsInteractionRateHzMin).max(getManifestResponsePresetsItemSettingsInteractionRateHzMax).default(getManifestResponsePresetsItemSettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsInteractionComputeMsMax).default(getManifestResponsePresetsItemSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "pauseSeconds": zod.number(),
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin).max(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax).default(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(getManifestResponsePresetsItemSettingsAgentBatteryActsMax).default(getManifestResponsePresetsItemSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsMaxAgentsPerGodMax).default(getManifestResponsePresetsItemSettingsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(getManifestResponsePresetsItemSettingsPenaltyWeightMin).default(getManifestResponsePresetsItemSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(getManifestResponsePresetsItemSettingsDefenceRateMin).max(getManifestResponsePresetsItemSettingsDefenceRateMax).default(getManifestResponsePresetsItemSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getManifestResponsePresetsItemSettingsExcludedFamiliesMax).default(getManifestResponsePresetsItemSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
+}),
+  "offered": zod.boolean().describe('Whether its instantiation is currently offered.')
+})).describe('Named starting points, in display order.')
 })
 
 

@@ -27,7 +27,8 @@ test("explicit owner grants are browser-owner-approved, room-bound, revocable an
   // No ticker, worker, model provider or paid call is started. Only this test's
   // in-memory authority exercises game lifecycle and player-command routing.
   registerAdapters({
-    runtime: { languages: [room.settings.language], inspect: async () => ({ cost: 0 }), execute: async (_source, input) => input },
+    runtime: { languages: [room.settings.language], inspect: async () => ({ cost: 0 }), act: async () => ({ calls: "[]" }),
+      validate: async (_source, samples) => ({ cost: 0, outputs: samples.map(() => "[]") }) },
     utilities: createUtilitiesAdapter(),
   });
   const server = createServer(app);

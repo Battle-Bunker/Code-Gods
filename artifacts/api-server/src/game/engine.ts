@@ -5,11 +5,12 @@ import {
   uniquePrefixes, validateSettings, type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import {
-  applyCalls, MIN_FAILED_ACT_BITS, objectType, seededRng, type ActCost, type ActOutcome, type MutatorCallWire,
+  applyCalls, MIN_FAILED_ACT_BITS, objectType, type ActCost, type ActOutcome, type MutatorCallWire,
 } from "@workspace/game-types";
 import type { Room, Actor, Game, WorldEvent, WorldObject, Agent, AgentActState } from "./types";
 import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
-import { cryptoRng, isAgentFault, requireAdapters } from "./adapters";
+import { cryptoRng, isAgentFault, referenceSpawns, REFERENCE_SPAWNS, requireAdapters } from "./adapters";
+export { referenceSpawns, REFERENCE_SPAWNS };
 import { hash, requireAct } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
@@ -53,21 +54,6 @@ function recordEvent(game: Game, event: WorldEvent) {
 // ------------------------------------------------------------------------------------------------
 // agent validation: description bits, sample acts and the expected cost per act
 // ------------------------------------------------------------------------------------------------
-
-/** Reference spawns for the expected act cost: fixed per instantiation, so the measure is deterministic per source. */
-export const REFERENCE_SPAWNS = 16;
-const referenceCache = new Map<string, ObjectValue[]>();
-export function referenceSpawns(settings: GameSettings): ObjectValue[] {
-  const inst = instantiationOf(settings);
-  let values = referenceCache.get(inst.key);
-  if (!values) {
-    const T = objectType(inst.objectType), codec = T.codec(inst), rng = seededRng(`code-gods:reference-spawns:${inst.key}`);
-    values = Array.from({ length: REFERENCE_SPAWNS }, () => codec.encode(T.spawn(inst, rng)));
-    if (referenceCache.size >= 64) referenceCache.delete(referenceCache.keys().next().value!);
-    referenceCache.set(inst.key, values);
-  }
-  return values;
-}
 
 /** The outcome of one act on `before`: applyCalls, or the failed-act minimum when the runtime refused it. */
 export function actOutcome(settings: GameSettings, before: ObjectValue, result: { calls: string } | { error: string }): ActOutcome {
