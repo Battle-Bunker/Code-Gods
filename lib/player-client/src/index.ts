@@ -1,4 +1,3 @@
+// Browser-safe and Convex-bundle-safe exports only. The Node tooling lives in ./engine (`@workspace/player-client/engine`).
 export * from "./protocol.ts";
-export * from "./transport.ts";
-export * from "./socket-transport.ts";
-export * from "./analytics.ts";
+export * from "./client.ts";

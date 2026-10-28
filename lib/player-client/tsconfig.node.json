@@ -1,0 +1,7 @@
+{
+  "//": "The Node tooling (engine connection, CLI, tests) imports the engine's generated Convex API, which pulls in the engine's sources, so it is checked here with the engine's compiler settings, outside the composite library build.",
+  "extends": "../../artifacts/engine/convex/tsconfig.json",
+  "compilerOptions": { "noEmit": true, "lib": ["ES2023", "dom", "dom.iterable"], "types": ["node"] },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": []
+}
