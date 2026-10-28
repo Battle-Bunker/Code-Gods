@@ -109,14 +109,14 @@ def _token_counts(match_s, match_c):
 
 
 def tok_tail_factory(ps_fn):
-    """Exact tail for lex((tokens, n+1), (half-tokens, n+1)) with iid cells."""
+    """Exact tail μ{(tokens, half-tokens) >= t} (tuple order) with iid cells."""
     def tail(t, p, gtype):
         n = gtype.N ** 2
         ps, pc = ps_fn(p, gtype), 1.0 / gtype.C
         p1, p2 = ps * pc, ps * (1 - pc) + (1 - ps) * pc
         p3 = 1 - p1 - p2
-        a, b = divmod(int(t), n + 1)
-        if t <= 0:
+        a, b = (int(x) for x in t)
+        if (a, b) <= (0, 0):
             return 0.0
         if a > n:
             return float("-inf")
@@ -144,17 +144,15 @@ def s3_sample(rng, gtype):
 
 
 def s3_ord(g, p, gtype):
-    n = gtype.N ** 2
     v, col = gtype.value[g.sym].ravel().tolist(), g.col.ravel().tolist()
     tok = sum(1 for a, b in zip(v, col) if a == p["value"] and b == p["colour"])
     half = sum(1 for a, b in zip(v, col) if (a == p["value"]) != (b == p["colour"]))
-    return lex((tok, n + 1), (half, n + 1))
+    return tup(tok, half)
 
 
 def s3_batch(sym, col, p, gtype):
-    n = gtype.N ** 2
     tok, half = _token_counts(vals(sym, gtype) == p["value"], col == p["colour"])
-    return lexb((tok.sum((1, 2)), n + 1), (half.sum((1, 2)), n + 1))
+    return tupb(tok.sum((1, 2)), half.sum((1, 2)))
 
 
 def s3_ps(p, gtype):

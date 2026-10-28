@@ -1,14 +1,20 @@
 """Every brainstorm utility function, converted to ordinal form, split by lens.
 
-`FAMILIES` lists them all (seeds first); `by_id(id)` looks one up. See docs/rules.md.
+`FAMILIES` lists them all (seeds first); `by_id(id)` looks one up. See docs/rules.md. Shortlisted
+families carry a kid-readable `card_source` (rules/cards.py, docs/kid-cards.md).
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..family import Family
 from . import seeds, geometry, arithmetic, colour, games, strategy
+from .cards import CARDS
 
-FAMILIES: list[Family] = [*seeds.FAMILIES, *strategy.FAMILIES, *geometry.FAMILIES, *arithmetic.FAMILIES,
-                          *colour.FAMILIES, *games.FAMILIES]
+# Kid-readable cards (rules/cards.py) are attached here so each rule module stays about the maths.
+FAMILIES: list[Family] = [replace(f, card_source=CARDS[f.id]) if f.id in CARDS else f
+                          for f in (*seeds.FAMILIES, *strategy.FAMILIES, *geometry.FAMILIES, *arithmetic.FAMILIES,
+                                    *colour.FAMILIES, *games.FAMILIES)]
 
 _BY_ID = {f.id: f for f in FAMILIES}
 assert len(_BY_ID) == len(FAMILIES), "duplicate family id"
