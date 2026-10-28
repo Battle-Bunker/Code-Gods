@@ -5,7 +5,9 @@ Session topic: `mutators` (branch `claude/gridlab-explore-mutators`). Code: `gri
 **No shared module was edited.** Every proposal is a *preset* in `gridlab/explore/mutators/variants.py`
 (cost-knob overrides plus named variants). A variant swaps `Mutator` objects in `gridlab.mutators` at run
 time or, for `composite`, patches `Program.ratchet_bits`; `install_preset(name)` undoes everything. Each piece
-can be adopted on its own; §7 lists exactly what to port.
+can be adopted on its own; §7 lists exactly what to port. The shared suites (`tests.test_rules`,
+`test_mutators`, `test_calibrate`, `test_sim`) pass unchanged. The new mutators have their own contract test,
+`python3 -m gridlab.explore.mutators.test_newmuts`.
 
 ## 0. Summary
 
@@ -21,7 +23,7 @@ can be adopted on its own; §7 lists exactly what to port.
   - The truly starved families have low ceilings (Sudoku 9 bits, Ladder 7, Bridge 7, Lantern 12) or arithmetic
     and relational goals that no mutator expresses (Number Sandwich, Magic Accountant, Round Numbers, Magic
     Window, Odds & Evens, Tetromino, Far Apart).
-  - On 6×6 cards, Rummy (0.15), Lone Peak (0.07) and Seed 2 (0.07) *are* starved.
+  - On 6×6 cards, Rummy (0.15–0.17), Lone Peak (0.07–0.14) and Seed 2 (0.07) *are* starved (v1/v2 search).
 * **Advantaged families come from one pricing hole.** A program's erasure is the sum of its steps' erasures
   *at the prior*. "Paint everything X, then stamp s on every X cell" is a fill of both layers (133 bits erased)
   priced as 50 + 21 bits. That makes Lucky Token, Seed 3, Number Painter, Treasure Map and Knight Riders reach
@@ -37,16 +39,22 @@ can be adopted on its own; §7 lists exactly what to port.
   random-library best-of-12 yield at ρ = 0.81 [0.69, 0.89], with the searched route yield at 0.60, and with
   the ceiling at 0.33.
 * **Proposal `full`** = four new mutators (`tile`, `unclash`, `crown`, `balance`) + composite erasure pricing
-  + worst-case motion for bijections. In the landscape:
+  + worst-case motion for bijections. The recommended variant is `full_wm50`, which charges half of the
+  worst case (§4.3, §5.6). In the landscape:
   - SD of log2 route yield 0.91 → 0.82;
   - advantaged families 3 → 1;
   - cheapest jackpot rate 0.95 → 0.59;
-  - theft median 1.0 → 0.76 bits/bit;
+  - theft median 1.0 → 0.76 bits/bit (`full`; `full_wm50` lies between);
   - every mutator except `flatten` is the best single-step tool for some family in some context, and
     `flatten` is the second step of Lone Peak's best route.
-  In 600 paired games the SD of family scores falls 0.189 → 0.175 (paired 95% CI of the difference
-  [−0.022, −0.004]) and payoff Gini falls 0.264 → 0.254, with no loss of dynamism. §5 gives the held-out,
-  expert and ablation results.
+  In games on 5×5, pooled over 1200 paired train + held-out games:
+  - the SD of family scores falls 0.184 → 0.173 (Δ −0.011 [−0.018, −0.005]);
+  - payoff Gini falls 0.263 → 0.252;
+  - the effective number of mutators used rises 19.8 → 22.6;
+  - dynamism, tension, spirals and lead changes are unchanged.
+  The gain comes entirely from the new mutators (ablation §5.4). It is 6% of the spread and not
+  significant on 4×4 or 6×6 cards at 300 games (§5.5). In the simulator, fairness is dominated by how often
+  each family's good programs occur in the random library (§5.3).
 
 ## 1. Method
 
@@ -268,7 +276,7 @@ reference pool, constant grids and two-colour halves. This is the Hartley analog
 
 The cost is that `swap_colours` and `swap_symbols` stop being the best tool for theft: they drop from
 22 + 16 families to 2 + 1 (rival + foreign). The softer **`worstmove50`** (half prior, half worst case) keeps
-them as the theft tool for 13 + 10 families and still cuts the 1-step theft ratio from 3.1× to 2.7× (§5.4).
+`swap_colours` as the theft tool for 13 + 10 families (and `swap_symbols` for 3 + 12) and still cuts the 1-step theft ratio from 3.1× to 2.7× (§5.4).
 
 ### 4.4 Tried and not recommended
 
@@ -398,7 +406,21 @@ fairness gain is **demonstrated on 5×5 only**. On 4×4 the point estimate goes 
 here can rule out a small harm. Across both types, dynamism, tension and Gini are unchanged and the share
 of steals done by bijections falls (0.32 → 0.27).
 
-<!-- WM50 -->
+### 5.6 Softer bijection pricing (`full_wm50`, 5×5, 600 + 600 paired games)
+
+| statistic | default | full | full_wm50 |
+|---|---|---|---|
+| SD family z, train / held out | 0.189 / 0.187 | 0.175 / 0.179 | 0.172 / 0.189 |
+| pooled Δ SD vs default [95% CI] | – | −0.011 [−0.018, −0.005] | −0.008 [−0.014, −0.002] |
+| pooled Δ SD vs full | – | – | +0.004 [−0.003, +0.010] |
+| pooled payoff Gini | 0.263 | 0.252 | 0.251 |
+| share of steals done by bijections (train / held out) | 0.288 / 0.298 | 0.250 / 0.258 | 0.237 / 0.237 |
+| sig_tension (train / held out) | 0.125 / 0.128 | 0.131 / 0.132 | 0.128 / 0.129 |
+
+In games `full_wm50` is equivalent to `full`, as expected from §5.4: the simulated gods rarely buy global
+swaps aimed at jackpots. The choice between them rests on the landscape. `worstmove50` keeps the colour and
+symbol swaps as the theft and redirect tools (best tool in 38 family × context cells of rival/foreign, against 6
+under `worstmove`) and still cuts the median single-step theft yield by about 10% (0.91 → 0.82 bits/bit). It is the recommended setting.
 
 ## 6. Policy-independent vs policy-dependent findings
 
@@ -438,7 +460,8 @@ of steals done by bijections falls (0.32 → 0.27).
    - It cuts theft yield while keeping the swaps as the theft tools (§4.3).
    - The full worst-case version (`worstmove`) removes `swap_colours`/`swap_symbols` as anyone's best tool,
      so use it only if theft should be rarer.
-   - Game evidence for wm50: §5.6.
+   - Game evidence for wm50 (§5.6): equivalent to `full` in games (pooled Δ SD vs default −0.008
+     [−0.014, −0.002]).
 
 ### 7.2 Optional
 
