@@ -182,6 +182,30 @@ def play(v: dict, spec, keep_programs: bool = False, hook=None, commit_hook=None
     return log, tables, cfg
 
 
+def snapshot_feedback(log) -> dict:
+    """Human-timescale feedback from the 5 s snapshots: per object, consecutive salience changes
+    Δ1 = σ(t+5) - σ(t), Δ2 = σ(t+10) - σ(t+5).
+      snap_autocorr5   pooled correlation of Δ1 and Δ2 (> 0: a rise tends to be followed by a rise)
+      snap_accel5      share of 3-snapshot windows with Δ1 >= 2 bits and Δ2 >= Δ1 (rising faster)
+      snap_climb5      share of windows with Δ1 >= 2 and Δ2 >= 2 (two rising steps in a row)"""
+    ser = defaultdict(dict)
+    for t, (ids, S) in enumerate(zip(log.snap_objs, log.snap_s)):
+        for o, v in zip(ids.tolist(), S.sum(1).tolist()):
+            ser[o][t] = v
+    a, b = [], []
+    for o, d in ser.items():
+        ts = sorted(d)
+        for t in ts:
+            if t + 1 in d and t + 2 in d:
+                a.append(d[t + 1] - d[t]); b.append(d[t + 2] - d[t + 1])
+    a, b = np.array(a), np.array(b)
+    out = {"snap_autocorr5": float(np.corrcoef(a, b)[0, 1]) if len(a) > 3 and a.std() > 0 and b.std() > 0 else 0.0}
+    n = max(len(a), 1)
+    out["snap_accel5"] = float(((a >= 2) & (b >= a)).sum() / n)
+    out["snap_climb5"] = float(((a >= 2) & (b >= 2)).sum() / n)
+    return out
+
+
 def _pairs(G):
     return [(i, j) for i in range(G) for j in range(i + 1, G)]
 
@@ -248,6 +272,7 @@ def result(log, tables) -> dict:
             sel = bins == bi
             inc[str(bi)] = [int(sel.sum()), float(od[sel].sum()), float(pd[sel].sum())]
     m["incentive_bins"] = inc
+    m.update(snapshot_feedback(log))
     m["pair_spirals"] = [[fams[i], fams[j], float(co[i, j])] for i, j in _pairs(G)]
     m["pair_theft"] = [[fams[i], fams[j], float(theft[i, j] + theft[j, i])] for i, j in _pairs(G)]
     m["god_spiral_benefit"] = benef.tolist()
