@@ -45,7 +45,8 @@ stricter and come with a permutation null:
                         (largest single step / gain: 1 = one jackpot commit), accel ((gain in the second
                         half of its commits - first half) / gain, > 0 = convex), retention (share of the
                         gain still there EP_HOLD s after the peak, or at the end of the game)
-  cooperative spiral    an episode with gain >= EP_MIN_GAIN, >= 3 up-steps, >= 2 contributors,
+  cooperative spiral    an episode with gain >= EP_MIN_GAIN, >= 3 up-steps, >= 2 major contributors
+                        (owners each supplying >= EP_MAJOR = 15% of its positive increments),
                         >= 2 beneficiaries and top_share <= EP_MAX_TOP (contiguous, not one jackpot)
   ep_spirals_per_100s   cooperative spirals per 100 s; _accel those with accel > 0; _held those with
                         retention >= 0.75
@@ -248,6 +249,7 @@ def metrics(log: GameLog, spiral_detail: bool = True) -> dict:
 # ------------------------------------------------------------------------------------------------
 EP_TOL_MIN, EP_TOL_FRAC = 2.0, 0.25
 EP_MIN_GAIN, EP_MAX_TOP, EP_HOLD = 8.0, 0.6, 10.0
+EP_MAJOR = 0.15
 EP_REPORT_GAIN = 4.0
 EP_NULL_REPS = 3
 TN_HORIZON = 20.0
@@ -307,12 +309,15 @@ def episodes(log: GameLog, paths=None) -> list[dict]:
             h = n // 2
             g1, g2 = float(inc[:h].sum()), float(inc[n - h:].sum())
             dv = V[b] - V[a]
+            pos = np.clip(inc, 0, None)
+            share = np.bincount(own[a:b], weights=pos, minlength=int(own.max()) + 1) / max(pos.sum(), EPS)
             t_peak = float(tt[b - 1])
             # value EP_HOLD s after the peak (after the last commit inside that window; the game end caps it)
             held_v = v[b + int((tt[b:] <= t_peak + EP_HOLD).sum())]
             out.append({"obj": obj, "start": float(tt[a]), "end": t_peak, "commits": int(n), "gain": gain,
                         "trough": float(v[a]), "peak": float(v[b]), "up_steps": int(upm.sum()),
                         "contributors": len(set(own[a:b][upm].tolist())),
+                        "major": int((share >= EP_MAJOR).sum()), "top_owner_share": float(share.max()),
                         "beneficiaries": int((dv >= 1).sum()), "losers": int((dv <= -1).sum()),
                         "top_share": float(inc.max() / gain), "accel": (g2 - g1) / gain if n >= 2 else 0.0,
                         "retention": float((held_v - v[a]) / gain), "open": bool(open_),
@@ -321,7 +326,7 @@ def episodes(log: GameLog, paths=None) -> list[dict]:
 
 
 def is_spiral(e: dict) -> bool:
-    return (e["gain"] >= EP_MIN_GAIN and e["up_steps"] >= 3 and e["contributors"] >= 2
+    return (e["gain"] >= EP_MIN_GAIN and e["up_steps"] >= 3 and e["major"] >= 2
             and e["beneficiaries"] >= 2 and e["top_share"] <= EP_MAX_TOP)
 
 
@@ -354,7 +359,9 @@ def spiral_metrics(log: GameLog, null_reps: int = EP_NULL_REPS, seed: int = 0) -
     m["ep_spirals_accel_per_100s"] = 100.0 * sum(e["accel"] > 0 for e in sp) / T
     m["ep_spirals_held_per_100s"] = 100.0 * sum(e["retention"] >= 0.75 for e in sp) / T
     m["ep_spiral_share"] = len(sp) / len(big) if big else 0.0
-    for k in ("gain", "commits", "contributors", "beneficiaries", "accel", "retention", "top_share"):
+    m["ep_solo_per_100s"] = 100.0 * sum(e["major"] < 2 for e in big) / T   # big climbs one owner drove
+    for k in ("gain", "commits", "contributors", "major", "beneficiaries", "accel", "retention", "top_share",
+              "top_owner_share"):
         m[f"ep_spiral_{k}_mean"] = float(np.mean([e[k] for e in sp])) if sp else 0.0
     m["ep_spiral_gain_max"] = float(max((e["gain"] for e in sp), default=0.0))
     m["ep_spiral_contested"] = float(np.mean([e["losers"] > 0 for e in sp])) if sp else 0.0

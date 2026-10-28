@@ -38,7 +38,7 @@ def pick_episode(log, focus: str):
         sp = [e for e in eps if is_spiral(e)]
         if not sp:
             return None
-        return max(sp, key=lambda e: e["gain"] * min(e["contributors"], 3) * (0.5 + max(e["retention"], 0)))
+        return max(sp, key=lambda e: e["gain"] * min(e["major"], 3) * (0.5 + max(e["retention"], 0)))
     # tension: the object with the most significant tension events, its busiest 30 s window
     d = log.c_after - log.c_before
     sig = (d >= 1).any(1) & (d <= -1).any(1)
@@ -86,7 +86,7 @@ def trace(variant: dict, spec, focus: str = "spiral", frames: int = 6, context: 
     if not e.get("tension"):
         out.append(f"Featured: object {o}, spiral of {e['commits']} commits over {e['end'] - e['start']:.1f} s, "
                    f"salience {e['trough']:.1f} -> {e['peak']:.1f} (+{e['gain']:.1f} bits), {e['contributors']} contributing "
-                   f"owners, {e['beneficiaries']} gods gain >= 1 bit, accel {e['accel']:+.2f}, retention {e['retention']:.2f}")
+                   f"owners ({e['major']} major, top owner {e['top_owner_share']:.0%}), {e['beneficiaries']} gods gain >= 1 bit, accel {e['accel']:+.2f}, retention {e['retention']:.2f}")
     else:
         out.append(f"Featured: object {o}, its busiest tension window ({b - a + 1} commits)")
     out.append("\nCommits on the object (t, owner, Δ salience, surprisal per god after, program):")
@@ -125,7 +125,8 @@ def main(argv=None):
     ap.add_argument("--games", type=int, default=40)
     a = ap.parse_args(argv)
     gt, seed = a.spec.split(":")
-    spec = next(s for s in specs_for([gt], a.games, 1) if s.seed == int(seed)) 
+    from .runner import GTYPES
+    spec = next(s for s in specs_for(GTYPES, a.games, 1) if s.seed == int(seed) and s.gtype == gt) 
     print(trace(VARIANTS[a.variant], spec, a.focus))
 
 
