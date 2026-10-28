@@ -90,5 +90,5 @@ test("instantiation terms and classes", () => {
   assert.deepEqual(hex.classes, ["Valued", "Ranked", "Numeral", "Spectral"]);
   assert.equal(hex.terms["symbols.base"], 16);
   assert.equal(hex.key, "Grid(4,base16,rgb)");
-  assert.equal(GRID.instantiate({}).key, "Grid(5,base10,rgby)");
+  assert.equal(GRID.instantiate({}).key, "Grid(4,base10,rgb)"); // the beginner board
 });
