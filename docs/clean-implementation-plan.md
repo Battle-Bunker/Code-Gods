@@ -125,17 +125,24 @@ enumerate canonical params.
 | Server | `lib/game-core/**`, `artifacts/api-server/**`, `lib/api-spec` + regenerated clients, `lib/db`, `lib/player-client`, `lib/ai-player` | all of the above |
 | UI | `lib/object-views/**`, `artifacts/code-gods/**`, `artifacts/player-web/**`, Playwright | API |
 
-## 6. Compatibility shims we keep (and why)
+## 6. No compatibility shims for the old design
 
-1. **Stored rooms/games** (JSONB snapshots in `cg_rooms`, `cg_games`): `initializeStore` maps legacy settings
-   (`intMin/intMax/stringMaxLength`, old grammar ids) to `typeArgs` and the new ids. A non-ended legacy
-   game with [0,1] utilities or free-form agents is closed with `endReason: "retired"` (the same mechanism
-   `migrateLegacyUtilities` already uses). Ended games keep their stored public summary untouched, so
-   history pages keep working. No SQL migration is needed: every schema change is inside JSONB, and any new
-   column is nullable (additive, deployable through Publish).
-2. **History summaries** written before this change carry `totalScore` from the old scoring; the history
-   UI labels them "legacy scoring".
-3. Nothing else: no deprecated settings fields mirrored, no v2 protocol path, no `legacy()` family adapter.
+Direction from the user: throw the old design away completely; keep nothing that exists only to support it.
+The hard constraints are deployment safety, not feature preservation:
+
+1. **Database.** No destructive migrations on live tables: schema changes are additive (nullable) or none.
+   Unused columns may stay in the schema, but no code reads them. Stored state is JSONB; on startup a stored
+   room whose state does not parse as the current schema is reset (default settings, no game, members and
+   chat kept), and games written by the old design are left out of history (no code reads their summaries).
+   This is a startup guard against unreadable rows, not a translation layer: no legacy settings are mapped.
+2. **Player clients.** `artifacts/player-web` and the daemon move to protocol v3 in the same PR; there is no
+   v2 path. PILOT.md has a short migration note for externally duplicated client copies.
+3. Removed outright: [0,1] scoring and its tests, the old families' [0,1] form, free-form agents, god-only
+   energy, the old payoff code, `RoomState.game` and other deprecated fields, old rendering paths, the PR #12
+   thin slice, and docs for removed features.
+4. **Summon price.** `ast-bits-v1` (branch `claude/gridlab-open-agents`) prices Python ASTs against a Grid-only
+   vocabulary, with no TypeScript counterpart, so the single pricing interface stays `ast-bytes-v1` for both
+   languages (no second path). Swapping it later is one module behind `complexityFunctionId`.
 
 ## 7. Tests
 

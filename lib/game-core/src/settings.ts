@@ -201,45 +201,10 @@ export function assertObjectValue(
   codec.assert(value);
 }
 
-// ------------------------------------------------------------------------------------------------
-// COMPATIBILITY SHIM (docs/clean-implementation-plan.md §6.1): the only one in game-core.
-// ------------------------------------------------------------------------------------------------
-
-const LEGACY_GRAMMARS: Readonly<Record<string, GrammarId>> = {
-  "python-standard-v1": "python-agent-v1",
-  "typescript-standard-v1": "typescript-agent-v1",
-};
-
-/**
- * Compatibility shim for settings stored before the object-type registry (JSONB room/game snapshots).
- *
- * - `intMin`/`intMax` (Int) and `stringMaxLength` (string) become `typeArgs`; the legacy fields are dropped.
- * - Old grammar ids `python-standard-v1` / `typescript-standard-v1` become `python-agent-v1` /
- *   `typescript-agent-v1`.
- * - Fields missing from the stored JSON take today's defaults (new economy and scoring knobs included);
- *   a type without stored arguments takes that type's registry defaults.
- *
- * It does not validate: call `validateSettings` on the result. Use it only when reading stored data,
- * never for new input (new input must already have the current shape).
- */
-export function normalizeLegacySettings(raw: unknown): GameSettings {
-  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Stored settings must be an object");
-  const { intMin, intMax, stringMaxLength, ...rest } = raw as Record<string, unknown>;
-  const merged = { ...DEFAULT_SETTINGS, ...rest } as GameSettings;
-  if (!("typeArgs" in rest) || rest.typeArgs === undefined) {
-    if (merged.objectType === "Int") {
-      merged.typeArgs = {
-        min: intMin === undefined ? DEFAULT_SETTINGS.typeArgs.min : intMin as number,
-        max: intMax === undefined ? DEFAULT_SETTINGS.typeArgs.max : intMax as number,
-      };
-    } else if (merged.objectType === "string" && stringMaxLength !== undefined) {
-      merged.typeArgs = { maxLength: stringMaxLength as number };
-    } else {
-      // An unknown type gets empty arguments here and is rejected by validateSettings.
-      try { merged.typeArgs = objectTypeDef(merged.objectType).defaults; } catch { merged.typeArgs = {}; }
-    }
-  }
-  const grammar = LEGACY_GRAMMARS[merged.grammarId as string];
-  if (grammar) merged.grammarId = grammar;
-  return merged;
+/** Default settings for one object type and language: the type's default args and the language's grammar. */
+export function defaultSettingsFor(objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language): GameSettings {
+  return {
+    ...DEFAULT_SETTINGS, language, objectType, typeArgs: objectTypeDef(objectType).defaults,
+    grammarId: `${language}-agent-v1` as GrammarId,
+  };
 }

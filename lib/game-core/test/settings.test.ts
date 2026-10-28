@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings,
-  instantiationOf, codecOf, assertObjectValue, normalizeLegacySettings, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, type GameSettings,
 } from "../src/settings.ts";
 
 const settings = (patch: Partial<GameSettings>): GameSettings => ({ ...DEFAULT_SETTINGS, ...patch });
@@ -97,7 +97,7 @@ test("object values are checked by the type's codec, never coerced", () => {
 test("every authored option is accepted with its compatible language and type", () => {
   for (const language of ["python", "typescript"] as const) {
     for (const objectType of ["Int", "string", "Grid"]) {
-      const base = normalizeLegacySettings({ language, objectType });
+      const base = defaultSettingsFor(objectType, language);
       for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
         const options = settingsOptionsFor(key, language, objectType);
         assert.ok(options.length > 0, `${key} ${language} ${objectType}`);
@@ -119,39 +119,8 @@ test("unknown identifiers, cross-language grammars and old grammar ids are rejec
   assert.deepEqual(SETTINGS_OPTIONS.grammarId.map(o => o.id), ["python-agent-v1", "typescript-agent-v1"]);
 });
 
-test("legacy shim: intMin/intMax/stringMaxLength and old grammar ids map to the new shape", () => {
-  const { typeArgs: _args, agentEnergyPerSecond: _a, agentBatteryActs: _b, maxAgentsPerGod: _m,
-    penaltyWeight: _p, defenceRate: _d, ...common } = DEFAULT_SETTINGS;
-  const storedInt = JSON.parse(JSON.stringify({
-    ...common, grammarId: "python-standard-v1", intMin: -5, intMax: 5, stringMaxLength: 128,
-    interactionRateHz: 50, startingEnergy: 123,
-  }));
-  const intSettings = normalizeLegacySettings(storedInt);
-  assert.deepEqual(intSettings.typeArgs, { min: -5, max: 5 });
-  assert.equal(intSettings.grammarId, "python-agent-v1");
-  assert.equal(intSettings.interactionRateHz, 50); // saved values win
-  assert.equal(intSettings.startingEnergy, 123);
-  assert.equal(intSettings.agentEnergyPerSecond, 2); // new knobs take defaults
-  assert.equal(intSettings.penaltyWeight, 1);
-  for (const legacy of ["intMin", "intMax", "stringMaxLength"]) assert.ok(!(legacy in intSettings));
-  validateSettings(intSettings);
-
-  const strSettings = normalizeLegacySettings({
-    ...common, language: "typescript", objectType: "string", grammarId: "typescript-standard-v1",
-    intMin: -2147483648, intMax: 2147483647, stringMaxLength: 64,
-  });
-  assert.deepEqual(strSettings.typeArgs, { maxLength: 64 });
-  assert.equal(strSettings.grammarId, "typescript-agent-v1");
-  validateSettings(strSettings);
-
-  const { interactionComputeMs: _budget, ...older } = storedInt; // fields added later still default
-  assert.equal(normalizeLegacySettings(older).interactionComputeMs, 5);
-
-  // Current-shape settings pass through unchanged.
-  const current = settings({ objectType: "Grid", typeArgs: { size: 5, symbols: "cards", colours: "rgby" }, penaltyWeight: 0.5 });
-  assert.deepEqual(normalizeLegacySettings(JSON.parse(JSON.stringify(current))), current);
-  // A type with no stored arguments gets the registry's defaults.
-  validateSettings(normalizeLegacySettings({ objectType: "Grid" }));
-  assert.throws(() => normalizeLegacySettings(null));
-  assert.throws(() => validateSettings(normalizeLegacySettings({ objectType: "Unicorn" })));
+test("defaultSettingsFor gives valid settings for every type and language", () => {
+  for (const language of ["python", "typescript"] as const)
+    for (const objectType of ["Int", "string", "Grid"]) validateSettings(defaultSettingsFor(objectType, language));
+  assert.throws(() => defaultSettingsFor("Unicorn"));
 });
