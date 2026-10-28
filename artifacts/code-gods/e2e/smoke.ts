@@ -173,7 +173,9 @@ try {
       await a.getByTestId("select-language").selectOption("typescript");
       await a.getByTestId("type-Int").click();
       await a.getByTestId("input-planningSeconds").fill("1");
-      await a.getByTestId("button-save-settings").click();
+      // On a freshly started engine the first manifest.get boots both sandboxes (seconds), and the form
+      // stays invalid until the manifest arrives.
+      await a.getByTestId("button-save-settings").click({ timeout: 120_000 });
       await a.getByTestId("button-save-settings").and(a.locator(":disabled")).waitFor();
       const listed = b.getByTestId("list-settings");
       await listed.filter({ hasText: "typescript" }).waitFor();
