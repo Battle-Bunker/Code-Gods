@@ -58,3 +58,6 @@ artifacts/api-server/test/.client-integration-*/
 
 # Local player-app Secrets for tests (pnpm player connect --write-env); never commit
 .env.local
+
+# multi-client e2e: simulated player apps (worktrees) and their secrets
+.e2e/
