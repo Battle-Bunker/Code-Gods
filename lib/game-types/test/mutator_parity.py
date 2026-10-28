@@ -3,7 +3,7 @@
 Run from the repo root:  python3 lib/game-types/test/mutator_parity.py
 The TS side (test/mutator_parity.dump.ts) samples params and grids in all 60 GridTypes and records
 its apply results and cost terms; this script replays every case through gridlab and requires:
-  * the same available mutator set in every GridType;
+  * the same available mutator set in every GridType (gridlab with flatten disabled);
   * identical apply results (TS "unchanged" == gridlab None);
   * identical deterministic cost terms within 1e-9 bits: base (log2 #available), D, M, scope;
   * the same analytic terms (erase, expected changed cells), except sort_line's fixed-seed Monte
@@ -24,7 +24,9 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")
 sys.path.insert(0, os.path.join(ROOT, "lib", "grid-lab"))
 
 from gridlab.core import Grid, GridType  # noqa: E402
-from gridlab.mutators import _sort_stats, available, by_id  # noqa: E402
+from gridlab.mutators import COST_KNOBS, _sort_stats, available, by_id  # noqa: E402
+
+COST_KNOBS["disabled"] = ["flatten"]   # not ported (Grid Lab experiments: it did not help)
 
 FREE_REGION = ("line*", "core", "all")
 

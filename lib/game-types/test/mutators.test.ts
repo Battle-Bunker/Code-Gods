@@ -8,7 +8,7 @@ const g = GRID.codec(inst).encode(GRID.spawn(inst, seededRng("generic"))) as str
 const act = (calls: unknown, knobs = DEFAULT_COST_KNOBS) =>
   applyCalls(GRID, inst, g, typeof calls === "string" ? calls : JSON.stringify(calls), knobs);
 const PAINT_ROW = ["paint", { kind: "line", region: [0, 2], colour: 0 }];
-const PAINT_ROW_DECISION = Math.log2(24) + 3 + Math.log2(10) + 2;
+const PAINT_ROW_DECISION = Math.log2(23) + 3 + Math.log2(10) + 2;
 
 test("a successful act returns the new wire value, the calls and a cost summed over calls", () => {
   const one = act([PAINT_ROW]), turn = act([["turn_grid", { move: "rot90" }]]);
@@ -35,7 +35,7 @@ test("a call that changes nothing pays decision only; an act that changes nothin
   const back = applyCalls(GRID, inst, g, JSON.stringify([["turn_grid", { move: "rot180" }], ["turn_grid", { move: "rot180" }]]));
   assert.ok(there.ok);
   assert.ok(!back.ok && back.reason === "no change");
-  assert.ok(Math.abs(back.cost.total - 2 * decisionBits(GRID.mutators.find(m => m.id === "turn_grid")!, { move: "rot180" }, inst, 24)) < 1e-12);
+  assert.ok(Math.abs(back.cost.total - 2 * decisionBits(GRID.mutators.find(m => m.id === "turn_grid")!, { move: "rot180" }, inst, 23)) < 1e-12);
   const empty = act([]);
   assert.ok(!empty.ok && empty.cost.total === MIN_FAILED_ACT_BITS);
 });

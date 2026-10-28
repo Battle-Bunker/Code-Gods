@@ -1,13 +1,14 @@
 /**
- * Grid mutators: the 26 mutators of lib/grid-lab/gridlab/mutators.py (its docstring says 25; `flatten`
- * came later), ported with identical fields, regions, apply, D and analytic terms. Rationale and cost
+ * Grid mutators: 25 of the 26 mutators of lib/grid-lab/gridlab/mutators.py, all but `flatten` (Grid Lab
+ * experiments found it did not help; parity runs gridlab with COST_KNOBS["disabled"] = ["flatten"]),
+ * ported with identical fields, regions, apply, D and analytic terms. Rationale and cost
  * tables: lib/grid-lab/docs/mutators.md. Every mutator is a bijection (erases 0) or an idempotent
  * overwrite; none is random at apply time.
  *
  * The one deliberate difference: erasure is POINTWISE, log2 |f⁻¹(f(x))| given the call
  * (energy.py `pointwise_erasure`), whose expectation over the spawn prior is mutators.py's Shannon E.
- * Constant overwrites erase the same bits on every input; recolour, stamp, tally, blend, sort_line,
- * majority_line and flatten erase what they actually merge. Motion is energy.py's pointwise motion,
+ * Constant overwrites erase the same bits on every input; recolour, stamp, tally, blend, sort_line
+ * and majority_line erase what they actually merge. Motion is energy.py's pointwise motion,
  * (log2 C · Ē_col · d_col + log2 S · Ē_sym · d_sym) / N², expressed through `expectedChange`
  * (Ē_L · log2 alphabet, keys "colour" / "symbol") and the type's changedBits / layerBits.
  *
@@ -1259,45 +1260,6 @@ const write = def({
   }),
 });
 
-const flatten = def({
-  id: "flatten", name: "Flatten", emoji: "🏔️",
-  summary: "Flatten the lowlands: in an area, every number except the highest drops to the area's lowest (cards keep their suit).",
-  requires: ["Ranked"], kind: "overwrite", scope: "line",
-  fields: [F_kind("line", "block", "ring", "all"), F_REGION],
-  terms: (p, g) => {
-    const n = Math.max(regionSize(p.kind, p.region, g.N) - 1, 0);
-    return { erase: n * Math.log2(g.R), dsym: n * (1 - 2 / g.R), scope: REGION_SCOPE[p.kind] };
-  },
-  apply: (v, p, g) => {
-    const cells = resolveCells(p, g, v);
-    if (cells.length < 2) return v;
-    const rr = cells.map(i => rankOf(g, v.sym[i])), hi = Math.max(...rr), lo = Math.min(...rr);
-    const out = copy(v);
-    cells.forEach((i, t) => { if (rr[t] !== hi && rr[t] !== lo) out.sym[i] = g.cards ? Math.floor(v.sym[i] / 13) * 13 + lo : lo; });
-    return out;
-  },
-  // energy.py: the n non-peak cells had ranks in [lo, hi), at least one equal to lo
-  pointwise: (v, p, g) => {
-    const rr = resolveCells(p, g, v).map(i => rankOf(g, v.sym[i]));
-    const hi = Math.max(...rr), lo = Math.min(...rr), n = rr.filter(r => r !== hi).length, h = hi - lo;
-    if (n === 0 || h <= 0) return 0;
-    return n * Math.log2(h) + (h > 1 ? Math.log2(1 - ((h - 1) / h) ** n) : 0);
-  },
-  text: (p, g) => `in ${regionText(p, g)}, every number except the highest drops to the lowest one there`,
-  guest: guest({
-    py: `def flatten(where):
-    return _M_CALL("flatten", **_M_WHERE(where))
-`,
-    js: `function flatten(where) {
-  return { __m: "flatten", ...__M_WHERE(where) };
-}
-`,
-    dts: `declare function flatten(where: Area): MutatorCall;\n`,
-    doc: [["flatten(where)", "flatten(where)",
-      "In a row or column, square, ring or everything, every number except the highest drops to the lowest one there.", "Ranked"]],
-  }),
-});
-
 const step_rank = def({
   id: "step_rank", name: "Count on", emoji: "🔢", summary: "Count every number in an area on by some steps (wrapping round; cards keep their suit).",
   requires: ["Ranked"], kind: "bijective", scope: "local",
@@ -1639,7 +1601,7 @@ export const GRID_MUTATORS: readonly GridMutator[] = Object.freeze([
   swap_cells, shift_line, reverse_line, swap_lines, turn_block, turn_grid,
   sort_line, mirror_fold,
   paint, recolour, swap_colours, hue_turn, pattern_line, motif, majority_line,
-  write, step_rank, write_ramp, swap_symbols, flatten,
+  write, step_rank, write_ramp, swap_symbols,
   paint_by_key, stamp, tally,
   blend, suit_swap, suit_set,
 ]);

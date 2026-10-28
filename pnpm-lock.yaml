@@ -942,12 +942,12 @@ importers:
       '@radix-ui/react-popover':
         specifier: ^1.1.7
         version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@workspace/game-core':
-        specifier: workspace:*
-        version: link:../game-core
       '@workspace/game-types':
         specifier: workspace:*
         version: link:../game-types
+      '@workspace/game-utilities':
+        specifier: workspace:*
+        version: link:../game-utilities
     devDependencies:
       '@types/react':
         specifier: 'catalog:'

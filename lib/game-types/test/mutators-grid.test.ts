@@ -21,14 +21,15 @@ function orbitReturns(m: GridMutator, p: unknown, g: GridValue, inst: Instantiat
   return false;
 }
 
-test("26 mutators, mutators.py order; 23 to 25 available per GridType", () => {
-  assert.equal(GRID_MUTATORS.length, 26);
-  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 26);
+test("25 mutators (mutators.py order, no flatten); 22 to 24 available per GridType", () => {
+  assert.equal(GRID_MUTATORS.length, 25);
+  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 25);
+  assert.ok(!GRID_MUTATORS.some(m => m.id === "flatten"));
   for (const inst of TYPES) {
     const n = avail(inst).length;
-    assert.ok(n >= 23 && n <= 25, `${inst.key}: ${n}`);
+    assert.ok(n >= 22 && n <= 24, `${inst.key}: ${n}`);
   }
-  assert.equal(avail(inst5).length, 24);
+  assert.equal(avail(inst5).length, 23);
 });
 
 test("every mutator × every GridType: deterministic, valid, idempotent or bijective, costs ≥ 0", () => {
@@ -119,7 +120,6 @@ test("parse rejects junk", () => {
 /** Mean pointwise erasure over spawns ≈ mutators.py's analytic (Shannon) erasure. */
 test("expected pointwise erasure over spawns matches the analytic erasure", () => {
   const rng = seededRng("erasure"), K = 300;
-  const skip = new Set(["flatten"]);   // analytic is a deliberate over-charge: checked one-sided below
   for (const inst of TYPES.filter((_, i) => i % 3 === 0)) {
     const spawns = Array.from({ length: K }, () => GRID.spawn(inst, rng));
     for (const m of avail(inst).filter(x => x.kind === "overwrite")) {
@@ -129,7 +129,6 @@ test("expected pointwise erasure over spawns matches the analytic erasure", () =
         const es = spawns.map(g => m.erasureBits(g, p, inst)), mean = es.reduce((a, b) => a + b, 0) / K;
         const sd = Math.sqrt(es.reduce((a, b) => a + (b - mean) ** 2, 0) / (K - 1));
         const want = m.terms(p, inst).erase;
-        if (skip.has(m.id)) { assert.ok(mean <= want + 1e-9, `${m.id} ${inst.key}`); continue; }
         const tol = 4.5 * sd / Math.sqrt(K) + (m.id === "sort_line" ? 0.15 : 1e-9);
         assert.ok(Math.abs(mean - want) <= tol, `${m.id} ${JSON.stringify(p)} on ${inst.key}: mean ${mean} vs analytic ${want} (tol ${tol})`);
       }
@@ -156,9 +155,9 @@ test("act costs reproduce the mutators.md cost table at Grid(5,base10,rgby)", ()
   const two = applyCalls(GRID, inst5, g, JSON.stringify([["paint", { kind: "cell", region: [2, 2], colour: 0 }], ["turn_grid", { move: "rot90" }]]));
   assert.ok(two.ok && two.cost.total > cell);
   // the decision part is deterministic: base + D (+ M)
-  const base = Math.log2(24);
+  const base = Math.log2(23);
   const p = { kind: "line", region: [0, 2], colour: 0 };
-  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 24, DEFAULT_COST_KNOBS) - (base + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
+  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 23, DEFAULT_COST_KNOBS) - (base + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
 });
 
 // ------------------------------------------------------------------------------------------------
@@ -176,7 +175,7 @@ const calls = [
   rainbowLine(row(0), "red", true), alternateLine(column(2), "red", grid.palette[1]), stripes("red", true), diagonalRainbow("red"),
   chessboard("red", grid.palette[1]), majority(busiestLine()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),
   countOn(everything(), 3), countAlong(row(0), grid.cell(2, 2).value), swapNumbers(row(1), 1, "2"),
-  flatten(everything()), paintEvenOdd(everything(), "red", grid.palette[1]), paintByNumber(row(0), 1),
+  paintEvenOdd(everything(), "red", grid.palette[1]), paintByNumber(row(0), 1),
   stamp(everything(), "red", grid.cell(0, 0).symbol),
 ];
 if (typeof countMines === "function") calls.push(countMines(everything(), "red"));
@@ -198,7 +197,7 @@ def agent(grid):
         rainbow_line(row(0), "red", True), alternate_line(column(2), "red", grid.palette[1]), stripes("red", True), diagonal_rainbow("red"),
         chessboard("red", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),
         count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, "2"),
-        flatten(everything()), paint_even_odd(everything(), "red", grid.palette[1]), paint_by_number(row(0), 1),
+        paint_even_odd(everything(), "red", grid.palette[1]), paint_by_number(row(0), 1),
         stamp(everything(), "red", grid.cell(0, 0).symbol),
     ]
     if "count_mines" in globals():
@@ -222,7 +221,7 @@ test("JS guest constructors produce calls the engine accepts, one by one, in eve
   for (const inst of TYPES) {
     const g = GRID.codec(inst).encode(GRID.spawn(inst, rng));
     const calls = JSON.parse(jsCalls(inst, g as string)) as [string, Record<string, unknown>][];
-    assert.ok(calls.length >= 39);
+    assert.ok(calls.length >= 38);
     for (const c of calls) {
       const m = byId(c[0]);
       assert.doesNotThrow(() => m.parse(c[1], inst), `${inst.key} ${JSON.stringify(c)}`);
