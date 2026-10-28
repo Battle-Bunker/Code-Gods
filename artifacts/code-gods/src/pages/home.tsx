@@ -12,9 +12,9 @@ import { fmtWhen, isoWhen } from "@/lib/time";
 import { ArrowRight, Plus, Hash } from "lucide-react";
 
 const tenets = [
-  ["01", "Universes are programs", "Each room runs a world of objects whose values are produced by executable generators. Python or TypeScript, Int or string."],
-  ["02", "Gods spend energy", "Every deity accrues energy per second and spends it to reshape objects. Planning windows open, then the world runs."],
-  ["03", "Value is political", "Score is earned from the objects you back. Coalitions form around shared interests and dissolve when the sums shift."],
+  ["01", "Universes are programs", "Each room runs a world of objects: numbers, strings or grids of coloured symbols. Agents are ordinary Python or TypeScript that reshape them, one move at a time."],
+  ["02", "Gods spend energy", "Every deity earns energy and spends it to summon agents; each agent has its own energy for every move it makes. Planning windows open, then the world runs."],
+  ["03", "Utility is political", "Your points from an object grow with how rare it is for you and how much everyone else cares. Coalitions form around shared interests and dissolve when the sums shift."],
   ["04", "This screen is the arena", "Project it. Everyone sees the same ranked objects, the same leaderboard, the same chat. Players act from their own clients."],
 ];
 

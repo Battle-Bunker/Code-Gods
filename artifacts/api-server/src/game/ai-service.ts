@@ -20,7 +20,23 @@ export async function reserveAI(roomId: string, gameId: string, tokens: number, 
         daily + usd > DAILY_HOST_USD || calls.length >= CALLS_PER_MINUTE) throw new Error("AI budget or rate limit reached");
     room.aiUsed += tokens; room.aiReservedUsd += usd;
     room.aiDaily = { day, usd: (room.aiDaily.day === day ? room.aiDaily.usd : 0) + usd, calls: [...calls, now] };
-    return { reservedTokens: tokens, reservedUsd: usd };
+    let settled = false;
+    return { reservedTokens: tokens, reservedUsd: usd,
+      settle: async (actualTokens: number, usage: {inputTokens:number;outputTokens:number}) => {
+        if (!Number.isSafeInteger(actualTokens) || actualTokens < 0 || actualTokens > tokens) throw new Error("Invalid AI usage");
+        if (![usage.inputTokens,usage.outputTokens].every(n=>Number.isSafeInteger(n) && n>=0) ||
+            usage.inputTokens+usage.outputTokens!==actualTokens) throw new Error("Invalid AI usage breakdown");
+        await mutate(roomId, async current => {
+          if (settled) return;
+          settled = true;
+          // A later game has its own counters; never refund into it.
+          if (current.game?.id !== gameId) return;
+          current.aiUsed -= tokens - actualTokens;
+          current.aiInputTokens = (current.aiInputTokens ?? 0) + usage.inputTokens;
+          current.aiOutputTokens = (current.aiOutputTokens ?? 0) + usage.outputTokens;
+        });
+      },
+    };
   });
 }
 export function startAIService() {

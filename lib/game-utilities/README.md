@@ -1,48 +1,37 @@
 # @workspace/game-utilities
 
-Utility functions for Code Gods: the private `T → [0, 1]` function each god is scored by.
-For each object, a god scores **their utility × the sum of every other god's utility**.
-
-[`docs/catalog.md`](docs/catalog.md) lists every family, with an example draw, its Python source and
-its calibration against random spawns. Regenerate it with `pnpm --filter @workspace/game-utilities calibrate`.
-
-## Design principles
-
-1. **Heterogeneity first.** Each object type has a repertoire of unrelated *families* (14 for `Int`,
-   14 for `string`): digits, divisibility, bits, palindromes, prose, nesting, weight, length and so on.
-   Each family has random parameters. Gods compete and cooperate along whichever properties their
-   functions happen to share, so the political map changes every game.
-2. **Simple to state.** A utility function is a few lines with no validation boilerplate (the engine
-   only ever passes legal objects). Every draw comes with a plain-language `summary` of the incentive
-   it creates, so a beginner knows what they want before reading any code.
-3. **Random objects are worthless.** Every family is calibrated so a uniformly spawned object scores
-   close to zero (mean utility < 0.02, P(u > 0.5) < 0.2%). Utility near 1 needs rare, structured values.
-   Optimizing an object purely for yourself scores badly, because the multiplier (everyone else's
-   utility) stays near zero. The good objects are the ones that already matter to others: transform
-   them toward your interests without destroying what makes them valuable.
-4. **Full utility is always reachable.** Every draw has an exemplar inside the domain that scores
-   ≥ 0.99 (tested), so no god is dealt an impossible goal.
-5. **The repertoire is public; the draw is private.** Rooms publish the catalog of families
-   (`publicCatalog`), never which god drew which family or with what parameters.
+Utility families for Code Gods: each god's private **utility function** returns an **ordinal utility**, a whole
+number or a fixed-length tuple of whole numbers compared like a league table (first number first). Bigger is
+better and only the order matters: scoring turns an ordinal into **surprisal** (bits) through the calibration
+table of its draw, so `7` and `7000` mean nothing until compared with random spawns. Naming follows
+`lib/grid-lab/SPEC.md`; the plan is `docs/clean-implementation-plan.md` §3–4.
 
 ## Concepts
 
 | Concept | Where | Meaning |
 |---|---|---|
-| `UtilityFamily` | `src/families/*.ts` | One idea ("loves a digit") plus a parameter sampler, Python and TypeScript bodies, a summary and an exemplar. |
-| `UtilityDescriptor` | persisted server-side | `{ familyId, params }`: plain JSON, so restarts and replays need no code. |
-| `UtilityCard` | sent to its owner only | Name, summary, and complete source in both languages. |
-| `UtilitySelector` | `src/selectors.ts` | Deals descriptors to gods. The default, **Divine Lottery**, gives each god an independent uniform draw over the families whose ideal objects fit the domain. Future selectors (balanced tables, guaranteed overlaps) plug in here and appear in room settings via `utilitySelectorId`. |
+| `UtilityFamily` | `src/families/{int,string}.ts`, `src/families/grid/<lens>.ts` | One idea with a finite param `support`, a `sample`r, `canonical` (draws in one symmetry orbit share a table), a `summary`, an optional `exemplar`, and a kid **card** in Python and TypeScript. `role` is `"reward"` or `"penalty"` (a defence goal: bigger is worse). |
+| Card | `family.card.python/typescript` | A complete kid-readable program: header comment, dealt params as UPPER_CASE constants, `def utility(grid):` / `function utility(grid)` (`x` for Int and string; penalties define `penalty`). Written against the instantiation's generated prelude (`lib/game-types`, kid API of `lib/grid-lab/docs/kid-api.md`). |
+| `UtilityDescriptor` | persisted, server-private | `{ familyId, params, penalty? }`, plain JSON. |
+| `UtilityCard` | `card(descriptor, ctx)`, sent to its owner only | Name, emoji, summary, shape and both sources (plus the defence goal's). |
+| Host evaluator | `evaluator(draw, inst)` | The TypeScript card compiled once with the instantiation's JS prelude: `wire → ordinal`, shape-checked. The calibration pipeline uses the same evaluator. |
+| Selector | `src/selectors.ts` | **Divine Lottery**: a uniform family among those available in the instantiation (`resolve` of its constraints), then its sampler; a defence goal with probability `defenceRate`; only draws with tables (`hasTable`). |
 
-The host evaluates the TypeScript body directly (`evaluator`). It is trusted code authored in this
-package, with only numeric or alphanumeric parameters, and player code never reaches it. Tests
-check that the Python source agrees with it on edge cases and random spawns, and that every
-TypeScript source typechecks under `strict`.
+## Single source of truth and parity
+
+The TypeScript card is the source of truth. Tests keep everything else in step:
+
+- `node --experimental-strip-types --test test/utilities.test.ts`: support, `sample ∈ support`, `canonical`
+  idempotent and at most 24 canonical params per instantiation, card lint, shapes, determinism, exemplars at the top.
+- `python3 test/parity.py`: every Python card (with the generated Python prelude) returns exactly the host's ordinals.
+- `python3 test/gridlab_parity.py`: every grid family induces exactly the order of `lib/grid-lab`'s `Family.ordinal`
+  (ties included), with the same availability, canonical forms and support.
+
+Both Python tests build their cases with `test/fixtures.ts` into `test/fixtures/` (gitignored).
 
 ## Adding a family
 
-1. Add a `UtilityFamily` to `src/families/int.ts` or `src/families/string.ts` and list it in the export.
-2. Keep the Python and TypeScript bodies line-for-line equivalent. The TypeScript body must be plain
-   JavaScript (no annotations), because the host runs it as-is.
-3. Run `pnpm --filter @workspace/game-utilities test`. Reachability, calibration, parity, strict typing
-   and summary checks apply automatically. Then regenerate the catalog.
+1. Add it to the right file (`src/families/grid/<lens>.ts` for grids) with both cards written in plain JavaScript
+   for the TS card (no type annotations: the host compiles it as is) and the same program in Python.
+2. Keep `support` small after `canonical`, because calibration enumerates canonical params.
+3. Run the three test commands above; then calibrate (the Calibration pipeline in `scripts/`).

@@ -1,37 +1,47 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
-import { uniformObject, lifetimeSeconds, poissonIntervalSeconds, assertObjectValue, uniquePrefixes } from "@workspace/game-core";
-import type { Room, Actor, Game, WorldEvent } from "./types";
+import {
+  chargeAct, instantiationOf, lifetimeSeconds, newAgentAccount, personalView, poissonIntervalSeconds,
+  uniquePrefixes, validateSettings, type GameSettings, type ObjectValue,
+} from "@workspace/game-core";
+import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import type { Room, Actor, Game, WorldEvent, WorldObject, Agent, AgentActState, ActCharge } from "./types";
 import { allRooms, mutate, mutateInteraction, interactionCapacity, member, owner } from "./store";
-import { requireAdapters } from "./adapters";
+import { cryptoRng, isAgentFault, requireAdapters } from "./adapters";
+import { examineAgent, type Examination } from "./pricing";
+import { seasonCommitment, seasonSalt } from "./season";
 import { hash, requireAct } from "../lib/identity";
 import { logger } from "../lib/logger";
 import { getAIProvider } from "./ai-provider";
 import { isLocallyIdle } from "./activity";
 import { advanceWorld, completionTarget, InteractionScheduler } from "./interaction-scheduler";
+import { agentStatus, godEnergy, settledAccount, worldNow } from "./economy";
 
 const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
-function below(bound: bigint): bigint {
-  const bytes = Math.ceil(bound.toString(2).length / 8);
-  const range = 1n << BigInt(bytes * 8), limit = range - range % bound;
-  for (;;) {
-    const n = BigInt(`0x${randomBytes(bytes).toString("hex")}`);
-    if (n < limit) return n % bound;
-  }
-}
-function valuate(game: Game, value: number | string) {
+const below = (bound: number) => cryptoRng.int(bound);
+
+// ------------------------------------------------------------------------------------------------
+// objects
+// ------------------------------------------------------------------------------------------------
+
+/** Every god's private score of a value. */
+function scoresOf(game: Game, value: ObjectValue): WorldObject["scores"] {
   const { utilities } = requireAdapters();
-  return Object.fromEntries(game.deities.map(d => [d.id, utilities.evaluate(d.utility, value)]));
+  return Object.fromEntries(game.deities.map(d => [d.id, utilities.score(game.settings, d.utility, value)]));
 }
 /** Every object in a world is unique: spawns redraw, and transformations onto an existing value fail. */
-const occupied = (game: Game, value: number | string) => game.objects.some(o => o.value === value);
+const occupied = (game: Game, value: ObjectValue) => game.objects.some(o => o.value === value);
+function spawnValue(settings: GameSettings): ObjectValue {
+  const inst = instantiationOf(settings), T = objectType(inst.objectType);
+  return T.codec(inst).encode(T.spawn(inst, cryptoRng));
+}
 function spawn(game: Game) {
-  let value = uniformObject(game.settings, below);
+  let value = spawnValue(game.settings);
   for (let attempt = 0; occupied(game, value); attempt++) {
     if (attempt >= 100) return; // Only a nearly-full tiny domain can get here; skip this spawn.
-    value = uniformObject(game.settings, below);
+    value = spawnValue(game.settings);
   }
-  const object = { id: randomUUID(), value, version: 0, utilities: valuate(game, value) };
+  const object: WorldObject = { id: randomUUID(), value, version: 0, scores: scoresOf(game, value) };
   game.objects.push(object);
   recordEvent(game, { id: randomUUID(), gameId: game.id, type: "object.spawned", object: structuredClone(object), timestamp: Date.now() });
 }
@@ -39,6 +49,24 @@ function recordEvent(game: Game, event: WorldEvent) {
   game.events.push(event);
   if (game.events.length > 5000) game.events.splice(0, game.events.length - 5000);
 }
+
+// ------------------------------------------------------------------------------------------------
+// acts
+// ------------------------------------------------------------------------------------------------
+
+/** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
+export function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
+  if ("error" in result) return { ok: false, reason: result.error, cost: { decision: 0, erasure: 0, motion: 0, total: 0 } };
+  const inst = instantiationOf(settings);
+  return applyCalls(objectType(inst.objectType), inst, before, result.calls);
+}
+/** The seed of an agent's n-th act: the server's season salt, so no one can predict it. */
+export const playSeed = (gameId: string, agentId: string, actIndex: number) => deriveSeed(seasonSalt(), ["play", gameId, agentId, actIndex]);
+
+// ------------------------------------------------------------------------------------------------
+// lifecycle and commands
+// ------------------------------------------------------------------------------------------------
+
 export async function startGame(room: Room, actor: Actor) {
   owner(room, actor);
   if (room.game && room.game.phase !== "ended") throw new Error("There is already a live game");
@@ -46,11 +74,12 @@ export async function startGame(room: Room, actor: Actor) {
   if (room.members.length > 8) throw new Error("At most eight gods can play");
   if (room.members.some(m => m.kind === "ai")) {
     for (const bot of room.members.filter(m => m.kind === "ai")) {
-      if (!bot.aiAgent) throw new Error("Replace legacy AI seats with an agent from the library");
+      if (!bot.aiAgent) throw new Error("Every AI seat needs an agent from the library");
       getAIProvider(bot.aiAgent);
     }
     if (room.aiBudget <= 0) throw new Error("Approve an AI token budget before starting with AI seats");
   }
+  validateSettings(room.settings);
   const { utilities, runtime } = requireAdapters();
   if (!runtime.languages.includes(room.settings.language)) throw new Error("The selected isolated runtime is unavailable");
   const dealt = utilities.deal(room.settings, room.members.length);
@@ -59,22 +88,23 @@ export async function startGame(room: Room, actor: Actor) {
   // Game UUIDs are canonical; aliases are resolved against the full namespace.
   const aliases = uniquePrefixes([...gameIds, id]);
   const game: Game = {
-    id, shortCode: aliases.find(a => a.id === id)!.shortCode, phase: "planning", settings: { ...room.settings },
+    id, shortCode: aliases.find(a => a.id === id)!.shortCode, phase: "planning", scoring: "information-v1",
+    seasonCommitment: seasonCommitment(),
+    settings: structuredClone(room.settings),
     roster: structuredClone(room.members), deities: room.members.map((m, i) => ({
       id: m.id, utility: dealt[i], spent: 0, pauseUsed: false,
     })),
     objects: [], agents: [], events: [], createdAt: now, planningEndsAt: now + room.settings.planningSeconds * 1000,
     pauseEndsAt: 0, worldSeconds: 0, endAtWorld: lifetimeSeconds(room.settings.halfLifeSeconds, openUniform()),
     nextSpawn: poissonIntervalSeconds(room.settings.spawnRateHz, openUniform()),
-    nextInteraction: 0, // Legacy persisted field; interactions are now capacity-capped dispatches.
     lastTick: now,
   };
   // Infinity cannot be round-tripped in JSON; disabled sources use a finite sentinel.
   if (!Number.isFinite(game.nextSpawn)) game.nextSpawn = Number.MAX_VALUE;
-  if (!Number.isFinite(game.nextInteraction)) game.nextInteraction = Number.MAX_VALUE;
   for (let i = 0; i < game.settings.startingObjectCount; i++) spawn(game);
   room.game = game;
   room.aiUsed = 0; room.aiReservedUsd = 0;
+  room.aiInputTokens = 0; room.aiOutputTokens = 0;
   room.members.forEach(m => { m.ready = false; });
 }
 
@@ -90,7 +120,12 @@ export function endGame(room: Room, actor: Actor) {
   delete game.autoResume;
 }
 
-export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string; payload?: Record<string, unknown> }) {
+/**
+ * A command inside the authority lock. Validation and summon need the agent's measured price: callers
+ * measure it BEFORE taking the lock (`examined`, see player-api.ts); otherwise it is measured here.
+ */
+export async function playerCommand(room: Room, actor: Actor, input: { command: string; requestId: string; gameId?: string;
+  payload?: Record<string, unknown>; examined?: { gameId: string; source: string; result: Examination | Error } }) {
   requireAct(actor);
   member(room, actor);
   if (!input.requestId || input.requestId.length > 100) throw new Error("Invalid request ID");
@@ -130,30 +165,43 @@ export async function playerCommand(room: Room, actor: Actor, input: { command: 
       result = { pauseEndsAt: game.pauseEndsAt };
     } else if (input.command === "agent.summon" || input.command === "agent.validate") {
       const source = payload.source;
-      if (typeof source !== "string" || Buffer.byteLength(source) > 16384) throw new Error("Source exceeds 16384 bytes");
-      const { runtime } = requireAdapters();
-      const inspection = await runtime.inspect(source, game.settings);
-      if (!Number.isSafeInteger(inspection.cost) || inspection.cost < 0) throw new Error("Invalid runtime cost");
-      const samples = game.objects.slice(0, 3).map(o => o.value);
-      if (!samples.length) samples.push(game.settings.objectType === "Int" ? game.settings.intMin : "");
-      for (const value of samples) assertObjectValue(await runtime.execute(source, value, game.settings), game.settings);
+      if (typeof source !== "string" || !source || Buffer.byteLength(source) > 16384) throw new Error("Source must be 1–16384 bytes");
+      const prior = input.examined?.gameId === game.id && input.examined.source === source ? input.examined.result : undefined;
+      if (prior instanceof Error) throw prior;
+      const examined = prior ?? await examineAgent(game.settings, source, liveSample(game));
       if (input.command === "agent.validate") {
-        result = { valid: true, cost: inspection.cost, diagnostics: [] };
+        result = { valid: true, cost: examined.cost, parts: examined.parts, decisionBits: examined.decisionBits,
+          expectedActCost: examined.expectedActCost, breakdown: examined.breakdown, randomized: examined.randomized,
+          diagnostics: examined.diagnostics };
         room.receipts[key] = { hash: digest, result };
         return result;
       }
-      const available = game.settings.startingEnergy + (Date.now() - game.createdAt) / 1000 * game.settings.energyPerSecond - deity.spent;
-      if (available < inspection.cost) throw new Error("Insufficient energy");
-      if (game.agents.filter(a => a.ownerId === actor.id).length >= 200) throw new Error("This god has reached the 200-agent resource limit");
-      const agent = { id: randomUUID(), ownerId: actor.id, source, cost: inspection.cost, createdAt: Date.now() };
-      deity.spent += inspection.cost;
+      if (godEnergy(game, deity) < examined.cost) throw new Error("Insufficient energy");
+      if (game.agents.filter(a => a.ownerId === actor.id).length >= game.settings.maxAgentsPerGod)
+        throw new Error(`This god has reached the ${game.settings.maxAgentsPerGod}-agent resource limit`);
+      const agent: Agent = {
+        id: randomUUID(), ownerId: actor.id, source, createdAt: Date.now(),
+        summonCost: examined.cost, decisionBits: examined.decisionBits, expectedActCost: examined.expectedActCost,
+        perActFloorBits: game.settings.perActFloorBits, breakdown: examined.breakdown, randomized: examined.randomized,
+        account: newAgentAccount(worldNow(game)), acts: 0, spent: 0,
+      };
+      deity.spent += examined.cost;
       game.agents.push(agent);
-      result = agent;
+      result = { id: agent.id, summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost };
+    } else if (input.command === "agent.destroy") {
+      // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.
+      const index = game.agents.findIndex(a => a.id === payload.agentId && a.ownerId === actor.id);
+      if (index < 0) throw new Error("You have no agent with that ID");
+      const [agent] = game.agents.splice(index, 1);
+      result = { destroyed: agent.id };
     } else throw new Error("Unknown command");
   }
   room.receipts[key] = { hash: digest, result };
   return result;
 }
+
+/** The live objects a measurement adds to the reference mixture (its "game" component). */
+export const liveSample = (game: Game): ObjectValue[] => game.objects.slice(0, 16).map(o => o.value);
 
 /** World time is frozen in recovery, so resuming never skips simulated time. */
 export function resumeGame(game: Game) {
@@ -163,7 +211,77 @@ export function resumeGame(game: Game) {
   delete game.autoResume;
 }
 
+// ------------------------------------------------------------------------------------------------
+// interactions
+// ------------------------------------------------------------------------------------------------
+
+type ActSnapshot = {
+  gameId: string; objectId: string; version: number; before: ObjectValue; agentId: string; ownerId: string;
+  pauseEndsAt: number; epoch: number;
+};
+export type ActResult = { calls: string; usedRandom?: boolean; steps?: number } | { error: string };
+
+/**
+ * Commit one act inside the mutation lock. The agent pays the act's actual cost whatever happens (a
+ * failed or duplicate act pays its decision bits only); a successful, unique result replaces the object.
+ * Returns false when nothing may change (the game moved on, the object changed or the agent is gone).
+ */
+/** A god's own payoff on an object from its scores: n_owner × max(0, Σ_peers n). */
+function ownPayoff(scores: WorldObject["scores"], godId: string): number {
+  return personalView(new Map(Object.entries(scores).map(([id, s]) => [id, s.netBits])), godId).payoff;
+}
+
+/**
+ * The interaction's target. "uniform": every available object alike. "shelter": weight 1/(1 + σ⁺), σ the
+ * object's salience (Σ net bits; negative salience counts as 0), so salient objects are hit a little less
+ * (grid-lab PR #18 §9). Never weighted toward salience.
+ */
+export function pickObject<T extends WorldObject>(objects: readonly T[], mode: GameSettings["objectSelection"], uniform01: () => number): T {
+  if (mode !== "shelter") return objects[Math.min(objects.length - 1, Math.floor(uniform01() * objects.length))];
+  const weights = objects.map(o => 1 / (1 + Math.max(0, Object.values(o.scores).reduce((sum, s) => sum + s.netBits, 0))));
+  let u = uniform01() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < objects.length; i++) { u -= weights[i]; if (u < 0) return objects[i]; }
+  return objects[objects.length - 1];
+}
+const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
+
+export function commitAct(g: Game, snapshot: ActSnapshot, result: ActResult, nowMs = Date.now()): boolean {
+  const target = completionTarget(g, snapshot, nowMs);
+  const agentIndex = g.agents.findIndex(a => a.id === snapshot.agentId);
+  if (!target || agentIndex < 0) return false;
+  const agent = g.agents[agentIndex];
+  let outcome = actOutcome(g.settings, snapshot.before, result);
+  let next: WorldObject["scores"] | undefined;
+  if (outcome.ok && outcome.commit) {
+    // The commit clause: commit only if the act strictly raises the owner's own payoff on this object,
+    // n_owner × max(0, Σ_peers n). Only the owner's bits and the peer aggregate are used.
+    if (!g.settings.commitClause) outcome = { ok: false, reason: "this room does not offer the commit clause", cost: outcome.cost };
+    else if (!occupied(g, outcome.value)) {
+      next = scoresOf(g, outcome.value);
+      const gain = ownPayoff(next, agent.ownerId) - ownPayoff(target.scores, agent.ownerId);
+      if (!(gain > 0)) outcome = { ok: false, reason: "the commit clause kept the object: it would not raise your points", cost: outcome.cost };
+    }
+  }
+  const duplicate = outcome.ok && occupied(g, outcome.value); // Includes the object's own value.
+  // The measured decision bits replace the calls' naming bits, which are only reported.
+  const cost: ActCharge = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
+  const account = chargeAct(settledAccount(g.settings, agent, worldNow(g, nowMs)), cost.total);
+  const state: AgentActState = { id: agent.id, account, acts: agent.acts + 1, spent: agent.spent + cost.total };
+  g.agents[agentIndex] = { ...agent, account, acts: state.acts, spent: state.spent };
+  const common = { id: randomUUID(), gameId: g.id, timestamp: nowMs, agentId: agent.id, ownerId: agent.ownerId };
+  if (outcome.ok && !duplicate) {
+    target.value = outcome.value; target.version++; target.scores = next ?? scoresOf(g, outcome.value);
+    recordEvent(g, { ...common, type: "object.transformed", object: structuredClone(target), before: snapshot.before,
+      calls: outcome.calls as MutatorCallWire[], cost, agent: state });
+  } else {
+    recordEvent(g, { ...common, type: "agent.failed", objectId: target.id, cost, agent: state,
+      reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300) });
+  }
+  return true;
+}
+
 export function startTicker() {
+  const actingAgents = new Set<string>();
   let pending: Promise<void> | undefined;
   let stopped = false;
   const scheduler = new InteractionScheduler(
@@ -177,36 +295,50 @@ export function startTicker() {
       const room = allRooms().find(r => r.id === roomId), game = room?.game;
       if (!game || game.phase !== "running" || !game.agents.length || game.settings.interactionRateHz <= 0) return;
       // Do not admit work past the lifetime while waiting for the next persisted clock snapshot.
-      if (game.worldSeconds + Math.max(0, Date.now() - game.lastTick) / 1000 >= game.endAtWorld) return;
+      const now = Date.now();
+      if (game.worldSeconds + Math.max(0, now - game.lastTick) / 1000 >= game.endAtWorld) return;
       const objects = game.objects.filter(o => available(game.id, o.id));
       if (!objects.length) return;
-      const object = objects[Number(below(BigInt(objects.length)))];
-      const agent = game.agents[Number(below(BigInt(game.agents.length)))];
+      // Agents act only while their own energy covers their expected cost, one act at a time each.
+      const agents = game.agents.filter(a => !actingAgents.has(a.id) && agentStatus(game, a, now).eligible);
+      if (!agents.length) return;
+      const object = pickObject(objects, game.settings.objectSelection, uniform01);
+      const agent = agents[below(agents.length)];
       // Copy every runtime input: cached rooms can be replaced during a serialized mutation.
-      const snapshot = {
+      const settings = structuredClone(game.settings);
+      const snapshot: ActSnapshot = {
         gameId: game.id, objectId: object.id, version: object.version, before: object.value,
-        source: agent.source, settings: structuredClone(game.settings), agentId: agent.id,
-        ownerId: agent.ownerId, pauseEndsAt: game.pauseEndsAt, epoch: game.executionEpoch ?? 0,
+        agentId: agent.id, ownerId: agent.ownerId, pauseEndsAt: game.pauseEndsAt, epoch: game.executionEpoch ?? 0,
       };
+      const source = agent.source, seed = playSeed(game.id, agent.id, agent.acts);
+      actingAgents.add(agent.id);
+      let released = false;
+      const release = () => { if (!released) { released = true; actingAgents.delete(agent.id); } };
       return {
         roomId, gameId: game.id, objectId: object.id, rate: game.settings.interactionRateHz,
-        execute: () => requireAdapters().runtime.execute(snapshot.source, snapshot.before, snapshot.settings),
-        commit: async (result: unknown, current: () => boolean) => {
-          if (!current() || stopped || isLocallyIdle()) return;
-          await mutateInteraction(roomId, snapshot.objectId, draft => {
-            const g = draft.game;
-            if (!current() || stopped || isLocallyIdle() || !g) return false;
-            const target = completionTarget(g, snapshot, Date.now());
-            if (!target) return false;
-            assertObjectValue(result, snapshot.settings);
-            const value = result as number | string;
-            if (occupied(g, value)) return false; // Includes identity: the object already holds this value.
-            target.value = value; target.version++; target.utilities = valuate(g, value);
-            recordEvent(g, { id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
-              object: structuredClone(target), agentId: snapshot.agentId, ownerId: snapshot.ownerId, before: snapshot.before });
-            return true;
-          });
+        execute: async (): Promise<ActResult> => {
+          try {
+            const act = await requireAdapters().runtime.act(source, snapshot.before, settings, seed);
+            return { calls: act.calls, usedRandom: act.usedRandom, steps: act.steps };
+          }
+          catch (error) {
+            // The agent's own failures still cost it; host capacity problems are not its fault.
+            if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };
+            release();
+            throw error;
+          }
         },
+        commit: async (result: unknown, current: () => boolean) => {
+          try {
+            if (!current() || stopped || isLocallyIdle()) return;
+            await mutateInteraction(roomId, snapshot.objectId, draft => {
+              const g = draft.game;
+              if (!current() || stopped || isLocallyIdle() || !g) return false;
+              return commitAct(g, snapshot, result as ActResult);
+            }, snapshot.agentId);
+          } finally { release(); }
+        },
+        release,
       };
     },
     error => logger.info({ errorName: error instanceof Error ? error.name : "Error" }, "Agent execution failed without changing the object"),

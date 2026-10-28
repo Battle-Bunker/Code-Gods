@@ -8,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const temp = await mkdtemp(join(here, ".client-integration-"));
 try {
   await build({
-    entryPoints: [join(here, "client-daemon-integration.test.ts"), join(here, "device-security.test.ts"), join(here, "assistant-authority-integration.test.ts"), join(here, "client-daemon-integration.worker.ts")],
+    entryPoints: [join(here, "client-daemon-integration.test.ts"), join(here, "device-security.test.ts"), join(here, "assistant-authority-integration.test.ts"), join(here, "owner-grant-integration.test.ts"), join(here, "client-daemon-integration.worker.ts")],
     outdir: temp, outExtension: { ".js": ".mjs" },
     bundle: true, platform: "node", format: "esm", packages: "external",
     plugins: [{
@@ -20,11 +20,15 @@ try {
           contents: `
             export const fixtureDevices = new Map();
             export const fixtureSessions = new Map();
+            export const fixtureAgents = new Map();
             export const fixtureStats = {sessionReads:0};
             const rooms = new Map(), games = new Map(), sessions = fixtureSessions;
             async function query(sql,a=[]) {
               const rows = value => ({rows:value});
               if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql)) return rows([]);
+              if (sql==="SELECT * FROM cg_ai_agents WHERE id=$1") return rows(fixtureAgents.has(a[0])?[fixtureAgents.get(a[0])]:[]);
+              if (sql==="SELECT id,name,provider,model FROM cg_ai_agents ORDER BY created_at,id")
+                return rows([...fixtureAgents.values()].map(({id,name,provider,model})=>({id,name,provider,model})));
               if (sql.startsWith("INSERT INTO cg_sessions")) {sessions.set(a[0],{data:JSON.parse(a[1]),expires:a[2]});return rows([]);}
               if (sql.startsWith("SELECT data,expires FROM cg_sessions WHERE hash")) {fixtureStats.sessionReads++;const s=sessions.get(a[0]);return rows(s && s.expires>Date.now()?[s]:[]);}
               if (sql.startsWith("SELECT data,expires FROM cg_sessions")) return rows([...sessions.values()].filter(s=>s.data.id===a[0] && s.data.scope==="player" && s.data.delegateId && s.expires>Date.now()));
@@ -67,6 +71,6 @@ try {
   });
   // Deliberately whitelist, not inherit: no DB credentials/model keys in children.
   const env = { PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: "test", LOG_LEVEL: "silent" };
-  const result = spawnSync(process.execPath, ["--experimental-transform-types", "--test", join(temp, "client-daemon-integration.test.mjs"), join(temp, "device-security.test.mjs"), join(temp, "assistant-authority-integration.test.mjs")], { env, stdio: "inherit", timeout: 120000 });
+  const result = spawnSync(process.execPath, ["--experimental-transform-types", "--test", join(temp, "client-daemon-integration.test.mjs"), join(temp, "device-security.test.mjs"), join(temp, "assistant-authority-integration.test.mjs"), join(temp, "owner-grant-integration.test.mjs")], { env, stdio: "inherit", timeout: 120000 });
   process.exitCode = result.status ?? 1;
 } finally { await rm(temp, { recursive: true, force: true }); }

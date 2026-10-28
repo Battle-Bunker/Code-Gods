@@ -6,10 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The object type constructor.
+ */
 export type SettingsObjectType = typeof SettingsObjectType[keyof typeof SettingsObjectType];
 
 
 export const SettingsObjectType = {
   Int: 'Int',
   string: 'string',
+  Grid: 'Grid',
 } as const;

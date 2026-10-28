@@ -82,7 +82,8 @@ test("delegated authorization lifecycle, permissions and passive invalidation", 
     assert.equal((await request(`/device/details?code=${pending.userCode}`)).status, 401);
     assert.equal((await request(`/device/details?code=${pending.userCode}`, undefined, outsiderToken)).status, 403);
     const details = await request(`/device/details?code=${pending.userCode}`, undefined, hostToken);
-    assert.deepEqual(Object.keys(details.body).sort(), ["clientLabel", "expiresAt", "permission", "roomCode", "roomId", "status"].sort());
+    assert.deepEqual(Object.keys(details.body).sort(), ["canApprove", "clientLabel", "expiresAt", "permission", "roomCode", "roomId", "status"].sort());
+    assert.equal(details.body.canApprove, true);
     assert.equal(details.body.roomId, room.id);
     assert.equal(details.body.roomCode, room.shortCode);
     assert.equal(details.body.clientLabel, "Self-reported assistant");
@@ -127,12 +128,17 @@ test("delegated authorization lifecycle, permissions and passive invalidation", 
     assert.equal((await request("/device/approve", { code: "ignored" }, act.token)).status, 403);
     assert.equal((await request("/device/grants", undefined, act.token)).status, 403);
     const readWs = await connect(read.token), actWs = await connect(act.token), browserWs = await connect(hostToken);
-    const sdkCommands = ["ready", "chat", "validate", "summon", "pause"].map(type => ({ version: VERSION, commandId: randomUUID(), command: { type } }));
-    const legacyCommands = ["ready.set", "chat.send", "agent.validate", "agent.summon", "pause.use", "start"].map(command => ({ protocolVersion: 1, command, requestId: randomUUID(), payload: { ready: true } }));
-    for (const input of [...sdkCommands, ...legacyCommands]) {
+    const sdkCommands = ["ready", "chat", "validate", "summon", "pause", "destroy"].map(type => ({ version: VERSION, commandId: randomUUID(), command: { type } }));
+    for (const input of sdkCommands) {
       const receipt = await wsCommand(readWs, input);
       assert.equal(receipt.type, "command.error");
       assert.match(receipt.payload.error, /Read-only/);
+    }
+    // Only current player-protocol envelopes are accepted on sockets, whatever the grant.
+    for (const ws of [readWs, actWs]) {
+      const receipt = await wsCommand(ws, { protocolVersion: 1, command: "ready.set", requestId: randomUUID(), payload: { ready: true } });
+      assert.equal(receipt.type, "command.error");
+      assert.match(receipt.payload.error, /Unsupported protocol/);
     }
     assert.equal(resolveRoom(room.id).members.find(m => m.id === host.id)!.ready, false);
     assert.equal((await wsCommand(actWs, ready())).payload.accepted, true);

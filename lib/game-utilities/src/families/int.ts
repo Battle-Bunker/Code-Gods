@@ -1,299 +1,558 @@
-import type { Rng, UtilityFamily } from "../types.ts";
-import { pick, shuffle } from "./random.ts";
+/**
+ * Int families: each returns its natural ordinal (a count, a length, a distance; bigger is better). Params come from small fixed lists so `canonical(support)` stays tiny, because
+ * calibration enumerates it. Cards use the Int prelude (`digits(x)`, `from_digits(ds)` / `fromDigits(ds)`).
+ */
+import type { CardText } from "./card.ts";
+import { pyCard, tsCard } from "./card.ts";
+import { SCALAR, bestValue, defineFamilies } from "./define.ts";
+import type { FamilyContext } from "../types.ts";
 
-// Calibrated for the default signed 32-bit domain: |x| has at most ten decimal digits.
-const INT_MAX = 2147483647;
+interface IntSpec { readonly min: number; readonly max: number }
+const intFamily = defineFamilies<IntSpec>("Int", (ctx: FamilyContext) => ({
+  min: Number(ctx.inst.args.min), max: Number(ctx.inst.args.max),
+}));
+const inRange = (s: IntSpec, x: number) => Number.isSafeInteger(x) && x >= s.min && x <= s.max;
+/** Best in-range candidate (with ± versions), scored by the family's own card. */
+function bestOf(id: string, p: any, s: IntSpec, ctx: FamilyContext, xs: readonly number[]): number {
+  // Small domains: the best value outright. Large ones: the family's ideal shapes that fit.
+  if (s.max - s.min <= 100_000) return bestValue(id, p, ctx, range(s.min, s.max)) as number;
+  const ok = [...new Set([...xs, ...xs.map(x => -x), s.min, s.max, 0])].filter(x => inRange(s, x));
+  return bestValue(id, p, ctx, ok) as number;
+}
+const card = (emoji: string, name: string, about: string, consts: CardText["consts"] = []): CardText =>
+  ({ emoji, name, about, consts });
+const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+const repeatNum = (digits: string, n: number) => Number(digits.repeat(Math.ceil(n / digits.length)).slice(0, n));
 
-const digitDevotee: UtilityFamily<{ d: number }> = {
-  id: "digit-devotee", name: "Digit Devotee", objectType: "Int",
-  theme: "Loves one particular decimal digit.",
-  sample: rng => ({ d: rng(10) }),
-  summary: ({ d }) => `You adore the digit ${d}. Utility is (how many ${d}s appear in the decimal digits of |x|)³ ÷ 9³, so nine ${d}s is perfect and a single ${d} is worth almost nothing.`,
-  python: ({ d }) => `    return min(str(abs(x)).count("${d}"), 9) ** 3 / 729`,
-  typescript: ({ d }) => `  return Math.min(String(Math.abs(x)).split("${d}").length - 1, 9) ** 3 / 729;`,
-  exemplar: ({ d }) => d === 0 ? 1000000000 : Number(String(d).repeat(9)),
-};
+// --- Digit Devotee ---------------------------------------------------------------------------------
+type DigitP = { d: number };
+const digitText = (p: DigitP) => card("🔢", "Digit Devotee",
+  `You adore the digit ${p.d}. Count the ${p.d}s in x (the minus sign doesn't count). More is better.`, [["MY_DIGIT", p.d]]);
+const digitDevotee = intFamily<DigitP>({
+  id: "digit-devotee", name: "Digit Devotee", emoji: "🔢", theme: "Loves one particular decimal digit.", shape: SCALAR,
+  support: () => range(0, 9).map(d => ({ d })),
+  summary: p => `You adore the digit ${p.d}: the more ${p.d}s in the decimal digits of x, the better.`,
+  python: p => pyCard(digitText(p), `
+    def utility(x):
+        count = 0
+        for d in digits(x):
+            if d == MY_DIGIT:
+                count += 1
+        return count`),
+  typescript: p => tsCard(digitText(p), `
+    function utility(x) {
+      let count = 0;
+      for (const d of digits(x)) {
+        if (d === MY_DIGIT) count += 1;
+      }
+      return count;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("digit-devotee", p, s, ctx, range(1, 10).flatMap(k =>
+    p.d === 0 ? [10 ** k, 2 * 10 ** k] : [repeatNum(String(p.d), k), Number(`1${String(p.d).repeat(k)}`)])),
+});
 
-const tailwright: UtilityFamily<{ tail: string }> = {
-  id: "tailwright", name: "Tailwright", objectType: "Int",
-  theme: "Wants x to end in a particular run of decimal digits.",
-  sample: rng => ({ tail: Array.from({ length: 5 }, () => rng(10)).join("") }),
-  summary: ({ tail }) => `You want the decimal digits of |x| to end in ${tail}. Utility is (how many of those five trailing digits match, counting from the end)³ ÷ 5³. Everything before the tail is yours to trade.`,
-  python: ({ tail }) => `    digits, tail = str(abs(x)), "${tail}"
-    n = 0
-    while n < len(digits) and n < 5 and digits[-1 - n] == tail[-1 - n]:
-        n += 1
-    return (n / 5) ** 3`,
-  typescript: ({ tail }) => `  const digits = String(Math.abs(x)), tail = "${tail}";
-  let n = 0;
-  while (n < digits.length && n < 5 && digits[digits.length - 1 - n] === tail[4 - n]) n++;
-  return (n / 5) ** 3;`,
-  exemplar: ({ tail }) => Number(`1${tail}`),
-};
+// --- Tailwright ----------------------------------------------------------------------------------
+const TAILS = ["12345", "54321", "77777", "31415", "27182", "90210", "11235", "24680", "13579", "86420", "40404", "99999"];
+type TailP = { tail: string };
+const tailText = (p: TailP) => card("🦎", "Tailwright",
+  `You want x to end in the digits ${p.tail.split("").join(" ")}. Count how many of them match, from the last digit `
+  + "backwards, stopping at the first one that doesn't.", [["MY_TAIL", p.tail.split("").map(Number)]]);
+const tailwright = intFamily<TailP>({
+  id: "tailwright", name: "Tailwright", emoji: "🦎", theme: "Wants x to end in a particular run of decimal digits.",
+  shape: SCALAR,
+  support: () => TAILS.map(tail => ({ tail })),
+  summary: p => `You want the decimal digits of x to end in ${p.tail}. The more trailing digits match, counting from `
+    + "the end, the better. Everything before the tail is yours to trade.",
+  python: p => pyCard(tailText(p), `
+    def utility(x):
+        ds = digits(x)
+        matched = 0
+        while matched < len(MY_TAIL) and matched < len(ds) and ds[-1 - matched] == MY_TAIL[-1 - matched]:
+            matched += 1
+        return matched`),
+  typescript: p => tsCard(tailText(p), `
+    function utility(x) {
+      const ds = digits(x);
+      let matched = 0;
+      while (matched < MY_TAIL.length && matched < ds.length
+        && ds[ds.length - 1 - matched] === MY_TAIL[MY_TAIL.length - 1 - matched]) matched += 1;
+      return matched;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("tailwright", p, s, ctx,
+    [...range(1, 5).map(k => Number(p.tail.slice(-k))), ...range(1, 9).map(d => Number(`${d}${p.tail}`))]),
+});
 
-const firstborn: UtilityFamily<{ head: string }> = {
-  id: "firstborn", name: "Firstborn", objectType: "Int",
-  theme: "Wants x to begin with a particular run of decimal digits.",
-  sample: rng => ({ head: String(1 + rng(9)) + Array.from({ length: 4 }, () => rng(10)).join("") }),
-  summary: ({ head }) => `You want the decimal digits of |x| to begin with ${head}. Utility is (how many of those five leading digits match, from the front)³ ÷ 5³. Whatever follows the head is negotiable.`,
-  python: ({ head }) => `    digits, head = str(abs(x)), "${head}"
-    n = 0
-    while n < len(digits) and n < 5 and digits[n] == head[n]:
-        n += 1
-    return (n / 5) ** 3`,
-  typescript: ({ head }) => `  const digits = String(Math.abs(x)), head = "${head}";
-  let n = 0;
-  while (n < digits.length && n < 5 && digits[n] === head[n]) n++;
-  return (n / 5) ** 3;`,
-  exemplar: ({ head }) => Number(`${head}0000`),
-};
+// --- Firstborn -----------------------------------------------------------------------------------
+const HEADS = ["12345", "31415", "27182", "16180", "14142", "17320", "98765", "20202", "11111", "19999", "50505", "86420"];
+type HeadP = { head: string };
+const headText = (p: HeadP) => card("👑", "Firstborn",
+  `You want x to begin with the digits ${p.head.split("").join(" ")}. Count how many of them match, from the first `
+  + "digit on, stopping at the first one that doesn't.", [["MY_HEAD", p.head.split("").map(Number)]]);
+const firstborn = intFamily<HeadP>({
+  id: "firstborn", name: "Firstborn", emoji: "👑", theme: "Wants x to begin with a particular run of decimal digits.",
+  shape: SCALAR,
+  support: () => HEADS.map(head => ({ head })),
+  summary: p => `You want the decimal digits of x to begin with ${p.head}. The more leading digits match, the better. `
+    + "Whatever follows the head is negotiable.",
+  python: p => pyCard(headText(p), `
+    def utility(x):
+        ds = digits(x)
+        matched = 0
+        while matched < len(MY_HEAD) and matched < len(ds) and ds[matched] == MY_HEAD[matched]:
+            matched += 1
+        return matched`),
+  typescript: p => tsCard(headText(p), `
+    function utility(x) {
+      const ds = digits(x);
+      let matched = 0;
+      while (matched < MY_HEAD.length && matched < ds.length && ds[matched] === MY_HEAD[matched]) matched += 1;
+      return matched;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("firstborn", p, s, ctx,
+    range(1, 5).flatMap(k => range(0, 5).map(z => Number(p.head.slice(0, k) + "0".repeat(z))))),
+});
 
-const POWER_CAPS: Record<number, number> = { 2: 30, 3: 19, 5: 13, 7: 11 };
-const powerHoarder: UtilityFamily<{ p: number; cap: number }> = {
-  id: "power-hoarder", name: "Power Hoarder", objectType: "Int",
-  theme: "Wants x divisible by a high power of one prime.",
-  sample: rng => { const p = pick(rng, [2, 3, 5, 7]); return { p, cap: POWER_CAPS[p] }; },
-  summary: ({ p, cap }) => `You hoard factors of ${p}. Utility is (how many times ${p} divides x)² ÷ ${cap}², capped at ${p}^${cap}, the largest power of ${p} that fits. Zero is worthless.`,
-  python: ({ p, cap }) => `    if x == 0:
-        return 0.0
-    k = 0
-    while x % ${p} == 0:
-        x //= ${p}
-        k += 1
-    return min(k, ${cap}) ** 2 / ${cap * cap}`,
-  typescript: ({ p, cap }) => `  if (x === 0) return 0;
-  let k = 0;
-  while (x % ${p} === 0) { x /= ${p}; k++; }
-  return Math.min(k, ${cap}) ** 2 / ${cap * cap};`,
-  exemplar: ({ p, cap }) => p ** cap,
-};
+// --- Power Hoarder -------------------------------------------------------------------------------
+type PowerP = { p: number };
+const powerText = (p: PowerP) => card("🏺", "Power Hoarder",
+  `You hoard factors of ${p.p}. Count how many times you can divide x by ${p.p} and still get a whole number. `
+  + "Zero is worthless.", [["MY_PRIME", p.p]]);
+const powerHoarder = intFamily<PowerP>({
+  id: "power-hoarder", name: "Power Hoarder", emoji: "🏺", theme: "Wants x divisible by a high power of one prime.",
+  shape: SCALAR,
+  support: () => [2, 3, 5, 7].map(p => ({ p })),
+  summary: p => `You hoard factors of ${p.p}: the more times ${p.p} divides x, the better. Zero is worthless.`,
+  python: p => pyCard(powerText(p), `
+    def utility(x):
+        if x == 0:
+            return 0
+        times = 0
+        while x % MY_PRIME == 0:
+            x = x // MY_PRIME
+            times += 1
+        return times`),
+  typescript: p => tsCard(powerText(p), `
+    function utility(x) {
+      if (x === 0) return 0;
+      let times = 0;
+      while (x % MY_PRIME === 0) {
+        x = x / MY_PRIME;
+        times += 1;
+      }
+      return times;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("power-hoarder", p, s, ctx, range(0, 31).map(k => p.p ** k).filter(Number.isSafeInteger)),
+});
 
-const manyFaced: UtilityFamily<Record<string, never>> = {
-  id: "many-faced", name: "The Many-Faced", objectType: "Int",
-  theme: "Wants x to have many different prime factors.",
-  sample: () => ({}),
-  summary: () => `You want |x| to have many distinct prime factors. Utility is (number of distinct primes dividing x ÷ 9)⁶. Nine is the most any 32-bit integer can have (2·3·5·7·11·13·17·19·23 = 223092870).`,
-  python: () => `    n, p, count = abs(x), 2, 0
-    while p * p <= n:
-        if n % p == 0:
-            count += 1
-            while n % p == 0:
-                n //= p
-        p += 1
-    if n > 1:
-        count += 1
-    return (count / 9) ** 6`,
-  typescript: () => `  let n = Math.abs(x), count = 0;
-  for (let p = 2; p * p <= n; p++) {
-    if (n % p === 0) {
-      count++;
-      while (n % p === 0) n /= p;
+// --- The Many-Faced ------------------------------------------------------------------------------
+const manyText = card("🎭", "The Many-Faced",
+  "You want x to have many different prime factors. Count the different primes that divide x (the minus sign doesn't "
+  + "count).");
+const manyFaced = intFamily<Record<string, never>>({
+  id: "many-faced", name: "The Many-Faced", emoji: "🎭", theme: "Wants x to have many different prime factors.",
+  shape: SCALAR,
+  support: () => [{}],
+  summary: () => "You want x to have many distinct prime factors: 2·3·5·7·11·13·17·19·23 = 223092870 has nine.",
+  python: () => pyCard(manyText, `
+    def utility(x):
+        n = abs(x)
+        primes = 0
+        p = 2
+        while p * p <= n:
+            if n % p == 0:
+                primes += 1
+                while n % p == 0:
+                    n = n // p
+            p += 1
+        if n > 1:
+            primes += 1
+        return primes`),
+  typescript: () => tsCard(manyText, `
+    function utility(x) {
+      let n = Math.abs(x);
+      let primes = 0;
+      for (let p = 2; p * p <= n; p++) {
+        if (n % p === 0) {
+          primes += 1;
+          while (n % p === 0) n = n / p;
+        }
+      }
+      if (n > 1) primes += 1;
+      return primes;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("many-faced", p, s, ctx, [2, 6, 30, 210, 2310, 30030, 510510, 9699690, 223092870]),
+});
+
+// --- Smooth Operator -----------------------------------------------------------------------------
+const SMOOTH = [[3, 5, 7], [3, 5, 7, 11], [3, 5, 7, 11, 13]];
+type SmoothP = { primes: readonly number[] };
+const smoothText = (p: SmoothP) => card("🧈", "Smooth Operator",
+  `You collect the odd primes ${p.primes.join(", ")}. Multiply together every one of them hiding in x (as many times `
+  + "as each divides it). The bigger that product, the better.", [["MY_PRIMES", p.primes]]);
+const smoothOperator = intFamily<SmoothP>({
+  id: "smooth-operator", name: "Smooth Operator", emoji: "🧈", theme: "Wants x to be a big product of small odd primes.",
+  shape: SCALAR,
+  support: () => SMOOTH.map(primes => ({ primes })),
+  summary: p => `You want x built from the odd primes ${p.primes.join(", ")}. Only the part of x made of those primes `
+    + "counts, and bigger is better; factors of 2 or any other prime are dead weight.",
+  python: p => pyCard(smoothText(p), `
+    def utility(x):
+        n = abs(x)
+        smooth = 1
+        for p in MY_PRIMES:
+            while n != 0 and n % p == 0:
+                n = n // p
+                smooth = smooth * p
+        return smooth`),
+  typescript: p => tsCard(smoothText(p), `
+    function utility(x) {
+      let n = Math.abs(x);
+      let smooth = 1;
+      for (const p of MY_PRIMES) {
+        while (n !== 0 && n % p === 0) {
+          n = n / p;
+          smooth = smooth * p;
+        }
+      }
+      return smooth;
+    }`),
+  exemplar: (p, s, ctx) => {
+    const B = Math.max(Math.abs(s.min), Math.abs(s.max));
+    let xs = [1];
+    for (const q of p.primes) {
+      const next: number[] = [];
+      for (const x of xs) for (let y = x; y <= B; y *= q) next.push(y);
+      xs = next;
     }
-  }
-  if (n > 1) count++;
-  return (count / 9) ** 6;`,
-  exemplar: () => 223092870,
-};
+    const top = xs.sort((a, b) => b - a).filter(x => inRange(s, x) || inRange(s, -x)).slice(0, 4);
+    return bestOf("smooth-operator", p, s, ctx, top);
+  },
+});
 
-const smoothOperator: UtilityFamily<{ primes: readonly number[] }> = {
-  id: "smooth-operator", name: "Smooth Operator", objectType: "Int",
-  theme: "Wants x to be a big product of small odd primes.",
-  sample: rng => ({ primes: pick(rng, [[3, 5, 7], [3, 5, 7, 11], [3, 5, 7, 11, 13]]) }),
-  summary: ({ primes }) => `You want |x| built from the odd primes ${primes.join(", ")}. Only the part of x made of those primes counts: utility is (log₂ of that part ÷ 31)⁴. Big, perfectly smooth odd numbers like 3¹⁹ are near-perfect; every factor of 2 or any other prime is dead weight.`,
-  pythonPrelude: () => "import math\n\n",
-  python: ({ primes }) => `    n, smooth = abs(x), 1
-    for p in (${primes.join(", ")}):
-        while n != 0 and n % p == 0:
-            n //= p
-            smooth *= p
-    return (math.log2(smooth) / 31) ** 4`,
-  typescript: ({ primes }) => `  let n = Math.abs(x), smooth = 1;
-  for (const p of [${primes.join(", ")}]) {
-    while (n !== 0 && n % p === 0) { n /= p; smooth *= p; }
-  }
-  return (Math.log2(smooth) / 31) ** 4;`,
-  // 3^6 · 5^2 · 7^6 = 2,144,153,025: the largest 3-5-7-smooth integer below 2^31.
-  exemplar: () => 3 ** 6 * 5 ** 2 * 7 ** 6,
-};
-
-const IS_PRIME_PY = `def is_prime(n):
-    if n < 2:
-        return False
-    d = 2
-    while d * d <= n:
-        if n % d == 0:
+// --- Truncation Saint ----------------------------------------------------------------------------
+const truncText = card("😇", "Truncation Saint",
+  "You worship primes hiding at the front of x. Read x one more leading digit at a time (7, 73, 739, ...) and count "
+  + "how many of those numbers are prime.");
+const truncationSaint = intFamily<Record<string, never>>({
+  id: "truncation-saint", name: "Truncation Saint", emoji: "😇", theme: "Wants the leading digits of x to keep forming primes.",
+  shape: SCALAR,
+  support: () => [{}],
+  summary: () => "Read x one more leading digit at a time (7, 73, 739, …) and count how many of those prefixes are prime. "
+    + "Numbers like 73939133, where every prefix is prime, are sacred and very rare.",
+  python: () => pyCard(truncText, `
+    def is_prime(n):
+        if n < 2:
             return False
-        d += 1
-    return True
+        d = 2
+        while d * d <= n:
+            if n % d == 0:
+                return False
+            d += 1
+        return True
 
-`;
-const truncationSaint: UtilityFamily<Record<string, never>> = {
-  id: "truncation-saint", name: "Truncation Saint", objectType: "Int",
-  theme: "Wants the leading digits of x to keep forming primes.",
-  sample: () => ({}),
-  summary: () => `You worship primes hiding at the front of x. Read |x| one more leading digit at a time (7, 73, 739, …) and count how many of those prefixes are prime. Utility is (that count, at most 8)³ ÷ 8³. Numbers like 73939133, where every prefix is prime, are sacred and very rare.`,
-  pythonPrelude: () => IS_PRIME_PY,
-  python: () => `    digits = str(abs(x))
-    count = sum(is_prime(int(digits[:i])) for i in range(1, len(digits) + 1))
-    return min(count, 8) ** 3 / 512`,
-  typescript: () => `  const digits = String(Math.abs(x));
-  let count = 0;
-  for (let i = 1; i <= digits.length; i++) {
-    const n = Number(digits.slice(0, i));
-    let prime = n >= 2;
-    for (let d = 2; prime && d * d <= n; d++) if (n % d === 0) prime = false;
-    if (prime) count++;
-  }
-  return Math.min(count, 8) ** 3 / 512;`,
-  exemplar: () => 73939133,
-};
-
-const mirrorPairs = (base: number) => Math.floor(INT_MAX.toString(base).length / 2);
-const mirrormancer: UtilityFamily<{ base: number; pairs: number }> = {
-  id: "mirrormancer", name: "Mirrormancer", objectType: "Int",
-  theme: "Wants x to be a palindrome in some base.",
-  sample: rng => { const base = 2 + rng(9); return { base, pairs: mirrorPairs(base) }; },
-  summary: ({ base, pairs }) => `You want |x| to read the same forwards and backwards in base ${base}. Count matching digit pairs from the outside in, stopping at the first mismatch. Utility is (matched pairs)³ ÷ ${pairs}³, so only a full-length base-${base} palindrome is perfect.`,
-  python: ({ base, pairs }) => `    n, digits = abs(x), []
-    while n > 0:
-        digits.append(n % ${base})
-        n //= ${base}
-    m = 0
-    while m < len(digits) // 2 and digits[m] == digits[-1 - m]:
-        m += 1
-    return min(m, ${pairs}) ** 3 / ${pairs ** 3}`,
-  typescript: ({ base, pairs }) => `  const digits = Math.abs(x).toString(${base});
-  let m = 0;
-  while (m < Math.floor(digits.length / 2) && digits[m] === digits[digits.length - 1 - m]) m++;
-  return Math.min(m, ${pairs}) ** 3 / ${pairs ** 3};`,
-  exemplar: ({ base }) => {
-    const length = INT_MAX.toString(base).length;
-    return parseInt(`1${"0".repeat(length - 2)}1`, base);
-  },
-};
-
-const stairwalker: UtilityFamily<{ step: number }> = {
-  id: "stairwalker", name: "Stairwalker", objectType: "Int",
-  theme: "Wants decimal digits that climb or descend one step at a time.",
-  sample: rng => ({ step: pick(rng, [1, -1]) }),
-  summary: ({ step }) => `You want a staircase in the decimal digits of |x|: each digit exactly one ${step > 0 ? "more" : "less"} than the one before (like ${step > 0 ? "4567" : "7654"}). Utility is (longest staircase length − 1)² ÷ 8², so ${step > 0 ? "123456789" : "987654321"} is perfect.`,
-  python: ({ step }) => `    digits = str(abs(x))
-    best = run = 1
-    for a, b in zip(digits, digits[1:]):
-        run = run + 1 if int(b) - int(a) == ${step} else 1
-        best = max(best, run)
-    return (best - 1) ** 2 / 64`,
-  typescript: ({ step }) => `  const digits = String(Math.abs(x));
-  let best = 1, run = 1;
-  for (let i = 1; i < digits.length; i++) {
-    run = Number(digits[i]) - Number(digits[i - 1]) === ${step} ? run + 1 : 1;
-    best = Math.max(best, run);
-  }
-  return (best - 1) ** 2 / 64;`,
-  exemplar: ({ step }) => step > 0 ? 123456789 : 987654321,
-};
-
-const residueOracle: UtilityFamily<{ rules: readonly (readonly number[])[] }> = {
-  id: "residue-oracle", name: "Residue Oracle", objectType: "Int",
-  theme: "Wants x to leave particular remainders when divided by several small primes.",
-  sample: rng => ({
-    rules: shuffle(rng, [3, 5, 7, 11, 13, 17, 19, 23]).slice(0, 6).sort((a, b) => a - b).map(m => [m, rng(m)]),
-  }),
-  summary: ({ rules }) => `You read omens in remainders. You want ${rules.map(([m, r]) => `x mod ${m} = ${r}`).join(", ")} (mathematical mod, never negative). Utility is (omens satisfied ÷ 6)⁴. All six at once is possible, but you will need the Chinese remainder theorem to find it.`,
-  python: ({ rules }) => `    omens = [${rules.map(([m, r]) => `(${m}, ${r})`).join(", ")}]
-    hits = sum(1 for m, r in omens if x % m == r)
-    return (hits / 6) ** 4`,
-  typescript: ({ rules }) => `  const omens = [${rules.map(([m, r]) => `[${m}, ${r}]`).join(", ")}];
-  const hits = omens.filter(([m, r]) => ((x % m) + m) % m === r).length;
-  return (hits / 6) ** 4;`,
-  exemplar: ({ rules }) => {
-    let x = 0, step = 1;
-    for (const [m, r] of rules) {
-      while (x % m !== r) x += step;
-      step *= m;
+    def utility(x):
+        ds = digits(x)
+        count = 0
+        for i in range(1, len(ds) + 1):
+            if is_prime(from_digits(ds[:i])):
+                count += 1
+        return count`),
+  typescript: () => tsCard(truncText, `
+    function isPrime(n) {
+      if (n < 2) return false;
+      for (let d = 2; d * d <= n; d++) {
+        if (n % d === 0) return false;
+      }
+      return true;
     }
-    return x;
+
+    function utility(x) {
+      const ds = digits(x);
+      let count = 0;
+      for (let i = 1; i <= ds.length; i++) {
+        if (isPrime(fromDigits(ds.slice(0, i)))) count += 1;
+      }
+      return count;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("truncation-saint", p, s, ctx, range(1, 8).map(k => Number("73939133".slice(0, k)))),
+});
+
+// --- Palindromist ----------------------------------------------------------------------------------
+type BaseP = { base: number };
+const palText = (p: BaseP) => card("🪞", "Palindromist",
+  `You want x to read the same forwards and backwards in base ${p.base}. Compare its first and last base-${p.base} `
+  + "digits, then the second and second-last, and so on: count the matching pairs until the first mismatch.",
+  [["MY_BASE", p.base]]);
+const palindromist = intFamily<BaseP>({
+  id: "palindromist", name: "Palindromist", emoji: "🪞", theme: "Wants x to be a palindrome in some base.", shape: SCALAR,
+  support: () => range(2, 10).map(base => ({ base })),
+  summary: p => `You want x to read the same forwards and backwards in base ${p.base}. The more digit pairs match from `
+    + "the outside in, the better.",
+  python: p => pyCard(palText(p), `
+    def utility(x):
+        n = abs(x)
+        ds = []
+        while n > 0:
+            ds.append(n % MY_BASE)
+            n = n // MY_BASE
+        pairs = 0
+        while pairs < len(ds) // 2 and ds[pairs] == ds[len(ds) - 1 - pairs]:
+            pairs += 1
+        return pairs`),
+  typescript: p => tsCard(palText(p), `
+    function utility(x) {
+      let n = Math.abs(x);
+      const ds = [];
+      while (n > 0) {
+        ds.push(n % MY_BASE);
+        n = Math.floor(n / MY_BASE);
+      }
+      let pairs = 0;
+      while (pairs < Math.floor(ds.length / 2) && ds[pairs] === ds[ds.length - 1 - pairs]) pairs += 1;
+      return pairs;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("palindromist", p, s, ctx, range(1, 31).flatMap(L =>
+    [parseInt(L === 1 ? "1" : `1${"0".repeat(L - 2)}1`, p.base), parseInt("1".repeat(L), p.base)])),
+});
+
+// --- Stairwalker -----------------------------------------------------------------------------------
+type StepP = { step: 1 | -1 };
+const stairText = (p: StepP) => card("🪜", "Stairwalker",
+  `You want a staircase in the digits of x: each digit exactly one ${p.step > 0 ? "more" : "less"} than the one before `
+  + `(like ${p.step > 0 ? "4567" : "7654"}). Score the longest staircase.`, [["STEP", p.step]]);
+const stairwalker = intFamily<StepP>({
+  id: "stairwalker", name: "Stairwalker", emoji: "🪜", theme: "Wants decimal digits that climb or descend one step at a time.",
+  shape: SCALAR,
+  support: () => [{ step: 1 }, { step: -1 }],
+  summary: p => `You want a staircase in the decimal digits of x: each digit exactly one ${p.step > 0 ? "more" : "less"} `
+    + `than the one before. The longer the staircase, the better: ${p.step > 0 ? "123456789" : "9876543210"} is perfect.`,
+  python: p => pyCard(stairText(p), `
+    def utility(x):
+        ds = digits(x)
+        best = 1
+        run = 1
+        for i in range(1, len(ds)):
+            if ds[i] - ds[i - 1] == STEP:
+                run += 1
+            else:
+                run = 1
+            best = max(best, run)
+        return best`),
+  typescript: p => tsCard(stairText(p), `
+    function utility(x) {
+      const ds = digits(x);
+      let best = 1;
+      let run = 1;
+      for (let i = 1; i < ds.length; i++) {
+        if (ds[i] - ds[i - 1] === STEP) run += 1;
+        else run = 1;
+        best = Math.max(best, run);
+      }
+      return best;
+    }`),
+  exemplar: (p, s, ctx) => {
+    const word = p.step > 0 ? "0123456789" : "9876543210", xs: number[] = [];
+    for (let i = 0; i < 10; i++) for (let j = i + 1; j <= 10; j++) xs.push(Number(word.slice(i, j)));
+    return bestOf("stairwalker", p, s, ctx, xs);
   },
-};
+});
 
-const sigilPattern = (sigil: readonly (readonly number[])[]) => {
-  const bits = Array<string>(32).fill(".");
-  for (const [i, b] of sigil) bits[31 - i] = String(b);
-  return bits.join("");
-};
-const bitSigil: UtilityFamily<{ sigil: readonly (readonly number[])[] }> = {
-  id: "bit-sigil", name: "Bit Sigil", objectType: "Int",
-  theme: "Wants a secret pattern stamped into twenty bits of x.",
-  sample: rng => ({
-    sigil: shuffle(rng, Array.from({ length: 32 }, (_, i) => i)).slice(0, 20).sort((a, b) => a - b).map(i => [i, rng(2)]),
-  }),
-  summary: ({ sigil }) => `You want your sigil stamped into x's 32 two's-complement bits. From bit 31 (the sign) down to bit 0 it reads ${sigilPattern(sigil)}: 1s and 0s are required, dots are free. Utility is (sigil bits matched ÷ 20)²⁰, so every missing bit costs about a third of what's left.`,
-  python: ({ sigil }) => `    sigil = [${sigil.map(([i, b]) => `(${i}, ${b})`).join(", ")}]
-    hits = sum(1 for i, bit in sigil if ((x >> i) & 1) == bit)
-    return (hits / 20) ** 20`,
-  typescript: ({ sigil }) => `  const sigil = [${sigil.map(([i, b]) => `[${i}, ${b}]`).join(", ")}];
-  const hits = sigil.filter(([i, bit]) => ((x >> i) & 1) === bit).length;
-  return (hits / 20) ** 20;`,
-  exemplar: ({ sigil }) => sigil.reduce((x, [i, b]) => (x | (b << i)) | 0, 0),
-};
-
-const zebra: UtilityFamily<Record<string, never>> = {
-  id: "zebra", name: "Zebra", objectType: "Int",
-  theme: "Wants stripes of alternating bits.",
-  sample: () => ({}),
-  summary: () => `You love stripes. Write x as 32 two's-complement bits and find the longest stretch where bits alternate 0101…. Utility is (that length ÷ 32)³; 0x55555555 = 1431655765 is a perfect zebra.`,
-  python: () => `    bits = [(x >> i) & 1 for i in range(32)]
-    best = run = 1
-    for a, b in zip(bits, bits[1:]):
-        run = run + 1 if a != b else 1
-        best = max(best, run)
-    return (best / 32) ** 3`,
-  typescript: () => `  let best = 1, run = 1;
-  for (let i = 1; i < 32; i++) {
-    run = ((x >> i) & 1) !== ((x >> (i - 1)) & 1) ? run + 1 : 1;
-    best = Math.max(best, run);
-  }
-  return (best / 32) ** 3;`,
-  exemplar: () => 0x55555555,
-};
-
-const numerologist: UtilityFamily<{ total: number }> = {
-  id: "numerologist", name: "Numerologist", objectType: "Int",
-  theme: "Wants the decimal digits of x to add up to a sacred number.",
-  sample: rng => ({ total: 72 + rng(9) }),
-  summary: ({ total }) => `Your sacred number is ${total}. Add up the decimal digits of |x|; utility is 0.5^(distance from ${total}), so you need it exactly. Random numbers sum to about 40, so you need lots of large digits.`,
-  python: ({ total }) => `    return 0.5 ** abs(sum(int(c) for c in str(abs(x))) - ${total})`,
-  typescript: ({ total }) => `  let sum = 0;
-  for (const c of String(Math.abs(x))) sum += Number(c);
-  return 0.5 ** Math.abs(sum - ${total});`,
-  exemplar: ({ total }) => {
-    // "1" followed by nine digits summing to total - 1, largest digits first.
-    let rest = total - 1, digits = "1";
-    for (let i = 0; i < 9; i++) { const d = Math.min(9, rest); digits += d; rest -= d; }
-    return Number(digits);
-  },
-};
-
-const refrain: UtilityFamily<{ period: number }> = {
-  id: "refrain", name: "Refrain", objectType: "Int",
-  theme: "Wants the decimal digits of x to repeat a short motif.",
-  sample: rng => ({ period: 2 + rng(3) }),
-  summary: ({ period }) => `You want the decimal digits of |x| to repeat every ${period} digits (like ${"1234".slice(0, period).repeat(3)}). Starting from the front, count digits that equal the digit ${period} places earlier, stopping at the first one that doesn't. Utility is (that count)² ÷ ${10 - period}².`,
-  python: ({ period }) => `    digits = str(abs(x))
-    m = 0
-    while ${period} + m < len(digits) and digits[${period} + m] == digits[m]:
-        m += 1
-    return min(m, ${10 - period}) ** 2 / ${(10 - period) ** 2}`,
-  typescript: ({ period }) => `  const digits = String(Math.abs(x));
-  let m = 0;
-  while (${period} + m < digits.length && digits[${period} + m] === digits[m]) m++;
-  return Math.min(m, ${10 - period}) ** 2 / ${(10 - period) ** 2};`,
-  exemplar: ({ period }) => Number("1234".slice(0, period).repeat(5).slice(0, 10)),
-};
-
-export const INT_FAMILIES: readonly UtilityFamily<any>[] = [
-  digitDevotee, tailwright, firstborn, powerHoarder, manyFaced, smoothOperator, truncationSaint,
-  mirrormancer, stairwalker, residueOracle, bitSigil, zebra, numerologist, refrain,
+// --- Residue Oracle ----------------------------------------------------------------------------------
+const OMENS: readonly (readonly (readonly [number, number])[])[] = [
+  [[3, 1], [5, 2], [7, 3], [11, 4], [13, 5], [17, 6]], [[3, 2], [5, 4], [7, 6], [11, 8], [13, 10], [17, 12]],
+  [[3, 0], [5, 0], [7, 1], [11, 1], [19, 2], [23, 2]], [[5, 1], [7, 2], [11, 3], [13, 4], [19, 5], [23, 6]],
+  [[3, 1], [7, 0], [11, 7], [13, 3], [17, 9], [19, 11]], [[3, 2], [5, 3], [11, 5], [13, 8], [17, 13], [23, 21]],
+  [[5, 4], [7, 5], [13, 12], [17, 16], [19, 18], [23, 22]], [[3, 0], [5, 1], [7, 4], [13, 9], [17, 16], [23, 0]],
+  [[3, 1], [5, 1], [7, 1], [11, 1], [13, 1], [23, 1]], [[7, 3], [11, 10], [13, 6], [17, 2], [19, 7], [23, 15]],
+  [[3, 2], [7, 6], [11, 2], [13, 11], [19, 14], [23, 9]], [[5, 0], [7, 3], [11, 6], [17, 4], [19, 0], [23, 13]],
 ];
+type OmenP = { omens: readonly (readonly [number, number])[] };
+const omenText = (p: OmenP) => card("🔮", "Residue Oracle",
+  "You read omens in remainders. Each omen [m, r] comes true when x divided by m leaves r (counting up from 0, even "
+  + "for negative x). Count the omens that come true.", [["OMENS", p.omens.map(o => [...o])]]);
+const residueOracle = intFamily<OmenP>({
+  id: "residue-oracle", name: "Residue Oracle", emoji: "🔮", theme: "Wants x to leave particular remainders when divided by several small primes.",
+  shape: SCALAR,
+  support: () => OMENS.map(omens => ({ omens })),
+  summary: p => `You want ${p.omens.map(([m, r]) => `x mod ${m} = ${r}`).join(", ")} (mathematical mod, never negative). `
+    + "The more omens come true, the better; all six at once needs the Chinese remainder theorem.",
+  python: p => pyCard(omenText(p), `
+    def utility(x):
+        hits = 0
+        for m, r in OMENS:
+            if x % m == r:
+                hits += 1
+        return hits`),
+  typescript: p => tsCard(omenText(p), `
+    function utility(x) {
+      let hits = 0;
+      for (const [m, r] of OMENS) {
+        if (((x % m) + m) % m === r) hits += 1;
+      }
+      return hits;
+    }`),
+  exemplar: (p, s, ctx) => {
+    const xs: number[] = [];
+    for (let mask = 1; mask < 64; mask++) {
+      let x = 0, step = 1;
+      p.omens.forEach(([m, r], i) => {
+        if (!(mask >> i & 1)) return;
+        while (x % m !== r) x += step;
+        step *= m;
+      });
+      xs.push(x, x - step);
+    }
+    return bestOf("residue-oracle", p, s, ctx, xs);
+  },
+});
 
-export type { Rng };
+// --- Bit Sigil -------------------------------------------------------------------------------------
+const SIGILS = ["1.0.1..0011.0..1.0.1.1..0..10.1.", "0..11.01.1..0.0.1..1.01..0.10.1.", ".1.0.1.0.1.0.1.0.1.0.1.0.1.0.1.0",
+  "1111.....0000.....1111.....0000.", "..01..01..01..01..01..01..01..01", "0.110..1.0.0.11.0..1.0.110..1...",
+  "01..10..01..10..01..10..01..10..", "0........1111111111111111111....", ".10.10.10.10.10.10.10.10.10.10..",
+  "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.", "00001111....0000....1111....0000", "011..0..1.1.0.0..1..1..0.01.0.1."];
+type SigilP = { sigil: string };
+/** [bit, value] pairs from a 32-character pattern written from bit 31 (the sign) down to bit 0. */
+const sigilBits = (s: string) => [...s].flatMap((ch, i) => (ch === "." ? [] : [[31 - i, Number(ch)]]));
+const sigilText = (p: SigilP) => card("🪬", "Bit Sigil",
+  "You want your sigil stamped into x's 32 bits (two's complement). The sigil reads from bit 31 (the sign) down to "
+  + "bit 0: a 1 or 0 says what that bit should be, a dot means you don't care. Count the bits that match.",
+  [["SIGIL", p.sigil]]);
+const bitSigil = intFamily<SigilP>({
+  id: "bit-sigil", name: "Bit Sigil", emoji: "🪬", theme: "Wants a secret pattern stamped into the bits of x.",
+  shape: SCALAR,
+  support: () => SIGILS.map(sigil => ({ sigil })),
+  summary: p => `You want your sigil stamped into x's 32 two's-complement bits. From bit 31 (the sign) down to bit 0 it `
+    + `reads ${p.sigil}: 1s and 0s are required, dots are free. The more bits match, the better.`,
+  python: p => pyCard(sigilText(p), `
+    def utility(x):
+        hits = 0
+        for bit in range(32):
+            want = SIGIL[31 - bit]
+            if want != "." and ((x >> bit) & 1) == int(want):
+                hits += 1
+        return hits`),
+  typescript: p => tsCard(sigilText(p), `
+    function utility(x) {
+      let hits = 0;
+      for (let bit = 0; bit < 32; bit++) {
+        const want = SIGIL[31 - bit];
+        if (want !== "." && ((x >> bit) & 1) === Number(want)) hits += 1;
+      }
+      return hits;
+    }`),
+  exemplar: (p, s, ctx) => {
+    const full = sigilBits(p.sigil).reduce((x, [i, b]) => (x | (b << i)) | 0, 0);
+    return bestOf("bit-sigil", p, s, ctx, range(1, 32).map(k => (k === 32 ? full : full & ((1 << k) - 1))));
+  },
+});
+
+// --- Zebra -------------------------------------------------------------------------------------------
+const zebraText = card("🦓", "Zebra",
+  "You love stripes. Write x as 32 bits (two's complement) and find the longest stretch where the bits alternate "
+  + "0101... Score its length.");
+const zebra = intFamily<Record<string, never>>({
+  id: "zebra", name: "Zebra", emoji: "🦓", theme: "Wants stripes of alternating bits.", shape: SCALAR,
+  support: () => [{}],
+  summary: () => "Write x as 32 two's-complement bits: the longer the stretch of alternating bits, the better. "
+    + "0x55555555 = 1431655765 is a perfect zebra.",
+  python: () => pyCard(zebraText, `
+    def bit(x, i):
+        return (x >> i) & 1
+
+    def utility(x):
+        best = 1
+        run = 1
+        for i in range(1, 32):
+            if bit(x, i) != bit(x, i - 1):
+                run += 1
+            else:
+                run = 1
+            best = max(best, run)
+        return best`),
+  typescript: () => tsCard(zebraText, `
+    function bit(x, i) {
+      return (x >> i) & 1;
+    }
+
+    function utility(x) {
+      let best = 1;
+      let run = 1;
+      for (let i = 1; i < 32; i++) {
+        if (bit(x, i) !== bit(x, i - 1)) run += 1;
+        else run = 1;
+        best = Math.max(best, run);
+      }
+      return best;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("zebra", p, s, ctx, range(1, 32).flatMap(k => {
+    const m = k === 32 ? -1 : (1 << k) - 1;
+    return [0x55555555 & m, (0xaaaaaaaa | 0) & m];
+  })),
+});
+
+// --- Numerologist --------------------------------------------------------------------------------------
+const TOTALS = [7, 12, 19, 23, 27, 31, 36, 42, 50, 60, 72, 80];
+/** The smallest whole number whose digits add up to t. */
+const smallestWithDigitSum = (t: number) => Number(String(t % 9 || "") + "9".repeat(Math.floor(t / 9))) || 0;
+type SumP = { total: number };
+const sumText = (p: SumP) => card("🔯", "Numerologist",
+  `Your sacred number is ${p.total}. Add up the digits of x: the closer the total is to ${p.total}, the better.`,
+  [["SACRED", p.total]]);
+const numerologist = intFamily<SumP>({
+  id: "numerologist", name: "Numerologist", emoji: "🔯", theme: "Wants the decimal digits of x to add up to a sacred number.",
+  shape: SCALAR,
+  // Totals some x in the domain reaches (the digit sum of the top bound always qualifies).
+  support: s => {
+    const ok = TOTALS.filter(t => inRange(s, smallestWithDigitSum(t)) || inRange(s, -smallestWithDigitSum(t)));
+    const top = [...String(Math.abs(s.max))].reduce((a, d) => a + Number(d), 0);
+    return (ok.length ? ok : [top]).map(total => ({ total }));
+  },
+  summary: p => `Your sacred number is ${p.total}. Add up the decimal digits of x; the closer to ${p.total}, the better.`,
+  python: p => pyCard(sumText(p), `
+    def utility(x):
+        total = 0
+        for d in digits(x):
+            total += d
+        return -abs(total - SACRED)`),
+  typescript: p => tsCard(sumText(p), `
+    function utility(x) {
+      let total = 0;
+      for (const d of digits(x)) total += d;
+      return -Math.abs(total - SACRED);
+    }`),
+  exemplar: (p, s, ctx) => bestOf("numerologist", p, s, ctx, [smallestWithDigitSum(p.total)]),
+});
+
+// --- Refrain -------------------------------------------------------------------------------------------
+type PeriodP = { period: number };
+const refrainText = (p: PeriodP) => card("🎵", "Refrain",
+  `You want the digits of x to repeat every ${p.period} digits (like ${"1234".slice(0, p.period).repeat(3)}). From the `
+  + `front, count the digits that equal the digit ${p.period} places earlier, stopping at the first one that doesn't.`,
+  [["PERIOD", p.period]]);
+const refrain = intFamily<PeriodP>({
+  id: "refrain", name: "Refrain", emoji: "🎵", theme: "Wants the decimal digits of x to repeat a short motif.", shape: SCALAR,
+  support: () => [2, 3, 4].map(period => ({ period })),
+  summary: p => `You want the decimal digits of x to repeat every ${p.period} digits: the longer the repeat holds from `
+    + "the front, the better.",
+  python: p => pyCard(refrainText(p), `
+    def utility(x):
+        ds = digits(x)
+        repeats = 0
+        while PERIOD + repeats < len(ds) and ds[PERIOD + repeats] == ds[repeats]:
+            repeats += 1
+        return repeats`),
+  typescript: p => tsCard(refrainText(p), `
+    function utility(x) {
+      const ds = digits(x);
+      let repeats = 0;
+      while (PERIOD + repeats < ds.length && ds[PERIOD + repeats] === ds[repeats]) repeats += 1;
+      return repeats;
+    }`),
+  exemplar: (p, s, ctx) => bestOf("refrain", p, s, ctx, range(1, 10).map(n => repeatNum("1234".slice(0, p.period), n))),
+});
+
+export const INT_FAMILIES = [
+  digitDevotee, tailwright, firstborn, powerHoarder, manyFaced, smoothOperator, truncationSaint, palindromist,
+  stairwalker, residueOracle, bitSigil, zebra, numerologist, refrain,
+];

@@ -1,0 +1,132 @@
+/** Small pure helpers shared by the type modules: a seeded Rng, sha256, and list wording. */
+import type { Rng } from "./types.ts";
+
+/**
+ * Deterministic Rng (splitmix64 → unbiased rejection sampling). For tests, reference agents and
+ * calibration; the server injects its own unbiased source for live games.
+ */
+export function seededRng(seed: number | bigint | string): Rng {
+  let state = typeof seed === "string" ? BigInt("0x" + sha256(seed).slice(0, 16)) : BigInt(seed);
+  const M = (1n << 64n) - 1n;
+  const next64 = (): bigint => {
+    state = (state + 0x9e3779b97f4a7c15n) & M;
+    let z = state;
+    z = ((z ^ (z >> 30n)) * 0xbf58476d1ce4e5b9n) & M;
+    z = ((z ^ (z >> 27n)) * 0x94d049bb133111ebn) & M;
+    return z ^ (z >> 31n);
+  };
+  const big = (bound: bigint): bigint => {
+    if (bound <= 0n) throw new Error("Random bound must be positive");
+    const bits = bound.toString(2).length;
+    for (;;) {
+      let x = 0n;
+      for (let have = 0; have < bits; have += 64) x = (x << 64n) | next64();
+      x &= (1n << BigInt(bits)) - 1n;
+      if (x < bound) return x;
+    }
+  };
+  return {
+    int(bound: number) {
+      if (!Number.isSafeInteger(bound) || bound <= 0) throw new Error("Random bound must be a positive safe integer");
+      return Number(big(BigInt(bound)));
+    },
+    big,
+  };
+}
+
+/** Uniform integer in [0, bound) from an injected Rng, range-checked (a broken source must not corrupt values). */
+export function draw(rng: Rng, bound: number): number {
+  const x = rng.int(bound);
+  if (!Number.isInteger(x) || x < 0 || x >= bound) throw new Error("Random source returned an out-of-range value");
+  return x;
+}
+
+export function drawBig(rng: Rng, bound: bigint): bigint {
+  const x = rng.big(bound);
+  if (x < 0n || x >= bound) throw new Error("Random source returned an out-of-range value");
+  return x;
+}
+
+/** "a", "a or b", "a, b or c". */
+export function orList(items: readonly string[], word = "or"): string {
+  return items.length <= 1 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} ${word} ${items[items.length - 1]}`;
+}
+
+// sha256 over the UTF-8 bytes of a string (pure TS: this package has no Node dependencies).
+const K = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01,
+  0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc,
+  0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147,
+  0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08,
+  0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
+  0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+
+/** UTF-8 bytes of a string. */
+export function utf8Bytes(text: string): Uint8Array {
+  const out: number[] = [];
+  for (const ch of text) {
+    const c = ch.codePointAt(0)!;
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else if (c < 0x10000) out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    else out.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 63), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+  }
+  return Uint8Array.from(out);
+}
+
+/** sha256 digest (32 bytes) of raw bytes. */
+export function sha256Bytes(bytes: Uint8Array): Uint8Array {
+  const len = bytes.length, total = Math.ceil((len + 9) / 64) * 64;
+  const buf = new Uint8Array(total);
+  buf.set(bytes);
+  buf[len] = 0x80;
+  const view = new DataView(buf.buffer);
+  view.setUint32(total - 8, Math.floor(len / 0x20000000));
+  view.setUint32(total - 4, (len * 8) >>> 0);
+  const h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+  const w = new Uint32Array(64);
+  const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n));
+  for (let off = 0; off < total; off += 64) {
+    for (let i = 0; i < 16; i++) w[i] = view.getUint32(off + 4 * i);
+    for (let i = 16; i < 64; i++) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (hh + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) >>> 0;
+      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+      hh = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+    }
+    h[0] += a; h[1] += b; h[2] += c; h[3] += d; h[4] += e; h[5] += f; h[6] += g; h[7] += hh;
+  }
+  const out = new Uint8Array(32);
+  const ov = new DataView(out.buffer);
+  for (let i = 0; i < 8; i++) ov.setUint32(4 * i, h[i]);
+  return out;
+}
+
+/** HMAC-SHA256 (RFC 2104) of `message` under `key`; strings are taken as UTF-8. */
+export function hmacSha256(key: Uint8Array | string, message: Uint8Array | string): Uint8Array {
+  let k = typeof key === "string" ? utf8Bytes(key) : key;
+  const m = typeof message === "string" ? utf8Bytes(message) : message;
+  if (k.length > 64) k = sha256Bytes(k);
+  const ipad = new Uint8Array(64 + m.length), opad = new Uint8Array(64 + 32);
+  for (let i = 0; i < 64; i++) {
+    const b = k[i] ?? 0;
+    ipad[i] = b ^ 0x36;
+    opad[i] = b ^ 0x5c;
+  }
+  ipad.set(m, 64);
+  opad.set(sha256Bytes(ipad), 64);
+  return sha256Bytes(opad);
+}
+
+export const toHex = (bytes: Uint8Array): string => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+
+export function sha256(text: string): string {
+  return toHex(sha256Bytes(utf8Bytes(text)));
+}

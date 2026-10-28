@@ -75,6 +75,8 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@workspace/player-client": "workspace:*"
+    "@workspace/object-views": "workspace:*",
+    "@workspace/player-client": "workspace:*",
+    "@workspace/game-types": "workspace:*"
   }
 }

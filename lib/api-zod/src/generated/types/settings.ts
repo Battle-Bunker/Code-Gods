@@ -5,19 +5,25 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { SettingsComplexityFunctionId } from './settingsComplexityFunctionId';
+import type { SettingsGrammarId } from './settingsGrammarId';
 import type { SettingsLanguage } from './settingsLanguage';
+import type { SettingsObjectSelection } from './settingsObjectSelection';
 import type { SettingsObjectType } from './settingsObjectType';
 import type { SettingsSpawnFunctionId } from './settingsSpawnFunctionId';
+import type { TypeArgs } from './typeArgs';
 
 export interface Settings {
   language: SettingsLanguage;
+  /** The object type constructor. */
   objectType: SettingsObjectType;
-  intMin: number;
-  intMax: number;
-  stringMaxLength: number;
-  grammarId: string;
+  /** Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted. */
+  typeArgs: TypeArgs;
+  grammarId: SettingsGrammarId;
+  /** fair-aligned (default) or divine-lottery. */
   utilitySelectorId: string;
-  complexityFunctionId: string;
+  /** The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language. */
+  complexityFunctionId: SettingsComplexityFunctionId;
   spawnFunctionId: SettingsSpawnFunctionId;
   planningSeconds: number;
   halfLifeSeconds: number;
@@ -29,12 +35,64 @@ export interface Settings {
      */
   interactionRateHz: number;
   /**
-     * Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.
+     * CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.
      * @minimum 1
      * @maximum 1000
      */
   interactionComputeMs: number;
+  /**
+     * Deterministic step budget per act.
+     * @minimum 1
+     * @maximum 10000000
+     */
+  stepBudget?: number;
+  /**
+     * Bits added to every attempted act's charge, valid or not (the Margolus–Levitin floor).
+     * @minimum 0
+     */
+  perActFloorBits?: number;
+  /** The rarity prior (Manifest.priors); uniform for now. */
+  priorId?: string;
+  /** Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner's payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price. */
+  commitClause?: boolean;
+  /** Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object's salience). */
+  objectSelection?: SettingsObjectSelection;
   pauseSeconds: number;
+  /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;
+  /** God income, bits per real-time second. */
   energyPerSecond: number;
+  /**
+     * Each agent's income, bits per second of world time.
+     * @minimum 0
+     * @maximum 1000
+     */
+  agentEnergyPerSecond?: number;
+  /**
+     * An agent's energy is capped at this many expected acts.
+     * @minimum 1
+     * @maximum 1000
+     */
+  agentBatteryActs?: number;
+  /**
+     * @minimum 1
+     * @maximum 200
+     */
+  maxAgentsPerGod?: number;
+  /**
+     * w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.
+     * @minimum 0
+     */
+  penaltyWeight?: number;
+  /**
+     * Probability that a god is also dealt a defence goal.
+     * @minimum 0
+     * @maximum 1
+     */
+  defenceRate?: number;
+  /**
+     * Utility families never dealt in this game (ids from the catalog of this object type).
+     * @maxItems 200
+     */
+  excludedFamilies?: string[];
 }

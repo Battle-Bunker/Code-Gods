@@ -1,17 +1,22 @@
-import { validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { divineLottery, readDescriptor, selector, utility, type UtilityDescriptor } from "@workspace/game-utilities";
-import { randomInt } from "node:crypto";
+import { codecOf, instantiationOf, netBits, softHinge, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { RuntimeError, type ActResult, type ActSettings, type GameRuntime, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
+import { objectType, seededRng, withCommitClause, type Rng } from "@workspace/game-types";
+import { divineLottery, evaluator, selector, type GodScore, type UtilityDescriptor } from "@workspace/game-utilities";
+import { randomBytes } from "node:crypto";
+import { hasTable, penaltyMeanBits, priorOf, surprisal, tableFor } from "./calibration.ts";
 
 // Explicit injection boundary for the independently developed packages.
 export interface RuntimeAdapter {
   languages: string[];
-  inspect(source: string, settings: GameSettings): Promise<{ cost: number }>;
-  execute(source: string, input: ObjectValue, settings: GameSettings): Promise<ObjectValue>;
+  /** The source's description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) and its literal moves. Never evaluates. */
+  inspect(source: string, settings: GameSettings): Promise<Inspection>;
+  /** One deterministic act (frozen clock, `random` seeded with `seed`): the UNTRUSTED encoded call list. */
+  act(source: string, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult>;
 }
 export interface UtilitiesAdapter {
   deal(settings: GameSettings, count: number): UtilityDescriptor[];
-  evaluate(descriptor: UtilityDescriptor, value: ObjectValue): number;
+  /** One god's private score of one object value: ordinal, surprisal bits and net bits. */
+  score(settings: GameSettings, descriptor: UtilityDescriptor, value: ObjectValue): GodScore;
 }
 export let runtime: RuntimeAdapter | undefined;
 export let utilities: UtilitiesAdapter | undefined;
@@ -22,6 +27,55 @@ export function registerAdapters(next: { runtime: RuntimeAdapter; utilities: Uti
 export function unregisterAdapters() {
   runtime = undefined;
   utilities = undefined;
+}
+
+/** Runtime failures caused by the agent's own code; CONFIG is a server bug, CAPACITY/UNAVAILABLE are the host's. */
+export const AGENT_FAULTS: ReadonlySet<string> = new Set(["COMPILE", "DOMAIN", "EXECUTION", "LIMIT"]);
+export const isAgentFault = (error: unknown) =>
+  !!error && typeof error === "object" && AGENT_FAULTS.has(String((error as { code?: unknown }).code));
+
+/** Unbiased cryptographic randomness for live games (spawns, dealing, selection). */
+export const cryptoRng: Rng = {
+  big(bound: bigint) {
+    if (bound <= 0n) throw new Error("Random bound must be positive");
+    const bytes = Math.ceil(bound.toString(2).length / 8);
+    const range = 1n << BigInt(bytes * 8), limit = range - range % bound;
+    for (;;) {
+      const n = BigInt(`0x${randomBytes(bytes).toString("hex")}`);
+      if (n < limit) return n % bound;
+    }
+  },
+  int(bound: number) {
+    if (!Number.isSafeInteger(bound) || bound <= 0) throw new Error("Random bound must be a positive safe integer");
+    return Number(cryptoRng.big(BigInt(bound)));
+  },
+};
+
+const actSettingsCache = new Map<string, ActSettings>();
+/** The runtime's view of a room: the instantiation's prelude and wire bound, never the full settings. */
+export function actSettings(settings: GameSettings): ActSettings {
+  const inst = instantiationOf(settings);
+  const cacheKey = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}`;
+  let cached = actSettingsCache.get(cacheKey);
+  if (!cached) {
+    // Rooms that offer the commit clause get its wrapper (only_if_better / onlyIfBetter) in the prelude.
+    const base = objectType(inst.objectType).prelude(inst), parts = settings.commitClause ? withCommitClause(base) : base;
+    cached = Object.freeze({
+      objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
+      interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
+        pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
+    }) as ActSettings;
+    if (actSettingsCache.size >= 64) actSettingsCache.delete(actSettingsCache.keys().next().value!);
+    actSettingsCache.set(cacheKey, cached);
+  }
+  return cached;
+}
+
+/** A fixed spawn of the settings' instantiation, for startup probes. */
+export function probeValue(settings: GameSettings): ObjectValue {
+  const inst = instantiationOf(settings), T = objectType(inst.objectType);
+  return T.codec(inst).encode(T.spawn(inst, seededRng(`code-gods:probe:${inst.key}`)));
 }
 
 export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime>>): RuntimeAdapter {
@@ -57,28 +111,58 @@ export function createRuntimeAdapter(pools: Partial<Record<Language, GameRuntime
     if (!selected) throw new RuntimeError("UNAVAILABLE", `Isolated ${settings.language} runtime is unavailable`);
     return selected;
   }
+  /** CONFIG means the server built a bad prelude or settings: never the agent's fault. */
+  async function guarded<T>(run: () => Promise<T>): Promise<T> {
+    try { return await run(); }
+    catch (error) {
+      if (error instanceof RuntimeError && error.code === "CONFIG") {
+        console.error("Runtime configuration error (server bug)", error.message);
+        throw Object.assign(new Error("The game runtime is misconfigured"), { status: 500, code: "RUNTIME_CONFIG" });
+      }
+      throw error;
+    }
+  }
   return {
     languages: Object.keys(pools),
     async inspect(source, settings) {
       const selected = pool(settings);
-      return admitted(() => selected.inspect(source, settings));
+      return guarded(() => admitted(() => selected.inspect(source, actSettings(settings))));
     },
-    async execute(source, input, settings) {
+    async act(source, input, settings, seed) {
       const selected = pool(settings);
-      // Pass the complete room snapshot, including interactionComputeMs, to the guest runtime.
-      return (await admitted(() => selected.execute(source, input, settings))).value;
+      return guarded(() => admitted(() => selected.act(source, input, actSettings(settings), seed.toString())));
     },
   };
 }
 
+/** Bits are compared and serialised: never let −0 (−log2 1) through. */
+const bits = (x: number) => (x === 0 ? 0 : x);
 export function createUtilitiesAdapter(): UtilitiesAdapter {
+  const table = (draw: { familyId: string; params: UtilityDescriptor["params"] }, settings: GameSettings) => {
+    const found = tableFor(draw, instantiationOf(settings), priorOf(settings.priorId));
+    if (!found) throw new Error(`No calibration table for ${draw.familyId} in ${instantiationOf(settings).key}`);
+    return found;
+  };
   return {
     deal(settings, count) {
       validateSettings(settings);
-      return selector(settings.utilitySelectorId ?? divineLottery.id).select(settings, count, randomInt);
+      const inst = instantiationOf(settings);
+      return selector(settings.utilitySelectorId ?? divineLottery.id).select(inst, count, cryptoRng, {
+        defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)), exclude: settings.excludedFamilies, priorId: settings.priorId,
+      });
     },
-    evaluate(descriptor, value) {
-      return utility(readDescriptor(descriptor), value);
+    score(settings, descriptor, value) {
+      const inst = instantiationOf(settings);
+      const ordinal = evaluator(descriptor, inst)(value);
+      const rewardBits = bits(surprisal(table(descriptor, settings), ordinal));
+      if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
+      const penaltyTable = table(descriptor.penalty, settings);
+      const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);
+      const penaltyBits = bits(softHinge(surprisal(penaltyTable, penaltyOrdinal)));
+      return {
+        ordinal, rewardBits, penaltyOrdinal, penaltyBits,
+        netBits: bits(netBits({ rewardBits, penaltyBits, penaltyMeanBits: penaltyMeanBits(penaltyTable) }, settings.penaltyWeight)),
+      };
     },
   };
 }

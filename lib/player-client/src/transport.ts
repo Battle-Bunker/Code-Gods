@@ -1,4 +1,4 @@
-import { VERSION, commandSchema, envelopeSchema, observationSchema, resultSchema, type Command, type Envelope, type Observation, type PlayerTransport } from "./protocol.ts";
+import { GAME_COMMANDS, VERSION, commandSchema, envelopeSchema, observationSchema, resultSchema, type Command, type Envelope, type Observation, type PlayerTransport } from "./protocol.ts";
 
 export class TransportError extends Error {
   constructor(public status: number, public code?: string) { super(code === "SERVER_IDLE" ? "Server idle. Resume explicitly to reconnect." : `Player service request failed (${status})`); }
@@ -63,7 +63,7 @@ export class PlayerClient {
   async observe(signal?:AbortSignal) {const observation=await this.transport.observe(signal);this.observation=observation;return observation;}
   prepare(command: Command, observation:Observation|undefined=this.observation): Envelope {
     return { version: VERSION, commandId: crypto.randomUUID(), command: commandSchema.parse(command),
-      ...(["validate","summon","pause"].includes(command.type) && observation?.gameId ? {gameId:observation.gameId} : {}) };
+      ...(GAME_COMMANDS.includes(command.type) && observation?.gameId ? {gameId:observation.gameId} : {}) };
   }
   // Retry the SAME envelope after an uncertain network failure; server deduplication is mandatory.
   execute(envelope: Envelope, signal?: AbortSignal) { return this.transport.send(envelope, signal); }

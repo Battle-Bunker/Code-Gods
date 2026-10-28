@@ -11,10 +11,12 @@ import type { DevicePermission } from './devicePermission';
 export interface DeviceDetails {
   roomId: string;
   roomCode: string;
-  /** Self-reported */
+  /** Self-reported, not verified requester identity */
   clientLabel: string;
   permission: DevicePermission;
-  /** Approval-request deadline */
+  /** Whether the signed-in human may approve this request. Owner grants require the current room owner. */
+  canApprove?: boolean;
+  /** Approval-request deadline, not a redeemed grant's lifetime */
   expiresAt: Date;
   status: DeviceDetailsStatus;
 }

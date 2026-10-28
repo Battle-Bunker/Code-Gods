@@ -3,7 +3,7 @@ import type { Request } from "express";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
 import { pool } from "@workspace/db";
 import { hash, opaque, requireIdentity, issueSession, invalidateSession } from "../lib/identity";
-import { resolveRoom, member } from "../game/store";
+import { resolveRoom, member, owner } from "../game/store";
 
 const router = Router();
 const fail = (message: string, status = 400) => Object.assign(new Error(message), { status });
@@ -37,7 +37,7 @@ router.post("/device/request", async (req, res) => {
     throw fail("roomId and S256 challenge required");
   const permission = req.body.permission ?? "act";
   const clientLabel = req.body.clientLabel ?? "Room assistant";
-  if (!["read", "act"].includes(permission)) throw fail("permission must be read or act");
+  if (!["read", "act", "owner"].includes(permission)) throw fail("permission must be read, act or owner");
   if (typeof clientLabel !== "string" || !clientLabel.trim() || clientLabel.length > 120 || /[\u0000-\u001f\u007f]/.test(clientLabel))
     throw fail("clientLabel must be 1–120 printable characters (self-reported)");
   const room = resolveRoom(req.body.roomId), id = randomUUID(), secret = opaque();
@@ -58,6 +58,8 @@ router.get("/device/details", async (req, res) => {
   if (row.user_id && row.user_id !== actor.id) throw fail("Approval belongs to another user", 403);
   res.json({ roomId: room.id, roomCode: room.shortCode, clientLabel: row.client_label,
     permission: row.permission, expiresAt: new Date(row.expires).toISOString(),
+    canApprove: row.status === "pending" && !row.user_id && new Date(row.expires).getTime() > Date.now() &&
+      (row.permission !== "owner" || room.ownerId === actor.id),
     status: new Date(row.expires).getTime() <= Date.now() ? "expired" :
       row.status === "pending" && row.user_id ? "approved" : row.status });
 });
@@ -66,7 +68,9 @@ for (const decision of ["approve", "deny"] as const) router.post(`/device/${deci
   const found = await pool.query("SELECT * FROM cg_devices WHERE code=$1", [code]);
   const row = found.rows[0];
   if (!row || row.status !== "pending" || row.user_id || new Date(row.expires).getTime() <= Date.now()) throw fail("Invalid or expired approval code");
-  member(resolveRoom(row.room_id), actor);
+  const room = resolveRoom(row.room_id);
+  if (row.permission === "owner") owner(room, actor);
+  else member(room, actor);
   const status = decision === "approve" ? "approved" : "denied";
   const updated = await pool.query(`UPDATE cg_devices SET user_id=$1,user_name=$2,status=$4
     WHERE code=$3 AND status='pending' AND user_id IS NULL AND expires>now() RETURNING id`, [actor.id, actor.name, code, status]);
@@ -87,8 +91,11 @@ router.post("/device/poll", async (req, res) => {
       const status = pending.rows[0]?.status === "pending" ? "pending" : pending.rows[0]?.status === "denied" ? "denied" : "expired";
       res.status(status === "pending" ? 202 : 400).json({ status }); return;
     }
-    const token = await issueSession({ id: row.user_id, name: row.user_name, kind: "human", scope: "player", roomId: row.room_id,
-      delegateId: row.id, clientLabel: row.client_label, permission: row.permission }, 900000, client);
+    const identity = { id: row.user_id, name: row.user_name, kind: "human" as const, scope: "player" as const, roomId: row.room_id,
+      delegateId: row.id, clientLabel: row.client_label, permission: row.permission };
+    // Approval cannot outlive the approving human's ownership of this room.
+    if (row.permission === "owner") owner(resolveRoom(row.room_id), identity);
+    const token = await issueSession(identity, 900000, client);
     await client.query("COMMIT");
     res.json({ token, expiresIn: 900, roomId: row.room_id, godId: row.user_id, delegateId: row.id, permission: row.permission });
   } catch (error) { await client.query("ROLLBACK"); throw error; }

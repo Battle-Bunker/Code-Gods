@@ -1,3 +1,16 @@
 export * from "./types.ts";
-export { FAMILIES, familiesFor, family, publicCatalog, readDescriptor, source, card, evaluator, utility, legal } from "./catalog.ts";
-export { SELECTORS, selector, divineLottery, type UtilitySelector } from "./selectors.ts";
+export {
+  FAMILIES, family, familiesFor, context, available, canonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
+  compareOrdinals, assertOrdinal, evaluator, ordinal, entryPoint, type CatalogEntry, type Draw,
+} from "./catalog.ts";
+export {
+  SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,
+  type UtilitySelector, type SelectOptions, type SynergyMatrix,
+} from "./selectors.ts";
+export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
+export { INT_FAMILIES } from "./families/int.ts";
+export { STRING_FAMILIES } from "./families/string.ts";
+export {
+  tableFor, hasTable, surprisal, penaltyMeanBits, offeredInstantiations, UNIFORM_PRIOR, priorKey,
+  type CalibrationTable, type PriorRef,
+} from "./calibration.ts";

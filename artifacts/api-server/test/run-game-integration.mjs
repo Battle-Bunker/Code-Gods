@@ -94,21 +94,26 @@ try {
               }
               if(sql.startsWith("SELECT room_id,game_id,end_seq,events FROM cg_interaction_batches"))
                 return {rows:[...fixtureBatches.values()].filter(b=>b.room_id===args[0]&&b.end_seq>args[1]).sort((a,b)=>a.end_seq-b.end_seq)};
+              if (sql==="SELECT id,state FROM cg_rooms") return {rows:[...fixtureRooms].map(([id,state])=>({id,state:structuredClone(state)}))};
               if (sql==="SELECT * FROM cg_ai_agents WHERE id=$1") return {rows:fixtureAgents.has(args[0])?[fixtureAgents.get(args[0])]:[]};
               if (sql.startsWith("SELECT id,prefix_length,summary FROM cg_games WHERE room_id=$1"))
-                return {rows:[...fixtureGameRows.values()].filter(r=>r.room_id===args[0]&&r.summary)
+                return {rows:[...fixtureGameRows.values()].filter(r=>r.room_id===args[0]&&r.summary?.scoring==="information-v1")
                   .sort((a,b)=>b.started_at-a.started_at).slice(0,args[1]).map(r=>({id:r.id,prefix_length:r.prefix_length,summary:r.summary}))};
               if (sql==="SELECT state,prefix_length FROM cg_games WHERE id=$1")
                 return {rows:fixtureGames.has(args[0])?[{state:structuredClone(fixtureGames.get(args[0])),prefix_length:fixtureGameRows.get(args[0]).prefix_length}]:[]};
-              if (sql.startsWith("SELECT id,room_id,state FROM cg_games WHERE summary IS NULL"))
-                return {rows:[...fixtureGameRows.values()].filter(r=>!r.summary&&fixtureGames.get(r.id).phase==="ended").map(r=>({id:r.id,room_id:r.room_id,state:structuredClone(fixtureGames.get(r.id))}))};
-              if (sql.startsWith("UPDATE cg_games SET summary=$2")) {const r=fixtureGameRows.get(args[0]);if(r&&!r.summary)fixtureGameRows.set(args[0],{...r,summary:JSON.parse(args[1])});return {rows:[]};}
               if (sql.startsWith("SELECT id")) return {rows:[...fixtureGames.values()].map(g=>({id:g.id,room_id:fixtureGameRows.get(g.id)?.room_id,prefix_length:g.shortCode.length}))};
               if (sql.startsWith("INSERT INTO cg_rooms")) {fixtureRooms.set(args[0],JSON.parse(args[3]));return {rows:[]};}
               if (sql.startsWith("INSERT INTO cg_games")) {
                 fixtureGames.set(args[0],JSON.parse(args[3]));
                 fixtureGameRows.set(args[0],{id:args[0],room_id:args[1],prefix_length:args[2],started_at:args[4],ended_at:args[5],summary:args[6]&&JSON.parse(args[6])});
                 return {rows:[]};
+              }
+              if (sql.startsWith("UPDATE cg_games SET prefix_length=$2")) {
+                const g=fixtureGames.get(args[0]);if(g)fixtureGames.set(args[0],{...g,shortCode:args[2]});
+                const r=fixtureGameRows.get(args[0]);if(r)fixtureGameRows.set(args[0],{...r,prefix_length:args[1]});return {rows:[]};
+              }
+              if (sql.startsWith("UPDATE cg_rooms SET state=jsonb_set(state,'{game,shortCode}'")) {
+                for(const [id,room] of fixtureRooms)if(room.game?.id===args[0])fixtureRooms.set(id,{...room,game:{...room.game,shortCode:args[1]}});return {rows:[]};
               }
               if (sql==="UPDATE cg_rooms SET state=$2 WHERE id=$1") {fixtureRooms.set(args[0],JSON.parse(args[1]));return {rows:[]};}
               throw new Error("Unexpected fixture SQL: "+sql);

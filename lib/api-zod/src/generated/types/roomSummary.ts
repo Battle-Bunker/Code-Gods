@@ -11,7 +11,7 @@ export interface RoomSummary {
   shortCode: string;
   ownerId: string;
   ownerName: string;
-  /** Unix milliseconds; null for legacy rooms whose creation time was not recorded. */
+  /** Unix milliseconds; null when the creation time is unknown. */
   createdAt: number | null;
   memberCount: number;
   /** `lobby` between games, otherwise the active game's phase. */

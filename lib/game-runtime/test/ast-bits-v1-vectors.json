@@ -1,0 +1,2395 @@
+{
+ "version": "ast-bits-v1",
+ "constants": {
+  "P_EXT": 0.5,
+  "Q_MOVE": 0.125
+ },
+ "programs": {
+  "empty_agent": {
+   "source": "def agent(grid):\n    return []\n",
+   "corpus": {
+    "structure": 23.71174,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 0.0,
+    "total": 24.71174
+   },
+   "uniform": {
+    "structure": 56.276054,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 0.0,
+    "total": 57.276054
+   },
+   "ast_bytes": 7
+  },
+  "one_paint": {
+   "source": "def agent(grid):\n    return [paint_row(2, \"red\")]\n",
+   "corpus": {
+    "structure": 28.765231,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 45.672121
+   },
+   "uniform": {
+    "structure": 61.083408,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 77.990299
+   },
+   "ast_bytes": 14
+  },
+  "same_move_raw": {
+   "source": "def agent(grid):\n    return [move(\"paint\", kind=\"line\", region=(0, 2), colour=0)]\n",
+   "corpus": {
+    "structure": 28.765231,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 45.672121
+   },
+   "uniform": {
+    "structure": 61.083408,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 77.990299
+   },
+   "ast_bytes": 27
+  },
+  "same_move_area": {
+   "source": "def agent(grid):\n    return [paint(row(2), red)]\n",
+   "corpus": {
+    "structure": 28.765231,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 45.672121
+   },
+   "uniform": {
+    "structure": 61.083408,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 77.990299
+   },
+   "ast_bytes": 16
+  },
+  "renamed": {
+   "source": "def agent(g):\n    return [paint_row(2, \"red\")]\n",
+   "corpus": {
+    "structure": 28.765231,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 45.672121
+   },
+   "uniform": {
+    "structure": 61.083408,
+    "names": 1.0,
+    "literals": 0.0,
+    "moves": 15.906891,
+    "total": 77.990299
+   },
+   "ast_bytes": 14
+  },
+  "computed_row": {
+   "source": "def agent(grid):\n    i = 2\n    return [paint_row(i, \"red\")]\n",
+   "corpus": {
+    "structure": 43.202212,
+    "names": 12.936638,
+    "literals": 13.027894,
+    "moves": 0.192645,
+    "total": 69.359389
+   },
+   "uniform": {
+    "structure": 100.487939,
+    "names": 12.936638,
+    "literals": 16.459432,
+    "moves": 0.192645,
+    "total": 130.076654
+   },
+   "ast_bytes": 19
+  },
+  "loop": {
+   "source": "def agent(grid):\n    return [paint(c, \"red\") for c in grid.cells if c.colour == \"blue\"]\n",
+   "corpus": {
+    "structure": 48.120742,
+    "names": 32.017455,
+    "literals": 16.862416,
+    "moves": 0.192645,
+    "total": 97.193259
+   },
+   "uniform": {
+    "structure": 123.463436,
+    "names": 32.017455,
+    "literals": 21.918863,
+    "moves": 0.192645,
+    "total": 177.5924
+   },
+   "ast_bytes": 31
+  },
+  "import_random": {
+   "source": "import random\n\ndef agent(grid):\n    return [paint_row(random.randrange(grid.size), \"red\")]\n",
+   "corpus": {
+    "structure": 51.47962,
+    "names": 32.853829,
+    "literals": 8.43034,
+    "moves": 0.38529,
+    "total": 93.149078
+   },
+   "uniform": {
+    "structure": 112.997714,
+    "names": 31.778313,
+    "literals": 10.459432,
+    "moves": 0.38529,
+    "total": 155.620749
+   },
+   "ast_bytes": 24
+  },
+  "from_import": {
+   "source": "from collections import Counter\n\ndef agent(grid):\n    return [paint_row(0, Counter(c.colour for c in grid.cells).most_common(1)[0][0])]\n",
+   "corpus": {
+    "structure": 91.916129,
+    "names": 56.021078,
+    "literals": 13.391954,
+    "moves": 0.577935,
+    "total": 161.907096
+   },
+   "uniform": {
+    "structure": 173.213766,
+    "names": 53.866494,
+    "literals": 20.0,
+    "moves": 0.577935,
+    "total": 247.658196
+   },
+   "ast_bytes": 38
+  },
+  "helper_after": {
+   "source": "def agent(grid):\n    return helper(grid)\n\ndef helper(grid):\n    return []\n",
+   "corpus": {
+    "structure": 39.827459,
+    "names": 8.906891,
+    "literals": 0.0,
+    "moves": 0.192645,
+    "total": 48.926995
+   },
+   "uniform": {
+    "structure": 118.256368,
+    "names": 8.906891,
+    "literals": 0.0,
+    "moves": 0.192645,
+    "total": 127.355904
+   },
+   "ast_bytes": 16
+  },
+  "global_counter": {
+   "source": "n = 0\n\ndef agent(grid):\n    global n\n    n += 1\n    return []\n",
+   "corpus": {
+    "structure": 49.887525,
+    "names": 8.169925,
+    "literals": 7.195108,
+    "moves": 0.0,
+    "total": 65.252558
+   },
+   "uniform": {
+    "structure": 98.429809,
+    "names": 8.169925,
+    "literals": 10.0,
+    "moves": 0.0,
+    "total": 116.599734
+   },
+   "ast_bytes": 17
+  },
+  "lambda_max": {
+   "source": "def agent(grid):\n    big = max(grid.cells, key=lambda c: c.value)\n    return [paint(big, \"red\")]\n",
+   "corpus": {
+    "structure": 68.424965,
+    "names": 47.341848,
+    "literals": 8.43034,
+    "moves": 0.38529,
+    "total": 124.582443
+   },
+   "uniform": {
+    "structure": 151.491796,
+    "names": 48.397278,
+    "literals": 10.459432,
+    "moves": 0.38529,
+    "total": 210.733796
+   },
+   "ast_bytes": 33
+  },
+  "literals": {
+   "source": "x = [0, 1, 255, -3, 1.5, \"hi\", \"red\", b\"ab\", True, None, ...]\n\ndef agent(grid):\n    return []\n",
+   "corpus": {
+    "structure": 58.549007,
+    "names": 2.584963,
+    "literals": 128.939792,
+    "moves": 0.0,
+    "total": 190.073762
+   },
+   "uniform": {
+    "structure": 139.946778,
+    "names": 2.584963,
+    "literals": 121.198626,
+    "moves": 0.0,
+    "total": 263.730367
+   },
+   "ast_bytes": 37
+  },
+  "fstring": {
+   "source": "def agent(grid):\n    s = f\"{grid.size}x{grid.size!r}\"\n    return []\n",
+   "corpus": {
+    "structure": 47.370053,
+    "names": 21.032889,
+    "literals": 13.865368,
+    "moves": 0.0,
+    "total": 82.26831
+   },
+   "uniform": {
+    "structure": 123.367311,
+    "names": 21.00365,
+    "literals": 17.61471,
+    "moves": 0.0,
+    "total": 161.985671
+   },
+   "ast_bytes": 22
+  },
+  "walrus_comp": {
+   "source": "def agent(grid):\n    if any((k := c.value) > 8 for c in grid.cells):\n        return [write(everything, k)]\n    return []\n",
+   "corpus": {
+    "structure": 96.359538,
+    "names": 51.293866,
+    "literals": 8.599291,
+    "moves": 0.38529,
+    "total": 156.637986
+   },
+   "uniform": {
+    "structure": 186.951685,
+    "names": 49.919486,
+    "literals": 11.0,
+    "moves": 0.38529,
+    "total": 248.256461
+   },
+   "ast_bytes": 39
+  },
+  "class_def": {
+   "source": "class A:\n    x = 1\n\n    def f(self):\n        return self.x\n\ndef agent(grid):\n    return []\n",
+   "corpus": {
+    "structure": 50.878036,
+    "names": 18.714507,
+    "literals": 4.597554,
+    "moves": 0.0,
+    "total": 74.190098
+   },
+   "uniform": {
+    "structure": 149.199909,
+    "names": 27.14182,
+    "literals": 6.0,
+    "moves": 0.0,
+    "total": 182.341729
+   },
+   "ast_bytes": 20
+  },
+  "greedy": {
+   "source": "def agent(grid):\n    best = max(moves(\"paint\"), key=score)\n    return [best] if score(best) > score() else []\n",
+   "corpus": {
+    "structure": 85.668254,
+    "names": 54.065177,
+    "literals": 8.43034,
+    "moves": 0.77058,
+    "total": 148.934351
+   },
+   "uniform": {
+    "structure": 178.237564,
+    "names": 55.006228,
+    "literals": 10.459432,
+    "moves": 0.77058,
+    "total": 244.473804
+   },
+   "ast_bytes": 39
+  }
+ },
+ "codes": {
+  "gamma": {
+   "1": 1,
+   "2": 3,
+   "3": 3,
+   "4": 5,
+   "7": 5,
+   "8": 7,
+   "255": 15,
+   "256": 17,
+   "1000": 19
+  },
+  "string": {
+   "": 1,
+   "a": 9.614709844115207,
+   "red": 24.844129532345622,
+   "hi\n": 24.844129532345622,
+   "\u00e9": 24.614709844115207
+  },
+  "float": {
+   "0.0": 17.509775004326936,
+   "1.5": 17.509775004326936,
+   "1e-05": 25.84962500721156,
+   "123456.789": 48.69925001442312
+  }
+ },
+ "rng": {
+  "splitmix64_seed_12345_first4": [
+   2454886589211414944,
+   3778200017661327597,
+   2205171434679333405,
+   3248800117070709450
+  ],
+  "permutation_8_seed_1": [
+   4,
+   3,
+   2,
+   7,
+   5,
+   6,
+   0,
+   1
+  ]
+ },
+ "seeds": {
+  "derive_seed('measure', 'Grid(5,base10,rgby)', 0, 0)": 7156144626483060270,
+  "derive_seed('play', 7, 0)": 9489612319089221391
+ },
+ "estimators": [
+  {
+   "case": "constant",
+   "actions": [
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ]
+   ],
+   "joint": 0.0,
+   "positional": 0.0,
+   "set": 0.0,
+   "naming": 17.228818690495878,
+   "decision": 0.0,
+   "binding": "joint"
+  },
+  {
+   "case": "two_way",
+   "actions": [
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ]
+   ],
+   "joint": 1.0901684400555602,
+   "positional": 1.0901684400555602,
+   "set": 2.0,
+   "naming": 17.228818690495878,
+   "decision": 1.0901684400555602,
+   "binding": "joint"
+  },
+  {
+   "case": "sets",
+   "actions": [
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ],
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ],
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    []
+   ],
+   "joint": 2.2705053201666807,
+   "positional": 9.670799711825092,
+   "set": 2.0,
+   "naming": 16.728818690495878,
+   "decision": 2.0,
+   "binding": "set"
+  },
+  {
+   "case": "spread",
+   "actions": [
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         2
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         3
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         0,
+         4
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         1,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         1,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         1,
+         2
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         1,
+         3
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         1,
+         4
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         2,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         2,
+         1
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         2,
+         2
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         2,
+         3
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         2,
+         4
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      "paint",
+      [
+       [
+        "kind",
+        "cell"
+       ],
+       [
+        "region",
+        [
+         3,
+         0
+        ]
+       ],
+       [
+        "colour",
+        0
+       ]
+      ]
+     ]
+    ]
+   ],
+   "joint": "inf",
+   "positional": 5.78135971352466,
+   "set": 6.117988586316704,
+   "naming": 17.228818690495878,
+   "decision": 5.78135971352466,
+   "binding": "positional"
+  },
+  {
+   "case": "randomized_half",
+   "actions_by_grid": [
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ],
+    [
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          0
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ],
+     [
+      [
+       "paint",
+       [
+        [
+         "kind",
+         "cell"
+        ],
+        [
+         "region",
+         [
+          0,
+          1
+         ]
+        ],
+        [
+         "colour",
+         0
+        ]
+       ]
+      ]
+     ]
+    ]
+   ],
+   "shuffles": 32,
+   "shuffle_seed": 12345,
+   "H_A_given_X_plugin": 0.5,
+   "I_plugin": 0.5,
+   "I_mm": 0.42485963328703313,
+   "I_shuffle": 0.18359182971441906,
+   "I_jackknife": 0.39279272885180117,
+   "decision": 0.39279272885180117,
+   "binding": "mutual"
+  },
+  {
+   "case": "jackknife",
+   "keys": [
+    "a",
+    "a",
+    "b",
+    "b",
+    "b",
+    "c",
+    "d"
+   ],
+   "jackknife": 2.3896148062919504,
+   "miller_madow": 2.151519930510458
+  }
+ ]
+}

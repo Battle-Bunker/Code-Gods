@@ -142,7 +142,7 @@ export const ListRoomsResponseItem = zod.object({
   "shortCode": zod.string(),
   "ownerId": zod.string(),
   "ownerName": zod.string(),
-  "createdAt": zod.union([zod.number(),zod.null()]).describe('Unix milliseconds; null for legacy rooms whose creation time was not recorded.'),
+  "createdAt": zod.union([zod.number(),zod.null()]).describe('Unix milliseconds; null when the creation time is unknown.'),
   "memberCount": zod.number().int(),
   "phase": zod.string().describe('`lobby` between games, otherwise the active game\'s phase.'),
   "activeGameShortCode": zod.string().nullable()
@@ -154,19 +154,42 @@ export const CreateRoomBody = zod.object({
 
 })
 
+export const createRoomResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const createRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const createRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const createRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const createRoomResponseSettingsOneInteractionComputeMsDefault = 5;
+export const createRoomResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const createRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 
-export const createRoomResponseGameOneSettingsInteractionRateHzDefault = 100;
-export const createRoomResponseGameOneSettingsInteractionRateHzMin = 0;
-export const createRoomResponseGameOneSettingsInteractionRateHzMax = 1000;
+export const createRoomResponseSettingsOneStepBudgetDefault = 500000;
+export const createRoomResponseSettingsOneStepBudgetMax = 10000000;
 
-export const createRoomResponseGameOneSettingsInteractionComputeMsDefault = 5;
-export const createRoomResponseGameOneSettingsInteractionComputeMsMax = 1000;
+export const createRoomResponseSettingsOnePerActFloorBitsDefault = 2;
+export const createRoomResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const createRoomResponseSettingsOnePriorIdDefault = `uniform`;
+export const createRoomResponseSettingsOneCommitClauseDefault = false;
+export const createRoomResponseSettingsOneObjectSelectionDefault = `uniform`;
+export const createRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
+export const createRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const createRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const createRoomResponseSettingsOneAgentBatteryActsDefault = 2;
+export const createRoomResponseSettingsOneAgentBatteryActsMax = 1000;
+
+export const createRoomResponseSettingsOneMaxAgentsPerGodDefault = 200;
+export const createRoomResponseSettingsOneMaxAgentsPerGodMax = 200;
+
+export const createRoomResponseSettingsOnePenaltyWeightDefault = 1;
+export const createRoomResponseSettingsOnePenaltyWeightMin = 0;
+
+export const createRoomResponseSettingsOneDefenceRateDefault = 0;
+export const createRoomResponseSettingsOneDefenceRateMin = 0;
+export const createRoomResponseSettingsOneDefenceRateMax = 1;
+
+export const createRoomResponseSettingsOneExcludedFamiliesDefault = [];
+export const createRoomResponseSettingsOneExcludedFamiliesMax = 200;
 
 
 
@@ -175,27 +198,36 @@ export const CreateRoomResponse = zod.object({
   "shortCode": zod.string(),
   "ownerId": zod.string(),
   "ownerName": zod.string(),
-  "createdAt": zod.number().nullable().describe('Unix milliseconds; null for legacy rooms whose creation time was not recorded.'),
+  "createdAt": zod.number().nullable().describe('Unix milliseconds; null when the creation time is unknown.'),
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(createRoomResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(createRoomResponseSettingsOneInteractionRateHzMin).max(createRoomResponseSettingsOneInteractionRateHzMax).default(createRoomResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsOneInteractionComputeMsMax).default(createRoomResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseSettingsOneInteractionComputeMsMax).default(createRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(createRoomResponseSettingsOneStepBudgetMax).default(createRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(createRoomResponseSettingsOnePerActFloorBitsMin).default(createRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(createRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(createRoomResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(createRoomResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(createRoomResponseSettingsOneAgentEnergyPerSecondMin).max(createRoomResponseSettingsOneAgentEnergyPerSecondMax).default(createRoomResponseSettingsOneAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(createRoomResponseSettingsOneAgentBatteryActsMax).default(createRoomResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(createRoomResponseSettingsOneMaxAgentsPerGodMax).default(createRoomResponseSettingsOneMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(createRoomResponseSettingsOnePenaltyWeightMin).default(createRoomResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(createRoomResponseSettingsOneDefenceRateMin).max(createRoomResponseSettingsOneDefenceRateMax).default(createRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(createRoomResponseSettingsOneExcludedFamiliesMax).default(createRoomResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -223,70 +255,73 @@ export const CreateRoomResponse = zod.object({
   "kind": zod.enum(['human', 'ai'])
 }))
 }).describe('The room\'s single active (not yet ended) game.'),zod.null()]),
-  "game": zod.union([zod.object({
-  "id": zod.string(),
-  "shortCode": zod.string(),
-  "phase": zod.string(),
-  "worldSeconds": zod.number(),
-  "planningEndsAt": zod.number(),
-  "pauseEndsAt": zod.number(),
-  "agentCount": zod.number().int(),
-  "objects": zod.array(zod.object({
-  "id": zod.string(),
-  "value": zod.union([zod.number().int(),zod.string()]),
-  "version": zod.number().int(),
-  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
-})),
-  "leaderboard": zod.array(zod.object({
-  "deityId": zod.string(),
-  "name": zod.string(),
-  "kind": zod.string(),
-  "totalScore": zod.number(),
-  "rank": zod.number().int()
-})),
-  "startedAt": zod.number().optional(),
-  "endedAt": zod.number().nullish(),
-  "endReason": zod.string().nullish(),
-  "recoveryReason": zod.string().nullish(),
-  "settings": zod.object({
-  "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
-  "spawnFunctionId": zod.enum(['uniform']),
-  "planningSeconds": zod.number(),
-  "halfLifeSeconds": zod.number(),
-  "startingObjectCount": zod.number().int(),
-  "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number().min(createRoomResponseGameOneSettingsInteractionRateHzMin).max(createRoomResponseGameOneSettingsInteractionRateHzMax).default(createRoomResponseGameOneSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(createRoomResponseGameOneSettingsInteractionComputeMsMax).default(createRoomResponseGameOneSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
-  "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
-}).optional(),
-  "roster": zod.array(zod.object({
-  "id": zod.string(),
-  "name": zod.string(),
-  "kind": zod.enum(['human', 'ai'])
-})).optional()
-}),zod.null()]).describe('Deprecated legacy view of the room\'s current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.'),
   "serverTime": zod.number(),
+  "objectInstance": zod.object({
+  "objectType": zod.string(),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "key": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "terms": zod.record(zod.string(), zod.number()),
+  "display": zod.record(zod.string(), zod.unknown()).describe('Type-specific display tables (Grid: symbols and colours).'),
+  "codec": zod.object({
+  "format": zod.string(),
+  "maxLength": zod.number().int()
+}),
+  "mutators": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "summary": zod.string()
+})),
+  "helpers": zod.array(zod.object({
+  "name": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "signature": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "kid": zod.string(),
+  "class": zod.string().optional(),
+  "group": zod.enum(['read', 'mutator'])
+}))
+}).describe('A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.').describe('The instantiation the next game will play.'),
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
-})).describe('Public list of utility-function families gods may have drawn for this object type.'),
+  "emoji": zod.string(),
+  "theme": zod.string(),
+  "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
+  "tags": zod.array(zod.string()),
+  "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "locked": zod.object({
+  "reason": zod.string().describe('Kid wording, e.g. needs ♠ Suits: pick Playing cards.'),
+  "unlock": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).optional().describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.')
+}).optional()
+}).describe('A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.')).describe('Public list of utility-function families gods may draw for these settings, with availability.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
 export const GetGameLinkParams = zod.object({
-  "code": zod.coerce.string().describe('Game short code or legacy UUID')
+  "code": zod.coerce.string().describe('Game short code or UUID')
 })
 
 export const GetGameLinkResponse = zod.object({
@@ -301,19 +336,42 @@ export const GetRoomParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const getRoomResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const getRoomResponseSettingsOneInteractionRateHzDefault = 100;
 export const getRoomResponseSettingsOneInteractionRateHzMin = 0;
 export const getRoomResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const getRoomResponseSettingsOneInteractionComputeMsDefault = 5;
+export const getRoomResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const getRoomResponseSettingsOneInteractionComputeMsMax = 1000;
 
-export const getRoomResponseGameOneSettingsInteractionRateHzDefault = 100;
-export const getRoomResponseGameOneSettingsInteractionRateHzMin = 0;
-export const getRoomResponseGameOneSettingsInteractionRateHzMax = 1000;
+export const getRoomResponseSettingsOneStepBudgetDefault = 500000;
+export const getRoomResponseSettingsOneStepBudgetMax = 10000000;
 
-export const getRoomResponseGameOneSettingsInteractionComputeMsDefault = 5;
-export const getRoomResponseGameOneSettingsInteractionComputeMsMax = 1000;
+export const getRoomResponseSettingsOnePerActFloorBitsDefault = 2;
+export const getRoomResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const getRoomResponseSettingsOnePriorIdDefault = `uniform`;
+export const getRoomResponseSettingsOneCommitClauseDefault = false;
+export const getRoomResponseSettingsOneObjectSelectionDefault = `uniform`;
+export const getRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
+export const getRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const getRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const getRoomResponseSettingsOneAgentBatteryActsDefault = 2;
+export const getRoomResponseSettingsOneAgentBatteryActsMax = 1000;
+
+export const getRoomResponseSettingsOneMaxAgentsPerGodDefault = 200;
+export const getRoomResponseSettingsOneMaxAgentsPerGodMax = 200;
+
+export const getRoomResponseSettingsOnePenaltyWeightDefault = 1;
+export const getRoomResponseSettingsOnePenaltyWeightMin = 0;
+
+export const getRoomResponseSettingsOneDefenceRateDefault = 0;
+export const getRoomResponseSettingsOneDefenceRateMin = 0;
+export const getRoomResponseSettingsOneDefenceRateMax = 1;
+
+export const getRoomResponseSettingsOneExcludedFamiliesDefault = [];
+export const getRoomResponseSettingsOneExcludedFamiliesMax = 200;
 
 
 
@@ -322,27 +380,36 @@ export const GetRoomResponse = zod.object({
   "shortCode": zod.string(),
   "ownerId": zod.string(),
   "ownerName": zod.string(),
-  "createdAt": zod.number().nullable().describe('Unix milliseconds; null for legacy rooms whose creation time was not recorded.'),
+  "createdAt": zod.number().nullable().describe('Unix milliseconds; null when the creation time is unknown.'),
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(getRoomResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getRoomResponseSettingsOneInteractionRateHzMin).max(getRoomResponseSettingsOneInteractionRateHzMax).default(getRoomResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsOneInteractionComputeMsMax).default(getRoomResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseSettingsOneInteractionComputeMsMax).default(getRoomResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getRoomResponseSettingsOneStepBudgetMax).default(getRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getRoomResponseSettingsOnePerActFloorBitsMin).default(getRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(getRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getRoomResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getRoomResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(getRoomResponseSettingsOneAgentEnergyPerSecondMin).max(getRoomResponseSettingsOneAgentEnergyPerSecondMax).default(getRoomResponseSettingsOneAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(getRoomResponseSettingsOneAgentBatteryActsMax).default(getRoomResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(getRoomResponseSettingsOneMaxAgentsPerGodMax).default(getRoomResponseSettingsOneMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(getRoomResponseSettingsOnePenaltyWeightMin).default(getRoomResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(getRoomResponseSettingsOneDefenceRateMin).max(getRoomResponseSettingsOneDefenceRateMax).default(getRoomResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getRoomResponseSettingsOneExcludedFamiliesMax).default(getRoomResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -370,65 +437,68 @@ export const GetRoomResponse = zod.object({
   "kind": zod.enum(['human', 'ai'])
 }))
 }).describe('The room\'s single active (not yet ended) game.'),zod.null()]),
-  "game": zod.union([zod.object({
-  "id": zod.string(),
-  "shortCode": zod.string(),
-  "phase": zod.string(),
-  "worldSeconds": zod.number(),
-  "planningEndsAt": zod.number(),
-  "pauseEndsAt": zod.number(),
-  "agentCount": zod.number().int(),
-  "objects": zod.array(zod.object({
-  "id": zod.string(),
-  "value": zod.union([zod.number().int(),zod.string()]),
-  "version": zod.number().int(),
-  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
-})),
-  "leaderboard": zod.array(zod.object({
-  "deityId": zod.string(),
-  "name": zod.string(),
-  "kind": zod.string(),
-  "totalScore": zod.number(),
-  "rank": zod.number().int()
-})),
-  "startedAt": zod.number().optional(),
-  "endedAt": zod.number().nullish(),
-  "endReason": zod.string().nullish(),
-  "recoveryReason": zod.string().nullish(),
-  "settings": zod.object({
-  "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
-  "spawnFunctionId": zod.enum(['uniform']),
-  "planningSeconds": zod.number(),
-  "halfLifeSeconds": zod.number(),
-  "startingObjectCount": zod.number().int(),
-  "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number().min(getRoomResponseGameOneSettingsInteractionRateHzMin).max(getRoomResponseGameOneSettingsInteractionRateHzMax).default(getRoomResponseGameOneSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getRoomResponseGameOneSettingsInteractionComputeMsMax).default(getRoomResponseGameOneSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
-  "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
-}).optional(),
-  "roster": zod.array(zod.object({
-  "id": zod.string(),
-  "name": zod.string(),
-  "kind": zod.enum(['human', 'ai'])
-})).optional()
-}),zod.null()]).describe('Deprecated legacy view of the room\'s current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.'),
   "serverTime": zod.number(),
+  "objectInstance": zod.object({
+  "objectType": zod.string(),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "key": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "terms": zod.record(zod.string(), zod.number()),
+  "display": zod.record(zod.string(), zod.unknown()).describe('Type-specific display tables (Grid: symbols and colours).'),
+  "codec": zod.object({
+  "format": zod.string(),
+  "maxLength": zod.number().int()
+}),
+  "mutators": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "summary": zod.string()
+})),
+  "helpers": zod.array(zod.object({
+  "name": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "signature": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "kid": zod.string(),
+  "class": zod.string().optional(),
+  "group": zod.enum(['read', 'mutator'])
+}))
+}).describe('A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.').describe('The instantiation the next game will play.'),
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
-})).describe('Public list of utility-function families gods may have drawn for this object type.'),
+  "emoji": zod.string(),
+  "theme": zod.string(),
+  "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
+  "tags": zod.array(zod.string()),
+  "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "locked": zod.object({
+  "reason": zod.string().describe('Kid wording, e.g. needs ♠ Suits: pick Playing cards.'),
+  "unlock": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).optional().describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.')
+}).optional()
+}).describe('A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.')).describe('Public list of utility-function families gods may draw for these settings, with availability.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
@@ -436,12 +506,42 @@ export const ListRoomGamesParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const listRoomGamesResponseSettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const listRoomGamesResponseSettingsInteractionRateHzDefault = 100;
 export const listRoomGamesResponseSettingsInteractionRateHzMin = 0;
 export const listRoomGamesResponseSettingsInteractionRateHzMax = 1000;
 
-export const listRoomGamesResponseSettingsInteractionComputeMsDefault = 5;
+export const listRoomGamesResponseSettingsInteractionComputeMsDefault = 1000;
 export const listRoomGamesResponseSettingsInteractionComputeMsMax = 1000;
+
+export const listRoomGamesResponseSettingsStepBudgetDefault = 500000;
+export const listRoomGamesResponseSettingsStepBudgetMax = 10000000;
+
+export const listRoomGamesResponseSettingsPerActFloorBitsDefault = 2;
+export const listRoomGamesResponseSettingsPerActFloorBitsMin = 0;
+
+export const listRoomGamesResponseSettingsPriorIdDefault = `uniform`;
+export const listRoomGamesResponseSettingsCommitClauseDefault = false;
+export const listRoomGamesResponseSettingsObjectSelectionDefault = `uniform`;
+export const listRoomGamesResponseSettingsAgentEnergyPerSecondDefault = 2;
+export const listRoomGamesResponseSettingsAgentEnergyPerSecondMin = 0;
+export const listRoomGamesResponseSettingsAgentEnergyPerSecondMax = 1000;
+
+export const listRoomGamesResponseSettingsAgentBatteryActsDefault = 2;
+export const listRoomGamesResponseSettingsAgentBatteryActsMax = 1000;
+
+export const listRoomGamesResponseSettingsMaxAgentsPerGodDefault = 200;
+export const listRoomGamesResponseSettingsMaxAgentsPerGodMax = 200;
+
+export const listRoomGamesResponseSettingsPenaltyWeightDefault = 1;
+export const listRoomGamesResponseSettingsPenaltyWeightMin = 0;
+
+export const listRoomGamesResponseSettingsDefenceRateDefault = 0;
+export const listRoomGamesResponseSettingsDefenceRateMin = 0;
+export const listRoomGamesResponseSettingsDefenceRateMax = 1;
+
+export const listRoomGamesResponseSettingsExcludedFamiliesDefault = [];
+export const listRoomGamesResponseSettingsExcludedFamiliesMax = 200;
 
 
 
@@ -450,27 +550,36 @@ export const ListRoomGamesResponseItem = zod.object({
   "shortCode": zod.string(),
   "roomId": zod.string(),
   "startedAt": zod.number(),
-  "endedAt": zod.number().nullable().describe('Unix milliseconds; null for legacy games whose end time was not recorded.'),
-  "endReason": zod.union([zod.literal('lifetime'),zod.literal('owner'),zod.literal('retired'),zod.literal(null)]).nullable(),
+  "endedAt": zod.number().nullable().describe('Unix milliseconds.'),
+  "endReason": zod.union([zod.literal('lifetime'),zod.literal('owner'),zod.literal(null)]).nullable(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(listRoomGamesResponseSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(listRoomGamesResponseSettingsInteractionRateHzMin).max(listRoomGamesResponseSettingsInteractionRateHzMax).default(listRoomGamesResponseSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(listRoomGamesResponseSettingsInteractionComputeMsMax).default(listRoomGamesResponseSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(listRoomGamesResponseSettingsInteractionComputeMsMax).default(listRoomGamesResponseSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(listRoomGamesResponseSettingsStepBudgetMax).default(listRoomGamesResponseSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(listRoomGamesResponseSettingsPerActFloorBitsMin).default(listRoomGamesResponseSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(listRoomGamesResponseSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(listRoomGamesResponseSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(listRoomGamesResponseSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(listRoomGamesResponseSettingsAgentEnergyPerSecondMin).max(listRoomGamesResponseSettingsAgentEnergyPerSecondMax).default(listRoomGamesResponseSettingsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(listRoomGamesResponseSettingsAgentBatteryActsMax).default(listRoomGamesResponseSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(listRoomGamesResponseSettingsMaxAgentsPerGodMax).default(listRoomGamesResponseSettingsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(listRoomGamesResponseSettingsPenaltyWeightMin).default(listRoomGamesResponseSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(listRoomGamesResponseSettingsDefenceRateMin).max(listRoomGamesResponseSettingsDefenceRateMax).default(listRoomGamesResponseSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(listRoomGamesResponseSettingsExcludedFamiliesMax).default(listRoomGamesResponseSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "roster": zod.array(zod.object({
   "id": zod.string(),
@@ -481,7 +590,7 @@ export const ListRoomGamesResponseItem = zod.object({
   "deityId": zod.string(),
   "name": zod.string(),
   "kind": zod.string(),
-  "totalScore": zod.number(),
+  "totalPayoff": zod.number().describe('Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits².'),
   "rank": zod.number().int()
 })),
   "winners": zod.array(zod.object({
@@ -491,7 +600,9 @@ export const ListRoomGamesResponseItem = zod.object({
 })).describe('Every god ranked first (ties share the win).'),
   "worldSeconds": zod.number(),
   "objectCount": zod.number().int(),
-  "agentCount": zod.number().int()
+  "agentCount": zod.number().int(),
+  "scoring": zod.enum(['information-v1']).describe('Information scoring: payoffs in bits².'),
+  "seasonCommitment": zod.string().describe('sha256 (hex) of the season salt behind this game\'s seeds; the salt is revealed after the season.')
 }).describe('Public result of one finished game, kept in its room\'s history.')
 export const ListRoomGamesResponse = zod.array(ListRoomGamesResponseItem)
 
@@ -500,12 +611,42 @@ export const GetGameStateParams = zod.object({
   "code": zod.coerce.string().describe('Game short code or UUID')
 })
 
+export const getGameStateResponseOneSettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const getGameStateResponseOneSettingsInteractionRateHzDefault = 100;
 export const getGameStateResponseOneSettingsInteractionRateHzMin = 0;
 export const getGameStateResponseOneSettingsInteractionRateHzMax = 1000;
 
-export const getGameStateResponseOneSettingsInteractionComputeMsDefault = 5;
+export const getGameStateResponseOneSettingsInteractionComputeMsDefault = 1000;
 export const getGameStateResponseOneSettingsInteractionComputeMsMax = 1000;
+
+export const getGameStateResponseOneSettingsStepBudgetDefault = 500000;
+export const getGameStateResponseOneSettingsStepBudgetMax = 10000000;
+
+export const getGameStateResponseOneSettingsPerActFloorBitsDefault = 2;
+export const getGameStateResponseOneSettingsPerActFloorBitsMin = 0;
+
+export const getGameStateResponseOneSettingsPriorIdDefault = `uniform`;
+export const getGameStateResponseOneSettingsCommitClauseDefault = false;
+export const getGameStateResponseOneSettingsObjectSelectionDefault = `uniform`;
+export const getGameStateResponseOneSettingsAgentEnergyPerSecondDefault = 2;
+export const getGameStateResponseOneSettingsAgentEnergyPerSecondMin = 0;
+export const getGameStateResponseOneSettingsAgentEnergyPerSecondMax = 1000;
+
+export const getGameStateResponseOneSettingsAgentBatteryActsDefault = 2;
+export const getGameStateResponseOneSettingsAgentBatteryActsMax = 1000;
+
+export const getGameStateResponseOneSettingsMaxAgentsPerGodDefault = 200;
+export const getGameStateResponseOneSettingsMaxAgentsPerGodMax = 200;
+
+export const getGameStateResponseOneSettingsPenaltyWeightDefault = 1;
+export const getGameStateResponseOneSettingsPenaltyWeightMin = 0;
+
+export const getGameStateResponseOneSettingsDefenceRateDefault = 0;
+export const getGameStateResponseOneSettingsDefenceRateMin = 0;
+export const getGameStateResponseOneSettingsDefenceRateMax = 1;
+
+export const getGameStateResponseOneSettingsExcludedFamiliesDefault = [];
+export const getGameStateResponseOneSettingsExcludedFamiliesMax = 200;
 
 
 
@@ -521,13 +662,13 @@ export const GetGameStateResponse = zod.object({
   "id": zod.string(),
   "value": zod.union([zod.number().int(),zod.string()]),
   "version": zod.number().int(),
-  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
+  "salience": zod.number().describe('Σ over gods of their net bits for this object. Individual scores are never public.')
 })),
   "leaderboard": zod.array(zod.object({
   "deityId": zod.string(),
   "name": zod.string(),
   "kind": zod.string(),
-  "totalScore": zod.number(),
+  "totalPayoff": zod.number().describe('Σ over live objects of n_i · max(0, Σ_{j≠i} n_j), in bits².'),
   "rank": zod.number().int()
 })),
   "startedAt": zod.number(),
@@ -536,29 +677,75 @@ export const GetGameStateResponse = zod.object({
   "recoveryReason": zod.string().nullable(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(getGameStateResponseOneSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getGameStateResponseOneSettingsInteractionRateHzMin).max(getGameStateResponseOneSettingsInteractionRateHzMax).default(getGameStateResponseOneSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getGameStateResponseOneSettingsInteractionComputeMsMax).default(getGameStateResponseOneSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getGameStateResponseOneSettingsInteractionComputeMsMax).default(getGameStateResponseOneSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getGameStateResponseOneSettingsStepBudgetMax).default(getGameStateResponseOneSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getGameStateResponseOneSettingsPerActFloorBitsMin).default(getGameStateResponseOneSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(getGameStateResponseOneSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getGameStateResponseOneSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getGameStateResponseOneSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(getGameStateResponseOneSettingsAgentEnergyPerSecondMin).max(getGameStateResponseOneSettingsAgentEnergyPerSecondMax).default(getGameStateResponseOneSettingsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(getGameStateResponseOneSettingsAgentBatteryActsMax).default(getGameStateResponseOneSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(getGameStateResponseOneSettingsMaxAgentsPerGodMax).default(getGameStateResponseOneSettingsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(getGameStateResponseOneSettingsPenaltyWeightMin).default(getGameStateResponseOneSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(getGameStateResponseOneSettingsDefenceRateMin).max(getGameStateResponseOneSettingsDefenceRateMax).default(getGameStateResponseOneSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getGameStateResponseOneSettingsExcludedFamiliesMax).default(getGameStateResponseOneSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "roster": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "kind": zod.enum(['human', 'ai'])
+})),
+  "objectInstance": zod.object({
+  "objectType": zod.string(),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "key": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "terms": zod.record(zod.string(), zod.number()),
+  "display": zod.record(zod.string(), zod.unknown()).describe('Type-specific display tables (Grid: symbols and colours).'),
+  "codec": zod.object({
+  "format": zod.string(),
+  "maxLength": zod.number().int()
+}),
+  "mutators": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "summary": zod.string()
+})),
+  "helpers": zod.array(zod.object({
+  "name": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "signature": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "kid": zod.string(),
+  "class": zod.string().optional(),
+  "group": zod.enum(['read', 'mutator'])
 }))
+}).describe('A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.')
 }).and(zod.object({
   "roomId": zod.string().nullable(),
   "roomShortCode": zod.string().nullable(),
@@ -591,8 +778,23 @@ export const GetGameStateResponse = zod.object({
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
-})),
+  "emoji": zod.string(),
+  "theme": zod.string(),
+  "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
+  "tags": zod.array(zod.string()),
+  "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "locked": zod.object({
+  "reason": zod.string().describe('Kid wording, e.g. needs ♠ Suits: pick Playing cards.'),
+  "unlock": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).optional().describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.')
+}).optional()
+}).describe('A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.')),
   "serverTime": zod.number()
 })).describe('A game\'s own page. Public information only.')
 
@@ -601,17 +803,47 @@ export const RoomActionParams = zod.object({
   "roomId": zod.coerce.string()
 })
 
+export const roomActionBodySettingsUtilitySelectorIdDefault = `fair-aligned`;
 export const roomActionBodySettingsInteractionRateHzDefault = 100;
 export const roomActionBodySettingsInteractionRateHzMin = 0;
 export const roomActionBodySettingsInteractionRateHzMax = 1000;
 
-export const roomActionBodySettingsInteractionComputeMsDefault = 5;
+export const roomActionBodySettingsInteractionComputeMsDefault = 1000;
 export const roomActionBodySettingsInteractionComputeMsMax = 1000;
+
+export const roomActionBodySettingsStepBudgetDefault = 500000;
+export const roomActionBodySettingsStepBudgetMax = 10000000;
+
+export const roomActionBodySettingsPerActFloorBitsDefault = 2;
+export const roomActionBodySettingsPerActFloorBitsMin = 0;
+
+export const roomActionBodySettingsPriorIdDefault = `uniform`;
+export const roomActionBodySettingsCommitClauseDefault = false;
+export const roomActionBodySettingsObjectSelectionDefault = `uniform`;
+export const roomActionBodySettingsAgentEnergyPerSecondDefault = 2;
+export const roomActionBodySettingsAgentEnergyPerSecondMin = 0;
+export const roomActionBodySettingsAgentEnergyPerSecondMax = 1000;
+
+export const roomActionBodySettingsAgentBatteryActsDefault = 2;
+export const roomActionBodySettingsAgentBatteryActsMax = 1000;
+
+export const roomActionBodySettingsMaxAgentsPerGodDefault = 200;
+export const roomActionBodySettingsMaxAgentsPerGodMax = 200;
+
+export const roomActionBodySettingsPenaltyWeightDefault = 1;
+export const roomActionBodySettingsPenaltyWeightMin = 0;
+
+export const roomActionBodySettingsDefenceRateDefault = 0;
+export const roomActionBodySettingsDefenceRateMin = 0;
+export const roomActionBodySettingsDefenceRateMax = 1;
+
+export const roomActionBodySettingsExcludedFamiliesDefault = [];
+export const roomActionBodySettingsExcludedFamiliesMax = 200;
 
 export const roomActionBodyTextMax = 4000;
 
 export const roomActionBodyAiBudgetMin = 0;
-export const roomActionBodyAiBudgetMax = 500000;
+export const roomActionBodyAiBudgetMax = 1000000;
 
 
 
@@ -621,44 +853,77 @@ export const RoomActionBody = zod.object({
   "revision": zod.number().int().optional(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(roomActionBodySettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(roomActionBodySettingsInteractionRateHzMin).max(roomActionBodySettingsInteractionRateHzMax).default(roomActionBodySettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionBodySettingsInteractionComputeMsMax).default(roomActionBodySettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(roomActionBodySettingsStepBudgetMax).default(roomActionBodySettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(roomActionBodySettingsPerActFloorBitsMin).default(roomActionBodySettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(roomActionBodySettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(roomActionBodySettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(roomActionBodySettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(roomActionBodySettingsAgentEnergyPerSecondMin).max(roomActionBodySettingsAgentEnergyPerSecondMax).default(roomActionBodySettingsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(roomActionBodySettingsAgentBatteryActsMax).default(roomActionBodySettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(roomActionBodySettingsMaxAgentsPerGodMax).default(roomActionBodySettingsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(roomActionBodySettingsPenaltyWeightMin).default(roomActionBodySettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(roomActionBodySettingsDefenceRateMin).max(roomActionBodySettingsDefenceRateMax).default(roomActionBodySettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(roomActionBodySettingsExcludedFamiliesMax).default(roomActionBodySettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).optional(),
   "ready": zod.boolean().optional(),
   "text": zod.string().max(roomActionBodyTextMax).optional(),
   "deityId": zod.string().optional(),
   "aiBudget": zod.number().int().min(roomActionBodyAiBudgetMin).max(roomActionBodyAiBudgetMax).optional(),
-  "aiAgentId": zod.string().optional()
+  "aiAgentId": zod.string().optional(),
+  "preset": zod.string().optional().describe('settings only: apply a Manifest.presets entry instead of `settings` (keeps the room\'s language unless settings.language is sent).')
 })
 
+export const roomActionResponseSettingsOneUtilitySelectorIdDefault = `fair-aligned`;
 export const roomActionResponseSettingsOneInteractionRateHzDefault = 100;
 export const roomActionResponseSettingsOneInteractionRateHzMin = 0;
 export const roomActionResponseSettingsOneInteractionRateHzMax = 1000;
 
-export const roomActionResponseSettingsOneInteractionComputeMsDefault = 5;
+export const roomActionResponseSettingsOneInteractionComputeMsDefault = 1000;
 export const roomActionResponseSettingsOneInteractionComputeMsMax = 1000;
 
-export const roomActionResponseGameOneSettingsInteractionRateHzDefault = 100;
-export const roomActionResponseGameOneSettingsInteractionRateHzMin = 0;
-export const roomActionResponseGameOneSettingsInteractionRateHzMax = 1000;
+export const roomActionResponseSettingsOneStepBudgetDefault = 500000;
+export const roomActionResponseSettingsOneStepBudgetMax = 10000000;
 
-export const roomActionResponseGameOneSettingsInteractionComputeMsDefault = 5;
-export const roomActionResponseGameOneSettingsInteractionComputeMsMax = 1000;
+export const roomActionResponseSettingsOnePerActFloorBitsDefault = 2;
+export const roomActionResponseSettingsOnePerActFloorBitsMin = 0;
+
+export const roomActionResponseSettingsOnePriorIdDefault = `uniform`;
+export const roomActionResponseSettingsOneCommitClauseDefault = false;
+export const roomActionResponseSettingsOneObjectSelectionDefault = `uniform`;
+export const roomActionResponseSettingsOneAgentEnergyPerSecondDefault = 2;
+export const roomActionResponseSettingsOneAgentEnergyPerSecondMin = 0;
+export const roomActionResponseSettingsOneAgentEnergyPerSecondMax = 1000;
+
+export const roomActionResponseSettingsOneAgentBatteryActsDefault = 2;
+export const roomActionResponseSettingsOneAgentBatteryActsMax = 1000;
+
+export const roomActionResponseSettingsOneMaxAgentsPerGodDefault = 200;
+export const roomActionResponseSettingsOneMaxAgentsPerGodMax = 200;
+
+export const roomActionResponseSettingsOnePenaltyWeightDefault = 1;
+export const roomActionResponseSettingsOnePenaltyWeightMin = 0;
+
+export const roomActionResponseSettingsOneDefenceRateDefault = 0;
+export const roomActionResponseSettingsOneDefenceRateMin = 0;
+export const roomActionResponseSettingsOneDefenceRateMax = 1;
+
+export const roomActionResponseSettingsOneExcludedFamiliesDefault = [];
+export const roomActionResponseSettingsOneExcludedFamiliesMax = 200;
 
 
 
@@ -667,27 +932,36 @@ export const RoomActionResponse = zod.object({
   "shortCode": zod.string(),
   "ownerId": zod.string(),
   "ownerName": zod.string(),
-  "createdAt": zod.number().nullable().describe('Unix milliseconds; null for legacy rooms whose creation time was not recorded.'),
+  "createdAt": zod.number().nullable().describe('Unix milliseconds; null when the creation time is unknown.'),
   "revision": zod.number().int(),
   "settings": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(roomActionResponseSettingsOneUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(roomActionResponseSettingsOneInteractionRateHzMin).max(roomActionResponseSettingsOneInteractionRateHzMax).default(roomActionResponseSettingsOneInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsOneInteractionComputeMsMax).default(roomActionResponseSettingsOneInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseSettingsOneInteractionComputeMsMax).default(roomActionResponseSettingsOneInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(roomActionResponseSettingsOneStepBudgetMax).default(roomActionResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(roomActionResponseSettingsOnePerActFloorBitsMin).default(roomActionResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(roomActionResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(roomActionResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(roomActionResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(roomActionResponseSettingsOneAgentEnergyPerSecondMin).max(roomActionResponseSettingsOneAgentEnergyPerSecondMax).default(roomActionResponseSettingsOneAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(roomActionResponseSettingsOneAgentBatteryActsMax).default(roomActionResponseSettingsOneAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(roomActionResponseSettingsOneMaxAgentsPerGodMax).default(roomActionResponseSettingsOneMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(roomActionResponseSettingsOnePenaltyWeightMin).default(roomActionResponseSettingsOnePenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(roomActionResponseSettingsOneDefenceRateMin).max(roomActionResponseSettingsOneDefenceRateMax).default(roomActionResponseSettingsOneDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(roomActionResponseSettingsOneExcludedFamiliesMax).default(roomActionResponseSettingsOneExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }).describe('Settings for the next game. Each game keeps its own snapshot from launch.'),
   "members": zod.array(zod.object({
   "id": zod.string(),
@@ -715,65 +989,68 @@ export const RoomActionResponse = zod.object({
   "kind": zod.enum(['human', 'ai'])
 }))
 }).describe('The room\'s single active (not yet ended) game.'),zod.null()]),
-  "game": zod.union([zod.object({
-  "id": zod.string(),
-  "shortCode": zod.string(),
-  "phase": zod.string(),
-  "worldSeconds": zod.number(),
-  "planningEndsAt": zod.number(),
-  "pauseEndsAt": zod.number(),
-  "agentCount": zod.number().int(),
-  "objects": zod.array(zod.object({
-  "id": zod.string(),
-  "value": zod.union([zod.number().int(),zod.string()]),
-  "version": zod.number().int(),
-  "totalUtility": zod.number().describe('Sum of every god\'s utility for this object.')
-})),
-  "leaderboard": zod.array(zod.object({
-  "deityId": zod.string(),
-  "name": zod.string(),
-  "kind": zod.string(),
-  "totalScore": zod.number(),
-  "rank": zod.number().int()
-})),
-  "startedAt": zod.number().optional(),
-  "endedAt": zod.number().nullish(),
-  "endReason": zod.string().nullish(),
-  "recoveryReason": zod.string().nullish(),
-  "settings": zod.object({
-  "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
-  "spawnFunctionId": zod.enum(['uniform']),
-  "planningSeconds": zod.number(),
-  "halfLifeSeconds": zod.number(),
-  "startingObjectCount": zod.number().int(),
-  "spawnRateHz": zod.number(),
-  "interactionRateHz": zod.number().min(roomActionResponseGameOneSettingsInteractionRateHzMin).max(roomActionResponseGameOneSettingsInteractionRateHzMax).default(roomActionResponseGameOneSettingsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(roomActionResponseGameOneSettingsInteractionComputeMsMax).default(roomActionResponseGameOneSettingsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
-  "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
-}).optional(),
-  "roster": zod.array(zod.object({
-  "id": zod.string(),
-  "name": zod.string(),
-  "kind": zod.enum(['human', 'ai'])
-})).optional()
-}),zod.null()]).describe('Deprecated legacy view of the room\'s current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history.'),
   "serverTime": zod.number(),
+  "objectInstance": zod.object({
+  "objectType": zod.string(),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "key": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "terms": zod.record(zod.string(), zod.number()),
+  "display": zod.record(zod.string(), zod.unknown()).describe('Type-specific display tables (Grid: symbols and colours).'),
+  "codec": zod.object({
+  "format": zod.string(),
+  "maxLength": zod.number().int()
+}),
+  "mutators": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "summary": zod.string()
+})),
+  "helpers": zod.array(zod.object({
+  "name": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "signature": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "kid": zod.string(),
+  "class": zod.string().optional(),
+  "group": zod.enum(['read', 'mutator'])
+}))
+}).describe('A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.').describe('The instantiation the next game will play.'),
   "utilityCatalog": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "theme": zod.string()
-})).describe('Public list of utility-function families gods may have drawn for this object type.'),
+  "emoji": zod.string(),
+  "theme": zod.string(),
+  "role": zod.enum(['reward', 'penalty']).describe('penalty families are dealt only as defence goals.'),
+  "tags": zod.array(zod.string()),
+  "available": zod.boolean(),
+  "excluded": zod.boolean().describe('Taken out of the lottery by settings.excludedFamilies.'),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "locked": zod.object({
+  "reason": zod.string().describe('Kid wording, e.g. needs ♠ Suits: pick Playing cards.'),
+  "unlock": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).optional().describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.')
+}).optional()
+}).describe('A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.')).describe('Public list of utility-function families gods may draw for these settings, with availability.'),
   "aiBudget": zod.number().int(),
-  "aiUsed": zod.number().int()
+  "aiUsed": zod.number().int(),
+  "aiInputTokens": zod.number().int().optional().describe('Provider-reported input tokens recorded for this game.'),
+  "aiOutputTokens": zod.number().int().optional().describe('Provider-reported output tokens recorded for this game.')
 }).describe('A room is a persistent lobby: members, readiness and the owner\'s settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.')
 
 
@@ -791,7 +1068,7 @@ export const RequestDeviceBody = zod.object({
   "roomId": zod.string().describe('Canonical room UUID or authority-resolved room alias'),
   "challenge": zod.string().regex(requestDeviceBodyChallengeRegExp).describe('Base64url S256 digest of the private verifier'),
   "clientLabel": zod.string().min(1).max(requestDeviceBodyClientLabelMax).default(requestDeviceBodyClientLabelDefault).describe('Self-reported printable label; not verified workspace or model identity'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.').default(requestDeviceBodyPermissionDefault)
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.').default(requestDeviceBodyPermissionDefault)
 })
 
 export const RequestDeviceResponse = zod.object({
@@ -803,7 +1080,7 @@ export const RequestDeviceResponse = zod.object({
   "verificationPath": zod.string(),
   "expiresIn": zod.literal(300),
   "interval": zod.literal(2),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.')
 })
 
 
@@ -817,9 +1094,10 @@ export const GetDeviceDetailsQueryParams = zod.object({
 export const GetDeviceDetailsResponse = zod.object({
   "roomId": zod.string().uuid(),
   "roomCode": zod.string(),
-  "clientLabel": zod.string().describe('Self-reported'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
-  "expiresAt": zod.coerce.date().describe('Approval-request deadline'),
+  "clientLabel": zod.string().describe('Self-reported, not verified requester identity'),
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.'),
+  "canApprove": zod.boolean().optional().describe('Whether the signed-in human may approve this request. Owner grants require the current room owner.'),
+  "expiresAt": zod.coerce.date().describe('Approval-request deadline, not a redeemed grant\'s lifetime'),
   "status": zod.enum(['pending', 'approved', 'denied', 'redeemed', 'expired'])
 })
 
@@ -881,7 +1159,7 @@ export const PollDeviceResponse = zod.object({
   "roomId": zod.string().uuid(),
   "godId": zod.string(),
   "delegateId": zod.string().uuid(),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.')
 })
 
 
@@ -914,8 +1192,8 @@ export const ListDeviceGrantsResponse = zod.object({
   "grants": zod.array(zod.object({
   "delegateId": zod.string().uuid(),
   "roomId": zod.string().uuid(),
-  "clientLabel": zod.string().describe('Self-reported'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
+  "clientLabel": zod.string().describe('Self-reported, not verified requester identity'),
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.'),
   "expiresAt": zod.coerce.date().describe('Persisted player-session expiry')
 }))
 })
@@ -941,37 +1219,114 @@ export const RevokeDeviceResponse = zod.object({
 })
 
 
+export const getManifestResponseDefaultsUtilitySelectorIdDefault = `fair-aligned`;
 export const getManifestResponseDefaultsInteractionRateHzDefault = 100;
 export const getManifestResponseDefaultsInteractionRateHzMin = 0;
 export const getManifestResponseDefaultsInteractionRateHzMax = 1000;
 
-export const getManifestResponseDefaultsInteractionComputeMsDefault = 5;
+export const getManifestResponseDefaultsInteractionComputeMsDefault = 1000;
 export const getManifestResponseDefaultsInteractionComputeMsMax = 1000;
+
+export const getManifestResponseDefaultsStepBudgetDefault = 500000;
+export const getManifestResponseDefaultsStepBudgetMax = 10000000;
+
+export const getManifestResponseDefaultsPerActFloorBitsDefault = 2;
+export const getManifestResponseDefaultsPerActFloorBitsMin = 0;
+
+export const getManifestResponseDefaultsPriorIdDefault = `uniform`;
+export const getManifestResponseDefaultsCommitClauseDefault = false;
+export const getManifestResponseDefaultsObjectSelectionDefault = `uniform`;
+export const getManifestResponseDefaultsAgentEnergyPerSecondDefault = 2;
+export const getManifestResponseDefaultsAgentEnergyPerSecondMin = 0;
+export const getManifestResponseDefaultsAgentEnergyPerSecondMax = 1000;
+
+export const getManifestResponseDefaultsAgentBatteryActsDefault = 2;
+export const getManifestResponseDefaultsAgentBatteryActsMax = 1000;
+
+export const getManifestResponseDefaultsMaxAgentsPerGodDefault = 200;
+export const getManifestResponseDefaultsMaxAgentsPerGodMax = 200;
+
+export const getManifestResponseDefaultsPenaltyWeightDefault = 1;
+export const getManifestResponseDefaultsPenaltyWeightMin = 0;
+
+export const getManifestResponseDefaultsDefenceRateDefault = 0;
+export const getManifestResponseDefaultsDefenceRateMin = 0;
+export const getManifestResponseDefaultsDefenceRateMax = 1;
+
+export const getManifestResponseDefaultsExcludedFamiliesDefault = [];
+export const getManifestResponseDefaultsExcludedFamiliesMax = 200;
+
+export const getManifestResponsePresetsItemSettingsUtilitySelectorIdDefault = `fair-aligned`;
+export const getManifestResponsePresetsItemSettingsInteractionRateHzDefault = 100;
+export const getManifestResponsePresetsItemSettingsInteractionRateHzMin = 0;
+export const getManifestResponsePresetsItemSettingsInteractionRateHzMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsInteractionComputeMsDefault = 1000;
+export const getManifestResponsePresetsItemSettingsInteractionComputeMsMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsStepBudgetDefault = 500000;
+export const getManifestResponsePresetsItemSettingsStepBudgetMax = 10000000;
+
+export const getManifestResponsePresetsItemSettingsPerActFloorBitsDefault = 2;
+export const getManifestResponsePresetsItemSettingsPerActFloorBitsMin = 0;
+
+export const getManifestResponsePresetsItemSettingsPriorIdDefault = `uniform`;
+export const getManifestResponsePresetsItemSettingsCommitClauseDefault = false;
+export const getManifestResponsePresetsItemSettingsObjectSelectionDefault = `uniform`;
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault = 2;
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin = 0;
+export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsAgentBatteryActsDefault = 2;
+export const getManifestResponsePresetsItemSettingsAgentBatteryActsMax = 1000;
+
+export const getManifestResponsePresetsItemSettingsMaxAgentsPerGodDefault = 200;
+export const getManifestResponsePresetsItemSettingsMaxAgentsPerGodMax = 200;
+
+export const getManifestResponsePresetsItemSettingsPenaltyWeightDefault = 1;
+export const getManifestResponsePresetsItemSettingsPenaltyWeightMin = 0;
+
+export const getManifestResponsePresetsItemSettingsDefenceRateDefault = 0;
+export const getManifestResponsePresetsItemSettingsDefenceRateMin = 0;
+export const getManifestResponsePresetsItemSettingsDefenceRateMax = 1;
+
+export const getManifestResponsePresetsItemSettingsExcludedFamiliesDefault = [];
+export const getManifestResponsePresetsItemSettingsExcludedFamiliesMax = 200;
 
 
 
 export const GetManifestResponse = zod.object({
   "protocolVersion": zod.number().int(),
+  "playerProtocol": zod.string().describe('Player protocol version accepted at /player/v1 (code-gods.player.v3).'),
   "minimumPlayers": zod.number().int(),
   "defaults": zod.object({
   "language": zod.enum(['python', 'typescript']),
-  "objectType": zod.enum(['Int', 'string']),
-  "intMin": zod.number().int(),
-  "intMax": zod.number().int(),
-  "stringMaxLength": zod.number().int(),
-  "grammarId": zod.string(),
-  "utilitySelectorId": zod.string(),
-  "complexityFunctionId": zod.string(),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(getManifestResponseDefaultsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
   "spawnFunctionId": zod.enum(['uniform']),
   "planningSeconds": zod.number(),
   "halfLifeSeconds": zod.number(),
   "startingObjectCount": zod.number().int(),
   "spawnRateHz": zod.number(),
   "interactionRateHz": zod.number().min(getManifestResponseDefaultsInteractionRateHzMin).max(getManifestResponseDefaultsInteractionRateHzMax).default(getManifestResponseDefaultsInteractionRateHzDefault),
-  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('Guest execution CPU budget per interaction in milliseconds; excludes compilation and worker startup. Configurable only between games.'),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponseDefaultsInteractionComputeMsMax).default(getManifestResponseDefaultsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getManifestResponseDefaultsStepBudgetMax).default(getManifestResponseDefaultsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getManifestResponseDefaultsPerActFloorBitsMin).default(getManifestResponseDefaultsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(getManifestResponseDefaultsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getManifestResponseDefaultsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getManifestResponseDefaultsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
-  "startingEnergy": zod.number(),
-  "energyPerSecond": zod.number()
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(getManifestResponseDefaultsAgentEnergyPerSecondMin).max(getManifestResponseDefaultsAgentEnergyPerSecondMax).default(getManifestResponseDefaultsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(getManifestResponseDefaultsAgentBatteryActsMax).default(getManifestResponseDefaultsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(getManifestResponseDefaultsMaxAgentsPerGodMax).default(getManifestResponseDefaultsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(getManifestResponseDefaultsPenaltyWeightMin).default(getManifestResponseDefaultsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(getManifestResponseDefaultsDefenceRateMin).max(getManifestResponseDefaultsDefenceRateMax).default(getManifestResponseDefaultsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getManifestResponseDefaultsExcludedFamiliesMax).default(getManifestResponseDefaultsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
 }),
   "options": zod.object({
   "grammarId": zod.array(zod.object({
@@ -1002,7 +1357,92 @@ export const GetManifestResponse = zod.object({
   "configured": zod.boolean(),
   "live": zod.boolean()
 }),
-  "runtimes": zod.array(zod.string())
+  "runtimes": zod.array(zod.string()),
+  "objectTypes": zod.array(zod.object({
+  "id": zod.string().describe('Int, string or Grid.'),
+  "label": zod.string(),
+  "emoji": zod.string(),
+  "kid": zod.string(),
+  "params": zod.array(zod.object({
+  "kind": zod.enum(['component', 'int']),
+  "id": zod.string(),
+  "label": zod.string(),
+  "slot": zod.string().optional(),
+  "options": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "emoji": zod.string(),
+  "kid": zod.string()
+})).optional(),
+  "min": zod.number().int().optional(),
+  "max": zod.number().int().optional(),
+  "presets": zod.array(zod.number().int()).optional()
+}).describe('One type parameter. `component` picks one of `options`; `int` is a number in [min, max], with the calibrated `presets`.')),
+  "defaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "settingsDefaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.'),
+  "classes": zod.array(zod.object({
+  "id": zod.string(),
+  "slot": zod.string(),
+  "superclasses": zod.array(zod.string()),
+  "badge": zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')
+})),
+  "offered": zod.array(zod.object({
+  "key": zod.string().describe('Canonical key, e.g. Grid(5,base10,rgby).'),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "classes": zod.array(zod.string()),
+  "settingsDefaults": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Tuned settings for this type or instantiation (e.g. Grid: startingObjectCount 80, spawnRateHz 0.5). The server applies them when the owner switches to it, unless the request changes those fields.')
+}).describe('An instantiation the server offers (every utility function dealable in it has a calibration table).'))
+})).describe('Object types for the settings pickers. Settings may choose only an instantiation listed in `offered`.'),
+  "priors": zod.array(zod.string()).describe('Rarity priors the calibration tables know.'),
+  "presets": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string(),
+  "objectType": zod.string(),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "settings": zod.object({
+  "language": zod.enum(['python', 'typescript']),
+  "objectType": zod.enum(['Int', 'string', 'Grid']).describe('The object type constructor.'),
+  "typeArgs": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.').describe('Its arguments. Only instantiations listed in Manifest.objectTypes[].offered are accepted.'),
+  "grammarId": zod.enum(['python-agent-v1', 'typescript-agent-v1']),
+  "utilitySelectorId": zod.string().default(getManifestResponsePresetsItemSettingsUtilitySelectorIdDefault).describe('fair-aligned (default) or divine-lottery.'),
+  "complexityFunctionId": zod.enum(['ast-bits-v1', 'ts-ast-bits-v1-uniform']).describe('The summon price: ast-bits-v1 (Python) or ts-ast-bits-v1-uniform (TypeScript). One per language.'),
+  "spawnFunctionId": zod.enum(['uniform']),
+  "planningSeconds": zod.number(),
+  "halfLifeSeconds": zod.number(),
+  "startingObjectCount": zod.number().int(),
+  "spawnRateHz": zod.number(),
+  "interactionRateHz": zod.number().min(getManifestResponsePresetsItemSettingsInteractionRateHzMin).max(getManifestResponsePresetsItemSettingsInteractionRateHzMax).default(getManifestResponsePresetsItemSettingsInteractionRateHzDefault),
+  "interactionComputeMs": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsInteractionComputeMsMax).default(getManifestResponsePresetsItemSettingsInteractionComputeMsDefault).describe('CPU backstop per act in milliseconds (excludes compilation and worker startup). The deterministic stepBudget is what binds.'),
+  "stepBudget": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsStepBudgetMax).default(getManifestResponsePresetsItemSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
+  "perActFloorBits": zod.number().min(getManifestResponsePresetsItemSettingsPerActFloorBitsMin).default(getManifestResponsePresetsItemSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
+  "priorId": zod.string().default(getManifestResponsePresetsItemSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getManifestResponsePresetsItemSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getManifestResponsePresetsItemSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
+  "pauseSeconds": zod.number(),
+  "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
+  "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
+  "agentEnergyPerSecond": zod.number().min(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin).max(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax).default(getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault).describe('Each agent\'s income, bits per second of world time.'),
+  "agentBatteryActs": zod.number().min(1).max(getManifestResponsePresetsItemSettingsAgentBatteryActsMax).default(getManifestResponsePresetsItemSettingsAgentBatteryActsDefault).describe('An agent\'s energy is capped at this many expected acts.'),
+  "maxAgentsPerGod": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsMaxAgentsPerGodMax).default(getManifestResponsePresetsItemSettingsMaxAgentsPerGodDefault),
+  "penaltyWeight": zod.number().min(getManifestResponsePresetsItemSettingsPenaltyWeightMin).default(getManifestResponsePresetsItemSettingsPenaltyWeightDefault).describe('w in n = s⁺ − w(h − E h): the weight of a defence-goal bit.'),
+  "defenceRate": zod.number().min(getManifestResponsePresetsItemSettingsDefenceRateMin).max(getManifestResponsePresetsItemSettingsDefenceRateMax).default(getManifestResponsePresetsItemSettingsDefenceRateDefault).describe('Probability that a god is also dealt a defence goal.'),
+  "excludedFamilies": zod.array(zod.string()).max(getManifestResponsePresetsItemSettingsExcludedFamiliesMax).default(getManifestResponsePresetsItemSettingsExcludedFamiliesDefault).describe('Utility families never dealt in this game (ids from the catalog of this object type).')
+}),
+  "offered": zod.boolean().describe('Whether its instantiation is currently offered.')
+})).describe('Named starting points, in display order.')
 })
 
 
@@ -1012,6 +1452,212 @@ export const GetManifestResponse = zod.object({
  */
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
+})
+
+
+/**
+ * Player protocol v3 observation (lib/player-client/src/protocol.ts is the normative schema): your own scores and peer aggregates, your agents, the instance and your kid card. Browser session or room-scoped bearer.
+ */
+export const GetPlayerObservationParams = zod.object({
+  "roomId": zod.coerce.string()
+})
+
+export const GetPlayerObservationResponse = zod.object({
+  "version": zod.enum(['code-gods.player.v3']),
+  "roomId": zod.string(),
+  "revision": zod.number().int(),
+  "gameId": zod.string().optional(),
+  "roomShortCode": zod.string().optional(),
+  "gameShortCode": zod.string().optional(),
+  "seated": zod.boolean().optional(),
+  "planningEndsAt": zod.number().optional(),
+  "pauseEndsAt": zod.number().optional(),
+  "phase": zod.enum(['lobby', 'planning', 'running', 'paused', 'ended']),
+  "language": zod.enum(['python', 'typescript']),
+  "instance": zod.object({
+  "objectType": zod.string(),
+  "args": zod.record(zod.string(), zod.union([zod.number(),zod.string()])).describe('Arguments of the object type constructor, e.g. Int {min, max}, string {maxLength}, Grid {size, symbols, colours}.'),
+  "key": zod.string(),
+  "label": zod.string(),
+  "badges": zod.array(zod.object({
+  "id": zod.string(),
+  "emoji": zod.string(),
+  "label": zod.string(),
+  "kid": zod.string()
+}).describe('A capability in kid-friendly words, e.g. 🔟 Place value or ♠ Suits.')),
+  "terms": zod.record(zod.string(), zod.number()),
+  "display": zod.record(zod.string(), zod.unknown()).describe('Type-specific display tables (Grid: symbols and colours).'),
+  "codec": zod.object({
+  "format": zod.string(),
+  "maxLength": zod.number().int()
+}),
+  "mutators": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "emoji": zod.string(),
+  "summary": zod.string()
+})),
+  "helpers": zod.array(zod.object({
+  "name": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "signature": zod.object({
+  "python": zod.string(),
+  "typescript": zod.string()
+}),
+  "kid": zod.string(),
+  "class": zod.string().optional(),
+  "group": zod.enum(['read', 'mutator'])
+}))
+}).optional().describe('A fully applied object type (e.g. Grid(5,base10,rgby)), its display tables, mutators and prelude helpers.'),
+  "economy": zod.object({
+  "energyPerSecond": zod.number(),
+  "agentEnergyPerSecond": zod.number(),
+  "agentBatteryActs": zod.number(),
+  "maxAgentsPerGod": zod.number().int(),
+  "penaltyWeight": zod.number(),
+  "worldSeconds": zod.number(),
+  "perActFloorBits": zod.number().optional(),
+  "commitClause": zod.boolean().optional(),
+  "objectSelection": zod.enum(['uniform', 'shelter']).optional()
+}).optional(),
+  "self": zod.object({
+  "godId": zod.string(),
+  "label": zod.string(),
+  "isAI": zod.boolean(),
+  "energy": zod.number(),
+  "ready": zod.boolean(),
+  "pauseUsed": zod.boolean().optional(),
+  "utility": zod.object({
+  "familyId": zod.string(),
+  "emoji": zod.string(),
+  "name": zod.string(),
+  "theme": zod.string(),
+  "summary": zod.string(),
+  "language": zod.enum(['python', 'typescript']),
+  "source": zod.string(),
+  "penalty": zod.object({
+  "familyId": zod.string(),
+  "emoji": zod.string(),
+  "name": zod.string(),
+  "summary": zod.string(),
+  "comparative": zod.string().describe('The ⚠️ line reads \'⚠️ <comparative> than 90% of objects\'.'),
+  "source": zod.string().describe('Defines penalty(x): bigger is worse.')
+}).optional()
+}).optional().describe('A god\'s own kid card, with an optional defence goal.')
+}),
+  "objects": zod.array(zod.object({
+  "id": zod.string(),
+  "value": zod.union([zod.number().int(),zod.string()]),
+  "own": zod.object({
+  "ordinal": zod.union([zod.number(),zod.array(zod.number())]).describe('The utility function\'s value, a number or a tuple compared lexicographically.'),
+  "rewardBits": zod.number().describe('✨ surprisal of the ordinal under the spawn prior.'),
+  "penaltyBits": zod.number().optional().describe('⚠️ defence-goal penalty bits (only with a defence goal).'),
+  "netBits": zod.number()
+}).describe('One god\'s own score of one object (private to that god).'),
+  "peerNetBits": zod.number(),
+  "peerCare": zod.number(),
+  "payoff": zod.number()
+})),
+  "agents": zod.array(zod.object({
+  "id": zod.string(),
+  "source": zod.string(),
+  "createdAt": zod.number(),
+  "summonCost": zod.number().describe('Description bits paid once from god energy (ast-bits-v1 / ts-ast-bits-v1-uniform).'),
+  "decisionBits": zod.number().describe('Measured decision information, charged on every act.'),
+  "expectedActCost": zod.number().describe('Expected charge per act over the season\'s reference mixture.'),
+  "breakdown": zod.object({
+  "decision": zod.number().describe('Measured decision information I(X; A), charged on every act.'),
+  "erasure": zod.number(),
+  "motion": zod.number(),
+  "floor": zod.number()
+}).describe('Expected bits per act, by term.'),
+  "randomized": zod.boolean().describe('The agent uses random (measured over several seeds).'),
+  "energy": zod.number(),
+  "eligible": zod.boolean(),
+  "acts": zod.number().int(),
+  "spent": zod.number()
+}).describe('One of your own agents. It acts only while eligible (energy ≥ expectedActCost); negative energy is a cooldown.').and(zod.object({
+  "language": zod.enum(['python', 'typescript'])
+}))),
+  "transformations": zod.array(zod.object({
+  "id": zod.string(),
+  "agentId": zod.string(),
+  "before": zod.union([zod.number().int(),zod.string()]),
+  "after": zod.union([zod.number().int(),zod.string()]),
+  "calls": zod.array(zod.array(zod.unknown())).optional(),
+  "cost": zod.number().optional()
+})),
+  "leaderboard": zod.array(zod.object({
+  "godId": zod.string(),
+  "label": zod.string(),
+  "isAI": zod.boolean(),
+  "totalPayoff": zod.number()
+})),
+  "chat": zod.array(zod.object({
+  "id": zod.string(),
+  "godId": zod.string(),
+  "label": zod.string(),
+  "isAI": zod.boolean(),
+  "text": zod.string()
+}))
+})
+
+
+/**
+ * Idempotent per (god, commandId). Validation is free; summon pays the source's description bits; destroy is free and owner-only.
+ */
+export const SendPlayerCommandParams = zod.object({
+  "roomId": zod.coerce.string()
+})
+
+export const sendPlayerCommandBodyCommandSourceMax = 16384;
+
+export const sendPlayerCommandBodyCommandTextMax = 2000;
+
+
+
+export const SendPlayerCommandBody = zod.object({
+  "version": zod.enum(['code-gods.player.v3']),
+  "commandId": zod.string().uuid(),
+  "gameId": zod.string().optional().describe('Required for validate, summon, pause and destroy.'),
+  "command": zod.object({
+  "type": zod.enum(['validate', 'summon', 'ready', 'pause', 'chat', 'destroy']),
+  "language": zod.enum(['python', 'typescript']).optional(),
+  "source": zod.string().max(sendPlayerCommandBodyCommandSourceMax).optional().describe('Defines agent(obj) returning mutator calls, e.g. def agent(x): return [add(1)].'),
+  "ready": zod.boolean().optional(),
+  "text": zod.string().max(sendPlayerCommandBodyCommandTextMax).optional(),
+  "agentId": zod.string().optional().describe('destroy only. One of your own agents.')
+}).describe('One of validate/summon {language, source}, ready {ready}, pause, chat {text}, destroy {agentId}.')
+})
+
+export const SendPlayerCommandResponse = zod.object({
+  "commandId": zod.string(),
+  "accepted": zod.boolean(),
+  "message": zod.string(),
+  "validation": zod.object({
+  "valid": zod.boolean(),
+  "cost": zod.number().describe('Summon price in bits.'),
+  "parts": zod.object({
+  "structure": zod.number(),
+  "names": zod.number(),
+  "literals": zod.number(),
+  "moveFlags": zod.number(),
+  "literalMoves": zod.number(),
+  "commitClause": zod.number().describe('3.58 bits when the measured acts use the commit clause, else 0.')
+}).optional(),
+  "decisionBits": zod.number().optional(),
+  "expectedActCost": zod.number().describe('Expected charge per act.'),
+  "breakdown": zod.object({
+  "decision": zod.number().describe('Measured decision information I(X; A), charged on every act.'),
+  "erasure": zod.number(),
+  "motion": zod.number(),
+  "floor": zod.number()
+}).optional().describe('Expected bits per act, by term.'),
+  "randomized": zod.boolean().optional(),
+  "diagnostics": zod.array(zod.string())
+}).optional()
 })
 
 

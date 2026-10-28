@@ -186,6 +186,9 @@ importers:
       '@workspace/game-runtime':
         specifier: workspace:*
         version: link:../../lib/game-runtime
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
       '@workspace/game-utilities':
         specifier: workspace:*
         version: link:../../lib/game-utilities
@@ -249,6 +252,10 @@ importers:
         version: 3.1.0
 
   artifacts/code-gods:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
     devDependencies:
       '@hookform/resolvers':
         specifier: ^3.10.0
@@ -367,6 +374,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/object-views':
+        specifier: workspace:*
+        version: link:../../lib/object-views
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -547,6 +557,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 5.2.0(vite@7.3.6(@types/node@25.9.6)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.13)(yaml@2.9.0))
+      '@workspace/game-core':
+        specifier: workspace:*
+        version: link:../../lib/game-core
+      '@workspace/object-views':
+        specifier: workspace:*
+        version: link:../../lib/object-views
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -625,6 +641,12 @@ importers:
 
   artifacts/player-web:
     dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../../lib/game-types
+      '@workspace/object-views':
+        specifier: workspace:*
+        version: link:../../lib/object-views
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../../lib/player-client
@@ -824,6 +846,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.133.0
         version: 0.133.0(zod@3.25.76)
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../player-client
@@ -881,7 +906,11 @@ importers:
         specifier: ^0.31.10
         version: 0.31.10
 
-  lib/game-core: {}
+  lib/game-core:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
 
   lib/game-runtime:
     dependencies:
@@ -892,14 +921,52 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
-  lib/game-utilities:
+  lib/game-types:
     devDependencies:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
 
+  lib/game-utilities:
+    dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  lib/object-views:
+    dependencies:
+      '@radix-ui/react-popover':
+        specifier: ^1.1.7
+        version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
+      '@workspace/game-utilities':
+        specifier: workspace:*
+        version: link:../game-utilities
+    devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: 'catalog:'
+        version: 19.1.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.1.0(react@19.1.0)
+
   lib/player-client:
     dependencies:
+      '@workspace/game-types':
+        specifier: workspace:*
+        version: link:../game-types
       ws:
         specifier: 8.22.0
         version: 8.22.0
