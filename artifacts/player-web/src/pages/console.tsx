@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
 import { AssistantGrants } from "@/components/assistant-grants";
+import { ObjectView, objectTitle } from "@workspace/object-views";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
   isDaemonMode, loginUrl, subscribeObservation, isServerIdle, resumeServer, trackHumanActivity,
@@ -16,8 +17,6 @@ type Unknown = { command: Command; commandId: UUID; error: string };
 const POLL_MS = 1500;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const fmt = (v: number | string) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(3)) : v);
-/** Object values: strings are JSON-quoted so spaces, quotes and control characters stay visible. */
-const show = (v: number | string) => (typeof v === "number" ? String(v) : JSON.stringify(v));
 
 /** Rooms are lobbies between games; say where this player stands in that cycle. */
 function LobbyStatus({ obs }: { obs: Observation }) {
@@ -428,7 +427,7 @@ export default function Console() {
                     {ranked.map((o, i) => (
                       <tr key={o.id} data-testid={`row-object-${o.id}`} className="border-t border-[hsl(var(--card-border))] hover:bg-muted transition-colors">
                         <td className="py-1.5 pr-2 opacity-50">{i + 1}</td>
-                        <td className="pr-2 max-w-[260px] truncate" title={show(o.value)}>{show(o.value)}</td>
+                        <td className="pr-2 max-w-[260px] truncate" title={objectTitle(o.value)}><ObjectView value={o.value} /></td>
                         <td className="text-right pr-2">{fmt(o.ownUtility)}</td>
                         <td className="text-right pr-2 opacity-70">{fmt(o.othersUtilitySum)}</td>
                         <td className={`text-right font-semibold ${o.score > 0 ? "text-[hsl(var(--accent))]" : "opacity-50"}`}>{fmt(o.score)}</td>
@@ -445,7 +444,7 @@ export default function Console() {
                 {obs.transformations.map((t) => (
                   <li key={t.id} data-testid={`row-transformation-${t.id}`} className="flex gap-2 items-center">
                     <span className="opacity-50 w-20 truncate">{t.agentId}</span>
-                    <span className="truncate">{show(t.before)}</span><span className="text-primary">→</span><span className="truncate font-semibold">{show(t.after)}</span>
+                    <span className="truncate"><ObjectView value={t.before} /></span><span className="text-primary">→</span><span className="truncate font-semibold"><ObjectView value={t.after} compareTo={t.before} /></span>
                   </li>
                 ))}
               </ul>

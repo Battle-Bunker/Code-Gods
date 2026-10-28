@@ -224,7 +224,7 @@ export default function Game() {
               onSend={(text, done) => act.run({ action: "chat", text }, done)} />
             <GameRules settings={game.settings} roomCode={game.roomShortCode} gameCode={game.shortCode} note="Uses this game’s settings snapshot." />
           </div>
-          <Objects objects={game.objects} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
+          <Objects objects={game.objects} objectType={game.settings.objectType} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
           <div className="space-y-6">
             {isOwner && active && game.roomShortCode && <OwnerControls game={game} act={act} />}
             <Roster roster={game.roster} meId={user?.id} ownerId={game.ownerId} />

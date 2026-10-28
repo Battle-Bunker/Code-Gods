@@ -4,6 +4,7 @@ import { Panel, Empty } from "@/components/shell";
 import { fmt } from "@/lib/errors";
 import { toMs } from "@/lib/time";
 import { Bot, Send, User } from "lucide-react";
+import { ObjectView } from "@workspace/object-views";
 
 export function Conn({ ok, updatedAt, fetching, label = "live / 1s poll", staleAfter = 4 }: { ok: boolean; updatedAt: number; fetching: boolean; label?: string; staleAfter?: number }) {
   const [, tick] = useState(0);
@@ -55,7 +56,7 @@ export function Repertoire({ catalog }: { catalog: UtilityFamily[] }) {
   );
 }
 
-export function Objects({ objects, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: PublicObject[]; emptyBody?: string }) {
+export function Objects({ objects, objectType, emptyBody = "No objects in this world. Nothing is invented here." }: { objects: PublicObject[]; objectType?: string; emptyBody?: string }) {
   const objs = useMemo(() => [...objects].sort((a, b) => b.totalUtility - a.totalUtility), [objects]);
   const max = Math.max(1, ...objs.map((o) => Math.abs(o.totalUtility)));
   return (
@@ -71,7 +72,7 @@ export function Objects({ objects, emptyBody = "No objects in this world. Nothin
                 <tr key={o.id} className="border-t hover:bg-muted/50" data-testid={`row-object-${o.id}`}>
                   <td className="px-4 py-1.5 font-mono text-muted-foreground">{i + 1}</td>
                   <td className="py-1.5 font-mono text-xs truncate max-w-[120px]">{o.id}</td>
-                  <td className="py-1.5 font-mono truncate max-w-[220px]">{typeof o.value === "string" ? JSON.stringify(o.value) : o.value}</td>
+                  <td className="py-1.5 font-mono truncate max-w-[220px]"><ObjectView value={o.value} objectType={objectType} /></td>
                   <td className="py-1.5 font-mono text-right text-muted-foreground">v{o.version}</td>
                   <td className="px-4 py-1.5 text-right">
                     <div className="flex items-center justify-end gap-2">

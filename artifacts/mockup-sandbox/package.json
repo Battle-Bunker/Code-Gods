@@ -45,6 +45,8 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@workspace/game-core": "workspace:*",
+    "@workspace/object-views": "workspace:*",
     "chokidar": "^4.0.3",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
