@@ -265,9 +265,9 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
             lr = np.log(np.maximum([r["welfare"] for r in rs], 1) / np.maximum([b["welfare"] for b in base], 1))
             wr = f"{math.exp(lr.mean()):.2f}"
         rows.append([n] + [ci([r[k] for r in rs]) for k in HEAD[5:]] +
-                    [ci([r["final_salience_mean"] for r in rs]), wr,
+                    [ci([r["final_salience_mean"] for r in rs]), f"{np.mean([r['hits_per_obj_s'] for r in rs]):.2f}", wr,
                      f"{np.mean([r['idle_share'] for r in rs]):.2f}", f"{np.mean([r['attempt_share'] for r in rs]):.2f}"])
-    out.append("\n" + md_table(["setting"] + HEAD[5:] + ["final salience (bits)", "welfare ratio vs summon (geo-mean)",
+    out.append("\n" + md_table(["setting"] + HEAD[5:] + ["final salience (bits)", "hits/object/s", "welfare ratio vs summon (geo-mean)",
                                                        "idle tick share", "attempt share"], rows))
     if base:
         rows = [[n] + [paired(base, results[n], k) for k in ("dynamism", "dynamism2", "tension_rate",
@@ -288,9 +288,9 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
     # fairness
     rows = []
     for n in names:
-        ff = family_fairness(god_rows(results[n]), B=60, min_n=10)
+        ff = family_fairness(god_rows(results[n]), B=60, min_n=6)
         rows.append([n, f"{ff['z_sd']:.3f}", f"{ff['z_sd_excess']:.3f}", f"{ff['share_unfair']:.2f}", ff["n_families"]])
-    out.append("\n### Per-family fairness (policy-adjusted z; excess SD over sampling noise)\n")
+    out.append("\n### Per-family fairness (policy-adjusted z over families with >= 6 god-slots; excess SD over sampling noise)\n")
     out.append(md_table(["setting", "family z SD", "excess SD", "share of families with CI excluding 0.5", "families"], rows))
     rows = []
     for n in names:
@@ -302,12 +302,12 @@ def report(results: dict[str, list[dict]], spam: dict[str, list[dict]] | None, n
     out.append("\n**Saver win share per GridType**\n")
     out.append(md_table(["setting"] + TYPES, rows))
     if base:
-        fb = family_fairness(god_rows(base), B=20, min_n=10)["families"]
+        fb = family_fairness(god_rows(base), B=20, min_n=6)["families"]
         for n in names:
             if n not in FOCUS:
                 continue
-            fn = family_fairness(god_rows(results[n]), B=20, min_n=10)["families"]
-            common = [f for f in fb if f in fn and fb[f]["n"] >= 10 and fn[f]["n"] >= 10]
+            fn = family_fairness(god_rows(results[n]), B=20, min_n=6)["families"]
+            common = [f for f in fb if f in fn and fb[f]["n"] >= 6 and fn[f]["n"] >= 6]
             mv = sorted(common, key=lambda f: fn[f]["adj_z"] - fb[f]["adj_z"])
             pick = mv[:5] + mv[-5:]
             out.append(f"\n**Largest family moves, summon → {n}** (policy-adjusted z; n god-slots)\n")

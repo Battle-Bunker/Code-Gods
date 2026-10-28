@@ -154,7 +154,8 @@ Patchwork's component labelling is the outlier (noted in NOTES.md).
   (the god pays the description bits at summon; each agent earns its own income and acts only once its
   balance covers its expected per-act bits, paying each act's pointwise information cost) or `"owner_pays"`
   (the owner pays per-application bits on each commit). Knobs `agent_income`, `agent_battery`,
-  `agent_income_alpha`, `agent_start`; see docs/agent-energy.md.
+  `agent_start`, `agent_act_floor_bits`, `agent_act_naming`; gods can destroy their own agents for free
+  (`World.destroy`, `Policy.destroy`). See docs/agent-energy.md.
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
 * **Rate scaling**: the real engine caps interactions at 100 Hz, and the default here is 20 Hz.
