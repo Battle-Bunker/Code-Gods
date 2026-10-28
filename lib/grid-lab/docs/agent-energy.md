@@ -384,6 +384,41 @@ remaining conclusions, not re-run:
   it cannot run, so policies must know the economy;
 * `owner_pays` bankrupts gods: 79–80% of draws are skipped, commits fall to 17/s, and final salience to 4.8 bits.
 
+### 4.9 The 80-object world at production incomes (held-out seeds)
+
+Production will use the experiment worker's world (0.5 Hz spawns, 80 starting objects). The energy
+economies under-boil it at income 2 (§4.1), so a follow-up ran higher incomes with a floor. Each
+setting ran 120 paired games on **held-out seeds** (seed base 800,000, not used anywhere above), 3
+GridTypes and 4 gods. Differences are paired against `w80_summon` on the same seeds.
+
+| setting (w80) | hits / object / s | Δ dynamism | Δ dynamism2 | Δ tension | Δ lead ch. /100 s | Δ late activity | final salience | welfare vs w80 summon | saver wins | demand / cap | cap-binding share | crowding | agents destroyed | family excess SD |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| summon | 0.58 | – | – | – | – | – | 12.5 | 1 | 0.48 | – | always | – | – | 0.196 |
+| I8, floor 2 | 0.23 | −0.010 ± 0.014 | −0.015 ± 0.013 | −0.020 | −0.51 | +0.053 | 15.9 | 1.71 | 0.41 | 0.42 | 9% | 2.39 | 42% | 0.246 |
+| I16, floor 2 | 0.35 | +0.002 ± 0.012 | +0.027 ± 0.013 | −0.010 | −0.10 | +0.043 | 19.7 | 2.39 | 0.42 | 0.75 | 30% | 2.22 | 44% | 0.236 |
+| **I32, floor 2** | **0.46** | **+0.008 ± 0.012** | **+0.056 ± 0.012** | +0.006 | −0.39 | +0.034 | 24.3 | 3.43 | **0.35** | 1.55 | 75% | **1.85** | 44% | 0.255 |
+| I16, floor 1 | 0.42 | −0.005 ± 0.011 | +0.031 ± 0.013 | −0.015 | −0.43 | +0.040 | 20.0 | 2.45 | 0.42 | 1.18 | 57% | 2.30 | 44% | 0.234 |
+
+Readings:
+
+* **Hits per object scale almost linearly with income.** Only income 32 with a 2-bit floor (0.46) and
+  income 16 with a 1-bit floor (0.42) reach the 0.4–0.7 band. Under today's economy this world runs at 0.58.
+* **Dynamism is as good as today's at every income ≥ 16,** and dynamism2 is better (+0.03 to +0.06).
+  Tension and spirals are back to today's level, late activity is higher, and rarity is far higher
+  (final salience 20–24 bits vs 12.5; welfare ×2.4–3.4).
+* **Saver: 0.35 at I32 with floor 2**, the best of the four, against 0.48 today. Random stays weak
+  (0.12–0.17).
+* **The trade-off at I32 is that the cap binds again in 75% of snapshots** (median demand 1.55× the cap).
+  Crowding is nevertheless the lowest here (1.85), because the floor caps each agent's rate at
+  income / 2 = 16 acts/s, so the near-free agents no longer dominate.
+* **Per-family spread is wider than today in this world** (excess SD 0.23–0.26 vs 0.20).
+* Destroy stays at about 44% of agents.
+
+**Recommendation for the 80-object world: `agent_income = 32` bits/s per agent with `agent_act_floor_bits = 2`**
+(at 100 Hz). It is the only floor-2 setting in the target hit band, with full dynamism, the best saver
+share and the lowest crowding. Income 16 with a 1-bit floor is the alternative. It sits closer to the cap
+(57% binding) but has a weaker saver balance (0.42).
+
 ## 5. Recommendations
 
 1. **Use `economy = "agent_energy"` with a physical per-act floor, `agent_act_floor_bits = 2`, and
@@ -405,10 +440,11 @@ remaining conclusions, not re-run:
    description a second time.
 4. **`agent_battery = 2`, `agent_start = "zero"`.** Neither matters much. Keep the energy-aware value model
    and destroy on.
-5. **Keep the default world (10 objects, 0.1 Hz) for this economy, or raise income with the object count.**
-   With 80 objects, the cooled agents under-boil the world (0.08 hits per object per second at I2 with a
-   2-bit floor). Holding the experiment worker's 0.4–0.7 band there needs roughly 5–8× the income (an
-   estimate from the linear scaling of commits; not run).
+5. **Scale income with the world. For production's 80-object world (0.5 Hz spawns, 80 starting objects),
+   use `agent_income = 32` with the 2-bit floor** (§4.9, held-out seeds). It gives 0.46 hits per object per
+   second, dynamism +0.008 ± 0.012 and dynamism2 +0.056 vs today on that world, saver 0.35 (today 0.48),
+   and crowding 1.85. The trade-off: the cap binds in 75% of snapshots, and the family spread is wider
+   (0.26 vs 0.20). At income 2 that world under-boils (0.08 hits per object per second).
 
 ## 6. Caveats
 
