@@ -21,7 +21,7 @@ import numpy as np
 from gridlab.core import Grid, GridType, spawn_batch
 from gridlab.family import Draw
 from gridlab import calibrate as cal
-from gridlab.defence import HINGE_BITS, hinge, card, object_line, constants
+from gridlab.defence import HINGE_BITS, hinge, card, object_line, constants, net_bits, payoff_matrix
 from gridlab.rules import FAMILIES, DEFENCE_FAMILIES, PENALTIES, by_id
 from gridlab.rules import defence as rd
 from gridlab.rules._util import log2_binom_tail
@@ -72,6 +72,8 @@ def test_prior_mean_exact():
         want = float((pk * np.maximum(0, s - c)).sum())
         # levels only cover ordinals seen while estimating; the unseen top values carry ~2^-40 mass
         assert abs(T.prior_mean_bits(c) - want) < 1e-6, (c, T.prior_mean_bits(c), want)
+    want = float((pk * hinge(s)).sum())
+    assert abs(T.prior_mean_bits(f=hinge) - want) < 1e-6
 
 
 def test_fair_and_zero_mean():
@@ -84,13 +86,12 @@ def test_fair_and_zero_mean():
         p = pf.sample(rng, GT)
         T = cal.survival(Draw(pf, p), GT)
         h = hinge(T.surprisal(pf.evaluate_batch(S, C, p, GT)))
-        hbar = T.prior_mean_bits(HINGE_BITS)
+        hbar = T.prior_mean_bits(f=hinge)
         se = h.std() / math.sqrt(len(h))
         assert abs(h.mean() - hbar) < 5 * se + 0.03, (pf.id, h.mean(), hbar)
-        assert float((h > 0).mean()) <= 0.5 + 0.02, (pf.id, float((h > 0).mean()))
         for k in range(1, 8):
             frac = float((h >= k).mean())
-            bound = 2.0 ** -(k + 1)
+            bound = 2.0 ** -k / 1.5   # h(s) <= s - log2(1.5) for s >= 1
             assert frac <= 1.3 * bound + 4 * math.sqrt(bound / len(h)), (pf.id, k, frac, bound)
 
 
@@ -119,31 +120,77 @@ def test_damage_costs_bits():
     assert loss_comb < 1.5 < h2.mean() - h0.mean(), (loss_comb, h2.mean() - h0.mean())
 
 
+def _dc(mode, w=(1.0, 0.0, 1.0, 0.0), hbar=(0.7, 0.0, 0.5, 0.0), K=(4.0, 0.0, 3.0, 0.0)):
+    from gridlab.defence import DefenceConstants
+    w, hbar, K = map(np.array, (w, hbar, K))
+    return DefenceConstants(w > 0, w, K, K, hbar, np.ones(4), mode)
+
+
+def test_hinge_strict():
+    s = np.linspace(0, 80, 4001)
+    h = hinge(s)
+    assert h[0] == 0.0 and (np.diff(h) > 0).all(), "soft hinge must be strictly increasing"
+    assert abs(hinge(1.0) - (1 - math.log2(1.5))) < 1e-12 and abs(hinge(60.0) - (59 - math.log2(1.5))) < 1e-9
+    assert (h <= np.maximum(s - math.log2(1.5), 1 - math.log2(1.5)) + 1e-12).all()
+
+
+def test_monotone_theorem():
+    """Theorem (docs/defence-goals.md §3): more points never give fewer bits and more penalty never gives a
+    better net score; strictly, wherever the calibration is strict. Checked on real tables."""
+    rng = np.random.default_rng(4)
+    S_, C_ = spawn_batch(GT, rng, 3000)
+    d = Draw(by_id("seed3_green_ones+hate_colour"), {"colour": 2, "value": 1, "defence": {"colour": 0}})
+    T, PT = cal.survival(d, GT), cal.survival(d.penalty_draw(), GT)
+    r = d.reward_draw().family.evaluate_batch(S_, C_, d.reward_draw().params, GT)
+    q = d.penalty_draw().family.evaluate_batch(S_, C_, d.penalty_draw().params, GT)
+    dc = constants([T], [PT])
+    n = net_bits(T.surprisal(r)[:, None], hinge(PT.surprisal(q))[:, None], dc)[:, 0]
+    for _ in range(4000):
+        a, b = rng.integers(0, len(r), 2)
+        if r[a] >= r[b] and q[a] <= q[b]:
+            assert n[a] >= n[b] - 1e-12
+        if r[a] > r[b] and q[a] <= q[b] and T.surprisal(int(r[a])) > T.surprisal(int(r[b])):
+            assert n[a] > n[b]
+        if r[a] >= r[b] and q[a] < q[b] and PT.surprisal(int(q[a])) < PT.surprisal(int(q[b])):
+            assert n[a] > n[b]
+
+
 def test_payoff_algebra():
     rng = np.random.default_rng(3)
-    M, G = 30, 4
+    M, G = 400, 4
     S = rng.exponential(1.5, (M, G))
-    H = np.maximum(0, rng.exponential(1.5, (M, G)) - 1)
-    K = np.array([4.0, 0.0, 3.0, 0.0])
-    hbar = np.array([0.7, 0.0, 0.5, 0.0])
+    H = rng.exponential(2.0, (M, G))
     H[:, [1, 3]] = 0
-    P = payoffs(S, H, K, hbar)
-    # without penalties: exactly the old formula
-    assert np.array_equal(payoffs(S), S * (S.sum(1, keepdims=True) - S))
-    assert np.allclose(P[:, [1, 3]], payoffs(S)[:, [1, 3]])
-    assert np.allclose(P[:, 0], payoffs(S)[:, 0] - K[0] * (H[:, 0] - hbar[0]))
-    # no spite: raising any s_j never lowers anyone's payoff; another god's penalty never moves yours
+    plain = S * (S.sum(1, keepdims=True) - S)
+    for mode in ("floored", "gated", "private"):
+        # no scored goal: exactly the original formula
+        assert np.array_equal(payoff_matrix(S, H, _dc(mode, w=(0, 0, 0, 0))), plain)
+        assert np.array_equal(payoffs(S), plain)
+    # floored: n_i · max(0, peers); never positive from two negatives (no farming)
+    dc = _dc("floored")
+    P = payoff_matrix(S, H, dc)
+    n = net_bits(S, H, dc)
+    peer = n.sum(1, keepdims=True) - n
+    assert np.allclose(P, n * np.maximum(0, peer))
+    assert (P[(n < 0)] <= 1e-12).all(), "own negative never scores positive"
+    assert np.allclose(P[peer < 0], 0), "a negative collective multiplier zeroes the payoff"
+    # flank: own negative with caring peers loses; the loss grows with the peers' bits
+    m = (n[:, 0] < 0) & (peer[:, 0] > 0)
+    assert m.any() and (P[m, 0] < 0).all()
+    # gated: pathology check (own positive, gate open, peers negative -> negative payoff)
+    Pg = payoff_matrix(S, H, _dc("gated"))
+    bad = (n > 0) & (peer < 0) & (n.sum(1, keepdims=True) > 0)
+    assert bad.any() and (Pg[bad] < 0).all()
+    # private: no spite, penalties private, self-bonus bounded by K h̄
+    dcp = _dc("private")
+    Pp = payoff_matrix(S, H, dcp)
     for j in range(G):
-        S2 = S.copy()
-        S2[:, j] += 0.5
-        assert (payoffs(S2, H, K, hbar) - P >= -1e-12).all()
-        H2 = H.copy()
-        H2[:, j] += 2.0
-        diff = payoffs(S, H2, K, hbar) - P
-        others = [i for i in range(G) if i != j]
-        assert np.allclose(diff[:, others], 0)
-    # self-bonus is bounded by K h̄ per object
-    assert (P - payoffs(S) <= K * hbar + 1e-12).all()
+        S2 = S.copy(); S2[:, j] += 0.5
+        assert (payoff_matrix(S2, H, dcp) - Pp >= -1e-12).all()
+        H2 = H.copy(); H2[:, j] += 2.0
+        diff = payoff_matrix(S, H2, dcp) - Pp
+        assert np.allclose(diff[:, [i for i in range(G) if i != j]], 0)
+    assert (Pp - plain <= dcp.K * dcp.hbar + 1e-12).all()
 
 
 def small(seed=5, **kw):
@@ -163,10 +210,16 @@ def check_world(world, ev):
 
 
 def test_game_invariants():
+    for mode in ("gated", "private"):
+        lg = run_game(small(payoff_mode=mode, fixed_seconds=30.0), hook=check_world)
+        assert lg.defence.mode == mode
+        want = payoffs(lg.final_s.astype(float), lg.final_h.astype(float), lg.defence).sum(0)
+        assert np.allclose(want, lg.final_payoff, rtol=1e-4, atol=1e-2)
     log = run_game(small(), hook=check_world)
+    assert log.defence.mode == "floored"
     assert log.has_penalty.tolist() == [True, False, True, False]
-    assert (log.penalty_K[log.has_penalty] > 0).all() and (log.penalty_K[~log.has_penalty] == 0).all()
-    want = payoffs(log.final_s.astype(float), log.final_h.astype(float), log.penalty_K, log.penalty_hbar).sum(0)
+    assert (log.defence.w[log.has_penalty] > 0).all() and (log.defence.w[~log.has_penalty] == 0).all()
+    want = payoffs(log.final_s.astype(float), log.final_h.astype(float), log.defence).sum(0)
     assert np.allclose(want, log.final_payoff, rtol=1e-4, atol=1e-2)
     m = metrics(log)
     assert len(m["defence"]) == 2 and m["penalty_scored"]
@@ -183,7 +236,7 @@ def test_unscored_controls():
     b = run_game(small(penalty_weight=0.0))
     for f in ("c_time", "c_agent", "c_after", "c_hafter", "final_payoff"):
         assert np.array_equal(getattr(a, f), getattr(b, f)), f
-    assert (a.penalty_K == 0).all() and a.has_penalty.sum() == 2
+    assert (a.defence.w == 0).all() and a.has_penalty.sum() == 2
     assert np.allclose(payoffs(a.final_s.astype(float)).sum(0), a.final_payoff, rtol=1e-4, atol=1e-2)
     c = run_game(small(fixed_families=["seed3_green_ones", "kingdom", "islands", "seed1_line_painter"]))
     assert not c.has_penalty.any() and not c.c_hafter.any() and not metrics(c)["defence"]
@@ -235,10 +288,10 @@ def test_constants():
     pt = [cal.survival(Draw(rd.HATE_COLOUR, {"colour": 1}), GT), None]
     dc = constants(tabs, pt)
     assert dc.has.tolist() == [True, False]
-    assert abs(dc.K[0] - tabs[1].prior_mean_bits()) < 1e-12 and dc.K[1] == 0
+    assert abs(dc.K[0] - tabs[1].prior_mean_bits()) < 1e-12 and dc.K[1] == 0 and dc.mode == "floored"
     assert 0.3 < tabs[1].prior_mean_bits() < 1 / math.log(2) + 1e-9
     assert constants(tabs, pt, rate=1.0).K[0] == 1.0
-    assert (constants(tabs, pt, scored=False).K == 0).all()
+    assert (constants(tabs, pt, scored=False).K == 0).all() and not constants(tabs, pt, scored=False).scored
 
 
 def main():

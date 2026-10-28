@@ -3,16 +3,17 @@
 A god may hold a reward ordinal r (✨, bigger is better) and a penalty ordinal d (⚠️, bigger is worse),
 each calibrated on its own survival function under the prior μ:
 
-    s⁺(x) = -log2 μ{r >= r(x)}                         reward bits
-    h(x)  = max(0, -log2 μ{d >= d(x)} - HINGE_BITS)    penalty bits (0 unless worse than half of all grids)
+    s⁺(x) = -log2 μ{r >= r(x)}                 reward bits
+    h(x)  = softhinge(-log2 μ{d >= d(x)})      penalty bits (≈ 0 unless worse than half of all grids)
+    n(x)  = s⁺(x) - (h(x) - E_μ h)             signed bits: + for surprisingly good, - for surprisingly bad
 
-and scores, per object,
+and scores, per object (default "floored" mode),
 
-    π_i(x) = s⁺_i(x) · Σ_{j≠i} s⁺_j(x)  -  K_i · (h_i(x) - h̄_i),   K_i = Σ_{j≠i} E_μ[s⁺_j],  h̄_i = E_μ[h_i].
+    π_i(x) = n_i(x) · max(0, Σ_{j≠i} n_j(x))
 
-The product is the unchanged payoff formula; the penalty term is private (it never enters another god's
-payoff), priced at the prior mean of the peer factor (so no god gains when another's surprisal falls), and
-centred so that it is zero-mean on fresh spawns. Gods without a defence goal have no second term.
+"If, overall, the other gods don't care about a grid, nobody scores from it." With no defence goal in the
+game n = s⁺ ≥ 0 and this is exactly the original s_i · Σ_{j≠i} s_j. `payoff_matrix` also implements the
+"gated" and "private" alternatives compared in the doc.
 """
 from __future__ import annotations
 
@@ -26,48 +27,75 @@ from .core import Grid, GridType
 from .family import Draw
 
 HINGE_BITS = 1.0   # the median: half of all grids are at least this bad
+_H0 = math.log2(1.0 + 2.0 ** -HINGE_BITS)
+MODES = ("floored", "gated", "private")
 
 
 def hinge(bits):
-    """Penalty bits from badness surprisal: max(0, s⁻ - HINGE_BITS); scalar or array."""
-    if np.ndim(bits) == 0:
-        return max(0.0, float(bits) - HINGE_BITS)
-    return np.maximum(0.0, np.asarray(bits, dtype=np.float64) - HINGE_BITS)
+    """Penalty bits from badness surprisal s⁻ ≥ 0: a soft hinge at the median,
+
+        h(s) = log2(1 + 2^(s - 1)) - log2(1 + 2^-1),
+
+    strictly increasing, h(0) = 0, h ≈ 0.4 at the median and h ≈ s - 1.58 for bad grids. Scalar or array."""
+    a = np.asarray(bits, dtype=np.float64)
+    out = np.logaddexp2(0.0, a - HINGE_BITS) - _H0
+    return float(out) if np.ndim(bits) == 0 else out
 
 
 @dataclass(frozen=True)
 class DefenceConstants:
-    """Per-god constants of the defence term (arrays of length G)."""
+    """Per-god constants of the defence scoring (arrays of length G) and the payoff mode."""
     has: np.ndarray          # bool: god has a defence goal
-    K: np.ndarray            # exchange rate (bits² per penalty bit) actually used in the payoff (0 if unscored)
-    K_prior: np.ndarray      # Σ_{j≠i} E_μ[s⁺_j], before weight/rate overrides and scoring switch
+    w: np.ndarray            # penalty weight actually scored (0 without a goal or when unscored)
+    K: np.ndarray            # "private" mode rate (bits² per penalty bit) = w · K_prior
+    K_prior: np.ndarray      # Σ_{j≠i} E_μ[s⁺_j]
     hbar: np.ndarray         # E_μ[h_i] (0 for gods without a defence goal)
     reward_mean: np.ndarray  # E_μ[s⁺_i]
+    mode: str = "floored"
 
     @property
     def any(self) -> bool:
         return bool(self.has.any())
 
+    @property
+    def scored(self) -> bool:
+        return bool(np.any(self.w))
+
 
 def constants(tables: Sequence, ptables: Sequence, rate="prior", weight: float = 1.0,
-              scored: bool = True) -> DefenceConstants:
+              scored: bool = True, mode: str = "floored") -> DefenceConstants:
     """Defence constants from reward tables and penalty tables (None for gods without a defence goal).
-    rate: "prior" (K_i = Σ_{j≠i} E_μ[s⁺_j]) or a float = bits per peer (K_i = (G-1)·rate)."""
+    rate ("private" mode only): "prior" (K_i = Σ_{j≠i} E_μ[s⁺_j]) or a float = bits per peer."""
+    assert mode in MODES, mode
     G = len(tables)
     has = np.array([t is not None for t in ptables], bool)
     m = np.array([t.prior_mean_bits() for t in tables], float)
-    if rate == "prior":
-        Kp = m.sum() - m
-    else:
-        Kp = np.full(G, (G - 1) * float(rate))
-    hbar = np.array([t.prior_mean_bits(HINGE_BITS) if t is not None else 0.0 for t in ptables], float)
-    K = np.where(has, Kp * weight, 0.0) * (1.0 if scored else 0.0)
-    return DefenceConstants(has, K, np.where(has, Kp, 0.0), hbar, m)
+    Kp = m.sum() - m if rate == "prior" else np.full(G, (G - 1) * float(rate))
+    hbar = np.array([t.prior_mean_bits(f=hinge) if t is not None else 0.0 for t in ptables], float)
+    w = np.where(has, float(weight), 0.0) * (1.0 if scored else 0.0)
+    return DefenceConstants(has, w, w * Kp, np.where(has, Kp, 0.0), hbar, m, mode)
 
 
-def defence_term(H: np.ndarray, K: np.ndarray, hbar: np.ndarray) -> np.ndarray:
-    """-K_i (h_i(x) - h̄_i) for a penalty matrix H (M, G); zero columns where K = 0."""
-    return -(H - hbar[None, :]) * K[None, :]
+def net_bits(S: np.ndarray, H: np.ndarray, dc: DefenceConstants) -> np.ndarray:
+    """Signed bits per god: n_i = s⁺_i - w_i (h_i - h̄_i). Strictly increasing in the reward ordinal and
+    strictly decreasing in the penalty ordinal; equals s⁺ for gods without a scored defence goal."""
+    return S - (H - dc.hbar) * dc.w
+
+
+def payoff_matrix(S: np.ndarray, H: Optional[np.ndarray] = None, dc: Optional[DefenceConstants] = None) -> np.ndarray:
+    """Per-object payoffs π (M, G). Without a scored defence goal: s_i · Σ_{j≠i} s_j (the original formula).
+    floored: n_i · max(0, Σ_{j≠i} n_j)          (the collective term is floored at 0)
+    gated:   n_i · Σ_{j≠i} n_j if Σ_j n_j > 0 else 0
+    private: s_i · Σ_{j≠i} s_j - K_i (h_i - h̄_i) (penalties never enter anyone else's payoff)"""
+    if H is None or dc is None or not dc.scored:
+        return S * (S.sum(axis=1, keepdims=True) - S)
+    if dc.mode == "private":
+        return S * (S.sum(axis=1, keepdims=True) - S) - (H - dc.hbar) * dc.K
+    n = net_bits(S, H, dc)
+    peer = n.sum(axis=1, keepdims=True) - n
+    if dc.mode == "floored":
+        return n * np.maximum(0.0, peer)
+    return np.where(n.sum(axis=1, keepdims=True) > 0, n * peer, 0.0)
 
 
 def penalty_bits(pdraw: Optional[Draw], ptable, g: Grid, gtype: GridType) -> float:
@@ -101,7 +129,7 @@ def object_line(draw: Draw, table, ptable, g: Grid, gtype: GridType) -> str:
         h = hinge(sm)
         from .rules.defence import comparative
         word = comparative(pd, gtype)
-        if h > 0:
+        if sm > HINGE_BITS:
             out.append(f"⚠️ {word} than {math.floor(100 * (1 - 2.0 ** -sm))}% of grids ({h:.1f} ⚠️)")
         else:
             out.append("⚠️ fine (no worse than usual)")

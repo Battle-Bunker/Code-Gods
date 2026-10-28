@@ -224,16 +224,19 @@ class Survival:
         i = bisect_right(self._lv, int(t)) - 1
         return 0.0 if i < 0 else float(self.stderr_bits[min(i, len(self._lv) - 1)])
 
-    def prior_mean_bits(self, hinge: float = 0.0) -> float:
-        """E_μ[max(0, s(u(X)) - hinge)] for X ~ prior, exact for the step table: an ordinal in
-        [level_k, level_k+1) scores s_k and has mass G_k - G_k+1 (docs/defence-goals.md §4)."""
+    def prior_mean_bits(self, hinge: float = 0.0, f: Optional[Callable] = None) -> float:
+        """E_μ[f(s(u(X)))] for X ~ prior, f(s) = max(0, s - hinge) unless given; exact for the step table:
+        an ordinal in [level_k, level_k+1) scores s_k and has mass G_k - G_k+1 (docs/defence-goals.md)."""
         memo = self.__dict__.setdefault("_mean_memo", {})
-        if hinge not in memo:
+        key = (hinge, f)
+        if key not in memo:
             s = np.asarray(self.surprisal(self.levels), dtype=np.float64)
             G = np.exp2(-s)
-            mass = G - np.r_[G[1:], 0.0]
-            memo[hinge] = float((np.maximum(0.0, s - hinge) * np.maximum(mass, 0.0)).sum())
-        return memo[hinge]
+            mass = np.maximum(G - np.r_[G[1:], 0.0], 0.0)
+            v = np.maximum(0.0, s - hinge) if f is None else np.asarray(f(s), dtype=np.float64)
+            # ordinals below the lowest level score 0 bits
+            memo[key] = float((v * mass).sum() + (0.0 if f is None else float(f(0.0)) * max(0.0, 1.0 - G[0])))
+        return memo[key]
 
     def __repr__(self):
         return (f"Survival({self.meta.get('family', '?')}, {len(self.levels)} levels, "

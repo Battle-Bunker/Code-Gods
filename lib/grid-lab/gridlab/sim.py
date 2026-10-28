@@ -128,8 +128,9 @@ class GameConfig:
     seed: int = 0
     # defence goals (docs/defence-goals.md); inert unless a dealt family has a `penalty`
     score_penalties: bool = True                         # False: compute and log penalties but do not score them
-    penalty_rate: str | float = "prior"                  # K_i = Σ_{j≠i} E_μ[s⁺_j], or bits per peer
-    penalty_weight: float = 1.0                          # multiplies K_i
+    payoff_mode: str = "floored"                         # "floored" | "gated" | "private" (defence.payoff_matrix)
+    penalty_rate: str | float = "prior"                  # "private" mode: K_i = Σ_{j≠i} E_μ[s⁺_j], or bits per peer
+    penalty_weight: float = 1.0                          # multiplies penalty bits
 
     def policy_list(self) -> list[str]:
         p = [self.policies] * self.n_gods if isinstance(self.policies, str) else list(self.policies)
@@ -239,7 +240,7 @@ class GameLog:
     final_energy: np.ndarray = None
     spent: np.ndarray = None
     counters: dict = None
-    # defence goals: penalty bits h (hinged, uncentred; 0 for gods without one). Present in every log.
+    # defence goals: penalty bits h (soft-hinged, uncentred; 0 for gods without one). Present in every log.
     c_hbefore: np.ndarray = None  # float32 (K, G)
     c_hafter: np.ndarray = None
     s_hvec: np.ndarray = None     # float32 (n, G) at spawn
@@ -250,6 +251,7 @@ class GameLog:
     penalty_K_prior: np.ndarray = None
     penalty_hbar: np.ndarray = None
     score_penalties: bool = True
+    defence: "dfn.DefenceConstants" = None
 
     @property
     def n_gods(self) -> int:
@@ -264,21 +266,15 @@ class GameLog:
         return np.array([1 + int((p > x).sum()) for x in p])
 
 
-def payoffs(S: np.ndarray, H: np.ndarray | None = None, K: np.ndarray | None = None,
-            hbar: np.ndarray | None = None) -> np.ndarray:
-    """Per-object payoff matrix π[x, i] = s_i(x) * S_-i(x) for a surprisal matrix S (M, G), minus the
-    defence term K_i (h_i(x) - h̄_i) when penalty bits H (M, G) and constants K, hbar (G,) are given."""
-    P = S * (S.sum(axis=1, keepdims=True) - S)
-    if H is not None and K is not None and np.any(K):
-        P = P + dfn.defence_term(H, K, hbar)
-    return P
+def payoffs(S: np.ndarray, H: np.ndarray | None = None, dc: "dfn.DefenceConstants | None" = None) -> np.ndarray:
+    """Per-object payoff matrix π[x, i] = s_i(x) * S_-i(x) for a surprisal matrix S (M, G); with penalty
+    bits H (M, G) and defence constants, the defence scoring of docs/defence-goals.md (defence.payoff_matrix)."""
+    return dfn.payoff_matrix(S, H, dc)
 
 
 def log_payoffs(log: "GameLog", S: np.ndarray, H: np.ndarray | None) -> np.ndarray:
     """payoffs() with a log's defence constants."""
-    if H is None or log.penalty_K is None:
-        return payoffs(S)
-    return payoffs(S, H, log.penalty_K, log.penalty_hbar)
+    return payoffs(S, H, log.defence)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -295,7 +291,8 @@ class World:
         self.pdraws = [d.penalty_draw() for d in draws]
         self.ptables = ptables if ptables is not None else [None if pd is None else cal.survival(pd, cfg.gtype)
                                                             for pd in self.pdraws]
-        self.dc = dfn.constants(tables, self.ptables, cfg.penalty_rate, cfg.penalty_weight, cfg.score_penalties)
+        self.dc = dfn.constants(tables, self.ptables, cfg.penalty_rate, cfg.penalty_weight, cfg.score_penalties,
+                                cfg.payoff_mode)
         self.has_penalty = bool(self.dc.any)
         self.H = np.zeros((64, self.G))
         self.objects: list[Grid] = []
@@ -338,7 +335,7 @@ class World:
         M = self.M
         if not self.has_penalty:
             return payoffs(self.S[:M])
-        return payoffs(self.S[:M], self.H[:M], self.dc.K, self.dc.hbar)
+        return payoffs(self.S[:M], self.H[:M], self.dc)
 
     def total_payoff(self) -> np.ndarray:
         return self.payoff_matrix().sum(axis=0)
@@ -583,7 +580,7 @@ def run_game(cfg: GameConfig, hook: Optional[Callable[[World, str], None]] = Non
         snap_h=snap_h if hp else [np.zeros_like(x) for x in snap_s],
         final_h=Hm.astype(f32), has_penalty=world.dc.has.copy(), penalty_K=world.dc.K.copy(),
         penalty_K_prior=world.dc.K_prior.copy(), penalty_hbar=world.dc.hbar.copy(),
-        score_penalties=bool(cfg.score_penalties),
+        score_penalties=bool(cfg.score_penalties), defence=world.dc,
     )
 
 

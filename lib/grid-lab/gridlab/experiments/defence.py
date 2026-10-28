@@ -151,7 +151,8 @@ def report_e3(rows):
 
 def report_e2(ms):
     keys = ["tension_rate", "harmony_rate", "spirals_per_100_commits", "spiral_len_mean", "lead_changes_per_100s",
-            "stagnation_frac", "late_activity", "payoff_gini", "dynamism", "commits", "agents"]
+            "stagnation_frac", "late_activity", "payoff_gini", "dynamism", "commits", "agents",
+            "floor_neg_share", "floor_veto_share", "floor_dead_share", "trash_rate", "flank_repair_rate"]
     arms = defaultdict(dict)
     for m in ms:
         arms[m["tag"][1]][m["seed"]] = m
@@ -165,6 +166,8 @@ def report_e2(ms):
         b = ci([arms["B"][s][k] for s in common])
         d = ci([arms["B"][s][k] - arms["B0"][s][k] for s in common])
         dd = 1 if k in ("commits", "agents") else 3
+        if k.startswith(("floor", "trash", "flank")):
+            dd = 4
         print(f"| {k} | {fmt(a, dd)} | {fmt(b0, dd)} | {fmt(b, dd)} | {fmt(d, dd)} |")
     print(f"\nn = {len(arms['A'])} (A), {len(common)} pairs (B, B0)")
     fr = defaultdict(list)
@@ -183,10 +186,12 @@ def main(argv=None):
     ap.add_argument("--only", default="", help="E1 or E2")
     ap.add_argument("--json", default="")
     ap.add_argument("--weight", type=float, default=1.0, help="GameConfig.penalty_weight")
+    ap.add_argument("--mode", default="floored", help="GameConfig.payoff_mode")
     a = ap.parse_args(argv)
     n, sym, col = a.type.split(",")
     gt = GridType(int(n), sym, col)
-    length = {"penalty_weight": a.weight}
+    length = {"penalty_weight": a.weight, "payoff_mode": a.mode}
+    print(f"payoff mode {a.mode}, penalty weight {a.weight}")
     jobs = []
     if a.only in ("", "E1"):
         jobs += e1_configs(gt, a.seeds, a.seed, length)
