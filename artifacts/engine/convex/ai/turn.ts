@@ -88,7 +88,7 @@ export const run = internalAction({
         },
         onEvent: event => {
           if (event.type === "status") status = event.status === "acting" ? "Acting" : event.status === "thinking" ? "Thinking" : status;
-          if (event.type === "failure") status = event.code === "budget_exhausted" ? "AI budget exhausted" : "Turn failed";
+          if (event.type === "failure" && status !== "AI budget exhausted") status = event.code === "budget_exhausted" ? "AI budget exhausted" : "Turn failed";
           if (event.type === "command") status = `Sent a command (${event.accepted ? "accepted" : "rejected"})`;
         },
       });
