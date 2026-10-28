@@ -88,9 +88,33 @@ def evaluate(names_settings, per_type: int, seed: int, processes: int, mix: str 
     return res, base_rs
 
 
+TABLE_HDR = ["setting", "n", "Δdyn2 [95% CI]", "dyn2", "lead chg late", "crossings", "held climbs", "tau25",
+             "live agents", "useful-life", "unspent", "z random", "z greedy", "z saver [CI]", "z coop", "range"]
+
+
+def points_table(seed: int, names=None) -> str:
+    """Latest logged summary per setting for one spec seed, in logging order."""
+    pts = {}
+    if POINTS.exists():
+        for l in open(POINTS):
+            p = json.loads(l)
+            if p["seed"] == seed and (names is None or any(p["name"] == n or p["name"].startswith(n + "=") for n in names)):
+                pts[p["name"]] = p
+    rows = []
+    for n, o in pts.items():
+        z = o["pz"]
+        lo, hi = o["pz_ci"].get("saver", (float("nan"),) * 2)
+        rows.append([n, o["n"], f"{o.get('d_dyn2', 0):+.3f} ± {o.get('d_dyn2_ci', 0):.3f}", f"{o['dyn2']:.3f}",
+                     f"{o['leadL']:.1f}", f"{o['cross']:.2f}", f"{o['climb']:.2f}", f"{o['tau25']:.2f}",
+                     f"{o['live']:.0f}", f"{o['uLife']:.2f}", f"{o['unspent']:.2f}", f"{z.get('random', 0):.2f}",
+                     f"{z.get('greedy_private', 0):.2f}", f"{z.get('saver', 0):.2f} [{lo:.2f}, {hi:.2f}]",
+                     f"{z.get('cooperative', 0):.2f}", f"{o['prange']:.2f}"])
+    return C.md_table(TABLE_HDR, rows)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="gridlab.explore.economy.study")
-    ap.add_argument("mode", choices=["sweep", "run", "validate", "detail"])
+    ap.add_argument("mode", choices=["sweep", "run", "validate", "detail", "table"])
     ap.add_argument("--per-type", type=int, default=24)
     ap.add_argument("--seed", type=int, default=TRAIN_SEED)
     ap.add_argument("--only", default="")
@@ -110,6 +134,8 @@ def main(argv=None):
     elif a.mode == "validate":
         evaluate([(a.a, NAMED[a.a]), (a.b, NAMED[a.b])], a.per_type, HELD_OUT if a.seed == TRAIN_SEED else a.seed,
                  a.processes, a.mix, base_name=a.a)
+    elif a.mode == "table":
+        print(points_table(a.seed, a.only.split(",") if a.only else None))
     else:
         from .report import detail
         names = a.settings.split(",")

@@ -42,3 +42,17 @@ SWEEP: dict = {
 for _grp in SWEEP.values():
     for _n, _st in _grp:
         NAMED[_n] = _st
+
+# combinations (second round, chosen from the one-at-a-time sweep)
+COMBOS: dict = {
+    "cs25_ecap30": esetting(config={"cost_scale": 0.25}, econ={"energy_cap": 30.0}),
+    "cs25_ecap15": esetting(config={"cost_scale": 0.25}, econ={"energy_cap": 15.0}),
+    "cs50_ecap30": esetting(config={"cost_scale": 0.5}, econ={"energy_cap": 30.0}),
+    "ecap30_life120": esetting(econ={"energy_cap": 30.0, "lifetime": 120.0}),
+    "ecap30_cc100": esetting(econ={"energy_cap": 30.0, "charges": 100, "charge_on": "commit"}),
+    "cs25_ecap30_life120": esetting(config={"cost_scale": 0.25}, econ={"energy_cap": 30.0, "lifetime": 120.0}),
+    "ecap20": esetting(econ={"energy_cap": 20.0}),
+    "ecap40": esetting(econ={"energy_cap": 40.0}),
+}
+NAMED.update(COMBOS)
+SWEEP["combo"] = list(COMBOS.items())
