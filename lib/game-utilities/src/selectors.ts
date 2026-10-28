@@ -12,6 +12,8 @@ export interface SelectOptions {
   readonly hasTable?: (draw: Draw) => boolean;
   /** Family ids never dealt in this game (settings.excludedFamilies). */
   readonly exclude?: readonly string[];
+  /** The rarity prior (settings.priorId); selects the synergy matrix. Default "uniform". */
+  readonly priorId?: string;
 }
 
 /**
@@ -72,7 +74,70 @@ export const divineLottery: UtilitySelector = {
   },
 };
 
-export const SELECTORS: readonly UtilitySelector[] = [divineLottery];
+/**
+ * A family-level pairwise synergy matrix for one instantiation and prior (lib/grid-lab/docs/explore/synergy.md
+ * §1: W_ij = depth-averaged PMI of the two families' upper contour sets under the prior, in bits; > 0 aligned).
+ * Shipped with the calibration data under data/synergy/; unmeasured pairs count as 0 (orthogonal).
+ */
+export interface SynergyMatrix {
+  readonly instKey: string;
+  readonly priorId: string;
+  readonly families: readonly string[];
+  /** Symmetric, zero diagonal, families × families. */
+  readonly w: readonly (readonly number[])[];
+}
+
+const SYNERGY = new Map<string, SynergyMatrix>();
+export function registerSynergy(matrix: SynergyMatrix): void {
+  SYNERGY.set(`${matrix.instKey}|${matrix.priorId}`, matrix);
+}
+export const synergyFor = (inst: Instantiation, priorId = "uniform") => SYNERGY.get(`${inst.key}|${priorId}`);
+
+/** Friendly but even: mean pairwise W minus the spread of each god's mean W to the rest of the table. */
+export function fairAlignedScore(deal: readonly string[], m: SynergyMatrix): number {
+  const ix = deal.map(f => m.families.indexOf(f));
+  const w = (a: number, b: number) => (a < 0 || b < 0 ? 0 : m.w[a][b]);
+  const n = ix.length;
+  if (n < 2) return 0;
+  let pairSum = 0;
+  const perGod = ix.map((a, i) => {
+    let s = 0;
+    ix.forEach((b, j) => { if (j !== i) s += w(a, b); });
+    return s / (n - 1);
+  });
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairSum += w(ix[i], ix[j]);
+  const mean = pairSum / (n * (n - 1) / 2);
+  const avg = perGod.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(perGod.reduce((a, b) => a + (b - avg) ** 2, 0) / n);
+  return mean - sd;
+}
+
+export const FAIR_ALIGNED_CANDIDATES = 32;
+
+/**
+ * The recommended dealer (synergy.md §3, §5): the best of 32 Divine Lottery deals by `fairAlignedScore`.
+ * Without a synergy matrix for this instantiation and prior it deals exactly like the Divine Lottery.
+ */
+export const fairAligned: UtilitySelector = {
+  id: "fair-aligned",
+  name: "Fair Aligned",
+  description: "Deals 32 random tables and keeps the friendliest one in which no god is much friendlier with the "
+    + "table than another, using the measured synergy between rules. Where synergy has not been measured, it is the "
+    + "Divine Lottery.",
+  select(inst, godCount, rng, options = {}) {
+    const matrix = synergyFor(inst, options.priorId);
+    if (!matrix) return divineLottery.select(inst, godCount, rng, options);
+    let best: UtilityDescriptor[] = [], bestScore = -Infinity;
+    for (let k = 0; k < FAIR_ALIGNED_CANDIDATES; k++) {
+      const deal = divineLottery.select(inst, godCount, rng, options);
+      const score = fairAlignedScore(deal.map(d => d.familyId), matrix);
+      if (score > bestScore) { best = deal; bestScore = score; }
+    }
+    return best;
+  },
+};
+
+export const SELECTORS: readonly UtilitySelector[] = [fairAligned, divineLottery];
 
 export function selector(id: string): UtilitySelector {
   const found = SELECTORS.find(s => s.id === id);
