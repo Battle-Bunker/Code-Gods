@@ -102,6 +102,18 @@ export interface RuntimeOptions {
   execution?: "worker" | "inline";
   /** Python only. Default: dist/python-runtime.bin.gz in this package (absent when the package is bundled). */
   assets?: PythonAssets;
+  /**
+   * TypeScript only: the files of `typescript` (lib/typescript.js) and `quickjs-emscripten` (its main
+   * module) to load. Default: `typescriptPaths()`. The runtime never imports these packages by name, so a
+   * bundler cannot inline them; a Convex action passes the copies Convex installed (runtime/node.ts).
+   */
+  typescriptFiles?: { typescript: string; quickjs: string };
+  /**
+   * TypeScript worker mode: one compiler worker (type-check, transpile, price) feeds `workers` QuickJS-only
+   * execution workers, and its output is cached here. The compiler stops after this long idle (ms, default
+   * 60000; 0 keeps it) and restarts on the next uncached source.
+   */
+  compilerIdleMs?: number;
 }
 
 export const GRAMMAR_IDS: Readonly<Record<Language, "python-agent-v1" | "typescript-agent-v1">>;

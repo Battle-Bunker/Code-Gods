@@ -117,6 +117,17 @@ export const footprint = internalAction({
   },
 });
 
+/** This instance's resident memory and the production pools' live workers. */
+export const memory = internalAction({
+  args: {},
+  handler: async () => {
+    const python = runtimeFor("python") as GameRuntime & { slots: unknown[] };
+    const typescript = runtimeFor("typescript") as GameRuntime & { slots: unknown[]; compiler: { slots: unknown[] } };
+    return { rssMiB: rssMiB(), pythonWorkers: python.slots.length, typescriptWorkers: typescript.slots.length,
+      typescriptCompilers: typescript.compiler.slots.length, memory: process.memoryUsage() };
+  },
+});
+
 /** Where this instance resolves the external packages the TypeScript sandbox loads. */
 export const resolve = internalAction({
   args: {},
@@ -125,7 +136,7 @@ export const resolve = internalAction({
     const require = createRequire(import.meta.url);
     const ts = await import("typescript");
     return { url: import.meta.url, typescript: require.resolve("typescript"), quickjs: require.resolve("quickjs-emscripten"),
-      importedVersion: (ts.default ?? ts).version, node: process.version, runtimeResolves: typescriptPaths() };
+      importedVersion: (ts.default ?? ts).version, node: process.version, packageResolves: typescriptPaths(), engineFiles: RUNTIME_OPTIONS.typescript.typescriptFiles };
   },
 });
 

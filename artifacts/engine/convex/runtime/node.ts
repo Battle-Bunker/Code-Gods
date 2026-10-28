@@ -14,6 +14,7 @@
  * (PYTHON_BUNDLE_SHA256) before using it.
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { createRuntime, PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256, type GameRuntime, type Language, type RuntimeOptions } from "@workspace/game-runtime";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -56,13 +57,25 @@ export async function pythonBundle(): Promise<Uint8Array> {
 }
 
 /**
- * Pool sizes for a 512 MiB Node action: measured in lib/game-runtime/README.md ("Convex measurements").
- * Python: 2 workers (each ~45 MiB: instance memory, private snapshot copy, worker heap; the compiled
- * reactor is shared). TypeScript: 2 workers (the compiler heap dominates).
+ * The TypeScript sandbox's packages, as Convex installs them (convex.json `externalPackages`). These
+ * imports are never called: they are what makes the bundler keep both packages external, so Convex
+ * installs them; workers then load the resolved files. (Imported from inside @workspace/game-runtime,
+ * they would be inlined into the bundle, where quickjs-emscripten cannot find its .wasm.)
+ */
+export const keepExternal = () => [import("typescript"), import("quickjs-emscripten")];
+const typescriptFiles = () => ({
+  typescript: fileURLToPath(import.meta.resolve("typescript")),
+  quickjs: fileURLToPath(import.meta.resolve("quickjs-emscripten")),
+});
+
+/**
+ * Pool sizes for a 512 MiB Node action, measured in lib/game-runtime/README.md ("Convex
+ * measurements"): Python 2 workers (the compiled reactor and the initialized snapshot are shared);
+ * TypeScript 1 compiler worker + 2 QuickJS execution workers.
  */
 export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
   python: { language: "python", workers: 2, queueLimit: 64, assets: pythonBundle },
-  typescript: { language: "typescript", workers: 2, queueLimit: 64 },
+  get typescript(): RuntimeOptions { return { language: "typescript", workers: 2, queueLimit: 64, typescriptFiles: typescriptFiles() }; },
 };
 const runtimes: Partial<Record<Language, GameRuntime>> = {};
 /** The instance's warm runtime for a language (created lazily; workers start on demand or via `warm()`). */
