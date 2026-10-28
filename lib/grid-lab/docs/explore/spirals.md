@@ -39,7 +39,9 @@ Tests: `python3 -m tests.test_spirals`. Traces: `docs/explore/spirals_traces/`.
 
    The clause makes the multiplicative payoff *do its job*. A move that raises your surprisal on an object
    others value passes even if it takes some of theirs, which gives grabbing contests on the hottest objects.
-   The price is calmer leaderboards: lead changes per 100 s fall 5.7 → 2.3.
+   The price is calmer leaderboards: lead changes per 100 s fall 5.7 → 2.3. The world also changes ~10×
+   less often, so held spirals *per second* fall slightly (−6 per 100 s held-out), even though each one is
+   bigger and lasts.
 4. **A balanced design point (recommended):** offer the payoff clause on half the programs and shelter salient
    objects a little (object choice weight (1+σ)^−1). Compared with base on the same 200 games:
    * held spirals **+58%** (28.5 → 45.1 per 100 s);
@@ -49,7 +51,9 @@ Tests: `python3 -m tests.test_spirals`. Traces: `docs/explore/spirals_traces/`.
    * lead changes −36% (5.7 → 3.7);
    * family fairness unchanged.
 
-   The improvement held in every GridType.
+   The improvement held in every GridType, and **on 200 held-out games**: held spirals +15.1 per 100 s
+   [+12.9, +17.5], retention +0.28 [+0.24, +0.31], tension +0.038 [+0.032, +0.043], lead changes
+   −1.8 [−2.3, −1.4].
 5. **Negative results** (each 200 paired games):
    * **"extend" mutators** (cheap conditional completions of runs and regions): gods use them (12% of
      commits), but they change spirals by < 5% and *worsen* family fairness. Not recommended in this form.
@@ -317,9 +321,53 @@ raise the *next* commit's expected gain *on the same object*. Ideas:
    (k = N − 1 on 6–7 grids). The extend family as built fires on 20–95% of random spawns, which is too often to
    be a feedback.
 
-## 8. Held-out validation
+## 8. Held-out validation (seed 9 000 000: 200 new games, new deals)
 
-(see below; filled in from `study --seed 9000000`)
+`python3 -m gridlab.explore.spirals.study --variants base,sel-1,tend_pay,tend_pay+sel-1,tend_pay100,all_pay,heat+tend_pay --games 40 --seed 9000000 --full`
+
+Every training conclusion replicates. Paired differences against base on the same held-out specs:
+
+**tend_pay+sel-1**
+
+| metric | base mean | Δ (paired) | 95% CI |
+|---|---|---|---|
+| ep_spirals_held_per_100s | 28 | **+15.1** | [+12.9, +17.5] |
+| ep_spiral_excess | 0.695 | **+0.118** | [+0.0943, +0.143] |
+| ep_spiral_retention_mean | 0.483 | **+0.28** | [+0.244, +0.312] |
+| fb_drift_16 | -1.89 | **+0.635** | [+0.478, +0.789] |
+| final_salience_mean | 15.5 | **+11** | [+9.41, +12.7] |
+| welfare_per_obj | 231 | **+422** | [+310, +542] |
+| tn_event_rate | 0.125 | **+0.0381** | [+0.0324, +0.0433] |
+| tn_theft_rate | 0.0265 | **+0.0135** | [+0.0107, +0.0164] |
+| lead_changes_per_100s | 5 | **-1.82** | [-2.3, -1.37] |
+
+**all_pay**
+
+| metric | base mean | Δ (paired) | 95% CI |
+|---|---|---|---|
+| ep_spirals_held_per_100s | 28 | **-5.96** | [-8.66, -3.17] |
+| ep_spiral_excess | 0.695 | **+0.344** | [+0.312, +0.378] |
+| ep_spiral_retention_mean | 0.483 | **+0.391** | [+0.356, +0.424] |
+| fb_drift_16 | -1.89 | **+3.41** | [+3.02, +3.78] |
+| final_salience_mean | 15.5 | **+25.6** | [+23, +28.5] |
+| welfare_per_obj | 231 | **+1.42e+03** | [+1.12e+03, +1.76e+03] |
+| tn_event_rate | 0.125 | **+0.223** | [+0.207, +0.238] |
+| tn_theft_rate | 0.0265 | **+0.125** | [+0.112, +0.14] |
+| lead_changes_per_100s | 5 | **-2.95** | [-3.53, -2.41] |
+
+
+Other held-out values (base / tend_pay+sel−1 / all_pay):
+* 5 s snapshot autocorrelation of salience changes: **−0.39 / −0.31 / −0.07** (± 0.02). At a player's
+  timescale the payoff clause almost removes mean reversion: objects stop snapping back. It does not create
+  positive momentum, though.
+* thief's gain held after 20 s: 0.23 / 0.38 / 0.62;
+* family-fairness excess SD: 0.179 / 0.172 / 0.157 (79 families); share of families whose CI excludes 0.5:
+  0.42 / 0.39 / 0.29;
+* policy z, the saver's edge: 0.69 / 0.68 / 0.69. The clauses do not change which policies win.
+
+Note `all_pay` has *fewer* held spirals per 100 s than base (−6), because the world changes ~10× less often.
+Per commit and per object it is far more constructive. Which of the two regimes reads better to a player is a
+design call. The balanced point (tend_pay+sel−1) raises both spirals per second and their quality.
 
 ## 9. Recommendations
 
