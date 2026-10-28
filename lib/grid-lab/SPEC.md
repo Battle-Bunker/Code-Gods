@@ -47,7 +47,7 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 | — | **cooperative spiral** | `spiral` | Run of consecutive transformations of one object by ≥2 owners in which salience rises each step. | Positive feedback |
 | — | **tension** | `tension` | Share of transformations that raise someone's surprisal while lowering another's. | Zero-sum conflict |
 
-Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "points", salience = "🔥 hot object".
+Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", shown with tail mass as "1 in N" (docs/kid-cards.md §2), payoff = "points", salience = "🔥 hot object". Players read their rule as a **utility function** `def utility(grid):` (docs/kid-api.md); never call it a "value function".
 
 ## 3. Modules and owners
 
@@ -59,6 +59,7 @@ Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "poin
 | `gridlab/calibrate.py` | engine worker | `survival(draw, gtype) -> Survival` with `.surprisal(t) -> float` (bits, ≥ 0, non-decreasing in t), `.log2_tail(t)`, `.max_observed_bits`; deterministic (seeded from a stable hash of family id, canonical params, gtype key, estimator version); disk cache under `lib/grid-lab/.cache/` (gitignored). Monte Carlo body + multilevel splitting tail; uses `exact_log2_tail` when provided. |
 | `gridlab/mutators.py`, `gridlab/program.py` | mutator worker | `MUTATORS: list[Mutator]`; `Mutator(id, name, summary, requires, sample(rng, gtype)->params, cost(params, gtype)->float bits, apply(grid, params, gtype, rng)->Grid|None)`. `Program(guard, steps)` = an agent, with `.cost(gtype)`, `.apply(grid, gtype, rng)->Grid|None`, `.describe(gtype)`; `random_program(rng, gtype, ...)` and enumeration helpers for policies. |
 | `gridlab/sim.py`, `gridlab/policy.py`, `gridlab/metrics.py` | engine worker | `GameConfig` (gtype, gods, dealer, economy knobs, policy names, rates, seed), `run_game(config) -> GameLog`, `metrics(log) -> dict`. Policies choose Programs to summon. |
+| `gridlab/kid.py`, `gridlab/rules/cards.py`, `docs/kid-api.md`, `docs/kid-cards.md` | kid-cards worker | The player-facing surface: a cell-centric grid API (names, not indices) and, per shortlisted family, `card_source(params, gtype) -> str`, a runnable `def utility(grid):` program whose order equals the family's ordinal (`tests/test_cards.py`). |
 | `gridlab/experiments/*.py`, `docs/experiments.md` | experiment worker (later) | Batches of games, sweeps, optimisation. |
 | `docs/*.md` | each owner for its area | |
 

@@ -3,6 +3,7 @@
 Code: `gridlab/rules/` (one module per lens: `seeds.py strategy.py geometry.py arithmetic.py colour.py games.py`,
 shared helpers in `_util.py`). `from gridlab.rules import FAMILIES, by_id, shortlist`.
 Tests: `cd lib/grid-lab && python3 -m tests.test_rules [family_id ...]` (about 20 s on 4 cores).
+Every shortlisted family also has a kid-readable card (`card_source`, `rules/cards.py`): see [kid-cards.md](kid-cards.md).
 
 **88 families**: the 3 seeds, all 31 shortlisted rules (`tags={"shortlist"}`, seeds also `"seed"`), every distinct
 appendix rule, and 13 of the lens files' undeveloped "cross-lens ideas". **Every family has `batch`** (vectorised
