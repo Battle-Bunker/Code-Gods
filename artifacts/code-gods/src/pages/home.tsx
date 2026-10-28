@@ -7,6 +7,7 @@ import { Shell, Panel, Empty, ErrorLine, Sigil } from "@/components/shell";
 import { useAuth, displayName } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errMsg } from "@/lib/errors";
+import { fmtWhen, isoWhen } from "@/lib/time";
 import { ArrowRight, Plus, Hash } from "lucide-react";
 
 const tenets = [
@@ -129,7 +130,7 @@ function Rooms() {
                       <span className="block text-sm">
                         Created: {r.createdAt === null
                           ? <span title="This room predates creation-date tracking.">Not recorded</span>
-                          : <time dateTime={new Date(r.createdAt).toISOString()} title={new Date(r.createdAt).toISOString()}>{new Date(r.createdAt).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}</time>}
+                          : <time dateTime={isoWhen(r.createdAt)} title={isoWhen(r.createdAt)}>{fmtWhen(r.createdAt)}</time>}
                       </span>
                     </span>
                     <span className="font-mono text-sm tabular-nums">{r.memberCount}<span className="text-muted-foreground"> seats</span></span>
