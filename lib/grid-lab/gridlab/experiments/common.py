@@ -259,6 +259,7 @@ def _worker(i: int):
     r["seed"] = spec.seed
     r["spec_policies"] = list(spec.policies)
     r["key"] = key
+    r["ceil_v"] = 2
     p = _path(key)
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(f".tmp{os.getpid()}")
@@ -307,6 +308,11 @@ def run_batch(st: dict, specs: Sequence[GameSpec], processes: int = 4, label: st
             _JOBS = []
         finally:
             apply_knobs({})
+    stale = [r for r in out if r is not None and not r.get("ceil_v")]
+    if stale:
+        refresh_ceilings(stale)
+        for r in stale:
+            r["ceil_v"] = 2
     return out
 
 
@@ -419,6 +425,32 @@ def snapshot_dynamics(log, owner: np.ndarray, climb_gain: float = 8.0, climb_len
     out["durable_lead_changes_per_obj_100s"] = 100.0 * lead_spell_changes / max(obj_seconds, 1e-9)
     out["snap_steps"] = nsteps
     return out
+
+
+_EXC: dict = {}
+
+
+def draw_ceiling(log, i: int, table) -> float:
+    """Surprisal (bits) of the family's exemplar (its best known grid) for god i's draw; falls back to
+    the table's deepest level. Exact-tail families have few table levels, so max_observed_bits alone
+    under-reports them."""
+    from ..rules import by_id
+    f = by_id(log.families[i])
+    params = log.params[i]
+    k = (f.id, params, log.gtype.key, getattr(table, "key", ""))
+    if k not in _EXC:
+        v = float(table.max_observed_bits)
+        if f.exemplar is not None:
+            try:
+                p = json.loads(params)
+                p = {kk: (tuple(tuple(x) if isinstance(x, list) else x for x in vv) if isinstance(vv, list) else vv)
+                     for kk, vv in p.items()}
+                ex = f.exemplar(p, log.gtype)
+                v = max(v, float(table.surprisal(int(f.ordinal(ex, p, log.gtype)))))
+            except Exception:
+                pass
+        _EXC[k] = v
+    return _EXC[k]
 
 
 def ext_metrics(log, tables) -> dict:
@@ -607,7 +639,7 @@ def ext_metrics(log, tables) -> dict:
         loss_own, loss_oth = (neg * mine).sum(0), (neg * ~mine).sum(0)
     m["gods"] = [{"family": fams[i], "gain_own": float(gain_own[i]), "gain_others": float(gain_oth[i]),
                   "loss_own": float(loss_own[i]), "loss_others": float(loss_oth[i]), "params": log.params[i], "policy": log.policies[i], "rank": int(ranks[i]),
-                  "payoff": float(log.final_payoff[i]), "ceil": float(tables[i].max_observed_bits),
+                  "payoff": float(log.final_payoff[i]), "ceil": draw_ceiling(log, i, tables[i]),
                   "agents": int(nag[i]), "spent": float(log.spent[i]), "energy": float(log.final_energy[i]),
                   "final_mean_s": float(Sm[:, i].mean()) if len(Sm) else 0.0}
                  for i in range(G)]
@@ -766,29 +798,33 @@ def _sq(x: float) -> float:
 
 
 # dynamism2: the objective used by the search (docs/experiments.md §2 justifies each term).
-DYN2_WEIGHTS = {"tension": 0.20, "spirals": 0.20, "standings": 0.20, "objects": 0.20, "liveness": 0.10,
-                "variety": 0.10}
+DYN2_WEIGHTS = {"tension": 0.20, "spirals": 0.20, "standings": 0.15, "memory": 0.20, "objects": 0.10,
+                "liveness": 0.05, "variety": 0.10}
 
 
 def dynamism2(r: dict) -> float:
-    """Per-game dynamism v2 in [0, 1]:
-      tension   sig_tension_rate / 0.25 (capped): meaningful (>= 1 bit each way) conflicts per commit
-      spirals   sq(accelerating spirals with gain >= 4 bits per 100 s / 2): cooperative climbs that speed up
-      standings mean of sq(crossings per pair per 100 s / 2) and share of gods with a >= 25% drawdown:
-                leaders change and fortunes rise AND fall
-      objects   mean of obj_rise_fall_share and obj_hot_share (objects reach >= 20 bits of salience and
-                some fall back by half): information value climbs and is contested
-      liveness  min(1, late_activity / 0.2) * (1 - churn): still moving at the end, and motion that
-                builds rather than cancels
+    """Per-game dynamism v2 in [0, 1], measured at the 5 s snapshot timescale a watcher sees:
+      tension   0.5*sq(durable lead changes per object per 100 s) + 0.5*min(1, snap_tension / 0.3):
+                objects change hands between gods for spells of >= 10 s, and 5 s steps where one god
+                gains >= 2 bits while another loses >= 2
+      spirals   sq(held accelerating climbs per 100 s): >= 3 rising snapshots, >= 8 bits, >= 2 owners,
+                rising increments, and the gain still there 10 s later
+      standings 0.5*sq(leaderboard crossings per pair per 100 s / 2) + 0.5*share of gods with a >= 25%
+                drawdown: leaders change, fortunes rise AND fall
+      memory    max(0, snapshot autocorrelation of object salience): values persist rather than flicker
+                (contiguous acceleration needs a memory)
+      objects   share of objects that reach >= 20 bits of salience
+      liveness  min(1, late_activity / 0.2)
       variety   mutator_entropy_norm
     """
     w = DYN2_WEIGHTS
-    t = min(1.0, r["sig_tension_rate"] / 0.25)
-    s = _sq(r["spirals_accel_big_per_100s"] / 2.0)
+    t = 0.5 * _sq(r["durable_lead_changes_per_obj_100s"]) + 0.5 * min(1.0, r["snap_tension"] / 0.3)
+    s = _sq(r["climbs_held_accel_per_100s"])
     st = 0.5 * _sq(r["crossings_per_pair_100s"] / 2.0) + 0.5 * r["rise_fall_share"]
-    ob = 0.5 * r["obj_rise_fall_share"] + 0.5 * r["obj_hot_share"]
-    lv = min(1.0, r["late_activity"] / 0.2) * (1.0 - r["churn"])
-    return (w["tension"] * t + w["spirals"] * s + w["standings"] * st + w["objects"] * ob
+    mem = max(0.0, r["snap_autocorr"])
+    ob = r["obj_hot_share"]
+    lv = min(1.0, r["late_activity"] / 0.2)
+    return (w["tension"] * t + w["spirals"] * s + w["standings"] * st + w["memory"] * mem + w["objects"] * ob
             + w["liveness"] * lv + w["variety"] * r["mutator_entropy_norm"])
 
 
@@ -873,3 +909,28 @@ def save_json(name: str, obj) -> Path:
     with open(p, "w") as fh:
         json.dump(obj, fh, default=_jsonable, indent=1)
     return p
+
+
+def refresh_ceilings(results: Sequence[dict]) -> None:
+    """Recompute each god's `ceil` (exemplar surprisal under the uniform table) in place, for results
+    cached before draw_ceiling existed."""
+    from ..rules import by_id
+    from ..family import Draw
+    from ..calibrate import survival
+
+    class _L:  # the bits of a GameLog that draw_ceiling reads
+        pass
+    for r in results:
+        gt = parse_type(r["gtype"][5:-1])
+        for g in r["gods"]:
+            L = _L()
+            L.families, L.params, L.gtype = [g["family"]], [g["params"]], gt
+            f = by_id(g["family"])
+            p = json.loads(g["params"])
+            p = {k: (tuple(tuple(x) if isinstance(x, list) else x for x in v) if isinstance(v, list) else v)
+                 for k, v in p.items()}
+            try:
+                tb = survival(Draw(f, p), gt)
+            except Exception:
+                continue
+            g["ceil"] = draw_ceiling(L, 0, tb)

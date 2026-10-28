@@ -73,6 +73,7 @@ COST_KNOBS: dict = {
     "erasure": "shannon",  # "shannon" (expected, default) | "hartley" (worst case, subadditive)
     "scope": {"local": 1.0, "line": 1.0, "block": 1.0, "region": 1.0, "global": 1.0},
     "kind": {"bijective": 1.0, "overwrite": 1.0},
+    "disabled": [],      # mutator ids removed from every GridType (experiments; e.g. ["flatten"] = pre-flatten set)
 }
 
 SCOPES = ("local", "line", "block", "region", "global")
@@ -421,16 +422,20 @@ def _degrees(N: int) -> np.ndarray:
 
 
 @lru_cache(maxsize=None)
-def _available(gt: GridType) -> tuple:
-    return tuple(m for m in MUTATORS if m.available(gt))
+def _available(gt: GridType, disabled: tuple = ()) -> tuple:
+    return tuple(m for m in MUTATORS if m.available(gt) and m.id not in disabled)
+
+
+def _disabled() -> tuple:
+    return tuple(sorted(COST_KNOBS.get("disabled", ()) or ()))
 
 
 def n_available(gt: GridType) -> int:
-    return len(_available(gt))
+    return len(_available(gt, _disabled()))
 
 
 def available(gtype: GridType) -> list:
-    return list(_available(gtype))
+    return list(_available(gtype, _disabled()))
 
 
 def by_id(mid: str) -> Mutator:
@@ -906,6 +911,40 @@ write = Mutator(
 )
 
 
+def _flatten(g, p, gt):
+    m = resolve_mask(p, gt, g)
+    sym = g.sym.astype(np.int64)
+    r = gt.rank[sym]
+    rr = r[m]
+    if rr.size < 2:
+        return None
+    hi, lo = int(rr.max()), int(rr.min())
+    sel = m & (r != hi) & (r != lo)
+    if hi == lo or not sel.any():
+        return None
+    out = sym.copy()
+    out[sel] = (sym[sel] // 13) * 13 + lo if gt.symbols == "cards" else lo
+    return g.replace(sym=out)
+
+
+def _flatten_terms(p, gt):
+    n = region_size(p["kind"], p["region"], gt.N)
+    R = gt.ranks
+    # every cell but the peak loses its rank: (n - 1) log2 R bits (a slight over-charge: the output
+    # still records which cells were peaks), the same in both erasure modes
+    return Terms(erase=max(n - 1, 0) * log2(R), dsym=max(n - 1, 0) * (1 - 2 / R), scope=REGION_SCOPE[p["kind"]])
+
+
+flatten = Mutator(
+    "flatten", "Flatten", "Flatten the lowlands: in an area, every number except the highest drops to the area's lowest "
+    "(cards keep their suit).",
+    req("Ranked"), "symbol", False, ("line", "block", "region", "global"),
+    (F_kind("line", "block", "ring", "all"), F_REGION),
+    _flatten_terms, _flatten,
+    lambda p, gt: f"in {region_text(p, gt)}, every number except the highest drops to the lowest one there",
+)
+
+
 def _step_rank(g, p, gt):
     m = resolve_mask(p, gt, g)
     sym = g.sym.copy()
@@ -1159,7 +1198,7 @@ MUTATORS: list[Mutator] = [
     # colour
     paint, recolour, swap_colours, hue_turn, pattern_line, motif, majority_line,
     # symbol
-    write, step_rank, write_ramp, swap_symbols,
+    write, step_rank, write_ramp, swap_symbols, flatten,
     # couplers
     paint_by_key, stamp, tally,
     # capability-specific
