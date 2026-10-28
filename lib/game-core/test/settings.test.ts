@@ -28,6 +28,10 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bits-v1");
   assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
   assert.equal(DEFAULT_SETTINGS.perActFloorBits, 2);
+  assert.equal(DEFAULT_SETTINGS.commitClause, false);
+  assert.equal(DEFAULT_SETTINGS.objectSelection, "uniform");
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, objectSelection: "salient" as never }), /objectSelection/);
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, commitClause: "yes" as never }), /commitClause/);
   assert.equal(defaultSettingsFor("Int", "typescript").complexityFunctionId, "ts-ast-bits-v1-uniform");
   assert.equal(DEFAULT_SETTINGS.objectType, "Int");
   assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { min: -2147483648, max: 2147483647 });

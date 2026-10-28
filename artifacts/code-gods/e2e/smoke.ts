@@ -122,7 +122,7 @@ try {
       });
       await check(`${name}: presets in learning order, component cards with capability badges`, async () => {
         const presets = await page.getByTestId("settings-presets").locator("button").allInnerTexts();
-        assert.deepEqual(presets.map(t => t.split("\n")[0].replace(" ✓", "")), ["First steps", "Classic", "Big board", "Master"]);
+        assert.deepEqual(presets.map(t => t.split("\n")[0].replace(" ✓", "")), ["First steps", "Classic", "Low income", "Big board", "Master"]);
         assert.equal(await page.getByTestId("button-preset-grid-classic").getAttribute("aria-pressed"), "true");
         assert.equal(await page.getByTestId("type-Grid").getAttribute("aria-checked"), "true");
         const cards = await page.getByTestId("option-symbols-cards").innerText();

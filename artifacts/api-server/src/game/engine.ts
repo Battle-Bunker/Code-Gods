@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { pool } from "@workspace/db";
 import {
-  chargeAct, instantiationOf, lifetimeSeconds, newAgentAccount, poissonIntervalSeconds,
+  chargeAct, instantiationOf, lifetimeSeconds, newAgentAccount, personalView, poissonIntervalSeconds,
   uniquePrefixes, validateSettings, type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
@@ -226,12 +226,42 @@ export type ActResult = { calls: string; usedRandom?: boolean; steps?: number } 
  * failed or duplicate act pays its decision bits only); a successful, unique result replaces the object.
  * Returns false when nothing may change (the game moved on, the object changed or the agent is gone).
  */
+/** A god's own payoff on an object from its scores: n_owner × max(0, Σ_peers n). */
+function ownPayoff(scores: WorldObject["scores"], godId: string): number {
+  return personalView(new Map(Object.entries(scores).map(([id, s]) => [id, s.netBits])), godId).payoff;
+}
+
+/**
+ * The interaction's target. "uniform": every available object alike. "shelter": weight 1/(1 + σ⁺), σ the
+ * object's salience (Σ net bits; negative salience counts as 0), so salient objects are hit a little less
+ * (grid-lab PR #18 §9). Never weighted toward salience.
+ */
+export function pickObject<T extends WorldObject>(objects: readonly T[], mode: GameSettings["objectSelection"], uniform01: () => number): T {
+  if (mode !== "shelter") return objects[Math.min(objects.length - 1, Math.floor(uniform01() * objects.length))];
+  const weights = objects.map(o => 1 / (1 + Math.max(0, Object.values(o.scores).reduce((sum, s) => sum + s.netBits, 0))));
+  let u = uniform01() * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < objects.length; i++) { u -= weights[i]; if (u < 0) return objects[i]; }
+  return objects[objects.length - 1];
+}
+const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
+
 export function commitAct(g: Game, snapshot: ActSnapshot, result: ActResult, nowMs = Date.now()): boolean {
   const target = completionTarget(g, snapshot, nowMs);
   const agentIndex = g.agents.findIndex(a => a.id === snapshot.agentId);
   if (!target || agentIndex < 0) return false;
   const agent = g.agents[agentIndex];
-  const outcome = actOutcome(g.settings, snapshot.before, result);
+  let outcome = actOutcome(g.settings, snapshot.before, result);
+  let next: WorldObject["scores"] | undefined;
+  if (outcome.ok && outcome.commit) {
+    // The commit clause: commit only if the act strictly raises the owner's own payoff on this object,
+    // n_owner × max(0, Σ_peers n). Only the owner's bits and the peer aggregate are used.
+    if (!g.settings.commitClause) outcome = { ok: false, reason: "this room does not offer the commit clause", cost: outcome.cost };
+    else if (!occupied(g, outcome.value)) {
+      next = scoresOf(g, outcome.value);
+      const gain = ownPayoff(next, agent.ownerId) - ownPayoff(target.scores, agent.ownerId);
+      if (!(gain > 0)) outcome = { ok: false, reason: "the commit clause kept the object: it would not raise your points", cost: outcome.cost };
+    }
+  }
   const duplicate = outcome.ok && occupied(g, outcome.value); // Includes the object's own value.
   // The measured decision bits replace the calls' naming bits, which are only reported.
   const cost: ActCharge = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
@@ -240,7 +270,7 @@ export function commitAct(g: Game, snapshot: ActSnapshot, result: ActResult, now
   g.agents[agentIndex] = { ...agent, account, acts: state.acts, spent: state.spent };
   const common = { id: randomUUID(), gameId: g.id, timestamp: nowMs, agentId: agent.id, ownerId: agent.ownerId };
   if (outcome.ok && !duplicate) {
-    target.value = outcome.value; target.version++; target.scores = scoresOf(g, outcome.value);
+    target.value = outcome.value; target.version++; target.scores = next ?? scoresOf(g, outcome.value);
     recordEvent(g, { ...common, type: "object.transformed", object: structuredClone(target), before: snapshot.before,
       calls: outcome.calls as MutatorCallWire[], cost, agent: state });
   } else {
@@ -272,7 +302,7 @@ export function startTicker() {
       // Agents act only while their own energy covers their expected cost, one act at a time each.
       const agents = game.agents.filter(a => !actingAgents.has(a.id) && agentStatus(game, a, now).eligible);
       if (!agents.length) return;
-      const object = objects[below(objects.length)];
+      const object = pickObject(objects, game.settings.objectSelection, uniform01);
       const agent = agents[below(agents.length)];
       // Copy every runtime input: cached rooms can be replaced during a serialized mutation.
       const settings = structuredClone(game.settings);

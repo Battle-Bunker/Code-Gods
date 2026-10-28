@@ -85,7 +85,7 @@ test("malicious model commands fail closed and contexts remain separate",async()
 });
 test("prompt explains the v3 agent contract, energy and bits; destroy is an allowed command",()=>{
   const { SYSTEM } = require_policy;
-  for(const phrase of ["def agent(grid)","paint(row(2), \"red\")","instance.helpers","expectedActCost","decisionBits","ast-bits-v1","frozen","seeded","agentEnergyPerSecond","peerCare","payoff","netBits","destroy"])
+  for(const phrase of ["def agent(grid)","paint(row(2), \"red\")","instance.helpers","expectedActCost","decisionBits","ast-bits-v1","frozen","seeded","agentEnergyPerSecond","only_if_better","peerCare","payoff","netBits","destroy"])
     assert.ok(SYSTEM.includes(phrase),phrase);
   assert.equal(SYSTEM.includes("lambda"),false);
   assert.equal(SYSTEM.toLowerCase().includes("value function"),false);

@@ -214,7 +214,8 @@ export interface ActCost {
 }
 
 export type ActOutcome =
-  | { readonly ok: true; readonly value: ObjectValue; readonly cost: ActCost; readonly calls: readonly MutatorCallWire[] }
+  /** `commit`: the act carries the commit clause (commit only if it raises the owner's payoff). */
+  | { readonly ok: true; readonly value: ObjectValue; readonly cost: ActCost; readonly calls: readonly MutatorCallWire[]; readonly commit?: "if-improves" }
   /** Failed acts pay decision bits only (at least MIN_FAILED_ACT_BITS). */
   | { readonly ok: false; readonly reason: string; readonly cost: ActCost };
 export const MIN_FAILED_ACT_BITS = 1;

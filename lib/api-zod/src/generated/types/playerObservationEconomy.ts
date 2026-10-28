@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PlayerObservationEconomyObjectSelection } from './playerObservationEconomyObjectSelection';
 
 export type PlayerObservationEconomy = {
   energyPerSecond: number;
@@ -13,4 +14,7 @@ export type PlayerObservationEconomy = {
   maxAgentsPerGod: number;
   penaltyWeight: number;
   worldSeconds: number;
+  perActFloorBits?: number;
+  commitClause?: boolean;
+  objectSelection?: PlayerObservationEconomyObjectSelection;
 };

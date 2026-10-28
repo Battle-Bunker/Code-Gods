@@ -14,18 +14,24 @@
 import { instantiationOf, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { MOVE_FLAG_BITS, type Inspection } from "@workspace/game-runtime";
 import {
-  availableMutators, measureAgent, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
+  availableMutators, measureAgent, parseAct, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
 } from "@workspace/game-types";
 import { isAgentFault, requireAdapters } from "./adapters";
 import { seasonCommitment, seasonSalt } from "./season";
 
+/**
+ * The commit clause's price, added to the summon price when any measured act uses it (grid-lab PR #18,
+ * docs/explore/spirals.md §9): 1 bit for the yes/no measurement against the owner's own rule, log2 3 for
+ * reading the peers' aggregate (its sign: helps, neutral or hurts), and 1 bit for naming the clause.
+ */
+export const COMMIT_CLAUSE_BITS = 1 + Math.log2(3) + 1;
 /** Live objects added to the mixture as its "game" component (at most). */
 export const GAME_COMPONENT = 16;
 /** Measurement runs in flight at once: the runtime admits four. */
 const CONCURRENCY = 4;
 
 export type CostBreakdown = { decision: number; erasure: number; motion: number; floor: number };
-export type SummonParts = { structure: number; names: number; literals: number; moveFlags: number; literalMoves: number };
+export type SummonParts = { structure: number; names: number; literals: number; moveFlags: number; literalMoves: number; commitClause: number };
 export type Examination = {
   /** Summon price in bits. */
   cost: number; parts: SummonParts; complexityFunctionId: string;
@@ -48,7 +54,7 @@ export function summonPrice(inspection: Inspection, inst: Instantiation): { cost
     }
     literalMoves += bits;
   });
-  return { cost: inspection.cost + literalMoves, parts: { ...inspection.parts, literalMoves } };
+  return { cost: inspection.cost + literalMoves, parts: { ...inspection.parts, literalMoves, commitClause: 0 } };
 }
 
 const mixtures = new Map<string, ReferenceMixture>();
@@ -77,13 +83,14 @@ export async function examineAgent(settings: GameSettings, source: string, live:
   const price = summonPrice(inspection, inst);
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
-  let hostFailure: unknown, runs = 0;
+  let hostFailure: unknown, runs = 0, usesClause = false;
   const sample = { value: undefined as ObjectValue | undefined, calls: undefined as string | undefined, error: undefined as string | undefined };
   const started = performance.now();
   const measured = await measureAgent(async (value, seed, at) => {
     runs++;
     try {
       const result = await runtime.act(source, value, settings, seed);
+      if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps };
     } catch (error) {
@@ -95,11 +102,12 @@ export async function examineAgent(settings: GameSettings, source: string, live:
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;
   const measureMs = performance.now() - started;
+  if (usesClause) { price.parts.commitClause = COMMIT_CLAUSE_BITS; price.cost += COMMIT_CLAUSE_BITS; }
   const breakdown: CostBreakdown = { decision: measured.decisionBits, erasure: measured.expectedErasure,
     motion: measured.expectedMotion, floor: measured.perActFloorBits };
   const d = measured.diagnostics;
   const diagnostics = [
-    `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${inspection.parts.structure.toFixed(1)}, names ${inspection.parts.names.toFixed(1)}, literals ${inspection.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}).`,
+    `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${inspection.parts.structure.toFixed(1)}, names ${inspection.parts.names.toFixed(1)}, literals ${inspection.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}${usesClause ? `, commit clause ${COMMIT_CLAUSE_BITS.toFixed(2)}` : ""}).`,
     `Each act: ${measured.expectedActCost.toFixed(2)} bits expected = decision ${measured.decisionBits.toFixed(2)} + erasure ${measured.expectedErasure.toFixed(2)} + motion ${measured.expectedMotion.toFixed(2)}${measured.perActFloorBits ? ` + floor ${measured.perActFloorBits}` : ""}.`,
     `Measured on ${d.n} reference objects${measured.randomized ? ` × ${d.replicates} seeds (it uses random)` : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];

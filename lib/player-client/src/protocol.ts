@@ -76,7 +76,8 @@ export const observationSchema = z.object({
   instance: instanceSchema.optional(),
   /** The game's energy rules. God energy pays summons (real time); each agent earns per world second. */
   economy: z.object({ energyPerSecond: finite, agentEnergyPerSecond: finite, agentBatteryActs: finite,
-    maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite }).optional(),
+    maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
+    perActFloorBits: finite.optional(), commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     utility: utilityCardSchema.optional() }),
   // Your own score of each object and aggregates over your peers. Individual opponents' scores are never disclosed.
@@ -98,7 +99,7 @@ export const resultSchema = z.object({
   message: z.string().max(2000),
   // cost: the summon price (description bits, by part); every act then pays decisionBits + erasure + motion + floor.
   validation: z.object({ valid: z.boolean(), cost: finite.nonnegative(), expectedActCost: finite.nonnegative(),
-    parts: z.object({ structure: finite, names: finite, literals: finite, moveFlags: finite, literalMoves: finite }).optional(),
+    parts: z.object({ structure: finite, names: finite, literals: finite, moveFlags: finite, literalMoves: finite, commitClause: finite.optional() }).optional(),
     decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
 });

@@ -158,6 +158,10 @@ it moves and a 2-bit floor, and a failed act still pays decisionBits + the floor
 energy can go negative: a **cooldown** until income brings it back.
 Agents run with a frozen clock and a server-seeded `random`. Destroying an agent is free.
 
+Two experimental mechanics from the spirals study stay off unless the owner turns them
+on: the commit clause (agents may wrap moves in `only_if_better(...)`, committed only if
+they raise the owner's points) and `shelter` object selection.
+
 Before publishing, set the secret `CODE_GODS_SEASON_SALT` (at least 16 characters):
 production refuses to start without it. Never share it during the season; game
 records carry its sha256 commitment.

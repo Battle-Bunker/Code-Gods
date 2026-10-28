@@ -5,7 +5,7 @@
  * sources and the end deadline never leave.
  */
 import { instantiationOf, leaderboard, personalView, salience, type GameSettings } from "@workspace/game-core";
-import { instanceInfo, type InstanceInfo } from "@workspace/game-types";
+import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { card, context, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 import type { Room, Game, Chat, WorldObject, Agent } from "./types";
 import { agentStatus, godEnergy } from "./economy";
@@ -64,7 +64,8 @@ export function agentView(game: Game, agent: Agent, nowMs = Date.now()) {
 
 /** The fully applied object type of (validated) settings. */
 export function objectInstance(settings: GameSettings): InstanceInfo {
-  return instanceInfo(instantiationOf(settings));
+  const info = instanceInfo(instantiationOf(settings));
+  return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 /** The public catalog of families any god might draw here, with availability, badges and locked reasons. */
 export function catalogFor(settings: GameSettings): (CatalogEntry & { excluded: boolean })[] {

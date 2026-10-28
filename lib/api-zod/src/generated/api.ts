@@ -169,6 +169,8 @@ export const createRoomResponseSettingsOnePerActFloorBitsDefault = 2;
 export const createRoomResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const createRoomResponseSettingsOnePriorIdDefault = `uniform`;
+export const createRoomResponseSettingsOneCommitClauseDefault = false;
+export const createRoomResponseSettingsOneObjectSelectionDefault = `uniform`;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const createRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -215,6 +217,8 @@ export const CreateRoomResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(createRoomResponseSettingsOneStepBudgetMax).default(createRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(createRoomResponseSettingsOnePerActFloorBitsMin).default(createRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(createRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(createRoomResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(createRoomResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -347,6 +351,8 @@ export const getRoomResponseSettingsOnePerActFloorBitsDefault = 2;
 export const getRoomResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const getRoomResponseSettingsOnePriorIdDefault = `uniform`;
+export const getRoomResponseSettingsOneCommitClauseDefault = false;
+export const getRoomResponseSettingsOneObjectSelectionDefault = `uniform`;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const getRoomResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -393,6 +399,8 @@ export const GetRoomResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(getRoomResponseSettingsOneStepBudgetMax).default(getRoomResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(getRoomResponseSettingsOnePerActFloorBitsMin).default(getRoomResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getRoomResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getRoomResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getRoomResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -513,6 +521,8 @@ export const listRoomGamesResponseSettingsPerActFloorBitsDefault = 2;
 export const listRoomGamesResponseSettingsPerActFloorBitsMin = 0;
 
 export const listRoomGamesResponseSettingsPriorIdDefault = `uniform`;
+export const listRoomGamesResponseSettingsCommitClauseDefault = false;
+export const listRoomGamesResponseSettingsObjectSelectionDefault = `uniform`;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondDefault = 2;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondMin = 0;
 export const listRoomGamesResponseSettingsAgentEnergyPerSecondMax = 1000;
@@ -559,6 +569,8 @@ export const ListRoomGamesResponseItem = zod.object({
   "stepBudget": zod.number().int().min(1).max(listRoomGamesResponseSettingsStepBudgetMax).default(listRoomGamesResponseSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(listRoomGamesResponseSettingsPerActFloorBitsMin).default(listRoomGamesResponseSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(listRoomGamesResponseSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(listRoomGamesResponseSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(listRoomGamesResponseSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -614,6 +626,8 @@ export const getGameStateResponseOneSettingsPerActFloorBitsDefault = 2;
 export const getGameStateResponseOneSettingsPerActFloorBitsMin = 0;
 
 export const getGameStateResponseOneSettingsPriorIdDefault = `uniform`;
+export const getGameStateResponseOneSettingsCommitClauseDefault = false;
+export const getGameStateResponseOneSettingsObjectSelectionDefault = `uniform`;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondDefault = 2;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondMin = 0;
 export const getGameStateResponseOneSettingsAgentEnergyPerSecondMax = 1000;
@@ -678,6 +692,8 @@ export const GetGameStateResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(getGameStateResponseOneSettingsStepBudgetMax).default(getGameStateResponseOneSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(getGameStateResponseOneSettingsPerActFloorBitsMin).default(getGameStateResponseOneSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getGameStateResponseOneSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getGameStateResponseOneSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getGameStateResponseOneSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -802,6 +818,8 @@ export const roomActionBodySettingsPerActFloorBitsDefault = 2;
 export const roomActionBodySettingsPerActFloorBitsMin = 0;
 
 export const roomActionBodySettingsPriorIdDefault = `uniform`;
+export const roomActionBodySettingsCommitClauseDefault = false;
+export const roomActionBodySettingsObjectSelectionDefault = `uniform`;
 export const roomActionBodySettingsAgentEnergyPerSecondDefault = 2;
 export const roomActionBodySettingsAgentEnergyPerSecondMin = 0;
 export const roomActionBodySettingsAgentEnergyPerSecondMax = 1000;
@@ -850,6 +868,8 @@ export const RoomActionBody = zod.object({
   "stepBudget": zod.number().int().min(1).max(roomActionBodySettingsStepBudgetMax).default(roomActionBodySettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(roomActionBodySettingsPerActFloorBitsMin).default(roomActionBodySettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(roomActionBodySettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(roomActionBodySettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(roomActionBodySettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -883,6 +903,8 @@ export const roomActionResponseSettingsOnePerActFloorBitsDefault = 2;
 export const roomActionResponseSettingsOnePerActFloorBitsMin = 0;
 
 export const roomActionResponseSettingsOnePriorIdDefault = `uniform`;
+export const roomActionResponseSettingsOneCommitClauseDefault = false;
+export const roomActionResponseSettingsOneObjectSelectionDefault = `uniform`;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondDefault = 2;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondMin = 0;
 export const roomActionResponseSettingsOneAgentEnergyPerSecondMax = 1000;
@@ -929,6 +951,8 @@ export const RoomActionResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(roomActionResponseSettingsOneStepBudgetMax).default(roomActionResponseSettingsOneStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(roomActionResponseSettingsOnePerActFloorBitsMin).default(roomActionResponseSettingsOnePerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(roomActionResponseSettingsOnePriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(roomActionResponseSettingsOneCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(roomActionResponseSettingsOneObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1210,6 +1234,8 @@ export const getManifestResponseDefaultsPerActFloorBitsDefault = 2;
 export const getManifestResponseDefaultsPerActFloorBitsMin = 0;
 
 export const getManifestResponseDefaultsPriorIdDefault = `uniform`;
+export const getManifestResponseDefaultsCommitClauseDefault = false;
+export const getManifestResponseDefaultsObjectSelectionDefault = `uniform`;
 export const getManifestResponseDefaultsAgentEnergyPerSecondDefault = 2;
 export const getManifestResponseDefaultsAgentEnergyPerSecondMin = 0;
 export const getManifestResponseDefaultsAgentEnergyPerSecondMax = 1000;
@@ -1245,6 +1271,8 @@ export const getManifestResponsePresetsItemSettingsPerActFloorBitsDefault = 2;
 export const getManifestResponsePresetsItemSettingsPerActFloorBitsMin = 0;
 
 export const getManifestResponsePresetsItemSettingsPriorIdDefault = `uniform`;
+export const getManifestResponsePresetsItemSettingsCommitClauseDefault = false;
+export const getManifestResponsePresetsItemSettingsObjectSelectionDefault = `uniform`;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondDefault = 2;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMin = 0;
 export const getManifestResponsePresetsItemSettingsAgentEnergyPerSecondMax = 1000;
@@ -1288,6 +1316,8 @@ export const GetManifestResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(getManifestResponseDefaultsStepBudgetMax).default(getManifestResponseDefaultsStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(getManifestResponseDefaultsPerActFloorBitsMin).default(getManifestResponseDefaultsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getManifestResponseDefaultsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getManifestResponseDefaultsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getManifestResponseDefaultsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1399,6 +1429,8 @@ export const GetManifestResponse = zod.object({
   "stepBudget": zod.number().int().min(1).max(getManifestResponsePresetsItemSettingsStepBudgetMax).default(getManifestResponsePresetsItemSettingsStepBudgetDefault).describe('Deterministic step budget per act.'),
   "perActFloorBits": zod.number().min(getManifestResponsePresetsItemSettingsPerActFloorBitsMin).default(getManifestResponsePresetsItemSettingsPerActFloorBitsDefault).describe('Bits added to every attempted act\'s charge, valid or not (the Margolus–Levitin floor).'),
   "priorId": zod.string().default(getManifestResponsePresetsItemSettingsPriorIdDefault).describe('The rarity prior (Manifest.priors); uniform for now.'),
+  "commitClause": zod.boolean().default(getManifestResponsePresetsItemSettingsCommitClauseDefault).describe('Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner\'s payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price.'),
+  "objectSelection": zod.enum(['uniform', 'shelter']).default(getManifestResponsePresetsItemSettingsObjectSelectionDefault).describe('Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object\'s salience).'),
   "pauseSeconds": zod.number(),
   "startingEnergy": zod.number().describe('God energy (bits) at the start; pays summon prices.'),
   "energyPerSecond": zod.number().describe('God income, bits per real-time second.'),
@@ -1485,7 +1517,10 @@ export const GetPlayerObservationResponse = zod.object({
   "agentBatteryActs": zod.number(),
   "maxAgentsPerGod": zod.number().int(),
   "penaltyWeight": zod.number(),
-  "worldSeconds": zod.number()
+  "worldSeconds": zod.number(),
+  "perActFloorBits": zod.number().optional(),
+  "commitClause": zod.boolean().optional(),
+  "objectSelection": zod.enum(['uniform', 'shelter']).optional()
 }).optional(),
   "self": zod.object({
   "godId": zod.string(),
@@ -1609,7 +1644,8 @@ export const SendPlayerCommandResponse = zod.object({
   "names": zod.number(),
   "literals": zod.number(),
   "moveFlags": zod.number(),
-  "literalMoves": zod.number()
+  "literalMoves": zod.number(),
+  "commitClause": zod.number().describe('3.58 bits when the measured acts use the commit clause, else 0.')
 }).optional(),
   "decisionBits": zod.number().optional(),
   "expectedActCost": zod.number().describe('Expected charge per act.'),

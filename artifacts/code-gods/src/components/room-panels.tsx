@@ -106,7 +106,8 @@ const NUM_GROUPS: { title: string; fields: NumField[] }[] = [
     { key: "startingObjectCount", label: "Starting objects", min: 0, int: true },
     { key: "spawnRateHz", label: "Spawn rate", unit: "/s", min: 0 },
     { key: "interactionRateHz", label: "Interaction cap", unit: "Hz", min: 0, max: 1000, help: "Slower = easier to follow your score. A ceiling, not guaranteed throughput (default 100 Hz)." },
-    { key: "interactionComputeMs", label: "Compute / interaction", unit: "ms", min: 1, max: 1000, int: true, help: "Guest CPU per interaction, not compilation or worker startup." },
+    { key: "stepBudget", label: "Steps / act", min: 1, max: 10000000, int: true, help: "Deterministic step budget of one act (default 500,000)." },
+    { key: "interactionComputeMs", label: "CPU backstop / act", unit: "ms", min: 1, max: 1000, int: true, help: "CPU backstop behind the step budget, not compilation or worker startup." },
     { key: "pauseSeconds", label: "Pause", unit: "s", min: 0 },
   ] },
   { title: "God energy", fields: [
@@ -117,6 +118,7 @@ const NUM_GROUPS: { title: string; fields: NumField[] }[] = [
     { key: "agentEnergyPerSecond", label: "Agent income", unit: "bits/s", min: 0, max: 1000, help: "Each agent earns this per second of world time." },
     { key: "agentBatteryActs", label: "Agent battery", unit: "acts", min: 1, max: 1000, help: "Income stops at this many expected acts." },
     { key: "maxAgentsPerGod", label: "Agents per god", min: 1, max: 200, int: true },
+    { key: "perActFloorBits", label: "Floor per act", unit: "bits", min: 0, help: "Charged on every attempted act, valid or not (default 2)." },
   ] },
   { title: "Defence goals", fields: [
     { key: "defenceRate", label: "Defence goal rate", min: 0, max: 1, help: "Chance a god is also dealt a ⚠️ defence goal (0 = off)." },
@@ -181,7 +183,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
   };
   const build = (): Settings => {
     const s = { ...source, objectType: choice.objectType, typeArgs: choice.typeArgs, ...(excludedDraft ? { excludedFamilies: excludedDraft } : {}) } as Record<string, unknown>;
-    for (const [k, v] of Object.entries(draft)) s[k] = NUM_KEYS.some(f => f.key === k) ? Number(v) : v;
+    for (const [k, v] of Object.entries(draft)) s[k] = NUM_KEYS.some(f => f.key === k) ? Number(v) : k === "commitClause" ? v === "true" : v;
     return s as unknown as Settings;
   };
   const currentType = types.find(t => t.id === choice.objectType);
@@ -238,6 +240,21 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
               {available(k).map(o => <option key={o.id} value={o.id}>{o.label} ({o.id})</option>)}
             </select></label>
         ))}
+        <fieldset className="border-t pt-3 min-w-0" data-testid="settings-group-mechanics">
+          <legend className="label-mono !text-foreground pr-2">Mechanics</legend>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="space-y-1 min-w-0" title="Agents may wrap moves in only_if_better(...): they happen only if they raise the owner's points on that object (costs about 3.6 summon bits).">
+              <span className="label-mono">Commit clause</span>
+              <select value={val("commitClause") === "true" ? "true" : "false"} onChange={(e) => set("commitClause", e.target.value)} className={field} data-testid="select-commitClause">
+                <option value="false">off</option><option value="true">offered</option>
+              </select></label>
+            <label className="space-y-1 min-w-0" title="Which object an interaction targets: uniform, or shelter (salient objects are hit a little less).">
+              <span className="label-mono">Object selection</span>
+              <select value={val("objectSelection") === "shelter" ? "shelter" : "uniform"} onChange={(e) => set("objectSelection", e.target.value)} className={field} data-testid="select-objectSelection">
+                <option value="uniform">uniform</option><option value="shelter">shelter</option>
+              </select></label>
+          </div>
+        </fieldset>
         {NUM_GROUPS.map(g => (
           <fieldset key={g.title} className="border-t pt-3 min-w-0" data-testid={`settings-group-${g.title.toLowerCase().replace(/ /g, "-")}`}>
             <legend className="label-mono !text-foreground pr-2">{g.title}</legend>

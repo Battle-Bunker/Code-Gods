@@ -29,3 +29,22 @@ test("every prelude carries a pricing vocabulary consistent with its constructor
   for (const attr of ["cells", "colour", "symbol", "value", "rows"]) assert.ok(v.attrs.includes(attr), attr);
   assert.ok(v.areas.includes("row") && v.mutators.includes("paint"));
 });
+
+test("the commit clause: wrapper only when offered, object form parsed, flag carried by applyCalls", async () => {
+  const { withCommitClause, applyCalls, parseAct, objectType: T, instantiate } = await import("../src/index.ts");
+  const inst = instantiate("Int", {}), base = T("Int").prelude(inst), offered = withCommitClause(base);
+  assert.ok(!base.python.includes("def only_if_better") && !base.js.includes("function onlyIfBetter"));
+  assert.ok(offered.python.includes("def only_if_better") && offered.js.includes("function onlyIfBetter") && offered.dts.includes("onlyIfBetter"));
+  assert.notEqual(offered.hash, base.hash);
+  assert.ok(offered.pricing.python.api.includes("only_if_better") && offered.pricing.typescript.api.includes("onlyIfBetter"));
+  assert.ok(!offered.pricing.python.mutators.includes("only_if_better"));
+  assert.ok(offered.helpers.some(h => h.name.python === "only_if_better"));
+  assert.deepEqual(parseAct('{"calls":[["add",{"k":1}]],"commit":"if-improves"}'), { list: [["add", { k: 1 }]], commit: "if-improves" });
+  assert.deepEqual(parseAct('[["add",{"k":1}]]'), { list: [["add", { k: 1 }]] });
+  for (const bad of ['{"calls":[],"commit":"do-no-harm"}', '{"calls":[]}', '{"calls":[],"commit":"if-improves","x":1}', '{"calls":{},"commit":"if-improves"}'])
+    assert.throws(() => parseAct(bad));
+  const out = applyCalls(T("Int"), inst, 5, '{"calls":[["add",{"k":1}]],"commit":"if-improves"}');
+  assert.ok(out.ok && out.commit === "if-improves" && out.value === 6);
+  const plain = applyCalls(T("Int"), inst, 5, '[["add",{"k":1}]]');
+  assert.ok(plain.ok && plain.commit === undefined);
+});

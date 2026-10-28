@@ -64,6 +64,14 @@ export interface GameSettings {
    * the spawn prior; later seasons may use an empirical mixture (lib/grid-lab/docs/explore/priors.md).
    */
   priorId: string;
+  /**
+   * Offer the commit clause (grid-lab PR #18, docs/explore/spirals.md §9): an agent may wrap its moves in
+   * `only_if_better(...)`, and the engine then commits them only if they strictly raise the owner's payoff on
+   * that object. Off by default.
+   */
+  commitClause: boolean;
+  /** Which object an interaction targets: "uniform", or "shelter" (weight 1/(1+σ⁺), σ the object's salience). */
+  objectSelection: "uniform" | "shelter";
 }
 
 // These IDs describe the contract, not a claim that runners are installed.
@@ -93,6 +101,8 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   defenceRate: 0,
   excludedFamilies: Object.freeze([]) as readonly string[],
   priorId: "uniform",
+  commitClause: false,
+  objectSelection: "uniform",
 } satisfies GameSettings);
 
 /** The one summon-price code of each language (lib/game-runtime COMPLEXITY_IDS). */
@@ -182,6 +192,10 @@ export function validateSettings(settings: GameSettings): void {
   }
   if (typeof settings.priorId !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(settings.priorId)) {
     throw new Error("priorId must be a prior identifier");
+  }
+  if (typeof settings.commitClause !== "boolean") throw new Error("commitClause must be true or false");
+  if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
+    throw new Error("objectSelection must be uniform or shelter");
   }
   if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
   for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {

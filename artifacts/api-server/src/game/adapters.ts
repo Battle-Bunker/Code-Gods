@@ -1,6 +1,6 @@
 import { codecOf, instantiationOf, netBits, softHinge, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { RuntimeError, type ActResult, type ActSettings, type GameRuntime, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
-import { objectType, seededRng, type Rng } from "@workspace/game-types";
+import { objectType, seededRng, withCommitClause, type Rng } from "@workspace/game-types";
 import { divineLottery, evaluator, selector, type GodScore, type UtilityDescriptor } from "@workspace/game-utilities";
 import { randomBytes } from "node:crypto";
 import { hasTable, penaltyMeanBits, priorOf, surprisal, tableFor } from "./calibration.ts";
@@ -55,10 +55,11 @@ const actSettingsCache = new Map<string, ActSettings>();
 /** The runtime's view of a room: the instantiation's prelude and wire bound, never the full settings. */
 export function actSettings(settings: GameSettings): ActSettings {
   const inst = instantiationOf(settings);
-  const cacheKey = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}`;
+  const cacheKey = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}`;
   let cached = actSettingsCache.get(cacheKey);
   if (!cached) {
-    const parts = objectType(inst.objectType).prelude(inst);
+    // Rooms that offer the commit clause get its wrapper (only_if_better / onlyIfBetter) in the prelude.
+    const base = objectType(inst.objectType).prelude(inst), parts = settings.commitClause ? withCommitClause(base) : base;
     cached = Object.freeze({
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,

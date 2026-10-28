@@ -48,7 +48,9 @@ own transformations (id/agentId/before/after/calls/cost), the public leaderboard
 game's instantiation (game-types InstanceInfo: key, label, badges, display tables,
 codec, the mutator list and the prelude helpers with Python and TypeScript
 signatures); `economy` gives the energy rules (energyPerSecond, agentEnergyPerSecond,
-agentBatteryActs, maxAgentsPerGod, penaltyWeight) and the current world time.
+agentBatteryActs, maxAgentsPerGod, penaltyWeight, perActFloorBits), whether the room
+offers the commit clause (`commitClause`, then `only_if_better` / `onlyIfBetter` is in
+`instance.helpers`), its `objectSelection` and the current world time.
 `roomShortCode`, `gameShortCode` and `seated` identify the game; `seated: false` means
 the player joined after this game launched: they spectate and play in the room's next
 game. Phase `lobby` means no game has been played yet. Phase `ended` shows the finished

@@ -77,7 +77,13 @@ def _JSON(x, depth=0):
 
 
 def __encode_calls(calls):
-    """Mutator calls -> the ASCII JSON text the engine reads: [[id, params], ...]."""
+    """Mutator calls -> the ASCII JSON text the engine reads: [[id, params], ...] (or the commit-clause object)."""
+    commit = None
+    if isinstance(calls, dict) and "__commit" in calls:
+        commit = calls["__commit"]
+        if commit != "if-improves":
+            raise ValueError("unknown commit clause")
+        calls = calls.get("calls")
     if calls is None:
         calls = []
     if isinstance(calls, dict):
@@ -92,7 +98,8 @@ def __encode_calls(calls):
             raise ValueError("every move must come from a move helper")
         params = {k: v for k, v in call.items() if k != "__m"}
         out.append("[" + _JSON(call["__m"]) + "," + _JSON(params) + "]")
-    return "[" + ",".join(out) + "]"
+    text = "[" + ",".join(out) + "]"
+    return text if commit is None else '{"calls":' + text + ',"commit":"if-improves"}'
 `;
 
 export const ENCODE_CALLS_JS = `
@@ -124,23 +131,32 @@ function __JSON(x, depth) {
 }
 
 function __encode_calls(calls) {
+  let commit = null;
+  if (calls !== null && typeof calls === "object" && !Array.isArray(calls) && "__commit" in calls) {
+    commit = calls.__commit;
+    if (commit !== "if-improves") throw new Error("unknown commit clause");
+    calls = calls.calls;
+  }
   if (calls === null || calls === undefined) calls = [];
   if (!Array.isArray(calls) && typeof calls === "object" && typeof calls.__m === "string") calls = [calls];
   if (!Array.isArray(calls)) throw new Error("agent(...) must return a list of moves");
   if (calls.length > ${MAX_CALLS}) throw new Error("an agent can make at most ${MAX_CALLS} moves at a time");
-  return "[" + calls.map((call) => {
+  const text = "[" + calls.map((call) => {
     if (call === null || typeof call !== "object" || typeof call.__m !== "string") throw new Error("every move must come from a move helper");
     const params = {};
     for (const k of Object.keys(call)) if (k !== "__m") params[k] = call[k];
     return "[" + __JSON(call.__m, 0) + "," + __JSON(params, 0) + "]";
   }).join(",") + "]";
+  return commit === null ? text : '{"calls":' + text + ',"commit":"if-improves"}';
 }
 `;
 
 export const ENCODE_CALLS_DTS = `
 /** What a move helper returns. Return a list of these from agent(...). */
 interface MutatorCall { readonly __m: string }
-declare function __encode_calls(calls: MutatorCall | readonly MutatorCall[] | null | undefined): string;
+/** Moves wrapped by the commit clause (only rooms with commitClause offer the wrapper). */
+interface CommitClause { readonly __commit: "if-improves"; readonly calls: readonly MutatorCall[] }
+declare function __encode_calls(calls: MutatorCall | readonly MutatorCall[] | CommitClause | null | undefined): string;
 `;
 
 export interface BasePrelude {
@@ -266,4 +282,41 @@ export function memo<T>(f: (inst: Instantiation) => T): (inst: Instantiation) =>
     if (v === undefined) cache.set(inst.key, v = f(inst));
     return v;
   };
+}
+
+// ------------------------------------------------------------------------------------------------
+// the commit clause (grid-lab PR #18, docs/explore/spirals.md §9): offered only when a room enables it
+// ------------------------------------------------------------------------------------------------
+
+export const COMMIT_CLAUSE_PY = `
+
+def only_if_better(moves):
+    """Make these moves only if they raise your own points on this object; otherwise nothing happens."""
+    if isinstance(moves, dict):
+        moves = [moves]
+    return {"__commit": "if-improves", "calls": list(moves)}
+`;
+export const COMMIT_CLAUSE_JS = `
+
+function onlyIfBetter(moves) {
+  return { __commit: "if-improves", calls: Array.isArray(moves) ? moves.slice() : [moves] };
+}
+`;
+export const COMMIT_CLAUSE_DTS = `
+declare function onlyIfBetter(moves: MutatorCall | readonly MutatorCall[]): CommitClause;
+`;
+export const COMMIT_CLAUSE_HELPER: HelperDoc = helper("only_if_better", "only_if_better(moves) -> clause",
+  "onlyIfBetter(moves: MutatorCall[]): CommitClause",
+  "Wrap your moves: they happen only if they raise your own points on this object (otherwise nothing changes)");
+
+/** The prelude of a room that offers the commit clause: the base prelude plus the wrapper. */
+export function withCommitClause(parts: PreludeParts): PreludeParts {
+  const python = parts.python + COMMIT_CLAUSE_PY, js = parts.js + COMMIT_CLAUSE_JS, dts = parts.dts + COMMIT_CLAUSE_DTS;
+  const add = (v: PricingVocab, name: string): PricingVocab => Object.freeze({ ...v, api: sortedUnique([...v.api, name]),
+    params: sortedUnique([...v.params, "moves"]), strings: sortedUnique([...v.strings, "if-improves"]) });
+  return Object.freeze({
+    python, js, dts, helpers: Object.freeze([...parts.helpers, COMMIT_CLAUSE_HELPER]),
+    pricing: Object.freeze({ python: add(parts.pricing.python, "only_if_better"), typescript: add(parts.pricing.typescript, "onlyIfBetter") }),
+    hash: sha256(`${python}\0${js}\0${dts}`),
+  });
 }

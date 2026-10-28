@@ -16,14 +16,16 @@ import gamesRouter from "../src/routes/games";
 import { attachSockets } from "../src/game/socket";
 import { createRoom, mutate, mutateInteraction, interactionCapacity, resolveRoom, closeStore, rehydrateInteractions, initializeStore, roomHistory } from "../src/game/store";
 import { codecOf, defaultSettingsFor, instantiationOf, presetSettings, typeDefaults } from "@workspace/game-core";
-import { actCharge, applyCalls, objectType } from "@workspace/game-types";
+import { actCharge, applyCalls, objectType, seededRng } from "@workspace/game-types";
 import { createHash } from "node:crypto";
 import { examineAgent, summonPrice } from "../src/game/pricing";
-import { playSeed } from "../src/game/engine";
+import { commitAct, pickObject, playSeed } from "../src/game/engine";
 import { seasonCommitment, seasonSalt } from "../src/game/season";
 import { startGame, playerCommand, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
 import { registerAdapters, requireAdapters } from "../src/game/adapters";
+import * as adaptersModule from "../src/game/adapters";
+const requireAdaptersOrUndefined = () => adaptersModule.runtime && adaptersModule.utilities ? { runtime: adaptersModule.runtime, utilities: adaptersModule.utilities } : undefined;
 import { observation, executePlayerEnvelope } from "../src/game/player-api";
 import { publicRoom } from "../src/game/projection";
 import { initializeRuntimeAdapters, shutdownRuntimeAdapters } from "../src/game/runtime-setup";
@@ -1036,6 +1038,86 @@ test("summons measure in the game, acts pay the measured price and the floor, ga
     await stop?.();
     shutdownRuntimeAdapters();
   }
+});
+
+test("commit clause: a flagged act commits only if it strictly raises the owner's payoff; off rooms refuse it", () => {
+  const prior = requireAdaptersOrUndefined();
+  // Owner's net bits = the value itself; the two peers hold 5 bits each, so payoff = value × 10.
+  registerAdapters({ runtime: prior?.runtime ?? ({ languages: [] } as any), utilities: {
+    deal: () => [], score: (_settings, d, value) => ({ ordinal: 0, rewardBits: 0, netBits: d.familyId === "owner" ? Number(value) : 5 }),
+  } });
+  try {
+    const settings = { ...defaultSettingsFor("Int", "python"), commitClause: true };
+    const make = (value: number, clause = true) => {
+      const game: any = {
+        id: "g", phase: "running", settings: { ...settings, commitClause: clause }, worldSeconds: 0, lastTick: Date.now(), endAtWorld: 100, pauseEndsAt: 0,
+        roster: [{ id: "owner" }, { id: "p1" }, { id: "p2" }],
+        deities: [{ id: "owner", utility: { familyId: "owner", params: {} } }, { id: "p1", utility: { familyId: "peer", params: {} } }, { id: "p2", utility: { familyId: "peer", params: {} } }],
+        objects: [{ id: "o", value, version: 0, scores: { owner: { ordinal: 0, rewardBits: 0, netBits: value }, p1: { ordinal: 0, rewardBits: 0, netBits: 5 }, p2: { ordinal: 0, rewardBits: 0, netBits: 5 } } }],
+        agents: [{ ...richAgent("owner", ADD_PY), id: "a", decisionBits: 1, perActFloorBits: 2 }], events: [],
+      };
+      return game;
+    };
+    const snapshot = { gameId: "g", objectId: "o", version: 0, before: 20, agentId: "a", ownerId: "owner", pauseEndsAt: 0, epoch: 0 };
+    const down = make(20);
+    assert.equal(commitAct(down, snapshot, { calls: '{"calls":[["add",{"k":-1}]],"commit":"if-improves"}' }), true);
+    assert.equal(down.objects[0].value, 20, "a clause act that would lower the owner's payoff is not committed");
+    assert.equal(down.events[0].type, "agent.failed");
+    assert.match(down.events[0].reason, /commit clause kept the object/);
+    assert.equal(down.events[0].cost.total, 1 + 2, "a rejected clause act pays decision + floor");
+    const same = make(20);
+    commitAct(same, snapshot, { calls: '{"calls":[["add",{"k":1}],["add",{"k":-1}]],"commit":"if-improves"}' });
+    assert.equal(same.events[0].type, "agent.failed", "no change is no gain");
+    const up = make(20);
+    commitAct(up, snapshot, { calls: '{"calls":[["add",{"k":1}]],"commit":"if-improves"}' });
+    assert.equal(up.objects[0].value, 21, "a clause act that raises the owner's payoff commits");
+    assert.equal(up.events[0].type, "object.transformed");
+    assert.equal(up.objects[0].scores.owner.netBits, 21);
+    const plain = make(20);
+    commitAct(plain, snapshot, { calls: '[["add",{"k":-1}]]' });
+    assert.equal(plain.objects[0].value, 19, "without the clause, harmful acts commit as before");
+    const off = make(20, false);
+    commitAct(off, snapshot, { calls: '{"calls":[["add",{"k":1}]],"commit":"if-improves"}' });
+    assert.equal(off.objects[0].value, 20);
+    assert.match(off.events[0].reason, /does not offer the commit clause/);
+  } finally { if (prior) registerAdapters(prior); else adaptersModule.unregisterAdapters(); }
+});
+
+test("shelter object selection weights 1/(1+σ⁺), never toward salience; uniform is uniform", () => {
+  const rng = seededRng("shelter-test");
+  const u = () => rng.int(2 ** 30) / 2 ** 30;
+  const object = (id: string, salience: number) => ({ id, value: 0, version: 0, scores: { a: { ordinal: 0, rewardBits: 0, netBits: salience } } });
+  const objects = [object("calm", 0), object("salient", 3), object("negative", -4)];
+  const count = (mode: "uniform" | "shelter") => {
+    const n: Record<string, number> = { calm: 0, salient: 0, negative: 0 };
+    for (let i = 0; i < 30000; i++) n[pickObject(objects, mode, u).id]++;
+    return n;
+  };
+  const shelter = count("shelter"), total = 1 + 0.25 + 1;
+  for (const [id, w] of [["calm", 1], ["salient", 0.25], ["negative", 1]] as const) {
+    const expected = 30000 * w / total, sd = Math.sqrt(30000 * (w / total) * (1 - w / total));
+    assert.ok(Math.abs(shelter[id] - expected) < 5 * sd, `${id}: ${shelter[id]} vs ${expected.toFixed(0)}`);
+  }
+  assert.ok(shelter.salient < shelter.calm, "salient objects are sheltered");
+  const uniform = count("uniform");
+  for (const id of ["calm", "salient", "negative"]) assert.ok(Math.abs(uniform[id] - 10000) < 5 * Math.sqrt(30000 * (1 / 3) * (2 / 3)), `${id} uniform`);
+});
+
+test("commit clause through the runtime: the wrapper exists only when offered, and using it is priced", { timeout: 300000 }, async () => {
+  await initializeRuntimeAdapters();
+  try {
+    const { runtime } = requireAdapters();
+    for (const language of ["python", "typescript"] as const) {
+      const source = language === "python" ? "def agent(x):\n    return only_if_better([add(1)])" : "function agent(x) { return onlyIfBetter([add(1)]); }";
+      const on = { ...defaultSettingsFor("Int", language), commitClause: true }, off = defaultSettingsFor("Int", language);
+      assert.equal((await runtime.act(source, 5, on, 1n)).calls, '{"calls":[["add",{"k":1}]],"commit":"if-improves"}');
+      await assert.rejects(language === "python" ? runtime.act(source, 5, off, 1n) : runtime.inspect(source, off), "no wrapper when the room does not offer it");
+      const priced = await examineAgent(on, source, []);
+      const plain = await examineAgent(on, language === "python" ? "def agent(x):\n    return [add(1)]" : "function agent(x) { return [add(1)]; }", []);
+      assert.ok(Math.abs(priced.parts.commitClause - (1 + Math.log2(3) + 1)) < 1e-12);
+      assert.equal(plain.parts.commitClause, 0);
+    }
+  } finally { shutdownRuntimeAdapters(); }
 });
 
 test("replay restores agent accounts from failed and successful acts, and fails closed on unknown agents", () => {

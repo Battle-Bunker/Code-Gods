@@ -96,14 +96,30 @@ const isPlainObject = (x: unknown): x is Record<string, unknown> =>
 
 /** The act's output (JSON text or an already-parsed array) as a list of raw entries; throws MutatorError. */
 export function parseWire(wire: unknown): unknown[] {
-  let list = wire;
+  return parseAct(wire).list;
+}
+
+/** The commit clause an act may carry: commit only if it strictly raises the owner's payoff on the object. */
+export type CommitClause = "if-improves";
+/**
+ * The act's output as its call list and its clause: a bare list `[[id, params], ...]`, or the commit-clause
+ * object `{"calls": [...], "commit": "if-improves"}` (rooms with commitClause). Throws MutatorError.
+ */
+export function parseAct(wire: unknown): { list: unknown[]; commit?: CommitClause } {
+  let parsed = wire;
   if (typeof wire === "string") {
     if (wire.length > MAX_ACT_BYTES) fail(`agent output is longer than ${MAX_ACT_BYTES} bytes`);
     if (!/^[\x00-\x7f]*$/.test(wire)) fail("agent output must be ASCII");
-    try { list = JSON.parse(wire); } catch { fail("agent output is not JSON"); }
+    try { parsed = JSON.parse(wire); } catch { fail("agent output is not JSON"); }
   }
-  if (!Array.isArray(list)) fail("agent output must be a list of mutator calls");
-  return list;
+  if (isPlainObject(parsed)) {
+    const keys = Object.keys(parsed).sort().join(",");
+    if (keys !== "calls,commit" || parsed.commit !== "if-improves") fail('a clause must look like {"calls": [...], "commit": "if-improves"}');
+    if (!Array.isArray(parsed.calls)) fail("agent output must be a list of mutator calls");
+    return { list: parsed.calls, commit: "if-improves" };
+  }
+  if (!Array.isArray(parsed)) fail("agent output must be a list of mutator calls");
+  return { list: parsed };
 }
 
 export function parseCallShape(raw: unknown, i: number): MutatorCallWire {
@@ -149,11 +165,13 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
     const d = Math.max(MIN_FAILED_ACT_BITS, decision);
     return { ok: false, reason, cost: cost(d, 0, 0) };
   };
-  let x0: V, x: V, enc: ObjectValue = value;
+  let x0: V, x: V, enc: ObjectValue = value, commit: CommitClause | undefined;
   const calls: MutatorCallWire[] = [];
   try {
     x = x0 = codec.decode(value);
-    const list = parseWire(wire);
+    const act = parseAct(wire);
+    commit = act.commit;
+    const list = act.list;
     for (let i = 0; i < list.length; i++) {
       if (i >= MAX_CALLS) return failed(`an act can make at most ${MAX_CALLS} calls`);
       const [id, raw] = parseCallShape(list[i], i);
@@ -179,7 +197,7 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
   }
   if (enc === value) return failed("no change");
   const motion = knobs.move * motionBits(typeDef.changedBits(x0!, x!, inst), totals);
-  return { ok: true, value: enc, cost: cost(decision, erasure, motion), calls };
+  return { ok: true, value: enc, cost: cost(decision, erasure, motion), calls, ...(commit ? { commit } : {}) };
 }
 
 // ------------------------------------------------------------------------------------------------

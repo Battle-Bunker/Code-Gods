@@ -210,6 +210,26 @@ calls against the instantiation's closed set of bit-priced mutators and applies 
   and history record carries `seasonCommitment` = sha256(salt), so after the season the
   salt can be revealed and every seed checked.
 
+**Spiral mechanics** (grid-lab PR #18, `lib/grid-lab/docs/explore/spirals.md`), both off by default:
+
+- `commitClause` (default false). When on, the prelude offers `only_if_better(moves)` /
+  `onlyIfBetter(moves)`; the act is then encoded as `{"calls":[...],"commit":"if-improves"}`
+  instead of a bare list. The engine commits such an act only if it strictly raises the
+  owner's own payoff on that object, n_owner × max(0, Σ_peers n), computed from the owner's
+  bits and the peer aggregate only (disclosure is unchanged); otherwise it is a no-op that
+  pays decisionBits + the floor. An agent whose measured acts use the clause pays
+  `1 + log2 3 + 1 ≈ 3.58` more summon bits: one yes/no measurement against the owner's
+  rule, reading the peers' aggregate, and naming the clause. In rooms without the setting
+  the wrapper does not exist and a hand-built clause act fails. There is no "do no harm to
+  others" clause.
+- `objectSelection` (default `uniform`). `shelter` picks each interaction's object with weight
+  1/(1+σ⁺), σ the object's salience (negative salience counts as 0): salient objects are hit
+  a little less. Nothing ever weights toward salience.
+
+No spiral analytics are exposed. If any are, use held spirals per 100 s, spiral excess (vs a
+per-object permutation null), drift at 16 bits, and tension event and reversal rates, not
+per-commit spiral counts (most "spirals" in a raw count are random-walk noise).
+
 Dealing: `utilitySelectorId` `fair-aligned` (default) keeps the friendliest even deal of
 32 Divine Lottery deals using the shipped synergy matrices of the instantiation and
 `priorId`; without a matrix it is the Divine Lottery (`divine-lottery`). `priorId`

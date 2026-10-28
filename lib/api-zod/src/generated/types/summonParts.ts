@@ -12,4 +12,6 @@ export interface SummonParts {
   literals: number;
   moveFlags: number;
   literalMoves: number;
+  /** 3.58 bits when the measured acts use the commit clause, else 0. */
+  commitClause: number;
 }

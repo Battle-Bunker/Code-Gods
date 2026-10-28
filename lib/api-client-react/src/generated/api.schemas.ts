@@ -329,6 +329,17 @@ export const SettingsSpawnFunctionId = {
   uniform: 'uniform',
 } as const;
 
+/**
+ * Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object's salience).
+ */
+export type SettingsObjectSelection = typeof SettingsObjectSelection[keyof typeof SettingsObjectSelection];
+
+
+export const SettingsObjectSelection = {
+  uniform: 'uniform',
+  shelter: 'shelter',
+} as const;
+
 export interface Settings {
   language: SettingsLanguage;
   /** The object type constructor. */
@@ -369,6 +380,10 @@ export interface Settings {
   perActFloorBits?: number;
   /** The rarity prior (Manifest.priors); uniform for now. */
   priorId?: string;
+  /** Offer the commit clause: agents may wrap moves in only_if_better(...) / onlyIfBetter(...); the engine then commits them only if they strictly raise the owner's payoff on that object (otherwise a no-op that pays decision bits + floor). Using it adds 1 + log2 3 + 1 ≈ 3.58 bits to the summon price. */
+  commitClause?: boolean;
+  /** Which object an interaction targets: uniform, or shelter (weight 1/(1+σ⁺) with σ the object's salience). */
+  objectSelection?: SettingsObjectSelection;
   pauseSeconds: number;
   /** God energy (bits) at the start; pays summon prices. */
   startingEnergy: number;
@@ -743,6 +758,8 @@ export interface SummonParts {
   literals: number;
   moveFlags: number;
   literalMoves: number;
+  /** 3.58 bits when the measured acts use the commit clause, else 0. */
+  commitClause: number;
 }
 
 /**
@@ -1150,6 +1167,14 @@ export const PlayerObservationLanguage = {
   typescript: 'typescript',
 } as const;
 
+export type PlayerObservationEconomyObjectSelection = typeof PlayerObservationEconomyObjectSelection[keyof typeof PlayerObservationEconomyObjectSelection];
+
+
+export const PlayerObservationEconomyObjectSelection = {
+  uniform: 'uniform',
+  shelter: 'shelter',
+} as const;
+
 export type PlayerObservationEconomy = {
   energyPerSecond: number;
   agentEnergyPerSecond: number;
@@ -1157,6 +1182,9 @@ export type PlayerObservationEconomy = {
   maxAgentsPerGod: number;
   penaltyWeight: number;
   worldSeconds: number;
+  perActFloorBits?: number;
+  commitClause?: boolean;
+  objectSelection?: PlayerObservationEconomyObjectSelection;
 };
 
 export type PlayerObservationSelf = {
