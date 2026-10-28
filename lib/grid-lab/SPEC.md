@@ -31,7 +31,7 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 
 | Symbol | Name | Code name | Meaning | Resonance |
 |---|---|---|---|---|
-| u_i : T → ℤ | **utility function** (returns an **ordinal utility**) | `ordinal` | Rule output; only its order matters. Ties allowed. | Ordinal utility / utility representation theorem (decision theory) |
+| u_i : T → ℤ or ℤᵏ (lexicographic) | **utility function** (returns an **ordinal utility**) | `ordinal` | Rule output; only its order matters. Ties allowed. | Ordinal utility / utility representation theorem (decision theory) |
 | U_i(x) = {y : u_i(y) ≥ u_i(x)} | **upper contour set** | `contour` | Everything at least as good as x for god i. | Microeconomics (preference upper contour sets) |
 | μ | **prior** | `prior` | Reference measure: the grid type's uniform spawn distribution. | Bayesian prior / base measure |
 | G_i(t) = μ{u_i ≥ t} | **survival function** | `Survival` | Tail mass of god i's ordinal under the prior. | Statistics (survival / complementary CDF) |
@@ -42,23 +42,29 @@ an agent's cost is the sum of its mutators' bespoke costs, in bits.
 | Π_i = Σ_x π_i(x) | **total payoff** | `total_payoff` | Leaderboard value. | |
 | Σ_i s_i(x) | **salience** of x | `salience` | Total information all gods see in x. | Salience (Schelling focal points) |
 | s_i + s_j − s_ij, with s_ij = −log₂ μ(U_i ∩ U_j) | **synergy** (pointwise mutual information) | `synergy` | >0: i and j's goals co-occur more than chance (aligned); <0 conflict. | Pointwise mutual information |
+| d_i : T → ℤ | **penalty** (a defence goal; returns a badness ordinal, higher = worse) | `penalty` | Optional second utility function: what god i wants to stop. Calibrated like u_i. | Loss function |
+| h_i(x) = η(−log₂ μ{d_i ≥ d_i(x)}), η(s) = log₂(1+2^(s−1)) − log₂ 1.5 | **penalty bits** (⚠️) | `penalty_bits` | Soft hinge at the median: ≈ 0 for typical grids, strictly increasing. P(h ≥ k) ≤ ⅔·2^−k for every penalty. | Surprisal of the bad event |
+| n_i = s_i − w(h_i − E_μ h_i) | **net bits** (signed) | `net_bits` | + for surprisingly good, − for surprisingly bad; = s_i without a defence goal. Monotone in the card. | |
+| max(0, Σ_{j≠i} n_j) | **peer care** | `peer_care` | The floored multiplier: π_i = n_i · peer care. "If the others don't care, nobody scores." See docs/defence-goals.md. | |
 | cost(m) | **action cost** (bits) | `cost` | Bespoke per-mutator charge, from energy. | MDL / Landauer erasure cost |
 | Δπ_i / cost | **yield** | `yield_` | Payoff gained per bit spent. | Efficiency |
 | — | **cooperative spiral** | `spiral` | Run of consecutive transformations of one object by ≥2 owners in which salience rises each step. | Positive feedback |
 | — | **tension** | `tension` | Share of transformations that raise someone's surprisal while lowering another's. | Zero-sum conflict |
 
-Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", payoff = "points", salience = "🔥 hot object".
+Kid-facing UI labels (proposal): surprisal = "✨ rarity (bits)", shown with tail mass as "1 in N" (docs/kid-cards.md §2), payoff = "points", salience = "🔥 hot object",
+penalty bits = "⚠️" ("redder than 90% of grids"). Players read their rule as a **utility function** `def utility(grid):` (docs/kid-api.md); never call it a "value function".
 
 ## 3. Modules and owners
 
 | File | Owner | Contract |
 |---|---|---|
 | `gridlab/core.py` | coordinator (done) | `GridType`, `Grid`, `Requires`/`req`, `spawn`, `spawn_batch`, `D4`, `lines`, `neighbours4`, `all_grid_types`. Encodings documented in the module docstring. |
-| `gridlab/family.py` | coordinator (done) | `Family`, `Draw`, `lex`. |
+| `gridlab/family.py` | coordinator (done) | `Family`, `Draw`, `Ordinal` (int or fixed-length int tuple), `ordinal_keys`, `dense_rank`. |
 | `gridlab/rules/*.py`, `gridlab/rules/__init__.py` | rules worker | `FAMILIES: list[Family]`, `by_id(id)`. All brainstorm rules converted to ordinal form. |
 | `gridlab/calibrate.py` | engine worker | `survival(draw, gtype) -> Survival` with `.surprisal(t) -> float` (bits, ≥ 0, non-decreasing in t), `.log2_tail(t)`, `.max_observed_bits`; deterministic (seeded from a stable hash of family id, canonical params, gtype key, estimator version); disk cache under `lib/grid-lab/.cache/` (gitignored). Monte Carlo body + multilevel splitting tail; uses `exact_log2_tail` when provided. |
 | `gridlab/mutators.py`, `gridlab/program.py` | mutator worker | `MUTATORS: list[Mutator]`; `Mutator(id, name, summary, requires, sample(rng, gtype)->params, cost(params, gtype)->float bits, apply(grid, params, gtype, rng)->Grid|None)`. `Program(guard, steps)` = an agent, with `.cost(gtype)`, `.apply(grid, gtype, rng)->Grid|None`, `.describe(gtype)`; `random_program(rng, gtype, ...)` and enumeration helpers for policies. |
 | `gridlab/sim.py`, `gridlab/policy.py`, `gridlab/metrics.py` | engine worker | `GameConfig` (gtype, gods, dealer, economy knobs, policy names, rates, seed), `run_game(config) -> GameLog`, `metrics(log) -> dict`. Policies choose Programs to summon. |
+| `gridlab/kid.py`, `gridlab/rules/cards.py`, `docs/kid-api.md`, `docs/kid-cards.md` | kid-cards worker | The player-facing surface: a cell-centric grid API (names, not indices) and, per shortlisted family, `card_source(params, gtype) -> str`, a runnable `def utility(grid):` program whose order equals the family's ordinal (`tests/test_cards.py`). |
 | `gridlab/experiments/*.py`, `docs/experiments.md` | experiment worker (later) | Batches of games, sweeps, optimisation. |
 | `docs/*.md` | each owner for its area | |
 

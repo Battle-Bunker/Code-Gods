@@ -38,7 +38,7 @@ def ck_ord(g, p, gtype):
             enc += comp
             regions += 1
     rimw = sum(1 for r in range(N) for c in range(N) if (r in (0, N - 1) or c in (0, N - 1)) and col[r][c] == W)
-    return lex((ck_score_parts(enc, regions, p, col), 4 * N * N + 1), (rimw, 4 * N - 3))
+    return tup(ck_score_parts(enc, regions, p, col), rimw)
 
 
 def ck_batch(sym, col, p, gtype):
@@ -55,7 +55,7 @@ def ck_batch(sym, col, p, gtype):
     else:
         s = enc.sum((1, 2))
     rimw = ((col == W) & rim).sum((1, 2))
-    return lexb((s, 4 * N * N + 1), (rimw, 4 * N - 3))
+    return tupb(s, rimw)
 
 
 def ck_sample(rng, gtype):
@@ -121,14 +121,14 @@ def ch_ord(g, p, gtype):
             a, b = col[r][c], col[r][c + 1]
             if {a, b} == {A, B} and col[r + 1][c + 1] == a and col[r + 1][c] == b:
                 w += 1
-    return lex((w, (N - 1) ** 2 + 1), (_seams_scalar(col, N, A, B), 2 * N * (N - 1) + 1))
+    return tup(w, _seams_scalar(col, N, A, B))
 
 
 def ch_batch(sym, col, p, gtype):
-    N, A, B = gtype.N, p["A"], p["B"]
+    A, B = p["A"], p["B"]
     a, b, c, d = col[:, :-1, :-1], col[:, :-1, 1:], col[:, 1:, :-1], col[:, 1:, 1:]
     w = ((((a == A) & (b == B)) | ((a == B) & (b == A))) & (d == a) & (c == b)).sum((1, 2))
-    return lexb((w, (N - 1) ** 2 + 1), (_seams_batch(col, A, B), 2 * N * (N - 1) + 1))
+    return tupb(w, _seams_batch(col, A, B))
 
 
 def checker(gtype, A, B, sym=None):
@@ -293,8 +293,7 @@ def pw_ord(g, p, gtype):
         vs = [k[i] for i in o]
         full += len(set(vs)) == 1
         plur += max(vs.count(x) for x in vs)
-    M = len(orbits(gtype.N))
-    return lex((full, M + 1), (plur, 4 * M + 1))
+    return tup(full, plur)
 
 
 def pw_batch(sym, col, p, gtype):
@@ -303,8 +302,7 @@ def pw_batch(sym, col, p, gtype):
     v = k[:, O]  # (B, M, 4)
     full = (v == v[:, :, :1]).all(2).sum(1)
     plur = np.max(np.stack([(v == v[:, :, i:i + 1]).sum(2) for i in range(4)]), axis=0).sum(1)
-    M = len(O)
-    return lexb((full, M + 1), (plur, 4 * M + 1))
+    return tupb(full, plur)
 
 
 PINWHEEL = mk(
@@ -324,19 +322,18 @@ def cw_ord(g, p, gtype):
     full = steps = 0
     for o in orbits(gtype.N).tolist():
         v = [s[i] for i in o]
-        full += all(v[i] == (v[0] + i) % 4 for i in range(4))
-        steps += sum(v[i + 1] == (v[i] + 1) % 4 for i in range(3))
-    M = len(orbits(gtype.N))
-    return lex((full, M + 1), (steps, 3 * M + 1))
+        good = [v[(i + 1) % 4] == (v[i] + 1) % 4 for i in range(4)]  # all 4 turns, wrapping round
+        full += all(good)
+        steps += sum(good)
+    return tup(full, steps)
 
 
 def cw_batch(sym, col, p, gtype):
     s = gtype.suit[sym].astype(np.int64).reshape(len(sym), -1)
     O = orbits(gtype.N)
     v = s[:, O]
-    st = v[:, :, 1:] == (v[:, :, :-1] + 1) % 4
-    M = len(O)
-    return lexb((st.all(2).sum(1), M + 1), (st.sum((1, 2)), 3 * M + 1))
+    st = np.roll(v, -1, axis=2) == (v + 1) % 4
+    return tupb(st.all(2).sum(1), st.sum((1, 2)))
 
 
 def cw_exemplar(p, gtype):
@@ -355,7 +352,7 @@ CARD_WINDMILL = mk(
     summary=lambda p, gt: ("Turn the grid a quarter turn and every suit should move on one: ♠→♥→♦→♣→♠. Every set of 4 "
                            "cells that spin that way scores a point."),
     ordinal=cw_ord, batch=cw_batch, exemplar=cw_exemplar,
-    source="catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits", tags={"shortlist"})
+    source="catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits (all 4 turns, kid card)", tags={"shortlist"})
 
 
 # --- Royal Court -------------------------------------------------------------------------------------
@@ -374,7 +371,7 @@ def rc_ord(g, p, gtype):
         comp = next(cp for cp in comps2d([[0] * N for _ in range(N)], fc) if (m, m) in cp)
         safe = all(0 < r < N - 1 and 0 < c < N - 1 for r, c in comp)
         score = len(comp) * (2 if safe else 1)
-    return lex((score, 2 * N * N + 1), (interior, N * N + 1))
+    return tup(score, interior)
 
 
 def rc_batch(sym, col, p, gtype):
@@ -386,7 +383,7 @@ def rc_batch(sym, col, p, gtype):
     size = reg.sum((1, 2))
     safe = ~(reg & rim_mask(N)).any((1, 2))
     interior = (fc & ~rim_mask(N)).sum((1, 2))
-    return lexb((size * np.where(safe, 2, 1), 2 * N * N + 1), (interior, N * N + 1))
+    return tupb(size * np.where(safe, 2, 1), interior)
 
 
 def rc_exemplar(p, gtype):
@@ -433,8 +430,7 @@ def be_ord(g, p, gtype):
         alive = alive and ok
         score += alive
         prev = cs[0]
-    N = gtype.N
-    return lex((score, (N + 1) // 2 + 1), (plur, N * N + 1))
+    return tup(score, plur)
 
 
 def be_batch(sym, col, p, gtype):
@@ -451,7 +447,7 @@ def be_batch(sym, col, p, gtype):
         alive &= ok
         score += alive
         prev = v[:, 0]
-    return lexb((score, (N + 1) // 2 + 1), (plur, N * N + 1))
+    return tupb(score, plur)
 
 
 def be_exemplar(p, gtype):
@@ -543,8 +539,7 @@ def tt_ord(g, p, gtype):
     forms = piece_forms(p["P"])
     cs = [cp for cp in comps2d(col, [[x == p["C"] for x in row] for row in col]) if len(cp) == 4]
     pieces = sum(_norm(cp) in forms for cp in cs)
-    n = gtype.N ** 2
-    return lex((pieces, n + 1), (len(cs), n + 1))
+    return tup(pieces, len(cs))
 
 
 def tt_batch(sym, col, p, gtype):
@@ -564,8 +559,7 @@ def tt_batch(sym, col, p, gtype):
     rg = (lab + (np.arange(B, dtype=np.int64) * N * N)[:, None, None])
     ok = np.isin(bits, np.array([_mask_of(f) for f in piece_forms(p["P"])]))
     pieces = (roots & ok[rg]).sum((1, 2))
-    n = N * N
-    return lexb((pieces, n + 1), (roots.sum((1, 2)), n + 1))
+    return tupb(pieces, roots.sum((1, 2)))
 
 
 def tt_exemplar(p, gtype):
@@ -612,7 +606,7 @@ def rb_ord(g, p, gtype):
         ok = [col[r][c] == t % C for r, c in ln]
         cells += sum(ok)
         score += len(ln) if all(ok) else 0
-    return lex((score, N * N + 1), (cells, N * N + 1))
+    return tup(score, cells)
 
 
 def rb_batch(sym, col, p, gtype):
@@ -623,7 +617,7 @@ def rb_batch(sym, col, p, gtype):
     for t in range(2 * N - 1):
         m = d == t
         score += ok[:, m].all(1) * int(m.sum())
-    return lexb((score, N * N + 1), (ok.sum((1, 2)), N * N + 1))
+    return tupb(score, ok.sum((1, 2)))
 
 
 RAINBOW_BANDS = mk(
@@ -732,11 +726,10 @@ def pm_ord(g, p, gtype):
                 if 0 <= a < N and 0 <= b < N and 0 <= x < N and 0 <= y < N and {col[a][b], col[x][y]} == par:
                     s += 1
             near += any(col[a][b] in par for a, b in nbrs4(N, r, c))
-    return lex((s, 2 * N * N + 1), (near, N * N + 1))
+    return tup(s, near)
 
 
 def pm_batch(sym, col, p, gtype):
-    N = gtype.N
     P1, P2 = _parents(gtype)
     c = col.astype(np.int64)
     p1, p2 = P1[c], P2[c]
@@ -747,7 +740,7 @@ def pm_batch(sym, col, p, gtype):
         a, b = shift(c, *d1, -9), shift(c, *d2, -9)
         s += (isM & (((a == p1) & (b == p2)) | ((a == p2) & (b == p1)))).sum((1, 2))
         near |= (a == p1) | (a == p2) | (b == p1) | (b == p2)
-    return lexb((s, 2 * N * N + 1), ((isM & near).sum((1, 2)), N * N + 1))
+    return tupb(s, (isM & near).sum((1, 2)))
 
 
 def pm_exemplar(p, gtype):
@@ -795,7 +788,7 @@ def cc_ord(g, p, gtype):
     d = [(col[ring[(i + 1) % L]] - col[ring[i]]) % C for i in range(L)]
     adv, ok = sum(x == 1 for x in d), sum(x <= 1 for x in d)
     complete = ok == L and sum(d) >= C
-    return lex((int(complete), 2), (adv, L + 1), (ok, L + 1))
+    return tup(int(complete), adv, ok)
 
 
 def cc_batch(sym, col, p, gtype):
@@ -808,7 +801,7 @@ def cc_batch(sym, col, p, gtype):
     L = len(ring)
     adv, ok = (d == 1).sum(1), (d <= 1).sum(1)
     complete = (ok == L) & (d.sum(1) >= C)
-    return lexb((complete, 2), (adv, L + 1), (ok, L + 1))
+    return tupb(complete, adv, ok)
 
 
 def cc_exemplar(p, gtype):
@@ -865,7 +858,7 @@ def sw_ord(g, p, gtype):
     holes = sum(1 for cp in comps2d([[0] * N for _ in range(N)], [[x != X for x in row] for row in col])
                 if not any(r in (0, N - 1) or c in (0, N - 1) for r, c in cp))
     rimx = sum(1 for r in range(N) for c in range(N) if (r in (0, N - 1) or c in (0, N - 1)) and col[r][c] == X)
-    return lex((holes, N * N + 1), (rimx, 4 * N - 3))
+    return tup(holes, rimx)
 
 
 def sw_batch(sym, col, p, gtype):
@@ -875,7 +868,7 @@ def sw_batch(sym, col, p, gtype):
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     touch = comp_sum(lab, np.broadcast_to(rim, col.shape).astype(np.int64), mask) > 0
     holes = _roots(lab, mask & ~touch).sum((1, 2))
-    return lexb((holes, N * N + 1), (((col == p["X"]) & rim).sum((1, 2)), 4 * N - 3))
+    return tupb(holes, ((col == p["X"]) & rim).sum((1, 2)))
 
 
 def sw_exemplar(p, gtype):
@@ -905,7 +898,7 @@ def mc_ord(g, p, gtype):
         reached = reached or (N - 1, N - 1) in level
         target = v[0][0] + L
         level = {(a, b) for r, c in level for a, b in nbrs4(N, r, c) if v[a][b] == target}
-    return lex((int(reached), 2), (L, N * N + 1))
+    return tup(int(reached), L)
 
 
 def mc_batch(sym, col, p, gtype):
@@ -925,7 +918,7 @@ def mc_batch(sym, col, p, gtype):
         reached |= level[:, N - 1, N - 1]
         dil = shift(level, -1, 0, False) | shift(level, 1, 0, False) | shift(level, 0, -1, False) | shift(level, 0, 1, False)
         level = dil & (v == v0 + k)
-    return lexb((reached, 2), (L, N * N + 1))
+    return tupb(reached, L)
 
 
 def mc_exemplar(p, gtype):

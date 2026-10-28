@@ -25,6 +25,7 @@ import pkgutil
 import numpy as np
 
 from .core import Grid, GridType, spawn_batch
+from .family import ordinal_keys
 from .mutators import available
 
 
@@ -44,10 +45,10 @@ def load_families() -> list:
 
 def _surprisal_fn(fam, params, gt, rng, n=4096):
     s, c = spawn_batch(gt, rng, n)
-    ref = np.sort(fam.evaluate_batch(s, c, params, gt))
+    ref = np.sort(fam.evaluate_keys(s, c, params, gt))
 
-    def f(u):
-        ge = n - np.searchsorted(ref, u, side="left")
+    def f(u):  # u: a batch of ordinals, (B,) or (B, k)
+        ge = n - np.searchsorted(ref, ordinal_keys(u), side="left")
         return -np.log2((ge + 1) / (n + 1))
     return f
 

@@ -52,7 +52,7 @@ def ss_ord(g, p, gtype):
                 if L >= 3:
                     score += L * L * (2 if p["flush"] and mono else 1)
                 L, mono = 1, True
-    return lex((score, 4 * N ** 3 + 1), (pairs, 2 * N * (N - 1) + 1))
+    return tup(score, pairs)
 
 
 def ss_batch(sym, col, p, gtype):
@@ -77,7 +77,7 @@ def ss_batch(sym, col, p, gtype):
         score += np.where(end & (L >= 3), L * L * w, 0).sum(1)
         L = np.where(ok, L + 1, 1)
         mono = np.where(ok, mono & same, True)
-    return lexb((score, 4 * N ** 3 + 1), (pairs, 2 * N * (N - 1) + 1))
+    return tupb(score, pairs)
 
 
 def ss_exemplar(p, gtype):
@@ -161,22 +161,16 @@ NUMBER_BONDS = mk(
 
 
 # --- Magic Accountant (merged with Row Ranger exact mode) ------------------------------------------------
-def ma_dmax(N, axis, gtype):
-    return _nlines(N, axis) * N * (vmax(gtype) - vmin(gtype))
-
-
 def ma_ord(g, p, gtype):
-    N, T = gtype.N, p["T"]
+    T = p["T"]
     sums = [sum(l) for l in _lines_scalar(gtype.value[g.sym].tolist(), p["axis"])]
-    D = ma_dmax(N, p["axis"], gtype)
-    return lex((sum(s == T for s in sums), _nlines(N, p["axis"]) + 1), (D - sum(abs(s - T) for s in sums), D + 1))
+    return tup(sum(s == T for s in sums), -sum(abs(s - T) for s in sums))
 
 
 def ma_batch(sym, col, p, gtype):
-    N, T = gtype.N, p["T"]
+    T = p["T"]
     s = lines_rc(vals(sym, gtype), p["axis"]).sum(2)
-    D = ma_dmax(N, p["axis"], gtype)
-    return lexb(((s == T).sum(1), _nlines(N, p["axis"]) + 1), (D - np.abs(s - T).sum(1), D + 1))
+    return tupb((s == T).sum(1), -np.abs(s - T).sum(1))
 
 
 def ma_sample(rng, gtype):
@@ -223,19 +217,17 @@ MAGIC_ACCOUNTANT = mk(
 
 # --- Round Numbers (Row Ranger round mode) ------------------------------------------------------------------
 def rr_ord(g, p, gtype):
-    b, N = gtype.base, gtype.N
+    b = gtype.base
     sums = [sum(l) for l in _lines_scalar(gtype.value[g.sym].tolist(), p["axis"])]
-    nl = _nlines(N, p["axis"])
     near = sum(b // 2 - min(s % b, b - s % b) for s in sums)
-    return lex((sum(s % b == 0 for s in sums), nl + 1), (near, nl * (b // 2) + 1))
+    return tup(sum(s % b == 0 for s in sums), near)
 
 
 def rr_batch(sym, col, p, gtype):
-    b, N = gtype.base, gtype.N
+    b = gtype.base
     s = lines_rc(vals(sym, gtype), p["axis"]).sum(2)
     m = s % b
-    nl = _nlines(N, p["axis"])
-    return lexb(((m == 0).sum(1), nl + 1), ((b // 2 - np.minimum(m, b - m)).sum(1), nl * (b // 2) + 1))
+    return tupb((m == 0).sum(1), (b // 2 - np.minimum(m, b - m)).sum(1))
 
 
 ROUND_NUMBERS = mk(
@@ -402,7 +394,7 @@ def mw_ord(g, p, gtype):
             if p["X"] is not None and col[r + 1][c + 1] != p["X"]:
                 k = 0
             best, tot = max(best, k), tot + k
-    return lex((best, 9), (tot, 8 * (N - 2) ** 2 + 1))
+    return tup(best, tot)
 
 
 def mw_batch(sym, col, p, gtype):
@@ -417,7 +409,7 @@ def mw_batch(sym, col, p, gtype):
         k += ((xs[0] + xs[1] + xs[2]) == S) & ~((xs[0] == xs[1]) & (xs[1] == xs[2]))
     if p["X"] is not None:
         k *= col[:, 1:n + 1, 1:n + 1] == p["X"]
-    return lexb((k.reshape(B, -1).max(1), 9), (k.sum((1, 2)), 8 * n * n + 1))
+    return tupb(k.reshape(B, -1).max(1), k.sum((1, 2)))
 
 
 def mw_exemplar(p, gtype):
@@ -607,9 +599,7 @@ def sa_ord(g, p, gtype):
     N = gtype.N
     v, col = gtype.value[g.sym].tolist(), g.col.tolist()
     imb = [abs(sa_imb_scalar(a, b, p, N)) for a, b in zip(_lines_scalar(v, p["scope"]), _lines_scalar(col, p["scope"]))]
-    nl = _nlines(N, p["scope"])
-    D = nl * N * vmax(gtype)
-    return lex((sum(x == 0 for x in imb), nl + 1), (D - sum(imb), D + 1))
+    return tup(sum(x == 0 for x in imb), -sum(imb))
 
 
 def sa_batch(sym, col, p, gtype):
@@ -620,9 +610,7 @@ def sa_batch(sym, col, p, gtype):
         imb = np.abs(L[:, :, :h].sum(2) - L[:, :, N - h:].sum(2))
     else:
         imb = np.abs((L * (C == p["X"])).sum(2) - (L * (C == p["Y"])).sum(2))
-    nl = _nlines(N, p["scope"])
-    D = nl * N * vmax(gtype)
-    return lexb(((imb == 0).sum(1), nl + 1), (D - imb.sum(1), D + 1))
+    return tupb((imb == 0).sum(1), -imb.sum(1))
 
 
 def sa_sample(rng, gtype):
@@ -711,7 +699,7 @@ def ca_ord(g, p, gtype):
     N, b, t = gtype.N, gtype.base, p["top"]
     v = gtype.value[g.sym].tolist()
     if not any(v[t]):
-        return 0
+        return (0, 0)
     carry, trail, corr, alive = 0, 0, 0, True
     for c in range(N - 1, -1, -1):
         s = v[t][c] + v[t + 1][c] + carry
@@ -720,7 +708,7 @@ def ca_ord(g, p, gtype):
         alive = alive and ok
         trail += alive
         carry = s // b
-    return lex((trail, N + 1), (corr, N + 1))
+    return tup(trail, corr)
 
 
 def ca_batch(sym, col, p, gtype):
@@ -739,7 +727,7 @@ def ca_batch(sym, col, p, gtype):
         trail += alive
         carry = s // b
     nz = v[:, t, :].any(1)
-    return np.where(nz, lexb((trail, N + 1), (corr, N + 1)), 0)
+    return np.where(nz[:, None], tupb(trail, corr), 0)
 
 
 def ca_exemplar(p, gtype):
@@ -768,7 +756,7 @@ def ld_ord(g, p, gtype):
     if p["dir"] == "up":
         nums = nums[::-1]
     inc = [nums[r] > nums[r - 1] for r in range(1, N)]
-    return lex((max((L for _, L in runs(inc)), default=0), N), (sum(inc), N))
+    return tup(max((L for _, L in runs(inc)), default=0), sum(inc))
 
 
 def ld_batch(sym, col, p, gtype):
@@ -783,7 +771,7 @@ def ld_batch(sym, col, p, gtype):
     for i in range(N - 1):
         run = np.where(inc[:, i], run + 1, 0)
         best = np.maximum(best, run)
-    return lexb((best, N), (inc.sum(1), N))
+    return tupb(best, inc.sum(1))
 
 
 def ld_exemplar(p, gtype):
@@ -844,14 +832,13 @@ def yt_ord(g, p, gtype):
         ok = [ln[i + 1] > ln[i] for i in range(N - 1)]
         full += all(ok)
         pairs += sum(ok)
-    return lex((full, 2 * N + 1), (pairs, 2 * N * (N - 1) + 1))
+    return tup(full, pairs)
 
 
 def yt_batch(sym, col, p, gtype):
-    N = gtype.N
     L = lines_rc(_to_br(vals(sym, gtype), p["K"]), "both")
     ok = L[:, :, 1:] > L[:, :, :-1]
-    return lexb((ok.all(2).sum(1), 2 * N + 1), (ok.sum((1, 2)), 2 * N * (N - 1) + 1))
+    return tupb(ok.all(2).sum(1), ok.sum((1, 2)))
 
 
 def yt_exemplar(p, gtype):

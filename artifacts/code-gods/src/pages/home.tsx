@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
-import { useListRooms, getListRoomsQueryKey, useCreateRoom, useGetManifest } from "@workspace/api-client-react";
+import { useListRooms, getListRoomsQueryKey, useCreateRoom } from "@workspace/api-client-react";
+import { useManifest } from "@/hooks/use-manifest";
 import { Shell, Panel, Empty, ErrorLine, Sigil } from "@/components/shell";
 import { useAuth, displayName } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errMsg } from "@/lib/errors";
+import { fmtWhen, isoWhen } from "@/lib/time";
 import { ArrowRight, Plus, Hash } from "lucide-react";
 
 const tenets = [
@@ -18,7 +20,7 @@ const tenets = [
 
 function Landing() {
   const { login } = useAuth();
-  const manifest = useGetManifest();
+  const manifest = useManifest();
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6">
       <section className="grid md:grid-cols-[1.4fr_1fr] gap-10 py-14 md:py-24 border-b">
@@ -91,7 +93,7 @@ function Rooms() {
   const submitCreate = (e: React.FormEvent) => {
     e.preventDefault();
     create.mutate({ data: {} }, {
-      onSuccess: (room) => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); nav(`/rooms/${room.id}`); },
+      onSuccess: (room) => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); nav(`/rooms/${room.shortCode}`); },
     });
   };
   const submitCode = (e: React.FormEvent) => {
@@ -122,18 +124,21 @@ function Rooms() {
             <ul className="divide-y">
               {rooms.data.map((r, i) => (
                 <li key={r.id} className="rise" style={{ animationDelay: `${i * 0.03}s` }}>
-                  <button onClick={() => nav(`/rooms/${r.id}`)} className="w-full grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-3 px-4 py-4 text-left hover:bg-muted/60 transition-colors" data-testid={`row-room-${r.id}`}>
+                  <button onClick={() => nav(`/rooms/${r.shortCode}`)} className="w-full grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 gap-y-3 px-4 py-4 text-left hover:bg-muted/60 transition-colors" data-testid={`row-room-${r.id}`}>
                     <span className="font-mono text-lg font-semibold border px-2 py-1" title={r.id}>{r.shortCode}</span>
                     <span className="min-w-0 space-y-1">
                       <span className="block text-sm font-medium break-words">Owner: {r.ownerName}{r.ownerId === user?.id ? " (you)" : ""}</span>
                       <span className="block text-sm">
                         Created: {r.createdAt === null
                           ? <span title="This room predates creation-date tracking.">Not recorded</span>
-                          : <time dateTime={new Date(r.createdAt).toISOString()} title={new Date(r.createdAt).toISOString()}>{new Date(r.createdAt).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}</time>}
+                          : <time dateTime={isoWhen(r.createdAt)} title={isoWhen(r.createdAt)}>{fmtWhen(r.createdAt)}</time>}
                       </span>
                     </span>
                     <span className="font-mono text-sm tabular-nums">{r.memberCount}<span className="text-muted-foreground"> seats</span></span>
-                    <span className={`label-mono !text-inherit px-2 py-1 ${phaseTone(r.phase)}`}>{r.phase}</span>
+                    <span className="flex flex-col items-start sm:items-end gap-1">
+                      <span className={`label-mono !text-inherit px-2 py-1 ${phaseTone(r.phase)}`} data-testid={`text-room-phase-${r.id}`}>{r.activeGameShortCode ? `game ${r.phase}` : r.phase}</span>
+                      {r.activeGameShortCode && <span className="font-mono text-xs text-muted-foreground" data-testid={`text-room-game-${r.id}`}>game {r.activeGameShortCode}</span>}
+                    </span>
                   </button>
                 </li>
               ))}

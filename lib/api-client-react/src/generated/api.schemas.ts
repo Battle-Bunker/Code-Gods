@@ -106,6 +106,162 @@ export interface DeviceApprovalInput {
   code: string;
 }
 
+/**
+ * read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+ */
+export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermission];
+
+
+export const DevicePermission = {
+  read: 'read',
+  act: 'act',
+} as const;
+
+export interface DeviceRequestInput {
+  /** Canonical room UUID or authority-resolved room alias */
+  roomId: string;
+  /**
+     * Base64url S256 digest of the private verifier
+     * @pattern ^[A-Za-z0-9_-]{43}$
+     */
+  challenge: string;
+  /**
+     * Self-reported printable label; not verified workspace or model identity
+     * @minLength 1
+     * @maxLength 120
+     */
+  clientLabel?: string;
+  permission?: DevicePermission;
+}
+
+export type DeviceRequestResultExpiresIn = typeof DeviceRequestResultExpiresIn[keyof typeof DeviceRequestResultExpiresIn];
+
+
+export const DeviceRequestResultExpiresIn = {
+  NUMBER_300: 300,
+} as const;
+
+export type DeviceRequestResultInterval = typeof DeviceRequestResultInterval[keyof typeof DeviceRequestResultInterval];
+
+
+export const DeviceRequestResultInterval = {
+  NUMBER_2: 2,
+} as const;
+
+export interface DeviceRequestResult {
+  deviceId: string;
+  /** Unique generated delegated request/session identifier; equals deviceId */
+  delegateId: string;
+  /** Private proof material; never display in chat or logs */
+  deviceSecret: string;
+  roomId: string;
+  userCode: string;
+  verificationPath: string;
+  expiresIn: DeviceRequestResultExpiresIn;
+  interval: DeviceRequestResultInterval;
+  permission: DevicePermission;
+}
+
+export interface DeviceProofInput {
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  deviceId: string;
+  /**
+     * @minLength 1
+     * @maxLength 256
+     */
+  deviceSecret: string;
+  /**
+     * Private verifier whose S256 digest matches the request challenge
+     * @minLength 1
+     * @maxLength 256
+     */
+  verifier: string;
+}
+
+export type DeviceCredentialExpiresIn = typeof DeviceCredentialExpiresIn[keyof typeof DeviceCredentialExpiresIn];
+
+
+export const DeviceCredentialExpiresIn = {
+  NUMBER_900: 900,
+} as const;
+
+export interface DeviceCredential {
+  /** Private opaque bearer; do not display or persist to assistant output */
+  token: string;
+  expiresIn: DeviceCredentialExpiresIn;
+  roomId: string;
+  godId: string;
+  delegateId: string;
+  permission: DevicePermission;
+}
+
+export type DevicePendingResultStatus = typeof DevicePendingResultStatus[keyof typeof DevicePendingResultStatus];
+
+
+export const DevicePendingResultStatus = {
+  pending: 'pending',
+} as const;
+
+export interface DevicePendingResult {
+  status: DevicePendingResultStatus;
+}
+
+export type DeviceEndedResultStatus = typeof DeviceEndedResultStatus[keyof typeof DeviceEndedResultStatus];
+
+
+export const DeviceEndedResultStatus = {
+  denied: 'denied',
+  expired: 'expired',
+} as const;
+
+export interface DeviceEndedResult {
+  status: DeviceEndedResultStatus;
+}
+
+export interface ErrorResult {
+  error: string;
+  code?: string;
+}
+
+export type DeviceDetailsStatus = typeof DeviceDetailsStatus[keyof typeof DeviceDetailsStatus];
+
+
+export const DeviceDetailsStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  denied: 'denied',
+  redeemed: 'redeemed',
+  expired: 'expired',
+} as const;
+
+export interface DeviceDetails {
+  roomId: string;
+  roomCode: string;
+  /** Self-reported */
+  clientLabel: string;
+  permission: DevicePermission;
+  /** Approval-request deadline */
+  expiresAt: string;
+  status: DeviceDetailsStatus;
+}
+
+export interface DeviceGrant {
+  delegateId: string;
+  roomId: string;
+  /** Self-reported */
+  clientLabel: string;
+  permission: DevicePermission;
+  /** Persisted player-session expiry */
+  expiresAt: string;
+}
+
+export interface DeviceGrantList {
+  grants: DeviceGrant[];
+}
+
 export interface AuthoredOption {
   id: string;
   label: string;
@@ -207,14 +363,19 @@ export interface Manifest {
 
 export interface RoomInput { [key: string]: unknown }
 
+/**
+ * Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result.
+ */
 export type RoomActionInputAction = typeof RoomActionInputAction[keyof typeof RoomActionInputAction];
 
 
 export const RoomActionInputAction = {
   join: 'join',
+  leave: 'leave',
   ready: 'ready',
   settings: 'settings',
   start: 'start',
+  endGame: 'endGame',
   addAi: 'addAi',
   removeAi: 'removeAi',
   chat: 'chat',
@@ -222,6 +383,7 @@ export const RoomActionInputAction = {
 } as const;
 
 export interface RoomActionInput {
+  /** Settings and seats describe the NEXT game and can change only while no game is active. `leave` is refused for the owner and for a member seated in the active game. `endGame` (owner) ends the active game early and records its result. */
   action: RoomActionInputAction;
   requestId: string;
   revision?: number;
@@ -246,7 +408,10 @@ export interface RoomSummary {
   /** Unix milliseconds; null for legacy rooms whose creation time was not recorded. */
   createdAt: number | null;
   memberCount: number;
+  /** `lobby` between games, otherwise the active game's phase. */
   phase: string;
+  /** @nullable */
+  activeGameShortCode: string | null;
 }
 
 export type MemberKind = typeof MemberKind[keyof typeof MemberKind];
@@ -290,6 +455,99 @@ export interface Standing {
   rank: number;
 }
 
+export type GameLinkStatus = typeof GameLinkStatus[keyof typeof GameLinkStatus];
+
+
+export const GameLinkStatus = {
+  current: 'current',
+  historical: 'historical',
+  unavailable: 'unavailable',
+} as const;
+
+export interface GameLink {
+  id: string;
+  shortCode: string;
+  /** @nullable */
+  roomShortCode: string | null;
+  status: GameLinkStatus;
+}
+
+export type RosterEntryKind = typeof RosterEntryKind[keyof typeof RosterEntryKind];
+
+
+export const RosterEntryKind = {
+  human: 'human',
+  ai: 'ai',
+} as const;
+
+export interface RosterEntry {
+  id: string;
+  name: string;
+  kind: RosterEntryKind;
+}
+
+export interface Winner {
+  deityId: string;
+  name: string;
+  kind: string;
+}
+
+/**
+ * The room's single active (not yet ended) game.
+ */
+export interface ActiveGameRef {
+  id: string;
+  shortCode: string;
+  phase: string;
+  startedAt: number;
+  roster: RosterEntry[];
+}
+
+/**
+ * @nullable
+ */
+export type GameRecordEndReason = typeof GameRecordEndReason[keyof typeof GameRecordEndReason] | null;
+
+
+export const GameRecordEndReason = {
+  lifetime: 'lifetime',
+  owner: 'owner',
+  retired: 'retired',
+} as const;
+
+/**
+ * Public result of one finished game, kept in its room's history.
+ */
+export interface GameRecord {
+  id: string;
+  shortCode: string;
+  roomId: string;
+  startedAt: number;
+  /**
+     * Unix milliseconds; null for legacy games whose end time was not recorded.
+     * @nullable
+     */
+  endedAt: number | null;
+  /** @nullable */
+  endReason: GameRecordEndReason;
+  settings: Settings;
+  roster: RosterEntry[];
+  leaderboard: Standing[];
+  /** Every god ranked first (ties share the win). */
+  winners: Winner[];
+  worldSeconds: number;
+  objectCount: number;
+  agentCount: number;
+}
+
+export type GameViewStatus = typeof GameViewStatus[keyof typeof GameViewStatus];
+
+
+export const GameViewStatus = {
+  active: 'active',
+  ended: 'ended',
+} as const;
+
 export interface PublicGame {
   id: string;
   shortCode: string;
@@ -300,6 +558,15 @@ export interface PublicGame {
   agentCount: number;
   objects: PublicObject[];
   leaderboard: Standing[];
+  startedAt?: number;
+  /** @nullable */
+  endedAt?: number | null;
+  /** @nullable */
+  endReason?: string | null;
+  /** @nullable */
+  recoveryReason?: string | null;
+  settings?: Settings;
+  roster?: RosterEntry[];
 }
 
 export interface UtilityFamily {
@@ -308,14 +575,61 @@ export interface UtilityFamily {
   theme: string;
 }
 
+/**
+ * A game's own page. Public information only.
+ */
+export type GameView = PublicGame & ({
+  /** @nullable */
+  roomId: string | null;
+  /** @nullable */
+  roomShortCode: string | null;
+  /** @nullable */
+  ownerId: string | null;
+  status: GameViewStatus;
+  winners: Winner[];
+  /** Public room chat sent while this game was played (most recent 100). */
+  chat: ChatMessage[];
+  /** The room's active game now, which may be a newer one. */
+  roomActiveGame: ActiveGameRef | null;
+  utilityCatalog: UtilityFamily[];
+  serverTime: number;
+}) & Required<Pick<PublicGame & ({
+  /** @nullable */
+  roomId: string | null;
+  /** @nullable */
+  roomShortCode: string | null;
+  /** @nullable */
+  ownerId: string | null;
+  status: GameViewStatus;
+  winners: Winner[];
+  /** Public room chat sent while this game was played (most recent 100). */
+  chat: ChatMessage[];
+  /** The room's active game now, which may be a newer one. */
+  roomActiveGame: ActiveGameRef | null;
+  utilityCatalog: UtilityFamily[];
+  serverTime: number;
+}), 'startedAt' | 'endedAt' | 'endReason' | 'recoveryReason' | 'settings' | 'roster'>>;
+
+/**
+ * A room is a persistent lobby: members, readiness and the owner's settings for the NEXT game. Each launched game has its own page (GET /games/{code}/state) and, once ended, an entry in GET /rooms/{roomId}/games.
+ */
 export interface RoomState {
   id: string;
   shortCode: string;
   ownerId: string;
+  ownerName: string;
+  /**
+     * Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+     * @nullable
+     */
+  createdAt: number | null;
   revision: number;
+  /** Settings for the next game. Each game keeps its own snapshot from launch. */
   settings: Settings;
   members: Member[];
   chat: ChatMessage[];
+  activeGame: ActiveGameRef | null;
+  /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
   game: PublicGame | null;
   serverTime: number;
   /** Public list of utility-function families gods may have drawn for this object type. */
@@ -346,5 +660,9 @@ export type DeleteAdminAiAgentParams = {
  * @minimum 1
  */
 revision: number;
+};
+
+export type GetDeviceDetailsParams = {
+code: string;
 };
 

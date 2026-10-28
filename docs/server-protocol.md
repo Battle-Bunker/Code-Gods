@@ -33,6 +33,12 @@ Socket change notifications follow commit; HTTP observations can include the
 short uncommitted interaction window. An abrupt process kill can lose that window.
 
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
+Share rooms as `/rooms/{roomShortCode}`, games as `/games/{gameShortCode}`,
+and browser player links as `/player/?room={roomShortCode}`. Legacy GUID links
+still resolve. A game link opens only that game; historical links never silently
+display a replacement game. IDs inside authenticated protocol envelopes remain
+canonical GUIDs. Device approval request responses include the resolved `roomId`
+GUID, which the daemon pins before accepting credentials returned by polling.
 The current display uses generated OpenAPI hooks and one-second polling. It never
 receives private utility descriptors, seeds, end deadlines, or opponent utilities.
 
@@ -46,7 +52,9 @@ Player clients do not inherit Replit Agent credentials. They use an application
 device approval flow:
 
 1. Generate a random verifier locally and its base64url SHA-256 challenge.
-2. `POST /api/device/request` with `{roomId,challenge}`. Keep the returned
+2. `POST /api/device/request` with `{roomId,challenge,clientLabel,permission}`.
+   Permission is `read` or `act`; labels are self-reported, not verified identities.
+   Keep the returned
    `deviceSecret` in daemon memory, not in a browser bundle or URL.
 3. Ask the human to visit the returned `verificationPath` on the server domain.
    They log in, join the room, and approve the displayed code.
@@ -58,6 +66,47 @@ device approval flow:
 
 Approval codes expire after five minutes. This is **not** a native Replit OAuth
 device grant. The browser approval binds a local client to the verified account.
+
+## Rooms and games
+
+A **room** is a persistent lobby: its members (humans who joined plus AI seats the
+owner added), readiness, public chat and the owner's settings for the NEXT game.
+A **game** is one match launched from the room by its owner. It copies the room's
+settings, members and AI seat strategies at launch and keeps that snapshot.
+
+1. Lobby: members join or leave; the owner edits settings and seats (`settings`,
+   `addAi`, `removeAi`). Readiness is advisory.
+2. The owner launches (`start`): three to eight members are required, and a room
+   has at most one active game. `GET /api/rooms/:id` reports it as `activeGame`;
+   its page is `/games/{gameShortCode}` (`GET /api/games/:code/state`).
+3. While it runs, settings and seats are frozen. Someone who joins mid-game is a
+   member but not in the game's roster: they spectate (`seated: false` in player
+   observations) and are dealt into the next game. A member seated in the active
+   game cannot `leave` until it ends; the owner cannot leave.
+4. The game ends when its sampled lifetime elapses, or when the owner uses
+   `endGame`. In the same commit the server stamps `endedAt`/`endReason` and
+   writes the game's public result to `cg_games.summary`. Sockets receive
+   `game.ended` with that result, and `activeGame` becomes null: the room is a lobby again.
+5. `GET /api/rooms/:id/games` lists finished games newest first: start and end
+   times, settings used, roster, final leaderboard and winners (ties share the
+   win). Results contain only what the public leaderboard already shows. Past
+   games stay viewable at their final state through `/api/games/:code/state`.
+
+`RoomState.game` remains for older clients as the room's current game slot (the
+active game, or the latest one until the next launch). Player observations keep
+following that slot, so after a game ends they show its final state with phase
+`ended` until the owner launches the next game.
+
+## Room assistant access
+
+For the Agent-facing CLI and lifecycle see [room-assistant.md](room-assistant.md).
+Authenticated browsers inspect `/api/device/details?code=...` before approving,
+may deny through `POST /api/device/deny`, and list their own delegated sessions at
+`GET /api/device/grants`. Owner-only
+`POST /api/device/grants/:delegateId/revoke` invalidates just that grant and its
+live sockets. Pending clients may cancel using `/api/device/cancel` with their
+device proof. Read-only grants cannot use either HTTP or socket mutation formats;
+all grants remain bound to one room and the approving human, with no host rights.
 
 ## Room actions
 
@@ -122,7 +171,8 @@ The older browser convenience commands are also accepted:
 Snapshot/reconnect requests use `command: "subscribe"` or `"resume"`.
 Envelopes have `{protocolVersion,type,seq,serverTime,payload}`.
 Current messages include `room.snapshot`, `leaderboard.updated`, `command.receipt`,
-`command.error`, `object.spawned` and `object.transformed`. The `seq` is the room
+`command.error`, `object.spawned`, `object.transformed`, `game.preparing` (a
+new game launched with you seated) and `game.ended` (payload: the public game record). The `seq` is the room
 commit revision; several messages from one commit can share it, so it is not a
 unique event cursor. Object events also have event IDs. Snapshots include all
 current objects and a recent public chat
@@ -216,6 +266,11 @@ the normal Replit Publish schema-diff flow. There is no startup DDL or productio
 migration script. The table contains room/game IDs, an end sequence, and existing
 transformation events (including resulting object values, versions and utilities).
 It contains no agent source or additional identity metadata.
+
+`cg_games.started_at`, `ended_at` and `summary` (plus the `cg_games_room_started_idx`
+index) are additive, nullable columns. Deploy them the same way. Rows written before
+them are valid. On startup the server fills in `summary` once for previously ended
+games, so older rooms gain their history. The summary holds no utilities or sources.
 
 Interaction completion changes the local cache first. Buffers hold at most 64
 events per room and 256 globally, flushing after 100ms or at 32 events in a room

@@ -34,10 +34,10 @@ from pathlib import Path
 import numpy as np
 
 from .core import Grid, GridType, spawn_batch
-from .family import Draw
+from .family import Draw, key_to_ordinal
 from . import calibrate as cal
 
-PRIOR_VERSION = 1
+PRIOR_VERSION = 2
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "priors"
 _POOLS: dict = {}
 _TABLES: dict = {}
@@ -99,7 +99,7 @@ def reachable_survival(draw: Draw, gtype: GridType, **kw) -> cal.Survival:
     else:
         sym, col = reachable_pool(gtype, o["n_pool"], o["k_max"], o["max_cost"])
         params = cal.canonical_params(draw, gtype)
-        V = np.asarray(draw.family.evaluate_batch(sym, col, params, gtype), np.int64)
+        V = draw.family.evaluate_keys(sym, col, params, gtype)  # ordinal keys (ints or tuple keys)
         n = len(V)
         w, counts = np.unique(V, return_counts=True)
         tail = np.cumsum(counts[::-1])[::-1]
@@ -108,16 +108,16 @@ def reachable_survival(draw: Draw, gtype: GridType, **kw) -> cal.Survival:
         lp = list(np.log2(tail[body] / n))
         se = list(np.sqrt((1 - tail[body] / n) / (tail[body])) / cal.LN2)
         l0, p0 = lv[-1], lp[-1]
-        u0 = float(uni.log2_tail(int(l0)))
+        u0 = float(uni.log2_tail(l0))
         for t in uni.levels:
             if t > l0:
-                lv.append(int(t))
-                lp.append(min(p0, p0 + float(uni.log2_tail(int(t))) - u0))
-                se.append(float(uni.stderr(int(t))))
+                lv.append(t)
+                lp.append(min(p0, p0 + float(uni.log2_tail(t)) - u0))
+                se.append(float(uni.stderr(t)))
         lp = np.minimum.accumulate(np.asarray(lp, float))
-        d = {"levels": np.asarray(lv, np.int64), "log2p": lp, "se": np.asarray(se, float),
+        d = {"levels": np.asarray(lv, V.dtype), "log2p": lp, "se": np.asarray(se, float),
              "extra": list(uni.extra_levels) if hasattr(uni, "extra_levels") else [],
-             "meta": {"prior": "reachable", **o, "family": draw.family.id, "body_top": int(l0),
+             "meta": {"prior": "reachable", **o, "family": draw.family.id, "body_top": l0.item(),
                       "body_bits": -float(p0)}}
         _save(path, d)
     t = cal.Survival(key, d["levels"], d["log2p"], d["se"], d["extra"], d["meta"])
@@ -142,7 +142,7 @@ def main(argv=None):
             continue
         d = Draw(f, f.sample(rng, gt))
         u, r = cal.survival(d, gt), reachable_survival(d, gt)
-        top = int(u.levels[-1])
+        top = key_to_ordinal(u.levels[-1])
         print(f"{fid:24s} {u.surprisal(top):14.1f} {r.surprisal(top):16.1f} {r.meta['body_bits']:9.1f}")
 
 

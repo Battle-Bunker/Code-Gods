@@ -23,7 +23,8 @@ TYPES = [GT, GridType(6, "cards", "rainbow6"), GridType(4, "base12", "rgb")]
 def game(seed=3, **kw):
     base = dict(gtype=GT, n_gods=3, length="fixed", fixed_seconds=80.0, planning_seconds=20.0,
                 policies=["random", "greedy_private", "saver"], seed=seed, families=TOY_FAMILIES,
-                program_factory=random_program, program_library=512, economy="agent_energy", agent_income=1.0)
+                program_factory=random_program, program_library=512, economy="agent_energy", agent_income=1.0,
+                agent_act_floor_bits=0.0, interaction_rate_hz=20.0, spawn_rate_hz=0.1, starting_objects=10)
     base.update(kw)
     return run_game(GameConfig(**base))
 

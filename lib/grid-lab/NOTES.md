@@ -72,6 +72,27 @@ Uses GridType/gtype throughout. `python3 -m tests.test_rules` takes about 20 s. 
 - **mutator worker**: the card-only consumers now exist: `card_windmill`, `court_parade` and `warm_hearts` (Suited),
   plus `royal_court` (Faced). `honest_minesweeper` and `colour_mixer` / `paint_mixer` are in too.
 
+## Experiment worker (gridlab/experiments/*, gridlab/priors.py, docs/experiments.md)
+
+Delivered: batch/caching/metrics/statistics in `experiments/common.py`; scripts `baseline`, `diagnose`,
+`search` (sweep, halving, ablate, front), `validate`, `prior_compare`, `policy_mix`, `traces`; the
+code-reachable prior `gridlab/priors.py`; the `flatten` mutator (off by default via the new
+`COST_KNOBS["disabled"]`); dealer constraints `GameConfig.dealer_exclude` / `dealer_require` in sim.py.
+Findings and numbers: docs/experiments.md.
+
+- **Defaults changed** (sim.GameConfig): `interaction_rate_hz` 20 → 100 (the real engine), `spawn_rate_hz`
+  0.1 → 0.5, `starting_objects` 10 → 80 (run.py `--rate` 20 → 100). Held out: dynamism2 +0.074
+  [+0.063, +0.085]. Tests and throughput numbers in docs/engine.md §6 were measured at the old 20 Hz.
+- **engine / TS port**: for Grid, aim for ~0.5 hits per object per second (interactionRateHz / #objects);
+  the delivered settings give ~3.6, so objects flicker (snapshot autocorrelation 0.28).
+- **everyone**: family fairness is poor (excess SD of policy-adjusted rank 0.17–0.19; clumpers 0.62 vs
+  alternators 0.40) and no cost/economy/dealer knob moved it: winners are the rules that score on the
+  low-entropy drift overwrites create. See docs/experiments.md §3.2, §8.
+- **policy owners**: `saver` wins in every GridType because own agents hurt own jackpots about as often
+  as they help (§3.4).
+- **cache gotcha**: per-game results are keyed by a hash of all gridlab/*.py and rules; use
+  `common.load_manifest(name)` to analyse an old batch after editing code.
+
 ## Agent-energy session (gridlab/energy.py, docs/agent-energy.md)
 
 Added `GameConfig.economy` ("summon" default, unchanged and bit-identical; "agent_energy"; "owner_pays"),

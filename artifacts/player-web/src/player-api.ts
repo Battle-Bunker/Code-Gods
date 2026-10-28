@@ -25,6 +25,22 @@ export function trackHumanActivity() {
 let gameId:string|undefined;
 const commandEnvelopes=new Map<string,Envelope>();
 export const isDaemonMode = () => daemon;
+export type AssistantGrant = {
+  delegateId: string; roomId: string; clientLabel: string;
+  permission: "read" | "act"; expiresAt: string | number;
+};
+function requireBrowserAuthority() {
+  if (daemon) throw new Error("Manage assistant grants in a signed-in browser on your authoritative room server, not through the local daemon.");
+  if (!signedIn) throw new Error("Sign in on the authoritative room server to manage your assistant grants.");
+}
+export async function getAssistantGrants() {
+  requireBrowserAuthority();
+  return request<{grants: AssistantGrant[]}>("/api/device/grants", undefined, false);
+}
+export async function revokeAssistantGrant(delegateId: string) {
+  requireBrowserAuthority();
+  return request(`/api/device/grants/${encodeURIComponent(delegateId)}/revoke`, {}, false);
+}
 export const loginUrl = () => `/api/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
 export function parseRoom(value: string): string {
   let id = value.trim();
@@ -33,7 +49,8 @@ export function parseRoom(value: string): string {
     if (url.origin !== location.origin && !daemon) throw new Error("Open this room link on its server, then choose Player console there. Browser login is same-origin.");
     id = url.searchParams.get("room") ?? url.pathname.match(/\/rooms\/([^/]+)/)?.[1] ?? "";
   }
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) throw new Error("Enter a complete room UUID or room link.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) &&
+      !/^[0-9A-HJKMNP-TV-Z]{4,26}$/i.test(id)) throw new Error("Enter a room short code, UUID, or room link.");
   return id;
 }
 async function request<T>(path:string, body?:unknown, local = daemon):Promise<T> {
@@ -75,9 +92,9 @@ export async function connectSession() {
 async function joinRoom(value:string) {
   const id = parseRoom(value);
   if (!signedIn) throw new Error("Sign in with Replit before joining this room.");
-  await request(`/api/rooms/${encodeURIComponent(id)}/actions`,{action:"join",requestId:crypto.randomUUID()},false);
-  room = id;
-  const url = new URL(location.href); url.searchParams.set("room",id);
+  const joined = await request<{id:string;shortCode:string}>(`/api/rooms/${encodeURIComponent(id)}/actions`,{action:"join",requestId:crypto.randomUUID()},false);
+  room = joined.id;
+  const url = new URL(location.href); url.searchParams.set("room",joined.shortCode);
   history.replaceState(null,"",url.pathname + url.search);
 }
 export async function beginApproval(value:string) {

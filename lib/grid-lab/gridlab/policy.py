@@ -13,7 +13,8 @@ value of a candidate program P is estimated over the object population:
 
 Δπ is god i's payoff change on that object: private policies use their exact own surprisal and treat
 peer surprisal as fixed, Δπ = (s_i(y) - s_i(x)) * S_-i(x); omniscient ones evaluate every god's
-surprisal of y. All candidate results are evaluated in one `evaluate_batch` call per family.
+surprisal of y. With defence goals the same rule applies to the payoff of docs/defence-goals.md: a private
+god updates its own reward and penalty bits and holds every peer's (signed) bits fixed. All candidate results are evaluated in one `evaluate_batch` call per family.
 E[remaining] is the half-life mean (memoryless) for exponential games, the true remainder for fixed.
 
 Other economies (GameConfig.economy, docs/agent-energy.md). Candidates are priced at what the god pays at
@@ -41,6 +42,7 @@ from typing import Callable
 import numpy as np
 
 from .core import Grid, GridType
+from .defence import hinge, payoff_matrix
 
 LIB_VERSION = 1
 LIB_DIR = Path(__file__).resolve().parent.parent / ".cache" / "programs"
@@ -156,7 +158,8 @@ class Policy:
     def on_summon(self, aid: int, prog, cost: float) -> None:
         pass
 
-    def on_commit(self, aid: int, obj_index: int, before: np.ndarray, after: np.ndarray) -> None:
+    def on_commit(self, aid: int, obj_index: int, before: np.ndarray, after: np.ndarray,
+                  hbefore: np.ndarray | None = None, hafter: np.ndarray | None = None) -> None:
         pass
 
     def destroy(self) -> list:
@@ -256,19 +259,17 @@ class GreedyPolicy(Policy):
         sym, col = np.stack(sym), np.stack(col)
         who, obj = np.array(who), np.array(obj)
         gods = range(w.G) if self.omniscient else [self.god]
-        snew = {}
+        i = self.god
+        Sx, Hx = S[obj], w.H[obj]
+        Sy, Hy = Sx.copy(), Hx.copy()   # private gods hold every peer column fixed
         for j in gods:
             d = w.draws[j]
-            snew[j] = np.asarray(w.tables[j].surprisal(d.family.evaluate_batch(sym, col, d.params, gt)), float)
-        i = self.god
-        Sx = S[obj]
-        if not self.omniscient:
-            peer = Sx.sum(axis=1) - Sx[:, i]
-            delta = (snew[i] - Sx[:, i]) * peer
-        else:
-            Sy = np.stack([snew[j] for j in range(w.G)], axis=1)
-            py, px = Sy * (Sy.sum(1, keepdims=True) - Sy), Sx * (Sx.sum(1, keepdims=True) - Sx)
-            delta = (py.sum(1) - px.sum(1)) if self.objective == "total" else (py[:, i] - px[:, i])
+            Sy[:, j] = w.tables[j].surprisal(d.family.evaluate_batch(sym, col, d.params, gt))
+            if w.dc.w[j] > 0:
+                pd = w.pdraws[j]
+                Hy[:, j] = hinge(w.ptables[j].surprisal(pd.family.evaluate_batch(sym, col, pd.params, gt)))
+        py, px = payoff_matrix(Sy, Hy, w.dc), payoff_matrix(Sx, Hx, w.dc)
+        delta = (py.sum(1) - px.sum(1)) if self.objective == "total" else (py[:, i] - px[:, i])
         np.add.at(out, who, delta)
         return out / len(idx)
 
@@ -320,13 +321,15 @@ class GreedyPolicy(Policy):
         if self.last_best is not None and self.last_best[0] is prog:
             self.pred[aid] = self.last_best[1]
 
-    def on_commit(self, aid, oi, before, after):
+    def on_commit(self, aid, oi, before, after, hbefore=None, hafter=None):
         i = self.god
-        pb, pa = before.sum() - before[i], after.sum() - after[i]
-        g = float(after[i] * pa - before[i] * pb)
-        self.gain[aid] = self.gain.get(aid, 0.0) + g
+        dc = self.world.dc if hbefore is not None else None
+        hb = None if dc is None else hbefore[None, :]
+        ha = None if dc is None else hafter[None, :]
+        r = float(payoff_matrix(after[None, :], ha, dc)[0, i] - payoff_matrix(before[None, :], hb, dc)[0, i])
+        self.gain[aid] = self.gain.get(aid, 0.0) + r
         if self.learn and aid in self.pred:
-            self.realised[aid] = self.realised.get(aid, 0.0) + g
+            self.realised[aid] = self.realised.get(aid, 0.0) + r
 
     def destroy(self):
         w = self.world

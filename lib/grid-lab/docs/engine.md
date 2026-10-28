@@ -9,11 +9,19 @@ Names follow SPEC §2. "GridType" (`gtype`) is the object type, never "room" (SP
 
 For god i with utility function u_i, the **survival function** is G_i(t) = μ{u_i ≥ t} under the
 uniform spawn prior μ of the GridType, and **surprisal** is s_i(x) = −log₂ G_i(u_i(x)).
-`survival(draw, gtype)` returns a `Survival` table:
+`survival(draw, gtype)` returns a `Survival` table.
+
+An ordinal is an int or a fixed-length tuple of ints compared lexicographically (`family.py`). The
+table stores each ordinal as its **key** (`family.ordinal_keys`): int64 for int ordinals, and for
+k-tuples a `S{8k+1}` byte string (each component big-endian with the sign bit flipped, plus a
+trailing 0x01 so numpy never strips NULs). Byte order equals tuple order, so `np.unique`,
+`searchsorted`, `>=` and `bisect` work unchanged and nothing needs bounds. Lookups accept an
+ordinal, its key, a `(B,)` / `(B, k)` batch from `evaluate_batch`, or an array of keys.
+
 
 | API | Meaning |
 |---|---|
-| `.levels` | strictly increasing ordinals seen during estimation |
+| `.levels` | strictly increasing ordinal keys seen during estimation |
 | `.log2p` | log₂ G at each level (non-increasing, ≤ 0) |
 | `.stderr_bits` | standard error of each level's surprisal, in bits |
 | `.log2_tail(t)`, `.surprisal(t)` | lookups, scalar or vectorised over arrays |
@@ -21,7 +29,7 @@ uniform spawn prior μ of the GridType, and **surprisal** is s_i(x) = −log₂ 
 | `.max_observed_bits` | surprisal of the deepest level estimated |
 | `.exact` | set when the family's `exact_log2_tail` backs the lookups |
 
-### 1.1 Estimator (ESTIMATOR_VERSION = 1)
+### 1.1 Estimator (ESTIMATOR_VERSION = 2; 2 = tuple ordinals keyed by value, 1 = `lex`-packed ints)
 
 1. **Body (Monte Carlo).** `n_mc = 2^16` prior samples, evaluated with `family.evaluate_batch` in
    chunks of 2^14. Every distinct ordinal with at least `min_mc_count = 256` samples at or above it
@@ -48,16 +56,30 @@ uniform spawn prior μ of the GridType, and **surprisal** is s_i(x) = −log₂ 
    the starting level, converted to bits². The splitting part is multiplied by `SE_INFLATION = 1.6`
    as a margin for slow mixing.
 
-**Lookup rule.** `log2_tail(t)` uses the largest level ≤ t. An unseen ordinal between two levels
-gets the lower level's (smaller) surprisal, which is conservative: it never claims more bits than a
-level supports. Below the smallest level the surprisal is 0.
+**Invariant: surprisal is strictly increasing in the ordinal.** A higher utility output always earns
+strictly more bits, so the kid intuition "bigger is better" always matches the scoring. This is true
+in the maths (every grid has positive prior mass, so U(x) ⊊ U(y) whenever u(x) > u(y)), and the
+lookups keep it (ESTIMATOR_VERSION 3):
 
-**Extrapolation above the highest level** (the ordinal was never seen during estimation): s(max
-level) + 1 bit per further *known* distinct ordinal up to t, minimum +1 and capped at
-`EXTRAP_CAP_BITS = 4` extra. The only known ordinal above the levels is u(exemplar), when the family
-has an exemplar. The table usually reaches 64+ bits, and 2^-64 is beyond anything a game produces by
-chance, so this cap rarely matters. It is only there so an object built deliberately above the
-estimated range scores slightly more than the deepest level, by a bounded amount.
+* **Clean-up** (`strict_bits`): the raw level estimates go through weighted isotonic regression
+  (pool-adjacent-violators, weights 1/se²), then every level gets at least `MIN_STEP_BITS = 1e-6`
+  more than the one below it. The lowest level gets at least that much too, so ordinals below it can
+  still score less. The old running minimum could leave plateaus.
+* **Between two levels** an unseen ordinal interpolates linearly in `ordinal_distance` from the lower
+  level. For ints that is t − a. For tuples it is whole steps of the first component plus a fraction
+  in (0, 1) from the remaining components. It is strictly increasing in t and strictly decreasing in
+  a. The value never exceeds the next level's estimate, which bounds the truth there.
+* **Below the lowest level:** bits[0] / (1 + distance). It stays positive and strictly increasing.
+* **Above the highest level:** bits[-1] + slope × distance, uncapped. The slope is fitted over the
+  last `SLOPE_LEVELS = 4` levels, with at least `MIN_SLOPE_BITS = 0.05` bits per ordinal step.
+  Previously this was capped at +4 bits, which flattened the top of rules whose tables stop early.
+* **Exact tails** give -log₂ μ{u ≥ t} plus a tiny strictly increasing term (< MIN_STEP_BITS), so
+  ordinals whose tails round to the same float still order strictly. Ordinals an exact tail proves
+  impossible get infinite bits, which is correct: no grid has them.
+
+`tests/test_calibrate.py::test_strictly_increasing` checks this for all 88 families on three
+GridTypes, with both estimated and exact tables. It uses ordinals from random and structured grids,
+the exemplar, and synthetic ordinals below the lowest and above the highest level.
 
 ### 1.2 Error behaviour (measured)
 
@@ -82,7 +104,10 @@ seed families and GridTypes (ties make it < 1; the occasional > 1 is sampling no
 
 Failure modes:
 * **Kernel cannot reach a level.** If the high set is disconnected under single-cell moves and swaps,
-  splitting stops early and max_observed_bits is low. Extrapolation then gives +1 to +4 bits.
+  splitting stops early and max_observed_bits is low. Extrapolation then continues at the fitted slope.
+  Retrying stuck stages with up to 64× more MCMC steps was tried and did not move `robin_hood` or
+  `lone_peak` at all; it made builds about 3× slower, so it was not kept. `lone_peak` now has an exact
+  tail instead.
   `meta["stopped_early"]` (target_bits not reached) and `meta["top_reached"]` (the exemplar's ordinal
   is among the levels) tell the cases apart: stopped early at the true top is fine, but stopped early
   without reaching the top means the kernel got stuck. On Grid(5,base10,rgby), 35 of the 54 tables stop
@@ -131,6 +156,13 @@ synergy (conflict). Identical draws give s_ij = s_i.
 Cost ≈ (2^16 + stages × N² × 1000) grid evaluations, and is dominated by `evaluate_batch`.
 Patchwork's component labelling is the outlier (noted in NOTES.md).
 
+### 1.6 Defence goals
+
+A family may carry a `penalty` family (a badness ordinal). `precompute` builds its table too, a variant's
+reward channel reuses its base family's table, and `Survival.prior_mean_bits(hinge)` gives the exact prior
+means used by the defence term. The scoring, policy and metric changes are described in
+`docs/defence-goals.md`; with no defence goal dealt, every number in this document is unchanged.
+
 ## 2. Simulation (`sim.py`)
 
 `run_game(GameConfig) -> GameLog`. Fixed-step interaction loop with event interleaving:
@@ -158,7 +190,9 @@ Patchwork's component labelling is the outlier (noted in NOTES.md).
   (`World.destroy`, `Policy.destroy`). See docs/agent-energy.md.
 * **Dealers**: `distinct` (default: no family repeats while possible), `uniform` (iid),
   `balanced_camps` (round-robin over clumper/alternator/neutral camps), `fixed`.
-* **Rate scaling**: the real engine caps interactions at 100 Hz, and the default here is 20 Hz.
+* **Rate scaling**: the real engine runs interactions at 100 Hz, which is now the default here (it was 20 Hz;
+  the experiment worker also raised the default spawns to 0.5 Hz and starting objects to 80, see
+  docs/experiments.md §5).
   Dynamics depend on interactions per energy unit and per agent. To mimic 100 Hz at 20 Hz, divide
   energy income and starting energy by 5. Metrics normalised per commit do not depend on the rate.
 * **Determinism**: one `SeedSequence(seed)` is split into dealer, world (picks, spawns, `apply`),

@@ -4,7 +4,10 @@ Code: `gridlab/energy.py` (split, pointwise costs, act profiles), `GameConfig.ec
 `gridlab/sim.py`, the energy-aware value model, `destroy` and the `spammer` baseline in
 `gridlab/policy.py`, and the study `gridlab/experiments/agent_energy.py`. Tests:
 `python3 -m tests.test_agent_energy`. The default `economy = "summon"` is unchanged and bit-identical to
-before (checked against the base branch by hashing the logs of the same games).
+before, also after merging the base branch's 80-object, 100 Hz defaults and defence goals (checked against the base branch by hashing the logs of the same games).
+
+Note: the study (§4) ran before that merge, without defence goals. `agent_energy` defaults are now
+`agent_income = 32` and `agent_act_floor_bits = 2`, the recommendation for the default 80-object world.
 
 ## 1. The design
 
@@ -30,12 +33,12 @@ Mechanics as implemented (`economy = "agent_energy"`):
 |---|---|---|
 | summon | the god pays `summon_bits` = agent base + each step's tool naming and parameter description + the guard's kind and description + the ratchet surcharge (after scope/kind multipliers). This is the god's only cost | – |
 | god energy | accrues as today (`starting_energy`, `energy_per_second`); no agent energy ever flows to or from it | – |
-| agent account | starts at 0; earns a constant `agent_income` bits/s from the moment it is summoned (planning included) | `agent_income` (0.4 at 20 Hz, i.e. 2 at 100 Hz), `agent_start = "zero"` |
+| agent account | starts at 0; earns a constant `agent_income` bits/s from the moment it is summoned (planning included) | `agent_income` (32: the recommendation for the default 80-object world at 100 Hz, §4.9), `agent_start = "zero"` |
 | battery | the positive balance is capped at `agent_battery × E[bits per act]`; income above the cap is lost (`a_wasted`) | `agent_battery` (2) |
 | eligibility | an agent can be picked only when its balance ≥ E[bits per act] | – |
 | interaction | at each tick of the global rate cap: a uniform object and a uniform **eligible** agent. If none is eligible, there is no interaction (`idle_ticks`) | `interaction_rate_hz` |
 | charge | after the act, its full actual cost is deducted, even below zero: decision bits always, plus erasure and motion only if the result is committed. Failed and no-op attempts (guard false, nothing changed, duplicate) pay their decision bits only. An expensive act simply means a longer cooldown | – |
-| per-act floor (variant) | a constant charged on every attempted act and included in E[bits per act]. The rationale is the Margolus–Levitin bound: every distinguishable state change costs a fixed quantum of energy × time, even when it is reversible, so a deterministic reversible agent has a finite top rate | `agent_act_floor_bits` (0) |
+| per-act floor (variant) | a constant charged on every attempted act and included in E[bits per act]. The rationale is the Margolus–Levitin bound: every distinguishable state change costs a fixed quantum of energy × time, even when it is reversible, so a deterministic reversible agent has a finite top rate | `agent_act_floor_bits` (2) |
 | naming per act (variant) | the program's naming bits (tool + parameters + guard description, i.e. summon bits minus agent base and ratchet), charged again on every act | `agent_act_naming` (0) |
 | destroy | a god removes one of its own live agents at any decision: free, no refund, and its balance is dropped | – |
 | agent cap | 200 per god, as a resource limit only | `max_agents` |

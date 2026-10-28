@@ -23,14 +23,14 @@ def rr_ord(g, p, gtype):
         good = [(row[i + 1] - row[i]) % C == 1 for i in range(N - 1)]
         lines += all(good)
         pairs += sum(good)
-    return lex((lines, N + 1), (pairs, N * (N - 1) + 1))
+    return tup(lines, pairs)
 
 
 def rr_batch(sym, col, p, gtype):
-    N, C = gtype.N, gtype.C
+    C = gtype.C
     a = orient(col, p["dir"]).astype(np.int64)
     good = (a[:, :, 1:] - a[:, :, :-1]) % C == 1
-    return lexb((good.all(2).sum(1), N + 1), (good.sum((1, 2)), N * (N - 1) + 1))
+    return tupb(good.all(2).sum(1), good.sum((1, 2)))
 
 
 def rr_exemplar(p, gtype):
@@ -68,11 +68,11 @@ def bb_ord(g, p, gtype):
                     sa, sb = size[rid[r][c]], size[rid[r2][c2]]
                     score += sa >= K and sb >= K
                     tb += min(sa, sb, K)
-    return lex((score, 2 * N * (N - 1) + 1), (tb, 2 * N * (N - 1) * K + 1))
+    return tup(score, tb)
 
 
 def bb_batch(sym, col, p, gtype):
-    N, K = gtype.N, p["K"]
+    K = p["K"]
     allm = np.ones(col.shape, bool)
     lab = label_batch(col.astype(np.int64), allm)
     size = comp_sum(lab, np.ones(col.shape, np.int64), allm)
@@ -83,7 +83,7 @@ def bb_batch(sym, col, p, gtype):
         d = la != lb_
         score += (d & (sa >= K) & (sb >= K)).sum((1, 2))
         tb += (d * np.minimum(np.minimum(sa, sb), K)).sum((1, 2))
-    return lexb((score, 2 * N * (N - 1) + 1), (tb, 2 * N * (N - 1) * K + 1))
+    return tupb(score, tb)
 
 
 def bb_exemplar(p, gtype):
@@ -217,7 +217,7 @@ def mm_ord(g, p, gtype):
         m = [row[i] == row[N - 1 - i] for i in range(N // 2)]
         lines += all(m)
         pairs += sum(m)
-    return lex((lines, N + 1), (pairs, N * (N // 2) + 1))
+    return tup(lines, pairs)
 
 
 def mm_batch(sym, col, p, gtype):
@@ -226,7 +226,7 @@ def mm_batch(sym, col, p, gtype):
     if p["axis"] == "TB":
         a = np.swapaxes(a, 1, 2)
     m = a[:, :, :N // 2] == a[:, :, ::-1][:, :, :N // 2]
-    return lexb((m.all(2).sum(1), N + 1), (m.sum((1, 2)), N * (N // 2) + 1))
+    return tupb(m.all(2).sum(1), m.sum((1, 2)))
 
 
 MIRRORMANCER = mk(
@@ -291,8 +291,7 @@ def lp_ord(g, p, gtype):
     if len(tops) == 1 and c[tops[0]] == p["X"]:
         score = m1 - max(x for i, x in enumerate(v) if i != tops[0])
     has = any(c[i] == p["X"] for i in tops)
-    R = vmax(gtype) - vmin(gtype)
-    return lex((score, R + 1), (int(has), 2))
+    return tup(score, int(has))
 
 
 def lp_batch(sym, col, p, gtype):
@@ -305,8 +304,7 @@ def lp_batch(sym, col, p, gtype):
     uniq = at.sum(1) == 1
     xtop = (at & (c == p["X"])).any(1)
     score = np.where(uniq & xtop, m1 - m2, 0)
-    R = vmax(gtype) - vmin(gtype)
-    return lexb((score, R + 1), (xtop, 2))
+    return tupb(score, xtop)
 
 
 def lp_exemplar(p, gtype):
@@ -318,6 +316,22 @@ def lp_exemplar(p, gtype):
     return grid(s, col)
 
 
+def lp_tail(t, p, gtype):
+    """Exact μ{(gap, has) >= t} for iid cells: order statistics of the values plus the top cell's colour."""
+    g, h = t
+    if (g, h) <= (0, 0):
+        return 0.0
+    n, q = gtype.N ** 2, 1.0 / gtype.C
+    vs, cnt = np.unique(gtype.value, return_counts=True)
+    pv = {int(v): c / gtype.S for v, c in zip(vs, cnt)}
+    F = lambda x: sum(pr for v, pr in pv.items() if v <= x)  # noqa: E731
+    if g == 0:  # h == 1: some top cell is your colour (which every gap >= 1 also has)
+        tot = sum((F(m - 1) + pm) ** n - (F(m - 1) + pm * (1 - q)) ** n for m, pm in pv.items())
+    else:       # a unique top of your colour standing at least g above the rest
+        tot = sum(n * q * pm * F(m - g) ** (n - 1) for m, pm in pv.items())
+    return math.log2(tot) if tot > 0 else float("-inf")
+
+
 LONE_PEAK = mk(
     id="lone_peak", name="Lone Peak", theme="One mountain towering over everything",
     requires=req("Valued"), layers={"colour", "symbol"}, camp="neutral",
@@ -325,6 +339,7 @@ LONE_PEAK = mk(
     summary=lambda p, gt: (f"The biggest number on the grid should be alone and {cname(gt, p['X'])}. Score = how much "
                            "bigger it is than the second biggest. If it is tied or the wrong colour you score 0."),
     ordinal=lp_ord, batch=lp_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=lp_exemplar,
+    exact_log2_tail=lp_tail,
     source="catalog#27 (strat#9); tie-breaker = some top cell is your colour", tags={"shortlist"})
 
 
@@ -340,8 +355,7 @@ def isl_ord(g, p, gtype):
             ns = [col[a][b] for a, b in nbrs4(N, r, c)]
             iso += X not in ns
             isl += ns[0] != X and all(y == ns[0] for y in ns)
-    n = N * N
-    return lex((isl, n + 1), (iso, n + 1))
+    return tup(isl, iso)
 
 
 def _nbr_stack(col, fill=255):
@@ -349,7 +363,7 @@ def _nbr_stack(col, fill=255):
 
 
 def isl_batch(sym, col, p, gtype):
-    N, X = gtype.N, p["X"]
+    X = p["X"]
     nb = [x.astype(np.int64) for x in _nbr_stack(col.astype(np.int64), -1)]
     first = np.where(nb[0] >= 0, nb[0], np.where(nb[1] >= 0, nb[1], nb[2]))  # every cell has >= 2 neighbours
     same = np.ones(col.shape, bool)
@@ -358,8 +372,7 @@ def isl_batch(sym, col, p, gtype):
         same &= (x < 0) | (x == first)
         anyx |= x == X
     isX = col == X
-    n = N * N
-    return lexb(((isX & same & (first != X)).sum((1, 2)), n + 1), ((isX & ~anyx).sum((1, 2)), n + 1))
+    return tupb((isX & same & (first != X)).sum((1, 2)), (isX & ~anyx).sum((1, 2)))
 
 
 def isl_exemplar(p, gtype):
@@ -390,16 +403,15 @@ def rw_ord(g, p, gtype):
                 tr.add(r); tc.add(k)
             elif ms or mc:
                 hr.add(r); hc.add(k)
-    return lex((len(tr) + len(tc), 2 * N + 1), (len(hr) + len(hc), 2 * N + 1))
+    return tup(len(tr) + len(tc), len(hr) + len(hc))
 
 
 def rw_batch(sym, col, p, gtype):
-    N = gtype.N
     ms, mc = sym == p["S"], col == p["X"]
     tok, half = ms & mc, ms ^ mc
     cov = tok.any(2).sum(1) + tok.any(1).sum(1)
     hcov = half.any(2).sum(1) + half.any(1).sum(1)
-    return lexb((cov, 2 * N + 1), (hcov, 2 * N + 1))
+    return tupb(cov, hcov)
 
 
 def rw_exemplar(p, gtype):
@@ -484,17 +496,15 @@ STAIRCASE = mk(
 
 # --- Lucky Token (generalised Seed 3) -------------------------------------------------------------------
 def lt_ord(g, p, gtype):
-    n = gtype.N ** 2
     s, c = g.sym.ravel().tolist(), g.col.ravel().tolist()
     tok = sum(1 for a, b in zip(s, c) if a == p["S"] and b == p["X"])
     half = sum(1 for a, b in zip(s, c) if (a == p["S"]) != (b == p["X"]))
-    return lex((tok, n + 1), (half, n + 1))
+    return tup(tok, half)
 
 
 def lt_batch(sym, col, p, gtype):
-    n = gtype.N ** 2
     ms, mc = sym == p["S"], col == p["X"]
-    return lexb(((ms & mc).sum((1, 2)), n + 1), ((ms ^ mc).sum((1, 2)), n + 1))
+    return tupb((ms & mc).sum((1, 2)), (ms ^ mc).sum((1, 2)))
 
 
 LUCKY_TOKEN = mk(
