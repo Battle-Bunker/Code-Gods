@@ -696,6 +696,12 @@ class Walker:
                             key="Call.literal")
             if lab:
                 return self.code_move(x, mv)
+            if self.mode == "sample":
+                for fname, fk in self.T.classes[cls]:
+                    self.field(x, cls, fname, fk, S, target)
+                if self.literal_move(x, S) is not None:     # the coder would take the literal path
+                    self.noncanonical = True
+                return x
         if cls == "alias":
             raise AssertionError("alias is walked by its parent")
         if self.bytes and any(f == "ctx" for f, _ in self.T.classes[cls]):
@@ -1175,7 +1181,7 @@ class Walker:
         """The Move a call builds if it is an API mutator constructor applied to literals, else None."""
         from .api import MUTATOR_CONSTRUCTORS, Move, MoveError
         f = call.func
-        if not (isinstance(f, ast.Name) and f.id in MUTATOR_CONSTRUCTORS and resolve_load(S, f.id, self.ext) == "ext"):
+        if not (isinstance(f, ast.Name) and f.id in MUTATOR_CONSTRUCTORS and self._is_ext(S, f.id)):
             return None
         try:
             args = [self._lit(a, S) for a in call.args]
@@ -1196,13 +1202,18 @@ class Walker:
         if isinstance(e, ast.UnaryOp) and isinstance(e.op, (ast.USub, ast.UAdd)) and isinstance(e.operand, ast.Constant) \
                 and isinstance(e.operand.value, (int, float)) and not isinstance(e.operand.value, bool):
             return -e.operand.value if isinstance(e.op, ast.USub) else e.operand.value
-        if isinstance(e, ast.Name) and resolve_load(S, e.id, self.ext) == "ext" and e.id in self.api \
+        if isinstance(e, ast.Name) and self._is_ext(S, e.id) and e.id in self.api \
                 and not callable(self.api[e.id]):
             return self.api[e.id]
         if isinstance(e, ast.Call) and isinstance(e.func, ast.Name) and e.func.id in AREA_NAMES \
-                and resolve_load(S, e.func.id, self.ext) == "ext" and not e.keywords:
+                and self._is_ext(S, e.func.id) and not e.keywords:
             return self.api[e.func.id](*[self._lit(a, S) for a in e.args])
         raise _NotLit()
+
+    def _is_ext(self, S: Scope, n: str) -> bool:
+        if self.mode == "sample":           # sampled user names never collide with external names
+            return n in self.ext and not any(n in V.slots for V in visible(S))
+        return resolve_load(S, n, self.ext) == "ext"
 
     def code_move(self, x, mv):
         """log2(#mutators) + the mutator's field code; sample mode draws a move and renders it canonically."""

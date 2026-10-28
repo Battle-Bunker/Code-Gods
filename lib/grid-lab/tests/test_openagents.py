@@ -28,7 +28,7 @@ from gridlab.openagents.astbits import (Q_MOVE, ast_bits, float_bits, gamma_bits
                                         string_bits)
 from gridlab.openagents.examples import EXAMPLES, PROBES, attack, colour_fill, example
 from gridlab.openagents.measure import (SplitMix64, decision_deterministic, decision_randomized, entropy_stats,
-                                        naming_bits, price)
+                                        jackknife, naming_bits, price)
 from gridlab.openagents.sandbox import EPOCH, CompiledAgent, Owner, derive_seed
 
 GT = GridType(5, "base10", "rgby")
@@ -271,6 +271,18 @@ def test_randomized_estimator():
     rows = [[(_pc(0, i % 2),)] * 8 for i in range(64)]
     d = decision_randomized(rows, GT, 0.5, 16, 7)
     assert abs(d["bits"] - 1.0) < 0.15, d
+
+
+def test_known_mutual_information():
+    """An agent that paints a uniformly random blue cell: I(X; A) is known exactly on the reference grids."""
+    from gridlab.openagents.evaluate import RANDOM_BLUE, exact_I_random_blue
+    from gridlab.openagents.measure import reference, PRICING
+    P = {**FAST, "n_self": 0, "replicates": 8}
+    r = price(colour_fill(RANDOM_BLUE, GT), GT, None, P)
+    refs, _ = reference(GT, {**PRICING, **P})
+    truth = exact_I_random_blue(GT, refs)
+    assert r["randomized"] and abs(r["decision"] - truth) < 0.35, (r["decision"], truth, r["I_plugin"])
+    assert r["I_plugin"] > r["decision"]          # the plug-in overcharges; the jackknife removes most of it
 
 
 def test_price_split_and_estimates():

@@ -2369,11 +2369,27 @@
    ],
    "shuffles": 32,
    "shuffle_seed": 12345,
-   "H_A_given_X": 0.5,
+   "H_A_given_X_plugin": 0.5,
    "I_plugin": 0.5,
+   "I_mm": 0.42485963328703313,
    "I_shuffle": 0.18359182971441906,
-   "decision": 0.31640817028558094,
+   "I_jackknife": 0.39279272885180117,
+   "decision": 0.39279272885180117,
    "binding": "mutual"
+  },
+  {
+   "case": "jackknife",
+   "keys": [
+    "a",
+    "a",
+    "b",
+    "b",
+    "b",
+    "c",
+    "d"
+   ],
+   "jackknife": 2.3896148062919504,
+   "miller_madow": 2.151519930510458
   }
  ]
 }

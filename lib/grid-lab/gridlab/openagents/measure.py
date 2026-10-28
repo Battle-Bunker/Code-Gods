@@ -18,9 +18,8 @@ Decision information is estimated by running the agent, never by reading it:
   under the mutator code (an upper bound on H by source coding). Each component uses Miller–Madow and
   falls back to log2 of its alphabet when its coverage is low;
 * a **randomized** agent is re-run with R engine-derived seeds per grid. We estimate
-  I = H(A) − H(A|X) with the plug-in on the (grid, seed) table, minus the mean plug-in I of the same
-  table with grid labels shuffled (the shuffle correction for limited-sampling bias), clipped to
-  [0, the H(A) upper bounds]. Seeds are HMAC(salt, "measure", ...) and play seeds HMAC(salt, "play",
+  I = H(A) − H(A|X), each entropy jackknife-corrected (H(A) on all n·R runs, H(A|x) on the R runs of
+  each grid), clipped to [0, the H(A) upper bounds]. Seeds are HMAC(salt, "measure", ...) and play seeds HMAC(salt, "play",
   ...), so the agent cannot tell measurement from play.
 
 Destruction uses each emitted move's prior erasure (mutators.py §1b) and the quadratic motion of the
@@ -90,6 +89,21 @@ def plugin(keys) -> float:
         return 0.0
     c = np.array(list(Counter(keys).values()), float) / n
     return float(-(c * np.log2(c)).sum())
+
+
+def jackknife(keys) -> float:
+    """Jackknife bias-corrected entropy (bits): n·H − (n−1)/n · Σ_i H(sample without i), in O(#distinct):
+    removing one copy of outcome k changes only its count, S = Σ c log2 c → S − c_k log2 c_k + (c_k−1) log2 (c_k−1)."""
+    n = len(keys)
+    if n <= 1:
+        return 0.0
+    c = np.array(list(Counter(keys).values()), float)
+    xlx = lambda x: np.where(x > 0, x * np.log2(np.maximum(x, 1)), 0.0)   # noqa: E731
+    S = float(xlx(c).sum())
+    H = log2(n) - S / n
+    Sk = S - xlx(c) + xlx(c - 1)
+    Hk = log2(n - 1) - Sk / (n - 1)
+    return float(n * H - (n - 1) / n * float((c * Hk).sum()))
 
 
 def _component_bits(keys: list, alphabet: int, min_cov: float) -> float:
@@ -170,7 +184,8 @@ class SplitMix64:
 
 
 def decision_randomized(acts_by_grid: list[list], gt: GridType, min_cov: float, shuffles: int, seed: int) -> dict:
-    """I(X; A) = H(A) - H(A|X) from R runs per grid, shuffle-corrected, capped by the H(A) bounds."""
+    """I(X; A) = H(A) - H(A|X) from R runs per grid, each entropy jackknife-corrected, capped by the H(A)
+    bounds. The plug-in, Miller–Madow and shuffle-corrected values are returned as diagnostics."""
     flat = [a for row in acts_by_grid for a in row]
     det = decision_deterministic(flat, gt, min_cov)      # upper bounds on H(A) (I <= H(A))
     keys = [[tuple(m.key for m in a) for a in row] for row in acts_by_grid]
@@ -187,13 +202,15 @@ def decision_randomized(acts_by_grid: list[list], gt: GridType, min_cov: float, 
         rows = [[arr[perm[i * R + j]] for j in range(R)] for i in range(len(keys))]
         shuf.append(HA - float(np.mean([plugin(r) for r in rows])))
     I_shuf = float(np.mean(shuf)) if shuf else 0.0
-    I = max(0.0, I_plug - I_shuf)
+    I_jk = jackknife(allk) - float(np.mean([jackknife(row) for row in keys]))
+    I_mm = entropy_stats(allk)["mm"] - float(np.mean([entropy_stats(row)["mm"] for row in keys]))
     joint = entropy_stats(allk)
     est = dict(det["estimates"])
-    est["mutual"] = I if joint["coverage"] >= min_cov else math.inf
+    est["mutual"] = max(0.0, I_jk) if joint["coverage"] >= min_cov else math.inf
     binding = min(est, key=est.get)
     return {"bits": max(0.0, est[binding]), "binding": binding, "estimates": est, "joint": joint,
-            "H_A": entropy_stats(allk)["mm"], "H_A_given_X": HAX, "I_plugin": I_plug, "I_shuffle": I_shuf}
+            "H_A": entropy_stats(allk)["mm"], "H_A_given_X": HAX, "I_plugin": I_plug, "I_shuffle": I_shuf,
+            "I_shuffle_corrected": I_plug - I_shuf, "I_mm": I_mm, "I_jackknife": I_jk}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -396,7 +413,7 @@ def _price(agent: CompiledAgent, gt: GridType, owner, P: dict, keep: bool) -> di
         "uses_score": agent.calls_score,
         "mutators": sorted({m.mid for row in runs for r in row for m in r.moves}),
     }
-    for k in ("H_A", "H_A_given_X", "I_plugin", "I_shuffle"):
+    for k in ("H_A", "H_A_given_X", "I_plugin", "I_shuffle", "I_shuffle_corrected", "I_mm", "I_jackknife"):
         if k in dec:
             out[k] = dec[k]
     if keep:

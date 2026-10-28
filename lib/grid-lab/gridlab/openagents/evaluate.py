@@ -257,7 +257,8 @@ def sec_randomness(gt: GridType, processes: int) -> dict:
     for n, _ in o_items:
         s, f = seeded[n], forb[n]
         rows.append([n, s["randomized"], round(s.get("H_A", s["H"]["mm"]), 2), round(s.get("H_A_given_X", 0.0), 2),
-                     round(s.get("I_plugin", s["decision"]), 2), round(s.get("I_shuffle", 0.0), 2), s["decision"],
+                     round(s.get("I_plugin", s["decision"]), 2), round(s.get("I_mm", s["decision"]), 2),
+                     round(s.get("I_shuffle_corrected", s["decision"]), 2), s["decision"],
                      s["binding"], s["per_application_bits"],
                      "does nothing" if f["error_rate"] > 0.99 else round(f["per_application_bits"], 1)])
     # estimator bias check on an agent whose I is known exactly
@@ -266,12 +267,17 @@ def sec_randomness(gt: GridType, processes: int) -> dict:
     bias = []
     for R in (2, 4, 8, 16, 32):
         r = price(colour_fill(RANDOM_BLUE, gt), gt, None, {"replicates": R, "n_self": 0})
-        bias.append([R, round(r.get("I_plugin", float("nan")), 3), round(r.get("I_shuffle", float("nan")), 3),
-                     round(r["estimates"]["mutual"], 3), round(truth, 3), r["binding"]])
-    return {"table": md(rows, ["agent", "randomized", "H(A)", "H(A|X)", "I plug-in", "shuffle bias", "decision charged",
+        bias.append([R, round(r["I_plugin"], 3), round(r["I_mm"], 3), round(r["I_shuffle_corrected"], 3),
+                     round(r["I_jackknife"], 3), round(truth, 3), r["binding"]])
+    for R in (2, 4, 8, 16, 32):
+        r = price(example("random_row", gt), gt, None, {"replicates": R})
+        bias.append([f"{R} (random_row)", round(r["I_plugin"], 3), round(r["I_mm"], 3),
+                     round(r["I_shuffle_corrected"], 3), round(r["I_jackknife"], 3), 0.0, r["binding"]])
+    return {"table": md(rows, ["agent", "randomized", "H(A)", "H(A|X) plug-in", "I plug-in", "I Miller–Madow",
+                               "I shuffle-corrected", "decision charged (jackknife I)",
                                "bound", "per application (seeded)", "per application (forbidden)"]),
-            "bias": md(bias, ["seeds per grid R", "I plug-in", "mean I on shuffled labels", "I shuffle-corrected",
-                              "exact I (no self states)", "binding"])}
+            "bias": md(bias, ["seeds per grid R", "I plug-in", "I Miller–Madow", "I shuffle-corrected",
+                              "I jackknife (charged)", "exact I", "binding"])}
 
 
 # ------------------------------------------------------------------------------------------------
@@ -632,8 +638,12 @@ def estimator_vectors() -> list:
     rows += [[(pr(0, j % 2, 0),) for j in range(4)] for _ in range(6)]
     d = decision_randomized(rows, gt, 0.5, 32, 12345)
     out.append({"case": "randomized_half", "actions_by_grid": [[[m.key for m in a] for a in r] for r in rows],
-                "shuffles": 32, "shuffle_seed": 12345, "H_A_given_X": d["H_A_given_X"], "I_plugin": d["I_plugin"],
-                "I_shuffle": d["I_shuffle"], "decision": d["bits"], "binding": d["binding"]})
+                "shuffles": 32, "shuffle_seed": 12345, "H_A_given_X_plugin": d["H_A_given_X"],
+                "I_plugin": d["I_plugin"], "I_mm": d["I_mm"], "I_shuffle": d["I_shuffle"],
+                "I_jackknife": d["I_jackknife"], "decision": d["bits"], "binding": d["binding"]})
+    from .measure import jackknife
+    out.append({"case": "jackknife", "keys": list("aabbbcd"), "jackknife": jackknife(list("aabbbcd")),
+                "miller_madow": entropy_stats(list("aabbbcd"))["mm"]})
     return out
 
 
