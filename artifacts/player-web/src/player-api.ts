@@ -1,4 +1,4 @@
-import { GAME_COMMANDS, VERSION, commandSchema, observationSchema, resultSchema, type Command, type CommandResult, type Envelope, type Observation } from "@workspace/player-client";
+import { GAME_COMMANDS, VERSION, commandTimeoutMs, commandSchema, observationSchema, resultSchema, type Command, type CommandResult, type Envelope, type Observation } from "@workspace/player-client";
 export type { Command, CommandResult, Observation };
 const base = `${import.meta.env.BASE_URL}daemon`;
 let csrf = "";
@@ -53,9 +53,9 @@ export function parseRoom(value: string): string {
       !/^[0-9A-HJKMNP-TV-Z]{4,26}$/i.test(id)) throw new Error("Enter a room short code, UUID, or room link.");
   return id;
 }
-async function request<T>(path:string, body?:unknown, local = daemon):Promise<T> {
+async function request<T>(path:string, body?:unknown, local = daemon, timeoutMs = 15000):Promise<T> {
   const response = await fetch(`${local ? base : ""}${path}`, {
-    credentials:"same-origin", cache:"no-store", redirect:"error", signal:AbortSignal.timeout(15000),
+    credentials:"same-origin", cache:"no-store", redirect:"error", signal:AbortSignal.timeout(timeoutMs),
     method: body ? "POST":"GET", headers:{"Content-Type":"application/json", ...(local ? {"X-CSRF-Token":csrf} : {})},
     ...(body ? {body:JSON.stringify(body)}:{})
   });
@@ -120,7 +120,7 @@ export const sendCommand = async (command:Command, commandId=crypto.randomUUID()
   const envelope=prior ?? {version:VERSION,commandId,command:commandSchema.parse(command),...(GAME_COMMANDS.includes(command.type) && gameId ? {gameId} : {})};
   if(prior && JSON.stringify(prior.command)!==JSON.stringify(commandSchema.parse(command))) throw new Error("Command ID reused with different payload.");
   commandEnvelopes.set(commandId,envelope);
-  const result=resultSchema.parse(await request<CommandResult>(playerPath("commands"),envelope));
+  const result=resultSchema.parse(await request<CommandResult>(playerPath("commands"),envelope,daemon,commandTimeoutMs(envelope.command)));
   if(result.commandId!==commandId) throw new Error("Command receipt mismatch.");
   return result;
 };
