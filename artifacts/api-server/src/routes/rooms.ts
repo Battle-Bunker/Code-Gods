@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings, type GameSettings } from "@workspace/game-core";
-import { gridManifest } from "@workspace/game-utilities";
+import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, SETTINGS_PRESETS, instantiationOf, presetSettings, typeDefaults, validateSettings, type GameSettings } from "@workspace/game-core";
+import { familiesFor } from "@workspace/game-utilities";
+import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
+import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
+import { offeredInstantiations, priorOf, PRIORS } from "../game/calibration";
 import { requireIdentity, requireAct } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
@@ -12,9 +15,71 @@ import { aiFundingStatus } from "../game/ai-provider";
 import { getAgentDefinition } from "../game/agent-library";
 
 const router = Router();
+/**
+ * Object types for the settings pickers: parameters (with presets), capability classes and their badges,
+ * and the instantiations the server offers (those whose every dealable utility function is calibrated).
+ */
+let objectTypes: unknown[] | undefined;
+export function objectTypesManifest() {
+  return objectTypes ??= OBJECT_TYPES.map(T => ({
+    id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
+    // Tuned settings for games of this type (e.g. Grid: more objects, faster spawns).
+    settingsDefaults: typeDefaults(T.id),
+    classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
+    // Offered with each instantiation's default exclusions (rules not dealt by default need no tables).
+    offered: offeredInstantiations(T.id, { excludedFamilies: inst => typeDefaults(T.id, inst.args).excludedFamilies ?? [] }).map(inst => {
+      const info = instanceInfo(inst);
+      return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes,
+        settingsDefaults: typeDefaults(T.id, inst.args) };
+    }),
+  }));
+}
+/**
+ * When the owner switches instantiation, the tuned per-type defaults follow it: every tuned field the request
+ * left untouched (absent, or still the room's current value) and that was still at the old instantiation's
+ * default takes the new instantiation's default; customised values are kept.
+ */
+export function retuneSettings(previous: GameSettings, next: GameSettings, sent: Record<string, unknown>): GameSettings {
+  const before = instantiationOf(previous).key, after = instantiationOf(next).key;
+  if (before === after) return next;
+  const oldDefaults = typeDefaults(previous.objectType, previous.typeArgs);
+  const newDefaults = typeDefaults(next.objectType, next.typeArgs);
+  const tuned = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<keyof GameSettings>;
+  const out = { ...next } as Record<string, unknown>;
+  for (const key of tuned) {
+    // Only fields still at the old instantiation's default follow; values the owner customised are kept.
+    const untouched = !(key in sent) || JSON.stringify(sent[key]) === JSON.stringify(previous[key]);
+    const wasDefault = JSON.stringify(previous[key]) === JSON.stringify(oldDefaults[key] ?? DEFAULT_SETTINGS[key]);
+    if (untouched && wasDefault) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
+  }
+  return out as unknown as GameSettings;
+}
+const isOffered = (settings: GameSettings) => {
+  const inst = instantiationOf(settings);
+  // With this game's excluded families and prior: every family it can deal must be calibrated.
+  return offeredInstantiations(settings.objectType, { excludedFamilies: settings.excludedFamilies, prior: priorOf(settings.priorId) })
+    .some(offered => offered.key === inst.key);
+};
+/** Settings name an instantiation the server offers (otherwise no calibrated utility functions exist) and known families. */
+export function assertOffered(settings: GameSettings) {
+  priorOf(settings.priorId);
+  if (!isOffered(settings))
+    throw new Error(`${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
+  const known = new Set(familiesFor(settings.objectType).map(f => f.id));
+  const unknown = settings.excludedFamilies.filter(id => !known.has(id));
+  if (unknown.length) throw new Error(`Unknown ${settings.objectType} utility families: ${unknown.join(", ")}`);
+}
+/** The named starting points, in order, with the full settings each applies. */
+export function presetsManifest() {
+  return SETTINGS_PRESETS.map(p => {
+    const settings = presetSettings(p.id);
+    return { id: p.id, label: p.label, kid: p.kid, objectType: p.objectType, typeArgs: p.typeArgs, settings, offered: isOffered(settings) };
+  });
+}
 router.get("/manifest", (_req, res) => res.json({
-  protocolVersion: 1, minimumPlayers: 3, defaults: DEFAULT_SETTINGS, runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
-  grid: gridManifest(),
+  protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, defaults: DEFAULT_SETTINGS,
+  runtimes: runtime?.languages ?? [], options: SETTINGS_OPTIONS, aiFunding: aiFundingStatus(),
+  objectTypes: objectTypesManifest(), presets: presetsManifest(), priors: Object.keys(PRIORS),
 }));
 router.get("/rooms", (req, res) => {
   const actor = requireIdentity(req);
@@ -86,11 +151,13 @@ router.post("/rooms/:roomId/actions", async (req, res) => {
     if (room.game && room.game.phase !== "ended") throw new Error("Settings and seats are frozen during games");
     if (input.action === "settings") {
       if (input.revision !== room.revision) throw Object.assign(new Error("Settings changed; refresh before saving"), { status: 409 });
-      if (!input.settings) throw new Error("Settings are required");
-      // Clients that predate a setting omit it: keep its default rather than reject the whole form.
-      const settings: GameSettings = { ...DEFAULT_SETTINGS, ...input.settings };
+      if (!input.settings && !input.preset) throw new Error("Settings or a preset are required");
+      // A preset replaces the whole draft (keeping the room's language); explicit settings are retuned to their instantiation.
+      const settings = input.preset ? presetSettings(input.preset, input.settings?.language ?? room.settings.language)
+        : retuneSettings(room.settings, input.settings as GameSettings, (req.body?.settings ?? {}) as Record<string, unknown>);
       validateSettings(settings);
-      if (settings.stringMaxLength > 1024 || settings.startingObjectCount > 1000 ||
+      assertOffered(settings);
+      if (settings.startingObjectCount > 1000 ||
           settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
           settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) throw new Error("Settings exceed server resource limits");
       room.settings = settings;

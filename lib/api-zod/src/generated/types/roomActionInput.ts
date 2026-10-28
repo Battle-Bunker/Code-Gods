@@ -24,4 +24,6 @@ export interface RoomActionInput {
      */
   aiBudget?: number;
   aiAgentId?: string;
+  /** settings only: apply a Manifest.presets entry instead of `settings` (keeps the room's language unless settings.language is sent). */
+  preset?: string;
 }

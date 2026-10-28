@@ -6,7 +6,7 @@
   "exports": { ".": { "types": "./index.d.ts", "default": "./index.mjs" } },
   "scripts": {
     "setup:python": "python3 python/setup.py",
-    "test:python": "python3 python/test_runner.py && python3 python/test_grid.py && python3 python/test_grid_lab.py",
+    "test:python": "cd python && python3 -m unittest test_runner test_reactor test_sandbox test_astbits",
     "test": "node --test test/*.test.mjs",
     "benchmark": "node test/benchmark.mjs"
   },

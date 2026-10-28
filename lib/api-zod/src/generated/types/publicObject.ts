@@ -10,6 +10,6 @@ export interface PublicObject {
   id: string;
   value: number | string;
   version: number;
-  /** Sum of every god's utility for this object. */
-  totalUtility: number;
+  /** Σ over gods of their net bits for this object. Individual scores are never public. */
+  salience: number;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-core";
+import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-types";
 import {
   COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
   getColourCue, setColourCue, subscribeColourCue,

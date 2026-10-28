@@ -1,0 +1,26 @@
+{
+  "objectType": "Int",
+  "wireMaxLength": 0,
+  "prelude": {
+    "key": "3fc95a75328b2aa5aef05076410067be790e86734fbc32d5d73419955576d26e",
+    "python": "import json as _JSON\n_DUMPS = _JSON.dumps\ndef __decode(wire):\n    return wire\ndef add(k):\n    return {\"__m\": \"add\", \"k\": k}\ndef __encode_calls(calls):\n    return _DUMPS([[c[\"__m\"], {p: v for p, v in c.items() if p != \"__m\"}] for c in calls], separators=(\",\", \":\"))\n",
+    "js": "const __STRINGIFY = JSON.stringify;\nfunction __decode(wire) { return wire; }\nfunction add(k) { return { __m: \"add\", k }; }\nfunction __encode_calls(calls) {\n  return __STRINGIFY(calls.map(c => { const { __m, ...params } = c; return [__m, params]; }));\n}\n",
+    "dts": "interface MutatorCall { readonly __m: string; readonly [param: string]: unknown }\ndeclare function __decode(wire: number): number;\ndeclare function add(k: number): MutatorCall;\ndeclare function __encode_calls(calls: readonly MutatorCall[]): string;\n",
+    "pricing": {
+      "python": {
+        "api": [
+          "add"
+        ],
+        "attrs": [],
+        "params": [
+          "k"
+        ],
+        "strings": [],
+        "mutators": [
+          "add"
+        ],
+        "areas": []
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@ and the secured per-player daemon. `lib/ai-player` owns the autonomous model pol
 budgets and injectable Replit AI Integrations adapter. `artifacts/player-web`
 is the customizable human console, separate from the common server display.
 
-The authoritative server implements the `code-gods.player.v2` adapter and device
+The authoritative server implements the `code-gods.player.v3` adapter and device
 approval routes. The isolated integration test below exercises current routes
 and the daemon using real HTTP and WebSocket connections. The standalone Vite
 preview is not a daemon and reports that no daemon is configured.
@@ -37,27 +37,41 @@ service and approves membership there; this package never issues membership or
 approves a request itself. No manually pasted static keys are supported.
 
 Observation requires version, roomId, monotonically increasing revision, phase,
-language, self (godId/label/isAI/energy/ready/utility{name,summary,language,source}),
-objects (id/value/ownUtility/othersUtilitySum/score), own agents (id/source/language/cost),
-own transformations (id/agentId/before/after), public leaderboard and public chat
-with visibly labelled AI identities. Optional fields (newer servers):
-`roomShortCode`, `gameShortCode` and `seated`. `seated: false` means the player
-joined after this game launched: they spectate and play in the room's next game.
-Phase `lobby` means no game has been played yet. Phase `ended` shows the finished
+language, self (godId/label/isAI/energy/ready/pauseUsed and `utility`, the kid card:
+familyId/emoji/name/theme/summary/language/source, plus an optional `penalty` defence
+goal with its own summary, comparative and source), objects
+(`{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare, payoff}`),
+own agents (id/source/language/summonCost/decisionBits/expectedActCost/breakdown/randomized/
+energy/eligible/acts/spent),
+own transformations (id/agentId/before/after/calls/cost), the public leaderboard
+(`totalPayoff`) and public chat with visibly labelled AI identities. `instance` is the
+game's instantiation (game-types InstanceInfo: key, label, badges, display tables,
+codec, the mutator list and the prelude helpers with Python and TypeScript
+signatures); `economy` gives the energy rules (energyPerSecond, agentEnergyPerSecond,
+agentBatteryActs, maxAgentsPerGod, penaltyWeight, perActFloorBits), whether the room
+offers the commit clause (`commitClause`, then `only_if_better` / `onlyIfBetter` is in
+`instance.helpers`), its `objectSelection` and the current world time.
+`roomShortCode`, `gameShortCode` and `seated` identify the game; `seated: false` means
+the player joined after this game launched: they spectate and play in the room's next
+game. Phase `lobby` means no game has been played yet. Phase `ended` shows the finished
 game's final state until the owner launches the next game, which arrives with a
-new `gameId`. See schemas for caps. Arrays are bounded
-windows, not full world histories; coordinator must window larger rooms.
-Agents and transformation history must already be filtered to the requesting god.
-Only the player's own utility function and aggregate opponent utilities are allowed.
+new `gameId`. See schemas for caps. Arrays are bounded windows, not full world
+histories. Agents and transformation history are filtered to the requesting god.
+Only the player's own score and aggregates over the other gods are disclosed.
 Unknown fields are stripped recursively before UI/model consumption.
-Aggregate utilities do not prevent mathematical inference.
+Aggregates do not prevent mathematical inference.
 
-Commands are only validate, summon, ready, pause and public chat. There is no
-start, owner, admin, direct-message, arbitrary URL or file access command.
-Programs are callable expressions (Python `lambda x: x`, TypeScript `(x) => x`);
-validate/summon delegate to the authoritative runtime and never execute locally.
-Validation result requires valid, cost and diagnostics. Every receipt echoes
-commandId and contains accepted/message, plus validation when applicable.
+Commands are only validate, summon, destroy, ready, pause and public chat. There is no
+start, owner, admin, direct-message, arbitrary URL or file access command (owner
+actions go through the assistant's owner grant, see room-assistant.md). An agent
+defines `agent(obj)` and returns a list of mutator calls built with the room's
+prelude (`def agent(x):\n    return [add(1)]`); validate/summon delegate to the
+authoritative runtime and never execute locally. A validation result has `valid`,
+`cost` (the summon price in bits) and its `parts`, `decisionBits` (the measured decision
+information every act pays), `expectedActCost` with its `breakdown` (decision, erasure,
+motion, floor), `randomized` and diagnostics. Agents run with a frozen clock and a
+server-seeded `random`. Every receipt
+echoes commandId and contains accepted/message, plus validation when applicable.
 Source caps are client ceilings, not replacements for server/runtime limits.
 
 Server must atomically enforce membership, room/phase/language rules, energy,
@@ -74,6 +88,30 @@ and command receipts. Credentials never appear in socket URLs. Snapshot reads an
 commands while the socket is unavailable use HTTP. Human UI polls full snapshots
 every 1.5s; mutations refresh the projection immediately.
 Public chat persistence and delivery remain server-owned.
+
+## Migrating a client from v2 to v3
+
+`code-gods.player.v3` replaces v2 outright; the server accepts only v3 envelopes and
+a v2 client gets a clear version error. To update a client (or a duplicated client
+copy, see PILOT.md):
+
+1. Pull the repository and send `version: "code-gods.player.v3"` (import `VERSION`
+   from `@workspace/player-client`).
+2. Objects: `ownUtility`, `othersUtilitySum` and `score` are gone. Read
+   `own.netBits` (and `own.rewardBits`, `own.penaltyBits`, `own.ordinal`),
+   `peerNetBits` (the sum over the other gods), `peerCare = max(0, peerNetBits)` and
+   `payoff = own.netBits × peerCare`. Values are bits, not [0, 1].
+3. Leaderboard rows carry `totalPayoff` instead of `score`.
+4. Agents: `cost` is gone. Read `summonCost`, `expectedActCost`, `energy`,
+   `eligible`, `acts` and `spent`. An agent acts only while eligible.
+5. Programs: an agent now defines `agent(obj)` returning mutator calls
+   (`def agent(grid):\n    return [paint(row(2), "red")]`); a bare `lambda x: ...` or
+   `(x) => ...` is rejected. The mutators and helpers are in `observation.instance`.
+6. Validation results add `parts`, `decisionBits`, `expectedActCost`, `breakdown` and
+   `randomized`; agents add `decisionBits`, `breakdown` and `randomized`. Add the
+   `destroy {agentId}` command.
+7. `self.utility` is the kid card (familyId, emoji, theme, shape, optional `penalty`).
+   The removed `objectType`/`grid` fields: use `instance.objectType` and `instance.args`.
 
 ## Daemon and human browser
 
@@ -167,7 +205,7 @@ Model inputs are capped at 64KB; observations are windowed further for model
 context. Strict output schema allows at most four actions. Every summon is
 validated using the same runtime endpoint as humans, then compared with fresh
 energy; the server remains final authority. Uncertain commands retain their IDs.
-Turn deadline is 60s; caller abort and stop() cancel in-flight SDK/transport calls.
+Turn deadline is 180s (validate and summon measure the agent on the server); caller abort and stop() cancel in-flight SDK/transport calls.
 Loop errors back off exponentially up to 60s and stop visibly after five failures.
 Only one turn per controller runs at once. HTTP/SDK adapters must honor signals.
 

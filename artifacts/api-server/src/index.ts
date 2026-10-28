@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { createServer } from "node:http";
 import { initializeStore, closeStore } from "./game/store";
+import { assertSeasonSalt } from "./game/season";
 import { pool } from "@workspace/db";
 import { attachConnectionLifecycle, initializeActivity } from "./game/activity";
 import { startTicker } from "./game/engine";
@@ -24,6 +25,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+assertSeasonSalt();
 await initializeStore();
 await initializeActivity();
 await initializeAgentLibrary();

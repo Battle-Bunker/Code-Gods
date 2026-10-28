@@ -15,6 +15,6 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@workspace/game-core": "workspace:*"
+    "@workspace/game-types": "workspace:*"
   }
 }

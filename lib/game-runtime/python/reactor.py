@@ -14,7 +14,7 @@ ABI = (
     "PyUnicode_FromStringAndSize PyUnicode_AsUTF8AndSize PyObject_Type "
     "PyErr_Clear PyErr_Occurred PyImport_AddModule PyModule_GetDict PyDict_GetItemString "
     "PyMarshal_WriteObjectToString PyMarshal_ReadObjectFromString PyBytes_AsStringAndSize "
-    "Py_IncRef PyErr_GetRaisedException"
+    "PyLong_FromLongLong PyUnicode_GetLength PyErr_GetRaisedException"
 ).split()
 
 

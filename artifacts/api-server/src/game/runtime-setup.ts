@@ -1,6 +1,7 @@
-import { DEFAULT_SETTINGS } from "@workspace/game-core";
+import { defaultSettingsFor, type GameSettings } from "@workspace/game-core";
+import { OBJECT_TYPES } from "@workspace/game-types";
 import { createRuntime, RuntimeError, type GameRuntime, type Language } from "@workspace/game-runtime";
-import { createRuntimeAdapter, createUtilitiesAdapter, registerAdapters, unregisterAdapters } from "./adapters.ts";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, probeValue, registerAdapters, unregisterAdapters } from "./adapters.ts";
 
 const languages: Language[] = ["python", "typescript"];
 let pools: Partial<Record<Language, GameRuntime>> = {};
@@ -17,22 +18,23 @@ export function initializeRuntimeAdapters(): Promise<void> {
     const failures: string[] = [];
     const usable: Partial<Record<Language, GameRuntime>> = {};
     await Promise.all(languages.map(async language => {
-      // Persistent workers grow lazily: identity probes start only one per
-      // language; concurrent interactions can use four independent CPU cores.
-      const pool = createRuntime({ language, workers: 4, queueLimit: 32 });
+      // Four persistent workers per language (four CPU cores). Summon measurement runs four acts at
+      // once, so all four are started (warmed) here rather than cold inside a summon.
+      const pool = createRuntime({ language, workers: 4, queueLimit: 32, startupMs: 120000 });
       candidates[language] = pool;
       const probe = async () => {
-        for (const objectType of ["Int", "string"] as const) {
+        // Every object type's default instantiation: the prelude compiles and an empty agent round-trips.
+        for (const type of OBJECT_TYPES) {
           // The probe checks availability, not speed: a cold worker on a busy host can
           // exceed the 5 ms play budget, which must not disable a language until restart.
-          const settings = { ...DEFAULT_SETTINGS, language, objectType, grammarId: `${language}-standard-v1`, interactionComputeMs: 1000 };
-          const source = language === "python" ? "lambda x: x"
-            : objectType === "Int" ? "(x: number) => x" : "(x: string) => x";
-          const input = objectType === "Int" ? 37 : "identity\0\n";
-          const { cost } = await pool.inspect(source, settings);
-          const { value } = await pool.execute(source, input, settings);
-          if (!Number.isSafeInteger(cost) || cost <= 0 || value !== input) {
-            throw new RuntimeError("UNAVAILABLE", `${language} identity probe failed`);
+          const settings: GameSettings = defaultSettingsFor(type.id, language);
+          const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+          const act = actSettings(settings);
+          const { cost } = await pool.inspect(source, act);
+          const input = probeValue(settings);
+          const { calls } = await pool.act(source, input, act, "0");
+          if (!Number.isFinite(cost) || cost <= 0 || calls !== "[]") {
+            throw new RuntimeError("UNAVAILABLE", `${language} ${type.id} agent probe failed`);
           }
         }
       };
@@ -41,6 +43,9 @@ export function initializeRuntimeAdapters(): Promise<void> {
           try { await probe(); break; }
           catch (error) { if (attempt >= 3) throw error; }
         }
+        const warm = defaultSettingsFor("Grid", language), act = actSettings(warm);
+        const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+        await Promise.all(Array.from({ length: 4 }, (_, i) => pool.act(source, probeValue(warm), act, String(i))));
         usable[language] = pool;
       } catch (error) {
         pool.close();

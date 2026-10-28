@@ -13,6 +13,8 @@ A multiplayer political game where each player is a god with a secret utility fu
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
+- `pnpm --filter @workspace/code-gods run e2e` — Playwright smoke tests of both UIs (room lobby, game page, player console) at desktop and phone (390×844) width against a stubbed API; builds both apps first (`SKIP_BUILD=1` reuses `dist/`, `SHOTS_DIR=…` keeps screenshots). Needs `require("playwright")` with Chromium; no server, login or database.
+- `pnpm --filter @workspace/object-views test` — unit tests of the shared object views (rarity, locked reasons, pickers, dispatch)
 - Required env: `DATABASE_URL` — Postgres connection string
 
 ## Stack

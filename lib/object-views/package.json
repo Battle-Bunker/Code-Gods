@@ -3,14 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "smoke": "node test/smoke.mjs"
+    "typecheck": "tsc --build"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.7",
-    "@workspace/game-core": "workspace:*"
+    "@workspace/game-utilities": "workspace:*",
+    "@workspace/game-types": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"

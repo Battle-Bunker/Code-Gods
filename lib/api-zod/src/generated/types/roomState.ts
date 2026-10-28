@@ -7,8 +7,8 @@
  */
 import type { ActiveGameRef } from './activeGameRef';
 import type { ChatMessage } from './chatMessage';
+import type { InstanceInfo } from './instanceInfo';
 import type { Member } from './member';
-import type { PublicGame } from './publicGame';
 import type { Settings } from './settings';
 import type { UtilityFamily } from './utilityFamily';
 
@@ -21,7 +21,7 @@ export interface RoomState {
   ownerId: string;
   ownerName: string;
   /**
-     * Unix milliseconds; null for legacy rooms whose creation time was not recorded.
+     * Unix milliseconds; null when the creation time is unknown.
      * @nullable
      */
   createdAt: number | null;
@@ -31,10 +31,10 @@ export interface RoomState {
   members: Member[];
   chat: ChatMessage[];
   activeGame: ActiveGameRef | null;
-  /** Deprecated legacy view of the room's current game slot (the active game, or the most recent one until the next launch). New clients use activeGame, GET /games/{code}/state and the history. */
-  game: PublicGame | null;
   serverTime: number;
-  /** Public list of utility-function families gods may have drawn for this object type. */
+  /** The instantiation the next game will play. */
+  objectInstance: InstanceInfo;
+  /** Public list of utility-function families gods may draw for these settings, with availability. */
   utilityCatalog: UtilityFamily[];
   aiBudget: number;
   aiUsed: number;

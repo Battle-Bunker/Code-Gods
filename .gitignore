@@ -50,3 +50,5 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+artifacts/api-server/test/.integration-*/
+artifacts/api-server/test/.client-integration-*/

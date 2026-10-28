@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type PointerEvent } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { createObjectTypeRegistry, type ObjectContext, type ObjectValue } from "./registry.ts";
+import { createObjectTypeRegistry, type GridSettings, type ObjectContext, type ObjectValue } from "./registry.ts";
 import {
   changedCells, getColourCue, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
   type ColourCue, type GridCellModel, type GridModel,
@@ -188,4 +188,23 @@ export function ObjectView(props: ObjectViewProps) {
   const entry = objectViews.resolve(props.value, props);
   const Component = entry?.component ?? StringObject;
   return <Component {...props} />;
+}
+
+/** The `ObjectView` context for a resolved instantiation (the API's `InstanceInfo`). */
+export function objectContext(instance: { objectType: string; args: { [key: string]: number | string } } | undefined | null): ObjectContext {
+  if (!instance) return {};
+  return instance.objectType === "Grid"
+    ? { objectType: "Grid", grid: instance.args as GridSettings }
+    : { objectType: instance.objectType };
+}
+
+/** One transformation: the before and after objects; grids outline the cells that changed. */
+export function TransformationView({ before, after, className = "", ...context }: ObjectContext & { before: ObjectValue; after: ObjectValue; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 min-w-0 ${className}`} data-testid="transformation">
+      <span className="opacity-80 min-w-0 truncate"><ObjectView value={before} {...context} /></span>
+      <span aria-label="became" className="text-primary">→</span>
+      <span className="min-w-0 truncate font-semibold"><ObjectView value={after} compareTo={before} {...context} /></span>
+    </span>
+  );
 }

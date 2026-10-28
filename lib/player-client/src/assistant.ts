@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import { envelopeSchema, type Observation, type Envelope } from "./protocol.ts";
+import { GAME_COMMANDS, commandTimeoutMs, envelopeSchema, type Observation, type Envelope } from "./protocol.ts";
 import { WebSocketPlayerTransport, type PlayerSocketFactory } from "./socket-transport.ts";
 import { TransportError, type RoomCredential } from "./transport.ts";
 
@@ -267,12 +267,12 @@ export function createAssistant(options:AssistantOptions) {
           if(prior && prior.body!==body)throw new Error("Command ID already belongs to a different payload.");
           if(prior && !(prior.receipt.status==="uncertain" && args.retryUnknown))return prior.receipt;
           if(!prior && receipts.size>=500)throw new Error("Session receipt limit reached; disconnect and reapprove.");
-          const prepared=prior?.envelope??{...envelope,...(!envelope.gameId && latest?.gameId && ["validate","summon","pause","destroy"].includes(envelope.command.type)?{gameId:latest.gameId}:{})};
+          const prepared=prior?.envelope??{...envelope,...(!envelope.gameId && latest?.gameId && GAME_COMMANDS.includes(envelope.command.type)?{gameId:latest.gameId}:{})};
           const entry={body,envelope:prepared,receipt:{commandId:envelope.commandId,status:"pending"} as Receipt};
           receipts.set(envelope.commandId,entry);
           const epoch=generation;
           try {
-            entry.receipt={commandId:envelope.commandId,status:"received",result:await active.send(prepared,AbortSignal.timeout(15000))};
+            entry.receipt={commandId:envelope.commandId,status:"received",result:await active.send(prepared,AbortSignal.timeout(commandTimeoutMs(prepared.command)))};
           } catch(error) {
             entry.receipt={commandId:envelope.commandId,status:"uncertain"};
             safeError(error);

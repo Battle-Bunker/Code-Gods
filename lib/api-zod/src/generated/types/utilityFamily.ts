@@ -5,13 +5,24 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { Badge } from './badge';
+import type { UtilityFamilyLocked } from './utilityFamilyLocked';
+import type { UtilityFamilyRole } from './utilityFamilyRole';
 
+/**
+ * A family any god might draw (never who drew what). Locked families say why, and the smallest settings change that unlocks them.
+ */
 export interface UtilityFamily {
   id: string;
   name: string;
+  emoji: string;
   theme: string;
-  /** Grid families only. */
-  emoji?: string;
-  /** Grid only. True when gods of this family also carry a defence goal (a penalty). */
-  defence?: boolean;
+  /** penalty families are dealt only as defence goals. */
+  role: UtilityFamilyRole;
+  tags: string[];
+  available: boolean;
+  /** Taken out of the lottery by settings.excludedFamilies. */
+  excluded: boolean;
+  badges: Badge[];
+  locked?: UtilityFamilyLocked;
 }

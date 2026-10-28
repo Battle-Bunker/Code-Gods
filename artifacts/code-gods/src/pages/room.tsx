@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { Shell, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
-import { Chat, Conn, ReadOnlySettings, Repertoire } from "@/components/game-panels";
+import { Chat, Conn, ReadOnlySettings, Repertoire, ScoringPanel } from "@/components/game-panels";
 import { History, Members, OwnerSettings, useAct } from "@/components/room-panels";
 import { useAuth } from "@/hooks/use-auth";
 import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
@@ -131,20 +131,21 @@ export default function Room() {
           {q.isError && <ErrorLine message={`Showing last known state. ${errMsg(q.error)}`} onRetry={() => q.refetch()} />}
           <ActiveBanner room={room} meId={user?.id} />
         </div>
-        <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 lg:grid-cols-[1fr_1.2fr_360px] items-start">
-          <div className="space-y-6">
+        <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_360px] items-start">
+          <div className="space-y-6 min-w-0">
             <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
             <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Speak to all deities" : "Join the room to speak"} onSend={(text, done) => act.run({ action: "chat", text }, done)} />
           </div>
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             <History games={games.data} loading={games.isLoading} error={games.error} onRetry={() => void games.refetch()} />
-            <GameRules settings={room.settings} roomCode={room.shortCode} note="Includes this room’s settings for the next game." />
+            <GameRules settings={room.settings} instance={room.objectInstance} roomCode={room.shortCode} note="Includes this room’s settings for the next game." />
+            <ScoringPanel objectType={room.objectInstance?.objectType} />
           </div>
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => void manifest.refetch()} />}
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} grid={manifest.data?.grid} />
-              : <ReadOnlySettings settings={room.settings} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
-            <Repertoire catalog={room.utilityCatalog} />
+            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} objectTypes={manifest.data?.objectTypes} presets={manifest.data?.presets} />
+              : <ReadOnlySettings settings={room.settings} instance={room.objectInstance} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
+            {!isOwner && <Repertoire catalog={room.utilityCatalog} classes={manifest.data?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />}
           </div>
         </div>
       </>)}

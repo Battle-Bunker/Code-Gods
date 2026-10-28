@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { createRuntime } from "@workspace/game-runtime";
-import { DEFAULT_SETTINGS } from "@workspace/game-core";
+import { defaultSettingsFor, type GameSettings } from "@workspace/game-core";
 // @ts-expect-error injected isolated schema profiler
 import { pool, stats } from "@workspace/db";
-import { createRuntimeAdapter, createValuesAdapter, registerAdapters } from "../src/game/adapters";
+import { actSettings, createRuntimeAdapter, createUtilitiesAdapter, registerAdapters } from "../src/game/adapters";
 import { createRoom, mutate, mutateInteraction, resolveRoom, closeStore, initializeStore, rehydrateInteractions } from "../src/game/store";
 import { startGame, startTicker } from "../src/game/engine";
 import { recordHumanActivity } from "../src/game/activity";
@@ -13,17 +13,21 @@ import type { Actor } from "../src/game/types";
 
 const runtime = createRuntime({ language: "typescript", workers: 4, queueLimit: 32 });
 const base = createRuntimeAdapter({ typescript: runtime });
-const values = createValuesAdapter();
+const utilities = createUtilitiesAdapter();
+const ADD = "function agent(x) { return [add(1)]; }";
+/** Always eligible, so the benchmark measures the pipeline rather than agent income. */
+const richAgent = (ownerId: string, world: number) => ({ id: randomUUID(), ownerId, source: ADD, createdAt: Date.now(), summonCost: 0,
+  decisionBits: 1, perActFloorBits: 0, expectedActCost: 1, breakdown: { decision: 1, erasure: 0, motion: 0, floor: 0 }, randomized: false, account: { balance: 1e6, settledWorldSeconds: world }, acts: 0, spent: 0 });
 const host: Actor = { id: randomUUID(), name: "Isolated benchmark", kind: "human", scope: "browser" };
 let stop: (() => Promise<void>) | undefined;
 try {
-  const settings = { ...DEFAULT_SETTINGS, language: "typescript", grammarId: "typescript-standard-v1" };
+  const settings: GameSettings = { ...defaultSettingsFor("Int", "typescript"), agentEnergyPerSecond: 1000, agentBatteryActs: 1000 };
   // Warm four workers before the measured interval.
   for (let round = 0; round < 10; round++)
-    await Promise.all(Array.from({ length: 4 }, () => runtime.execute("(x: number) => x", 1, { ...settings, interactionComputeMs: 50 })));
+    await Promise.all(Array.from({ length: 4 }, () => runtime.act(ADD, 1, actSettings({ ...settings, interactionComputeMs: 50 }), "0")));
   // Only startup warmup uses 50ms; every measured game below retains the default 5ms.
   const room = await createRoom(host);
-  registerAdapters({ runtime: base, values });
+  registerAdapters({ runtime: base, utilities });
   await mutate(room.id, async draft => {
     draft.members = [host, { ...host, id: randomUUID() }, { ...host, id: randomUUID() }].map(m => ({ ...m, ready: true }));
     draft.settings = { ...settings, startingObjectCount: 10, spawnRateHz: 0 };
@@ -34,7 +38,7 @@ try {
     const g = draft.game!, object = g.objects[0];
     object.version++;
     g.events.push({ id: randomUUID(), gameId: g.id, type: "object.transformed", timestamp: Date.now(),
-      before: object.value, object: { ...object } });
+      before: object.value, object: { ...object }, agentId: "benchmark", ownerId: host.id });
     return true;
   });
   const flushDeadline = performance.now() + 2000;
@@ -54,20 +58,20 @@ try {
   console.log("PostgreSQL crash-replay/recovery checkpoint/atomic log compaction verified");
   for (const mode of ["wasm", "synthetic"] as const) {
     for (const count of [10, 100, 2000]) {
-      let runtimeMs = 0, executions = 0, runtimeRejections = 0, valuationMs = 0;
+      let runtimeMs = 0, executions = 0, runtimeRejections = 0, scoringMs = 0;
       registerAdapters({
-        runtime: { ...base, async execute(source, value, settings) {
+        runtime: { ...base, async act(source, value, settings, seed) {
           const started = performance.now();
           try {
-            // Benchmark-only rate bypass; compute budget/domain remain unchanged.
-            return mode === "synthetic" ? value : await base.execute(source, value, { ...settings, interactionRateHz: 1000 });
+            // Benchmark-only rate bypass; compute budget and instantiation remain unchanged.
+            return mode === "synthetic" ? { calls: '[["add",{"k":1}]]', usedRandom: false, steps: 0 } : await base.act(source, value, { ...settings, interactionRateHz: 1000 }, seed);
           } catch (error) { runtimeRejections++; throw error; }
           finally { runtimeMs += performance.now() - started; executions++; }
         } },
-        values: { ...values, evaluate(descriptor, value) {
+        utilities: { ...utilities, score(s, descriptor, value) {
           const started = performance.now();
-          try { return values.evaluate(descriptor, value); }
-          finally { valuationMs += performance.now() - started; }
+          try { return utilities.score(s, descriptor, value); }
+          finally { scoringMs += performance.now() - started; }
         } },
       });
       await mutate(room.id, async draft => {
@@ -77,10 +81,10 @@ try {
         const g = draft.game!;
         g.phase = "running"; g.lastTick = Date.now(); g.endAtWorld = 3600;
         g.settings.interactionRateHz = 4000; // infrastructure headroom, not production configuration
-        g.agents.push({ id: randomUUID(), ownerId: host.id, source: "(x: number) => x", cost: 0, createdAt: Date.now() });
+        g.agents.push(richAgent(host.id, g.worldSeconds));
       });
       await recordHumanActivity();
-      runtimeMs = 0; valuationMs = 0;
+      runtimeMs = 0; scoringMs = 0;
       stats.breakdown = {};
       const beforeQueries = stats.queries, beforeQueryMs = stats.queryMs;
       const started = performance.now(), utilization = performance.eventLoopUtilization();
@@ -98,7 +102,7 @@ try {
       console.log(JSON.stringify({ backend: "isolated PostgreSQL schema", mode, objects: count, transformations,
         perSecond: transformations * 1000 / elapsedMs, elapsedMs, drainAndCheckpointMs: elapsedMs - activeWindowMs,
         executions, runtimeRejections, uncommittedExecutions: executions - transformations - runtimeRejections,
-        runtimeMeanMs: runtimeMs / executions, valuationMs, sqlQueries, sqlMs, sqlBreakdown,
+        runtimeMeanMs: runtimeMs / executions, scoringMs, sqlQueries, sqlMs, sqlBreakdown,
         eventLoopUtilization: performance.eventLoopUtilization(utilization).utilization }));
     }
   }

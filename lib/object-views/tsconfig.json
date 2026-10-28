@@ -10,6 +10,6 @@
     "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "es2022"]
   },
-  "references": [{ "path": "../game-core" }],
+  "references": [{ "path": "../game-utilities" }, { "path": "../game-types" }],
   "include": ["src"]
 }

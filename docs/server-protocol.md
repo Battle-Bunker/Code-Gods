@@ -5,13 +5,12 @@
 `interactionRateHz` is a per-room dispatch ceiling, not a fixed-rate work quota.
 It defaults to 100 Hz and accepts ceilings up to 1000 Hz; a high cap does not
 guarantee that rate on the deployed hardware.
-`interactionComputeMs` is the per-interaction guest CPU budget: an integer
-from 1 to 1000 milliseconds, defaulting to 5. It excludes compilation and worker
-startup, and is independent of the dispatch cap. The owner can change it only
-between games; each game retains its settings snapshot. Legacy persisted room
-and game settings missing the budget hydrate to 5 without a database migration.
-Missing legacy interaction caps hydrate to 100 Hz; saved room and game settings
-retain their existing chosen caps.
+`stepBudget` is the deterministic per-act budget (default 500,000 steps; at most
+10,000,000): the same agent, input and seed always fit or never do.
+`interactionComputeMs` is only the CPU backstop behind it: an integer from 1 to
+1000 milliseconds, defaulting to 1000. Both exclude compilation and worker
+startup, and are independent of the dispatch cap. The owner can change it only
+between games; each game retains its settings snapshot.
 The single server admits up to four interactions concurrently across rooms.
 Missed opportunities are not queued or replayed; slow execution lowers achieved
 throughput rather than putting the game into recovery. Running world time and
@@ -34,13 +33,13 @@ short uncommitted interaction window. An abrupt process kill can lose that windo
 
 The server display lives at `/`. All HTTP and WebSocket API paths start with `/api`.
 Share rooms as `/rooms/{roomShortCode}`, games as `/games/{gameShortCode}`,
-and browser player links as `/player/?room={roomShortCode}`. Legacy GUID links
-still resolve. A game link opens only that game; historical links never silently
+and browser player links as `/player/?room={roomShortCode}`. Full GUIDs
+also resolve. A game link opens only that game; historical links never silently
 display a replacement game. IDs inside authenticated protocol envelopes remain
 canonical GUIDs. Device approval request responses include the resolved `roomId`
 GUID, which the daemon pins before accepting credentials returned by polling.
 The current display uses generated OpenAPI hooks and one-second polling. It never
-receives private utility descriptors, seeds, end deadlines, or opponent utilities.
+receives private utility descriptors, scores, seeds, end deadlines, or agent sources.
 
 ## Identity
 
@@ -92,10 +91,11 @@ settings, members and AI seat strategies at launch and keeps that snapshot.
    win). Results contain only what the public leaderboard already shows. Past
    games stay viewable at their final state through `/api/games/:code/state`.
 
-`RoomState.game` remains for older clients as the room's current game slot (the
-active game, or the latest one until the next launch). Player observations keep
-following that slot, so after a game ends they show its final state with phase
-`ended` until the owner launches the next game.
+Player observations follow the room's current game slot (the active game, or the
+latest one until the next launch), so after a game ends they show its final state
+with phase `ended` until the owner launches the next game. The public room state
+(`RoomState`) carries no game: use `activeGame`, `GET /api/games/:code/state` and
+the history.
 
 ## Room assistant access
 
@@ -129,84 +129,183 @@ restart or by idling resume on their own once a human is active again; the
 2,000-object safety stop waits for the owner's Resume. Schema migrations are
 separate from server startup.
 
+## Object types and settings
+
+A game's objects are values of one **instantiation** of an object type: settings carry
+`objectType` (`Int`, `string` or `Grid`) and `typeArgs` (`Int {min,max}`,
+`string {maxLength}`, `Grid {size,symbols,colours}`). `GET /api/manifest` lists every
+type in `objectTypes[]` with its parameters (and presets), capability classes and
+badges, its tuned `settingsDefaults`, and the `offered` instantiations: those whose
+every dealable utility function has a calibration table. The `settings` room action
+refuses any other instantiation. When the owner switches instantiation, tuned fields
+the request leaves untouched and that are still at the old instantiation's default take the new
+instantiation's tuned defaults (`settingsDefaults`, e.g. Grid's object count, spawn rate,
+agent income and excluded families).
+`excludedFamilies` lists family ids never dealt in the game (validated against the
+type's catalog). By default every Grid board leaves out 11 weak families
+(`WEAK_GRID_FAMILIES` in lib/game-core: tetromino_tamer, quilt_maker, robin_hood,
+sudoku_scholar, odds_evens, lantern_lighter, lone_peak, number_sandwich, picture_frame,
+bridge_builder, ladder_of_numbers; lib/grid-lab/docs/explore/synergy.md), plus
+fair_weaver on the beginner board; they stay in the catalogue and owners can deal them. `Manifest.presets` are named starting points in display order
+(`grid-first-steps`, `grid-classic`, `grid-low-income`, `grid-big`, `grid-master`); the settings action
+`{action:"settings",revision,preset:"grid-first-steps"}` applies one, keeping the
+room's language.
+`RoomState.objectInstance` and `GameView.objectInstance` describe the instantiation
+(`InstanceInfo`: key, label, badges, display tables, codec, mutators and prelude
+helpers); `RoomState.utilityCatalog` lists the families any god might draw, with
+availability, badges and kid-worded locked reasons (`needs ♠ Suits: pick Playing cards`).
+
+## Scoring (information bits)
+
+Each god draws a utility function (an ordinal: a number or a tuple, bigger is better)
+and, with probability `defenceRate`, a defence goal. For god *i* and object *x*:
+`rewardBits` is the surprisal of the ordinal under the spawn prior (calibration
+tables), `penaltyBits` the soft-hinged surprisal of the defence goal's badness, and
+`netBits` n = rewardBits − `penaltyWeight` · (penaltyBits − its prior mean).
+payoff_i = n_i · max(0, Σ_{j≠i} n_j); a leaderboard total is the sum of payoffs over
+live objects. Scores are server-private (`scores` on each object). A god sees only its
+own `{ordinal, rewardBits, penaltyBits?, netBits}` and the aggregates `peerNetBits`
+(Σ_{j≠i} n_j), `peerCare` (max(0, peerNetBits)) and `payoff`; the public sees
+`salience` (Σ_i n_i) and total payoffs. Aggregates do not prevent inference.
+
+## Agents and energy
+
+An agent is ordinary Python or TypeScript that defines `agent(obj)` against the room's
+generated prelude and returns a list of at most 16 **mutator calls**, never a new
+object: Int `def agent(x):\n    return [add(1)]`, Grid
+`function agent(grid) { return [paint(row(2), "red")]; }`. The engine validates the
+calls against the instantiation's closed set of bit-priced mutators and applies them.
+
+- **Summon price** (paid once from god energy, which accrues `energyPerSecond` per
+  real-time second from `startingEnergy`): the source's description bits,
+  `complexityFunctionId` `ast-bits-v1` (Python, corpus-weighted) or
+  `ts-ast-bits-v1-uniform` (TypeScript), one per language, plus each **literal move**
+  (a call of a move helper on literal arguments) priced as that move: 3 flag bits +
+  log2 #available mutators + its field bits if it is valid here, else its fallback
+  bits as an ordinary call. Each room's prelude carries the pricing vocabulary
+  (its API names, attributes, parameters, meaningful strings, mutators and areas).
+- **Measured per-act price.** At summon (and validation) the server RUNS the agent on
+  the season's reference mixture (128 uniform + 64 structured values of the
+  instantiation, salted by the season, plus up to 16 live objects as the "game"
+  component), once per value, or 8 times per value with different seeds if it used
+  `random`. `decisionBits` is the information its actions carry about the object,
+  I(X; A) (entropy of its actions for a deterministic agent, a jackknife estimate for
+  a randomized one); `expectedActCost` = decisionBits + mean erasure + mean motion +
+  `perActFloorBits` (default 2 bits: the Margolus–Levitin floor of every attempted act). Measurement runs outside the authority lock, four at a time
+  (about 200 runs for a deterministic agent, 1,600 for a randomized one).
+- **Validate** (free) returns `{valid, cost, parts, decisionBits, expectedActCost,
+  breakdown: {decision, erasure, motion, floor}, randomized, diagnostics}`.
+- **Agent energy.** A new agent starts at 0 and earns `agentEnergyPerSecond` bits per
+  second of world time (default 2; Grid 32, measured in grid-lab PR #14 §4.9; the `grid-low-income` preset uses 16 with a 1-bit floor) (nothing during planning, pauses or recovery), capped at
+  `agentBatteryActs` × expectedActCost. It is **eligible** while energy ≥ expectedActCost.
+- **Interactions.** Each dispatch picks a uniform random object and a uniform random
+  eligible agent (one act per agent at a time). Acts are deterministic: a frozen clock,
+  and `random` / `Math.random` seeded with `deriveSeed(seasonSalt, ["play", gameId,
+  agentId, actIndex])`. An act pays decisionBits + its pointwise erasure + its
+  whole-act motion + the floor. A failed act (runtime error, invalid call, no change)
+  or a duplicate result (the value of any existing object) changes nothing and pays
+  decisionBits + the floor. The calls' own naming bits are reported (`cost.naming`),
+  not charged. Energy may go negative: a cooldown.
+- **Destroy** (`agent.destroy`, owner only) is free and not refunded. Each god may keep
+  `maxAgentsPerGod` live agents (at most 200).
+- **Season salt.** `CODE_GODS_SEASON_SALT` is a server secret behind every measurement
+  and play seed; production refuses to start without it, development and tests use a
+  random per-process salt (with a warning). It is never logged or returned; every game
+  and history record carries `seasonCommitment` = sha256(salt), so after the season the
+  salt can be revealed and every seed checked.
+
+**Spiral mechanics** (grid-lab PR #18, `lib/grid-lab/docs/explore/spirals.md`), both off by default:
+
+- `commitClause` (default false). When on, the prelude offers `only_if_better(moves)` /
+  `onlyIfBetter(moves)`; the act is then encoded as `{"calls":[...],"commit":"if-improves"}`
+  instead of a bare list. The engine commits such an act only if it strictly raises the
+  owner's own payoff on that object, n_owner × max(0, Σ_peers n), computed from the owner's
+  bits and the peer aggregate only (disclosure is unchanged); otherwise it is a no-op that
+  pays decisionBits + the floor. An agent whose measured acts use the clause pays
+  `1 + log2 3 + 1 ≈ 3.58` more summon bits: one yes/no measurement against the owner's
+  rule, reading the peers' aggregate, and naming the clause. In rooms without the setting
+  the wrapper does not exist and a hand-built clause act fails. There is no "do no harm to
+  others" clause.
+- `objectSelection` (default `uniform`). `shelter` picks each interaction's object with weight
+  1/(1+σ⁺), σ the object's salience (negative salience counts as 0): salient objects are hit
+  a little less. Nothing ever weights toward salience.
+
+No spiral analytics are exposed. If any are, use held spirals per 100 s, spiral excess (vs a
+per-object permutation null), drift at 16 bits, and tension event and reversal rates, not
+per-commit spiral counts (most "spirals" in a raw count are random-walk noise).
+
+Dealing: `utilitySelectorId` `fair-aligned` (default) keeps, of 32 Divine Lottery deals,
+the one whose rules most tend to want the same objects (not a fairness mechanism), using the shipped synergy matrices of the instantiation and
+`priorId`; without a matrix it is the Divine Lottery (`divine-lottery`). `priorId`
+(default `uniform`, listed in `Manifest.priors`) is the rarity prior the calibration
+tables are keyed by.
+
+Every object value in a world is unique: spawns redraw on collision.
+
 ## Player API and WebSocket
 
-The companion/AI client protocol is `code-gods.player.v2`:
+The companion/AI client protocol is `code-gods.player.v3`
+(`lib/player-client/src/protocol.ts` is normative; see
+[player-client-integration.md](player-client-integration.md)):
 
 - `GET /api/player/v1/rooms/:roomId/observation`
 - `POST /api/player/v1/rooms/:roomId/commands`
 
 Both require a browser session or approved room-scoped player bearer token.
 Commands use `{version,commandId,gameId?,command}`; `commandId` is a UUID.
-`gameId` is required for validate, summon and pause, and stale IDs are rejected.
-Examples:
+`gameId` is required for validate, summon, pause and destroy, and stale IDs are rejected.
 
 ```json
-{"version":"code-gods.player.v2","commandId":"UUID","gameId":"GAME_UUID","command":{"type":"validate","language":"python","source":"lambda x: x"}}
-{"version":"code-gods.player.v2","commandId":"UUID","command":{"type":"chat","text":"Public message"}}
+{"version":"code-gods.player.v3","commandId":"UUID","gameId":"GAME_UUID","command":{"type":"validate","language":"python","source":"def agent(x):\n    return [add(1)]"}}
+{"version":"code-gods.player.v3","commandId":"UUID","gameId":"GAME_UUID","command":{"type":"destroy","agentId":"AGENT_UUID"}}
+{"version":"code-gods.player.v3","commandId":"UUID","command":{"type":"chat","text":"Public message"}}
 ```
 
-Other commands are `summon` (same fields as validate), `pause`, and `ready`
-with a boolean `ready`. Programs must be one expression evaluating to a unary
-function, e.g. Python `lambda x: x` or TypeScript `(x: number) => x`; module/export
-wrappers are not the agent submission protocol. Validation is free; successful
-summoning charges the runtime's measured structural cost exactly once.
+Other commands are `summon` (same fields as validate), `pause`, and `ready` with a
+boolean `ready`. Receipts are `{commandId,accepted,message,validation?}`. Accepted and
+rejected receipts are persisted and replayed for the same identity/command ID. Reusing
+that ID with changed content fails. Retry the original envelope after an uncertain
+connection failure; do not invent a new ID.
 
-Receipts are `{commandId,accepted,message,validation?}`. Accepted and rejected
-v1 receipts are persisted and replayed for the same identity/command ID.
-Reusing that ID with changed content fails. Retry the original envelope after
-an uncertain connection failure; do not invent a new ID.
+The same envelopes are accepted over `wss://SERVER/api/rooms/ROOM_UUID/ws`
+(Authorization header from a daemon; browser sockets use same-origin session cookies).
+Inbound socket messages are only these envelopes. Outbound envelopes are
+`{protocolVersion:1,type,seq,serverTime,payload}`: `room.snapshot` (public `RoomState`),
+`player.observation` (the v3 observation), `leaderboard.updated` (standings),
+`command.receipt`, `command.error`, `object.spawned`, `object.transformed` (the object
+with your own score and peer aggregates; calls and cost only for your own agents),
+`game.preparing` (a new game launched with you seated; payload: your observation) and
+`game.ended` (the public game record). `seq` is the room commit revision; several
+messages from one commit can share it. Snapshots include all current objects and a
+recent public chat window; older chat is paged through
+`/api/rooms/:roomId/chat?before=TIMESTAMP`.
 
-The same v1 envelopes are accepted over:
-
-`wss://SERVER/api/rooms/ROOM_UUID/ws`, Authorization header from daemon.
-Browser display sockets can use same-origin session cookies.
-
-The older browser convenience commands are also accepted:
-
-```json
-{"protocolVersion":1,"command":"agent.summon","requestId":"UUID","gameId":"GAME_UUID","payload":{"source":"lambda x: x"}}
-{"protocolVersion":1,"command":"pause.use","requestId":"UUID","gameId":"GAME_UUID","payload":{}}
-{"protocolVersion":1,"command":"chat.send","requestId":"UUID","payload":{"text":"Public message"}}
-{"protocolVersion":1,"command":"ready.set","requestId":"UUID","payload":{"ready":true}}
-```
-
-Snapshot/reconnect requests use `command: "subscribe"` or `"resume"`.
-Envelopes have `{protocolVersion,type,seq,serverTime,payload}`.
-Current messages include `room.snapshot`, `leaderboard.updated`, `command.receipt`,
-`command.error`, `object.spawned`, `object.transformed`, `game.preparing` (a
-new game launched with you seated) and `game.ended` (payload: the public game record). The `seq` is the room
-commit revision; several messages from one commit can share it, so it is not a
-unique event cursor. Object events also have event IDs. Snapshots include all
-current objects and a recent public chat
-window. Older public chat is paged through `/api/rooms/:roomId/chat?before=TIMESTAMP`.
-Successful player command receipts are persistent and deduplicated by identity,
-game and request ID. Reusing an ID with changed content fails.
-
-Private player snapshots have `self.utility` (the god's utility function: `name`,
-a plain-language `summary` of its incentives, and its `source` in the game language),
-current energy, own agent source list and pause status. Personal object rows contain
-`ownUtility`, `othersUtilitySum` and their product `score`. There is no per-opponent
-utility endpoint and no private messaging. Public room state includes
-`utilityCatalog`: the families any god might have drawn, never who drew what.
-
-Every object value in a world is unique. Spawns redraw on collision, and a
-transformation whose result equals any existing object's value (including the
-object's own current value) fails without changing anything.
+The observation carries `instance` (InstanceInfo: mutators, helpers, display tables),
+`economy` (energy rules and world time), `self.utility` (the kid card: emoji, name,
+summary, `def utility(...)` source in the game language, and an optional `penalty`
+defence goal), `self.energy`, own agents (`summonCost`, `decisionBits`, `expectedActCost`,
+`breakdown`, `randomized`, `energy`, `eligible`, `acts`, `spent`), own objects' scores and peer aggregates, own
+transformations (calls and cost), the public leaderboard (`totalPayoff`) and public chat.
+There is no per-opponent score endpoint and no private messaging.
 
 ## Integration and verification status
 
-The isolated runtimes, utility functions, player protocol and autonomous AI
-controller are connected. `game/adapters.ts` is the runtime/utility boundary.
-Startup probes both languages, including string NUL/newline preservation, and
-advertises only usable languages. Missing adapters fail explicitly: no host-eval
+The isolated runtimes, utility functions, calibration tables, player protocol and
+autonomous AI controller are connected. `game/adapters.ts` is the runtime/utility
+boundary (it builds the runtime's `ActSettings` from the instantiation's prelude;
+`CONFIG` runtime errors are server bugs, `COMPILE`/`DOMAIN`/`EXECUTION`/`LIMIT` are the
+agent's); `game/pricing.ts` prices and measures agents; `game/season.ts` holds the salt. `game/calibration.ts` is the calibration boundary. Startup probes both
+languages on every object type's default instantiation with an empty agent
+(`def agent(x):\n    return []`, which must return `"[]"`) and advertises only usable
+languages. Missing adapters fail explicitly: no host-eval
 or placeholder-value fallback exists. AI calls use frozen library strategies,
 direct providers and persistent budget gates; see `ai-player-billing.md`.
 
 `pnpm --filter @workspace/api-server test:integration` tests HTTP/WebSocket
-routes, projections, three-player games, exact costs, pause/energy, persisted
-receipt serialization and mock-AI budgets using isolated in-memory SQL/session
-fixtures. Runtime integration additionally exercises actual Wasm interpreters.
+routes, projections, a full game per object type (Int, string, Grid) in both
+languages, exact costs, agent energy and eligibility, destroy, pause/energy,
+replay of agent accounts, the startup guard, persisted receipt serialization and
+mock-AI budgets using isolated in-memory SQL/session fixtures. Runtime integration additionally exercises actual Wasm interpreters.
 These tests do not prove production PostgreSQL transaction/restart behavior,
 real OIDC/device approval, deployment filesystem retention or paid provider
 availability. Production restart/reconnect and capacity checks remain necessary.
@@ -227,9 +326,8 @@ human reapproval. Never blindly retry non-idempotent commands with new IDs.
 The API build now performs `uv sync --frozen --no-dev` against the committed
 `pyproject.toml`/`uv.lock` (`wasmtime==49.0.0`), downloads the SHA-256-pinned CPython
 3.15 WASI archive, and places it in `lib/game-runtime/dist/python-3.15.0`.
-It runs real isolated identity probes for Python and TypeScript in both the
-integer and string domains (including NUL/newline strings), and fails if
-provisioning or execution fails. The production launcher uses `uv run --offline --no-sync` with
+It runs the real isolated agent probes for Python and TypeScript on every object
+type, and fails if provisioning or execution fails. The production launcher uses `uv run --offline --no-sync` with
 the built `.pythonlibs` environment; startup does not install dependencies or run
 schema migrations. The runner prefers packaged assets and retains `.cache` only
 as a development fallback. Never rely on an untracked development cache shipping.
@@ -247,8 +345,8 @@ Production artifact metadata launches from the workspace root and sets
 A fresh `NODE_ENV=production pnpm --filter @workspace/api-server run build`
 passed, followed by an isolated relocated-package smoke using the offline,
 no-sync launcher, copied runtime assets/environment and pnpm dependencies,
-and no `.cache`. Both languages passed integer and NUL/newline string identity
-checks (cost 6). The host executable selected inside `.pythonlibs` was CPython
+and no `.cache`. That check predates the agent contract and must be repeated with
+the current probes. The host executable selected inside `.pythonlibs` was CPython
 3.13.11 with wasmtime 49.0.0; the guest remains the SHA-256-pinned CPython 3.15.0
 WASI build. Host Python is supplied by Replit's Python module, not pinned by
 the guest archive. The virtual environment's Python symlink targets a Nix
@@ -266,14 +364,24 @@ endpoint alone is not proof that published Python is usable.
 
 `cg_interaction_batches` is an additive development schema change; deploy it through
 the normal Replit Publish schema-diff flow. There is no startup DDL or production
-migration script. The table contains room/game IDs, an end sequence, and existing
-transformation events (including resulting object values, versions and utilities).
-It contains no agent source or additional identity metadata.
+migration script. The table contains room/game IDs, an end sequence, and one event
+per act: a transformation (resulting object value, version, private scores, calls and
+cost) or a failed act (`agent.failed`: reason and cost), each with the acting agent's
+resulting account (`{id, account, acts, spent}`, absolute values). Replay therefore
+restores agent balances as well as objects. It contains no agent source.
 
 `cg_games.started_at`, `ended_at` and `summary` (plus the `cg_games_room_started_idx`
-index) are additive, nullable columns. Deploy them the same way. Rows written before
-them are valid. On startup the server fills in `summary` once for previously ended
-games, so older rooms gain their history. The summary holds no utilities or sources.
+index) are nullable columns. The summary is the public game record; it carries
+`scoring: "information-v1"` and holds no scores or sources. History lists only
+summaries with that marker.
+
+**Startup guard.** Stored state is JSONB. A stored room whose state does not parse as
+the current schema (settings that fail validation, a game without the scoring marker,
+objects without scores, agents without accounts) is reset on startup: default
+settings, no game, members and chat kept, its interaction batches dropped. Games
+written by an earlier design are not shown (`/games/:code/state` is 404) and are not
+part of any history. This is a guard against unreadable rows, not a translation: no
+old state is mapped. There is no destructive migration; unused columns may remain.
 
 Interaction completion changes the local cache first. Buffers hold at most 64
 events per room and 256 globally, flushing after 100ms or at 32 events in a room
@@ -290,7 +398,7 @@ covered batches in the **same transaction**. Commands acknowledge energy spendin
 and receipts only after that transaction commits. New-game/end/pause commands
 therefore cannot discard committed transformations. Graceful shutdown drains
 pending appends. Startup replays batches newer than each room checkpoint in sequence
-order, validates object versions and previous values, then checkpoints the recovered
+order, validates object versions, previous values and agents, then checkpoints the recovered
 world in recovery mode. A sequence gap or invalid transition fails startup rather
 than silently substituting incomplete state. Historical `cg_games.state` is a
 checkpoint, not a continuously updated interaction feed.

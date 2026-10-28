@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameRecordEndReason } from './gameRecordEndReason';
+import type { GameRecordScoring } from './gameRecordScoring';
 import type { RosterEntry } from './rosterEntry';
 import type { Settings } from './settings';
 import type { Standing } from './standing';
@@ -20,7 +21,7 @@ export interface GameRecord {
   roomId: string;
   startedAt: number;
   /**
-     * Unix milliseconds; null for legacy games whose end time was not recorded.
+     * Unix milliseconds.
      * @nullable
      */
   endedAt: number | null;
@@ -34,4 +35,8 @@ export interface GameRecord {
   worldSeconds: number;
   objectCount: number;
   agentCount: number;
+  /** Information scoring: payoffs in bits². */
+  scoring: GameRecordScoring;
+  /** sha256 (hex) of the season salt behind this game's seeds; the salt is revealed after the season. */
+  seasonCommitment: string;
 }

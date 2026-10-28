@@ -1,61 +1,58 @@
-import type { Settings } from "@workspace/api-client-react";
+import type { InstanceInfo, Settings } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from "lucide-react";
 
-export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: string | null) {
+export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: string | null, instance?: InstanceInfo) {
+  const agent = s.language === "python" ? "def agent(grid):" : "function agent(grid) { ... }";
+  const t = instance ? `${instance.label} (${instance.key}, wire format ${instance.codec.format})` : `${s.objectType} ${JSON.stringify(s.typeArgs)}`;
+  const moves = instance?.mutators.length ? instance.mutators.map(m => `${m.emoji} ${m.id}: ${m.summary}`).join("\n  ") : "(see the room's helpers)";
   return `# Code Gods — rules for an AI assistant
 
 ${roomCode ? `Room: ${roomCode}` : "Room: (no longer available)"}${gameCode ? `\nGame: ${gameCode}` : ""}
 
-## Goal and scoring
-Each player is a distinct god with a private utility function u_i: T -> [0, 1].
-For each CURRENT object x:
-  my_object_score(x) = u_me(x) * sum(u_other(x) for every other god)
-My TOTAL SCORE is the SUM of my_object_score(x) over ALL current objects.
-It is NOT the average, the highest object score, or a cumulative score over time.
-A transformation replaces the old object's contribution. A new object adds a contribution.
-The leaderboard ranks gods by this total; maximize your total when the game ends.
-An object that only you value gives you zero score. Cooperation can benefit multiple gods, but their incentives differ.
+## Goal and scoring (information scoring, payoffs in bits²)
+Each player is a god with a private utility function: it scores every object; bigger is better, and only the order matters.
+The server turns your score into ✨ rarity bits: if only 1 random object in N is at least as good, that is log2(N) bits.
+Some gods also have a defence goal (penalty(x), bigger is worse) that takes ⚠️ bits away only when an object is worse than usual (weight ${s.penaltyWeight ?? 1}; dealt with probability ${s.defenceRate ?? 0}).
+Net bits n = ✨ − weight × (⚠️ − its average). For each CURRENT object x:
+  payoff_me(x) = n_me(x) * max(0, sum(n_other(x) for every other god))
+My TOTAL PAYOFF is the SUM of payoff_me(x) over ALL current objects (not an average, not cumulative over time).
+If, overall, the others don't care about an object, nobody scores from it. You cannot win by hating things together.
 
 ## World and agents
-Object type T: ${s.objectType === "Int" ? `integer from ${s.intMin} through ${s.intMax}, inclusive` : s.objectType === "Grid" ? `Grid(${s.gridSize},${s.gridSymbols},${s.gridColours}): a ${s.gridSize}×${s.gridSize} square of cells, each a symbol and a colour` : `ASCII string, maximum ${s.stringMaxLength} characters`}.${s.objectType === "Grid" ? `
-Grid scoring: your utility function's output is compared with thousands of random grids. Rarity is "1 in N": only one random grid in N is at least this good for you; each doubling of N is one more ✨ bit. Your points for a grid = your bits × max(0, the sum of the other gods' bits). If, overall, the others don't care about a grid, nobody scores from it. A defence goal (⚠️) subtracts bits when a grid is worse than usual for it.
-Grid agents: an agent is a function from a read-only grid to a list of at most 8 mutator calls (e.g. Python lambda grid: [paint(row(0), "red")]). Agents change grids only through mutators, and each mutator costs bits. Each agent has its own ⚡ energy account: it earns ${s.agentEnergyPerSecond} bits per second of world time (up to ${s.agentBatteryActs} acts' worth) and acts only when it can afford its usual cost; an act's actual cost is deducted, possibly below zero (a cooldown). You may destroy your own agents at any time, for free.` : ""}
-All object values are unique. A transformation to an existing value, including its own unchanged value, fails without changing the world. Spawns redraw duplicates.
-Language: ${s.language}. Submit source code that evaluates to a callable ${s.objectType === "Grid" ? "Grid -> list of mutator calls" : "T -> T"}.
+Object type: ${t}.
+An agent is ordinary ${s.language} code defining \`${agent}\` against the room's helper prelude. It returns a list of at most 16 mutator calls; objects change only through these mutators:
+  ${moves}
+Each act costs bits (naming the moves and their parameters, erased information and how much of the object moved).
+Summoning costs the agent's description bits (${s.complexityFunctionId}) from your god energy. Each agent then has its own ⚡ energy: it earns ${s.agentEnergyPerSecond ?? 2} bits per second of world time (up to ${s.agentBatteryActs ?? 2} acts' worth), acts only while its energy covers its expected act cost, and pays each act's actual cost (it may go below zero: a cooldown). You may destroy your own agents at any time, for free. At most ${s.maxAgentsPerGod ?? 200} agents per god.
+All object values are unique. A transformation to an existing value, including the object's own, fails without changing the world. Spawns redraw duplicates.
 Grammar: ${s.grammarId}. Only the supported sandbox computational libraries/built-ins are available, not unrestricted host access. Read-only time and randomness are allowed; filesystem, network and process access are not.
-Summoning adds an agent to the shared world. Agents remain available for random selection; they do not belong to individual objects.
-At each interaction a random agent acts on a random object. You cannot choose its target.
-The interaction rate is a cap, not a guaranteed throughput: ${s.interactionRateHz} interactions/second.
-Per-interaction guest compute budget: ${s.interactionComputeMs} ms (excluding compilation/startup; separate safety limits also apply).
-Invalid, out-of-domain, duplicate or over-budget results do not transform the object.
-Starting objects: ${s.startingObjectCount}. Uniform-random spawning: ${s.spawnRateHz} objects/second of world time, subject to domain capacity and server limits.
+At each interaction a random eligible agent acts on a random object. You cannot choose its target.
+Interaction cap (not guaranteed throughput): ${s.interactionRateHz} interactions/second. Guest compute budget: ${s.interactionComputeMs} ms per interaction.
+Starting objects: ${s.startingObjectCount}. Uniform-random spawning: ${s.spawnRateHz} objects/second of world time.
 
 ## Energy and timing
-Starting energy: ${s.startingEnergy}. Power: ${s.energyPerSecond} energy/real-world second.
-Energy accrues during planning and pauses too. Summoning succeeds only if you can afford its complexity cost at that moment.
-Complexity rule (${s.complexityFunctionId}): 1 per non-comment AST node, except constants cost 1 per byte. Validate source with the server to get its actual cost before summoning. Validation itself does not summon or spend energy.
+God energy: start ${s.startingEnergy} bits, income ${s.energyPerSecond} bits per real-world second, also during planning and pauses. Validation shows an agent's summon cost and expected cost per act without spending energy.
 Planning lasts ${s.planningSeconds} seconds; the world does not move during planning.
 Each god may pause a running game once, for ${s.pauseSeconds} seconds. World time stops during pauses.
-Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lifetime, NOT a fixed duration: each half-life has a 50% chance of survival. The exact end time is hidden.
+Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lifetime, NOT a fixed duration. The exact end time is hidden.
 
 ## Information and politics
-You receive your full utility-function source, your utility for each object, the aggregate utility of all OTHER gods for it, and your object score.
-Individual opponents' utilities are not disclosed. Public standings show total scores; the shared object table shows the sum of ALL gods' utilities.
+You receive your own utility card (and defence goal), your own bits for each object, the SUM of all OTHER gods' net bits for it, the floored peer care and your payoff.
+Individual opponents' utilities and bits are not disclosed. Public standings show total payoffs; the shared object table shows salience, the sum of ALL gods' net bits.
 Chat is global and public to every human and AI player; there are no private chats.
-Frontier AI assistance and customized Replit clients/analytics are allowed. Negotiate about transformations and shared incentives; do not assume opponents share your goals.
-Utility assignment uses ${s.utilitySelectorId}; functions and parameters differ between gods. Use your assigned source, not an invented utility.
-The room owner configures settings between games and starts each game; every game uses a snapshot of the room's settings taken at launch. Ready indicators do not prevent starting. At least three players are required, and AI players can fill seats.
+Utility assignment uses ${s.utilitySelectorId}; the public catalog of possible utility functions is listed in the room.
+The room owner configures settings between games and starts each game; every game uses a snapshot of the room's settings taken at launch. At least three players are required, and AI players can fill seats.
 
 ## Assistant instructions
-Use the authorized player client/API for observations, code validation, summoning, ready status, pause and public chat. A copied rules sheet is not authentication.
-Check fresh world state and energy before acting. Distinguish your utility, others' aggregate utility and the product score. Optimize the SUM across the current world, not only a single object's score.
+Use the authorized player client/API (protocol code-gods.player.v3) for observations, validation, summoning, destroying agents, ready status, pause and public chat. A copied rules sheet is not authentication.
+Check fresh world state and energy before acting. Optimize the SUM across the current world, not one object.
 `;
 }
 
-export function GameRules({ settings, roomCode, gameCode, note }: { settings: Settings; roomCode?: string | null; gameCode?: string | null; note: string }) {
+export function GameRules({ settings, instance, roomCode, gameCode, note }: { settings: Settings; instance?: InstanceInfo; roomCode?: string | null; gameCode?: string | null; note: string }) {
   const { toast } = useToast();
-  const text = rulesFor(settings, roomCode, gameCode);
+  const text = rulesFor(settings, roomCode, gameCode, instance);
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);

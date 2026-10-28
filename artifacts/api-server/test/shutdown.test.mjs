@@ -16,6 +16,12 @@ test("single-instance recovery and shutdown drain writes without session locks",
           import assert from "node:assert/strict";
           import {initializeStore, resolveRoom, mutate, closeStore} from "./store";
           import {state, events} from "@workspace/db";
+          import {defaultSettingsFor} from "@workspace/game-core";
+          // A stored room of the current design (the startup guard resets anything else).
+          const settings = defaultSettingsFor("Int");
+          Object.assign(state, { revision: 0, createdAt: 1, settings, members: [], chat: [], receipts: {}, aiBudget: 0,
+            aiReservedUsd: 0, aiDaily: { day: "", usd: 0, calls: [] } });
+          Object.assign(state.game, { scoring: "information-v1", seasonCommitment: "0".repeat(64), settings, roster: [], deities: [], objects: [], agents: [], events: [] });
           await initializeStore();
           assert.equal(resolveRoom(state.id).game.phase, "recovery");
           assert.equal(state.game.phase, "recovery");
@@ -45,7 +51,7 @@ test("single-instance recovery and shutdown drain writes without session locks",
             export const events=[];
             async function query(sql,args=[]) {
               if(sql.includes("advisory")) throw new Error("Session locks must not be used");
-              if(sql==="SELECT state FROM cg_rooms") return {rows:[{state:structuredClone(state)}]};
+              if(sql==="SELECT id,state FROM cg_rooms") return {rows:[{id:state.id,state:structuredClone(state)}]};
               if(sql.startsWith("SELECT id,prefix_length")) return {rows:[{id:state.game.id,prefix_length:8}]};
               if(sql.startsWith("INSERT INTO cg_rooms")) {state=JSON.parse(args[3]);events.push("persist");}
               if(sql==="UPDATE cg_rooms SET state=$2 WHERE id=$1") state=JSON.parse(args[1]);

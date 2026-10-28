@@ -114,13 +114,19 @@ Call them **utility functions**, never "value functions". "Value" means an objec
 
 **Why:** The user explicitly wants the technical concept of utility invoked.
 
-**How to apply:** Use utility/ownUtility/othersUtilitySum/score in code, protocol, UI and docs.
+**How to apply:** Use utility/ordinal/rewardBits/netBits/peerNetBits/peerCare/payoff in code, protocol, UI and docs.
 
-Utility functions must be heterogeneous, simple to state, and accompanied by a plain-language incentive summary. There is a large repertoire of unrelated families per object type (lib/game-utilities). Assignment is pure random per god for now ("Divine Lottery"), behind a selector interface for future balancing.
+Utility functions must be heterogeneous, simple to state, and accompanied by a plain-language incentive summary. There is a large repertoire of unrelated families per object type (lib/game-utilities). Utility functions return ordinal utilities (a number or a lexicographic tuple, bigger is better) in the kid card style `def utility(grid):`; scoring converts them to rarity bits through shipped calibration tables (docs/clean-implementation-plan.md). Dealing is behind a selector interface: "fair-aligned" (measured rule synergy) by default, with the Divine Lottery as fallback.
 
 **Why:** The user rejected a uniform schema with one varying parameter, and rejected complicated rule code with validation boilerplate. Fairness is meant to come from many games, not in-game balancing (for now). Beginners must understand their incentives without reading code.
 
-**How to apply:** New families need short Python/TypeScript bodies with no input validation, a summary, and an exemplar reaching ≥0.99. Random spawned objects must score near zero (mean <0.02); near-1 utility needs rare, structured values. The tests in lib/game-utilities enforce this.
+**How to apply:** New families need short Python and TypeScript kid cards with no input validation, a summary, a finite parameter support, and calibration tables regenerated with `pnpm --filter @workspace/game-utilities calibrate`. Parity tests (Python ≡ TS, order ≡ lib/grid-lab) and the calibration freshness test enforce this.
+
+The user directed a clean break: the old design ([0,1] utilities, free-form T → T agents, god-only energy, protocol v2) was deleted outright, with no shims or deprecated fields.
+
+**Why:** The user said to throw old code away completely rather than keep features that complicate the architecture.
+
+**How to apply:** Don't reintroduce compatibility layers; only deployment-safety constraints (additive DB changes, startup guard) remain.
 
 Every object in a world is unique. A transformation onto any existing value (including the object's own) fails entirely, and spawns redraw.
 

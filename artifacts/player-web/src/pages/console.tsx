@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Bot, CircleDot, Hand, LogOut, Pause, RotateCw, Send, ShieldCheck, Sparkles, User, Wand2 } from "lucide-react";
 import { AssistantGrants } from "@/components/assistant-grants";
-import { ObjectView, objectTitle } from "@workspace/object-views";
+import {
+  AgentCost, HelpersDrawer, HowScoringWorks, type ActCostBreakdown, ObjectView, ScoreBreakdown, TransformationView, UtilityCardView, formatBits, objectContext, objectNoun,
+} from "@workspace/object-views";
 import {
   beginApproval, connectSession, disconnect, getObservation, pollApproval, sendCommand,
   isDaemonMode, loginUrl, subscribeObservation, isServerIdle, resumeServer, trackHumanActivity,
@@ -102,6 +104,16 @@ export default function Console() {
   const [unknown, setUnknown] = useState<Unknown | null>(null);
   const [chat, setChat] = useState("");
   const langTouched = useRef(false);
+  const editor = useRef<HTMLTextAreaElement>(null);
+  const [confirmDestroy, setConfirmDestroy] = useState<string | null>(null);
+  const [openObject, setOpenObject] = useState<string | null>(null);
+  const insert = (name: string) => {
+    const el = editor.current;
+    const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
+    const next = source.slice(0, at) + name + source.slice(end);
+    setSource(next);
+    requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(at + name.length, at + name.length); } });
+  };
   const identityEpoch = useRef(0);
   const commandBusy = useRef(false);
 
@@ -206,18 +218,22 @@ export default function Console() {
   const currentValidation = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!currentValidation?.valid && currentValidation.cost <= (obs?.self.energy??0) && language===obs?.language && source.trim().length > 0;
 
-  const ranked = useMemo(() => (obs ? [...obs.objects].sort((a, b) => b.score - a.score) : []), [obs]);
+  const ctx = objectContext(obs?.instance);
+  const noun = objectNoun(obs?.instance?.objectType);
+  const arg = obs?.instance?.objectType === "Grid" ? "grid" : "x";
+  const comparative = obs?.self.utility?.penalty?.comparative;
+  const ranked = useMemo(() => (obs ? [...obs.objects].sort((a, b) => b.payoff - a.payoff) : []), [obs]);
   const analytics = useMemo(() => {
     if (!obs) return [];
     const sum = (f: (o: Observation["objects"][number]) => number) => obs.objects.reduce((s, o) => s + f(o), 0);
-    const total = sum((o) => o.score);
-    const rank = obs.leaderboard.slice().sort((a, b) => b.score - a.score).findIndex((l) => l.godId === obs.self.godId);
+    const total = sum((o) => o.payoff);
+    const rank = obs.leaderboard.slice().sort((a, b) => b.totalPayoff - a.totalPayoff).findIndex((l) => l.godId === obs.self.godId);
     return [
       { k: "Energy", v: fmt(obs.self.energy) },
-      { k: "Total score", v: fmt(total) },
-      { k: "Own utility Σ", v: fmt(sum((o) => o.ownUtility)) },
-      { k: "Others' utility Σ", v: fmt(sum((o) => o.othersUtilitySum)) },
-      { k: "Agent cost Σ", v: fmt(obs.agents.reduce((s, a) => s + a.cost, 0)) },
+      { k: "Total payoff", v: fmt(total) },
+      { k: "Own net bits Σ", v: fmt(sum((o) => o.own.netBits)) },
+      { k: "Peer net bits Σ", v: fmt(sum((o) => o.peerNetBits)) },
+      { k: "Agent bits spent Σ", v: fmt(obs.agents.reduce((s, a) => s + a.spent, 0)) },
       { k: "Rank", v: rank >= 0 ? `${rank + 1} / ${obs.leaderboard.length}` : "—" },
     ];
   }, [obs]);
@@ -352,10 +368,12 @@ export default function Console() {
               ))}
               {obs && obs.language !== language && <span className="label !text-primary">room expects {obs.language}</span>}
             </div>
-            <textarea data-testid="input-source" value={source} onChange={(e) => setSource(e.target.value)} maxLength={16384} spellCheck={false}
-              aria-label="Transformation source"
-              placeholder={language === "python" ? "lambda x: x" : "(x) => x"}
+            <textarea ref={editor} data-testid="input-source" value={source} onChange={(e) => setSource(e.target.value)} maxLength={16384} spellCheck={false}
+              aria-label="Agent source"
+              placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []` : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
               className="w-full h-64 resize-y bg-[hsl(232_38%_14%)] text-[hsl(40_33%_92%)] font-mono text-[13px] leading-relaxed p-3 outline-none border-l-4 border-primary caret-[hsl(var(--primary))]" />
+            <p className="mt-1 text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the Room helpers; each act costs ⚡ bits from the agent's own energy.</p>
+            {obs?.instance && <div className="mt-2"><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} /></div>}
             <div className="mt-3 flex flex-wrap gap-2">
               <Btn testId="button-validate" disabled={!gameplay || language!==obs?.language || !source.trim() || !!busy} onClick={() => run({ type: "validate", language, source })}>
                 <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate"}
@@ -367,7 +385,10 @@ export default function Console() {
             <div data-testid="panel-validation" className="mt-3 text-sm">
               {currentValidation ? (
                 <div className={`border-l-4 pl-3 py-1 ${currentValidation.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
-                  <p className="font-mono text-xs"><strong>{currentValidation.valid ? "VALID" : "INVALID"}</strong> · cost {fmt(currentValidation.cost)}</p>
+                  <p className="font-mono text-xs"><strong>{currentValidation.valid ? "VALID" : "INVALID"}</strong></p>
+                  <div className="mt-1"><AgentCost summonCost={currentValidation.cost} expectedActCost={currentValidation.expectedActCost}
+                    breakdown={currentValidation.breakdown as ActCostBreakdown | undefined}
+                    agentEnergyPerSecond={obs?.economy?.agentEnergyPerSecond} godEnergy={obs?.self.energy} /></div>
                   {currentValidation.diagnostics.length > 0 ? (
                     <ul className="mt-1 font-mono text-xs space-y-0.5 text-muted-foreground">{currentValidation.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
                   ) : <p className="font-mono text-xs text-muted-foreground mt-1">no diagnostics</p>}
@@ -377,18 +398,40 @@ export default function Console() {
             {notice && <p data-testid="text-notice" className={`mt-2 text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{notice.text}</p>}
           </Panel>
 
-          <Panel title="Your agents" meta={obs?.agents.length ?? 0}>
+          <Panel title="Your agents" meta={obs ? `${obs.agents.length}${obs.economy ? ` / ${obs.economy.maxAgentsPerGod}` : ""}` : 0}>
             {!obs ? <Empty>Waiting for observation.</Empty> : obs.agents.length === 0 ? <Empty>No agents summoned yet.</Empty> : (
               <ul className="space-y-2">
-                {obs.agents.map((a) => (
-                  <li key={a.id} data-testid={`row-agent-${a.id}`} className="border border-[hsl(var(--card-border))]">
-                    <div className="flex justify-between px-3 py-1.5 font-mono text-xs bg-muted"><span>{a.id} · {a.language}</span><span>cost {fmt(a.cost)}</span></div>
-                    {a.energy && <p className="px-3 pt-1.5 font-mono text-[11px]" data-testid={`text-agent-energy-${a.id}`}>⚡ {fmt(a.energy.balance)} / {fmt(a.energy.expectedCost)} bits · {a.energy.eligible ? "ready" : "recharging"} · {a.energy.acts} acts, {fmt(a.energy.charged)} bits spent</p>}
-                    <pre className="px-3 py-2 font-mono text-[11px] max-h-28 overflow-auto whitespace-pre-wrap">{a.source}</pre>
-                    <button data-testid={`button-load-agent-${a.id}`} onClick={() => { langTouched.current = true; setLanguage(a.language); setSource(a.source); }} className="label px-3 pb-2 hover:!text-primary">load into forge</button>
-                    <button data-testid={`button-destroy-agent-${a.id}`} disabled={!!busy} onClick={() => { if (window.confirm("Destroy this agent? It's free, but it can't be undone.")) void run({ type: "destroy", agentId: a.id }); }} className="label px-3 pb-2 hover:!text-destructive">destroy</button>
-                  </li>
-                ))}
+                {obs.agents.map((a) => {
+                  const cap = Math.max(a.expectedActCost * (obs.economy?.agentBatteryActs ?? 2), 1e-9);
+                  const status = a.energy < 0 ? "cooldown" : a.eligible ? "ready to act" : "charging";
+                  const wait = !a.eligible && obs.economy && obs.economy.agentEnergyPerSecond > 0 ? (a.expectedActCost - a.energy) / obs.economy.agentEnergyPerSecond : null;
+                  return (
+                    <li key={a.id} data-testid={`row-agent-${a.id}`} className="border border-[hsl(var(--card-border))] min-w-0">
+                      <div className="flex flex-wrap justify-between gap-x-2 px-3 py-1.5 font-mono text-xs bg-muted"><span className="truncate">{a.id} · {a.language}</span><span>summoned for {formatBits(a.summonCost)} bits</span></div>
+                      <div className="px-3 pt-2 space-y-1" data-testid={`text-agent-energy-${a.id}`}>
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-2 font-mono text-[11px]">
+                          <span>⚡ {formatBits(a.energy)} bits · {formatBits(a.expectedActCost)} per act (decision {formatBits(a.decisionBits)}{a.randomized ? ", uses random" : ""})</span>
+                          <span data-testid={`text-agent-status-${a.id}`} className={a.energy < 0 ? "text-destructive font-semibold" : a.eligible ? "text-[hsl(var(--accent))] font-semibold" : ""}>{status}{wait !== null && wait > 0 ? ` · ~${formatBits(wait)}s` : ""}</span>
+                        </div>
+                        <div className="relative h-1.5 bg-muted overflow-hidden" aria-hidden>
+                          <div className={`h-full ${a.energy < 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.min(100, (100 * Math.abs(a.energy)) / cap)}%` }} />
+                          <div className="absolute inset-y-0 w-px bg-foreground" style={{ left: `${Math.min(100, (100 * a.expectedActCost) / cap)}%` }} title="cost of one act" />
+                        </div>
+                        <p className="font-mono text-[11px] text-muted-foreground">{a.acts} acts · {formatBits(a.spent)} bits spent</p>
+                      </div>
+                      <pre className="px-3 py-2 font-mono text-[11px] max-h-28 overflow-auto whitespace-pre-wrap break-words">{a.source}</pre>
+                      <div className="flex flex-wrap gap-3 px-3 pb-2">
+                        <button data-testid={`button-load-agent-${a.id}`} onClick={() => { langTouched.current = true; setLanguage(a.language); setSource(a.source); }} className="label hover:!text-primary">load into forge</button>
+                        {confirmDestroy === a.id ? (<>
+                          <button data-testid={`button-confirm-destroy-${a.id}`} disabled={!!busy} onClick={() => { setConfirmDestroy(null); void run({ type: "destroy", agentId: a.id }); }} className="label !text-destructive font-semibold">confirm destroy</button>
+                          <button onClick={() => setConfirmDestroy(null)} className="label">keep</button>
+                        </>) : (
+                          <button data-testid={`button-destroy-agent-${a.id}`} disabled={!!busy || !gameplay} onClick={() => setConfirmDestroy(a.id)} className="label hover:!text-destructive" title="Free. It can't be undone.">destroy (free)</button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Panel>
@@ -407,50 +450,40 @@ export default function Console() {
           </Panel>
           <Panel title="Your utility function" meta="private">
             {!obs ? <Empty>Available after room approval.</Empty> : !obs.self.utility ? <Empty>Dealt when the next game starts.</Empty> : (
-              <div data-testid="panel-utility">
-                <p className="font-serif text-2xl leading-tight">{obs.self.utility.emoji ? `${obs.self.utility.emoji} ` : ""}{obs.self.utility.name}</p>
-                <p data-testid="text-utility-summary" className="mt-2 text-sm leading-relaxed">{obs.self.utility.summary}</p>
-                {obs.self.utility.penalty && <p data-testid="text-utility-penalty" className="mt-1 text-sm">⚠️ {obs.self.utility.penalty.name}: {obs.self.utility.penalty.summary} (only counts when a grid is worse than usual)</p>}
-                {obs.objectType === "Grid" && <p className="mt-2 text-xs text-muted-foreground">How scoring works: your utility function is compared with thousands of random grids. "1 in 40" means only one random grid in 40 is this good for you. Points for a grid = your ✨ bits × the other gods' bits added up (never below zero: if nobody else cares, nobody scores). ⚠️ subtracts when a grid is worse than usual. Agents return mutator calls, like <code>[paint(row(0), "red")]</code>; each costs ⚡ bits from the agent's own energy.</p>}
-                <p className="mt-2 text-xs text-muted-foreground">Each object scores <em>your utility × the sum of everyone else's</em>: it only pays if other gods value it too.</p>
-                <details className="mt-3">
-                  <summary className="label cursor-pointer hover:!text-primary">{obs.self.utility.language} source</summary>
-                  <pre data-testid="text-utility-source" className="mt-2 font-mono text-xs whitespace-pre-wrap break-all max-h-72 overflow-auto bg-muted p-2">{obs.self.utility.source}</pre>
-                </details>
+              <div data-testid="panel-utility" className="space-y-3">
+                <UtilityCardView card={obs.self.utility} />
+                <HowScoringWorks noun={noun} />
               </div>
             )}
           </Panel>
-          <Panel title="Objects by your score" meta={obs?.objects.length ?? 0} className="flex-1">
+          <Panel title="Objects by your points" meta={obs?.objects.length ?? 0} className="flex-1">
             {!obs ? <Empty>Waiting for observation.</Empty> : ranked.length === 0 ? <Empty>The world holds no objects yet.</Empty> : (
-              <div className="overflow-auto max-h-[420px]">
-                <table className="w-full font-mono text-xs">
-                  <thead className="sticky top-0 bg-card"><tr className="label text-left">
-                    <th className="py-1 pr-2">#</th><th className="pr-2">object value</th><th className="text-right pr-2" title="Your utility for this object">yours</th><th className="text-right pr-2" title="Sum of every other god's utility">others Σ</th><th className="text-right" title="yours × others Σ">score</th>
-                  </tr></thead>
-                  <tbody>
-                    {ranked.map((o, i) => (
-                      <tr key={o.id} data-testid={`row-object-${o.id}`} className="border-t border-[hsl(var(--card-border))] hover:bg-muted transition-colors">
-                        <td className="py-1.5 pr-2 opacity-50">{i + 1}</td>
-                        <td className="pr-2 max-w-[260px] truncate" title={objectTitle(o.value, { objectType: obs.objectType })}><ObjectView value={o.value} objectType={obs.objectType} grid={obs.grid} />
-                          {o.rarity && <span className="block text-[10px] opacity-70 whitespace-normal" data-testid={`text-rarity-${o.id}`}>✨ {o.rarity.text}{o.rarity.penalty?.warning ? ` · ${o.rarity.penalty.text}` : ""}</span>}</td>
-                        <td className="text-right pr-2">{fmt(o.ownUtility)}</td>
-                        <td className="text-right pr-2 opacity-70">{fmt(o.othersUtilitySum)}</td>
-                        <td className={`text-right font-semibold ${o.score > 0 ? "text-[hsl(var(--accent))]" : "opacity-50"}`}>{fmt(o.score)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ol className="overflow-auto max-h-[520px] divide-y divide-[hsl(var(--card-border))]">
+                {ranked.map((o, i) => (
+                  <li key={o.id} data-testid={`row-object-${o.id}`} className="py-2 min-w-0">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <span className="font-mono text-xs opacity-50 w-5 shrink-0 pt-0.5">{i + 1}</span>
+                      <span className="shrink-0 font-mono text-xs max-w-[45%] truncate"><ObjectView value={o.value} {...ctx} showTitle /></span>
+                      <span className="flex-1 min-w-0 space-y-0.5">
+                        <span className="block" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
+                        <span className="block font-mono text-[11px] text-muted-foreground">yours {formatBits(o.own.netBits)} × others {formatBits(o.peerCare)} = <b className={o.payoff > 0 ? "text-[hsl(var(--accent))]" : ""}>{formatBits(o.payoff)}</b></span>
+                        <button className="label hover:!text-primary" onClick={() => setOpenObject(openObject === o.id ? null : o.id)} aria-expanded={openObject === o.id} data-testid={`button-object-detail-${o.id}`}>{openObject === o.id ? "hide" : "why?"}</button>
+                      </span>
+                    </div>
+                    {openObject === o.id && <div className="mt-2 ml-8 border-l-2 border-primary pl-3" data-testid={`object-detail-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} /></div>}
+                  </li>
+                ))}
+              </ol>
             )}
           </Panel>
           <Panel title="Your transformations" meta={obs?.transformations.length ?? 0}>
             {!obs ? <Empty>Waiting for observation.</Empty> : obs.transformations.length === 0 ? <Empty>No transformations applied yet.</Empty> : (
-              <ul className="font-mono text-xs space-y-1 max-h-48 overflow-auto">
+              <ul className="font-mono text-xs space-y-2 max-h-72 overflow-auto">
                 {obs.transformations.map((t) => (
-                  <li key={t.id} data-testid={`row-transformation-${t.id}`} className="flex gap-2 items-center">
+                  <li key={t.id} data-testid={`row-transformation-${t.id}`} className="flex flex-wrap gap-x-2 gap-y-1 items-center min-w-0">
                     <span className="opacity-50 w-20 truncate">{t.agentId}</span>
-                    <span className="truncate"><ObjectView value={t.before} objectType={obs.objectType} grid={obs.grid} /></span><span className="text-primary">→</span><span className="truncate font-semibold"><ObjectView value={t.after} compareTo={t.before} objectType={obs.objectType} grid={obs.grid} /></span>
-                    {t.steps && <span className="opacity-70 whitespace-normal">{t.steps.join("; ")}{t.bits !== undefined ? ` · ${fmt(t.bits)} bits` : ""}</span>}
+                    <TransformationView before={t.before} after={t.after} {...ctx} />
+                    {t.calls && <span className="opacity-70 whitespace-normal basis-full sm:basis-auto">{t.calls.map(c => c[0]).join("; ")}{t.cost !== undefined ? ` · ${formatBits(t.cost)} bits` : ""}</span>}
                   </li>
                 ))}
               </ul>
@@ -473,13 +506,13 @@ export default function Console() {
           <Panel title="Leaderboard">
             {!obs ? <Empty>Waiting for observation.</Empty> : obs.leaderboard.length === 0 ? <Empty>No gods ranked yet.</Empty> : (
               <ol className="space-y-1">
-                {obs.leaderboard.slice().sort((a, b) => b.score - a.score).map((l, i) => (
+                {obs.leaderboard.slice().sort((a, b) => b.totalPayoff - a.totalPayoff).map((l, i) => (
                   <li key={l.godId} data-testid={`row-leader-${l.godId}`} className={`flex items-center gap-2 px-2 py-1.5 text-sm ${l.godId === self?.godId ? "bg-secondary text-secondary-foreground" : ""}`}>
                     <span className="font-mono text-xs w-5 opacity-60">{i + 1}</span>
                     {l.isAI ? <Bot size={13} /> : <User size={13} />}
                     <span className="break-words min-w-0 flex-1">{l.label}</span>
                     {l.isAI && <span className="font-mono text-[9px] px-1 border border-current">AI</span>}
-                    <span className="font-mono">{fmt(l.score)}</span>
+                    <span className="font-mono">{fmt(l.totalPayoff)}</span>
                   </li>
                 ))}
               </ol>

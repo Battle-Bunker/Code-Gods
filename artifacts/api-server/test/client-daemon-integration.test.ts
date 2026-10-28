@@ -45,7 +45,8 @@ test("two independent daemon processes approve through PKCE and play via real HT
     const actors: Actor[] = ["Host fixture", "Independent A", "Independent B"].map(name => ({ id: randomUUID(), name, kind: "human", scope: "browser" }));
     const room = await createRoom(actors[0]);
     await mutate(room.id, async draft => {
-      Object.assign(draft.settings, { language: "typescript", grammarId: "typescript-standard-v1", objectType: "Int", startingEnergy: 100, startingObjectCount: 3 });
+      Object.assign(draft.settings, { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", startingEnergy: 100, startingObjectCount: 3,
+        agentEnergyPerSecond: 1000, agentBatteryActs: 1000 });
       draft.members.push(...actors.slice(1).map(actor => ({ ...actor, ready: false })));
       await startGame(draft, actors[0]);
     });
@@ -107,9 +108,10 @@ test("two independent daemon processes approve through PKCE and play via real HT
       const observation = await (await client.request("/observation")).json();
       assert.equal(observation.self.godId, client.actor.id);
       assert.equal(observation.agents.length, 0);
-      const source = client === clients[0] ? "(x: number) => x + 1" : "(x: number) => x - 1";
+      const source = client === clients[0] ? "function agent(x) { return [add(1)]; }" : "function agent(x) { return [add(2)]; }";
       const validation = await (await client.request("/commands", command("validate", { language: "typescript", source }))).json();
-      assert.equal(validation.accepted, true); assert.equal(validation.validation.cost, 9);
+      assert.equal(validation.accepted, true); assert.ok(validation.validation.cost > 0);
+      assert.ok(validation.validation.expectedActCost > 0);
       const summon = command("summon", { language: "typescript", source });
       const receipt = await (await client.request("/commands", summon)).json();
       assert.equal(receipt.accepted, true);
@@ -128,7 +130,8 @@ test("two independent daemon processes approve through PKCE and play via real HT
       const game = draft.game!;
       game.phase = "running";
       game.lastTick = Date.now();
-      game.nextInteraction = game.worldSeconds + 0.1;
+      // Give the summoned agents energy now rather than waiting for world-time income.
+      for (const agent of game.agents) agent.account = { balance: 100, settledWorldSeconds: game.worldSeconds };
     });
     // Production ticker is unref'd; the isolated authority process owns its lifetime.
     startTicker();

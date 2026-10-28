@@ -13,7 +13,7 @@
   ],
   "references": [
     {
-      "path": "../game-core"
+      "path": "../game-types"
     }
   ]
 }

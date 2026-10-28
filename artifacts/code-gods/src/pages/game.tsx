@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getGetGameStateQueryKey, getGetRoomQueryKey, useGetGameState, useGetRoom, type GameView } from "@workspace/api-client-react";
 import { Shell, Panel, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
-import { Chat, Conn, Leaderboard, Objects, ReadOnlySettings, Repertoire, Roster } from "@/components/game-panels";
+import { Chat, Conn, Leaderboard, Objects, ReadOnlySettings, Repertoire, Roster, ScoringPanel } from "@/components/game-panels";
+import { useManifest } from "@/hooks/use-manifest";
 import { useAct, type RoomAct } from "@/components/room-panels";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -139,6 +140,7 @@ export default function Game() {
     },
   });
   const game = q.data;
+  const manifest = useManifest();
   const active = game?.status === "active";
   // Membership decides who may chat; the game view itself does not carry it.
   const room = useGetRoom(game?.roomShortCode ?? "", {
@@ -215,21 +217,22 @@ export default function Game() {
           )}
           {!active && <Results game={game} returnIn={returnIn} onStay={() => setReturnAt(null)} />}
         </div>
-        <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 lg:grid-cols-[1fr_1.35fr_360px] items-start">
-          <div className="space-y-6">
+        <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_360px] items-start">
+          <div className="space-y-6 min-w-0">
             {active && <Leaderboard rows={game.leaderboard} agentCount={game.agentCount} />}
+            <ScoringPanel objectType={game.objectInstance?.objectType} />
             <Chat messages={game.chat} canPost={canPost} pending={act.pending}
               title={active ? "Public channel" : "Public channel · during this game"}
               placeholder={!active ? "Game over; chat continues in the room" : canPost ? "Speak to all deities" : "Join the room to speak"}
               onSend={(text, done) => act.run({ action: "chat", text }, done)} />
-            <GameRules settings={game.settings} roomCode={game.roomShortCode} gameCode={game.shortCode} note="Uses this game’s settings snapshot." />
+            <GameRules settings={game.settings} instance={game.objectInstance} roomCode={game.roomShortCode} gameCode={game.shortCode} note="Uses this game’s settings snapshot." />
           </div>
-          <Objects objects={game.objects} objectType={game.settings.objectType} grid={{ size: game.settings.gridSize, symbols: game.settings.gridSymbols, colours: game.settings.gridColours }} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
-          <div className="space-y-6">
+          <Objects objects={game.objects} instance={game.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
+          <div className="space-y-6 min-w-0">
             {isOwner && active && game.roomShortCode && <OwnerControls game={game} act={act} />}
             <Roster roster={game.roster} meId={user?.id} ownerId={game.ownerId} />
-            <ReadOnlySettings settings={game.settings} title="Settings used" meta={`started ${fmtWhen(game.startedAt)}`} note="Snapshot taken when this game launched; room changes apply to the next game only." />
-            <Repertoire catalog={game.utilityCatalog} />
+            <ReadOnlySettings settings={game.settings} instance={game.objectInstance} title="Settings used" meta={`started ${fmtWhen(game.startedAt)}`} note="Snapshot taken when this game launched; room changes apply to the next game only." />
+            <Repertoire catalog={game.utilityCatalog} classes={manifest.data?.objectTypes.find(t => t.id === game.settings.objectType)?.classes} />
           </div>
         </div>
       </>)}

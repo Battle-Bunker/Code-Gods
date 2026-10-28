@@ -156,8 +156,8 @@ test("fractional deadlines support 1000Hz and benchmark headroom without timer r
 function game(overrides: Partial<Game> = {}): Game {
   return {
     id: "game", phase: "running", worldSeconds: 0, lastTick: 0, endAtWorld: 100,
-    nextSpawn: Number.MAX_VALUE, nextInteraction: 0, planningEndsAt: 0, pauseEndsAt: 0,
-    objects: [{ id: "object", value: 1, version: 0, values: {} }], ...overrides,
+    nextSpawn: Number.MAX_VALUE, planningEndsAt: 0, pauseEndsAt: 0,
+    objects: [{ id: "object", value: 1, version: 0, scores: {} }], agents: [], ...overrides,
   } as Game;
 }
 const snapshot = { gameId: "game", objectId: "object", version: 0, pauseEndsAt: 0, epoch: 0 };
@@ -181,7 +181,6 @@ test("world advances wall time without agents/completions and ends at sampled ex
   assert.equal(g.worldSeconds, 10);
   advanceWorld(g, 1e9, () => assert.fail("spawn disabled"), () => Infinity);
   assert.equal(g.phase, "ended"); assert.equal(g.worldSeconds, 30);
-  assert.equal(g.nextInteraction, 0);
 });
 
 test("planning and explicit pauses exclude paused time, including ticks after the deadline", () => {
@@ -205,4 +204,22 @@ test("spawn catchup is bounded by object limit, not fifty missed interaction eve
   advanceWorld(g, 5e6, spawn, () => 1);
   assert.equal(g.phase, "recovery"); assert.equal(g.objects.length, 2000);
   assert.match(g.recoveryReason!, /2,000-object/);
+});
+
+test("every captured job is released exactly once: discarded, failed or committed", async () => {
+  let time = 0;
+  const released: string[] = [];
+  let n = 0;
+  const scheduler = new InteractionScheduler(() => time, () => ["room"], () => {
+    const id = `job-${n++}`;
+    return { roomId: "room", gameId: "game", objectId: "object", rate: 1000,
+      execute: async () => { if (id === "job-1") throw new Error("host failure"); return 1; },
+      commit: async () => {}, release: () => released.push(id) };
+  }, () => {});
+  scheduler.pump(); // job-0 runs; job-1..3 hit the reserved object or the rate deadline and are discarded
+  await new Promise(resolve => setImmediate(resolve));
+  time = 10; scheduler.pump();
+  await scheduler.stop();
+  assert.equal(new Set(released).size, released.length, "never released twice");
+  assert.equal(released.length, n, "every captured job was released");
 });

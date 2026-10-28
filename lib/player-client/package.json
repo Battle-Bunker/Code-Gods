@@ -1,1 +1,26 @@
-{"name":"@workspace/player-client","version":"0.0.0","private":true,"type":"module","exports":{".":"./src/index.ts","./daemon":"./src/daemon.ts","./assistant":"./src/assistant.ts"},"scripts":{"test":"node --experimental-transform-types --test test/*.test.ts","typecheck":"tsc --noEmit -p tsconfig.json","serve":"node --experimental-transform-types src/serve.ts","assistant":"node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts"},"dependencies":{"ws":"8.22.0","zod":"catalog:"},"devDependencies":{"@types/node":"catalog:","@types/ws":"8.18.2"}}
+{
+  "name": "@workspace/player-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./daemon": "./src/daemon.ts",
+    "./assistant": "./src/assistant.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-transform-types --test test/*.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "serve": "node --experimental-transform-types src/serve.ts",
+    "assistant": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts"
+  },
+  "dependencies": {
+    "ws": "8.22.0",
+    "zod": "catalog:",
+    "@workspace/game-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/ws": "8.18.2"
+  }
+}
