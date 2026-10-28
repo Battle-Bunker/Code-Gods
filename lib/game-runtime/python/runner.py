@@ -1,17 +1,22 @@
 """Warm snapshot-isolated CPython/Wasm reactor; host never evaluates Python.
 
+Grammar python-agent-v1: a module that defines a top-level `def agent(obj)`.
+An act runs the room's trusted prelude and `__decode(input)` outside the guest
+budget, then the submitted module, `agent(obj)` and `__encode_calls(result)`
+inside it, and returns the exact ASCII string the encoder produced.
+
 Only preloaded bundled computational modules are supported during execution.
 All WASI imports except clocks and entropy are denied after trusted bootstrap.
 Snapshots include all memory and mutable globals; reactor.py proves the pinned
 module has no table mutation instructions. Memory growth/traps discard stores.
-Preparation is separately bounded; the guest budget covers eval, call, and exact
-primitive result extraction. CPU sampling/fuel and a wall watchdog are best-
-effort ceilings, not a physical real-time scheduling guarantee.
+Preparation is separately bounded. CPU sampling/fuel and a wall watchdog are
+best-effort ceilings, not a physical real-time scheduling guarantee.
 """
 import collections
 import contextlib
 import ctypes
 import gc
+import hashlib
 import json
 import pathlib
 import struct
@@ -19,13 +24,17 @@ import sys
 import threading
 import time
 import wasmtime
-from domain import settings, check
+from domain import (GRAMMAR, CALLS_MAX, PRELUDE_PART_MAX, Compile, Config, Domain,
+                    Execution, Limit, settings, check_input)
 from reactor import transform
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 PACKAGED = pathlib.Path(__file__).resolve().parents[1] / "dist" / "python-3.15.0"
 CACHE = PACKAGED if PACKAGED.is_dir() else ROOT / ".cache" / "code-gods" / "python-3.15.0"
-MAX_REQUEST = 131072
+MAX_REQUEST = 524288
+CACHE_ENTRIES = 128
+CACHE_BYTES = 4 * 1024 * 1024
+PY_FILE_INPUT = 257
 PINNED_WASM_SHA256 = "9f58ad347987d0a23def7eefa5aa5e8ffaef529fba26979350c44376d6b8fae3"
 BOOT = """
 import ast, json, math, random, time, sys, collections, functools, itertools, operator, statistics
@@ -36,31 +45,49 @@ class _BlockedOutput:
     def write(self, *args): raise PermissionError('Guest I/O is disabled')
     def flush(self): pass
 sys.stdout = sys.stderr = _BlockedOutput()
-def _price(source):
+_EXAMPLE = '\\n    def agent(grid):\\n        return []'
+def _price(tree):
     def size(v):
         if v is None or isinstance(v, bool): return 1
-        if isinstance(v, str): return len(v.encode('utf-8'))
+        if isinstance(v, str): return len(v.encode('utf-8', 'surrogatepass'))
         if isinstance(v, bytes): return len(v)
         if isinstance(v, int):
             bits = v.bit_length()+1 if v >= 0 else (~v).bit_length()+1
             return max(1, (bits+7)//8)
         if isinstance(v, float): return 8
         if isinstance(v, complex): return 16
+        if v is Ellipsis: return 1
         raise ValueError('Unsupported constant')
-    return sum(size(n.value) if isinstance(n, ast.Constant) else 1
-               for n in ast.walk(ast.parse(source, mode='eval')))
+    return sum(size(n.value) if isinstance(n, ast.Constant) else 1 for n in ast.walk(tree))
+def _inspect(source):
+    # Parses and prices; never evaluates. Returns (cost, '') or (-1, message).
+    try:
+        return _shape(ast.parse(source, mode='exec'))
+    except Exception as e:
+        return -1, f'SyntaxError: {type(e).__name__}: {e}'[:500]
+def _shape(tree):
+    found = [n for n in tree.body
+             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == 'agent']
+    if not found:
+        return -1, ('SyntaxError: an agent must define a function named agent at the top '
+                    'level, like:' + _EXAMPLE)
+    if len(found) > 1:
+        return -1, f'SyntaxError: agent is defined more than once (line {found[1].lineno})'
+    f = found[0]
+    if isinstance(f, ast.AsyncFunctionDef):
+        return -1, f'SyntaxError: agent must be a plain def, not async def (line {f.lineno})'
+    a = f.args
+    positional = a.posonlyargs + a.args
+    required = len(positional) - len(a.defaults)
+    if (required > 1 or (not positional and a.vararg is None)
+            or any(d is None for d in a.kw_defaults)):
+        return -1, (f'SyntaxError: agent must take exactly one argument (line {f.lineno}), '
+                    'like:' + _EXAMPLE)
+    return _price(tree), ''
 def _explain(source):
     try:
-        compile(source, '<agent>', 'eval')
+        compile(source, '<agent>', 'exec')
     except SyntaxError as e:
-        try:
-            compile(source, '<agent>', 'exec')
-        except SyntaxError:
-            pass
-        else:
-            return ('SyntaxError: an agent must be one expression that evaluates to a function, '
-                    'like lambda x: x + 1. Statements such as def, return, import and '
-                    'assignments are not allowed (use nested lambdas instead).')
         text = (e.text or '').split('\\n')[0]
         column = max(min(e.offset or 1, len(text) + 1), 1)
         start = max(column - 60, 0)
@@ -69,12 +96,21 @@ def _explain(source):
         return f'SyntaxError: {e.msg}{where}{caret}'
     except Exception as e:
         return f'{type(e).__name__}: {e}'
-    return 'SyntaxError: invalid Python expression'
+    return 'SyntaxError: invalid Python module'
+def _describe(exc):
+    # Runs inside the guest budget: user __str__/__name__ hooks may run here.
+    try:
+        line = None
+        tb = exc.__traceback__
+        while tb is not None:
+            if tb.tb_frame.f_code.co_filename == '<agent>':
+                line = tb.tb_lineno
+            tb = tb.tb_next
+        text = f'{type(exc).__name__}: {exc}'[:500]
+        return text + (f' (line {line})' if line else '')
+    except BaseException:
+        return 'an error'
 """
-
-
-class Limit(Exception):
-    """A resource limit, reported to players in plain language instead of a wasm trap."""
 
 
 def describe_trap(trap, phase, budget):
@@ -91,6 +127,12 @@ def describe_trap(trap, phase, budget):
     return "The agent crashed the sandbox: " + text.split("Caused by:")[-1].strip()[:200]
 
 
+def digest(prelude):
+    """Collision-resistant identity of the exact trusted prelude text (cache keys)."""
+    return hashlib.sha256(json.dumps([prelude["python"], prelude["js"], prelude["dts"]])
+                          .encode()).hexdigest()
+
+
 class Runner:
     def __init__(self):
         config = wasmtime.Config()
@@ -98,10 +140,11 @@ class Runner:
         config.epoch_interruption = True
         config.max_wasm_stack = 1024 * 1024
         self.engine = wasmtime.Engine(config)
-        binary, self.global_count, digest = transform((CACHE / "python.wasm").read_bytes())
-        if digest != PINNED_WASM_SHA256:
+        binary, self.global_count, sha = transform((CACHE / "python.wasm").read_bytes())
+        if sha != PINNED_WASM_SHA256:
             raise ValueError("Unrecognized CPython WASI binary")
         self.module = wasmtime.Module(self.engine, binary)
+        # Trusted compiler output only: user modules and room preludes, LRU-bounded.
         self.cache = collections.OrderedDict()
         self.cache_bytes = 0
         self.seed = None
@@ -121,15 +164,21 @@ class Runner:
             self.call("free", status)
             self.simple(BOOT)
             self.source_buffer = self.call("malloc", 16385)
+            self.prelude_buffer = self.call("malloc", PRELUDE_PART_MAX + 1)
             self.input_buffer = self.call("malloc", 8193)
             self.size_buffer = self.call("malloc", 4)
             self.pointer_buffer = self.call("malloc", 4)
             self.code_buffer = self.call("malloc", 1024 * 1024)
             self.filename = self.cstring("<agent>")
+            self.prelude_filename = self.cstring("<prelude>")
             self.builtins_key = self.cstring("__builtins__")
-            self.int_type = self.call("PyObject_Type", self.call("PyLong_FromLong", 0))
-            self.str_type = self.call("PyObject_Type",
-                                      self.call("PyUnicode_FromStringAndSize", self.input_buffer, 0))
+            self.name_key = self.cstring("__name__")
+            self.decode_key = self.cstring("__decode")
+            self.agent_key = self.cstring("agent")
+            self.encode_key = self.cstring("__encode_calls")
+            self.exc_key = self.cstring("_exc")
+            self.module_name = self.call("PyUnicode_FromStringAndSize", self.agent_key, 5)
+            self.str_type = self.call("PyObject_Type", self.module_name)
             self.startup = False
             self.seed = self.snapshot()
 
@@ -236,12 +285,13 @@ class Runner:
         finally:
             self.call("free", pointer)
 
-    def main_string(self, name):
+    def main_string(self, name, fallback):
         main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
         value = self.call("PyDict_GetItemString", main_dict, self.cstring(name))
         pointer = value and self.call("PyUnicode_AsUTF8AndSize", value, self.size_buffer)
         if not pointer:
-            return "SyntaxError: invalid Python expression"
+            self.call("PyErr_Clear")
+            return fallback
         length = struct.unpack("<i", self.memory.read(self.store, self.size_buffer, self.size_buffer+4))[0]
         return bytes(self.memory.read(self.store, pointer, pointer+min(length, 2000))).decode("utf-8", "replace")
 
@@ -269,27 +319,18 @@ class Runner:
         self.store.set_epoch_deadline(1)
         self.startup = False
 
-    def prepare(self, source, key):
-        if key in self.cache:
-            self.cache.move_to_end(key)
-            return self.cache[key]
-        self.restore(self.seed)
-        self.memory.write(self.store, source.encode() + b"\0", self.source_buffer)
-        code = self.call("Py_CompileString", self.source_buffer, self.filename, 258)
-        if not code:
-            self.call("PyErr_Clear")
-            # Recompiling inside the guest (never the host) recovers the real message.
-            self.simple(f"_compile_error = _explain({source!r})")
-            raise ValueError(self.main_string("_compile_error"))
-        # Pricing uses its own compiled expression and never evaluates source.
-        self.simple(f"_inspection_cost = _price({source!r})")
-        # Obtain the price via trusted eval in __main__, using a small C API helper.
-        main = self.call("PyImport_AddModule", self.cstring("__main__"))
-        main_dict = self.call("PyModule_GetDict", main)
-        price = self.call("PyDict_GetItemString", main_dict, self.cstring("_inspection_cost"))
-        cost = self.call("PyLong_AsLong", price)
+    def remember(self, key, item):
+        size = item[2]
+        while self.cache and (len(self.cache) >= CACHE_ENTRIES or self.cache_bytes + size > CACHE_BYTES):
+            _, old = self.cache.popitem(last=False)
+            self.cache_bytes -= old[2]
+        self.cache[key] = item
+        self.cache_bytes += size
+        return item
+
+    def marshal(self, code):
         # Only trusted compiler output reaches marshal. No submitted byte stream
-        # is ever decoded, and no user expression has executed at this point.
+        # is ever decoded, and no submitted code has executed at this point.
         # Version 5 is required for the slice constants CPython 3.14+ folds from `s[1:]`.
         marshalled = self.call("PyMarshal_WriteObjectToString", code, 5)
         if not marshalled or self.call("PyBytes_AsStringAndSize", marshalled,
@@ -301,52 +342,113 @@ class Runner:
             self.store, self.size_buffer, self.size_buffer+4))[0]
         if not 0 < length <= 1024 * 1024:
             raise ValueError("Compiled code exceeds 1 MiB limit")
-        blob = bytes(self.memory.read(self.store, pointer, pointer+length))
-        size = len(blob) + len(source.encode()) + len(key[1].encode())
-        while self.cache and (len(self.cache) >= 128 or self.cache_bytes + size > 4*1024*1024):
-            _, old = self.cache.popitem(last=False)
-            self.cache_bytes -= old[2]
-        item = (blob, cost, size)
-        self.cache[key] = item
-        self.cache_bytes += size
-        return item
+        return bytes(self.memory.read(self.store, pointer, pointer+length))
+
+    def prepare_prelude(self, text, key):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        self.restore(self.seed)
+        self.memory.write(self.store, text.encode() + b"\0", self.prelude_buffer)
+        code = self.call("Py_CompileString", self.prelude_buffer, self.prelude_filename, PY_FILE_INPUT)
+        if not code:
+            self.call("PyErr_Clear")
+            raise Config("The room's Python prelude does not compile")
+        blob = self.marshal(code)
+        return self.remember(key, (blob, -1, len(blob) + sum(len(part) for part in key)))
+
+    def prepare(self, source, key):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        self.restore(self.seed)
+        self.memory.write(self.store, source.encode() + b"\0", self.source_buffer)
+        code = self.call("Py_CompileString", self.source_buffer, self.filename, PY_FILE_INPUT)
+        if not code:
+            self.call("PyErr_Clear")
+            # Recompiling inside the guest (never the host) recovers the real message.
+            self.simple(f"_compile_error = _explain({source!r})")
+            raise Compile(self.main_string("_compile_error", "SyntaxError: invalid Python module"))
+        # Shape check and price parse the source again; nothing is evaluated.
+        self.simple(f"_inspection_cost, _compile_error = _inspect({source!r})")
+        main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
+        cost = self.call("PyLong_AsLong", self.call("PyDict_GetItemString", main_dict,
+                                                    self.cstring("_inspection_cost")))
+        if cost < 0:
+            raise Compile(self.main_string("_compile_error", "SyntaxError: invalid agent"))
+        blob = self.marshal(code)
+        return self.remember(key, (blob, cost, len(blob) + sum(len(part.encode()) for part in key)))
+
+    def load(self, blob):
+        self.memory.write(self.store, blob, self.code_buffer)
+        code = self.call("PyMarshal_ReadObjectFromString", self.code_buffer, len(blob))
+        if not code:
+            raise ValueError("Trusted code deserialization failed")
+        return code
+
+    def guest_error(self, what):
+        """The guest's own exception text, computed inside the guest (and its budget)."""
+        exc = self.call("PyErr_GetRaisedException")
+        self.call("PyErr_Clear")
+        detail = "an error"
+        if exc:
+            main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
+            if not self.call("PyDict_SetItemString", main_dict, self.exc_key, exc):
+                try:
+                    self.simple("_error = _describe(_exc)")
+                    detail = self.main_string("_error", detail)
+                except ValueError:
+                    self.call("PyErr_Clear")
+        return Execution(f"{what}: {detail}")
 
     def run(self, request, *, seconds=None, fuel=None, on_execute=None):
-        if request.get("mode") not in ("inspect", "execute"):
+        if request.get("mode") not in ("inspect", "act"):
             raise ValueError("Unknown runner mode")
         source = request.get("source")
         if not isinstance(source, str) or "\0" in source or len(source.encode()) > 16384:
-            raise ValueError("Source must be a NUL-free string of at most 16384 bytes")
+            raise Compile("Source must be a NUL-free string of at most 16384 bytes")
         domain = settings(request)
-        budget = domain.get("interactionComputeMs", 5)
-        if type(budget) not in (int, float) or not 1 <= budget <= 1000:
-            raise ValueError("Invalid interactionComputeMs (1..1000)")
-        if request["mode"] == "execute":
-            check(request.get("input"), domain)
-        key = (source, json.dumps(domain, sort_keys=True))
+        budget = domain["interactionComputeMs"]
+        prelude = domain["prelude"]
+        if request["mode"] == "act":
+            check_input(request.get("input"), domain)
+        identity = digest(prelude)
+        key = (GRAMMAR, domain["objectType"], prelude["key"], identity, source)
         phase = "prepare"
         try:
             with self.bounded(3):
+                prelude_blob = self.prepare_prelude(prelude["python"], ("prelude", prelude["key"], identity))[0]
                 blob, cost, _ = self.prepare(source, key)
                 if request["mode"] == "inspect":
                     return {"cost": cost}
+                # Fresh guest: every act starts from the one trusted snapshot.
                 self.restore(self.seed)
-                self.memory.write(self.store, blob, self.code_buffer)
-                code = self.call("PyMarshal_ReadObjectFromString", self.code_buffer, len(blob))
-                if not code:
-                    raise ValueError("Trusted code deserialization failed")
+                prelude_code = self.load(prelude_blob)
+                code = self.load(blob)
                 globals_ = self.call("PyDict_New")
-                if self.call("PyDict_SetItemString", globals_, self.builtins_key,
-                             self.call("PyEval_GetBuiltins")):
+                if (self.call("PyDict_SetItemString", globals_, self.builtins_key,
+                              self.call("PyEval_GetBuiltins"))
+                        or self.call("PyDict_SetItemString", globals_, self.name_key, self.module_name)):
                     raise ValueError("Guest globals preparation failed")
                 # Entropy must be refreshed AFTER restoring random module state.
                 self.simple("random.seed(None)")
+                # Trusted prelude and decode: outside the guest budget.
+                if not self.call("PyEval_EvalCode", prelude_code, globals_, globals_):
+                    self.call("PyErr_Clear")
+                    raise Config("The room's Python prelude failed to run")
+                decode = self.call("PyDict_GetItemString", globals_, self.decode_key)
+                if not decode or not self.call("PyDict_GetItemString", globals_, self.encode_key):
+                    raise Config("The room's prelude must define __decode and __encode_calls")
                 value = request["input"]
                 if type(value) is int:
-                    argument = self.call("PyLong_FromLong", value)
+                    argument = self.call("PyLong_FromLongLong", value)
                 else:
                     self.memory.write(self.store, value.encode() + b"\0", self.input_buffer)
                     argument = self.call("PyUnicode_FromStringAndSize", self.input_buffer, len(value))
+                obj = argument and self.call("PyObject_CallOneArg", decode, argument)
+                if not obj:
+                    self.call("PyErr_Clear")
+                    raise Config("The room's prelude could not decode the input")
             # Conservative instruction ceiling, not an instruction-to-time promise.
             # The independent process-CPU sampler enforces the configured time
             # budget; epoch interruption and the parent wall deadline back it up.
@@ -355,34 +457,53 @@ class Runner:
             if on_execute:
                 on_execute()
             with self.bounded(seconds if seconds is not None else max(0.05, budget/1000*10), budget):
-                fn = self.call("PyEval_EvalCode", code, globals_, globals_)
-                if not fn:
-                    raise ValueError("Python source evaluation failed")
-                result = self.call("PyObject_CallOneArg", fn, argument)
+                if not self.call("PyEval_EvalCode", code, globals_, globals_):
+                    raise self.guest_error("The agent's module raised an error")
+                # Looked up after the module ran: the guest owns its globals.
+                agent = self.call("PyDict_GetItemString", globals_, self.agent_key)
+                if not agent:
+                    raise Execution("The agent's module no longer defines agent")
+                calls = self.call("PyObject_CallOneArg", agent, obj)
+                if not calls:
+                    raise self.guest_error("agent raised an error")
+                # The encoder is untrusted-equivalent (the guest can monkeypatch it
+                # or anything it uses); the host parses and validates its output.
+                encode = self.call("PyDict_GetItemString", globals_, self.encode_key)
+                if not encode:
+                    raise Execution("The agent removed __encode_calls")
+                result = self.call("PyObject_CallOneArg", encode, calls)
                 if not result:
-                    raise ValueError("Python callable failed (guest I/O is disabled)")
-                typ = self.call("PyObject_Type", result)
-                if typ == self.int_type:
-                    output = self.call("PyLong_AsLong", result)
-                    if self.call("PyErr_Occurred"):
-                        raise ValueError("DOMAIN: Integer output outside configured domain")
-                elif typ == self.str_type:
-                    pointer = self.call("PyUnicode_AsUTF8AndSize", result, self.size_buffer)
-                    length = struct.unpack("<i", self.memory.read(
-                        self.store, self.size_buffer, self.size_buffer+4))[0]
-                    if not pointer or not 0 <= length <= domain["stringMaxLength"]:
-                        raise ValueError("DOMAIN: String output outside configured domain")
-                    output = bytes(self.memory.read(self.store, pointer, pointer+length)).decode("ascii")
-                else:
-                    raise ValueError("Result must be an exact integer or ASCII string")
-                check(output, domain)
-                if type(output) is not type(value):
-                    raise ValueError("Transformation must preserve input type")
-                return {"value": output}
+                    raise self.guest_error("Encoding agent's calls failed")
+                # Exact str only: no subclass, no repr/str/JSON hook is invoked.
+                if self.call("PyObject_Type", result) != self.str_type:
+                    raise Domain("agent must return a list of mutator calls (the encoder did not produce a string)")
+                if self.call("PyUnicode_GetLength", result) > CALLS_MAX:
+                    raise Limit(f"agent returned too many mutator calls (encoded output over {CALLS_MAX} bytes)")
+                pointer = self.call("PyUnicode_AsUTF8AndSize", result, self.size_buffer)
+                length = struct.unpack("<i", self.memory.read(
+                    self.store, self.size_buffer, self.size_buffer+4))[0]
+                if not pointer:
+                    self.call("PyErr_Clear")
+                    raise Domain("Encoded calls must be an ASCII string")
+                if not 0 <= length <= CALLS_MAX:
+                    raise Limit(f"agent returned too many mutator calls (encoded output over {CALLS_MAX} bytes)")
+                data = bytes(self.memory.read(self.store, pointer, pointer+length))
+                if not data.isascii():
+                    raise Domain("Encoded calls must be an ASCII string")
+                return {"calls": data.decode("ascii")}
         except wasmtime.Trap as trap:
             # A trap can interrupt C stack unwinding. Never reuse that store.
             self.new_store()
             raise Limit(describe_trap(trap, phase, budget)) from None
+
+
+def code_of(error):
+    if isinstance(error, (wasmtime.Trap, Limit)):
+        return "LIMIT"
+    for cls, code in ((Compile, "COMPILE"), (Domain, "DOMAIN"), (Config, "CONFIG")):
+        if isinstance(error, cls):
+            return code
+    return "EXECUTION"
 
 
 if __name__ == "__main__":
@@ -400,8 +521,5 @@ if __name__ == "__main__":
                 json.dumps({"phase": "execute"}), flush=True))
             print(json.dumps({"ok": True, **result}), flush=True)
         except Exception as error:
-            message = str(error)[-2000:]
-            code = "DOMAIN" if "DOMAIN:" in message else (
-                "LIMIT" if isinstance(error, (wasmtime.Trap, Limit)) else "COMPILE"
-                if "SyntaxError" in message else "EXECUTION")
-            print(json.dumps({"ok": False, "code": code, "error": message}), flush=True)
+            print(json.dumps({"ok": False, "code": code_of(error),
+                              "error": str(error)[-2000:]}), flush=True)

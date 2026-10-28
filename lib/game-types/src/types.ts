@@ -170,6 +170,16 @@ export interface MutatorDef<V = unknown, P = unknown> {
   apply(value: V, params: P, inst: Instantiation): V | null;
   /** Pointwise erasure: log2 of the preimage size of the result given the call (0 for bijections). */
   erasureBits(before: V, params: P, inst: Instantiation): number;
+  /** Scope of this call when it depends on the params (a paint's region kind); defaults to `scope`. */
+  scopeOf?(params: P, inst: Instantiation): MutatorScope;
+  /** M(params): runtime selection bits (relative targeting, e.g. line* = log2 2N), paid as decision. */
+  measureBits?(params: P, inst: Instantiation): number;
+  /**
+   * Expected changed bits per layer (keys as ObjectTypeDef.changedBits): the call's "speed" in the
+   * motion term, motion = Σ_L expected_L · changed_L / layerBits_L (energy.py pointwise motion).
+   * Omitted: the actual changed bits are used, i.e. Σ_L changed_L² / layerBits_L.
+   */
+  expectedChange?(params: P, inst: Instantiation): Readonly<Record<string, number>>;
   /** Uniform draw of params (field by field), used by reference agents, tests and the AI prompt examples. */
   sample(rng: Rng, inst: Instantiation): P;
   /** Guest constructor(s) and their docs, emitted into the prelude by the type's prelude generator. */
@@ -203,6 +213,8 @@ export interface CostKnobs {
   readonly describe: number;
   readonly erase: number;
   readonly move: number;
+  /** × M (relative-targeting selection bits), part of the decision. */
+  readonly measure: number;
   readonly scope: Readonly<Record<MutatorScope, number>>;
   readonly kind: Readonly<Record<MutatorKind, number>>;
 }
