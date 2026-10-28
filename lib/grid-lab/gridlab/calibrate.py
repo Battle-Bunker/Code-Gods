@@ -45,7 +45,7 @@ import math
 import multiprocessing as mp
 import os
 import pickle
-from bisect import bisect_left, bisect_right
+from bisect import bisect_right
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Callable, Optional, Sequence
