@@ -2,7 +2,8 @@
  * The access contract every game function uses (owned by convex/auth; game code only calls it).
  *
  * A caller is identified by a JWT this deployment minted (auth.config.ts):
- *   scope "browser": a signed-in human on the engine site (full rights of that human);
+ *   scope "browser": a signed-in human on the engine site (full rights of that human); the JWT's
+ *                    session (`sid`) is checked on every call, so logout is immediate;
  *   scope "player":  a player app or room assistant holding a scoped credential for ONE room, with a
  *                    permission: "read" < "act" < "owner". The credential is checked for revocation on
  *                    every call (an indexed point read), so revocation is immediate.
@@ -10,8 +11,9 @@
  * God ids in game tables are strings: a human's Replit subject (`sub`), or "ai:<uuid>" for an AI seat.
  */
 import { ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
+import { oidcIssuer } from "./config";
 
 export type Permission = "read" | "act" | "owner";
 export type Viewer = {
@@ -38,6 +40,14 @@ export function isAdminEmail(email: string | undefined, verified: boolean): bool
   return allowed.includes(email.trim().toLowerCase());
 }
 
+/**
+ * Admin = verified email on the allowlist, persisted at login from the CONFIGURED OIDC issuer's
+ * signed claims (production: https://replit.com/oidc), as before.
+ */
+export function isAdminUser(user: Pick<Doc<"users">, "email" | "emailVerified" | "issuer">): boolean {
+  return user.issuer === oidcIssuer() && isAdminEmail(user.email, user.emailVerified);
+}
+
 /** The authenticated caller, or null. Revoked or expired credentials and unknown users yield null. */
 export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | null> {
   const identity = await ctx.auth.getUserIdentity();
@@ -47,7 +57,11 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
   const scope = identity.scope === "player" ? "player" : identity.scope === "browser" ? "browser" : null;
   if (!scope) return null;
   if (scope === "browser") {
-    return { subject: user.subject, name: user.name, scope, isAdmin: isAdminEmail(user.email, user.emailVerified) };
+    // Browser JWTs name their session (`sid`), so logout takes effect at once, not after the JWT's 10 minutes.
+    const sessionId = typeof identity.sid === "string" ? ctx.db.normalizeId("sessions", identity.sid) : null;
+    const session = sessionId ? await ctx.db.get(sessionId) : null;
+    if (!session || session.subject !== user.subject || session.expiresAt <= Date.now()) return null;
+    return { subject: user.subject, name: user.name, scope, isAdmin: isAdminUser(user) };
   }
   const credentialId = typeof identity.cred === "string" ? identity.cred : null;
   const id = credentialId ? ctx.db.normalizeId("credentials", credentialId) : null;
