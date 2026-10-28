@@ -156,15 +156,17 @@ class ProgramLaw:
 _LAWS: dict = {}
 
 
-def program_law(gtype: GridType, spec) -> ProgramLaw:
+def program_law(gtype: GridType, spec, library=None) -> ProgramLaw:
+    """Slot law w and k law q for a spec over the policies' program library (or `library` =
+    (programs, costs), e.g. an independently drawn one for stability checks)."""
     spec = get_spec(spec)
     from ...policy import program_library
     from ...sim import default_program_factory
-    k = (gtype, spec.key)
+    progs, costs = library or program_library(gtype, default_program_factory(), spec.lib_size)
+    costs = np.asarray(costs, float)
+    k = (gtype, spec.key, len(progs), float(np.sum(costs)), id(library) if library else 0)
     if k in _LAWS:
         return _LAWS[k]
-    progs, costs = program_library(gtype, default_program_factory(), spec.lib_size)
-    costs = np.asarray(costs, float)
     K = spec.K
     Z = float("nan")
     if spec.weights == "flat":
@@ -189,8 +191,8 @@ def program_law(gtype: GridType, spec) -> ProgramLaw:
     if spec.lam:
         q = (1 - spec.lam) * q
         q[0] += spec.lam
-    tag = hashlib.sha256(f"{gtype.key}|{spec.key}|{float(np.sum(costs)):.6f}|{len(progs)}|{LATENT_VERSION}"
-                         .encode()).hexdigest()
+    tag = hashlib.sha256(f"{gtype.key}|{spec.key}|{float(np.sum(costs)):.6f}|{len(progs)}|{LATENT_VERSION}|"
+                         f"{progs[0].key}|{progs[-1].key}".encode()).hexdigest()
     law = ProgramLaw(gtype, spec, progs, costs, w, q, tag, Z)
     _LAWS[k] = law
     return law
@@ -536,6 +538,7 @@ def survival(draw: Draw, gtype: GridType, spec, budget: LBudget = DEFAULT_LBUDGE
         try:
             with open(path, "rb") as fh:
                 t = cal.Survival.from_dict(pickle.load(fh))
+            t = patch_top(t, draw, gtype, spec, budget)
             _MEM[key] = t
             return t
         except Exception:
@@ -543,8 +546,54 @@ def survival(draw: Draw, gtype: GridType, spec, budget: LBudget = DEFAULT_LBUDGE
     t = build_table(draw, gtype, spec, budget)
     t.key = key
     _save(path, t.to_dict())
+    t = patch_top(t, draw, gtype, spec, budget)
     _MEM[key] = t
     return t
+
+
+PATCH_VERSION = 1
+
+
+def patch_top(t: cal.Survival, draw: Draw, gtype: GridType, spec, budget: LBudget = DEFAULT_LBUDGET) -> cal.Survival:
+    """Fix the top of a table where splitting cannot climb (all-or-nothing rules such as Picture Frame):
+      * pool values above every level with >= 8 hits become Monte Carlo levels (count / n_pool);
+      * if the family's best ordinal is still above every level and the uniform tail is exact, it gets
+        min(s_μ(top) - log2 q0, max(s_last + 1, log2(n_pool / 3))): the mixture bound
+        ρ >= q0·μ caps it, and zero hits in n_pool samples make p > 3/n implausible (95%).
+    Deterministic; applied when a table is served (cached tables stay as estimated)."""
+    law = program_law(gtype, spec)
+    P = pool(gtype, spec, budget.n_pool)
+    params = cal.canonical_params(draw, gtype)
+    f = draw.family
+    V = np.asarray(f.evaluate_batch(P.ys, P.yc, params, gtype), np.int64)
+    n = len(V)
+    lv, lp, se = list(t.levels), list(t.log2p), list(t.stderr_bits)
+    w, c = np.unique(V[V > t.levels[-1]], return_counts=True)
+    tc = np.cumsum(c[::-1])[::-1]
+    added = 0
+    for x, k in zip(w, tc):
+        if k >= 8:
+            lv.append(int(x))
+            lp.append(min(lp[-1], math.log2(k / n)))
+            se.append(math.sqrt((1 - k / n) / k) / LN2)
+            added += 1
+    meta = dict(t.meta, patch=PATCH_VERSION, patched_levels=added)
+    top = None
+    if f.exemplar is not None:
+        try:
+            top = int(f.ordinal(f.exemplar(params, gtype), params, gtype))
+        except Exception:
+            top = None
+    if top is not None and top > lv[-1] and f.exact_log2_tail is not None:
+        su = -float(f.exact_log2_tail(top, params, gtype))
+        bits = min(su - math.log2(law.q[0]), max(-lp[-1] + 1, math.log2(n / 3)))
+        lv.append(top)
+        lp.append(min(lp[-1], -bits))
+        se.append(float("nan"))
+        meta["top_bounded"] = True
+    if len(lv) == len(t.levels):
+        return t
+    return cal.Survival(t.key, lv, lp, se, t.extra_levels, meta)
 
 
 _JOBS: list = []
