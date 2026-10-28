@@ -25,6 +25,20 @@ numbers below are for **Grid(5,base10,rgby)** with default `COST_KNOBS`, unless 
   - the code satisfies Kraft's inequality, which is checked program by program.
 - CPU is not priced. It is a hard budget of 500,000 steps per interaction.
 
+**Headline results** (§4):
+
+- Statically, search agents are not better buys: their surprisal per bit on game states is in the same
+  Landauer band as the best Programs.
+- In play, owner-score search dominates. It never acts against its owner and gains 25× more owner
+  payoff per bit than Programs. Language access is worth about one place in the final ranking for greedy
+  gods (69% of wins).
+- This is not a pricing leak. The charged decision bits match the information used in play to about
+  1 bit. Avoiding harm is worth far more than the 1 bit it costs.
+- More language means more tension, more spirals, 10–35× welfare and more inequality, but less mutator
+  variety.
+- A 50/50 mix of language agents and Programs is the most dynamic setting.
+- §6 lists the levers if search should be reined in.
+
 ## 1. The language (for kids)
 
 ### 1.1 Your first agents
@@ -361,7 +375,25 @@ erasure (mutators.md risk 4). The decision bits cover part of that.
 
 ### 4.1 Cost table (owner for `score`: seed1_line_painter, "lines of yellow cells score their sum")
 
-COSTS_TABLE
+| agent | kind | lines | description | decision | bound | erase | motion | ratchet | total | Program | ast-bytes | steps |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| paint_one_row | fixed | 1 | 20.7 | 0.0 | joint | 10.0 | 0.4 | 0.0 | 31.1 | 25.3 | 11 | 27 |
+| fill_grid | fixed | 1 | 17.3 | 0.0 | joint | 50.0 | 9.8 | 0.0 | 77.2 | 71.4 | 9 | 27 |
+| paint_best_line | relative | 1 | 17.3 | 3.3 | joint | 10.0 | 0.4 | 0.0 | 31.0 | 25.3 | 9 | 27 |
+| reddest_row | relative | 3 | 48.5 | 2.2 | joint | 10.0 | 0.4 | 0.0 | 61.2 | – | 28 | 80 |
+| guarded_row | conditional | 2 | 61.7 | 0.6 | joint | 1.6 | 0.1 | 0.0 | 64.0 | 36.9 | 24 | 17 |
+| recolour_tool | fixed | 1 | 18.5 | 0.0 | joint | 12.5 | 1.1 | 0.0 | 32.1 | 26.3 | 11 | 27 |
+| recolour_by_hand | loop | 3 | 49.1 | 18.5 | chain | 10.5 | 0.6 | 0.0 | 78.8 | – | 25 | 304 |
+| copy_top_colour | relative | 4 | 64.4 | 4.1 | joint | 10.0 | 0.4 | 0.0 | 78.9 | – | 37 | 95 |
+| join_the_crowd | relative | 3 | 66.2 | 4.2 | joint | 2.0 | 0.0 | 0.0 | 72.5 | – | 42 | 576 |
+| biggest_to_corner | relative | 2 | 48.4 | 4.0 | joint | 0.0 | 0.2 | 0.0 | 52.6 | – | 30 | 78 |
+| fix_mixed_rows | loop | 3 | 74.0 | 2.8 | joint | 4.4 | 0.2 | 0.0 | 81.5 | – | 31 | 91 |
+| greedy_paint | search | 1 | 15.3 | 0.6 | joint | 45.3 | 8.9 | 0.0 | 70.0 | – | 13 | 13628 |
+| careful_greedy | search | 3 | 47.6 | 0.4 | joint | 45.7 | 9.0 | 0.0 | 102.7 | – | 31 | 13685 |
+| row_painter_search | search | 4 | 77.5 | 2.2 | joint | 10.0 | 0.4 | 50.0 | 140.1 | – | 51 | 1199 |
+| greedy_swap | search | 4 | 78.4 | 4.8 | joint | 0.0 | 0.0 | 0.0 | 83.3 | – | 60 | 3458 |
+| two_greedy_steps | search | 4 | 67.6 | 0.4 | joint | 45.7 | 9.0 | 0.0 | 122.7 | – | 38 | 27364 |
+| full_greedy | search | 3 | 43.0 | 0.7 | joint | 50.4 | 10.3 | 0.0 | 104.4 | – | 28 | 391185 |
 
 "Program" is the cost of the same agent as a `gridlab.program.Program`, where one exists. "bound" says
 which decision estimate was charged.
@@ -372,12 +404,19 @@ which decision estimate was charged.
   program text against 17 for the built-in `best_line`.
 - **Search agents that call the owner's utility** pay little decision when the best move is
   predictable. Seed 1 loves whole-grid yellow, so `greedy_paint` chooses "paint everything yellow" on
-  almost every grid. They then pay the destruction of that big move: 54 bits, the same as naming the
-  fill (77 − 17 + 15).
+  almost every grid. They then pay the destruction of that big move, 54 bits, about what the named fill
+  pays (60 for `fill_grid`). A whole-grid fill sold through a search is still priced as a fill.
 
 The same four search agents priced for other owners (total, with decision bits in brackets):
 
-BY_OWNER_TABLE
+| owner family | greedy_paint | careful_greedy | row_painter_search | greedy_swap |
+|---|---|---|---|---|
+| seed1_line_painter | 70 (0.6) | 103 (0.4) | 140 (2.2) | 83 (4.8) |
+| conqueror | 70 (0.6) | 103 (0.4) | 140 (2.3) | 84 (5.3) |
+| mirrormancer | 17 (0.0) | 48 (0.0) | 77 (0.0) | 78 (0.0) |
+| staircase_climber | 17 (0.0) | 48 (0.0) | 77 (0.0) | 78 (0.0) |
+| rainbow_road | 32 (6.0) | 64 (6.0) | 77 (0.0) | 84 (5.1) |
+| lucky_token | 71 (0.4) | 103 (0.4) | 140 (2.3) | 82 (3.9) |
 
 When no paint helps (mirrormancer and staircase_climber care about symbols), the search always ties,
 takes the first move, and costs only its description plus one cell's paint. For rainbow_road the best
@@ -385,44 +424,109 @@ paint differs from grid to grid, and the agent pays 6 bits for that choice.
 
 ### 4.2 Description: ast-bytes and a fitted grammar
 
-ASTBYTES_SUMMARY
+| corpus | n | Pearson r | bits per ast-byte | least-squares fit |
+|---|---|---|---|---|
+| the 17 example agents | 17 | 0.91 | 1.76 | bits ≈ 1.40 · bytes + 8.7 |
+| random programs from the grammar | 1,500 | 0.96 | 1.82 | bits ≈ 1.24 · bytes + 1.6 |
+
+The two prices rank programs almost the same way. ast-bytes × 8 overstates the MDL code about 4.5×,
+because most AST nodes have only a handful of alternatives in context (or none).
 
 Fitting the grammar's production weights on the other example agents (add-one; leave-one-out;
 mutator choice and literals kept uniform so unification survives) shortens programs by 8–42%. Search
 idioms shrink most, because they repeat across the templates:
 
-WEIGHTS_TABLE
+| agent | uniform grammar | fitted grammar (leave-one-out) | saving |
+|---|---|---|---|
+| paint_one_row | 20.7 | 19.1 | 8% |
+| fill_grid | 17.3 | 15.8 | 9% |
+| paint_best_line | 17.3 | 15.8 | 9% |
+| reddest_row | 48.5 | 38.4 | 21% |
+| guarded_row | 61.7 | 51.3 | 17% |
+| recolour_tool | 18.5 | 16.9 | 9% |
+| recolour_by_hand | 49.1 | 42.3 | 14% |
+| copy_top_colour | 64.4 | 47.0 | 27% |
+| join_the_crowd | 66.2 | 65.3 | 1% |
+| biggest_to_corner | 48.4 | 44.7 | 8% |
+| fix_mixed_rows | 74.0 | 52.0 | 30% |
+| greedy_paint | 15.3 | 10.7 | 30% |
+| careful_greedy | 47.6 | 27.7 | 42% |
+| row_painter_search | 77.5 | 55.4 | 29% |
+| greedy_swap | 78.4 | 51.8 | 34% |
+| two_greedy_steps | 67.6 | 49.1 | 27% |
+| full_greedy | 43.0 | 25.9 | 40% |
 
 ### 4.3 Search ≤ log2 K, and computing vs naming the target
 
-SEARCH_TABLE
+| agent | K candidates | log2 K | decision | E[naming bits] | description | description + decision |
+|---|---|---|---|---|---|---|
+| greedy_paint | 272 | 8.1 | 0.6 | 10.0 | 15.3 | 15.9 |
+| careful_greedy | 272 | 8.1 | 0.4 | 8.8 | 47.6 | 48.0 |
+| row_painter_search | 20 | 4.3 | 2.2 | 12.9 | 77.5 | 79.7 |
+| greedy_swap | 40 | 5.3 | 4.8 | 9.6 | 78.4 | 83.2 |
+| two_greedy_steps | 73984 | 16.2 | 0.4 | 8.8 | 67.6 | 68.0 |
+| full_greedy | 7822 | 12.9 | 0.7 | 9.5 | 43.0 | 43.7 |
 
 - Decision bits are far below log2 K: the winners are predictable.
 - They are also below the bits it would take to write the chosen move down (`E[naming bits]`).
-- For `greedy_paint` the total of description + decision (15.9) equals the price of naming a typical
-  winner as a literal call (10.0 + 5.75 framing).
+- For `greedy_paint`, description + decision (15.9 bits) is about the description of a one-move agent
+  that names a typical winner literally (10.0 + 7.75 framing = 17.8). Searching for the target costs
+  what writing it down would.
 
 ### 4.4 The structured-grid attack is caught
 
-ATTACK_TABLE
+| threshold | H uniform only | H structured | H game states | charged (mixture) | bound |
+|---|---|---|---|---|---|
+| 11 | 1.2 | 1.9 | 3.3 | 2.3 | joint |
+| 12 | 0.4 | 0.6 | 2.4 | 1.2 | joint |
+| 13 | 0.1 | 0.1 | 1.6 | 0.6 | joint |
+| 14 | 0.0 | 0.0 | 1.0 | 0.3 | joint |
+| 15 | 0.0 | 0.0 | 0.5 | 0.2 | joint |
 
 - Priced on uniform grids alone, the threshold-13 attack would cost 0.1 bits of decision. The mixture
   charges 0.6, six times more.
 - Its true use on in-play states is 1.6 bits. Because uniform grids are half the mixture, the attack
   keeps a ≈ 1 bit discount against a pure game-state measurement (§6).
+- For the search templates that gods actually summon, the mixture is well calibrated to play: charged
+  4.22 bits against 4.07 measured on in-game objects, on average over 38 (agent, owner) pairs (§4.6).
 
 ### 4.5 Yield per bit by owner family (game states)
 
 Mean gain in the owner's surprisal per bit of cost, ×100, on the 64 game-state grids. Each language
 kind shows its best template, against the best of 512 random library Programs:
 
-YIELDS_TABLE
+| owner family | best of 512 Programs | relative | conditional | loop | fixed (tool) | search (best template) |
+|---|---|---|---|---|---|---|
+| seed1_line_painter | 24.2 | 3.8 | 0.1 | 0.1 | 17.8 | 37.9 (greedy_paint) |
+| conqueror | 20.6 | 2.0 | 0.0 | 0.1 | 25.7 | 33.7 (greedy_paint) |
+| mirrormancer | 24.4 | 0.0 | 0.0 | 0.0 | 0.0 | 21.4 (careful_greedy_write) |
+| staircase_climber | 16.1 | 0.0 | 0.0 | 0.0 | 0.0 | 6.8 (careful_greedy_count_on) |
+| rainbow_road | 37.5 | 0.1 | -0.0 | -0.1 | 0.2 | 11.3 (greedy_paint) |
+| lucky_token | 22.3 | 1.7 | 0.2 | -0.1 | 6.9 | 19.8 (careful_greedy_write) |
+| snap | 55.5 | 0.0 | 0.0 | 0.0 | 0.0 | 48.7 (careful_greedy_write) |
+| young_tableau | 19.1 | 0.0 | 0.0 | 0.0 | 0.0 | 12.0 (careful_greedy_ramp) |
+| treasure_map | 21.0 | 2.2 | 0.0 | 0.1 | 11.3 | 21.6 (greedy_paint) |
+| homebody | 53.1 | 3.4 | 0.2 | 0.1 | 8.9 | 53.0 (greedy_paint) |
+| chessmaster | 47.9 | 0.2 | 0.0 | -0.1 | 11.7 | 14.4 (greedy_paint) |
+| number_bonds | 19.2 | 1.5 | 0.5 | 0.5 | 4.9 | 23.1 (careful_greedy_write) |
 
-YIELDS_TEXT
+- Search does **not** dominate on yield per bit, measured statically on game states. The best search
+  template beats the best of 512 random Programs for 3 owner families: seed1_line_painter, conqueror,
+  number_bonds.
+- It roughly ties for five: mirrormancer, lucky_token, treasure_map, homebody, snap.
+- It loses for four, where the useful moves are relational and no single paint/write/ramp step finds
+  them: rainbow_road, chessmaster, staircase_climber, young_tableau.
+- All values sit in the same band of about 0.1–0.5 bits of rarity per bit of cost that the Landauer
+  bound predicts (mutators.md §1).
+- The library comparison favours Programs: it is a maximum over 512 candidates, against 8 search
+  templates.
+- Relative, conditional and loop templates have low yield here because they target one fixed colour,
+  which is the owner's colour for only some families.
 
 ### 4.6 Simulated games
 
-Four gods, fixed 300 s, 20 Hz, 16 seeds per cell (mean ± standard error). Policies `greedy` = four
+Four gods, fixed 300 s, 20 Hz, 16 seeds per cell (mean ± standard error). A full re-run reproduced every
+game exactly. Policies `greedy` = four
 `greedy_private`; `mixed` = random, greedy_private, saver, greedy_omniscient. Conditions:
 
 - `off`: today's Program agents only.
@@ -434,19 +538,85 @@ Four gods, fixed 300 s, 20 Hz, 16 seeds per cell (mean ± standard error). Polic
 The language catalogue has 13 templates × colours (54 agents at rgby). Eight of them search with
 `score`.
 
-GAMES_TABLE
+| policies | condition | dynamism | tension | spirals /100 commits | lead changes /100 s | welfare (bits²) | payoff Gini | mutator entropy | mean summon cost | language share of summons |
+|---|---|---|---|---|---|---|---|---|---|---|
+| greedy | off | 0.682 ± 0.017 | 0.30 ± 0.02 | 8.7 ± 0.3 | 3.9 ± 1.0 | 2.2k ± 0.6k | 0.19 ± 0.02 | 0.80 ± 0.01 | 19.4 ± 0.3 | 0% |
+| greedy | mix | 0.726 ± 0.010 | 0.34 ± 0.02 | 8.8 ± 0.3 | 4.7 ± 0.7 | 13.4k ± 7.1k | 0.19 ± 0.02 | 0.79 ± 0.01 | 24.5 ± 0.5 | 22% |
+| greedy | heavy | 0.705 ± 0.015 | 0.46 ± 0.03 | 10.8 ± 0.4 | 3.1 ± 0.7 | 46.9k ± 19.7k | 0.24 ± 0.02 | 0.61 ± 0.02 | 34.3 ± 1.1 | 73% |
+| greedy | only | 0.699 ± 0.020 | 0.58 ± 0.04 | 11.4 ± 0.4 | 3.2 ± 0.5 | 75.8k ± 22.8k | 0.25 ± 0.02 | 0.31 ± 0.02 | 39.4 ± 1.9 | 100% |
+| mixed | off | 0.683 ± 0.011 | 0.28 ± 0.02 | 7.9 ± 0.3 | 3.0 ± 0.7 | 5.1k ± 2.1k | 0.24 ± 0.02 | 0.84 ± 0.01 | 21.8 ± 0.4 | 0% |
+| mixed | mix | 0.682 ± 0.017 | 0.29 ± 0.03 | 8.7 ± 0.3 | 3.5 ± 0.8 | 19.0k ± 6.4k | 0.25 ± 0.02 | 0.76 ± 0.01 | 26.5 ± 0.6 | 31% |
+| mixed | heavy | 0.632 ± 0.019 | 0.38 ± 0.03 | 9.7 ± 0.4 | 2.2 ± 0.7 | 33.9k ± 11.4k | 0.27 ± 0.02 | 0.51 ± 0.02 | 32.8 ± 0.6 | 77% |
+| mixed | only | 0.603 ± 0.021 | 0.41 ± 0.04 | 9.3 ± 0.6 | 2.5 ± 0.8 | 54.4k ± 23.0k | 0.29 ± 0.02 | 0.27 ± 0.01 | 35.8 ± 0.6 | 100% |
 
-Payoff gained by each class of agent (own payoff change over its commits), per bit spent, pooled over
-all language conditions:
+The asymmetric conditions are summarised below.
 
-CLASSES_TABLE
+Owner payoff change caused by each agent's own commits, pooled over all language conditions and both
+policy sets. Templates summoned at least 5 times:
+
+| agent | summoned | mean cost | commit rate | owner payoff per commit | owner payoff per bit |
+|---|---|---|---|---|---|
+| program | 8721 | 20.7 | 0.8 | -1.8 | -5.6 |
+| fixed:recolour_tool | 1642 | 32.1 | 0.5 | 44.1 | 76.2 |
+| search:greedy_paint | 793 | 30.5 | 0.8 | 127.0 | 399.3 |
+| relative:paint_best_line | 558 | 31.0 | 0.5 | -34.9 | -69.6 |
+| search:careful_greedy_count_on | 258 | 58.3 | 0.8 | 111.3 | 206.9 |
+| search:careful_greedy_ramp | 117 | 71.0 | 0.7 | 75.7 | 111.2 |
+| search:careful_greedy_recolour | 88 | 59.4 | 0.8 | 74.3 | 157.5 |
+| search:careful_greedy | 69 | 68.0 | 0.9 | 153.6 | 337.6 |
+| search:careful_greedy_write | 66 | 72.7 | 0.7 | 106.7 | 149.9 |
+| conditional:guarded_row | 16 | 63.7 | 0.2 | -1.9 | -1.0 |
+| relative:reddest_row | 15 | 61.1 | 0.6 | 4.5 | 8.1 |
+| search:row_painter_search | 8 | 88.4 | 0.5 | 192.3 | 291.6 |
+| loop:fix_mixed_rows | 8 | 81.5 | 0.5 | 5.8 | 7.3 |
 
 Does language access help a god win? The same seed is played with gods 0–1 and then gods 2–3 holding
 language access, so each god is compared with itself:
 
-ASYM_TABLE
+| policies | god-games | rank gain from language (+ = better) | games won by a language god (50% = no edge) |
+|---|---|---|---|
+| greedy | 64 | +0.97 ± 0.14 | 69% |
+| mixed | 64 | +0.16 ± 0.10 | 53% |
 
-GAMES_TEXT
+**Readings.**
+
+- **Search dominates in play, even though it does not dominate on paper.**
+  - Owner-score search agents gain their owner +75 to +190 bits² of payoff per commit, or +110 to +400
+    per bit spent.
+  - Library Programs gain −1.8 per commit. They act blindly on every object they hit, so they wreck
+    their owner's own structure about as often as they build it.
+  - With greedy gods, holding language access is worth about one place in the final ranking
+    (+0.97 ± 0.14 of a possible 3), and 69% of wins (50% would be no edge). With the mixed policy set,
+    where the language gods are sometimes `random` or `saver`, the edge is +0.16 ± 0.10 and 53%.
+- **The pricing still charges the information correctly.**
+  - We re-measured H(action) of the four main search templates on the objects actually present in
+    language-heavy games (`evaluate --only inplay`): 38 non-trivial (agent, owner) pairs.
+  - Mean charged decision is 4.22 bits; mean in-play H is 4.07 bits. Mean absolute difference 1.19 bits;
+    68% within 1 bit; 13% under-charged by more than 1 bit (worst 3.8 bits).
+  - So the advantage is not a measurement leak. It is that the information is extremely valuable. "Only
+    move when it helps my god" costs about 1 bit, and turns an agent that hurts its owner half the time
+    into one that never does.
+  - `greedy_paint` has no explicit guard, but its candidate list contains no-op paints (a cell painted
+    its own colour). So its argmax never makes things worse: it is a monotone improver for free.
+  - The Landauer bound of mutators.md (§1) limits rarity *created* on fresh spawns. It says nothing about
+    the value of *not destroying* rarity on structured objects, and that is where the bits pay off.
+- **Dynamics.**
+  - **Tension rises** steadily with the language share: 0.30 → 0.58 for greedy gods, 0.28 → 0.41 for
+    the mixed set. Search agents pursue their owner's goal on every object, so commits that help one god
+    and hurt another become the norm.
+  - **Cooperative spirals rise**: 8.7 → 11.4 and 7.9 → 9.3 per 100 commits.
+  - **Welfare** rises 10–35× (2.2k → 76k bits²). Search agents build very rare objects, and the payoff
+    s_i · S_−i rewards shared rarity.
+  - **Inequality grows** (Gini 0.19 → 0.25 and 0.24 → 0.29).
+  - **Lead changes** do not improve beyond `mix`.
+  - **Mutator diversity collapses** (0.80 → 0.31), because the templates search over only six mutators.
+    That is the main reason the composite **dynamism** score rises at `mix` with greedy gods
+    (0.68 → 0.73) but falls in the language-only worlds (0.68 → 0.60 for the mixed set). Of the other
+    components, tension and spirals go up, liveness holds, and lead changes dip slightly.
+- **Mix is the sweet spot.**
+  - At `lang_share` = 0.5, gods choose language agents for 22–31% of summons. Dynamism is at its highest
+    (greedy) or unchanged (mixed); tension and spirals are up; mutator diversity is intact.
+  - Language-only worlds are more conflict-heavy, richer and more unequal, and much less varied.
 
 ## 5. Kid-readability
 
@@ -474,7 +644,47 @@ GAMES_TEXT
 
 ## 6. Recommendations
 
-RECOMMENDATIONS
+1. **Adopt `description + decision + destruction` as the price of language agents.**
+   - Keep the estimator as built: Miller–Madow joint estimate, trusted only at coverage ≥ 0.5, capped by
+     the chain, path and static bounds.
+   - Keep the 288-grid mixture reference. Its game component is what makes it match in-play decision
+     bits to about 1 bit.
+   - Pricing takes 0.01–0.7 s per agent (30 s for `full_greedy`) and is cached, so measuring at summon
+     time is practical.
+2. **Fit the grammar weights and make the grammar subcritical** before the description code is frozen.
+   - Uniform weights waste ≈ 2.8 bits per program on derivations that never halt (halting mass 0.14).
+     They also overcharge idiomatic code: a weights table fitted leave-one-out saves 8–42%.
+   - Keep mutator choice and literal codes uniform, so a one-move agent still costs exactly a Program
+     step.
+   - Version the weights with the season: prices must not drift mid-game.
+3. **Decide whether owner-score search should dominate.** Charging the bits it uses is MDL-correct, and
+   the price matches in-play information. Yet search agents earn 25× more owner payoff per bit than
+   Programs, and give greedy gods a one-place edge. If that is too strong, in order of preference:
+   - (a) **Charge the oracle's description.** A program that calls `score` is only fully described
+     together with the utility it calls. Add the owner draw's code length, log2 #families + its
+     parameter bits (≈ 10–20 bits), once at summon. This is cheap, principled and small.
+   - (b) **Let `score` rank candidates, not judge the grid.** Allow `best(..., by=score)` but not
+     `score(grid)`, and drop no-op candidates from `moves(...)`. That removes free monotonicity, so an
+     agent must pay decision bits to learn when to stay still.
+   - (c) **Price use, not just summons.** Use the existing `metabolic_cost` knob for agents that call
+     `score`, i.e. a per-application oracle fee. This is outside the MDL frame and is a pure game-design
+     lever.
+   - (d) **Coarsen `score`** to whole bits.
+4. **Keep the conservative destruction term.**
+   - H(A) plus prior erasure overcharges "measure, then overwrite" programs by up to I(A; f(X)): 2.2× for
+     `recolour_by_hand` against `recolour`. That keeps the dedicated tools valuable.
+   - Merge-type tools chosen only when the grid suits them can still be undercharged by prior erasure
+     (mutators.md risk 4). If language agents exploit this, switch those tools to Hartley erasure.
+5. **Widen the search templates.** They cover six mutators. In language worlds mutator entropy collapses
+   from 0.8 to 0.3, and that alone pulls the dynamism score down. Templates over `shift_line`,
+   `turn_block`, `mirror_fold`, `pattern_line` and `motif` would restore variety. Batch fast paths make
+   them affordable under the 5 ms budget.
+6. **For the attack:** weight the game component of the reference more (e.g. ½ uniform, ½ game), or add
+   the live world's objects at summon time for agents that call `score`. That second option is
+   deterministic given the world, but not cacheable across games.
+7. **For kids:** teach `def` before `lambda`, show `explain(...)`'s per-line price tags in the editor,
+   and offer the search idioms (`best(moves(paint), by=score)`) as ready-made cards. Their description
+   cost then teaches MDL directly: a card is cheap, and writing your own is more expensive.
 
 ## 7. Reproducing
 

@@ -260,6 +260,40 @@ def sec_yields(gt: GridType, families=None, n_states: int = 64) -> dict:
                                "fixed (tool)", "search (best template)"]), "data": data}
 
 
+def sec_inplay(gt: GridType, seeds=(1000, 1001, 1002, 1003), n_states: int = 400) -> dict:
+    """Is the reference mixture representative? Decision bits as priced vs H(action) measured on the
+    objects actually present (snapshots) in language-heavy games, for the search templates."""
+    from ..sim import GameConfig, run_game
+    from .pricing import entropy_stats
+    names = ("greedy_paint", "careful_greedy", "careful_greedy_write", "careful_greedy_count_on")
+    pairs = []
+    for seed in seeds:
+        states, box = [], {}
+
+        def hook(w, ev):
+            if ev == "snapshot" and w.t > 0:
+                states.extend(w.objects)
+            if ev == "end":
+                box["w"] = w
+
+        run_game(GameConfig(gtype=gt, n_gods=4, policies="greedy_private", length="fixed", fixed_seconds=300.0,
+                            seed=seed, agent_language="mix", lang_share=0.9), hook=hook)
+        w = box["w"]
+        idx = np.random.default_rng(0).choice(len(states), min(n_states, len(states)), replace=False)
+        S = [states[i] for i in idx]
+        for god in range(4):
+            for a in w.lang_libraries[god][0]:
+                if a.name in names:
+                    acts = [run(a.prog, gt, g, a.owner, record=True).actions for g in S]
+                    pairs.append((a.cost_terms()["decision"], entropy_stats(acts)["mm"], a.name,
+                                  w.draws[god].family.id))
+    arr = np.array([(p[0], p[1]) for p in pairs if p[0] > 0 or p[1] > 0])
+    d = arr[:, 1] - arr[:, 0]
+    return {"pairs": len(arr), "mean_priced": float(arr[:, 0].mean()), "mean_in_play": float(arr[:, 1].mean()),
+            "mean_abs_diff": float(np.abs(d).mean()), "within_1_bit": float((np.abs(d) <= 1).mean()),
+            "under_by_more_than_1": float((d > 1).mean()), "max_under": float(d.max()), "max_over": float(-d.min())}
+
+
 # ------------------------------------------------------------------------------------------------
 # games
 # ------------------------------------------------------------------------------------------------
@@ -279,7 +313,7 @@ def _game_job(job):
     cond, pset, seed, gtkey = job
     n, s, c = gtkey.split(",")
     gt = GridType(int(n), s, c)
-    key = hashlib.sha256(json.dumps([cond, pset, seed, gtkey, CONDITIONS[cond], src_hash(), "v1"]).encode()).hexdigest()[:24]
+    key = hashlib.sha256(json.dumps([cond, pset, seed, gtkey, CONDITIONS[cond], src_hash(), "v2"]).encode()).hexdigest()[:24]
     path = GAME_DIR / f"{key}.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -299,19 +333,21 @@ def _game_job(job):
     np.add.at(per_agent, log.c_agent, dpi)
     commits = np.bincount(log.c_agent, minlength=len(log.a_owner)) if len(log.c_agent) else np.zeros(len(log.a_owner))
     cls = defaultdict(lambda: {"agents": 0, "cost": 0.0, "gain": 0.0, "commits": 0})
+    lab_stats = defaultdict(lambda: {"agents": 0, "cost": 0.0, "gain": 0.0, "commits": 0, "attempts": 0})
     for a, lab in enumerate(log.a_label):
-        k = lab.split(":")[0]
-        cls[k]["agents"] += 1
-        cls[k]["cost"] += float(log.a_cost[a])
-        cls[k]["gain"] += float(per_agent[a])
-        cls[k]["commits"] += int(commits[a])
+        for d in (cls[lab.split(":")[0]], lab_stats[lab]):
+            d["agents"] += 1
+            d["cost"] += float(log.a_cost[a])
+            d["gain"] += float(per_agent[a])
+            d["commits"] += int(commits[a])
+        lab_stats[lab]["attempts"] += int(log.a_attempts[a])
     out = {"cond": cond, "pset": pset, "seed": seed, "gtype": gtkey, "seconds": time.time() - t,
            "metrics": {k: m[k] for k in ("dynamism", "tension_rate", "harmony_rate", "spirals_per_100_commits",
                                          "spiral_len_mean", "lead_changes_per_100s", "welfare", "payoff_gini",
                                          "late_activity", "mutator_entropy_norm", "n_summons", "n_commits",
                                          "summon_cost_mean", "object_volatility", "stagnation_frac")},
            "families": log.families, "final_payoff": [float(x) for x in log.final_payoff],
-           "ranks": [int(x) for x in log.final_ranks()], "classes": dict(cls),
+           "ranks": [int(x) for x in log.final_ranks()], "classes": dict(cls), "by_label": dict(lab_stats),
            "labels": Counter(log.a_label)}
     GAME_DIR.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(f".tmp{os.getpid()}")
@@ -363,6 +399,19 @@ def sec_games(gt: GridType, n_games: int, processes: int, conds=None, psets=None
             crow.append([p, k, v["agents"], v["commits"], v["cost"] / max(v["agents"], 1),
                          v["gain"] / max(v["cost"], 1e-9)])
     ctable = md(crow, ["policies", "agent class", "agents", "commits", "mean cost (bits)", "payoff gained per bit"])
+    # the same per template (language agents) and for programs
+    lab = defaultdict(lambda: {"agents": 0, "cost": 0.0, "gain": 0.0, "commits": 0, "attempts": 0})
+    for p in psets:
+        for c in conds:
+            for r in by[(c, p)]:
+                for k, v in r.get("by_label", {}).items():
+                    for f in lab[k]:
+                        lab[k][f] += v[f]
+    lrow = [[k, v["agents"], v["cost"] / max(v["agents"], 1), v["commits"] / max(v["attempts"], 1),
+             v["gain"] / max(v["commits"], 1), v["gain"] / max(v["cost"], 1e-9)]
+            for k, v in sorted(lab.items(), key=lambda kv: -kv[1]["agents"]) if v["agents"] >= 5]
+    ltable = md(lrow, ["agent", "summoned", "mean cost", "commit rate", "owner payoff per commit",
+                       "owner payoff per bit"])
     # asymmetric games: rank of the same god with vs without language (paired by seed)
     arows = []
     for p in psets:
@@ -385,14 +434,14 @@ def sec_games(gt: GridType, n_games: int, processes: int, conds=None, psets=None
                           f"{100 * wins_lang / n:.0f}%"])
     atable = md(arows, ["policies", "god-games", "rank gain from language (+ = better)",
                         "games won by a language god (50% = no edge)"])
-    return {"table": table, "classes": ctable, "asymmetric": atable,
+    return {"table": table, "classes": ctable, "labels": ltable, "asymmetric": atable,
             "seconds": float(sum(r["seconds"] for r in res))}
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--type", default="5,base10,rgby")
-    ap.add_argument("--only", default="costs,astbytes,weights,kraft,search,attack,yields,games")
+    ap.add_argument("--only", default="costs,astbytes,weights,kraft,search,attack,yields,inplay,games")
     ap.add_argument("--games", type=int, default=16)
     ap.add_argument("--processes", type=int, default=4)
     ap.add_argument("--conds", default="")
@@ -415,6 +464,8 @@ def main():
             out[sec] = sec_search(gt)
         elif sec == "attack":
             out[sec] = sec_attack(gt)
+        elif sec == "inplay":
+            out[sec] = sec_inplay(gt)
         elif sec == "yields":
             out[sec] = sec_yields(gt)
         elif sec == "games":
