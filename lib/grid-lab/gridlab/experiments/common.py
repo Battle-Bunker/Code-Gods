@@ -124,20 +124,27 @@ def apply_knobs(knobs: dict) -> None:
 _CEIL: dict = {}
 
 
+def _ceiling_draws(gtype: GridType, family, n: int = 3) -> list:
+    from ..family import Draw
+    r = np.random.default_rng(int(hashlib.sha256(family.id.encode()).hexdigest()[:8], 16))
+    return [Draw(family, family.sample(r, gtype)) for _ in range(n)]
+
+
 def family_ceiling(gtype: GridType, family, n: int = 3) -> float:
     """Mean calibrated ceiling (deepest surprisal level, bits) over n fixed draws of a family."""
     k = (gtype.key, family.id)
     if k not in _CEIL:
-        from ..family import Draw
-        r = np.random.default_rng(int(hashlib.sha256(family.id.encode()).hexdigest()[:8], 16))
-        _CEIL[k] = float(np.mean([cal.survival(Draw(family, family.sample(r, gtype)), gtype).max_observed_bits
-                                  for _ in range(n)]))
+        _CEIL[k] = float(np.mean([cal.survival(d, gtype).max_observed_bits for d in _ceiling_draws(gtype, family, n)]))
     return _CEIL[k]
 
 
-def low_ceiling_families(gtype: GridType, thresh: float) -> list[str]:
+def low_ceiling_families(gtype: GridType, thresh: float, processes: int = 4) -> list[str]:
+    """Families whose calibrated ceiling in this GridType is below `thresh` bits (tables built in parallel)."""
     from ..rules import FAMILIES
-    return sorted(f.id for f in FAMILIES if f.available(gtype) and family_ceiling(gtype, f) < thresh)
+    fams = [f for f in FAMILIES if f.available(gtype)]
+    if any((gtype.key, f.id) not in _CEIL for f in fams):
+        cal.precompute([d for f in fams for d in _ceiling_draws(gtype, f)], gtype, processes=processes)
+    return sorted(f.id for f in fams if family_ceiling(gtype, f) < thresh)
 
 
 def config_for(st: dict, spec: GameSpec) -> GameConfig:

@@ -34,10 +34,10 @@ from pathlib import Path
 import numpy as np
 
 from .core import Grid, GridType, spawn_batch
-from .family import Draw
+from .family import Draw, key_to_ordinal
 from . import calibrate as cal
 
-PRIOR_VERSION = 1
+PRIOR_VERSION = 2
 CACHE_DIR = Path(__file__).resolve().parent.parent / ".cache" / "priors"
 _POOLS: dict = {}
 _TABLES: dict = {}
@@ -142,7 +142,7 @@ def main(argv=None):
             continue
         d = Draw(f, f.sample(rng, gt))
         u, r = cal.survival(d, gt), reachable_survival(d, gt)
-        top = int(u.levels[-1])
+        top = key_to_ordinal(u.levels[-1])
         print(f"{fid:24s} {u.surprisal(top):14.1f} {r.surprisal(top):16.1f} {r.meta['body_bits']:9.1f}")
 
 
