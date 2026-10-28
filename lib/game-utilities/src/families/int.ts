@@ -416,8 +416,9 @@ type SigilP = { sigil: string };
 /** [bit, value] pairs from a 32-character pattern written from bit 31 (the sign) down to bit 0. */
 const sigilBits = (s: string) => [...s].flatMap((ch, i) => (ch === "." ? [] : [[31 - i, Number(ch)]]));
 const sigilText = (p: SigilP) => card("🪬", "Bit Sigil",
-  `You want your sigil stamped into x's 32 bits (two's complement): ${p.sigil}, from bit 31 down to bit 0, dots free. `
-  + "Each pair [bit, value] says what one bit should be. Count the bits that match.", [["SIGIL", sigilBits(p.sigil)]]);
+  "You want your sigil stamped into x's 32 bits (two's complement). The sigil reads from bit 31 (the sign) down to "
+  + "bit 0: a 1 or 0 says what that bit should be, a dot means you don't care. Count the bits that match.",
+  [["SIGIL", p.sigil]]);
 const bitSigil = intFamily<SigilP>({
   id: "bit-sigil", name: "Bit Sigil", emoji: "🪬", theme: "Wants a secret pattern stamped into the bits of x.",
   shape: SCALAR,
@@ -427,15 +428,17 @@ const bitSigil = intFamily<SigilP>({
   python: p => pyCard(sigilText(p), `
     def utility(x):
         hits = 0
-        for bit, value in SIGIL:
-            if ((x >> bit) & 1) == value:
+        for bit in range(32):
+            want = SIGIL[31 - bit]
+            if want != "." and ((x >> bit) & 1) == int(want):
                 hits += 1
         return hits`),
   typescript: p => tsCard(sigilText(p), `
     function utility(x) {
       let hits = 0;
-      for (const [bit, value] of SIGIL) {
-        if (((x >> bit) & 1) === value) hits += 1;
+      for (let bit = 0; bit < 32; bit++) {
+        const want = SIGIL[31 - bit];
+        if (want !== "." && ((x >> bit) & 1) === Number(want)) hits += 1;
       }
       return hits;
     }`),

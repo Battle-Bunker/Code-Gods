@@ -268,10 +268,10 @@ const bingoCaller = gridFamily<BingoP>({
                 points += grid.size
         return points`),
   typescript: (p, g) => tsCard(bingoText(p, g), `
-    function dabbed(grid, cell) {
-      return ${g.N % 2 === 1
-    ? "CALLED.includes(cell.value) || cell === grid.cell(Math.floor(grid.size / 2), Math.floor(grid.size / 2))"
-    : "CALLED.includes(cell.value)"};
+    function dabbed(grid, cell) {${g.N % 2 === 1 ? `
+      const middle = grid.cell(Math.floor(grid.size / 2), Math.floor(grid.size / 2));
+      return CALLED.includes(cell.value) || cell === middle;` : `
+      return CALLED.includes(cell.value);`}
     }
 
     function utility(grid) {
