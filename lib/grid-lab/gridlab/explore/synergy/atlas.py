@@ -95,8 +95,12 @@ def atlas_draws(gtype: GridType, n_draws: int, families: Sequence[Family] | None
 
 
 def thresholds(table: cal.Survival, depths: Sequence[float] = DEPTHS) -> list[tuple[int, float] | None]:
-    """[(t, s(t)) | None] per depth: the smallest table level with surprisal >= depth."""
+    """[(t, s(t)) | None] per depth: the smallest table level with surprisal >= depth. With an exact
+    tail the exemplar's ordinal counts as a level too (binary rules such as Picture Frame have no
+    estimated level above 0)."""
     lv = np.asarray(table.levels)
+    if table.exact is not None and len(table.extra_levels):
+        lv = np.unique(np.r_[lv, table.extra_levels])
     s = np.asarray(table.surprisal(lv), float)
     out = []
     for b in depths:
@@ -359,7 +363,16 @@ def build_atlas(gtype: GridType, n_draws: int = 2, processes: int = 4, budget: A
     if pairs is None:
         pairs = [(i, j) for i in range(len(draws)) for j in range(i + 1, len(draws))
                  if same_family or draws[i].family.id != draws[j].family.id]
-    jobs = [p for p in pairs if tuple(p) not in state["joint"]]
+    state["thresholds"] = ths
+
+    def stale(p):
+        r = state["joint"].get(tuple(p), "missing")
+        if r == "missing":
+            return True
+        i, j = p
+        return any(ths[i][k] is not None and ths[j][k] is not None and (r is None or r[k] is None)
+                   for k in range(len(depths)))
+    jobs = [p for p in pairs if stale(p)]
     rs = np.random.default_rng(1)
     jobs = [tuple(jobs[k]) for k in rs.permutation(len(jobs))]
     if verbose:
@@ -406,11 +419,14 @@ def pmi_matrix(state: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     E = np.full((D, D, A), np.nan)
     Cn = np.zeros((D, D, A), bool)
     ths = state["thresholds"]
+    # binary draws: one ordinal jump covers every depth (e.g. Picture Frame, 0 -> 32 bits). The climb
+    # cannot enter an all-or-nothing contour set, so their censored pairs carry no information.
+    binary = [len({x[0] for x in t if x}) == 1 and all(x for x in t) for t in ths]
     for (i, j), r in state["joint"].items():
         if r is None:
             continue
         for k, x in enumerate(r):
-            if x is None:
+            if x is None or (x[2] and (binary[i] or binary[j])):
                 continue
             v = ths[i][k][1] + ths[j][k][1] - x[0]
             P[i, j, k] = P[j, i, k] = v

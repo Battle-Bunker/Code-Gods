@@ -173,11 +173,13 @@ def catalog_matrix(path: Path = CATALOG) -> dict[tuple[str, str], str]:
 def classify(vals_by_depth: list[list[float]], thr: float = 1.0) -> tuple[str, list[str]]:
     """Atlas class of a family pair from its draw-pair values at each depth.
     Per depth: 'A' if mean >= thr and >= 75% of draw pairs > 0; 'C' if mean <= -thr and >= 75% < 0;
-    '0' if every draw pair is within ±2 bits and |mean| < thr; else 'M' (the draw decides).
+    '0' if |mean| < thr and every draw pair is within ±tol(b) (2, 2.5, 3.5 bits at 8, 16, 24: about twice
+    the estimator's measured run-to-run SD); else 'M' (the draw decides).
     Overall: the common class when all reached depths agree, 'M' when they disagree (and 'flip'
     is reported when both 'A' and 'C' occur at different depths)."""
     per = []
-    for v in vals_by_depth:
+    tols = [2.0, 2.5, 3.5]
+    for q, v in enumerate(vals_by_depth):
         if not v:
             per.append("")
             continue
@@ -187,7 +189,7 @@ def classify(vals_by_depth: list[list[float]], thr: float = 1.0) -> tuple[str, l
             per.append("A")
         elif m <= -thr and (v < 0).mean() >= 0.75:
             per.append("C")
-        elif abs(m) < thr and np.all(np.abs(v) <= 2.0):
+        elif abs(m) < thr and np.all(np.abs(v) <= tols[min(q, 2)]):
             per.append("0")
         else:
             per.append("M")
@@ -241,6 +243,24 @@ def block_means(fm: dict, key: str, k: int | None = None) -> dict:
     return {g: (float(np.mean(v)), float(np.std(v) / np.sqrt(len(v))), len(v)) for g, v in sorted(acc.items())}
 
 
+def _cluster_table(title, lab, Mbar, fm, fams, k_clusters) -> list[str]:
+    L = [f"### Camps — {title}, k = {k_clusters}", ""]
+    L.append("| camp | size | members | hand camps (c/a/n) | layers (C/S/CS) | mean PMI inside | mean PMI to others |")
+    L.append("|---|---|---|---|---|---|---|")
+    for c in range(k_clusters):
+        mem = np.flatnonzero(lab == c)
+        oth = np.flatnonzero(lab != c)
+        inside = Mbar[np.ix_(mem, mem)][np.triu_indices(len(mem), 1)] if len(mem) > 1 else np.array([np.nan])
+        cross = Mbar[np.ix_(mem, oth)].ravel()
+        hc = [fm["camp"][i] for i in mem]
+        hl = [fm["layer"][i] for i in mem]
+        L.append(f"| {c} | {len(mem)} | {', '.join(fams[i] for i in mem)} | "
+                 f"{hc.count('clumper')}/{hc.count('alternator')}/{hc.count('neutral')} | "
+                 f"{hl.count('C')}/{hl.count('S')}/{hl.count('CS')} | {np.nanmean(inside):+.2f} | {np.nanmean(cross):+.2f} |")
+    L.append("")
+    return L
+
+
 def report(gtype_s: str, tag: str = "main", k_clusters: int = 6) -> tuple[str, dict]:
     gt = parse_type(gtype_s)
     st = load_atlas(gt, tag)
@@ -288,22 +308,14 @@ def report(gtype_s: str, tag: str = "main", k_clusters: int = 6) -> tuple[str, d
     L.append("")
     # clusters
     Mbar = mean_over_depths(W)
-    Dm = profile_distance(Mbar)
-    lab = average_linkage(Dm, k_clusters)
-    L.append(f"### Camps (average linkage on profile distance, k = {k_clusters})")
+    lab_p = average_linkage(profile_distance(Mbar), k_clusters)
+    A = np.nan_to_num(Mbar)
+    np.fill_diagonal(A, 0.0)
+    lab = average_linkage(-A, k_clusters)
+    for title, labs in (("affinity camps: average linkage on −W̄ (mutually aligned families join)", lab),
+                        ("profile camps: average linkage on 1 − corr(rows of W̄) (same allies and rivals)", lab_p)):
+        L += _cluster_table(title, labs, Mbar, fm, fams, k_clusters)
     L.append("")
-    L.append("| camp | size | members | hand camps (c/a/n) | layers (C/S/CS) | mean PMI inside | mean PMI to others |")
-    L.append("|---|---|---|---|---|---|---|")
-    for c in range(k_clusters):
-        mem = np.flatnonzero(lab == c)
-        oth = np.flatnonzero(lab != c)
-        inside = Mbar[np.ix_(mem, mem)][np.triu_indices(len(mem), 1)] if len(mem) > 1 else np.array([np.nan])
-        cross = Mbar[np.ix_(mem, oth)].ravel()
-        hc = [fm["camp"][i] for i in mem]
-        hl = [fm["layer"][i] for i in mem]
-        L.append(f"| {c} | {len(mem)} | {', '.join(fams[i] for i in mem)} | "
-                 f"{hc.count('clumper')}/{hc.count('alternator')}/{hc.count('neutral')} | "
-                 f"{hl.count('C')}/{hl.count('S')}/{hl.count('CS')} | {np.nanmean(inside):+.2f} | {np.nanmean(cross):+.2f} |")
     L.append("")
     # eigen axes
     w, V = eig_axes(Mbar, 3)
@@ -340,7 +352,7 @@ def report(gtype_s: str, tag: str = "main", k_clusters: int = 6) -> tuple[str, d
             "W": np.where(np.isnan(W), None, np.round(W, 3)).tolist(),
             "sd": np.where(np.isnan(fm["sd"]), None, np.round(fm["sd"], 3)).tolist(),
             "excl": np.where(np.isnan(fm["excl"]), None, np.round(fm["excl"], 3)).tolist(),
-            "clusters": lab.tolist()}
+            "clusters": lab.tolist(), "clusters_profile": lab_p.tolist()}
     return "\n".join(L), data
 
 
