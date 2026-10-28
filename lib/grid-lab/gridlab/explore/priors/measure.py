@@ -36,6 +36,7 @@ from ... import calibrate as cal
 from . import latent as la
 
 OUT = la.CACHE / "measure"
+CEIL_CAP = 64.0
 
 
 def parse_type(s: str) -> GridType:
@@ -177,7 +178,8 @@ def gini(x):
 
 def fairness_summary(rows) -> dict:
     y = np.array([r["best"] for r in rows])
-    c = np.array([r["ceiling"] for r in rows])
+    # ceilings capped at 64 bits: the samplers' target depth (uniform exact tails go beyond it)
+    c = np.minimum(np.array([r["ceiling"] for r in rows]), CEIL_CAP)
     ly = np.log2(np.clip(y, 1e-3, None))
     lo, hi = np.quantile(np.clip(y, 1e-3, None), [0.05, 0.95])
     tools = Counter(r["tool"].split("+")[0] for r in rows)
