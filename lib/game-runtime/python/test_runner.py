@@ -28,12 +28,13 @@ class RunnerTests(unittest.TestCase):
                 self.act(agent("[]"), bad, STRINGS)
 
     def test_inspect_does_not_execute_and_prices_user_source_only(self):
-        self.assertEqual(self.runner.run(request("inspect", "def agent(x):\n    return x"))["cost"], 7)
+        self.assertEqual(self.runner.run(request("inspect", "def agent(x):\n    return x"))["astBytes"], 7)
         self.assertGreater(self.runner.run(request(
             "inspect", "import sys\nsys.exit(42)\ndef agent(x):\n    return []"))["cost"], 0)
         bigger = {**INTS, "prelude": {**INTS["prelude"], "python": INTS["prelude"]["python"] + "\nZ = 1\n",
                                       "key": "other"}}
-        self.assertEqual(self.runner.run(request("inspect", "def agent(x):\n    return x", settings=bigger))["cost"], 7)
+        self.assertEqual(self.runner.run(request("inspect", "def agent(x):\n    return x", settings=bigger))["cost"],
+                         self.runner.run(request("inspect", "def agent(x):\n    return x"))["cost"])
 
     def test_grammar(self):
         for source, message in (
@@ -65,11 +66,16 @@ class RunnerTests(unittest.TestCase):
             self.act(agent("open('/etc/passwd').read()"))
 
     def test_no_environment(self):
-        self.assertEqual(self.act(agent("[add(len(__import__('os').environ))]")), '[["add",{"k":1}]]')
+        with self.assertRaisesRegex(Execution, "not available to agents"):
+            self.act(agent("[add(len(__import__('os').environ))]"))
+        # Past the proxies (len.__self__ is the real builtins module): an empty environment.
+        self.assertEqual(self.act(agent("[add(len(len.__self__.__import__('os').environ))]")), '[["add",{"k":1}]]')
 
     def test_stdio_cannot_forge_output(self):
+        # print does nothing; the real stdout refuses writes.
+        self.assertEqual(self.act(agent("""(print('[["add",{"k":0}]]'), [])[1]""")), "[]")
         with self.assertRaises(Execution):
-            self.act(agent("""(print('[["add",{"k":0}]]'), [])[1]"""))
+            self.act(agent("""(len.__self__.print('[["add",{"k":0}]]'), [])[1]"""))
 
     def test_bad_settings_and_prelude(self):
         for settings in (

@@ -30,12 +30,12 @@ class ReactorTests(unittest.TestCase):
         for _ in range(30):
             self.assertEqual(self.k("x"), 1)
 
-    def test_real_time_and_entropy(self):
-        self.assertLess(abs(self.k("int(__import__('time').time())") - time.time()), 5)
-        values = {self.k("__import__('random').randrange(2147483647)") for _ in range(8)}
-        self.assertGreater(len(values), 1)
-        values = {self.k("int.from_bytes(__import__('os').urandom(3))") for _ in range(8)}
-        self.assertGreater(len(values), 1)
+    def test_virtual_time_and_seeded_entropy(self):
+        epoch = 1_767_225_600
+        self.assertEqual(self.k("int(__import__('time').time() * 1e6) - %d" % (epoch * 10**6)), 1)
+        self.assertEqual(self.k("int(len.__self__.__import__('time').time() * 1e6) - %d" % (epoch * 10**6)), 1)
+        values = {self.k("__import__('random').randrange(2147483647)") for _ in range(4)}
+        self.assertEqual(len(values), 1, "the same seed draws the same numbers")
 
     def test_user_module_is_budgeted(self):
         for source in ("sum(iter(lambda: 1, 0))\ndef agent(x):\n    return []",
@@ -45,38 +45,46 @@ class ReactorTests(unittest.TestCase):
             self.assertEqual(self.k("x"), 1)
 
     def test_no_guest_files_or_external_io(self):
+        # B is the real builtins module, reached past the agent's builtins and import proxies.
         for body in (
             "open('/etc/passwd').read()",
-            "open('/lib/python3.15/random.py').read()",
-            "open('/tmp/owned', 'w').write('bad')",
-            "__import__('os').write(1, b'forged')",
-            "__import__('os').read(0, 1)",
-            "__import__('os').listdir('/lib')",
-            "__import__('socket').socket()",
-            "__import__('os').system('true')",
+            "B.open('/etc/passwd').read()",
+            "B.open('/lib/python3.15/random.py').read()",
+            "B.open('/tmp/owned', 'w').write('bad')",
+            "B.__import__('os').write(1, b'forged')",
+            "B.__import__('os').read(0, 1)",
+            "B.__import__('os').listdir('/lib')",
+            "B.__import__('socket').socket()",
+            "B.__import__('os').system('true')",
             "__import__('time').sleep(1)",
-            "__import__('sys').exit(0)",
+            "B.__import__('time').sleep(1)",
+            "B.__import__('sys').exit(0)",
         ):
+            body = body.replace("B.", "len.__self__.")
             with self.subTest(body=body), self.assertRaises((Execution, Limit)):
                 self.act(agent(body))
 
     def test_snapshot_resets_modules_builtins_and_prelude(self):
-        source = ("import builtins\nbuiltins._poison = getattr(builtins, '_poison', 0) + 1\n"
+        source = ("builtins = len.__self__\nbuiltins._poison = getattr(builtins, '_poison', 0) + 1\n"
                   "def agent(x):\n    return [add(builtins._poison)]\n")
         for _ in range(5):
             self.assertEqual(value(self.act(source)), 1)
-        source = ("import math\nmath._poison = getattr(math, '_poison', 0) + 1\n"
+        source = ("math = len.__self__.__import__('math')\nmath._poison = getattr(math, '_poison', 0) + 1\n"
                   "def agent(x):\n    return [add(math._poison)]\n")
         for _ in range(5):
             self.assertEqual(value(self.act(source)), 1)
         # Poisoning the prelude's module-level state does not survive the act.
-        self.act("_JSON.dumps = lambda *a, **k: 'poison'\ndef agent(x):\n    return []")
+        with self.assertRaisesRegex(Execution, "read-only"):
+            self.act("_JSON.dumps = lambda *a, **k: 'poison'\ndef agent(x):\n    return []")
+        with self.assertRaisesRegex(Execution, "read-only"):
+            self.act("import math\nmath.memo = 1\ndef agent(x):\n    return []")
+        self.act("len.__self__.__import__('json').dumps = lambda *a, **k: 'poison'\ndef agent(x):\n    return []")
         self.assertEqual(self.k("x"), 1)
 
     def test_cross_agent_poisoning(self):
-        self.act("import builtins\nbuiltins.len = lambda x: 999\ndef agent(x):\n    return []")
+        self.act("builtins = len.__self__\nbuiltins.len = lambda x: 999\ndef agent(x):\n    return []")
         self.assertEqual(self.k("len('abc')"), 3)
-        self.act("import sys\nsys.modules.clear()\ndef agent(x):\n    return []")
+        self.act("sys = len.__self__.__import__('sys')\nsys.modules.clear()\ndef agent(x):\n    return []")
         self.assertEqual(self.k("__import__('math').isqrt(81)"), 9)
 
     def test_varied_cached_agents_have_pristine_globals(self):
@@ -84,10 +92,10 @@ class ReactorTests(unittest.TestCase):
         for source in sources:
             self.runner.run(request("inspect", source))
         for _ in range(3):
-            self.act("import builtins\nbuiltins._poison = 99\nadd = None\ndef agent(x):\n    return []")
+            self.act("builtins = len.__self__\nbuiltins._poison = 99\nadd = None\ndef agent(x):\n    return []")
             for i, source in enumerate(sources):
                 self.assertEqual(value(self.act(source)), i + 1)
-            self.assertEqual(self.k("getattr(__import__('builtins'), '_poison', 0)"), 0)
+            self.assertEqual(self.k("getattr(len.__self__, '_poison', 0)"), 0)
         self.assertGreaterEqual(len(self.runner.cache), 9)
         for blob, cost, size in self.runner.cache.values():
             self.assertIsInstance(blob, bytes)
@@ -167,7 +175,7 @@ class ReactorTests(unittest.TestCase):
         self.assertEqual(self.runner.run(request("act", agent("[add(x)]"), 3, slow))["calls"], '[["add",{"k":3}]]')
 
     def test_ast_price_does_not_evaluate(self):
-        self.assertEqual(self.runner.run(request("inspect", agent("x")))["cost"], 7)
+        self.assertEqual(self.runner.run(request("inspect", agent("x")))["astBytes"], 7)
         result = self.runner.run(request("inspect", "__import__('sys').exit(42)\ndef agent(x):\n    return x"))
         self.assertGreater(result["cost"], 0)
 

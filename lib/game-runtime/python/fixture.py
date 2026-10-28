@@ -7,8 +7,8 @@ INTS = {**FIXTURE, "interactionComputeMs": 5}
 STRINGS = {**INTS, "objectType": "string", "wireMaxLength": 256}
 
 
-def request(mode, source, value=1, settings=INTS):
-    return {"mode": mode, "source": source, "input": value, "settings": settings}
+def request(mode, source, value=1, settings=INTS, seed="1"):
+    return {"mode": mode, "source": source, "input": value, "settings": settings, "seed": seed}
 
 
 def agent(body):

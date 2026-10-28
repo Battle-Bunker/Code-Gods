@@ -25,7 +25,7 @@ import threading
 import time
 import wasmtime
 from domain import (GRAMMAR, CALLS_MAX, PRELUDE_PART_MAX, Compile, Config, Domain,
-                    Execution, Limit, settings, check_input)
+                    Execution, Limit, settings, check_input, parse_seed)
 from reactor import transform
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -36,6 +36,38 @@ CACHE_ENTRIES = 128
 CACHE_BYTES = 4 * 1024 * 1024
 PY_FILE_INPUT = 257
 PINNED_WASM_SHA256 = "9f58ad347987d0a23def7eefa5aa5e8ffaef529fba26979350c44376d6b8fae3"
+HERE = pathlib.Path(__file__).resolve().parent
+# ast-bits-v1 tables (grid-lab claude/gridlab-open-agents, frozen per season): exact bytes required.
+TABLES_PATH = HERE / "ast_bits_v1.json"
+TABLES_SHA256 = "e965947993720ce41eb308ec2cc36c1950ee5a3689405139f3d9a75cbe0f1200"
+COMPLEXITY_ID = "ast-bits-v1"
+# Deterministic fuel ceiling per configured millisecond. Wasmtime fuel is a deterministic count of
+# executed Wasm instructions, so this limit (unlike the CPU sampler) gives the same answer in
+# measurement and play. On the measured host it binds before the CPU backstop.
+FUEL_PER_MS = 2_000_000
+EPOCH_NS = 1_767_225_600 * 10**9      # 2026-01-01T00:00:00Z: every act's virtual clock starts here
+MASK64 = (1 << 64) - 1
+
+
+class SplitMix64:
+    """Deterministic bytes for WASI random_get, from the act seed (host side: the guest cannot see it)."""
+
+    def __init__(self, seed):
+        self.state = seed & MASK64
+        self.buffer = b""
+
+    def next(self):
+        self.state = (self.state + 0x9E3779B97F4A7C15) & MASK64
+        z = self.state
+        z = ((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9) & MASK64
+        z = ((z ^ (z >> 27)) * 0x94D049BB133111EB) & MASK64
+        return z ^ (z >> 31)
+
+    def take(self, n):
+        while len(self.buffer) < n:
+            self.buffer += self.next().to_bytes(8, "little")
+        out, self.buffer = self.buffer[:n], self.buffer[n:]
+        return out
 BOOT = """
 import ast, json, math, random, time, sys, collections, functools, itertools, operator, statistics
 import re, decimal, fractions, hashlib
@@ -59,31 +91,41 @@ def _price(tree):
         if v is Ellipsis: return 1
         raise ValueError('Unsupported constant')
     return sum(size(n.value) if isinstance(n, ast.Constant) else 1 for n in ast.walk(tree))
-def _inspect(source):
-    # Parses and prices; never evaluates. Returns (cost, '') or (-1, message).
+def _inspect(source, vocab, scheme):
+    # Parses and prices; never evaluates the player's source. The trusted prelude's constructors
+    # (_PRELUDE_G) are applied to literal arguments only, to detect literal moves.
+    # Returns (json result, '') or ('', message).
     try:
-        return _shape(ast.parse(source, mode='exec'))
+        tree = ast.parse(source, mode='exec')
+        error = _shape(tree)
+        if error:
+            return '', error
+        bits = _AB['ast_bits'](tree, _AB['Tables'](_AB_BASE[scheme], json.loads(vocab)), _PRELUDE_G)
+        bits['astBytes'] = _price(tree)
+        return json.dumps(bits), ''
+    except _AB['Unencodable'] as e:
+        return '', f'SyntaxError: this program uses Python the price table does not cover ({e})'[:500]
     except Exception as e:
-        return -1, f'SyntaxError: {type(e).__name__}: {e}'[:500]
+        return '', f'SyntaxError: {type(e).__name__}: {e}'[:500]
 def _shape(tree):
     found = [n for n in tree.body
              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == 'agent']
     if not found:
-        return -1, ('SyntaxError: an agent must define a function named agent at the top '
-                    'level, like:' + _EXAMPLE)
+        return ('SyntaxError: an agent must define a function named agent at the top '
+                'level, like:' + _EXAMPLE)
     if len(found) > 1:
-        return -1, f'SyntaxError: agent is defined more than once (line {found[1].lineno})'
+        return f'SyntaxError: agent is defined more than once (line {found[1].lineno})'
     f = found[0]
     if isinstance(f, ast.AsyncFunctionDef):
-        return -1, f'SyntaxError: agent must be a plain def, not async def (line {f.lineno})'
+        return f'SyntaxError: agent must be a plain def, not async def (line {f.lineno})'
     a = f.args
     positional = a.posonlyargs + a.args
     required = len(positional) - len(a.defaults)
     if (required > 1 or (not positional and a.vararg is None)
             or any(d is None for d in a.kw_defaults)):
-        return -1, (f'SyntaxError: agent must take exactly one argument (line {f.lineno}), '
-                    'like:' + _EXAMPLE)
-    return _price(tree), ''
+        return (f'SyntaxError: agent must take exactly one argument (line {f.lineno}), '
+                'like:' + _EXAMPLE)
+    return ''
 def _explain(source):
     try:
         compile(source, '<agent>', 'exec')
@@ -128,9 +170,9 @@ def describe_trap(trap, phase, budget):
 
 
 def digest(prelude):
-    """Collision-resistant identity of the exact trusted prelude text (cache keys)."""
-    return hashlib.sha256(json.dumps([prelude["python"], prelude["js"], prelude["dts"]])
-                          .encode()).hexdigest()
+    """Collision-resistant identity of the exact trusted prelude (text and pricing vocabulary)."""
+    return hashlib.sha256(json.dumps([prelude["python"], prelude["js"], prelude["dts"], prelude["pricing"]],
+                                     sort_keys=True).encode()).hexdigest()
 
 
 class Runner:
@@ -149,7 +191,14 @@ class Runner:
         self.cache_bytes = 0
         self.seed = None
         self.store = None
-        with self.bounded(3):
+        tables = TABLES_PATH.read_bytes()
+        if hashlib.sha256(tables).hexdigest() != TABLES_SHA256:
+            raise ValueError("Unrecognized ast-bits-v1 tables")
+        self.clock = 0
+        self.entropy = SplitMix64(0)
+        self.executing = False
+        self.used_entropy = False
+        with self.bounded(10):
             self.new_store()
             self.call("__wasm_call_ctors")
             config_ptr = self.call("malloc", 4096)
@@ -163,6 +212,9 @@ class Runner:
             self.call("free", config_ptr)
             self.call("free", status)
             self.simple(BOOT)
+            self.simple((HERE / "sandbox_guest.py").read_text())
+            self.simple(f"_AB = {{}}\nexec(compile({(HERE / 'astbits_guest.py').read_text()!r}, '<astbits>', 'exec'), _AB)")
+            self.simple(f"_AB_BASE = {{s: _AB['BaseTables'](json.loads({tables.decode()!r}), s) for s in ('corpus', 'uniform')}}")
             self.source_buffer = self.call("malloc", 16385)
             self.prelude_buffer = self.call("malloc", PRELUDE_PART_MAX + 1)
             self.input_buffer = self.call("malloc", 8193)
@@ -177,6 +229,13 @@ class Runner:
             self.agent_key = self.cstring("agent")
             self.encode_key = self.cstring("__encode_calls")
             self.exc_key = self.cstring("_exc")
+            self.code_key = self.cstring("_USER_CODE")
+            self.prelude_key = self.cstring("_PRELUDE_G")
+            self.main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
+            self.true_ptr = self.main_get("_TRUE")
+            self.step_limit_type = self.main_get("_StepLimit")
+            if not self.true_ptr or not self.step_limit_type:
+                raise RuntimeError("Sandbox bootstrap failed")
             self.module_name = self.call("PyUnicode_FromStringAndSize", self.agent_key, 5)
             self.str_type = self.call("PyObject_Type", self.module_name)
             self.startup = False
@@ -241,10 +300,27 @@ class Runner:
                 raise ValueError("Unexpected module import")
             name, typ = item.name, item.type
             def dispatch(caller, *args, name=name, typ=typ):
-                if name == "random_get" and not self.startup and not 0 <= args[1] <= 65536:
-                    return 28
-                if self.startup or name in ("clock_time_get", "clock_res_get", "random_get"):
+                if self.startup:
                     return delegated[name](caller, *args)
+                # After bootstrap, clocks and entropy are virtual and deterministic, so every path to
+                # them (including escapes past the guest's module proxies) sees the same values.
+                try:
+                    if name == "clock_time_get":
+                        self.clock += 1
+                        self.memory.write(caller, struct.pack("<Q", EPOCH_NS + 1000 * self.clock), args[2])
+                        return 0
+                    if name == "clock_res_get":
+                        self.memory.write(caller, struct.pack("<Q", 1000), args[1])
+                        return 0
+                    if name == "random_get":
+                        if not 0 <= args[1] <= 65536:
+                            return 28
+                        if self.executing:
+                            self.used_entropy = True
+                        self.memory.write(caller, self.entropy.take(args[1]), args[0])
+                        return 0
+                except (ValueError, IndexError, wasmtime.WasmtimeError):
+                    return 21  # WASI EFAULT
                 if len(typ.results) == 1:
                     return 76  # WASI ENOTCAPABLE, regardless of recovered Python APIs
                 raise wasmtime.Trap("Guest I/O/process capability denied")
@@ -267,6 +343,9 @@ class Runner:
         self.shim_linker.define(self.store, "guest", "memory", self.memory)
         shim = self.shim_linker.instantiate(self.store, self.shim_module)
         delegated.update(shim.exports(self.store))
+
+    def main_get(self, name):
+        return self.call("PyDict_GetItemString", self.main_dict, self.cstring(name))
 
     def call(self, name, *args):
         return self.exports[name](self.store, *args)
@@ -357,7 +436,17 @@ class Runner:
         blob = self.marshal(code)
         return self.remember(key, (blob, -1, len(blob) + sum(len(part) for part in key)))
 
-    def prepare(self, source, key):
+    def fresh_globals(self, act_seed, step_limit):
+        """Fresh agent builtins (sandbox_guest._act_setup) and globals for one act or inspection."""
+        self.simple(f"_act_setup({act_seed}, {step_limit})")
+        builtins_ = self.main_get("_AGENT_BUILTINS")
+        globals_ = self.call("PyDict_New")
+        if (not builtins_ or self.call("PyDict_SetItemString", globals_, self.builtins_key, builtins_)
+                or self.call("PyDict_SetItemString", globals_, self.name_key, self.module_name)):
+            raise ValueError("Guest globals preparation failed")
+        return globals_
+
+    def prepare(self, source, key, prelude_blob, vocab, scheme):
         if key in self.cache:
             self.cache.move_to_end(key)
             return self.cache[key]
@@ -369,15 +458,26 @@ class Runner:
             # Recompiling inside the guest (never the host) recovers the real message.
             self.simple(f"_compile_error = _explain({source!r})")
             raise Compile(self.main_string("_compile_error", "SyntaxError: invalid Python module"))
-        # Shape check and price parse the source again; nothing is evaluated.
-        self.simple(f"_inspection_cost, _compile_error = _inspect({source!r})")
-        main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
-        cost = self.call("PyLong_AsLong", self.call("PyDict_GetItemString", main_dict,
-                                                    self.cstring("_inspection_cost")))
-        if cost < 0:
+        # The trusted prelude runs (its constructors detect literal moves); the player's source is
+        # parsed, shape-checked and priced, never evaluated.
+        prelude_globals = self.fresh_globals(0, 0)
+        if not self.call("PyEval_EvalCode", self.load(prelude_blob), prelude_globals, prelude_globals):
+            self.call("PyErr_Clear")
+            raise Config("The room's Python prelude failed to run")
+        if self.call("PyDict_SetItemString", self.main_dict, self.prelude_key, prelude_globals):
+            raise ValueError("Guest inspection preparation failed")
+        self.simple(f"_inspection, _compile_error = _inspect({source!r}, {vocab!r}, {scheme!r})")
+        result = self.main_string("_inspection", "")
+        if not result:
             raise Compile(self.main_string("_compile_error", "SyntaxError: invalid agent"))
+        inspection = json.loads(result)
+        parts = inspection["parts"]
+        report = {"cost": sum(parts.values()), "astBytes": inspection["astBytes"], "parts": parts,
+                  "literalMoves": inspection["literalMoves"],
+                  "literalMoveFallbackBits": inspection["fallbacks"]}
         blob = self.marshal(code)
-        return self.remember(key, (blob, cost, len(blob) + sum(len(part.encode()) for part in key)))
+        size = len(blob) + len(result) + sum(len(part.encode()) for part in key)
+        return self.remember(key, (blob, report, size))
 
     def load(self, blob):
         self.memory.write(self.store, blob, self.code_buffer)
@@ -386,13 +486,21 @@ class Runner:
             raise ValueError("Trusted code deserialization failed")
         return code
 
-    def guest_error(self, what):
+    def steps(self):
+        value = self.main_get("_steps")
+        steps = self.call("PyLong_AsLong", value) if value else -1
+        self.call("PyErr_Clear")
+        return steps
+
+    def guest_error(self, what, step_limit):
         """The guest's own exception text, computed inside the guest (and its budget)."""
         exc = self.call("PyErr_GetRaisedException")
         self.call("PyErr_Clear")
+        if (exc and self.call("PyObject_Type", exc) == self.step_limit_type) or self.steps() > step_limit:
+            return Limit(f"Step limit exceeded: the agent took more than {step_limit} steps. Do less work per call.")
         detail = "an error"
         if exc:
-            main_dict = self.call("PyModule_GetDict", self.call("PyImport_AddModule", self.cstring("__main__")))
+            main_dict = self.main_dict
             if not self.call("PyDict_SetItemString", main_dict, self.exc_key, exc):
                 try:
                     self.simple("_error = _describe(_exc)")
@@ -410,28 +518,33 @@ class Runner:
         domain = settings(request)
         budget = domain["interactionComputeMs"]
         prelude = domain["prelude"]
+        step_limit = domain["stepBudget"]
+        scheme = request.get("pricingScheme", "corpus")   # "uniform" only for tests and research
+        if scheme not in ("corpus", "uniform"):
+            raise Config("Unknown pricing scheme")
         if request["mode"] == "act":
             check_input(request.get("input"), domain)
+            act_seed = parse_seed(request.get("seed"))
         identity = digest(prelude)
-        key = (GRAMMAR, domain["objectType"], prelude["key"], identity, source)
+        key = (GRAMMAR, COMPLEXITY_ID, scheme, domain["objectType"], prelude["key"], identity, source)
+        vocab = json.dumps(prelude["pricing"]["python"], sort_keys=True)
         phase = "prepare"
+        self.executing = False
         try:
             with self.bounded(3):
                 prelude_blob = self.prepare_prelude(prelude["python"], ("prelude", prelude["key"], identity))[0]
-                blob, cost, _ = self.prepare(source, key)
+                blob, report, _ = self.prepare(source, key, prelude_blob, vocab, scheme)
                 if request["mode"] == "inspect":
-                    return {"cost": cost}
-                # Fresh guest: every act starts from the one trusted snapshot.
+                    return dict(report)
+                # Fresh guest: every act starts from the one trusted snapshot, a restarted virtual
+                # clock and an entropy stream derived from the act's seed.
                 self.restore(self.seed)
+                self.clock = 0
+                self.entropy = SplitMix64(act_seed ^ 0x5DEECE66D)
+                self.used_entropy = False
                 prelude_code = self.load(prelude_blob)
                 code = self.load(blob)
-                globals_ = self.call("PyDict_New")
-                if (self.call("PyDict_SetItemString", globals_, self.builtins_key,
-                              self.call("PyEval_GetBuiltins"))
-                        or self.call("PyDict_SetItemString", globals_, self.name_key, self.module_name)):
-                    raise ValueError("Guest globals preparation failed")
-                # Entropy must be refreshed AFTER restoring random module state.
-                self.simple("random.seed(None)")
+                globals_ = self.fresh_globals(act_seed, step_limit)
                 # Trusted prelude and decode: outside the guest budget.
                 if not self.call("PyEval_EvalCode", prelude_code, globals_, globals_):
                     self.call("PyErr_Clear")
@@ -449,23 +562,28 @@ class Runner:
                 if not obj:
                     self.call("PyErr_Clear")
                     raise Config("The room's prelude could not decode the input")
+                # Count steps in the player's own code objects only (not the prelude's).
+                if self.call("PyDict_SetItemString", self.main_dict, self.code_key, code):
+                    raise ValueError("Guest instrumentation failed")
+                self.simple("_instrument(_USER_CODE)")
             # Conservative instruction ceiling, not an instruction-to-time promise.
             # The independent process-CPU sampler enforces the configured time
             # budget; epoch interruption and the parent wall deadline back it up.
             phase = "execute"
-            self.store.set_fuel(fuel if fuel is not None else int(budget * 150000))
+            self.store.set_fuel(fuel if fuel is not None else int(budget * FUEL_PER_MS))
             if on_execute:
                 on_execute()
+            self.executing = True
             with self.bounded(seconds if seconds is not None else max(0.05, budget/1000*10), budget):
                 if not self.call("PyEval_EvalCode", code, globals_, globals_):
-                    raise self.guest_error("The agent's module raised an error")
+                    raise self.guest_error("The agent's module raised an error", step_limit)
                 # Looked up after the module ran: the guest owns its globals.
                 agent = self.call("PyDict_GetItemString", globals_, self.agent_key)
                 if not agent:
                     raise Execution("The agent's module no longer defines agent")
                 calls = self.call("PyObject_CallOneArg", agent, obj)
                 if not calls:
-                    raise self.guest_error("agent raised an error")
+                    raise self.guest_error("agent raised an error", step_limit)
                 # The encoder is untrusted-equivalent (the guest can monkeypatch it
                 # or anything it uses); the host parses and validates its output.
                 encode = self.call("PyDict_GetItemString", globals_, self.encode_key)
@@ -473,7 +591,7 @@ class Runner:
                     raise Execution("The agent removed __encode_calls")
                 result = self.call("PyObject_CallOneArg", encode, calls)
                 if not result:
-                    raise self.guest_error("Encoding agent's calls failed")
+                    raise self.guest_error("Encoding agent's calls failed", step_limit)
                 # Exact str only: no subclass, no repr/str/JSON hook is invoked.
                 if self.call("PyObject_Type", result) != self.str_type:
                     raise Domain("agent must return a list of mutator calls (the encoder did not produce a string)")
@@ -490,11 +608,18 @@ class Runner:
                 data = bytes(self.memory.read(self.store, pointer, pointer+length))
                 if not data.isascii():
                     raise Domain("Encoded calls must be an ASCII string")
-                return {"calls": data.decode("ascii")}
+                steps = self.steps()
+                if steps > step_limit:
+                    raise Limit(f"Step limit exceeded: the agent took more than {step_limit} steps. Do less work per call.")
+                # Seeded `random` sets the guest flag; any entropy read past the proxies is seen here.
+                used = self.main_get("_used_random") == self.true_ptr or self.used_entropy
+                return {"calls": data.decode("ascii"), "usedRandom": bool(used), "steps": max(steps, 0)}
         except wasmtime.Trap as trap:
             # A trap can interrupt C stack unwinding. Never reuse that store.
             self.new_store()
             raise Limit(describe_trap(trap, phase, budget)) from None
+        finally:
+            self.executing = False
 
 
 def code_of(error):
