@@ -1,0 +1,4 @@
+.env.local
+.convex/
+node_modules/
+dist/

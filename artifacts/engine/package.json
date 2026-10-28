@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/engine",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/game-core": "workspace:*",
+    "@workspace/game-types": "workspace:*",
+    "@workspace/game-utilities": "workspace:*",
+    "@workspace/game-runtime": "workspace:*",
+    "@workspace/player-client": "workspace:*",
+    "@workspace/ai-player": "workspace:*",
+    "@convex-dev/static-hosting": "0.2.1",
+    "convex": "1.48.0",
+    "jose": "6.2.13"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "~5.9.3"
+  }
+}
