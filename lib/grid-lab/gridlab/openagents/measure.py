@@ -13,8 +13,8 @@ Decision information is estimated by running the agent, never by reading it:
 * a **deterministic** agent (it never drew a random number) has I = H(action). We take the minimum of
   four estimates: the Miller–Madow joint entropy (trusted only when its Good–Turing coverage is
   ≥ 0.5), a positional chain bound H(len) + Σ_positions [H(mutator) + Σ_fields H(field)], a set bound
-  Σ_moves H_b(P(move in action)) (valid when every action lists its moves in canonical order without
-  repeats, so the action is a function of its move set), and the expected naming length of the action
+  Σ_moves H_b(P(move in action)) (valid when every action lists its moves in strictly increasing
+  enumeration order, so the action is a function of its move set), and the expected naming length of the action
   under the mutator code (an upper bound on H by source coding). Each component uses Miller–Madow and
   falls back to log2 of its alphabet when its coverage is low;
 * a **randomized** agent is re-run with R engine-derived seeds per grid. We estimate
@@ -126,6 +126,17 @@ def field_alphabets(gt: GridType) -> dict:
     return _FIELD_ALPHA[gt]
 
 
+_MOVE_INDEX: dict = {}
+
+
+def move_index(gt: GridType) -> dict:
+    """move key -> its position in the enumeration of every legal move (mutators in MUTATORS order, each
+    mutator's field space in field order): the canonical order of the set bound."""
+    if gt not in _MOVE_INDEX:
+        _MOVE_INDEX[gt] = {m.key: i for i, m in enumerate(all_moves(gt))}
+    return _MOVE_INDEX[gt]
+
+
 def naming_bits(action: tuple, gt: GridType) -> float:
     """Length of the action written out literally: γ(#moves + 1) + Σ (log2 #mutators + D(move))."""
     k = log2(len(available(gt)))
@@ -146,9 +157,11 @@ def decision_deterministic(acts: list, gt: GridType, min_cov: float) -> dict:
             col = [a[p].params.get(f) if p < len(a) else None for a in acts]
             if any(v is not None for v in col):
                 pos += _component_bits(col, alpha, min_cov)
-    canonical = all(list(k) == sorted(set(k), key=repr) for k in keys)
+    idx = move_index(gt)
+    canonical = all(all(m.key in idx for m in a) and all(idx[x.key] < idx[y.key] for x, y in zip(a, a[1:]))
+                    for a in acts)
     if canonical:
-        universe = sorted({m for k in keys for m in k}, key=repr)
+        universe = sorted({m for k in keys for m in k}, key=lambda k: idx[k])
         sets = [set(k) for k in keys]
         setb = sum(_component_bits([m in s for s in sets], 2, min_cov) for m in universe)
     else:
