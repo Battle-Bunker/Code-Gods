@@ -1,5 +1,5 @@
 /**
- * Rate limits for panels. The engine commits in ticks (about 1–4 per second), so Convex subscriptions
+ * Rate limits for panels. The engine commits in ticks (about once a second), so Convex subscriptions
  * already update at most at the tick rate; these hooks cap a panel's re-renders further, so ten panels
  * never cost ten renders per tick. Every live SDK hook takes `hz` (default 2, clamped to 0.2–5).
  */

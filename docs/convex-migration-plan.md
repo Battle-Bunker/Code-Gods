@@ -170,7 +170,7 @@ selection and spawns use `crypto.getRandomValues`. Agent execution itself is det
 (source, input, prelude, seed).
 
 **Reactivity.** Clients subscribe to queries over `objects`, `agents` and `tickBatches`. A commit
-invalidates them once per tick, so subscriptions update at the tick rate (1–4 Hz), never at the
+invalidates them once per tick, so subscriptions update at the tick rate (1 Hz), never at the
 interaction rate. That is the server-side half of the Panel SDK's throttling (§8.3).
 
 ### 3.2 Throughput estimate (to be confirmed by measurement)

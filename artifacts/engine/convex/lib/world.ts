@@ -6,8 +6,13 @@ import { agentBattery, isEligible, personalView, settleAgentEnergy, type AgentAc
 
 /** Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no tickSeconds. */
 export const TICK_SECONDS = 1.0;
-/** Ticks run at most this often (subscriptions update at ≤ 4 Hz, never at the interaction rate). */
-export const MIN_TICK_MS = 250;
+/**
+ * Ticks commit at most once a second. Every commit re-runs every client's subscriptions (observation,
+ * events, panels), so the commit rate, not the interaction rate, sets the query load: measured on the
+ * local backend, three player apps at 4 Hz commits fell tens of seconds behind; at 1 Hz they keep up.
+ * The window (TICK_SECONDS) still covers every interaction opportunity of that second.
+ */
+export const MIN_TICK_MS = 1000;
 /** A tick action that has not committed within this time loses its lease to the watchdog. */
 export const LEASE_MS = 30_000;
 export const MAX_OBJECTS = 2000;

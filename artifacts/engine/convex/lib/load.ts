@@ -4,8 +4,12 @@ import type { QueryCtx } from "../_generated/server";
 import { observation } from "./projection";
 import { membersOf, recentChat } from "./rooms";
 
-/** Batches scanned for the observation's recent own transformations. */
-const RECENT_BATCHES = 64;
+/**
+ * Batches (ticks) scanned for the observation's recent own transformations: about the last 16 s. Each
+ * batch holds every god's events, so this read dominates the observation's cost; older history is in
+ * player.events / player.history.
+ */
+const RECENT_BATCHES = 16;
 
 export async function currentGame(ctx: QueryCtx, room: Doc<"rooms">) {
   return room.currentGameId ? await ctx.db.get(room.currentGameId) : null;

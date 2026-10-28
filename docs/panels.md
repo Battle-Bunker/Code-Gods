@@ -65,7 +65,7 @@ disclosure-filtered engine queries with the player's own credential:
   not available to the client at all.
 
 Live hooks take `{ hz }`: re-render at most that often. The default is 2 and the maximum 5. The
-engine commits about 4 ticks a second, so faster is pointless.
+engine commits about once a second, so faster only matters for local state (clocks you derive yourself).
 
 | Hook | Returns |
 |---|---|

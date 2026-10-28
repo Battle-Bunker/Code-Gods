@@ -5,7 +5,7 @@
  * client.
  *
  * Live hooks take `{ hz }` (default 2, max 5) and re-render at most that often. Data arrives once per
- * engine tick (about 4 Hz) at most, so asking for more is pointless.
+ * engine tick (about once a second) at most, so higher rates only help derived local clocks.
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery } from "convex/react";
