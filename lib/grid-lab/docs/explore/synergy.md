@@ -1,10 +1,14 @@
 # Synergy atlas and dealer design
 
 Session topic `synergy`, branch `claude/gridlab-explore-synergy`. Code: `gridlab/explore/synergy/`.
-**Status: partial.** Grid(5,base10,rgby) and Grid(4,base12,rgb) are complete: the atlas, the camps and
-the dealer games on training seeds. Still running and to be appended: the Grid(6,cards,rainbow6)
-atlas and games, the held-out validation (seed 9000000) of the recommended dealer and of the exclusion
-lists, and a robustness run under the new defaults (0.5 Hz spawns, 80 objects).
+**Status.** Done:
+- atlases for Grid(5,base10,rgby), Grid(4,base12,rgb) and Grid(6,cards,rainbow6);
+- dealer games on training seeds for all three GridTypes;
+- the 5×5 held-out validation (seed 9000000) of dealers and exclusion lists.
+
+Pending: one robustness run under the new defaults (0.5 Hz spawns, 80 objects), §3.4.
+
+Exported matrices for the production dealer are in `docs/explore/synergy_matrices/` (§7).
 
 **Shared modules: no changes.** Everything lives in `gridlab/explore/synergy/`. All test suites still
 pass, untouched.
@@ -56,8 +60,7 @@ reference only.
 - Grid(5,base10,rgby): 82 families, 151 draws, 11,546 joint climbs, about 3 CPU-hours.
 - Grid(4,base12,rgb): 79 families, 146 draws, 10,796 climbs.
 - Catalog run: the 14 catalog families × 6 draws, same-family pairs included, 1,653 climbs.
-
-The 6×6 cards atlas is pending.
+- Grid(6,cards,rainbow6): 83 families, 151 draws, 11,257 climbs.
 
 ```
 python3 -m gridlab.explore.synergy.atlas --type 5,base10,rgby --draws 2 --processes 4
@@ -81,6 +84,9 @@ python3 -m gridlab.explore.synergy.camps --type 5,base10,rgby --tag catalog     
 | share exclusive (censored) | 0.01 | 0.08 | 0.23 |
 
 Grid(4,base12,rgb) is the same but stronger: −1.07 / −4.16 / −6.67, with 36% exclusive at 24 bits.
+Grid(6,cards,rainbow6) is about half as strong: −0.20 / −0.91 / −2.16, with 5% exclusive. Six colours
+means less competition for cells. Alternator × clumper is still the most opposed camp pair there (−4.1
+at 24 bits), and only 2 pairs flip.
 Near the prior, most pairs are almost independent. Deep goals polarise: a quarter become strongly
 aligned and half conflict.
 
@@ -167,6 +173,7 @@ A pair that is A at one depth and C at another is a "flip".
 | 5×5, 2 draws | 32 of 105 |
 | 5×5, 6 draws (catalog run) | 52 of 105 |
 | 4×4, 2 draws | 48 of 105 |
+| 6×6 cards, 2 draws | 42 of 105 |
 
 More draws reveal more draw-dependence, which agrees with the catalog's many M cells. Of the 22 "A"
 cells, only 2 are A in the atlas, and none of the catalog's "C" cells turned out aligned.
@@ -253,6 +260,45 @@ On 4×4, aligned again adds **+0.32 held accelerating climbs** and **+0.36 durab
 changes**, and costs **−0.56 leaderboard crossings**. fair_aligned keeps most of the gain with better
 fairness (z_sd_excess 0.197 vs 0.227 for aligned).
 
+Grid(6,cards,rainbow6), 120 specs per dealer:
+
+| dealer | Δ dynamism2 vs uniform (0.573) |
+|---|---|
+| **fair_aligned** | **+0.064** |
+| **aligned** | **+0.050** |
+| hostile | **−0.030** |
+| everything else | within ±0.01 |
+
+fair_aligned also adds +0.67 held accelerating climbs and +0.50 durable lead changes on 6×6.
+
+### 3.1b Held-out validation (Grid(5,base10,rgby), seed 9000000, 150 new specs)
+
+| dealer | dynamism2 | Δ vs uniform | sig. tension Δ | snap tension Δ | durable lead changes Δ | hot objects Δ |
+|---|---|---|---|---|---|---|
+| uniform | 0.565 | – | – | – | – | – |
+| **aligned** | 0.607 | **+0.042** | **+0.035** | **+0.054** | **+0.41** | **+0.083** |
+| **fair_aligned** | 0.598 | **+0.033** | **+0.027** | **+0.040** | **+0.36** | **+0.075** |
+| ally_rival | 0.569 | +0.004 | **+0.027** | **+0.025** | **+0.18** | +0.020 |
+| baron | 0.565 | +0.000 | **+0.024** | **+0.036** | +0.10 | +0.039 |
+
+The friendly-table effect replicates on fresh seeds. ally_rival's dynamism2 gain does not: +0.023 on
+training, +0.004 held out. It still raises tension.
+
+### 3.1c fair_aligned vs aligned, head to head
+
+Paired differences, fair_aligned − aligned, mean [95% CI] (`python3 -m gridlab.explore.synergy.compare`):
+
+| run | dynamism2 | snap tension | durable lead changes | z_sd_excess aligned / fair_aligned |
+|---|---|---|---|---|
+| 5×5 train (200) | −0.005 [−0.019, +0.009] | −0.004 | −0.04 | 0.188 / 0.198 |
+| 4×4 train (120) | −0.007 [−0.023, +0.009] | −0.027 [−0.050, −0.003] | −0.10 | 0.228 / 0.197 |
+| 6×6 train (120) | +0.015 [−0.005, +0.035] | +0.038 [+0.014, +0.064] | +0.20 [+0.04, +0.37] | 0.191 / 0.197 |
+| 5×5 held out (150) | −0.009 [−0.024, +0.006] | −0.013 | −0.05 | 0.189 / 0.212 |
+
+**The two are statistically indistinguishable on dynamism2**, and the SD penalty does not
+measurably improve family fairness. fair_aligned is fine to ship, since it is never significantly
+worse, but its fairness rationale is not supported by these games. aligned is the simpler equivalent.
+
 atlas_camps is a bad design: several clusters are single families, which round-robin then deals far too
 often. Balanced clusters, or k ≈ 3, would be needed.
 
@@ -267,7 +313,8 @@ often. Balanced clusters, or k ≈ 3, would be needed.
 | empirical in-game PMI of {s ≥ 4} | **+0.28** | **+0.31** |
 | spirals in which both gods gained | **+0.22** | **+0.18** |
 
-The 8-bit and 16-bit atlas predicts best. Gods' typical peak surprisal in these games is 17 bits
+Grid(6,cards,rainbow6) gives the same: Δ-correlation +0.33 and s-correlation +0.32. The 8-bit and 16-bit
+atlas predicts best. Gods' typical peak surprisal in these games is 17 bits
 (median; IQR 11–31).
 
 **The surprise: atlas conflict does not predict in-game tension.** Pair "opposition" (one god gains
@@ -338,35 +385,70 @@ or symmetric grids. The atlas says these are everybody's partial allies.
 
 ### 5.1 Dealer
 
-**Recommended: `fair_aligned`** (best of 32 random distinct deals by mean pairwise W − 1.0 × SD of the
-per-god mean W). On training seeds it gives most of `aligned`'s dynamism gain (+0.039 on 4×4; the 5×5
-result is pending). The SD term keeps any one god from being the table's darling, and per-slot
-strength tracks table alignment, so that term matters.
+**Recommended: a friendly-table dealer**, `aligned` or `fair_aligned` (best of 32 random distinct
+deals by mean pairwise W, optionally minus 1.0 × the SD of the per-god mean W). It is the only design
+that raises dynamism2 on every GridType and on held-out seeds:
 
-`aligned` alone is the dynamism maximum (+0.056 / +0.046) but slightly less fair. `ally_rival` is a
-safe second choice (+0.023 / +0.017; it raises tension the most per unit of fairness lost).
-
-Do **not** use `hostile` or `atlas_camps`. `hand_camps`, `cross_layer`, `max_var` and `baron` are
-within noise of uniform on dynamism2. `baron` does add tension (+0.026) and spirals per commit (+0.56)
-on 5×5, but it hurts fairness, because Border Baron is dealt in every game. Feeding structure with a
-fixed rule is not worth it.
-
-*Held-out confirmation (seed 9000000, 150 specs) is pending and will be appended here.*
-
-### 5.2 Families to exclude or rework (chosen on training seeds; held-out test pending)
-
-| Group | Families | Why |
+| run | aligned | fair_aligned |
 |---|---|---|
-| Exclude: ceiling too low | Bridge Builder (6.6 bits on 5×5), Ladder of Numbers (7), Sudoku Scholar (9–11), Lantern Lighter (9–12) | their atlas entries do not exist beyond 8 bits, and they are at or near the bottom for fairness |
-| Exclude or rework: unmeasurable binary rule | Picture Frame | all-or-nothing 0 → 32 bits; no partial progress; z = 0.31 |
-| Rework: universal rival | Tetromino Tamer | rival of 70 of 81 families, never wins on 5×5; add a partial-credit tie-breaker or make it colour-agnostic |
-| Rework: universal rival | Robin Hood | mean PMI −6.9 |
-| Rework: universal rival | Quilt Maker | z 0.12 |
-| Rework: weak | Odds & Evens, Lone Peak, Number Sandwich | z ≤ 0.25 on both GridTypes |
-| Rework: too strong | Snap, Full House, Flush Royale, Pinwheel, Bullseye, Stripe Painter (and Uno Snake, Mirrormancer) | the constant-symbol / symmetric attractor makes them everyone's partial ally; break the attractor, e.g. require ≥ 2 distinct symbols, or score only once per rank, and re-measure |
+| 5×5 train | +0.056 | +0.051 |
+| 4×4 train | +0.046 | +0.039 |
+| 6×6 train | +0.050 | +0.064 |
+| 5×5 held out | **+0.042** | **+0.033** |
 
-The held-out games test two exclusion sets under each dealer: "weak" (the 11 low/weak families) and
-"weak + strong" (the 6 over-strong ones as well).
+All CIs exclude 0. It works through more contact on shared objects: more snapshot tension, durable
+object lead changes, held cooperative climbs and hot objects. The cost is −0.2 to −0.6 leaderboard
+crossings per pair per 100 s. The two variants are indistinguishable (§3.1c).
+
+The production branch has adopted `fair_aligned`. That is fine, but do not count on the SD term for
+fairness. Fix fairness through the family list (§5.2).
+
+Not recommended:
+- `ally_rival`: its dynamism2 gain did not replicate held out, though it raises tension.
+- `baron`: adds tension, no dynamism2 gain.
+- `cross_layer`, `max_var`, `hand_camps`: within noise of uniform.
+- `atlas_camps`: singleton clusters get dealt too often.
+- `hostile`: worse everywhere.
+
+### 5.2 Families to exclude or rework (chosen on training seeds, tested held out)
+
+Held-out test (Grid(5,base10,rgby), seed 9000000, 150 specs, same specs with the full and the reduced
+pool):
+
+| dealer | pool | dynamism2 | Δ vs full pool (paired) | fairness z_sd_excess |
+|---|---|---|---|---|
+| uniform | full (82) | 0.565 | – | 0.202 |
+| uniform | − weak (71) | 0.577 | +0.012 [−0.004, +0.028] | **0.157** |
+| uniform | − weak − strong (65) | 0.573 | +0.009 [−0.008, +0.026] | 0.169 |
+| aligned | full | 0.607 | – | 0.189 |
+| aligned | − weak | 0.617 | +0.010 [−0.006, +0.025] | 0.191 |
+| aligned | − weak − strong | 0.580 | **−0.027 [−0.041, −0.011]** | **0.092** |
+| fair_aligned | full | 0.598 | – | 0.212 |
+| fair_aligned | − weak | 0.614 | +0.016 [−0.000, +0.032] | 0.184 |
+| fair_aligned | − weak − strong | 0.579 | **−0.019 [−0.036, −0.002]** | 0.149 |
+
+The fairness numbers are point estimates. Their game-bootstrap CIs (in `compare.md`) are biased upward
+by resampling, so compare them only between rows.
+
+**Exclude the 11 "weak" families.** On fresh seeds this costs no dynamism, and it improves uniform-deal
+fairness by about 0.045:
+
+| reason | families |
+|---|---|
+| ceiling 7–12 bits | Bridge Builder, Ladder of Numbers, Sudoku Scholar, Lantern Lighter |
+| binary 0 → 32 bits, unmeasurable | Picture Frame |
+| universal rivals | Tetromino Tamer (rival of 70 of 81), Robin Hood, Quilt Maker |
+| z ≤ 0.25 on both measured GridTypes | Odds & Evens, Lone Peak, Number Sandwich |
+
+Each can come back after a rework: add a partial-credit tie-breaker, or make the rule colour-agnostic,
+then re-measure its atlas row.
+
+**Rework, don't exclude, the attractor families**: Snap, Full House, Flush Royale, Pinwheel, Bullseye,
+Stripe Painter (Uno Snake and Mirrormancer are close behind). Excluding them halves the unfairness
+under `aligned` (0.19 → 0.09). It also removes a quarter of the friendly-table dynamism gain
+(−0.027), because those universal allies are what friendly tables are made of. The better fix is to
+weaken their constant-symbol / symmetric attractor so that they stay allies but stop dominating. For
+example, require ≥ 2 distinct symbols per scoring line, or score each rank once. Then re-measure.
 
 ### 5.3 What depends on what
 
@@ -385,3 +467,12 @@ Params-aware dealing: `GameConfig.fixed_params: Optional[Sequence[dict]] = None`
 when dealer is `fixed`. §2.3 shows that alignment is decided by draw relations (same army colour:
 +21 bits; enemy colour: exclusive). A draw-level dealer could guarantee one exact ally pair and one
 exact rival pair per table instead of relying on family averages.
+
+## 7. Exported matrices (for the production dealer)
+
+`docs/explore/synergy_matrices/Grid_<n>_<symbols>_<colours>.uniform.json`, shaped as
+`SynergyMatrix {instKey, priorId, families[], w[][], meta}`. w is the depth-averaged family W in bits;
+unmeasured pairs are 0 and listed in `meta`. One file each for Grid(5,base10,rgby), Grid(4,base12,rgb)
+and Grid(6,cards,rainbow6), all under the uniform prior. The matrices depend only on the rules and the
+prior, not on world settings, so the new spawn defaults need no new file. A different prior
+(e.g. PR #17's) does. Regenerate with `python3 -m gridlab.explore.synergy.export --type n,sym,col`.

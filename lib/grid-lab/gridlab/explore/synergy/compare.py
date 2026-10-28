@@ -29,7 +29,10 @@ def results(gt, n, seed, excl=(), dealers=("uniform", "aligned", "fair_aligned")
     fm = FamilyMatrix(gt)
     pool = [f.id for f in FAMILIES if f.available(parse_type(gt)) and f.id not in set(excl)]
     specs = C.make_specs([gt], n, seed, "mixed")
-    return run_dealers(gt, specs, list(dealers), fm, pool, config or {}, verbose=False)
+    res = run_dealers(gt, specs, list(dealers), fm, pool, config or {}, verbose=False)
+    for rs in res.values():
+        C.add_dyn2(rs)
+    return res
 
 
 def zsd_ci(rs, B=40, seed=0):
@@ -62,7 +65,6 @@ def main():
     for name, ex in (("full", ()), ("− weak (11)", WEAK), ("− weak − strong (17)", WEAK + STRONG)):
         r = full if not ex else results("5,base10,rgby", 150, 9000000, ex)
         for d in ("uniform", "aligned", "fair_aligned"):
-            v = [x["dynamism2"] if "dynamism2" in x else C.dynamism2(x) for x in r[d]]
             b = [C.dynamism2(x) for x in full[d]]
             p, lo, hi = paired_diff([C.dynamism2(x) for x in r[d]], b)
             z = zsd_ci(r[d])
