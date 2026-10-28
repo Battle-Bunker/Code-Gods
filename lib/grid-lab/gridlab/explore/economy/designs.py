@@ -56,3 +56,14 @@ COMBOS: dict = {
 }
 NAMED.update(COMBOS)
 SWEEP["combo"] = list(COMBOS.items())
+
+# third round: earned income and cheap prices with a lifetime
+COMBOS2: dict = {
+    "iown05_life120": esetting(econ={"income_own": 0.5, "lifetime": 120.0}),
+    "iown1_life120": esetting(econ={"income_own": 1.0, "lifetime": 120.0}),
+    "cs25_life120": esetting(config={"cost_scale": 0.25}, econ={"lifetime": 120.0}),
+    "iown05_ecap30_life120": esetting(econ={"income_own": 0.5, "energy_cap": 30.0, "lifetime": 120.0}),
+    "iown1_ecap60_life120": esetting(econ={"income_own": 1.0, "energy_cap": 60.0, "lifetime": 120.0}),
+}
+NAMED.update(COMBOS2)
+SWEEP["combo2"] = list(COMBOS2.items())
