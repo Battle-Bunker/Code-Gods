@@ -5,6 +5,7 @@ import { Shell, ErrorLine } from "@/components/shell";
 import { useAuth } from "@/hooks/use-auth";
 import { errMsg } from "@/lib/errors";
 import { Check } from "lucide-react";
+import { ownerApprovalBlocker } from "@/lib/device-approval";
 
 type DeviceDetails = {
   roomId: string; roomCode: string; clientLabel: string;
@@ -45,6 +46,7 @@ export default function Device() {
   useEffect(() => { setOwnerConsent(false); }, [code, user?.id]);
   const d = details.data;
   const expires = d ? new Date(d.expiresAt).getTime() : NaN;
+  const ownerBlocker = d ? ownerApprovalBlocker(d.status, expires, now, d.canApprove) : null;
   const pending = approve.isPending || deny.isPending;
   const canDecide = !!d && !details.isError && reviewedCode === code.trim() && d.status === "pending" &&
     (d.permission === "read" || d.permission === "act" || d.permission === "owner") && expires > now && !pending;
@@ -86,8 +88,8 @@ export default function Device() {
                 {d.permission === "owner" && (
                   <div className="space-y-3" data-testid="panel-device-owner-warning">
                     <p>Owner access allows full room settings changes, approving paid AI budgets and changing provider spending, managing AI seats, starting, ending, and resuming the room, viewing your private observation, and playing as you. The credential lasts 15 minutes and applies only to this room — it does not grant global admin access.</p>
-                    {d.canApprove !== true ? (
-                      <p role="alert" className="text-destructive" data-testid="text-device-owner-required">Only the room owner can approve this request. You are not authorized to grant owner access.</p>
+                    {ownerBlocker ? (
+                      <p role="alert" className="text-destructive" data-testid="text-device-owner-required">{ownerBlocker}</p>
                     ) : (
                       <label className="flex items-start gap-3" htmlFor="device-owner-consent">
                         <input id="device-owner-consent" type="checkbox" checked={ownerConsent} disabled={!canDecide} onChange={(e) => setOwnerConsent(e.target.checked)} className="mt-1" data-testid="checkbox-device-owner-consent" />
