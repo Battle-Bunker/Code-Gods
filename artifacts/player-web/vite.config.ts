@@ -2,7 +2,7 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
-import { engineToken } from './dev/engine-token';
+import { tokenHandler } from '@workspace/player-client/engine';
 
 
 const isBuild = process.argv.includes("build");
@@ -20,6 +20,12 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+const hostedDev = !!process.env.CODE_GODS_SITE_URL;
+// Hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
+// host check). Replit dev URLs plus loopback; extend with CODE_GODS_ALLOWED_HOSTS=".example.com,host".
+const allowedHosts = [".replit.dev", ".repl.co", "localhost", "127.0.0.1",
+  ...(process.env.CODE_GODS_ALLOWED_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean)];
 
 const panelsDir = path.resolve(import.meta.dirname, 'src/panels') + path.sep;
 const registryFile = path.resolve(import.meta.dirname, 'src/shell/registry.ts');
@@ -48,11 +54,12 @@ export default defineConfig({
       },
     },
     {
-      // A player app's engine token (dev/engine-token.ts): the credential stays in this server.
+      // A player app's engine token (lib/player-client tokenHandler): the room credential stays in this
+      // server and the browser gets 10-minute JWTs from GET /__codegods/token. Not mounted for hosted-mode
+      // development against an engine site (CODE_GODS_SITE_URL), where the client signs in on the site.
       name: "code-gods-engine-token",
-      configureServer(server) {
-        server.middlewares.use(`${basePath.replace(/\/$/, "")}/__codegods/token`, (req, res) => void engineToken(req, res));
-      },
+      configureServer(server) { if (!hostedDev) server.middlewares.use(tokenHandler({ allowedHosts })); },
+      configurePreviewServer(server) { if (!hostedDev) server.middlewares.use(tokenHandler({ allowedHosts })); },
     },
     react(),
     tailwindcss(),
