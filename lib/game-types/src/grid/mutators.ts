@@ -25,7 +25,8 @@
  */
 import type { HelperDoc, Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
 import { fail, lg, mdoc, mod } from "../mutators.ts";
-import type { GridValue } from "./codec.ts";
+import type { GridTypeArgs, GridValue } from "./codec.ts";
+import { COLOUR_COMPONENTS, RANK_GLYPHS, SUIT_GLYPHS, SYMBOL_COMPONENTS, type SymbolComponent } from "./components.ts";
 
 type Choice = number | string | readonly unknown[];
 type GP = Record<string, any>;
@@ -33,25 +34,6 @@ type GP = Record<string, any>;
 // ------------------------------------------------------------------------------------------------
 // instantiation tables (core.py GridType)
 // ------------------------------------------------------------------------------------------------
-
-const COLOUR_NAMES: Record<string, readonly string[]> = {
-  rgb: ["red", "green", "blue"],
-  rgby: ["red", "yellow", "green", "blue"],
-  rainbow6: ["red", "orange", "yellow", "green", "blue", "violet"],
-};
-const MIXES: Record<string, readonly (readonly [string, string, string])[]> = {
-  rgb: [], rgby: [["yellow", "blue", "green"]],
-  rainbow6: [["red", "yellow", "orange"], ["yellow", "blue", "green"], ["red", "blue", "violet"]],
-};
-const DIGITS = "0123456789ABCDEF";
-const DIGIT_NAMES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen"];
-const RANK_CODES = "A23456789TJQK";
-const RANK_GLYPHS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const RANK_NAMES = ["ace", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "jack", "queen", "king"];
-const SUIT_CODES = "SHDC";
-const SUIT_GLYPHS = ["♠", "♥", "♦", "♣"];
-const SUIT_NAMES = ["spades", "hearts", "diamonds", "clubs"];
 
 export interface GridCtx {
   readonly key: string;
@@ -63,22 +45,21 @@ export interface GridCtx {
   readonly cards: boolean;
   readonly suited: boolean;
   readonly colourNames: readonly string[];
-  /** Mixable recipes (a, b, child) as colour indices, in core.py MIXES order. */
+  /** Mixable recipes (a, b, child) as colour indices, a < b (core.py MIXES order). */
   readonly recipes: readonly (readonly [number, number, number])[];
+  readonly symbols: SymbolComponent;
 }
 
 const ctxCache = new Map<string, GridCtx>();
 export function gridCtx(inst: Instantiation): GridCtx {
   let g = ctxCache.get(inst.key);
   if (!g) {
-    const { size, symbols, colours } = inst.args as { size: number; symbols: string; colours: string };
-    const names = COLOUR_NAMES[colours];
-    if (!names || !Number.isInteger(size)) throw new Error(`not a Grid instantiation: ${inst.key}`);
-    const cards = symbols === "cards";
+    const { size, symbols, colours } = inst.args as unknown as GridTypeArgs;
+    const sc = SYMBOL_COMPONENTS[symbols], cc = COLOUR_COMPONENTS[colours];
+    if (!sc || !cc || !Number.isInteger(size)) throw new Error(`not a Grid instantiation: ${inst.key}`);
     g = Object.freeze({
-      key: inst.key, N: size, S: cards ? 52 : Number(symbols.slice(4)), C: names.length, R: cards ? 13 : Number(symbols.slice(4)),
-      cards, suited: inst.classes.includes("Suited"), colourNames: names,
-      recipes: MIXES[colours].map(([a, b, c]) => [names.indexOf(a), names.indexOf(b), names.indexOf(c)] as const),
+      key: inst.key, N: size, S: sc.count, C: cc.count, R: sc.rankCount, cards: !!sc.suits,
+      suited: inst.classes.includes("Suited"), colourNames: cc.names, recipes: cc.mixes, symbols: sc,
     });
     ctxCache.set(inst.key, g);
   }
@@ -91,8 +72,8 @@ function cached<T>(key: string, f: () => T): T {
   return memo.get(key) as T;
 }
 
-const rankOf = (g: GridCtx, s: number): number => (g.cards ? s % 13 : s);
-const valueOf = (g: GridCtx, s: number): number => (g.cards ? (s % 13) + 1 : s);
+const rankOf = (g: GridCtx, s: number): number => g.symbols.ranks[s];
+const valueOf = (g: GridCtx, s: number): number => g.symbols.values[s];
 const stepSym = (g: GridCtx, s: number, k: number): number =>
   g.cards ? Math.floor(s / 13) * 13 + mod((s % 13) + k, 13) : mod(s + k, g.S);
 
@@ -317,8 +298,8 @@ function moved(g: GridCtx, layer: string, n: number): { dcol: number; dsym: numb
 }
 const OF_LAYER: Record<string, string> = { both: "", colour: "the colours of ", symbol: "the symbols of " };
 const cn = (g: GridCtx, k: number) => g.colourNames[k];
-const symText = (g: GridCtx, s: number) => (g.cards ? RANK_GLYPHS[s % 13] + SUIT_GLYPHS[Math.floor(s / 13)] : DIGITS[s]);
-const rankText = (g: GridCtx, r: number) => (g.cards ? RANK_GLYPHS[r] : DIGITS[r]);
+const symText = (g: GridCtx, s: number) => g.symbols.glyphs[s];
+const rankText = (g: GridCtx, r: number) => (g.cards ? RANK_GLYPHS[r] : g.symbols.glyphs[r]);
 const lineCells = (line: readonly number[], N: number) => regionCells("line", line, N);
 
 // guest helpers -----------------------------------------------------------------------------------
