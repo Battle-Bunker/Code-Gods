@@ -107,7 +107,7 @@ export interface DeviceApprovalInput {
 }
 
 /**
- * read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+ * read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.
  */
 export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermission];
 
@@ -115,6 +115,7 @@ export type DevicePermission = typeof DevicePermission[keyof typeof DevicePermis
 export const DevicePermission = {
   read: 'read',
   act: 'act',
+  owner: 'owner',
 } as const;
 
 export interface DeviceRequestInput {
@@ -243,6 +244,8 @@ export interface DeviceDetails {
   /** Self-reported */
   clientLabel: string;
   permission: DevicePermission;
+  /** Whether the signed-in human may approve this request. Owner grants require the current room owner. */
+  canApprove?: boolean;
   /** Approval-request deadline */
   expiresAt: string;
   status: DeviceDetailsStatus;

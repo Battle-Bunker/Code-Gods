@@ -797,7 +797,7 @@ export const RequestDeviceBody = zod.object({
   "roomId": zod.string().describe('Canonical room UUID or authority-resolved room alias'),
   "challenge": zod.string().regex(requestDeviceBodyChallengeRegExp).describe('Base64url S256 digest of the private verifier'),
   "clientLabel": zod.string().min(1).max(requestDeviceBodyClientLabelMax).default(requestDeviceBodyClientLabelDefault).describe('Self-reported printable label; not verified workspace or model identity'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.').default(requestDeviceBodyPermissionDefault)
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.').default(requestDeviceBodyPermissionDefault)
 })
 
 export const RequestDeviceResponse = zod.object({
@@ -809,7 +809,7 @@ export const RequestDeviceResponse = zod.object({
   "verificationPath": zod.string(),
   "expiresIn": zod.literal(300),
   "interval": zod.literal(2),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.')
 })
 
 
@@ -824,7 +824,8 @@ export const GetDeviceDetailsResponse = zod.object({
   "roomId": zod.string().uuid(),
   "roomCode": zod.string(),
   "clientLabel": zod.string().describe('Self-reported'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.'),
+  "canApprove": zod.boolean().optional().describe('Whether the signed-in human may approve this request. Owner grants require the current room owner.'),
   "expiresAt": zod.coerce.date().describe('Approval-request deadline'),
   "status": zod.enum(['pending', 'approved', 'denied', 'redeemed', 'expired'])
 })
@@ -887,7 +888,7 @@ export const PollDeviceResponse = zod.object({
   "roomId": zod.string().uuid(),
   "godId": zod.string(),
   "delegateId": zod.string().uuid(),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.')
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.')
 })
 
 
@@ -921,7 +922,7 @@ export const ListDeviceGrantsResponse = zod.object({
   "delegateId": zod.string().uuid(),
   "roomId": zod.string().uuid(),
   "clientLabel": zod.string().describe('Self-reported'),
-  "permission": zod.enum(['read', 'act']).describe('read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.'),
+  "permission": zod.enum(['read', 'act', 'owner']).describe('read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.'),
   "expiresAt": zod.coerce.date().describe('Persisted player-session expiry')
 }))
 })

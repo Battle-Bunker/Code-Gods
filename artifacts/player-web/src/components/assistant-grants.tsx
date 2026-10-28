@@ -52,7 +52,7 @@ export function AssistantGrants() {
               <li key={grant.delegateId} className="border border-[hsl(var(--card-border))] p-3 space-y-2" data-testid={`row-assistant-grant-${grant.delegateId}`}>
                 <p className="font-semibold break-words">{grant.clientLabel || "Unlabeled assistant"} <span className="font-normal text-muted-foreground">(not verified)</span></p>
                 <p className="font-mono text-xs break-all">room {grant.roomId}</p>
-                <p>{grant.permission === "read" ? "Read only — private room observation" : grant.permission === "act" ? "Act — observe and send game actions as you" : "Unknown permission"}</p>
+                <p>{grant.permission === "read" ? "Read only — private room observation" : grant.permission === "act" ? "Act — observe and send game actions as you" : grant.permission === "owner" ? "Owner — full room settings, paid AI budget approvals and provider spending, AI seats, start/end/resume, and playing as you. This room only; not global admin." : "Unknown permission"}</p>
                 <p className="text-xs text-muted-foreground">Credential expires: {Number.isFinite(expires) ? new Date(expires).toLocaleString() : "Invalid expiry"}. Credentials last 15 minutes.</p>
                 <button type="button" data-testid={`button-revoke-assistant-${grant.delegateId}`} disabled={revoke.isPending}
                   onClick={() => { setNotice(""); revoke.mutate(grant.delegateId); }}

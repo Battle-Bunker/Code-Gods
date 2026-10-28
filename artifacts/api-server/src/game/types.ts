@@ -40,4 +40,4 @@ export type Room = {
   seq: number;
 };
 export type Actor = { id: string; name: string; kind: "human" | "ai"; scope: "browser" | "player"; roomId?: string;
-  delegateId?: string; clientLabel?: string; permission?: "read" | "act"; expiresAt?: string; sessionHash?: string };
+  delegateId?: string; clientLabel?: string; permission?: "read" | "act" | "owner"; expiresAt?: string; sessionHash?: string };

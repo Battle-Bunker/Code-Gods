@@ -20,7 +20,7 @@ const raw={version:VERSION,roomId,revision:1,phase:"running",language:"python",
 const envelope={version:VERSION,commandId,command:{type:"ready",ready:true}};
 const delay=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
-function fixture(config:{permission?:"read"|"act";offlineRevoke?:boolean;verificationPath?:string;roomId?:string;clock?:()=>number}={}) {
+function fixture(config:{permission?:"read"|"act"|"owner";offlineRevoke?:boolean;verificationPath?:string;roomId?:string;clock?:()=>number}={}) {
   const sockets:PlayerSocket[]=[], requests:{path:string;body:Record<string,unknown>;headers:Headers}[]=[];
   let challenge="",mutations=0;
   const fetcher:typeof fetch=async(url,init)=>{
@@ -46,6 +46,12 @@ function fixture(config:{permission?:"read"|"act";offlineRevoke?:boolean;verific
       return Response.json({status:"revoked"});
     }
     if(path==="/api/activity")return Response.json({});
+    if(path===`/api/rooms/${roomId}` || path===`/api/rooms/${roomId}/actions`) {
+      assert.equal(headers.get("authorization"),"Bearer PRIVATE_BEARER");
+      if(path.endsWith("/actions"))mutations++;
+      return Response.json({id:roomId,shortCode:"4B9A",ownerId:"god",revision:1,settings:{language:"python"},
+        aiBudget:0,aiUsed:0,members:[],activeGame:null,adminToken:"NEVER"});
+    }
     assert.equal(path,`/api/player/v1/rooms/${roomId}/observation`);
     assert.equal(headers.get("authorization"),"Bearer PRIVATE_BEARER");
     return Response.json(raw);
@@ -80,6 +86,28 @@ test("assistant URLs require HTTPS, one room and no credentials, hidden query or
     "https://example.test/player/?room=4B9A&room=ABCD","https://example.test/elsewhere?room=4B9A",
     "https://example.test/player/","https://example.test/room/..%2F4B9A",
   ])assert.throws(()=>parsePlayerUrl(url),url);
+});
+
+test("owner bridge reads and controls only its bound room; read and act cannot use owner operations",async()=>{
+  for(const permission of ["read","act","owner"] as const) {
+    const f=fixture({permission});
+    try {
+      await f.approve();
+      const state=await f.assistant.handle({op:"room-state"}) as any;
+      const result=await f.assistant.handle({op:"room-command",args:{action:"start",requestId:commandId}}) as any;
+      if(permission==="owner") {
+        assert.equal(state.room.id,roomId);
+        assert.equal(result.status,"received");
+        assert.equal(result.room.adminToken,undefined);
+        assert.equal(f.requests.filter(r=>r.path.endsWith("/actions")).length,1);
+        const invalid=await f.assistant.handle({op:"room-command",args:{action:"start",requestId:commandId,roomId:"other"}});
+        assert.ok((invalid as any).error);
+      } else {
+        assert.ok(state.error);assert.ok(result.error);
+        assert.equal(f.requests.filter(r=>r.path.startsWith("/api/rooms/")).length,0);
+      }
+    } finally {f.assistant.close();}
+  }
 });
 
 test("approval output allowlists only URL, comparison code, resolved room and permission",async()=>{

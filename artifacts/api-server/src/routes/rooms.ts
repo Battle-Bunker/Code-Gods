@@ -2,7 +2,7 @@ import { Router } from "express";
 import { randomUUID } from "node:crypto";
 import { CreateRoomBody, RoomActionBody } from "@workspace/api-zod";
 import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, validateSettings } from "@workspace/game-core";
-import { requireIdentity } from "../lib/identity";
+import { requireIdentity, requireAct } from "../lib/identity";
 import { allRooms, createRoom, resolveRoom, mutate, member, owner, roomHistory } from "../game/store";
 import { publicRoom } from "../game/projection";
 import { endGame, playerCommand, resumeGame, startGame } from "../game/engine";
@@ -32,13 +32,15 @@ router.post("/rooms", async (req, res) => {
 });
 router.get("/rooms/:roomId", (req, res) => {
   const actor = requireIdentity(req);
-  if (actor.scope !== "browser" && actor.roomId !== resolveRoom(String(req.params.roomId)).id) throw new Error("Wrong room scope");
+  if (actor.scope !== "browser" && actor.roomId !== resolveRoom(String(req.params.roomId)).id)
+    throw Object.assign(new Error("Wrong room scope"), { status: 403 });
   res.json(publicRoom(resolveRoom(String(req.params.roomId))));
 });
 router.post("/rooms/:roomId/actions", async (req, res) => {
   const actor = requireIdentity(req), input = RoomActionBody.parse(req.body);
   const id = resolveRoom(String(req.params.roomId)).id;
   await mutate(id, async room => {
+    requireAct(actor);
     if (input.action === "join") {
       if (actor.scope !== "browser") throw new Error("Browser login required to join");
       if (!room.members.some(m => m.id === actor.id)) {

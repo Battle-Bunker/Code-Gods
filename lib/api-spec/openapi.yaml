@@ -470,8 +470,8 @@ components:
         code: { type: string, minLength: 4, maxLength: 32 }
     DevicePermission:
       type: string
-      enum: [read, act]
-      description: read permits personal observations and passive subscriptions only; act additionally permits player commands, never host/admin operations.
+      enum: [read, act, owner]
+      description: read permits personal observations; act additionally permits player commands. owner requires explicit approval by the room owner and includes room configuration, AI budget and seats, game lifecycle and player commands, but never global administration or access to another room.
     DeviceRequestInput:
       type: object
       required: [roomId, challenge]
@@ -536,6 +536,7 @@ components:
         roomCode: { type: string }
         clientLabel: { type: string, description: Self-reported, not verified requester identity }
         permission: { $ref: "#/components/schemas/DevicePermission" }
+        canApprove: { type: boolean, description: Whether the signed-in human may approve this request. Owner grants require the current room owner. }
         expiresAt: { type: string, format: date-time, description: Approval-request deadline, not a redeemed grant's lifetime }
         status: { type: string, enum: [pending, approved, denied, redeemed, expired] }
     DeviceGrant:
