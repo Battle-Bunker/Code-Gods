@@ -42,9 +42,8 @@ export interface ActSettings {
   /** Maximum wire string length, 0–1024 (0 for numeric types). */
   wireMaxLength: number;
   /**
-   * CPU backstop, 1–1000 ms, default 5. Also scales the deterministic Python fuel ceiling
-   * (2,000,000 Wasm instructions per ms). Open agents should run with a generous value (e.g. 1000)
-   * so that the deterministic step budget is what binds.
+   * CPU backstop, 1–1000 ms, default 5 (not deterministic; see the README's Determinism section). Open
+   * agents should run with a generous value (e.g. 1000) so that the deterministic step budget binds.
    */
   interactionComputeMs?: number;
   /** Deterministic step budget per act, 1–10,000,000, default 500,000. */
@@ -77,9 +76,44 @@ export interface ActResult {
 
 export type RuntimeErrorCode = "CONFIG" | "COMPILE" | "DOMAIN" | "EXECUTION" | "LIMIT" | "CAPACITY" | "UNAVAILABLE";
 export class RuntimeError extends Error { readonly code: RuntimeErrorCode; constructor(code: RuntimeErrorCode, message: string); }
+/**
+ * Where the Python runtime bundle comes from (dist/python-runtime.bin.gz, gzip or raw): its bytes, a
+ * file path, or an async loader (e.g. a fetch from Convex file storage). Loaded once per process per
+ * source, checked against PYTHON_BUNDLE_SHA256, compiled once and shared by every worker.
+ */
+export type PythonAssets = Uint8Array | ArrayBuffer | string | (() => Promise<Uint8Array | ArrayBuffer>);
 export interface RuntimeOptions {
-  language: Language; workers?: number; queueLimit?: number;
-  deadlineMs?: number; startupMs?: number; python?: string;
+  language: Language;
+  /** Engines (worker_threads), 1–16, started lazily on concurrent demand (or by `warm`). Default 1. */
+  workers?: number;
+  /** Waiting requests beyond the busy workers, 1–1024 (default 32); more is CAPACITY. */
+  queueLimit?: number;
+  /** Execution hard wall cap, ms (default 4000). The wall is min(deadlineMs, max(50, 10 × interactionComputeMs)). */
+  deadlineMs?: number;
+  /** Worker startup and queue-wait bound, ms (default 30000). */
+  startupMs?: number;
+  /** Hard wall for trusted preparation (compile, inspect, prelude, decode), ms. Default: Python 3000, TypeScript startupMs. */
+  prepareMs?: number;
+  /**
+   * "worker" (default): each engine in a worker_thread; a hard wall terminates a worker stuck past its
+   * deadline (e.g. inside one long native step). "inline": one engine on the calling thread, requests one
+   * at a time, no hard wall (the deterministic step budget and the post-execution CPU check still apply).
+   */
+  execution?: "worker" | "inline";
+  /** Python only. Default: dist/python-runtime.bin.gz in this package (absent when the package is bundled). */
+  assets?: PythonAssets;
+  /**
+   * TypeScript only: the files of `typescript` (lib/typescript.js) and `quickjs-emscripten` (its main
+   * module) to load. Default: `typescriptPaths()`. The runtime never imports these packages by name, so a
+   * bundler cannot inline them; a Convex action passes the copies Convex installed (runtime/node.ts).
+   */
+  typescriptFiles?: { typescript: string; quickjs: string };
+  /**
+   * TypeScript worker mode: one compiler worker (type-check, transpile, price) feeds `workers` QuickJS-only
+   * execution workers, and its output is cached here. The compiler stops after this long idle (ms, default
+   * 60000; 0 keeps it) and restarts on the next uncached source.
+   */
+  compilerIdleMs?: number;
 }
 
 export const GRAMMAR_IDS: Readonly<Record<Language, "python-agent-v1" | "typescript-agent-v1">>;
@@ -93,9 +127,23 @@ export const PRELUDE_PART_MAX_BYTES: 65536;
 /** Maximum length of the encoded call list an act returns. */
 export const CALLS_MAX_BYTES: 65536;
 
+/** SHA-256 of the uncompressed Python runtime bundle this package accepts. */
+export const PYTHON_BUNDLE_SHA256: string;
+/** File name of the built bundle (in dist/; the object stored in Convex file storage). */
+export const PYTHON_BUNDLE_FILE: "python-runtime.bin.gz";
+/** Absolute files of `typescript` and `quickjs-emscripten` that TypeScript workers load (ESM resolution). */
+export function typescriptPaths(): { typescript: string; quickjs: string };
+/** Loads, verifies and compiles the Python bundle once per `assets` source (what workers share). */
+export function loadPythonRuntime(assets?: PythonAssets): Promise<unknown>;
+
 export class GameRuntime {
   constructor(options: RuntimeOptions);
   readonly language: Language;
+  readonly execution: "worker" | "inline";
+  /** Engine count (1 when inline). */
+  readonly workers: number;
+  /** Starts up to `count` engines (default: all) ahead of demand and resolves when they are ready. */
+  warm(count?: number): Promise<void>;
   readonly grammarId: "python-agent-v1" | "typescript-agent-v1";
   /**
    * Parse, shape-check and (TS) type-check against `prelude.dts`, without evaluating the player's source;

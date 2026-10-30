@@ -1,0 +1,3771 @@
+{
+ "host": "wasmtime-py 49.0.0, CPython 3.15.0 WASI SDK 33 (python/runner.py at e46122e)",
+ "results": {
+  "astbits/codes": {
+   "ok": true,
+   "result": {
+    "gamma": [
+     1,
+     3,
+     3,
+     5,
+     5,
+     7,
+     15,
+     17,
+     19
+    ],
+    "string": [
+     1,
+     9.614709844115207,
+     24.844129532345622,
+     24.844129532345622,
+     24.614709844115207
+    ]
+   }
+  },
+  "astbits/corpus/class_def": {
+   "ok": true,
+   "result": {
+    "astBytes": 20,
+    "cost": 74.19009753286372,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.0,
+     "names": 18.714507252882967,
+     "structure": 50.87803609481723
+    }
+   }
+  },
+  "astbits/corpus/computed_row": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 69.35938885315231,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 13.027893703952206,
+     "moveFlags": 0.19264507794239588,
+     "names": 12.93663793900257,
+     "structure": 43.20221213225514
+    }
+   }
+  },
+  "astbits/corpus/empty_agent": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "astbits/corpus/from_import": {
+   "ok": true,
+   "result": {
+    "astBytes": 38,
+    "cost": 161.90709595124946,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 13.391953881190126,
+     "moveFlags": 0.5779352338271877,
+     "names": 56.02107785286556,
+     "structure": 91.91612898336659
+    }
+   }
+  },
+  "astbits/corpus/fstring": {
+   "ok": true,
+   "result": {
+    "astBytes": 22,
+    "cost": 82.26831013457071,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 13.86536818024581,
+     "moveFlags": 0.0,
+     "names": 21.032889362427913,
+     "structure": 47.370052591896986
+    }
+   }
+  },
+  "astbits/corpus/global_counter": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 65.25255843286315,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 7.195108370327034,
+     "moveFlags": 0.0,
+     "names": 8.169925001442312,
+     "structure": 49.887525061093804
+    }
+   }
+  },
+  "astbits/corpus/greedy": {
+   "ok": true,
+   "result": {
+    "astBytes": 39,
+    "cost": 148.9343513674929,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 8.430339518788688,
+     "moveFlags": 0.7705803117695835,
+     "names": 54.065177110317215,
+     "structure": 85.66825442661741
+    }
+   }
+  },
+  "astbits/corpus/helper_after": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 48.92699515529533,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 8.906890595608518,
+     "structure": 39.82745948174442
+    }
+   }
+  },
+  "astbits/corpus/import_random": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 93.14907818184058,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 8.430339518788688,
+     "moveFlags": 0.38529015588479176,
+     "names": 32.85382866506587,
+     "structure": 51.47961984210123
+    }
+   }
+  },
+  "astbits/corpus/lambda_max": {
+   "ok": true,
+   "result": {
+    "astBytes": 33,
+    "cost": 124.58244274353395,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 8.430339518788688,
+     "moveFlags": 0.38529015588479176,
+     "names": 47.34184827767173,
+     "structure": 68.42496479118874
+    }
+   }
+  },
+  "astbits/corpus/literals": {
+   "ok": true,
+   "result": {
+    "astBytes": 37,
+    "cost": 190.07376198475487,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 128.93979212414416,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 58.54900735988954
+    }
+   }
+  },
+  "astbits/corpus/loop": {
+   "ok": true,
+   "result": {
+    "astBytes": 31,
+    "cost": 97.1932586625941,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 16.862416178113435,
+     "moveFlags": 0.19264507794239588,
+     "names": 32.0174554666109,
+     "structure": 48.12074193992738
+    }
+   }
+  },
+  "astbits/corpus/one_paint": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 29.76523065033064,
+    "literalMoveFallbackBits": [
+     29.675317556292274
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 28.76523065033064
+    }
+   }
+  },
+  "astbits/corpus/renamed": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 29.76523065033064,
+    "literalMoveFallbackBits": [
+     29.675317556292274
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 28.76523065033064
+    }
+   }
+  },
+  "astbits/corpus/same_move_area": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 29.76523065033064,
+    "literalMoveFallbackBits": [
+     42.65328171782308
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 28.76523065033064
+    }
+   }
+  },
+  "astbits/corpus/same_move_raw": {
+   "ok": true,
+   "result": {
+    "astBytes": 27,
+    "cost": 29.76523065033064,
+    "literalMoveFallbackBits": [
+     84.4832599419132
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 28.76523065033064
+    }
+   }
+  },
+  "astbits/corpus/walrus_comp": {
+   "ok": true,
+   "result": {
+    "astBytes": 39,
+    "cost": 156.63798596185245,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 8.599291325699575,
+     "moveFlags": 0.38529015588479176,
+     "names": 51.29386606420095,
+     "structure": 96.35953841606712
+    }
+   }
+  },
+  "astbits/extra/mauve": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 91.05466580856165,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 44.64201130589095,
+     "moveFlags": 0.19264507794239588,
+     "names": 8.614709844115207,
+     "structure": 37.60529958061311
+    }
+   }
+  },
+  "astbits/extra/renameA": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 64.68400887950179,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 24.102763922756118,
+     "structure": 40.38859987880328
+    }
+   }
+  },
+  "astbits/extra/renameB": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 64.68400887950179,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 24.102763922756118,
+     "structure": 40.38859987880328
+    }
+   }
+  },
+  "astbits/extra/shadowed": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 77.58907070461295,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 13.027893703952206,
+     "moveFlags": 0.19264507794239588,
+     "names": 6.906890595608518,
+     "structure": 57.46164132710983
+    }
+   }
+  },
+  "astbits/extra/userPaint": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 52.206534897548515,
+    "literalMoveFallbackBits": [
+     29.675317556292285
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 3.584962500721156,
+     "structure": 48.62157239682736
+    }
+   }
+  },
+  "astbits/uniform/class_def": {
+   "ok": true,
+   "result": {
+    "astBytes": 20,
+    "cost": 182.34172905169794,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 6.0,
+     "moveFlags": 0.0,
+     "names": 27.14182026523121,
+     "structure": 149.19990878646672
+    }
+   }
+  },
+  "astbits/uniform/computed_row": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 130.07665368023828,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 16.459431618637296,
+     "moveFlags": 0.19264507794239588,
+     "names": 12.93663793900257,
+     "structure": 100.48793904465603
+    }
+   }
+  },
+  "astbits/uniform/empty_agent": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 57.27605351285591,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 56.27605351285591
+    }
+   }
+  },
+  "astbits/uniform/from_import": {
+   "ok": true,
+   "result": {
+    "astBytes": 38,
+    "cost": 247.65819555106847,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 20.0,
+     "moveFlags": 0.5779352338271877,
+     "names": 53.86649398261426,
+     "structure": 173.21376633462702
+    }
+   }
+  },
+  "astbits/uniform/fstring": {
+   "ok": true,
+   "result": {
+    "astBytes": 22,
+    "cost": 161.98567148878737,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 17.614709844115207,
+     "moveFlags": 0.0,
+     "names": 21.003650249410512,
+     "structure": 123.36731139526165
+    }
+   }
+  },
+  "astbits/uniform/global_counter": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 116.59973356842764,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 10.0,
+     "moveFlags": 0.0,
+     "names": 8.169925001442312,
+     "structure": 98.42980856698533
+    }
+   }
+  },
+  "astbits/uniform/greedy": {
+   "ok": true,
+   "result": {
+    "astBytes": 39,
+    "cost": 244.47380448840718,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 10.459431618637296,
+     "moveFlags": 0.7705803117695835,
+     "names": 55.00622814631041,
+     "structure": 178.2375644116899
+    }
+   }
+  },
+  "astbits/uniform/helper_after": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 127.35590412835623,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 8.906890595608518,
+     "structure": 118.25636845480531
+    }
+   }
+  },
+  "astbits/uniform/import_random": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 155.6207488900975,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 10.459431618637296,
+     "moveFlags": 0.38529015588479176,
+     "names": 31.778313066592453,
+     "structure": 112.99771404898297
+    }
+   }
+  },
+  "astbits/uniform/lambda_max": {
+   "ok": true,
+   "result": {
+    "astBytes": 33,
+    "cost": 210.73379609750978,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 10.459431618637296,
+     "moveFlags": 0.38529015588479176,
+     "names": 48.397278079283865,
+     "structure": 151.49179624370382
+    }
+   }
+  },
+  "astbits/uniform/literals": {
+   "ok": true,
+   "result": {
+    "astBytes": 37,
+    "cost": 263.73036723303267,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 121.19862631119466,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 139.94677842111687
+    }
+   }
+  },
+  "astbits/uniform/loop": {
+   "ok": true,
+   "result": {
+    "astBytes": 31,
+    "cost": 177.59240023749655,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 21.918863237274593,
+     "moveFlags": 0.19264507794239588,
+     "names": 32.0174554666109,
+     "structure": 123.46343645566867
+    }
+   }
+  },
+  "astbits/uniform/one_paint": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 62.083408434913515,
+    "literalMoveFallbackBits": [
+     44.44373880903119
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 61.083408434913515
+    }
+   }
+  },
+  "astbits/uniform/renamed": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 62.083408434913515,
+    "literalMoveFallbackBits": [
+     44.44373880903119
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 61.083408434913515
+    }
+   }
+  },
+  "astbits/uniform/same_move_area": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 62.083408434913515,
+    "literalMoveFallbackBits": [
+     64.77596930284537
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 61.083408434913515
+    }
+   }
+  },
+  "astbits/uniform/same_move_raw": {
+   "ok": true,
+   "result": {
+    "astBytes": 27,
+    "cost": 62.083408434913515,
+    "literalMoveFallbackBits": [
+     110.7414405955284
+    ],
+    "literalMoves": [
+     [
+      "paint",
+      {
+       "colour": 0,
+       "kind": "line",
+       "region": [
+        0,
+        2
+       ]
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 61.083408434913515
+    }
+   }
+  },
+  "astbits/uniform/walrus_comp": {
+   "ok": true,
+   "result": {
+    "astBytes": 39,
+    "cost": 248.25646113453095,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 11.0,
+     "moveFlags": 0.38529015588479176,
+     "names": 49.91948592352523,
+     "structure": 186.95168505512092
+    }
+   }
+  },
+  "domain/\"aaaaaaaaaaa": {
+   "code": "DOMAIN",
+   "error": "Input is not a valid wire value for this room",
+   "ok": false
+  },
+  "domain/\"\u00e9\"": {
+   "code": "DOMAIN",
+   "error": "Input is not a valid wire value for this room",
+   "ok": false
+  },
+  "domain/1.5": {
+   "code": "DOMAIN",
+   "error": "Input is not a valid wire value for this room",
+   "ok": false
+  },
+  "domain/900719925474": {
+   "code": "DOMAIN",
+   "error": "Input is not a valid wire value for this room",
+   "ok": false
+  },
+  "fixture/astModule/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: ModuleNotFoundError: No module named '_colorize' (line 2)",
+   "ok": false
+  },
+  "fixture/astModule/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 34,
+    "cost": 195.79979089322293,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 80.44511229749104,
+     "moveFlags": 1.1558704676543752,
+     "names": 36.05141021839412,
+     "structure": 78.1473979096834
+    }
+   }
+  },
+  "fixture/bigint/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":478}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/bigint/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 102.7154971699556,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 27.195108370327034,
+     "moveFlags": 0.5779352338271877,
+     "names": 14.258975260148524,
+     "structure": 60.683478305652855
+    }
+   }
+  },
+  "fixture/capability_0/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: NameError: name 'open' is not defined (line 2)",
+   "ok": false
+  },
+  "fixture/capability_0/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 22,
+    "cost": 123.38498831735447,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 81.7327161854187,
+     "moveFlags": 0.38529015588479176,
+     "names": 11.689050706437467,
+     "structure": 29.577931269613515
+    }
+   }
+  },
+  "fixture/capability_1/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: FileNotFoundError: [Errno 44] No such file or directory: '/etc/passwd' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_1/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 26,
+    "cost": 199.217017532162,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 81.7327161854187,
+     "moveFlags": 0.38529015588479176,
+     "names": 84.23965197846549,
+     "structure": 32.85935921239302
+    }
+   }
+  },
+  "fixture/capability_10/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: PermissionError: [Errno 76] Capabilities insufficient: '/lib/python3.15/os.py' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_10/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 43,
+    "cost": 386.2742763955295,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 168.08014221495256,
+     "moveFlags": 0.5779352338271877,
+     "names": 169.31342641503224,
+     "structure": 48.30277253171754
+    }
+   }
+  },
+  "fixture/capability_11/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: ImportError: socket is not available to agents (preloaded: math, itertools, functools, collections, re, json, decimal, fractions, statistics, hashlib, ast, operator, random, time) (line 2)",
+   "ok": false
+  },
+  "fixture/capability_11/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 90.53673140862065,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.65916696484264,
+     "moveFlags": 0.38529015588479176,
+     "names": 13.914343018279709,
+     "structure": 29.577931269613515
+    }
+   }
+  },
+  "fixture/capability_2/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: PermissionError: [Errno 76] Capabilities insufficient: '/lib/python3.15/random.py' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_2/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 40,
+    "cost": 293.8229553497748,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 176.33865400303154,
+     "moveFlags": 0.38529015588479176,
+     "names": 84.23965197846549,
+     "structure": 32.85935921239302
+    }
+   }
+  },
+  "fixture/capability_3/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: FileNotFoundError: [Errno 44] No such file or directory: '/tmp/owned' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_3/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 29,
+    "cost": 236.34595760253106,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 113.51866151806709,
+     "moveFlags": 0.38529015588479176,
+     "names": 83.18214950942415,
+     "structure": 39.259856419155014
+    }
+   }
+  },
+  "fixture/capability_4/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: OSError: [Errno 8] Bad file descriptor (line 2)",
+   "ok": false
+  },
+  "fixture/capability_4/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 270.590407325029,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 82.56833288676347,
+     "moveFlags": 0.38529015588479176,
+     "names": 148.37692786322572,
+     "structure": 39.259856419155014
+    }
+   }
+  },
+  "fixture/capability_5/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: OSError: [Errno 8] Bad file descriptor (line 2)",
+   "ok": false
+  },
+  "fixture/capability_5/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 214.47501286601567,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 25.395435958708838,
+     "moveFlags": 0.38529015588479176,
+     "names": 149.43443033226703,
+     "structure": 39.259856419155014
+    }
+   }
+  },
+  "fixture/capability_6/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: PermissionError: [Errno 76] Capabilities insufficient: '/lib' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_6/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 240.9775520046583,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 51.63007486499403,
+     "moveFlags": 0.38529015588479176,
+     "names": 152.90257916800545,
+     "structure": 36.059607815774015
+    }
+   }
+  },
+  "fixture/capability_7/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: ModuleNotFoundError: No module named 'socket' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_7/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 231.56353897722974,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.65916696484264,
+     "moveFlags": 0.38529015588479176,
+     "names": 151.65972264410928,
+     "structure": 32.85935921239302
+    }
+   }
+  },
+  "fixture/capability_8/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: AttributeError: module 'os' has no attribute 'system' (line 2)",
+   "ok": false
+  },
+  "fixture/capability_8/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 21,
+    "cost": 275.7015183403329,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 51.63007486499403,
+     "moveFlags": 0.38529015588479176,
+     "names": 187.62654550368006,
+     "structure": 36.059607815774015
+    }
+   }
+  },
+  "fixture/capability_9/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: SystemExit: 0 (line 2)",
+   "ok": false
+  },
+  "fixture/capability_9/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 217.2406945982312,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 29.41259161766053,
+     "moveFlags": 0.38529015588479176,
+     "names": 151.38320500891186,
+     "structure": 36.059607815774015
+    }
+   }
+  },
+  "fixture/clock/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}],[\"add\",{\"k\":2}],[\"add\",{\"k\":3}]]",
+    "steps": 5,
+    "usedRandom": false
+   }
+  },
+  "fixture/clock/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 51,
+    "cost": 338.9847502810361,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 194.83188204681895,
+     "moveFlags": 0.7705803117695835,
+     "names": 49.56074572308357,
+     "structure": 93.821542199364
+    }
+   }
+  },
+  "fixture/clockEscape/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/clockEscape/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 46,
+    "cost": 449.90600835829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 188.23259072111938,
+     "moveFlags": 0.7705803117695835,
+     "names": 182.9841972540258,
+     "structure": 77.91864007138157
+    }
+   }
+  },
+  "fixture/clockNs/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1000}],[\"add\",{\"k\":2000}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/clockNs/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 53,
+    "cost": 559.1033982493624,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 312.05460292355144,
+     "moveFlags": 1.1558704676543752,
+     "names": 153.38722875939482,
+     "structure": 92.50569609876175
+    }
+   }
+  },
+  "fixture/decimalPrec/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":28}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/decimalPrec/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 25,
+    "cost": 200.6192441844874,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 55.27387680895785,
+     "moveFlags": 0.5779352338271877,
+     "names": 90.571205377931,
+     "structure": 54.19622676377138
+    }
+   }
+  },
+  "fixture/decimalSet/act": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/decimalSet/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 18,
+    "cost": 78.00153437759896,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 6.597554185163517,
+     "moveFlags": 0.19264507794239588,
+     "names": 25.894980574302785,
+     "structure": 45.316354540190254
+    }
+   }
+  },
+  "fixture/deleted/act": {
+   "code": "EXECUTION",
+   "error": "The agent's module no longer defines agent",
+   "ok": false
+  },
+  "fixture/deleted/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 10,
+    "cost": 37.314991336525296,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 2.0,
+     "structure": 35.314991336525296
+    }
+   }
+  },
+  "fixture/empty/act": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/empty/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "fixture/encoder_bytes/act": {
+   "code": "DOMAIN",
+   "error": "agent must return a list of mutator calls (the encoder did not produce a string)",
+   "ok": false
+  },
+  "fixture/encoder_bytes/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 13,
+    "cost": 65.38396847132546,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 25.770451113218144,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/encoder_exact/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/encoder_exact/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 93.58758335747346,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.18317192943012,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 44.81944892732219
+    }
+   }
+  },
+  "fixture/encoder_hookStr/act": {
+   "code": "DOMAIN",
+   "error": "agent must return a list of mutator calls (the encoder did not produce a string)",
+   "ok": false
+  },
+  "fixture/encoder_hookStr/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 45,
+    "cost": 267.4970773610347,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 107.4843502001637,
+     "moveFlags": 0.7705803117695835,
+     "names": 35.794013980945145,
+     "structure": 123.44813286815626
+    }
+   }
+  },
+  "fixture/encoder_int/act": {
+   "code": "DOMAIN",
+   "error": "agent must return a list of mutator calls (the encoder did not produce a string)",
+   "ok": false
+  },
+  "fixture/encoder_int/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 12,
+    "cost": 44.21107154327083,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/encoder_nonAscii/act": {
+   "code": "DOMAIN",
+   "error": "Encoded calls must be an ASCII string",
+   "ok": false
+  },
+  "fixture/encoder_nonAscii/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 94.65797447883475,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 55.04445712072743,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/encoder_none/act": {
+   "code": "DOMAIN",
+   "error": "agent must return a list of mutator calls (the encoder did not produce a string)",
+   "ok": false
+  },
+  "fixture/encoder_none/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 12,
+    "cost": 42.9502509325554,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 3.3367335744480835,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/encoder_over/act": {
+   "code": "LIMIT",
+   "error": "agent returned too many mutator calls (encoded output over 65536 bytes)",
+   "ok": false
+  },
+  "fixture/encoder_over/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 93.58758335747346,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.18317192943012,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 44.81944892732219
+    }
+   }
+  },
+  "fixture/encoder_strSubclass/act": {
+   "code": "DOMAIN",
+   "error": "agent must return a list of mutator calls (the encoder did not produce a string)",
+   "ok": false
+  },
+  "fixture/encoder_strSubclass/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 23,
+    "cost": 125.42684687586222,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 29.785945332648403,
+     "moveFlags": 0.38529015588479176,
+     "names": 15.527010347040685,
+     "structure": 79.72860104028834
+    }
+   }
+  },
+  "fixture/encoder_surrogate/act": {
+   "code": "DOMAIN",
+   "error": "Encoded calls must be an ASCII string",
+   "ok": false
+  },
+  "fixture/encoder_surrogate/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 82.19913510237392,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 42.5856177442666,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/environ/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: ImportError: os is not available to agents (preloaded: math, itertools, functools, collections, re, json, decimal, fractions, statistics, hashlib, ast, operator, random, time) (line 2)",
+   "ok": false
+  },
+  "fixture/environ/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 20,
+    "cost": 93.22335339660566,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 18.200327588381803,
+     "moveFlags": 0.5779352338271877,
+     "names": 20.381599019721772,
+     "structure": 54.0634915546749
+    }
+   }
+  },
+  "fixture/environEscape/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/environEscape/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 234.25016096521472,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 18.200327588381803,
+     "moveFlags": 0.5779352338271877,
+     "names": 158.12697864555133,
+     "structure": 57.3449194974544
+    }
+   }
+  },
+  "fixture/evalBlocked/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: NameError: name 'eval' is not defined (line 2)",
+   "ok": false
+  },
+  "fixture/evalBlocked/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 59.791234738882764,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 11.585617744266598,
+     "moveFlags": 0.38529015588479176,
+     "names": 6.0,
+     "structure": 41.820326838731376
+    }
+   }
+  },
+  "fixture/floats/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"0.30000000000000004\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/floats/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 31,
+    "cost": 111.0912803181652,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 50.371478501379585,
+     "moveFlags": 0.38529015588479176,
+     "names": 11.555970221288396,
+     "structure": 48.778541439612425
+    }
+   }
+  },
+  "fixture/forgedDumps/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"forged\",{}]]",
+    "steps": 3,
+    "usedRandom": false
+   }
+  },
+  "fixture/forgedDumps/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 29,
+    "cost": 166.6197187387745,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 110.19155556187954,
+     "moveFlags": 0.0,
+     "names": 3.584962500721156,
+     "structure": 52.84320067617382
+    }
+   }
+  },
+  "fixture/fractions/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"41/3\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/fractions/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 31,
+    "cost": 214.02320514003668,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 75.10085068235179,
+     "moveFlags": 0.7705803117695835,
+     "names": 76.39670011567951,
+     "structure": 61.755074030235804
+    }
+   }
+  },
+  "fixture/functools/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":362880}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/functools/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 40,
+    "cost": 237.53324736104423,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 81.69840486751531,
+     "moveFlags": 0.7705803117695835,
+     "names": 68.96347843342383,
+     "structure": 86.1007837483355
+    }
+   }
+  },
+  "fixture/hashStable/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":239904}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/hashStable/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 27,
+    "cost": 172.93968867304793,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 109.10085068235179,
+     "moveFlags": 0.38529015588479176,
+     "names": 13.633213220220856,
+     "structure": 49.82033461459049
+    }
+   }
+  },
+  "fixture/hashing/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/hashing/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 27,
+    "cost": 198.70683683144202,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 73.044327922176,
+     "moveFlags": 0.7705803117695835,
+     "names": 64.77533101419257,
+     "structure": 60.11659758330386
+    }
+   }
+  },
+  "fixture/idBlocked/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: NameError: name 'id' is not defined (line 2)",
+   "ok": false
+  },
+  "fixture/idBlocked/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 15,
+    "cost": 50.09850814215093,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.38529015588479176,
+     "names": 9.321928094887362,
+     "structure": 40.39128989137878
+    }
+   }
+  },
+  "fixture/imports/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":5}]]",
+    "steps": 5,
+    "usedRandom": false
+   }
+  },
+  "fixture/imports/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 31,
+    "cost": 165.17908107878077,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 48.99820936192713,
+     "moveFlags": 0.5779352338271877,
+     "names": 34.93783899122411,
+     "structure": 80.66509749180233
+    }
+   }
+  },
+  "fixture/inc/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":42}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/inc/input--5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":-4}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/inc/input--9007199254740991": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":-9007199254740990}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/inc/input-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/inc/input-9007199254740991": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":9007199254740992}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/inc/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 15,
+    "cost": 52.08570724569733,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.19264507794239588,
+     "names": 6.0,
+     "structure": 41.29550798259142
+    }
+   }
+  },
+  "fixture/itertools/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":120}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/itertools/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 35,
+    "cost": 265.458680605702,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 75.10085068235179,
+     "moveFlags": 1.1558704676543752,
+     "names": 114.38754535848992,
+     "structure": 74.81441409720591
+    }
+   }
+  },
+  "fixture/jsonLoads/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":2}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/jsonLoads/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 39,
+    "cost": 257.0258842170902,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 144.57505507969142,
+     "moveFlags": 0.5779352338271877,
+     "names": 45.26645603373529,
+     "structure": 66.6064378698363
+    }
+   }
+  },
+  "fixture/loop100/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":4950}]]",
+    "steps": 304,
+    "usedRandom": false
+   }
+  },
+  "fixture/loop100/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 29,
+    "cost": 104.0455204547683,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 17.195108370327034,
+     "moveFlags": 0.38529015588479176,
+     "names": 22.8372000577368,
+     "structure": 63.62792187081966
+    }
+   }
+  },
+  "fixture/loop100/small": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":4950}]]",
+    "steps": 304,
+    "usedRandom": false
+   }
+  },
+  "fixture/loop1000/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":499500}]]",
+    "steps": 3004,
+    "usedRandom": false
+   }
+  },
+  "fixture/loop1000/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 30,
+    "cost": 110.0455204547683,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 23.195108370327034,
+     "moveFlags": 0.38529015588479176,
+     "names": 22.8372000577368,
+     "structure": 63.62792187081966
+    }
+   }
+  },
+  "fixture/loop1000/small": {
+   "code": "LIMIT",
+   "error": "Step limit exceeded: the agent took more than 1000 steps. Do less work per call.",
+   "ok": false
+  },
+  "fixture/malformed/act": {
+   "code": "EXECUTION",
+   "error": "Encoding agent's calls failed: KeyError: '__m'",
+   "ok": false
+  },
+  "fixture/malformed/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 8,
+    "cost": 39.31751858329899,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 38.31751858329899
+    }
+   }
+  },
+  "fixture/moduleLoop/act": {
+   "code": "LIMIT",
+   "error": "Step limit exceeded: the agent took more than 500000 steps. Do less work per call.",
+   "ok": false
+  },
+  "fixture/moduleLoop/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 10,
+    "cost": 56.503803404587515,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 5.459272932497239,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 50.04453047209028
+    }
+   }
+  },
+  "fixture/moduleLoop/small": {
+   "code": "LIMIT",
+   "error": "Step limit exceeded: the agent took more than 1000 steps. Do less work per call.",
+   "ok": false
+  },
+  "fixture/moduleRaise/act": {
+   "code": "EXECUTION",
+   "error": "The agent's module raised an error: ValueError: top (line 1)",
+   "ok": false
+  },
+  "fixture/moduleRaise/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 77.23498950312374,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 26.815037432497014,
+     "moveFlags": 0.19264507794239588,
+     "names": 6.9338836945477,
+     "structure": 43.29342329813663
+    }
+   }
+  },
+  "fixture/notJson/act": {
+   "ok": true,
+   "result": {
+    "calls": "not json",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/notJson/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 101.50210401118038,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 61.88858665307306,
+     "moveFlags": 0.0,
+     "names": 2.584962500721156,
+     "structure": 37.02855485738616
+    }
+   }
+  },
+  "fixture/objectRepr/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"<object object at 0x17956b0>\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/objectRepr/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 66.21751027146493,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.5779352338271877,
+     "names": 19.604220940788096,
+     "structure": 46.035354096849645
+    }
+   }
+  },
+  "fixture/openBlocked/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: NameError: name 'open' is not defined (line 2)",
+   "ok": false
+  },
+  "fixture/openBlocked/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 12,
+    "cost": 39.16865910782191,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 6.0,
+     "structure": 32.976014029879515
+    }
+   }
+  },
+  "fixture/operator/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":246}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/operator/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 27,
+    "cost": 158.76283868119253,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 68.48614083823658,
+     "moveFlags": 0.5779352338271877,
+     "names": 35.35896444039223,
+     "structure": 54.339798168736536
+    }
+   }
+  },
+  "fixture/oversized/act": {
+   "code": "LIMIT",
+   "error": "agent returned too many mutator calls (encoded output over 65536 bytes)",
+   "ok": false
+  },
+  "fixture/oversized/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 92.62302252913888,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.18317192943012,
+     "moveFlags": 0.19264507794239588,
+     "names": 3.0,
+     "structure": 43.24720552176636
+    }
+   }
+  },
+  "fixture/poisonBuiltins/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/poisonBuiltins/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 42,
+    "cost": 330.4227170241052,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 62.468985179284886,
+     "moveFlags": 0.38529015588479176,
+     "names": 195.54399650231855,
+     "structure": 72.02444518661697
+    }
+   }
+  },
+  "fixture/poisonJson/act": {
+   "code": "EXECUTION",
+   "error": "The agent's module raised an error: AttributeError: modules are read-only for agents (line 1)",
+   "ok": false
+  },
+  "fixture/poisonJson/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 22,
+    "cost": 145.45349194072352,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.65916696484264,
+     "moveFlags": 0.0,
+     "names": 43.85141853445644,
+     "structure": 54.94290644142445
+    }
+   }
+  },
+  "fixture/poisonMath/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/poisonMath/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 49,
+    "cost": 445.02278662566283,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 95.8987324558971,
+     "moveFlags": 0.5779352338271877,
+     "names": 269.8840017566299,
+     "structure": 78.66211717930865
+    }
+   }
+  },
+  "fixture/printEscape/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: PermissionError: Guest I/O is disabled (line 2)",
+   "ok": false
+  },
+  "fixture/printEscape/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 36,
+    "cost": 291.562458651915,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 128.01852943527348,
+     "moveFlags": 0.19264507794239588,
+     "names": 106.6718304052535,
+     "structure": 56.679453733445605
+    }
+   }
+  },
+  "fixture/printNothing/act": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/printNothing/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 32,
+    "cost": 189.7569866969326,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 128.01852943527348,
+     "moveFlags": 0.19264507794239588,
+     "names": 8.147786393050614,
+     "structure": 53.398025790666104
+    }
+   }
+  },
+  "fixture/private/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: AttributeError: _ns is not available to agents (line 2)",
+   "ok": false
+  },
+  "fixture/private/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 19,
+    "cost": 112.50028947117751,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 33.42974727661222,
+     "moveFlags": 0.38529015588479176,
+     "names": 32.037036345504866,
+     "structure": 46.64821569317563
+    }
+   }
+  },
+  "fixture/program/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":123}],[\"add\",{\"k\":9}]]",
+    "steps": 8,
+    "usedRandom": false
+   }
+  },
+  "fixture/program/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 42,
+    "cost": 168.85096868005868,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 21.195108370327034,
+     "moveFlags": 0.7705803117695835,
+     "names": 43.35904286498168,
+     "structure": 103.5262371329804
+    }
+   }
+  },
+  "fixture/random3/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":347712782}],[\"add\",{\"k\":1017762681}],[\"add\",{\"k\":161973069}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 29,
+    "cost": 150.28094446062155,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 63.85601247570573,
+     "moveFlags": 0.7705803117695835,
+     "names": 28.14640269335772,
+     "structure": 57.507948979788516
+    }
+   }
+  },
+  "fixture/random3/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":906691059}],[\"add\",{\"k\":413653999}],[\"add\",{\"k\":813847339}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":686579303}],[\"add\",{\"k\":119540831}],[\"add\",{\"k\":26855092}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":144272509}],[\"add\",{\"k\":611178002}],[\"add\",{\"k\":909925047}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":23435167}],[\"add\",{\"k\":267123914}],[\"add\",{\"k\":363027088}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":686579303}],[\"add\",{\"k\":119540831}],[\"add\",{\"k\":26855092}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/random3/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":41394725}],[\"add\",{\"k\":307180549}],[\"add\",{\"k\":747565174}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1308}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 65,
+    "cost": 269.95404401334565,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 62.18287929614462,
+     "moveFlags": 1.5411606235391668,
+     "names": 74.40877314909815,
+     "structure": 131.8212309445637
+    }
+   }
+  },
+  "fixture/randomChoice/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":1289}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":975}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":-1982}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":-496}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":975}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomChoice/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":-1285}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":546199}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 26,
+    "cost": 183.76722696582712,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 57.25672115000616,
+     "moveFlags": 0.7705803117695835,
+     "names": 65.62332792074753,
+     "structure": 60.11659758330386
+    }
+   }
+  },
+  "fixture/randomFresh/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":104262}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":137162}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":29967}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":764531}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":137162}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomFresh/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":163821}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomModule/act": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomModule/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 17,
+    "cost": 54.67991820791309,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.19264507794239588,
+     "names": 17.400746044849342,
+     "structure": 37.086527085121354
+    }
+   }
+  },
+  "fixture/randomReseed/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":546199}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 90.30556464177236,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 10.597554185163517,
+     "moveFlags": 0.5779352338271877,
+     "names": 24.851957156681667,
+     "structure": 54.27811806609999
+    }
+   }
+  },
+  "fixture/randomReseed/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":104262}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":137162}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":29967}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":764531}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":137162}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/randomReseed/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":163821}]]",
+    "steps": 4,
+    "usedRandom": true
+   }
+  },
+  "fixture/readOnly/act": {
+   "code": "EXECUTION",
+   "error": "The agent's module raised an error: AttributeError: modules are read-only for agents (line 2)",
+   "ok": false
+  },
+  "fixture/readOnly/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 15,
+    "cost": 90.83210445791913,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.0,
+     "names": 48.4662068031611,
+     "structure": 37.76834346959451
+    }
+   }
+  },
+  "fixture/readOnlyDel/act": {
+   "code": "EXECUTION",
+   "error": "The agent's module raised an error: AttributeError: modules are read-only for agents (line 2)",
+   "ok": false
+  },
+  "fixture/readOnlyDel/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 14,
+    "cost": 57.277337891158254,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 15.422404925979114,
+     "structure": 41.85493296517914
+    }
+   }
+  },
+  "fixture/recursion/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: RecursionError: maximum recursion depth exceeded (line 2)",
+   "ok": false
+  },
+  "fixture/recursion/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 24,
+    "cost": 74.95761982439137,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.5779352338271877,
+     "names": 17.872674880270605,
+     "structure": 56.50700971029357
+    }
+   }
+  },
+  "fixture/regex/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/regex/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 38,
+    "cost": 234.32081847050165,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 146.59221073864313,
+     "moveFlags": 0.7705803117695835,
+     "names": 23.773916442500536,
+     "structure": 63.18411097758839
+    }
+   }
+  },
+  "fixture/sameEverything/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":323832764}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 61,
+    "cost": 279.2524209054251,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 65.7150642636706,
+     "moveFlags": 1.9264507794239585,
+     "names": 88.54244967958144,
+     "structure": 123.0684561827491
+    }
+   }
+  },
+  "fixture/sameEverything/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":844421851}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":639426798}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":134364244}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":21825695}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":639426798}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/sameEverything/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":38551839}],[\"add\",{\"k\":1767225600000001000}],[\"add\",{\"k\":28}]]",
+    "steps": 5,
+    "usedRandom": true
+   }
+  },
+  "fixture/setOrder/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"a,b,c:y,x,z,w\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/setOrder/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 38,
+    "cost": 266.7581169494212,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 115.856177442666,
+     "moveFlags": 0.9632253897119794,
+     "names": 32.513265958868345,
+     "structure": 117.42544815817487
+    }
+   }
+  },
+  "fixture/shadowAdd/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"forged\",{\"k\":41}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "fixture/shadowAdd/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 29,
+    "cost": 159.94602520383708,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 85.05982214160625,
+     "moveFlags": 0.19264507794239588,
+     "names": 12.550746785383241,
+     "structure": 62.14281119890521
+    }
+   }
+  },
+  "fixture/sleep/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: RuntimeError: sleeping is not available to agents (line 2)",
+   "ok": false
+  },
+  "fixture/sleep/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 28,
+    "cost": 157.02846430757262,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 58.61548652730201,
+     "moveFlags": 0.5779352338271877,
+     "names": 45.26645603373529,
+     "structure": 52.56858651270812
+    }
+   }
+  },
+  "fixture/statistics/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":42}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "fixture/statistics/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 35,
+    "cost": 185.10150205969245,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 79.715560526467,
+     "moveFlags": 0.5779352338271877,
+     "names": 28.707946327559114,
+     "structure": 76.10005997183914
+    }
+   }
+  },
+  "fixture/swallow/act": {
+   "code": "LIMIT",
+   "error": "Step limit exceeded: the agent took more than 500000 steps. Do less work per call.",
+   "ok": false
+  },
+  "fixture/swallow/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 18,
+    "cost": 76.54594956782174,
+    "literalMoveFallbackBits": [
+     12.430019590007376
+    ],
+    "literalMoves": [
+     [
+      "add",
+      {
+       "k": 1
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 5.459272932497239,
+     "moveFlags": 0.0,
+     "names": 10.840550427657126,
+     "structure": 60.246126207667366
+    }
+   }
+  },
+  "fixture/swallow/small": {
+   "code": "LIMIT",
+   "error": "Step limit exceeded: the agent took more than 1000 steps. Do less work per call.",
+   "ok": false
+  },
+  "fixture/systemRandom/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: RuntimeError: SystemRandom is not available: use random.random() (seeded by the engine) (line 2)",
+   "ok": false
+  },
+  "fixture/systemRandom/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 25,
+    "cost": 209.97961133686124,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 46.65916696484264,
+     "moveFlags": 0.7705803117695835,
+     "names": 105.63351508032615,
+     "structure": 56.91634897992286
+    }
+   }
+  },
+  "fixture/urandom/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3969210794}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 28,
+    "cost": 305.4154777402727,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 24.79788177354532,
+     "moveFlags": 0.7705803117695835,
+     "names": 216.6444894107122,
+     "structure": 63.20252624424563
+    }
+   }
+  },
+  "fixture/urandom/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":2193166021}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3495650933}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":487011839}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":4078872678}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3495650933}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandom/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":2904924237}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/act": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"ec9559aa6e968af15fae89cd4117bb4e\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 26,
+    "cost": 304.9499050020906,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 28.79788177354532,
+     "moveFlags": 0.7705803117695835,
+     "names": 211.98341739069232,
+     "structure": 63.39802552608336
+    }
+   }
+  },
+  "fixture/urandomHex/seed-0": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"82b90ec5350d1ac8899a4194f5906e50\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/seed-0x2a": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"d05b6675afae35767bd7b5bda12ccd54\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/seed-1": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"1d0735ff8db5b520452c454570c7fe49\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/seed-18446744073709551615": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"f31ea8669abc8a0512aee4792321060c\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/seed-42": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"d05b6675afae35767bd7b5bda12ccd54\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/urandomHex/seed-43": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"ad25a04d8f595bcec742bfcd6af88b2f\"}]]",
+    "steps": 2,
+    "usedRandom": true
+   }
+  },
+  "fixture/zero/act": {
+   "code": "EXECUTION",
+   "error": "agent raised an error: ZeroDivisionError: division by zero (line 2)",
+   "ok": false
+  },
+  "fixture/zero/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 15,
+    "cost": 54.51396770557434,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 2.597554185163517,
+     "moveFlags": 0.19264507794239588,
+     "names": 6.0,
+     "structure": 45.723768442468426
+    }
+   }
+  },
+  "grammar/agentx": {
+   "code": "COMPILE",
+   "error": "SyntaxError: an agent must define a function named agent at the top level, like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/async": {
+   "code": "COMPILE",
+   "error": "SyntaxError: agent must be a plain def, not async def (line 1)",
+   "ok": false
+  },
+  "grammar/deep": {
+   "code": "COMPILE",
+   "error": "MemoryError: Parser stack overflowed - Python source too complex to parse",
+   "ok": false
+  },
+  "grammar/default": {
+   "ok": true,
+   "result": {
+    "astBytes": 9,
+    "cost": 33.19798245413414,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.0,
+     "names": 2.0,
+     "structure": 26.600428268970624
+    }
+   }
+  },
+  "grammar/identity": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 21.020089452020525,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 4.0,
+     "structure": 17.020089452020525
+    }
+   }
+  },
+  "grammar/kwOnly": {
+   "code": "COMPILE",
+   "error": "SyntaxError: agent must take exactly one argument (line 1), like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/lambda": {
+   "code": "COMPILE",
+   "error": "SyntaxError: an agent must define a function named agent at the top level, like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/literalMove": {
+   "ok": true,
+   "result": {
+    "astBytes": 11,
+    "cost": 29.76523065033064,
+    "literalMoveFallbackBits": [
+     14.43001959000738
+    ],
+    "literalMoves": [
+     [
+      "add",
+      {
+       "k": 3
+      }
+     ]
+    ],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 28.76523065033064
+    }
+   }
+  },
+  "grammar/nested": {
+   "code": "COMPILE",
+   "error": "SyntaxError: an agent must define a function named agent at the top level, like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/noArgs": {
+   "code": "COMPILE",
+   "error": "SyntaxError: agent must take exactly one argument (line 1), like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/sysExit": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 100.56112327347985,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 12.597554185163517,
+     "moveFlags": 0.19264507794239588,
+     "names": 48.33838044405344,
+     "structure": 39.4325435663205
+    }
+   }
+  },
+  "grammar/templateString": {
+   "code": "COMPILE",
+   "error": "SyntaxError: this program uses Python the price table does not cover ('TemplateStr' has no codeword here (List.elts))",
+   "ok": false
+  },
+  "grammar/twice": {
+   "code": "COMPILE",
+   "error": "SyntaxError: agent is defined more than once (line 3)",
+   "ok": false
+  },
+  "grammar/twoArgs": {
+   "code": "COMPILE",
+   "error": "SyntaxError: agent must take exactly one argument (line 1), like:\n    def agent(grid):\n        return []",
+   "ok": false
+  },
+  "grammar/unclosed": {
+   "code": "COMPILE",
+   "error": "SyntaxError: '[' was never closed (line 2, column 12)\n        return [add(x)\n               ^",
+   "ok": false
+  },
+  "grammar/unicode": {
+   "ok": true,
+   "result": {
+    "astBytes": 16,
+    "cost": 52.11409088686741,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 4.597554185163517,
+     "moveFlags": 0.19264507794239588,
+     "names": 7.321928094887362,
+     "structure": 40.001963528874136
+    }
+   }
+  },
+  "grammar/varargs": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 28.668376662046864,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 27.668376662046864
+    }
+   }
+  },
+  "inventory/collections": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/decimal": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":9}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/fractions": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/functools": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":10}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/hashlib": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/itertools": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":10}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/json": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"b\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/math": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":9}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/re": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":\"ab\"}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "inventory/statistics": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "prelude/broken": {
+   "code": "CONFIG",
+   "error": "The room's Python prelude does not compile",
+   "ok": false
+  },
+  "prelude/doubled": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":9}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "prelude/no-encoder": {
+   "code": "CONFIG",
+   "error": "The room's prelude must define __decode and __encode_calls",
+   "ok": false
+  },
+  "prelude/raising": {
+   "code": "CONFIG",
+   "error": "The room's Python prelude failed to run",
+   "ok": false
+  },
+  "prelude/slow": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":4}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "seed/-1": {
+   "code": "CONFIG",
+   "error": "The act needs a seed: a 64-bit decimal or 0x-hex string",
+   "ok": false
+  },
+  "seed/0x1ffffffffffffffff": {
+   "code": "CONFIG",
+   "error": "The act needs a seed: a 64-bit decimal or 0x-hex string",
+   "ok": false
+  },
+  "seed/1.5": {
+   "code": "CONFIG",
+   "error": "The act needs a seed: a 64-bit decimal or 0x-hex string",
+   "ok": false
+  },
+  "seed/18446744073709551616": {
+   "code": "CONFIG",
+   "error": "The act's seed must fit in 64 bits",
+   "ok": false
+  },
+  "seed/abc": {
+   "code": "CONFIG",
+   "error": "The act needs a seed: a 64-bit decimal or 0x-hex string",
+   "ok": false
+  },
+  "seed/empty": {
+   "code": "CONFIG",
+   "error": "The act needs a seed: a 64-bit decimal or 0x-hex string",
+   "ok": false
+  },
+  "strings/len": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":3}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "strings/nul": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":240}]]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/all/act-0-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/act-0-5": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/act-1-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/act-1-5": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/act-2-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/act-2-5": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/all/inspect": {
+   "code": "EXECUTION",
+   "error": "Expecting ',' delimiter: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid-5-base10-rgby/empty/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/empty/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":3,\"kind\":\"line\",\"region\":[0,2]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[3,2]}]]",
+    "steps": 264,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":3,\"kind\":\"line\",\"region\":[0,2]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[3,2]}]]",
+    "steps": 264,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":3,\"kind\":\"line\",\"region\":[0,4]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[0,3]}]]",
+    "steps": 264,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":3,\"kind\":\"line\",\"region\":[0,4]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[0,3]}]]",
+    "steps": 264,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":2,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[3,2]}]]",
+    "steps": 263,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":2,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[3,2]}]]",
+    "steps": 263,
+    "usedRandom": false
+   }
+  },
+  "types/Grid-5-base10-rgby/realistic/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 216,
+    "cost": 757.0517504855524,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 30.856346445040785,
+     "moveFlags": 2.1190958573663545,
+     "names": 336.4995483647362,
+     "structure": 387.5767598184091
+    }
+   }
+  },
+  "types/Grid/all/act-0-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/act-0-5": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/act-1-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/act-1-5": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/act-2-0xdeadbeef": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/act-2-5": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/all/inspect": {
+   "code": "EXECUTION",
+   "error": "Expecting value: line 1 column 2001 (char 2000)",
+   "ok": false
+  },
+  "types/Grid/empty/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/empty/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "types/Grid/realistic/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":2,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[0,2]}]]",
+    "steps": 192,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":2,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[0,2]}]]",
+    "steps": 192,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":0,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[1,0]}]]",
+    "steps": 191,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":0,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[1,0]}]]",
+    "steps": 191,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":0,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[1,0]}]]",
+    "steps": 192,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"paint\",{\"colour\":0,\"kind\":\"line\",\"region\":[0,0]}],[\"recolour\",{\"kind\":\"all\",\"pair\":[1,0]}]]",
+    "steps": 192,
+    "usedRandom": false
+   }
+  },
+  "types/Grid/realistic/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 216,
+    "cost": 756.6998038460954,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 30.856346445040785,
+     "moveFlags": 2.1190958573663545,
+     "names": 336.1476017252792,
+     "structure": 387.5767598184091
+    }
+   }
+  },
+  "types/Int/empty/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/Int/empty/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "types/Int/realistic/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":2}],[\"set_digit\",{\"digit\":9,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":2}],[\"set_digit\",{\"digit\":9,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":7}],[\"set_digit\",{\"digit\":8,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":7}],[\"set_digit\",{\"digit\":8,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":5}],[\"set_digit\",{\"digit\":8,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"add\",{\"k\":5}],[\"set_digit\",{\"digit\":8,\"place\":0}]]",
+    "steps": 4,
+    "usedRandom": false
+   }
+  },
+  "types/Int/realistic/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 63,
+    "cost": 234.64406709889943,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 15.792662555490551,
+     "moveFlags": 1.348515545596771,
+     "names": 87.09055710298033,
+     "structure": 130.41233189483177
+    }
+   }
+  },
+  "types/string/empty/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[]",
+    "steps": 2,
+    "usedRandom": false
+   }
+  },
+  "types/string/empty/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 7,
+    "cost": 24.711739662829633,
+    "literalMoveFallbackBits": [],
+    "literalMoves": [],
+    "parts": {
+     "literals": 0.0,
+     "moveFlags": 0.0,
+     "names": 1.0,
+     "structure": 23.711739662829633
+    }
+   }
+  },
+  "types/string/realistic/act-0-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"F\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/act-0-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"F\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/act-1-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"|\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/act-1-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"|\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/act-2-0xdeadbeef": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"\\u001b\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/act-2-5": {
+   "ok": true,
+   "result": {
+    "calls": "[[\"insert\",{\"i\":0,\"text\":\"\\u001b\"}],[\"reverse\",{}]]",
+    "steps": 390,
+    "usedRandom": false
+   }
+  },
+  "types/string/realistic/inspect": {
+   "ok": true,
+   "result": {
+    "astBytes": 60,
+    "cost": 218.52858922327104,
+    "literalMoveFallbackBits": [
+     8.09164842010017
+    ],
+    "literalMoves": [
+     [
+      "reverse",
+      {}
+     ]
+    ],
+    "parts": {
+     "literals": 21.37828029975715,
+     "moveFlags": 0.5779352338271877,
+     "names": 74.74597553768352,
+     "structure": 121.82639815200318
+    }
+   }
+  }
+ }
+}

@@ -32,11 +32,11 @@ Use parallel subtasks for this project; the main agent should act as coordinator
 
 **How to apply:** Delegate implementation aggressively with clear file ownership and contracts. The user reiterated this after the main agent took on too much implementation; retain coordination and final integration checks.
 
-Implement persistence with Replit's built-in PostgreSQL from the start.
+Persist everything in Convex (the user's decision to migrate; PostgreSQL removed).
 
-**Why:** The user explicitly requires this database for Code Gods.
+**Why:** The user decided to eliminate PostgreSQL and run the engine, persistence, auth and static hosting on one Convex deployment, with no separate server (docs/convex-migration-plan.md ยง0).
 
-**How to apply:** Keep authoritative persistent state in the project's built-in PostgreSQL throughout server and client integration; do not substitute an in-memory-only or external database.
+**How to apply:** Keep all authoritative state in the Convex deployment's tables (artifacts/engine/convex/schema.ts). Do not reintroduce PostgreSQL, drizzle, `DATABASE_URL`, an in-memory-only store or a second database.
 
 Rooms do not have names. They are identified by a short code derived from their GUID.
 
@@ -56,11 +56,11 @@ Private development-preview access is separate from Code Gods authentication. Th
 
 **How to apply:** Distinguish preview access failures from game authentication failures. Editor access is a development workaround, not a player permission model: it also grants source-code editing access.
 
-Private publishing can block headless client device approval before Code Gods authentication runs.
+Private Replit gates can block headless requests before Code Gods authentication runs.
 
-**Why:** A live connection attempt was redirected to Replit's `__replshield`; following that redirect produced misleading header/referrer errors instead of a game API response.
+**Why:** A live connection attempt to the former Replit-published server was redirected to Replit's `__replshield`; following that redirect produced misleading header/referrer errors instead of a game API response.
 
-**How to apply:** Inspect redirects without following them when connecting a new published server. For the no-static-secret player protocol, use public deployment visibility with the app's own Replit login and room authorization; changing visibility requires the owner's decision.
+**How to apply:** Inspect redirects without following them when a connection fails, and report a platform gate as such. The engine itself is now on Convex (`*.convex.site`), outside Replit's gates; player apps still run behind Replit's preview proxy.
 
 Use full names from verified Replit identities to label human players, not just first names.
 
@@ -78,7 +78,7 @@ Fund Code Gods AI players through user-supplied Anthropic or OpenAI API keys, no
 
 **Why:** The user selected direct provider billing and subsequently requested both Anthropic and OpenAI model choices.
 
-**How to apply:** Keep the key in server-side Secrets, enforce room usage budgets, and do not silently fall back to a Replit-billed provider.
+**How to apply:** Keep the keys in the Convex deployment's env vars (never in player apps or clients), enforce room usage budgets, and do not silently fall back to a Replit-billed provider.
 
 AI-player templates are persistent admin-editable named records with provider/model selection and prompts capped at 10,000 characters; Sonnet 5.5 is the requested default.
 
@@ -86,11 +86,11 @@ AI-player templates are persistent admin-editable named records with provider/mo
 
 **How to apply:** Gate authoring by an environment-configured verified-email allowlist. Seed defaults once and preserve edits/deletions across restarts. Do not save allowlisted personal emails in memory.
 
-Deploy on Autoscale with at most one server instance. Close connections after 30 minutes without human activity.
+Deploy the engine as one Convex deployment that serves the engine UI, the hosted player client and the API. Park after 30 minutes without human activity.
 
-**Why:** The user requires Autoscale for affordable compute and explicitly ruled out multiple simultaneous instances.
+**Why:** The user wants affordable compute with no separate server; Convex bills function time, so a parked tick loop costs nothing. The 30-minute idle rule is kept from the former Autoscale deployment.
 
-**How to apply:** Do not require Reserved VM or build distributed coordination. Centralize inactivity handling; heartbeats, bots, and passive polling must not prevent sleep. Preserve committed state across restarts and offer explicit wake after idle.
+**How to apply:** Do not add a Replit Publish step, a Reserved VM or a second server. After 30 minutes without human activity, park running games in `recovery` (no ticks, no AI turns) with auto-resume on the next human activity; AI turns, heartbeats and passive subscriptions must not count as activity.
 
 Interaction speed is an upper limit; perform interactions as fast as available capacity permits, parallelized over four cores.
 
@@ -104,11 +104,11 @@ Agent interactions have a configurable compute budget defaulting to 5 ms; compil
 
 **How to apply:** Measure whole-engine throughput, not only function timing; separate preparation cost from guest computation and retain enforced resource/capability limits rather than relying on Python-level name hiding.
 
-Queue database writes asynchronously with bounded buffering and batching rather than blocking every interaction on its own database write.
+Batch engine ticks: one Node action runs the agents of a tick, then one commit mutation writes the whole tick; never one write per interaction.
 
-**Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap.
+**Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap. Batched ticks reach that goal in Convex's transactional model.
 
-**How to apply:** Preserve write order, flush on graceful shutdown, apply backpressure instead of unbounded queues, and clearly distinguish acknowledged durable actions from any uncommitted interaction window.
+**How to apply:** Keep one commit mutation (and one `tickBatches` document) per tick, preserve opportunity order within it, and stay inside Convex's per-transaction limits. A discarded tick (a conflict or a failed action) is an uncommitted window, never a partially applied one.
 
 Call them **utility functions**, never "value functions". "Value" means an object's value (the T instance).
 
@@ -126,7 +126,7 @@ The user directed a clean break: the old design ([0,1] utilities, free-form T โ
 
 **Why:** The user said to throw old code away completely rather than keep features that complicate the architecture.
 
-**How to apply:** Don't reintroduce compatibility layers; only deployment-safety constraints (additive DB changes, startup guard) remain.
+**How to apply:** Don't reintroduce compatibility layers. Superseded code is deleted completely (the Convex migration removed the Express server, PostgreSQL and the OpenAPI clients outright).
 
 Every object in a world is unique. A transformation onto any existing value (including the object's own) fails entirely, and spawns redraw.
 

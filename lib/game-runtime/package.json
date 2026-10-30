@@ -3,15 +3,28 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": { "types": "./index.d.ts", "default": "./index.mjs" } },
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.mjs"
+    },
+    "./benchmark": {
+      "types": "./benchmark.d.ts",
+      "default": "./benchmark.mjs"
+    }
+  },
   "scripts": {
     "setup:python": "python3 python/setup.py",
-    "test:python": "cd python && python3 -m unittest test_runner test_reactor test_sandbox test_astbits",
-    "test": "node --test test/*.test.mjs",
-    "benchmark": "node test/benchmark.mjs"
+    "build:python": "node scripts/build-python-bundle.mjs",
+    "build:worker": "node scripts/build-worker.mjs",
+    "test": "node scripts/build-worker.mjs --check && node --test test/*.test.mjs",
+    "benchmark": "node --experimental-strip-types test/benchmark.mjs"
   },
   "dependencies": {
     "quickjs-emscripten": "0.31.0",
     "typescript": "5.9.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

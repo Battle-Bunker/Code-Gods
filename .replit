@@ -1,12 +1,4 @@
-modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
-
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+modules = ["nodejs-24", "python-base-3.13"]
 
 [workflows]
 runButton = "Project"
@@ -18,18 +10,19 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Room assistant bridge"
+args = "Player"
 
 [[workflows.workflow]]
-name = "Room assistant bridge"
+name = "Player"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "pnpm --filter @workspace/player-client assistant serve"
+args = "PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web run dev"
+waitForPort = 22772
 
 [workflows.workflow.metadata]
-outputType = "console"
+outputType = "webview"
 
 [agent]
 stack = "PNPM_WORKSPACE"
@@ -41,8 +34,3 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
-
-[userenv]
-
-[userenv.shared]
-CODE_GODS_ADMIN_EMAILS = "chris@cyphid.org"
