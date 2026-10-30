@@ -20,6 +20,7 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 | Engine functions: rules, disclosure, permissions, receipts, ticks, AI seats | integration against the **live local Convex backend** | `artifacts/engine/test/game-*.test.ts` | start `pnpm --filter @workspace/engine dev`, then `pnpm --filter @workspace/engine test:game` |
 | Auth: OIDC, sessions, device flow, credentials, static routes | integration (it starts its own backend; stop the dev engine first, since the checkout has one local deployment) | `artifacts/engine/test/auth.test.ts` | `pnpm --filter @workspace/engine test:auth` |
 | Player CLI, assistant, token middleware | unit + live | `lib/player-client/test` | `pnpm --filter @workspace/player-client test` (reuses `CG_TEST_SITE_URL`) |
+| Engine UI pure logic (`artifacts/code-gods/src/lib`: settings form rules, time, device approval) | unit, `node --test` | `artifacts/code-gods/test` | `pnpm --filter @workspace/code-gods test` |
 | Engine UI flows | browser e2e (Playwright) | `artifacts/code-gods/e2e/smoke.ts` | `pnpm --filter @workspace/code-gods e2e` |
 | Several player apps, panels and HMR, assistant, static hosting | multi-client browser e2e (slow: about 20 minutes) | `artifacts/player-web/e2e/multi-client.ts` | commit first (the apps are worktrees of HEAD), then `pnpm --filter @workspace/player-web e2e` |
 

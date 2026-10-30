@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { OPTION_KEYS, fixOptionChoices, type OptionKey } from "@/lib/settings-options";
 import { Link } from "wouter";
 import { useAction, useMutation } from "convex/react";
 import { Panel, Empty, ErrorLine } from "@/components/shell";
@@ -115,7 +116,7 @@ const NUM_GROUPS: { title: string; fields: NumField[] }[] = [
   ] },
 ];
 const NUM_KEYS = NUM_GROUPS.flatMap(g => g.fields);
-const optionFields: [keyof SettingsOptions, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
+const optionFields: [OptionKey, string][] = [["grammarId", "Grammar"], ["utilitySelectorId", "Utility selector"], ["complexityFunctionId", "Complexity function"]];
 
 const badNum = (f: NumField, raw: string) => {
   const v = Number(raw);
@@ -143,13 +144,16 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
   const val = (k: keyof Settings) => draft[k] ?? String(source[k] ?? "");
   const available = (k: keyof SettingsOptions, language = val("language"), objectType = choice.objectType) =>
     (options?.[k] ?? []).filter(o => (o.languages as readonly string[]).includes(language) && (o.objectTypes as readonly string[]).includes(objectType));
-  const fixOptions = (next: Record<string, string>, language: string, objectType: string) => {
-    for (const [key] of optionFields) {
-      const choices = available(key, language, objectType);
-      if (!choices.some(o => o.id === (next[key] ?? String(source[key])))) next[key] = choices[0]?.id ?? "";
-    }
-    return next;
-  };
+  const fixOptions = (next: Record<string, string>, language: string, objectType: string) =>
+    fixOptionChoices(next, source as unknown as Record<string, unknown>, options, language, objectType);
+  // A language or type switched before the option catalogue arrived (a cold engine) is repaired when it does.
+  useEffect(() => {
+    if (!options || !dirty) return;
+    setDraft(d => {
+      const next = fixOptionChoices(d, source as unknown as Record<string, unknown>, options, d.language ?? String(source.language), choice.objectType);
+      return OPTION_KEYS.every(k => next[k] === d[k]) ? d : next;
+    });
+  }, [options, dirty, choice.objectType]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k: keyof Settings, v: string) => setDraft(d => {
     const next = { ...d, [k]: v };
     return k === "language" ? fixOptions(next, v, choice.objectType) : next;
