@@ -88,3 +88,23 @@ export function pickObject<T extends { salience: number }>(objects: readonly T[]
 
 /** "YYYY-MM-DD" in UTC. */
 export const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/**
+ * The world times of a tick's spawns: a Poisson process (`interval()` draws the next gap) from
+ * `nextSpawn` up to `until`, never at or past the lifetime end, and at most `room` of them (the
+ * 2,000-object limit). `place` places one spawn and says whether it found a free value; only placed spawns use room. `full` is true when a spawn was due but there was no room.
+ *
+ * Like interactions, spawns happen only inside the tick's window [windowStart, until]: time the loop
+ * skipped (a stall longer than TICK_SECONDS) is skipped, never owed. A spawn due in the skipped time is
+ * redrawn from the window's start, which the process's memorylessness makes exact.
+ */
+export function planSpawns(p: { nextSpawn: number; windowStart: number; until: number; endAtWorld: number; room: number; interval: () => number; place: (world: number) => boolean }) {
+  let next = p.nextSpawn < p.windowStart ? p.windowStart + p.interval() : p.nextSpawn, placed = 0, full = false;
+  while (next <= p.until && next < p.endAtWorld) {
+    if (placed >= p.room) { full = true; break; }
+    if (p.place(next)) placed++;
+    const step = p.interval();
+    next = Number.isFinite(next + step) ? next + step : Number.MAX_VALUE;
+  }
+  return { next, full };
+}

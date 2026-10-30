@@ -57,7 +57,8 @@ cached and refreshed about a minute before expiry, and calls the engine's Convex
 There is no daemon or background bridge to keep running. In the player app, the Vite dev server's
 `/__codegods/token` middleware (`tokenHandler()` from `@workspace/player-client/engine`) does the same
 exchange server-side for same-origin browser requests only, so the browser sees only short JWTs, never
-the credential.
+the credential. The browser must first open the private launch link that the Player workflow prints to
+its console. Give it to your player when they ask how to open the app, and never post it anywhere else.
 
 ## Check the connection
 

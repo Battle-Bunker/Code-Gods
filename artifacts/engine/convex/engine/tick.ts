@@ -24,7 +24,7 @@ import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
 import { cryptoRng, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
+import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -49,7 +49,7 @@ function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResu
 export const run = internalAction({
   args: { gameId: v.id("games"), seq: v.number() },
   handler: async (ctx, { gameId, seq }): Promise<unknown> => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const snap = await ctx.runQuery(internal.engine.loop.snapshot, { gameId, seq });
     if (!snap) return { result: "stale" };
     const { game } = snap;
@@ -159,18 +159,25 @@ export const run = internalAction({
 
     // Spawns (a Poisson process), the lifetime end and the object limit.
     const spawns: { tmp: string; value: ObjectValue; scores: Score[]; salience: number }[] = [];
-    let nextSpawn = game.nextSpawn, recoveryReason: string | undefined;
-    while (nextSpawn <= until && nextSpawn < game.endAtWorld) {
-      if (objects.length + spawns.length >= MAX_OBJECTS) { phase = "recovery"; recoveryReason = "The world reached its 2,000-object safety limit."; break; }
-      const value = uniqueSpawn(settings, occupied);
-      if (value !== undefined) {
+    let recoveryReason: string | undefined;
+    const plan = planSpawns({
+      nextSpawn: game.nextSpawn, windowStart, until, endAtWorld: game.endAtWorld, room: MAX_OBJECTS - objects.length,
+      interval: () => poissonIntervalSeconds(settings.spawnRateHz, openUniform()),
+      place: world => {
+        const value = uniqueSpawn(settings, occupied);
+        if (value === undefined) return false;
         occupied.add(value);
         const scores = scoresOf(settings, deals, value), tmp = `tmp:${spawns.length}`;
         spawns.push({ tmp, value, scores, salience: salienceOf(scores) });
-        events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world: nextSpawn, net: net(scores, roster) });
-      }
-      const step = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
-      nextSpawn = Number.isFinite(nextSpawn + step) ? nextSpawn + step : Number.MAX_VALUE;
+        events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world, net: net(scores, roster) });
+        return true;
+      },
+    });
+    const nextSpawn = plan.next;
+    if (plan.full) {
+      phase = "recovery"; recoveryReason = "The world reached its 2,000-object safety limit.";
+      // Like idle parking and the end, the stop is in the event log (panels and the assistant follow it).
+      events.push({ t: "phase", phase: "recovery", world: until, reason: recoveryReason });
     }
     if (phase === "running" && target >= game.endAtWorld) phase = "ended";
 

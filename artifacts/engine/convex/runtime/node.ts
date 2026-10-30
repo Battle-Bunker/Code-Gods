@@ -4,7 +4,7 @@
  *
  *   import { bindRuntime, runtimeFor } from "../runtime/node";
  *   export const tick = internalAction({ handler: async ctx => {
- *     bindRuntime(ctx);                                   // lets the Python bundle load from storage
+ *     await bindRuntime(ctx);                             // loads the Python bundle from storage once
  *     const result = await runtimeFor(settings.language).act(source, input, actSettings(settings), seed);
  *   } });
  *
@@ -19,30 +19,30 @@ import { createRuntime, PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256, type GameRunti
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 
-let bound: ActionCtx | undefined;
-/** Every action that may run Python calls this first (the loader needs a context to read storage). */
-export function bindRuntime(ctx: ActionCtx): void { bound = ctx; }
-
 const CACHE_DIR = "/tmp/code-gods-runtime";
 const CACHE_FILE = `${CACHE_DIR}/${PYTHON_BUNDLE_SHA256}-${PYTHON_BUNDLE_FILE}`;
 /** How the bundle was obtained by this instance (for the cold-start measurement). */
 export const assetLoad: { source?: "tmp" | "storage"; ms?: number; bytes?: number } = {};
 
-/** The `assets` hook: one stable function, so the package loads and compiles the bundle once per instance. */
-export async function pythonBundle(): Promise<Uint8Array> {
+/** The bundle's bytes for this instance, loaded once. Never holds an action's context beyond that action. */
+let bundle: Promise<Uint8Array> | undefined;
+/** After a failed load, actions skip the lookup until this time: a TypeScript-only setup pays it once a minute. */
+let retryAfter = 0;
+const RETRY_MS = 60_000;
+
+async function loadBundle(ctx: ActionCtx): Promise<Uint8Array> {
   const start = performance.now();
   try {
     const bytes = await readFile(CACHE_FILE);
     Object.assign(assetLoad, { source: "tmp", ms: performance.now() - start, bytes: bytes.length });
     return bytes;
   } catch { /* not cached on this instance yet */ }
-  if (!bound) throw new Error("bindRuntime(ctx) must be called before the first Python request");
-  const row = await bound.runQuery(internal.runtime.assets.lookup, { name: PYTHON_BUNDLE_FILE });
+  const row = await ctx.runQuery(internal.runtime.assets.lookup, { name: PYTHON_BUNDLE_FILE });
   if (!row) throw new Error("The Python runtime bundle is not uploaded: run pnpm --filter @workspace/engine upload-runtime");
   if (row.sha256 !== PYTHON_BUNDLE_SHA256) {
     throw new Error(`The stored Python bundle (${row.sha256}) is not the one this code pins (${PYTHON_BUNDLE_SHA256}): run upload-runtime`);
   }
-  const blob = await bound.storage.get(row.storageId);
+  const blob = await ctx.storage.get(row.storageId);
   if (!blob) throw new Error("The Python runtime bundle is missing from file storage");
   const bytes = new Uint8Array(await blob.arrayBuffer());
   // Best effort: a later module load on this instance (after a push) reads it back without a download.
@@ -54,6 +54,28 @@ export async function pythonBundle(): Promise<Uint8Array> {
   } catch { /* /tmp is an optimization only */ }
   Object.assign(assetLoad, { source: "storage", ms: performance.now() - start, bytes: bytes.length });
   return bytes;
+}
+
+/**
+ * Every action that may run agent code awaits this first. The first one on an instance loads the Python
+ * bundle with ITS OWN context and awaits it, so the context is alive for the whole load; concurrent
+ * actions await the same load; later ones return at once. A failed load (e.g. no bundle uploaded in a
+ * TypeScript-only setup) is logged once and retried a minute later; meanwhile only Python requests fail.
+ */
+export async function bindRuntime(ctx: ActionCtx): Promise<void> {
+  if (!bundle && Date.now() < retryAfter) return;
+  bundle ??= loadBundle(ctx).catch(error => {
+    bundle = undefined; retryAfter = Date.now() + RETRY_MS;
+    console.warn(`Python runtime bundle unavailable (retrying in ${RETRY_MS / 1000} s): ${(error as Error).message}`);
+    throw error;
+  });
+  await bundle.catch(() => {});
+}
+
+/** The `assets` hook: one stable function, so the package compiles the bundle once per instance. */
+export async function pythonBundle(): Promise<Uint8Array> {
+  if (!bundle) throw new Error("The Python runtime bundle is not loaded (no action has called bindRuntime, or the load failed)");
+  return bundle;
 }
 
 /**

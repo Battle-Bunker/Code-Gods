@@ -80,6 +80,8 @@ export const gameTables = {
     /** Next tickBatches sequence number. */
     nextBatch: v.number(),
     objectCount: v.number(),
+    /** Live agents (summon +1, destroy −1), so the public view never reads agent documents to count them. */
+    agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
     /** Public result, written in the commit that ends the game. */

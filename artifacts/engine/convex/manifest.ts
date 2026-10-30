@@ -1,4 +1,5 @@
 "use node";
+import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
 /**
  * The settings manifest for pickers (ported from api-server routes/rooms.ts GET /manifest): object types
  * with parameters, classes, tuned defaults and the OFFERED instantiations (every dealable utility function
@@ -30,7 +31,7 @@ const offered = (settings: GameSettings) => { try { assertOffered(settings); ret
 export const get = action({
   args: {},
   handler: async (ctx) => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const runtimes = [];
     for (const language of ["python", "typescript"] as const) {
       if (await languageAvailable(defaultSettingsFor("Int", language))) runtimes.push(language);
@@ -48,7 +49,7 @@ export const get = action({
         configured: mockEnabled() || providerConfigured("anthropic") || providerConfigured("openai"), live: true,
         models: AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })),
       },
-      engine: { tickSeconds: 1.0, minTickMs: 250 },
+      engine: { tickSeconds: TICK_SECONDS, minTickMs: MIN_TICK_MS },
     };
   },
 });

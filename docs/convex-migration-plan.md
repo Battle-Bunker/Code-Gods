@@ -569,4 +569,6 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
 | Replit OIDC redirect URI on convex.site | Verify at connection time. Fallback relay page (§5) |
 | Event log growth | One doc per tick. Older ended games keep only the summary plus a compacted trajectory (follow-up) |
 | Self-reported assistant labels | Unchanged: the label is not a verified identity |
+| The player app's dev URL is public | The token endpoint requires a session opened by the launch link, which only the dev server's console prints. Same-origin and Host checks remain a second layer |
+| Device-request spam: anyone can create pending device requests for a room code | Accepted. Convex HTTP actions get no trustworthy client IP to rate-limit on. The per-room pending cap bounds the table, and the worst case is delaying a new connection until requests expire. The owner still approves every request |
 | A panel that floods the client | `hz` cap in the SDK. Docs rules. The error boundary contains crashes, not CPU, so the docs say so |

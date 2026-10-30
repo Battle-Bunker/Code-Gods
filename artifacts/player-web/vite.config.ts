@@ -27,6 +27,13 @@ const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 const allowedHosts = [".replit.dev", ".repl.co", "localhost", "127.0.0.1",
   ...(process.env.CODE_GODS_ALLOWED_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean)];
 
+function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
+  const handler = tokenHandler({ allowedHosts });
+  server.middlewares.use(handler);
+  const origin = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `http://localhost:${port}`;
+  server.httpServer?.once("listening", () => console.log(`\n  Code Gods: open your player app with its launch link (keep it private):\n  ${handler.launchUrl(origin)}\n`));
+}
+
 const panelsDir = path.resolve(import.meta.dirname, 'src/panels') + path.sep;
 const registryFile = path.resolve(import.meta.dirname, 'src/shell/registry.ts');
 
@@ -58,8 +65,9 @@ export default defineConfig({
       // server and the browser gets 10-minute JWTs from GET /__codegods/token. Not mounted for hosted-mode
       // development against an engine site (CODE_GODS_SITE_URL), where the client signs in on the site.
       name: "code-gods-engine-token",
-      configureServer(server) { if (!hostedDev) server.middlewares.use(tokenHandler({ allowedHosts })); },
-      configurePreviewServer(server) { if (!hostedDev) server.middlewares.use(tokenHandler({ allowedHosts })); },
+      // A dev URL is public, so a browser needs the private launch link printed here (never served) first.
+      configureServer(server) { if (!hostedDev) mountToken(server); },
+      configurePreviewServer(server) { if (!hostedDev) mountToken(server); },
     },
     react(),
     tailwindcss(),

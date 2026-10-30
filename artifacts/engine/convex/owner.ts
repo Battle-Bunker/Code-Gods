@@ -22,7 +22,7 @@ import { MAX_GODS } from "./rooms";
 export const fillCatalog = internalAction({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }): Promise<void> => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
     if (!room) return;
     await ctx.runMutation(internal.game.lobby.setCatalog, { roomId, revision: room.revision, catalog: catalogFor(room.settings as GameSettings) });
@@ -42,7 +42,7 @@ async function updateSettings(ctx: ActionCtx, args: { roomId: string; revision: 
 /** Edit the next game's settings (explicit settings, retuned to their instantiation, or a preset) and/or the AI budget. */
 export const settings = action({
   args: { roomId: v.string(), revision: v.number(), settings: v.optional(v.any()), preset: v.optional(v.string()), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, args): Promise<{ revision: number }> => { bindRuntime(ctx); return updateSettings(ctx, args); },
+  handler: async (ctx, args): Promise<{ revision: number }> => { await bindRuntime(ctx); return updateSettings(ctx, args); },
 });
 
 /** AI seats can play only with a configured provider key, or the mock provider in development. */
@@ -97,7 +97,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
 /** Launch the next game from the room (3–8 gods): deals utility functions, spawns the starting objects. */
 export const start = action({
   args: { roomId: v.string(), requestId: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<Started> => { bindRuntime(ctx); return startGame(ctx, args); },
+  handler: async (ctx, args): Promise<Started> => { await bindRuntime(ctx); return startGame(ctx, args); },
 });
 
 /**
@@ -112,7 +112,7 @@ export const command = action({
     aiBudget: v.optional(v.number()), aiAgentId: v.optional(v.string()), deityId: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<unknown> => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId });
     const roomId = context.room._id;
     switch (args.action) {

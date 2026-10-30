@@ -31,7 +31,12 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
       const e = await examineAgent(prepared.examine.settings, command.source, prepared.examine.live);
       examined = { gameId: envelope.gameId!, source: command.source, result: e };
     } catch (error) {
-      if (!(error instanceof AgentFault)) console.error("Agent examination failed (host)", messageOf(error));
+      // The agent's own fault (it does not compile) is a final answer; a host failure (capacity, runtime
+      // unavailable) is not: nothing is receipted and the identical envelope can be retried.
+      if (!(error instanceof AgentFault)) {
+        console.error("Agent examination failed (host)", messageOf(error));
+        fail("UNAVAILABLE", "The game runtime could not examine this agent right now; retry the same command");
+      }
       examined = { gameId: envelope.gameId!, source: command.source, error: messageOf(error).slice(0, 1000) };
     }
   }
@@ -51,5 +56,5 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
  */
 export const submit = action({
   args: { roomId: v.string(), envelope: v.any() },
-  handler: async (ctx, { roomId, envelope }): Promise<CommandResult> => { bindRuntime(ctx); return runEnvelope(ctx, roomId, envelope); },
+  handler: async (ctx, { roomId, envelope }): Promise<CommandResult> => { await bindRuntime(ctx); return runEnvelope(ctx, roomId, envelope); },
 });

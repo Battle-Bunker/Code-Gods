@@ -12,11 +12,14 @@ type Ctx = QueryCtx | MutationCtx;
 export type Actor = { godId: string; name: string; kind: "human" | "ai"; viewer?: Viewer };
 
 /** A room by Convex id, GUID, or short code (case-insensitive; O→0, I/L→1 as Crockford). */
+/** A typed short code in canonical form: any case, dashes and spaces ignored, Crockford's O→0 and I/L→1. */
+const shortCodeOf = (ref: string) => ref.toUpperCase().replace(/[-\s]/g, "").replaceAll("O", "0").replace(/[IL]/g, "1");
+
 export async function findRoom(ctx: Ctx, ref: string): Promise<Doc<"rooms"> | null> {
   const id = ctx.db.normalizeId("rooms", ref);
   if (id) return ctx.db.get(id);
   if (/^[0-9a-f-]{36}$/i.test(ref)) return ctx.db.query("rooms").withIndex("by_guid", q => q.eq("guid", ref.toLowerCase())).unique();
-  const code = ref.trim().toUpperCase().replaceAll("O", "0").replace(/[IL]/g, "1");
+  const code = shortCodeOf(ref);
   return ctx.db.query("rooms").withIndex("by_short_code", q => q.eq("shortCode", code)).unique();
 }
 export async function requireRoom(ctx: Ctx, ref: string): Promise<Doc<"rooms">> {
@@ -26,7 +29,7 @@ export async function findGame(ctx: Ctx, ref: string): Promise<Doc<"games"> | nu
   const id = ctx.db.normalizeId("games", ref);
   if (id) return ctx.db.get(id);
   if (/^[0-9a-f-]{36}$/i.test(ref)) return ctx.db.query("games").withIndex("by_guid", q => q.eq("guid", ref.toLowerCase())).unique();
-  const code = ref.trim().toUpperCase().replaceAll("O", "0").replace(/[IL]/g, "1");
+  const code = shortCodeOf(ref);
   return ctx.db.query("games").withIndex("by_short_code", q => q.eq("shortCode", code)).unique();
 }
 

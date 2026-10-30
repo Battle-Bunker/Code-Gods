@@ -209,17 +209,18 @@ test("state: a JSON dump of observation, events, myUtility and trajectories; --w
   assert.ok(lines[1].at - lines[0].at >= 150, "throttled to at most 5 lines per second");
 });
 
-test("token middleware against the engine: same-origin gets a JWT, cross-site is refused", async () => {
-  const handler = tokenHandler({ engine: createEngine({ env: {}, envFile: apps.bob.envFile }) });
+test("token middleware against the engine: a launched same-origin browser gets a JWT, cross-site is refused", async () => {
+  const handler = tokenHandler({ engine: createEngine({ env: {}, envFile: apps.bob.envFile }), launchKey: randomUUID() });
   const server = createServer((req, res) => handler(req, res));
   await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const cookie = (await fetch(handler.launchUrl(base), { redirect: "manual" })).headers.get("set-cookie")!.split(";")[0];
   try {
-    const cross = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "cross-site", origin: "https://evil.example" } });
+    const cross = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "cross-site", origin: "https://evil.example", cookie } });
     assert.equal(cross.status, 403);
     assert.equal(cross.headers.get("cache-control"), "no-store");
     noSecrets(await cross.text());
-    const same = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "same-origin" } });
+    const same = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "same-origin", cookie } });
     assert.equal(same.status, 200);
     assert.equal(same.headers.get("cache-control"), "no-store");
     const body = await same.json();

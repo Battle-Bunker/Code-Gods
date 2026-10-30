@@ -35,6 +35,7 @@ process.env.CG_TEST_OIDC_URL ??= "http://127.0.0.1:3399";
 const PLAYERS = ["alice", "bob", "carol"] as const;
 type Player = typeof PLAYERS[number];
 const PORTS: Record<Player, number> = { alice: 5501, bob: 5502, carol: 5503 };
+const LAUNCH_KEYS: Record<Player, string> = { alice: crypto.randomUUID(), bob: crypto.randomUUID(), carol: crypto.randomUUID() };
 
 const results: { name: string; ok: boolean; detail?: string }[] = [];
 /** Set once the browsers are up: on a failure, screenshots of every app and what each one shows. */
@@ -139,7 +140,7 @@ for (const p of PLAYERS) {
   const secrets = secretsOf(p);
   background("npx", ["vite", "--config", "vite.config.ts"], {
     cwd: join(appDir(p), "artifacts/player-web"), log: `vite-${p}.log`,
-    env: { PORT: String(PORTS[p]), CODE_GODS_ENGINE_URL: secrets.CODE_GODS_ENGINE_URL, CODE_GODS_CREDENTIAL: secrets.CODE_GODS_CREDENTIAL },
+    env: { PORT: String(PORTS[p]), CODE_GODS_ENGINE_URL: secrets.CODE_GODS_ENGINE_URL, CODE_GODS_CREDENTIAL: secrets.CODE_GODS_CREDENTIAL, CODE_GODS_LAUNCH_KEY: LAUNCH_KEYS[p] },
   });
 }
 for (const p of PLAYERS) await until(async () => { try { return (await fetch(`http://localhost:${PORTS[p]}/`)).ok; } catch { return false; } }, `${p}'s app`, 120_000);
@@ -155,7 +156,7 @@ for (const p of PLAYERS) {
   navigations[p] = 0;
   page.on("framenavigated", f => { if (f === page.mainFrame()) navigations[p]++; });
   page.on("pageerror", e => pageErrors.push(`${p}: ${e.message}`));
-  await page.goto(`http://localhost:${PORTS[p]}/`);
+  await page.goto(`http://localhost:${PORTS[p]}/__codegods/launch?key=${LAUNCH_KEYS[p]}`); // the private launch link → the app
   await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
   pages[p] = page;

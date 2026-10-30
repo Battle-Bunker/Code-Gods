@@ -90,6 +90,10 @@ to the engine's own workspace.
    `pnpm player assistant disconnect`.
 6. Run the **Player** workflow (`pnpm --filter @workspace/player-web dev`). The Vite dev server keeps
    the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
+7. Open the app through the **launch link** the workflow prints to its console
+   (`…/__codegods/launch?key=…`). The dev URL is public, so tokens go only to a browser that opened this
+   link. Keep it private. To keep the link stable across restarts, store a long random value as the
+   Replit Secret `CODE_GODS_LAUNCH_KEY`. Otherwise each restart prints a new link.
 
 `pnpm player status` checks the connection. The player's Replit Agent is their **room assistant**
 (`docs/room-assistant.md`): it uses the same credential through `pnpm player assistant …` and can

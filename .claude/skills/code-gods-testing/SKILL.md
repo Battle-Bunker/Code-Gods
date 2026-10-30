@@ -16,6 +16,7 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 |---|---|---|---|
 | Pure rules: scoring, settings, mutators, preludes, utility families, calibration, pricing | unit, `node --test` | `lib/game-core`, `lib/game-types`, `lib/game-utilities`, `lib/object-views`, `lib/ai-player` | `pnpm --filter <pkg> test` |
 | Sandboxes: determinism, limits, hostile input, Python ≡ old host | unit and integration | `lib/game-runtime/test` | `pnpm --filter @workspace/game-runtime test` |
+| Engine pure helpers (`convex/lib/*`: spawn planning, clocks) | unit, `node --test`, no backend | `artifacts/engine/test/unit` | `pnpm --filter @workspace/engine test:unit` |
 | Engine functions: rules, disclosure, permissions, receipts, ticks, AI seats | integration against the **live local Convex backend** | `artifacts/engine/test/game-*.test.ts` | start `pnpm --filter @workspace/engine dev`, then `pnpm --filter @workspace/engine test:game` |
 | Auth: OIDC, sessions, device flow, credentials, static routes | integration (it starts its own backend; stop the dev engine first, since the checkout has one local deployment) | `artifacts/engine/test/auth.test.ts` | `pnpm --filter @workspace/engine test:auth` |
 | Player CLI, assistant, token middleware | unit + live | `lib/player-client/test` | `pnpm --filter @workspace/player-client test` (reuses `CG_TEST_SITE_URL`) |

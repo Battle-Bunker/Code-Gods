@@ -66,3 +66,23 @@ test("idle parking freezes running games; a human touch resumes them; safety sto
     await host.c.mutation(api.rooms.endActiveGame, { roomId }).catch(() => {});
   }
 });
+
+test("the owner's Resume brings back an idle-parked game", { timeout: 120000 }, async () => {
+  const trio = await gods("Resume Host", "Resume Ada", "Resume Bo");
+  const [host] = trio;
+  await touch(host);
+  const { roomId } = await roomWith(trio, settings);
+  const game = await host.c.action(api.owner.start, { roomId });
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.25 }, kick: true });
+  await waitFor(async () => (await raw(game.gameId)).game.phase === "running", "running");
+  try {
+    await admin.mutation(internal.testing.setActivity, { at: Date.now() - 31 * 60 * 1000 });
+    await waitFor(async () => (await raw(game.gameId)).game.phase === "recovery", "the idle loop parks the game", 30000);
+    // The Resume button (or the assistant's room-command resume) on an idle-parked game: no prior touch.
+    await host.c.mutation(api.rooms.resume, { roomId });
+    assert.equal((await raw(game.gameId)).game.phase, "running");
+  } finally {
+    await touch(host);
+    await host.c.mutation(api.rooms.endActiveGame, { roomId }).catch(() => {});
+  }
+});

@@ -133,6 +133,7 @@ for (const spec of SPECS) for (const language of languages) {
     assert.equal(obs.agents.length, 0);
     assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
     assert.equal((await raw(game.gameId)).agents.length, 1, "Bo's agent lives on");
+    assert.equal((await host.c.query(api.games.view, { code: game.shortCode })).agentCount, 1, "the public view counts live agents");
 
     // End by the owner: the public result joins the room's history.
     await host.c.mutation(api.rooms.endActiveGame, { roomId });

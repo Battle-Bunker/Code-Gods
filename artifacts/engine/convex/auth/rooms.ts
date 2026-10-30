@@ -4,25 +4,19 @@
  */
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { findRoom } from "../lib/rooms";
 
 export type RoomFacts = { roomId: string; shortCode: string; ownerId: string };
 const facts = (room: Doc<"rooms">): RoomFacts => ({ roomId: room._id, shortCode: room.shortCode, ownerId: room.ownerId });
 
-/** Resolve a room id or short code (case-insensitive, dashes ignored). Null when unknown or malformed. */
+/**
+ * Resolve a room reference exactly as the rest of the engine does (lib/rooms findRoom: a Convex id, the
+ * GUID, or the short code in any case, dashes ignored, with Crockford's O→0 and I/L→1). Null when unknown or malformed.
+ */
 export async function resolveRoom(ctx: QueryCtx, ref: unknown): Promise<RoomFacts | null> {
   if (typeof ref !== "string" || !ref.trim() || ref.length > 64) return null;
-  const id = ctx.db.normalizeId("rooms", ref.trim());
-  if (id) {
-    const room = await ctx.db.get(id);
-    return room ? facts(room) : null;
-  }
-  const code = ref.trim().replace(/-/g, "");
-  if (!/^[A-Za-z0-9]{1,24}$/.test(code)) return null;
-  for (const candidate of new Set([code, code.toUpperCase(), code.toLowerCase()])) {
-    const room = await ctx.db.query("rooms").withIndex("by_short_code", q => q.eq("shortCode", candidate)).first();
-    if (room) return facts(room);
-  }
-  return null;
+  const room = await findRoom(ctx, ref.trim());
+  return room ? facts(room) : null;
 }
 
 /**

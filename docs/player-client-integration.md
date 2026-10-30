@@ -81,6 +81,12 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
 `@workspace/player-client/engine`. It answers `GET /__codegods/token` with
 `{token, expiresAt, convexUrl, roomId, permission}`, so the browser receives only short JWTs:
 
+- only for a browser that opened the private **launch link** `GET /__codegods/launch?key=<launch key>`.
+  The dev URL is public and the headers below can be forged, so this is the real gate. The link sets an
+  HttpOnly session cookie derived from the key (`SameSite=None; Secure; Partitioned` over https, for the
+  Replit preview iframe) and redirects to `/`. Without it the endpoint answers 401 `LAUNCH_REQUIRED`. The
+  key is `CODE_GODS_LAUNCH_KEY`, else random per process. player-web prints the link to its console
+  (`handler.launchUrl(origin)`), and nothing serves it;
 - same-origin requests only (`Sec-Fetch-Site: same-origin` and/or an `Origin` equal to `Host`; at
   least one present, neither contradicting); `GET` only; `Cache-Control: no-store`;
 - `allowedHosts` restricts the `Host` it answers for (a DNS-rebinding guard). player-web passes

@@ -34,15 +34,12 @@ export const view = query({
   handler: async (ctx, { code }) => {
     const game = await readable(ctx, code);
     const room = await ctx.db.get(game.roomId);
-    const [objects, agents] = await Promise.all([
-      objectsOf(ctx, game._id),
-      ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", game._id)).take(2000),
-    ]);
+    const objects = await objectsOf(ctx, game._id);
     const record = gameRecord(game, objects);
     const active = room?.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     const chat = room ? await recentChat(ctx, room._id, 100, game.createdAt, game.endedAt ?? Infinity) : [];
     return {
-      ...publicGame(game, objects, agents.length),
+      ...publicGame(game, objects, game.agentCount ?? 0),
       roomId: room?._id ?? null, roomShortCode: room?.shortCode ?? null, ownerId: room?.ownerId ?? null,
       status: game.phase === "ended" ? "ended" as const : "active" as const,
       winners: game.phase === "ended" ? record.winners : [],

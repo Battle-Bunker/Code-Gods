@@ -94,6 +94,16 @@ test("receipts: identical envelopes replay the receipt, reused ids with other co
   assert.match(await rejects(ada.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v2", commandId: crypto.randomUUID(), command: { type: "pause" } } })), /Invalid command envelope/);
 });
 
+test("a summon the engine could not examine is not receipted: the identical envelope later goes through", { timeout: 120000 }, async () => {
+  const { trio: [, ada], roomId, game } = await runningGame({ startingObjectCount: 2 });
+  const summon = envelope({ type: "summon", language: "typescript", source: TS.Int }, game.gameId);
+  // What the command action does after a host failure in the sandbox (capacity, unavailable runtime): no examination.
+  assert.match(await rejects(ada.c.mutation(internal.game.commands.apply, { roomId, envelope: summon })), /retry/i);
+  assert.equal(await ada.c.query(api.receipts.get, { roomId, commandId: summon.commandId }), null, "no receipt for a transient failure");
+  const retried = await ada.c.action(api.commands.submit, { roomId, envelope: summon });
+  assert.equal(retried.accepted, true, retried.message);
+});
+
 test("permissions: read/act/owner credentials are room-bound; spectators observe; chat is public, bounded and rate-limited", { timeout: 120000 }, async () => {
   const { trio: [host, ada, bo], roomId, shortCode, game, send } = await runningGame({ startingObjectCount: 2, startingEnergy: 60, maxAgentsPerGod: 1 });
   const [outsider] = await gods("Outside Olive");

@@ -27,12 +27,12 @@ export const probe = query({
 
 /** A schema-valid room row with default settings, plus the owner's membership (what rooms.create writes). */
 export const createRoom = internalMutation({
-  args: { shortCode: v.string(), ownerId: v.string() },
-  handler: async (ctx, { shortCode, ownerId }) => {
+  args: { shortCode: v.string(), ownerId: v.string(), guid: v.optional(v.string()) },
+  handler: async (ctx, { shortCode, ownerId, guid }) => {
     guard();
     const now = Date.now();
     const roomId = await ctx.db.insert("rooms", {
-      shortCode, guid: crypto.randomUUID(), encoded: shortCode, ownerId, createdAt: now, revision: 0, seq: 0,
+      shortCode, guid: guid ?? crypto.randomUUID(), encoded: shortCode, ownerId, createdAt: now, revision: 0, seq: 0,
       settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });

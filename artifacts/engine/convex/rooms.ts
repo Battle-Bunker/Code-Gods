@@ -216,10 +216,12 @@ export const resume = mutation({
   handler: async (ctx, { roomId }) => {
     const room = await requireRoom(ctx, roomId);
     await requireOwner(ctx, room);
-    await touchActivity(ctx, true); // may already resume an idle-parked game
     const game = await activeGame(ctx, room);
     if (game?.phase !== "recovery") fail("CONFLICT", "Game is not in recovery");
-    await resumeGame(ctx, game);
+    // Human activity resumes idle-parked games by itself; a safety stop still needs the explicit resume.
+    await touchActivity(ctx, true);
+    const after = await ctx.db.get(game._id);
+    if (after?.phase === "recovery") await resumeGame(ctx, after);
     return { gameId: game._id };
   },
 });

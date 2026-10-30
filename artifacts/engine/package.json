@@ -12,7 +12,8 @@
     "gen-jwt-key": "node scripts/gen-jwt-key.mjs",
     "deploy-static": "node scripts/deploy-static.mjs",
     "fake-oidc": "node scripts/fake-oidc.mjs",
-    "upload-runtime": "node scripts/upload-runtime.mjs"
+    "upload-runtime": "node scripts/upload-runtime.mjs",
+    "test:unit": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },
   "dependencies": {
     "@workspace/game-core": "workspace:*",

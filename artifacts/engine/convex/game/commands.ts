@@ -5,7 +5,7 @@
  * is rejected. Rejected commands also get a receipt. Validate and summon arrive pre-examined by the Node
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { newAgentAccount, type GameSettings } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
@@ -84,6 +84,9 @@ export const apply = internalMutation({
       receipt = { commandId: envelope.commandId, accepted: true, message: "Accepted",
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}) };
     } catch (error) {
+      // A transient failure (the sandbox could not examine the agent) is not the command's outcome: no
+      // receipt, so the client's retry of the identical envelope runs it.
+      if (error instanceof ConvexError && (error.data as { code?: string })?.code === "UNAVAILABLE") throw error;
       const message = messageOf(error);
       receipt = { commandId: envelope.commandId, accepted: false, message: message.slice(0, 2000),
         ...(command.type === "validate" ? { validation: { valid: false, cost: 0, expectedActCost: 0, diagnostics: [message.slice(0, 1000)] } } : {}) };
@@ -151,6 +154,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
       breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(worldNow(game, now)), acts: 0, spent: 0,
     });
     await ctx.db.patch(deity._id, { spent: deity.spent + e.cost });
+    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1 });
     return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
   }
   if (command.type === "destroy") {
@@ -159,6 +163,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     await ctx.db.delete(agent._id);
+    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1) });
     return { destroyed: agent._id };
   }
   return fail("BAD_REQUEST", "Unknown command");

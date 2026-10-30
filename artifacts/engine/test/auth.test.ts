@@ -18,6 +18,17 @@ const newRoom = async (ownerId: string) => {
   return { roomId, shortCode };
 };
 
+test("a device request names its room the way the rest of the engine does: any case, O for 0, L for 1, dashes, or the GUID", async () => {
+  const shortCode = `Q0${randomBytes(2).toString("hex").toUpperCase()}1`, guid = crypto.randomUUID();
+  const roomId = await fixtures.mutation("auth/testing:createRoom", { shortCode, ownerId: "test-alice", guid }) as string;
+  const challenge = "x".repeat(43);
+  for (const room of [shortCode.toLowerCase().replace("0", "o").replace(/1$/, "l"), `${shortCode.slice(0, 3)}-${shortCode.slice(3)}`, guid]) {
+    const result = await post("/api/device/request", { room, challenge });
+    assert.equal(result.status, 200, `room reference ${room}: ${JSON.stringify(result.body)}`);
+    assert.equal(result.body.roomId, roomId);
+  }
+});
+
 /** Approve a request as `session`'s human and claim the credential. */
 async function grant(jwt: string, room: string, permission: string, label = "Test assistant") {
   const request = await deviceRequest(room, permission, label);

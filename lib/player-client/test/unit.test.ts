@@ -78,49 +78,93 @@ test("same-origin check: Sec-Fetch-Site and Origin against Host", () => {
   assert.equal(isSameOriginRequest(req({ host: "x.y.replit.dev", "sec-fetch-site": "same-origin" }), ["app.example", ".replit.dev"]), true);
 });
 
-test("token middleware: same-origin GET only, no-store, cached JWT, RECONNECT on 401", async () => {
-  let exchanges = 0, revoked = false;
+/** A fake engine site for the token middleware: config + credential exchange (counted). */
+function fakeEngine() {
+  const state = { exchanges: 0, revoked: false };
   const fakeFetch = (async (input: string | URL) => {
     const url = String(input);
     if (url.endsWith("/api/config")) return Response.json({ convexUrl: "https://dep-1.convex.cloud", siteUrl: "https://dep-1.convex.site", version: "t" });
     if (url.endsWith("/api/device/token")) {
-      exchanges++;
-      if (revoked) return Response.json({ error: "revoked" }, { status: 401 });
-      return Response.json({ token: `eyJ.${exchanges}.sig`, expiresAt: Date.now() + 600_000, roomId: "room1", permission: "act", credentialId: "cred1", credentialExpiresAt: Date.now() + 7 * 86400_000 });
+      state.exchanges++;
+      if (state.revoked) return Response.json({ error: "revoked" }, { status: 401 });
+      return Response.json({ token: `eyJ.${state.exchanges}.sig`, expiresAt: Date.now() + 600_000, roomId: "room1", permission: "act", credentialId: "cred1", credentialExpiresAt: Date.now() + 7 * 86400_000 });
     }
     return new Response("{}", { status: 404 });
   }) as typeof fetch;
-  const engine = new Engine({ engineUrl: "https://dep-1.convex.site", credential: CREDENTIAL }, { fetch: fakeFetch });
-  const handler = tokenHandler({ engine });
+  return { state, engine: new Engine({ engineUrl: "https://dep-1.convex.site", credential: CREDENTIAL }, { fetch: fakeFetch }) };
+}
+
+test("token middleware: a token needs the private launch session, not just same-origin headers (which anyone can forge)", async () => {
+  const { engine } = fakeEngine();
+  const handler = tokenHandler({ engine, launchKey: "k".repeat(32) });
   const server = createServer((rq, rs) => handler(rq, rs, () => { rs.statusCode = 418; rs.end(); }));
   await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const sameOrigin = { "sec-fetch-site": "same-origin" };
   try {
-    const ok = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "same-origin" } });
+    const forged = await fetch(base + TOKEN_PATH, { headers: sameOrigin });
+    assert.equal(forged.status, 401);
+    assert.equal((await forged.json()).code, "LAUNCH_REQUIRED");
+    assert.equal((await fetch(`${base}/__codegods/launch?key=${"x".repeat(32)}`, { redirect: "manual" })).status, 403, "a wrong key opens nothing");
+    const launch = await fetch(`${base}/__codegods/launch?key=${"k".repeat(32)}`, { redirect: "manual" });
+    assert.equal(launch.status, 302);
+    assert.equal(launch.headers.get("location"), "/");
+    const cookie = launch.headers.get("set-cookie")!;
+    assert.match(cookie, /HttpOnly/);
+    assert.ok(!cookie.includes("k".repeat(32)), "the session cookie is not the launch key");
+    const session = cookie.split(";")[0];
+    assert.equal((await fetch(base + TOKEN_PATH, { headers: { ...sameOrigin, cookie: session } })).status, 200);
+    assert.equal((await fetch(base + TOKEN_PATH, { headers: { ...sameOrigin, cookie: `${session.split("=")[0]}=guessed` } })).status, 401);
+    assert.equal((await fetch(`${base}/__codegods/launch?key=${"é".repeat(32)}`, { redirect: "manual" })).status, 403, "same length in characters, not in bytes");
+    // Ports share cookies: two apps on one host must not overwrite each other's session.
+    const other = tokenHandler({ engine, launchKey: "j".repeat(32) });
+    const server2 = createServer((rq, rs) => other(rq, rs));
+    await new Promise<void>(r => server2.listen(0, "127.0.0.1", r));
+    try {
+      const base2 = `http://127.0.0.1:${(server2.address() as { port: number }).port}`;
+      const otherCookie = (await fetch(other.launchUrl(base2), { redirect: "manual" })).headers.get("set-cookie")!;
+      assert.notEqual(otherCookie.split("=")[0], session.split("=")[0]);
+    } finally { server2.closeAllConnections(); server2.close(); }
+  } finally { server.closeAllConnections(); server.close(); }
+});
+
+test("token middleware: same-origin GET only, no-store, cached JWT, RECONNECT on 401", async () => {
+  const { engine, state } = fakeEngine();
+  const handler = tokenHandler({ engine, launchKey: "k".repeat(32) });
+  const server = createServer((rq, rs) => handler(rq, rs, () => { rs.statusCode = 418; rs.end(); }));
+  await new Promise<void>(r => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const launch = await fetch(`${base}/__codegods/launch?key=${"k".repeat(32)}`, { redirect: "manual" });
+  const cookie = launch.headers.get("set-cookie")!.split(";")[0];
+  const get = (headers: Record<string, string> = {}, init: RequestInit = {}) => fetch(base + TOKEN_PATH, { ...init, headers: { cookie, ...headers } });
+  try {
+    const ok = await get({ "sec-fetch-site": "same-origin" });
     assert.equal(ok.status, 200);
     assert.equal(ok.headers.get("cache-control"), "no-store");
     const body = await ok.json();
     assert.deepEqual(Object.keys(body).sort(), ["convexUrl", "expiresAt", "permission", "roomId", "token"]);
     assert.equal(body.convexUrl, "https://dep-1.convex.cloud");
     assert.ok(!JSON.stringify(body).includes("cgc_"), "the browser never sees the credential");
-    await fetch(base + TOKEN_PATH, { headers: { origin: base } });
-    assert.equal(exchanges, 1, "the JWT is cached until a minute before expiry");
-    assert.equal((await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "cross-site" } })).status, 403);
-    assert.equal((await fetch(base + TOKEN_PATH, { headers: { origin: "https://evil.example" } })).status, 403);
-    assert.equal((await fetch(base + TOKEN_PATH)).status, 403, "neither header: refused");
-    assert.equal((await fetch(base + TOKEN_PATH, { method: "POST", headers: { "sec-fetch-site": "same-origin" } })).status, 405);
+    await get({ origin: base });
+    assert.equal(state.exchanges, 1, "the JWT is cached until a minute before expiry");
+    assert.equal((await get({ "sec-fetch-site": "cross-site" })).status, 403);
+    assert.equal((await get({ origin: "https://evil.example" })).status, 403);
+    assert.equal((await get()).status, 403, "neither header: refused");
+    assert.equal((await get({ "sec-fetch-site": "same-origin" }, { method: "POST" })).status, 405);
     assert.equal((await fetch(base + "/other")).status, 418, "other paths fall through to next()");
-    revoked = true; engine.clearToken();
-    const lost = await fetch(base + TOKEN_PATH, { headers: { "sec-fetch-site": "same-origin" } });
+    state.revoked = true; engine.clearToken();
+    const lost = await get({ "sec-fetch-site": "same-origin" });
     assert.equal(lost.status, 401);
     assert.match((await lost.json()).error, /^reconnect: /);
-  } finally { server.close(); }
-  const unconfigured = tokenHandler({ engine: () => { throw new EngineError("NOT_CONFIGURED", "Not connected"); } });
+  } finally { server.closeAllConnections(); server.close(); }
+  const unconfigured = tokenHandler({ engine: () => { throw new EngineError("NOT_CONFIGURED", "Not connected"); }, launchKey: "k".repeat(32) });
   const server2 = createServer((rq, rs) => unconfigured(rq, rs));
   await new Promise<void>(r => server2.listen(0, "127.0.0.1", r));
   try {
-    const response = await fetch(`http://127.0.0.1:${(server2.address() as { port: number }).port}${TOKEN_PATH}`, { headers: { "sec-fetch-site": "same-origin" } });
+    const base2 = `http://127.0.0.1:${(server2.address() as { port: number }).port}`;
+    const cookie2 = (await fetch(`${base2}/__codegods/launch?key=${"k".repeat(32)}`, { redirect: "manual" })).headers.get("set-cookie")!.split(";")[0];
+    const response = await fetch(base2 + TOKEN_PATH, { headers: { "sec-fetch-site": "same-origin", cookie: cookie2 } });
     assert.equal(response.status, 503);
     assert.equal((await response.json()).code, "NOT_CONFIGURED");
-  } finally { server2.close(); }
+  } finally { server2.closeAllConnections(); server2.close(); }
 });

@@ -204,5 +204,5 @@ Copy one into `src/panels/` to enable it, then adapt it.
 - **The engine stays authoritative.** Every action goes through the engine's permission and rule
   checks.
 - **No secrets.** The credential stays in the dev server (`/__codegods/token` hands the browser
-  10-minute tokens). Never read Secrets in a panel, never send game data to other hosts, and never
+  10-minute tokens, only after the private launch link has been opened). Never read Secrets in a panel, never send game data to other hosts, and never
   `fetch` anything except through the SDK.

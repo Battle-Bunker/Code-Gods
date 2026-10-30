@@ -38,7 +38,7 @@ const rssMiB = () => Math.round(process.memoryUsage().rss / 1048576);
 export const cold = internalAction({
   args: {},
   handler: async ctx => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const out: Record<string, unknown> = { msSinceModuleLoad: Date.now() - moduleLoadedAt, rssAtStartMiB: rssMiB() };
     let t = performance.now();
     await loadPythonRuntime(pythonBundle);   // fetch (or /tmp), SHA-256, unpack, WebAssembly.compile
@@ -69,7 +69,7 @@ export const cold = internalAction({
 export const smoke = internalAction({
   args: {},
   handler: async ctx => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const out: Record<string, unknown> = {};
     for (const lang of ["python", "typescript"] as const) {
       const { settings, inputs } = room(lang);
@@ -94,7 +94,7 @@ export const smoke = internalAction({
 export const footprint = internalAction({
   args: { acts: v.optional(v.number()) },
   handler: async (ctx, { acts = 200 }) => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const out: Record<string, unknown> = { rssBeforeMiB: rssMiB() };
     const work = (["python", "typescript"] as const).map(lang => ({ lang, runtime: runtimeFor(lang), ...room(lang) }));
     await Promise.all(work.map(w => w.runtime.warm()));
@@ -145,7 +145,7 @@ export const bench = internalAction({
   args: { language, execution: v.optional(v.union(v.literal("worker"), v.literal("inline"))), workers: v.optional(v.number()),
     acts: v.optional(v.number()), concurrency: v.optional(v.number()) },
   handler: async (ctx, { language: lang, execution = "worker", workers = 1, acts = 300, concurrency }) => {
-    bindRuntime(ctx);
+    await bindRuntime(ctx);
     const key = `${lang}:${execution}:${workers}`;
     let runtime = benchRuntimes.get(key);
     if (!runtime) {
