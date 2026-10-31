@@ -13,7 +13,8 @@
  *     the uniform prior). Stops at `targetBits`, or after `maxStuck` rounds in which no particle could climb.
  *  3. Clean-up: weighted isotonic regression (weights 1/se²), then at least MIN_STEP_BITS between neighbours, so
  *     the bits are STRICTLY increasing. The extrapolation slope is fitted over the last SLOPE_LEVELS levels.
- *  Exact mode: domains of at most EXACT_DOMAIN values (Int ranges) are enumerated outright.
+ *  Analytic mode: a family with an analytic survival function for the draw (src/analytic.ts, `analyticFor`) gets its
+ *  levels verbatim (no sampling); otherwise domains of at most EXACT_DOMAIN values (Int ranges) are enumerated outright.
  *
  * Determinism: one seeded Rng per table, seeded from the table key; nothing else is random. Bits are rounded to
  * 1e-9 (well below MIN_STEP_BITS), so output bytes do not depend on last-ulp differences between machines.
@@ -21,11 +22,10 @@
 import { objectType, seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
 import {
-  ESTIMATOR, EXACT_TAILS, MIN_SLOPE_BITS, MIN_STEP_BITS, SLOPE_LEVELS, cmpOrdinal, ordinalDistance, penaltyMeanBits, tableKey,
+  ESTIMATOR, MIN_SLOPE_BITS, MIN_STEP_BITS, SLOPE_LEVELS, analyticFor, cmpOrdinal, keyFromParts, ordinalDistance, penaltyMeanBits, tableKey, tableKeyParts,
   type CalibrationBudget, type CalibrationTable,
 } from "../src/calibration.ts";
 import type { Ordinal, Params } from "../src/types.ts";
-import { exactLevels } from "./exact.ts";
 
 /** The shipped default (measured: 13–30 µs per Grid evaluation incl. encode + decode, 2–10 µs Int/string). */
 export const DEFAULT_BUDGET: CalibrationBudget = Object.freeze({
@@ -121,10 +121,12 @@ export interface BuildResult { readonly table: CalibrationTable; readonly second
  * same key and budget give the same table, byte for byte.
  */
 export function buildTable(familyId: string, params: Params, inst: Instantiation, budget: CalibrationBudget = DEFAULT_BUDGET,
-  options: { exact?: boolean } = {}): BuildResult {
+  options: { /** false: force the sampling estimator (reference tables for verifying an analytic). */ exact?: boolean } = {}): BuildResult {
   const t0 = performance.now();
   const f = family(familyId), ctx = context(inst), T = objectType(inst.objectType), codec = T.codec(inst);
-  const key = tableKey(familyId, params, inst);
+  const analytic = options.exact === false ? null : analyticFor(familyId, params, inst);
+  // The key of what this build produces: with the analytic id when the analytic is used, the estimator's key otherwise.
+  const key = options.exact === false ? mcTableKey(familyId, params, inst) : tableKey(familyId, params, inst);
   const seed = key.slice(0, 16);
   const rng: Rng = seededRng(BigInt(`0x${seed}`));
   const ev = evaluator({ familyId, params }, inst);
@@ -135,13 +137,13 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   const levels: Ordinal[] = [], log2p: number[] = [], vars: number[] = [];
   let mcLevels = 0, splitLevels = 0, stoppedEarly = false, exactMode = false;
   const domain = options.exact === false ? null : enumerate(inst);
-  const exactTail = options.exact === false || inst.objectType !== "Grid" ? null : exactLevels(familyId, params, inst);
   let budgetLabel: CalibrationTable["estimator"]["budget"] = budget;
 
-  if (exactTail) {
+  if (analytic) {
     exactMode = true;
-    budgetLabel = `exact:${EXACT_TAILS[familyId]}`;
-    for (const [o, l] of exactTail) { levels.push(o); log2p.push(l); vars.push(0); }
+    budgetLabel = `${analytic.kind}:${analytic.id}`;
+    const v = analytic.kind === "approx" ? analytic.maxErrorBits! ** 2 : 0;
+    for (const [o, l] of analytic.levels) { levels.push(o); log2p.push(l); vars.push(v); }
     mcLevels = levels.length;
   } else if (domain) {
     budgetLabel = "exact";
@@ -271,6 +273,15 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   };
   const out = f.role === "penalty" ? { ...table, penaltyMeanBits: round9(penaltyMeanBits(table)) } : table;
   return { table: out, seconds: (performance.now() - t0) / 1000, evaluations };
+}
+
+/**
+ * The key a pure sampling build of this draw has: the current key without the analytic id (what the archived reference
+ * tables of a family that has since gained an analytic are keyed by).
+ */
+export function mcTableKey(familyId: string, params: Params, inst: Instantiation): string {
+  const { exact: _exact, ...parts } = tableKeyParts(familyId, params, inst);
+  return keyFromParts(parts);
 }
 
 // ------------------------------------------------------------------------------------------------

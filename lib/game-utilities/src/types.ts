@@ -1,4 +1,5 @@
 import type { Constraint, Instantiation, InstanceInfo, ObjectValue, Rng } from "@workspace/game-types";
+import type { AnalyticSurvival } from "./analytic.ts";
 
 export type Language = "python" | "typescript";
 /** Params are plain JSON. `null` marks an unset option (grid-lab `None`, e.g. Royal Court "any suit"). */
@@ -60,6 +61,13 @@ export interface UtilityFamily<P extends Params = Params> {
   exemplar?(params: P, ctx: FamilyContext): ObjectValue;
   /** Penalties only: the word before "than 90% of grids" on the ⚠️ line ("redder", "blobbier"). */
   comparative?(params: P, ctx: FamilyContext): string;
+  /**
+   * Optional: the survival function log2 μ{u ≥ t} computed analytically for these (canonical) params on this
+   * instantiation, or null when there is no analytic answer here (the Monte Carlo + splitting estimator then runs).
+   * Deterministic and cheap (milliseconds to a second): it is called at deal time and when keying tables. See
+   * src/analytic.ts and docs/analytic-calibration/architecture.md.
+   */
+  analytic?(params: P, ctx: FamilyContext): AnalyticSurvival | null;
 }
 
 /** Persisted, server-private description of one god's utility function (and optional defence goal). */

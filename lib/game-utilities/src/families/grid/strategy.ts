@@ -2,8 +2,9 @@
 import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
-  range, recolour, symForValue, thing, tsCard, tuple, wire,
+  range, recolour, symForValue, thing, tsCard, tuple, valueLaw, wire,
 } from "./_util.ts";
+import type { AnalyticSurvival } from "../../analytic.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -410,6 +411,24 @@ const lonePeak = gridFamily<PeakP>({
     const sym = fromFn(N, (r, c) => symForValue(g, r === m && c === m ? g.vmax : g.vmin));
     return wire(g, sym, fromFn(N, (r, c) => (r === m && c === m ? p.X : (p.X + 1) % g.C)));
   },
+  /**
+   * (gap, mine), with F the value cdf, q = 1/C and p_m the mass of value m (tail-toolkit.md §1, exact maxima):
+   *  μ{≥ (0,1)} = Σ_m [(F(m−1) + p_m)^n − (F(m−1) + p_m(1 − q))^n]   (the top value's cells include one of mine);
+   *  μ{≥ (g,1)} = Σ_m n·q·p_m·F(m−g)^(n−1)   for g ≥ 1  (a unique peak of mine, everything else ≤ m − g).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const n = g.N * g.N, q = 1 / g.C, pv = valueLaw(g);
+    const values = pv.map((p, v) => [v, p] as const).filter(([, p]) => p > 0);
+    const F = (x: number) => values.reduce((a, [v, p]) => a + (v <= x ? p : 0), 0);
+    const levels: [readonly number[], number][] = [[[0, 0], 0]];
+    const has = values.reduce((a, [m, p]) => a + (F(m - 1) + p) ** n - (F(m - 1) + p * (1 - q)) ** n, 0);
+    levels.push([[0, 1], Math.log2(has)]);
+    for (let gap = 1; gap <= g.vmax - g.vmin; gap++) {
+      const tot = values.reduce((a, [m, p]) => a + n * q * p * F(m - gap) ** (n - 1), 0);
+      if (tot > 0) levels.push([[gap, 1], Math.log2(tot)]);
+    }
+    return { id: "lone-peak@1", kind: "exact", levels };
+  },
 });
 
 
@@ -537,6 +556,8 @@ const pictureFrame = gridFamily<ColourP>({
       return 1;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+  /** All or nothing: μ{u ≥ 1} = C^−(4N−4), the 4N−4 edge cells all my colour (tail-toolkit.md §1). */
+  analytic: (_p, g): AnalyticSurvival => ({ id: "picture-frame@1", kind: "exact", levels: [[0, 0], [1, -(4 * g.N - 4) * Math.log2(g.C)]] }),
 });
 
 // --- Staircase Climber -------------------------------------------------------------------------------

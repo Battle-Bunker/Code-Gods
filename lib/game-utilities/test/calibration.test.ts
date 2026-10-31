@@ -290,31 +290,19 @@ test("tableFor canonicalises raw draws and serves fresh tables only", () => {
   assert.throws(() => tableFor(tables, { familyId: f.id, params: p0 }, instantiate("Grid", { size: 5, symbols: "base10", colours: "rgb" })), /used for/);
 });
 
-test("exact tails reproduce the cards: Monte Carlo frequencies agree at every level with mass ≥ 2^-9", async () => {
-  const { EXACT_IMPLEMENTATIONS, exactLevels } = await import("../scripts/exact.ts");
-  const { EXACT_TAILS } = await import("../src/calibration.ts");
-  assert.deepEqual([...new Set(Object.values(EXACT_TAILS))].sort(), [...EXACT_IMPLEMENTATIONS].sort());
-  const n = 20000;
-  for (const [familyId] of Object.entries(EXACT_TAILS)) {
+test("families with analytics (picture_frame, lone_peak) are keyed by the formula id and reproduce the cards' spawn frequencies", async () => {
+  const { analyticFor, tableKeyParts: parts } = await import("../src/calibration.ts");
+  const { compareWithSpawns } = await import("../src/analytic-verify.ts");
+  for (const familyId of ["picture_frame", "lone_peak"]) {
     for (const args of [{ size: 5, symbols: "base10", colours: "rgby" }, { size: 4, symbols: "cards", colours: "rgb" }, { size: 3, symbols: "base16", colours: "rgb" }]) {
-      const inst = instantiate("Grid", args), ctx = context(inst), T = objectType("Grid"), codec = T.codec(inst);
-      const f = family(familyId);
+      const inst = instantiate("Grid", args), ctx = context(inst), f = family(familyId);
       if (!(await import("../src/catalog.ts")).available(f, inst).ok) continue;
-      const p = f.canonical(f.support(ctx)[0], ctx), ev = evaluator({ familyId, params: p }, inst);
-      const levels = exactLevels(familyId, p, inst)!;
-      const rng = seededRng(`exact:${familyId}:${inst.key}`);
-      const ords = Array.from({ length: n }, () => ev(codec.encode(T.spawn(inst, rng))));
-      for (const o of ords) assert.ok(levels.some(([l]) => cmpOrdinal(l, o) === 0), `${familyId} on ${inst.key}: ordinal ${JSON.stringify(o)} is not an exact level`);
-      for (const [l, log2G] of levels) {
-        const G = 2 ** log2G;
-        if (G < 2 ** -9) continue;
-        const hits = ords.filter(o => cmpOrdinal(o, l) >= 0).length, sd = Math.sqrt(n * G * (1 - G)) + 1;
-        assert.ok(Math.abs(hits - n * G) <= 5 * sd, `${familyId} on ${inst.key}: μ{u ≥ ${JSON.stringify(l)}} exact ${G}, MC ${hits / n}`);
-      }
-      if (f.exemplar) {
-        const top = ev(f.exemplar(p, ctx));
-        assert.ok(levels.some(([l]) => cmpOrdinal(l, top) === 0), `${familyId}: exemplar ordinal not an exact level`);
-      }
+      const p = f.canonical(f.support(ctx)[0], ctx), a = analyticFor(familyId, p, inst);
+      assert.ok(a && a.kind === "exact", `${familyId} on ${inst.key}`);
+      assert.equal(parts(familyId, p, inst).exact, a!.id);
+      const s = compareWithSpawns(a!, { familyId, params: p }, inst, 20000);
+      assert.deepEqual(s.unlisted, [], `${familyId} on ${inst.key}: spawned ordinals missing from the analytic`);
+      assert.deepEqual(s.disagreements, [], `${familyId} on ${inst.key}`);
     }
   }
 });

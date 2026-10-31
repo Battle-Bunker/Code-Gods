@@ -4,6 +4,7 @@
  */
 import type { Constraint, ObjectValue, Rng } from "@workspace/game-types";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../types.ts";
+import type { AnalyticSurvival } from "../analytic.ts";
 
 type HostEval = (familyId: string, params: Params, ctx: FamilyContext) => (wire: ObjectValue) => Ordinal;
 let host: HostEval | null = null;
@@ -49,6 +50,8 @@ export interface FamilyDef<P extends Params, S> {
   readonly python: (p: P, s: S) => string;
   readonly typescript: (p: P, s: S) => string;
   readonly exemplar?: (p: P, s: S, ctx: FamilyContext) => ObjectValue;
+  /** The analytic survival function (src/analytic.ts), or null for params/instantiations it does not cover. */
+  readonly analytic?: (p: P, s: S, ctx: FamilyContext) => AnalyticSurvival | null;
 }
 
 export function defineFamilies<S>(objectType: string, spec: (ctx: FamilyContext) => S) {
@@ -62,5 +65,6 @@ export function defineFamilies<S>(objectType: string, spec: (ctx: FamilyContext)
     summary: (p, ctx) => d.summary(p, spec(ctx)),
     card: { python: (p, ctx) => d.python(p, spec(ctx)), typescript: (p, ctx) => d.typescript(p, spec(ctx)) },
     ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, spec(ctx), ctx) } : {}),
+    ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, spec(ctx), ctx) } : {}),
   });
 }
