@@ -57,7 +57,9 @@ export function connection(): Promise<Connection> {
 }
 
 export function convexClient(url: string): ConvexReactClient {
-  return g.__cgConvex ??= new ConvexReactClient(url);
+  // No "changes may not be saved" prompt on leaving: layout saves and commands are sent before the page unloads,
+  // and the browser's generic dialog only alarms (the engine UI disables it too, for its sign-in redirect).
+  return g.__cgConvex ??= new ConvexReactClient(url, { unsavedChangesWarning: false });
 }
 
 /** Dev-server mode: a fresh player JWT for the Convex client's fetchAccessToken (null = refused). */
