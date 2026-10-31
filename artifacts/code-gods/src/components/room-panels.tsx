@@ -12,7 +12,7 @@ import { errMsg, rid, fmt } from "@/lib/errors";
 import { fmtDuration, fmtWhen, isoWhen, endReasonLabel, toMs } from "@/lib/time";
 import { kindLabel } from "@/lib/device-approval";
 import { catalogOf, type RoomState, type Settings, type SettingsOptions, type GameRecord, type ObjectTypeInfo, type SettingsPreset, type Manifest, type Credential } from "@/lib/types";
-import { Bot, Crown, Play, Trash2, User, Check, Circle, LogOut, Trophy, ArrowRight, Eye, KeyRound, ExternalLink } from "lucide-react";
+import { Bot, Crown, Play, Trash2, User, Check, Circle, LogOut, Trophy, ArrowRight, Eye, KeyRound } from "lucide-react";
 
 export function Members({ room, meId, isOwner, act, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; act: Run; minPlayers: number }) {
   const join = useMutation(api.rooms.join);
@@ -390,7 +390,7 @@ export function History({ games, loading, error }: { games?: GameRecord[]; loadi
 
 /**
  * "Your player apps": how to connect your own player app to this room, the caller's credentials
- * (auth/credentials:list, revocable at once) and the hosted default player client.
+ * (auth/credentials:list, revocable at once). The hosted player client is linked from the page header.
  */
 export function PlayerApps({ room }: { room: RoomState }) {
   const creds = useLive(api.auth.credentials.list, {});
@@ -419,7 +419,7 @@ export function PlayerApps({ room }: { room: RoomState }) {
           <li>Run <code className="font-mono text-xs break-all bg-muted px-1" data-testid="text-connect-command">pnpm player connect --room {room.shortCode}</code></li>
           <li>Approve the code it prints on this site's <Link href="/device" className="underline" data-testid="link-device">device approval page</Link>, then save the credential it prints as <code className="font-mono text-xs">CODE_GODS_CREDENTIAL</code>.</li>
         </ol>
-        <a href={`/player/?room=${encodeURIComponent(room.shortCode)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><ExternalLink className="h-4 w-4" /> Open the hosted player client</a>
+        <p className="text-xs text-muted-foreground">Or play in the browser: “Open the player client” at the top of this page.</p>
       </div>
       <div className="border-t">
         {creds.isLoading && <div className="p-4"><Skeleton className="h-10 w-full" /></div>}

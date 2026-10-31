@@ -7,6 +7,7 @@ import { useRun, type Run } from "@/hooks/use-run";
 import { useSendChat } from "@/hooks/use-chat";
 import { Shell, Panel, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
+import { PlayerClientLink } from "@/components/player-client-link";
 import { Chat, Conn, Leaderboard, Objects, ReadOnlySettings, Repertoire, Roster, ScoringPanel } from "@/components/game-panels";
 import { useManifest } from "@/hooks/use-manifest";
 import {
@@ -64,6 +65,7 @@ function Header({ game, isOwner }: { game: GameView; isOwner: boolean }) {
             <span className={`label-mono px-2 py-0.5 ${active ? "bg-primary !text-primary-foreground" : "bg-foreground/80 !text-background"}`} data-testid="text-game-status">{active ? "live" : "ended"}</span>
           </div>
           <h1 className="font-display text-5xl md:text-7xl leading-none mt-3" data-testid="text-game-code">{game.shortCode}</h1>
+          {game.roomShortCode && <PlayerClientLink roomCode={game.roomShortCode} />}
         </div>
         <div className="grid grid-cols-3 gap-px bg-border border font-mono">
           {cells.map(([k, v, t]) => (

@@ -8,6 +8,7 @@ import { Shell, ErrorLine } from "@/components/shell";
 import { GameRules } from "@/components/game-rules";
 import { Chat, Conn, ReadOnlySettings, Repertoire, ScoringPanel } from "@/components/game-panels";
 import { History, Members, OwnerSettings, PlayerApps } from "@/components/room-panels";
+import { PlayerClientLink } from "@/components/player-client-link";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,7 @@ function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
             <span className="label-mono">rev {room.revision}</span>
           </div>
           <h1 className="font-display text-5xl md:text-7xl leading-none mt-3" data-testid="text-room-code">{room.shortCode}</h1>
+          <PlayerClientLink roomCode={room.shortCode} />
         </div>
         <div className="grid grid-cols-2 gap-px bg-border border">
           <div className="bg-card px-4 py-2 min-w-[160px]">
