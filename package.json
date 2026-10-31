@@ -10,6 +10,7 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
     "build:artifact": "node clients/claude-artifact/build.mjs",
     "test:artifact": "node --test clients/claude-artifact/core.test.js",
+    "test:offline": "pnpm --filter @workspace/engine test:unit && for pkg in ai-player game-core game-types game-utilities object-views player-web code-gods; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:artifact",
     "smoke:artifact": "node clients/claude-artifact/smoke.mjs"
   },
   "private": true,
