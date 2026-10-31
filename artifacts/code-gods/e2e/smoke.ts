@@ -114,6 +114,15 @@ async function noHorizontalScroll(page: Page, label: string) {
   assert.ok(sw <= iw, `${label}: page scrolls horizontally (${sw}px wide in a ${iw}px viewport): ${wide.join("; ")}`);
 }
 
+/** Room and game pages put "Open the player client" in the same place: the one link, right under the page title. */
+async function playerLinkUnderTitle(page: Page, titleId: string, roomCode: string) {
+  const link = page.getByTestId("link-player");
+  assert.equal(await link.count(), 1);
+  assert.equal(await link.getAttribute("href"), `/player/?room=${roomCode}`);
+  const follows = await page.getByTestId(titleId).evaluate(h => h.nextElementSibling?.getAttribute("data-testid"));
+  assert.equal(follows, "link-player", `the player client link follows ${titleId}`);
+}
+
 const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
 
 /** POST /api/device/request as a player app would (`pnpm player connect`), PKCE S256. */
@@ -213,12 +222,12 @@ try {
       await c.locator('[data-testid^="row-chat-"]', { hasText: `Bob says hello (${name})` }).waitFor();
     });
 
-    await check(`${name}: "Your player apps" explains connecting your own player app and links the hosted client`, async () => {
+    await check(`${name}: "Your player apps" explains connecting your own player app; the header links the hosted client`, async () => {
       const panel = a.getByTestId("panel-player-apps");
       await panel.waitFor();
       assert.equal(await a.getByTestId("text-engine-url").innerText(), SITE);
       assert.equal(await a.getByTestId("text-connect-command").innerText(), `pnpm player connect --room ${code}`);
-      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      await playerLinkUnderTitle(a, "text-room-code", code);
       await shot(a, `room-${name}`);
       await noHorizontalScroll(a, `${name} room`);
     });
@@ -237,6 +246,7 @@ try {
       await a.locator('[data-testid^="row-standing-"]').nth(3).waitFor();
       assert.equal(await a.locator('[data-testid^="row-roster-"]').count(), 4);
       assert.match(await b.getByTestId("text-viewer-seat").innerText(), /seated/);
+      await playerLinkUnderTitle(a, "text-game-code", code);
       assert.doesNotMatch(await a.locator("main").innerText(), /value function/i);
       await shot(a, `game-${name}`);
       await noHorizontalScroll(a, `${name} game`);
