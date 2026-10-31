@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import OpenAI from "openai";
-import { openAIChatProvider, createDirectOpenAIChatProvider, type ChatRequest } from "../src/index.ts";
+import { openAIChatProvider, createDirectOpenAIChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const prices = { inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6 };
 const chunk = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
@@ -97,4 +97,30 @@ test("another provider's thinking blocks are left out of the history", async () 
     { role: "user", content: "Again" },
   ] }));
   assert.deepEqual(body.messages.slice(1), [{ role: "user", content: "Hi" }, { role: "assistant", content: "Hello" }, { role: "user", content: "Again" }]);
+});
+
+test("provider failures become a player-facing reason; an HTTP rejection is known to be unbilled", async () => {
+  const failure = async (status: number, error: Record<string, unknown>) => {
+    try { await provider(async () => Response.json({ error }, { status })).stream(request()); } catch (e) { return providerFailure(e); }
+    throw new Error("expected a failure");
+  };
+  // What the cloud environment's account answered on the first real call (out of credits).
+  const credits = await failure(429, { message: "You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.", type: "insufficient_quota", code: "credit_balance_exhausted" });
+  assert.equal(credits.unbilled, true);
+  assert.match(credits.message, /out of credit/i);
+  assert.match(credits.message, /whoever runs this server/i);
+  assert.doesNotMatch(credits.message, /platform\.openai\.com/, "no provider billing link for players");
+  const key = await failure(401, { message: "Incorrect API key provided", type: "invalid_request_error", code: "invalid_api_key" });
+  assert.equal(key.unbilled, true);
+  assert.match(key.message, /API key/);
+  const rate = await failure(429, { message: "Rate limit reached for requests", type: "requests", code: "rate_limit_exceeded" });
+  assert.equal(rate.unbilled, true);
+  assert.match(rate.message, /try again in a minute/i);
+  const down = await failure(500, { message: "unavailable", type: "server_error" });
+  assert.equal(down.unbilled, true);
+  assert.match(down.message, /try again in a few minutes/i);
+  // A failure after the answer started streaming (no HTTP status) may have been billed.
+  const cut = providerFailure(new Error("Incomplete model answer (stop: length)"));
+  assert.equal(cut.unbilled, false);
+  assert.equal(cut.message, "The model call failed: Incomplete model answer (stop: length)");
 });

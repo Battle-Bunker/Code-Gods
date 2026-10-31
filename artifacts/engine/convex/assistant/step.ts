@@ -18,7 +18,7 @@
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
 import {
-  assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider, mockChatProvider,
+  assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider, mockChatProvider, providerFailure,
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse,
 } from "@workspace/ai-player";
 import { findTool, mayUse, type ToolResult } from "@workspace/player-client/tools";
@@ -210,8 +210,16 @@ export const run = internalAction({
       clearTimeout(timeout);
       log("step", { turnId, step: c.turn.step, outcome: abort.signal.aborted ? "aborted" : "provider_error" });
       // A provider failure, or a cancellation the flush saw (finish turns a cancelling turn into cancelled, never
-      // failed). No trustworthy usage: the reservation is kept either way.
-      return void await finish("failed", { code: "MODEL", message: `The model call failed: ${messageOf(error).slice(0, 300)}` });
+      // failed). A request the provider refused outright (an HTTP error status) cost nothing, so its reservation is
+      // released (best effort: the turn finishes either way); any other failure has no trustworthy usage and keeps it.
+      const failure = providerFailure(error);
+      if (failure.unbilled && !abort.signal.aborted) {
+        await ctx.runMutation(internal.ai.seats.settle, {
+          pool: "assistant", roomId: c.roomId, subject: c.turn.subject, epoch: reservation.epoch,
+          reservedTokens: reservation.reservedTokens, inputTokens: 0, outputTokens: 0, reservedUsd: reservation.reservedUsd, usd: 0,
+        }).catch(() => log("budget", { turnId, reason: "release_failed" }));
+      }
+      return void await finish("failed", { code: "MODEL", message: failure.message });
     }
     await flush.stop();
     clearTimeout(timeout);

@@ -330,3 +330,21 @@ test("a stored panel saved by the assistant is listed with author kind assistant
   const panel = (await ann.c.query(api.panels.list, {})).find((p: any) => p.slug === "assistant-made");
   assert.equal(panel?.author.kind, "assistant");
 });
+
+test("a provider refusal (out of credit) tells the player who can fix it and gives the reservation back", { timeout: 120_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
+  // OpenAI's answer on the cloud environment's first real call: HTTP 429 insufficient_quota.
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ fail: "You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.", status: 429 }]) });
+  const t = await until(ann, sent, DONE, "the turn fails");
+  assert.equal(t.turn.status, "failed");
+  assert.equal(t.turn.error.code, "MODEL");
+  assert.match(t.turn.error.message, /out of credit[\s\S]*whoever runs this server/i);
+  assert.doesNotMatch(t.turn.error.message, /platform\.openai\.com/);
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, 0, "a refused request cost nothing, so its reservation is released");
+
+  // A failure without an HTTP status (the stream broke after it started) may have been billed: the reservation stays.
+  const broken = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ fail: "stream cut" }]) });
+  const b = await until(ann, broken, DONE, "the second turn fails");
+  assert.equal(b.turn.error.message, "The model call failed: stream cut");
+  assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
+});

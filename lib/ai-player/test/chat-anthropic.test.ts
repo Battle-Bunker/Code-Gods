@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { anthropicChatProvider, createDirectAnthropicChatProvider, type ChatRequest } from "../src/index.ts";
+import { anthropicChatProvider, createDirectAnthropicChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const config = { model: "claude-sonnet-5-5", inputUsdPerMillion: 2, outputUsdPerMillion: 10 };
 const sse = (events: Record<string, unknown>[]) =>
@@ -178,4 +178,18 @@ test("failed requests make one attempt (no retries) and empty keys fail closed",
   await assert.rejects(model.stream(request()));
   assert.equal(calls, 1);
   assert.throws(() => createDirectAnthropicChatProvider("", config), /ANTHROPIC_API_KEY/);
+});
+
+test("Anthropic's out-of-credit and overloaded answers become a player-facing reason", async () => {
+  const failure = async (status: number, error: Record<string, unknown>) => {
+    try { await provider(async () => Response.json({ type: "error", error }, { status })).stream(request()); } catch (e) { return providerFailure(e); }
+    throw new Error("expected a failure");
+  };
+  const credits = await failure(400, { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits." });
+  assert.deepEqual([credits.unbilled, /out of credit/i.test(credits.message)], [true, true]);
+  const overloaded = await failure(529, { type: "overloaded_error", message: "Overloaded" });
+  assert.deepEqual([overloaded.unbilled, /try again in a few minutes/i.test(overloaded.message)], [true, true]);
+  // Any other request error keeps the provider's text (the engine's own bug, worth seeing).
+  const other = await failure(400, { type: "invalid_request_error", message: "max_tokens: too large" });
+  assert.match(other.message, /^The model call failed: .*max_tokens: too large/);
 });
