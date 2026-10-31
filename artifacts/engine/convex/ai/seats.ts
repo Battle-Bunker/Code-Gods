@@ -107,10 +107,18 @@ export const reserve = internalMutation({
 
 /** The assistant allowance's epoch: the room's current game (active, or the latest until the next launch), else "lobby". */
 export const assistantEpoch = (room: Doc<"rooms">) => room.currentGameId ? String(room.currentGameId) : "lobby";
+/**
+ * The room-wide assistant counters (USD reserved this epoch, calls in the last minute) live in the allowance row of
+ * this subject, which no human has, so the hot `rooms` document is not rewritten on every model step.
+ */
+export const ROOM_POOL = "";
+async function poolRow(ctx: QueryCtx, roomId: Id<"rooms">, subject: string, epoch: string) {
+  return ctx.db.query("assistantAllowances").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).unique();
+}
 /** A human's assistant allowance in this room's current epoch. */
 export async function allowanceOf(ctx: QueryCtx, room: Doc<"rooms">, subject: string) {
   const epoch = assistantEpoch(room);
-  const doc = await ctx.db.query("assistantAllowances").withIndex("by_key", q => q.eq("roomId", room._id).eq("subject", subject).eq("epoch", epoch)).unique();
+  const doc = await poolRow(ctx, room._id, subject, epoch);
   return { epoch, doc, limit: room.assistantBudget ?? 0, used: doc?.usedTokens ?? 0 };
 }
 
@@ -118,10 +126,14 @@ async function reserveAssistant(ctx: MutationCtx, roomId: Id<"rooms">, subject: 
   const room = await ctx.db.get(roomId) ?? fail("NOT_FOUND", "Room not found");
   const { epoch, doc, limit, used } = await allowanceOf(ctx, room, subject);
   if (limit <= 0) return { ok: false, reason: "off", message: "The room owner has not enabled the assistant (its allowance is 0 tokens)." };
+  if (tokens > limit) {
+    return { ok: false, reason: "allowance", message: `The room's assistant allowance (${limit} tokens per player per game) is smaller than one step may need (${tokens}); ask the owner to raise it.` };
+  }
   if (used + tokens > limit) {
     return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is used up: ${used} of ${limit} tokens used, and the next step may need up to ${tokens}.` };
   }
-  if ((room.assistantReservedUsd ?? 0) + usd > ASSISTANT_GAME_USD + 1e-12) {
+  const shared = await poolRow(ctx, roomId, ROOM_POOL, epoch);
+  if ((shared?.reservedUsd ?? 0) + usd > ASSISTANT_GAME_USD + 1e-12) {
     return { ok: false, reason: "usd", message: `The room's assistant spending ceiling for this game (USD ${ASSISTANT_GAME_USD}) is reached.` };
   }
   const now = Date.now(), day = utcDay(now);
@@ -130,32 +142,44 @@ async function reserveAssistant(ctx: MutationCtx, roomId: Id<"rooms">, subject: 
     return { ok: false, reason: "daily", message: `This deployment's daily assistant ceiling (USD ${DAILY_ASSISTANT_USD}) is reached; it resets at 00:00 UTC.` };
   }
   const mine = (doc?.calls ?? []).filter(t => now - t < 60_000);
-  const roomCalls = (room.assistantCalls ?? []).filter(t => now - t < 60_000);
+  const roomCalls = (shared?.calls ?? []).filter(t => now - t < 60_000);
   if (mine.length >= ASSISTANT_CALLS_PER_MINUTE || roomCalls.length >= ASSISTANT_ROOM_CALLS_PER_MINUTE) {
     const oldest = Math.min(...(mine.length >= ASSISTANT_CALLS_PER_MINUTE ? mine : roomCalls));
     return { ok: false, reason: "rate", message: "Too many assistant calls this minute; waiting.", retryAfterMs: Math.max(1000, oldest + 60_000 - now) };
   }
   if (doc) await ctx.db.patch(doc._id, { usedTokens: used + tokens, calls: [...mine, now] });
   else await ctx.db.insert("assistantAllowances", { roomId, subject, epoch, usedTokens: tokens, calls: [now] });
-  await ctx.db.patch(room._id, { assistantReservedUsd: (room.assistantReservedUsd ?? 0) + usd, assistantCalls: [...roomCalls, now] });
+  if (shared) await ctx.db.patch(shared._id, { reservedUsd: (shared.reservedUsd ?? 0) + usd, calls: [...roomCalls, now] });
+  else await ctx.db.insert("assistantAllowances", { roomId, subject: ROOM_POOL, epoch, usedTokens: 0, reservedUsd: usd, calls: [now] });
   if (daily) await ctx.db.patch(daily._id, { assistantUsd: (daily.assistantUsd ?? 0) + usd, assistantCalls: (daily.assistantCalls ?? 0) + 1 });
   else await ctx.db.insert("aiUsage", { day, usd: 0, calls: 0, assistantUsd: usd, assistantCalls: 1 });
   return { ok: true, reservedTokens: tokens, reservedUsd: usd, epoch };
 }
 
-/** Return the unused token allowance after a trustworthy usage report (USD reservations are kept). */
+/**
+ * After a trustworthy usage report: return the unused token allowance. Seats keep their USD reservation; the
+ * assistant pool (many small steps, each reserved for its worst case) also returns the unused USD of the room's
+ * and the day's counters, keeping the actual cost (`usd`, priced at the catalog rate).
+ */
 export const settle = internalMutation({
   args: {
     pool, roomId: v.id("rooms"), gameId: v.optional(v.id("games")), subject: v.optional(v.string()), epoch: v.optional(v.string()),
-    reservedTokens: v.number(), inputTokens: v.number(), outputTokens: v.number(),
+    reservedTokens: v.number(), inputTokens: v.number(), outputTokens: v.number(), reservedUsd: v.optional(v.number()), usd: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const actual = args.inputTokens + args.outputTokens;
     if (![args.inputTokens, args.outputTokens].every(n => Number.isSafeInteger(n) && n >= 0) || actual > args.reservedTokens) fail("BAD_REQUEST", "Invalid AI usage");
     if (args.pool === "assistant") {
-      const doc = await ctx.db.query("assistantAllowances")
-        .withIndex("by_key", q => q.eq("roomId", args.roomId).eq("subject", args.subject ?? "").eq("epoch", args.epoch ?? "")).unique();
+      const epoch = args.epoch ?? "";
+      const doc = await poolRow(ctx, args.roomId, args.subject ?? "", epoch);
       if (doc) await ctx.db.patch(doc._id, { usedTokens: Math.max(0, doc.usedTokens - (args.reservedTokens - actual)) });
+      const refund = (args.reservedUsd ?? 0) - (args.usd ?? Infinity);
+      if (Number.isFinite(refund) && refund > 0) {
+        const shared = await poolRow(ctx, args.roomId, ROOM_POOL, epoch);
+        if (shared) await ctx.db.patch(shared._id, { reservedUsd: Math.max(0, (shared.reservedUsd ?? 0) - refund) });
+        const daily = await ctx.db.query("aiUsage").withIndex("by_day", q => q.eq("day", utcDay(Date.now()))).unique();
+        if (daily) await ctx.db.patch(daily._id, { assistantUsd: Math.max(0, (daily.assistantUsd ?? 0) - refund) });
+      }
       return;
     }
     const room = await ctx.db.get(args.roomId);

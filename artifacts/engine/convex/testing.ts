@@ -116,6 +116,18 @@ export const rawGame = internalQuery({
   },
 });
 
+/** The assistant pool rows of a room (per human and the room's own row, subject ""). */
+export const rawAssistantPool = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    dev();
+    const room = await ctx.db.get(roomId);
+    const epoch = room?.currentGameId ? String(room.currentGameId) : "lobby";
+    const rows = (await ctx.db.query("assistantAllowances").collect()).filter(r => r.roomId === roomId && r.epoch === epoch);
+    return { rows, roomUsd: rows.find(r => r.subject === "")?.reservedUsd ?? 0 };
+  },
+});
+
 export const rawRoom = internalQuery({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {

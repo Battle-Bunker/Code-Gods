@@ -20,14 +20,14 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { touchActivity } from "./activity";
-import { requireRoomPermission, type Permission, type Viewer } from "./auth/access";
+import type { Permission, Viewer } from "./auth/access";
 import { credentialProblem } from "./auth/principal";
 import { allowanceOf } from "./ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { requireMember, requireRoom } from "./lib/rooms";
 import { LIMITS, isActive } from "./assistant/rules";
-import { callsOf, denyCall, finishTurn, log, resume } from "./assistant/store";
+import { CANCEL_GRACE_MS, callsOf, denyCall, finishTurn, log, resume } from "./assistant/store";
 
 type Ctx = QueryCtx | MutationCtx;
 const permissionV = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
@@ -48,24 +48,31 @@ async function activeAssistantCredential(ctx: Ctx, subject: string, room: Doc<"r
   return rows.filter(r => r.kind === "assistant" && r.roomId === room._id && !credentialProblem(r, room, now));
 }
 
-/** The human's assistant credential for the room: reused, or created with the chosen permission (replacing others). */
+/**
+ * The human's assistant credential for the room: reused when it is the permission wanted and within the caller's own
+ * rights and lifetime, else created (replacing the others). With no permission given, the wanted one is the current
+ * credential's, or act, capped at what this caller may grant.
+ */
 async function assistantCredential(ctx: MutationCtx, viewer: Viewer, room: Doc<"rooms">, permission: Permission | undefined, ownerConsent: boolean) {
   const active = await activeAssistantCredential(ctx, viewer.subject, room);
-  if (active[0] && (permission === undefined || active[0].permission === permission)) return active[0]._id;
-  const want = permission ?? "act";
   const max = maxPermission(viewer, room);
+  // A player-credential caller cannot outlive or exceed its own grant through the assistant.
+  const own = viewer.credentialId ? await ctx.db.get(viewer.credentialId as Id<"credentials">) : null;
+  const ownExpiry = Math.min(own?.expiresAt ?? Infinity, own?.refreshExpiresAt ?? Infinity);
+  const lower = (p: Permission): Permission => RANK[p] <= RANK[max] ? p : max;
+  const want = permission ?? lower(active[0]?.permission ?? "act");
+  const current = active[0];
+  if (current && current.permission === want && RANK[want] <= RANK[max] && current.expiresAt <= ownExpiry) return current._id;
   if (RANK[want] > RANK[max]) fail("FORBIDDEN", want === "owner" ? "Only the room's current owner can give the assistant owner rights" : "The assistant cannot have more rights than this connection");
   if (want === "owner" && !ownerConsent) fail("FORBIDDEN", "Owner rights for the assistant need your explicit consent");
   const now = Date.now();
   for (const old of await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", viewer.subject)).take(200)) {
     if (old.kind === "assistant" && old.roomId === room._id && old.revokedAt === undefined) await ctx.db.patch(old._id, { revokedAt: now });
   }
-  // A player-credential caller cannot outlive its own grant through the assistant.
-  const own = viewer.credentialId ? await ctx.db.get(viewer.credentialId as Id<"credentials">) : null;
   const id = await ctx.db.insert("credentials", {
-    // Never a bearer: no secret exists whose hash this is (POST /mcp and the device exchange only accept device rows).
+    // Never a bearer: this is no secret's sha256, so no presented token resolves to it (and /mcp accepts device rows only).
     tokenHash: `assistant:${crypto.randomUUID()}`, subject: viewer.subject, roomId: room._id, permission: want, label: ASSISTANT_LABEL,
-    createdAt: now, expiresAt: Math.min(now + CREDENTIAL_MS, own?.expiresAt ?? Infinity), kind: "assistant",
+    createdAt: now, expiresAt: Math.min(now + CREDENTIAL_MS, ownExpiry), kind: "assistant",
   });
   log("credential", { credentialId: id, roomId: room._id, permission: want });
   return id;
@@ -132,7 +139,7 @@ export const cancel = mutation({
       return { status: "cancelled" as const };
     }
     await ctx.db.patch(turn._id, { status: "cancelling", gen: turn.gen + 1, updatedAt: Date.now() });
-    await ctx.scheduler.runAfter(30_000, internal.assistant.store.finalizeCancel, { turnId });
+    await ctx.scheduler.runAfter(CANCEL_GRACE_MS, internal.assistant.store.finalizeCancel, { turnId });
     log("cancel", { turnId });
     return { status: "cancelling" as const };
   },
@@ -206,7 +213,6 @@ export const thread = query({
     const room = thread ? await ctx.db.get(thread.roomId) : null;
     if (!thread || !room) return fail("NOT_FOUND", "Thread not found");
     const { viewer } = await requireMember(ctx, room, "read").catch(() => fail("NOT_FOUND", "Thread not found"));
-    requireRoomPermission(viewer, room._id, "read");
     if (thread.subject !== viewer.subject) fail("NOT_FOUND", "Thread not found");
     const turns = (await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", threadId)).order("desc").take(20)).reverse();
     const messages = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId)).order("desc").take(100)).reverse();

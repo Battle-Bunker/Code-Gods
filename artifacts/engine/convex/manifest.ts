@@ -12,7 +12,7 @@ import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
 import { assertOffered, PRIORS } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
-import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
+import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
 
 let objectTypes: unknown[] | undefined;
 function objectTypesManifest() {
@@ -48,6 +48,8 @@ export const get = action({
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),
         configured: mockEnabled() || providerConfigured("anthropic") || providerConfigured("openai"), live: true,
         models: AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })),
+        /** The largest assistant allowance (tokens per player per game) an owner may approve. */
+        assistantBudgetMax: ASSISTANT_BUDGET_MAX,
       },
       engine: { tickSeconds: TICK_SECONDS, minTickMs: MIN_TICK_MS },
     };

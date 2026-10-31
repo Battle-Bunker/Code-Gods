@@ -41,5 +41,5 @@ export interface Manifest {
   defaults: Settings; runtimes: string[]; options: SettingsOptions; objectTypes: ObjectTypeInfo[]; presets: SettingsPreset[];
   aiFunding: { provider: string; model: string; billing: string; mock: boolean; configured: boolean; live: boolean;
     /** The vetted model catalog (ids, labels, whether this deployment has the provider key). */
-    models?: { id: string; label: string; provider: string; configured: boolean }[] };
+    models?: { id: string; label: string; provider: string; configured: boolean }[]; assistantBudgetMax?: number };
 }

@@ -306,17 +306,16 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run("budget", () => approveBudget({ roomId: room.id, aiBudget: b }), () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
       </fieldset>
-      <AssistantBudget room={room} act={act} models={aiFunding?.models} />
+      <AssistantBudget room={room} act={act} models={aiFunding?.models} max={aiFunding?.assistantBudgetMax} />
     </Panel>
   );
 }
 
-const ASSISTANT_MAX = 2_000_000;
 /**
  * The in-client assistant's pool (docs/ai-player-billing.md): an equal allowance of tokens per human per game and the
  * model, approved by the owner. 0 keeps the assistant off. It may change during a game (everyone's changes alike).
  */
-function AssistantBudget({ room, act, models }: { room: RoomState; act: Run; models?: NonNullable<Manifest["aiFunding"]>["models"] }) {
+function AssistantBudget({ room, act, models, max: ASSISTANT_MAX = 2_000_000 }: { room: RoomState; act: Run; models?: NonNullable<Manifest["aiFunding"]>["models"]; max?: number }) {
   const approve = useMutation(api.rooms.approveAiBudget);
   const [tokens, setTokens] = useState(String(room.assistantBudget ?? 0));
   const [model, setModel] = useState(room.assistantModel);

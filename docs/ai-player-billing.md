@@ -82,9 +82,11 @@ draws on a **separate pool**, so the assistant can never spend the AI seats' bud
   turn's deadline; every other refusal ends the turn as `budget_exhausted` with the reason.
 
 Each model step reserves first (`ai/seats.ts:reserve` with `pool: "assistant"`): the UTF-8 bytes of the system prompt,
-the conversation and the tool definitions plus 2,048, and the 4,096-token output ceiling. As for seats, the USD
-reservation is never refunded and, after a trustworthy usage report, only the unused tokens return to the player's
-allowance. A cancelled or failed step keeps its whole reservation. Logs record ids, tools, outcomes and usage, never
+the conversation and the tool definitions plus 2,048, and the 4,096-token output ceiling. Unlike a seat's call, a
+step's worst-case reservation is far above what it usually uses, so after a trustworthy usage report both the unused
+tokens (to the player's allowance) and the unused USD (to the room's and the day's assistant counters, keeping the
+actual cost at the catalog rate) are returned. A cancelled or failed step keeps its whole reservation. The room's
+counters live in its own allowance row (subject ""), not on the room document. Logs record ids, tools, outcomes and usage, never
 message text or tool arguments.
 
 Tests use injected mock providers (`lib/ai-player`) or the engine's offline `mock`

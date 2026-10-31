@@ -54,11 +54,10 @@ export const gameTables = {
     aiBudget: v.number(), aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
     /**
-     * The in-client assistant pool (assistant/*): tokens per human per game approved by the owner (absent or 0 = off),
-     * the model's catalog id, and the room's assistant calls in the last minute and USD reserved this game.
+     * The in-client assistant pool (assistant/*): tokens per human per game approved by the owner (absent or 0 = off)
+     * and the model's catalog id. Its usage counters live in assistantAllowances, off this hot document.
      */
     assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()),
-    assistantCalls: v.optional(v.array(v.number())), assistantReservedUsd: v.optional(v.number()),
     /** The active game (not ended), and the room's current game slot (active, or the latest until the next launch). */
     activeGameId: v.optional(v.id("games")), currentGameId: v.optional(v.id("games")),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),

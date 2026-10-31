@@ -14,6 +14,10 @@ type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
 type Call = Doc<"assistantToolCalls">;
 const TERMINAL_CALL = ["ok", "error", "denied"];
+/** A call still running when its turn ended; its real outcome may still arrive (endCall then replaces this). */
+const INTERRUPTED = "Interrupted when the turn ended";
+/** A cancelled turn whose step never acknowledged is finished after this (longer than a tool call can wait). */
+export const CANCEL_GRACE_MS = LIMITS.waitMs + 30_000;
 const clipText = (text: string) => text.length > LIMITS.textChars ? text.slice(0, LIMITS.textChars) : text;
 
 /** Structured log line: ids, tools, outcomes and usage only, never message text or tool arguments. */
@@ -43,7 +47,7 @@ export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<T
     const interrupted = c.status === "running";
     await ctx.db.patch(c._id, {
       status: interrupted ? "error" : "denied", updatedAt: now,
-      summary: interrupted ? "Interrupted when the turn ended" : "Not run: the turn ended",
+      summary: interrupted ? INTERRUPTED : "Not run: the turn ended",
       resultJson: JSON.stringify({ error: { code: interrupted ? "INTERRUPTED" : "NOT_RUN", message: "The turn ended before this call finished" } }),
     });
   }
@@ -143,6 +147,12 @@ export const openStep = internalMutation({
   },
 });
 
+/** Is the turn still live on this generation? (The step's cancellation check while no text streams.) */
+export const live = internalQuery({
+  args: { turnId: v.id("assistantTurns"), gen: v.number() },
+  handler: async (ctx, { turnId, gen }) => !!await liveTurn(ctx, turnId, gen),
+});
+
 /** A streaming flush; `cancelled` tells the step to abort the provider stream. */
 export const flush = internalMutation({
   args: { turnId: v.id("assistantTurns"), gen: v.number(), messageId: v.id("assistantMessages"), text: v.string() },
@@ -194,7 +204,7 @@ export const endCall = internalMutation({
   args: { turnId: v.id("assistantTurns"), gen: v.number(), callDocId: v.id("assistantToolCalls"), status: v.union(v.literal("ok"), v.literal("error")), summary: v.string(), resultJson: v.string() },
   handler: async (ctx, { turnId, gen, callDocId, ...outcome }) => {
     const call = await ctx.db.get(callDocId);
-    if (call && call.status === "running") await ctx.db.patch(call._id, { ...outcome, updatedAt: Date.now() });
+    if (call && (call.status === "running" || (call.status === "error" && call.summary === INTERRUPTED))) await ctx.db.patch(call._id, { ...outcome, updatedAt: Date.now() });
     return { cancelled: !await liveTurn(ctx, turnId, gen) };
   },
 });
@@ -286,7 +296,7 @@ export const sweep = internalMutation({
       }
     }
     for (const turn of await ctx.db.query("assistantTurns").withIndex("by_status_deadline", q => q.eq("status", "cancelling")).take(50)) {
-      if (turn.updatedAt < now - 30_000) await finishTurn(ctx, turn, "cancelled");
+      if (turn.updatedAt < now - CANCEL_GRACE_MS) await finishTurn(ctx, turn, "cancelled");
     }
     for (const call of await ctx.db.query("assistantToolCalls").withIndex("by_status_deadline", q => q.eq("status", "awaiting_confirmation").lt("confirmDeadline", now)).take(50)) {
       await denyCall(ctx, call, "timeout");

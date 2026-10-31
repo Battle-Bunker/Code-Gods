@@ -76,7 +76,8 @@ function AssistantDrawer({ onClose }: { onClose: () => void }) {
     } catch (e) { setError(errText(e)); setPending(null); setDraft(text); }
   };
   const allowed: Permission[] = status ? (["read", "act", "owner"] as const).filter(p => ({ read: 0, act: 1, owner: 2 })[p] <= ({ read: 0, act: 1, owner: 2 })[status.maxPermission]) : ["read", "act"];
-  useEffect(() => { if (status?.credential) setPermission(status.credential.permission); }, [status?.credential?.permission]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The credential's permission once there is one; before first use, act (or read on a read-only connection).
+  useEffect(() => { if (status) setPermission(status.credential?.permission ?? (status.maxPermission === "read" ? "read" : "act")); }, [status?.credential?.permission, status?.maxPermission]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <aside data-testid="assistant-drawer" className="fixed top-0 right-0 z-50 h-[100dvh] w-full sm:w-[420px] bg-card text-card-foreground border-l border-[hsl(var(--card-border))] shadow-2xl flex flex-col">

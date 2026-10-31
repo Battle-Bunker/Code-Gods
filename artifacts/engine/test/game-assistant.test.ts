@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { admin, api, envelope, gods, internal, raw, rejects, roomWith, sleep, touch, waitFor, TS, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, touch, waitFor, TS, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { commandIdFor } from "../convex/assistant/rules.ts";
 
@@ -152,6 +152,22 @@ test("permissions: a read assistant cannot summon; act has no owner tools; owner
   assert.ok((await until(ann, owner, DONE, "the owner turn")).turn.tools.includes("start_game"));
 });
 
+test("a read-only player connection gets a read assistant by default and never drives a stronger one", { timeout: 120_000 }, async () => {
+  const { members: [, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
+  // Bob's browser session first makes an act assistant.
+  const first = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "ok" }]) });
+  await until(bob, first, DONE, "the browser turn");
+  const readApp = { ...bob, c: await playerClient(bob, roomId, "read") };
+  const sent = await readApp.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "ok" }]) });
+  const t = await until(readApp, sent, DONE, "the read-app turn");
+  assert.equal(t.turn.status, "done");
+  assert.ok(!t.turn.tools.includes("summon_agent"), "the read connection's assistant has read tools only");
+  const creds = (await bob.c.query(api.auth.credentials.list, {})).filter((c: any) => c.kind === "assistant" && c.roomId === roomId);
+  assert.deepEqual(creds.map((c: any) => c.permission), ["read"]);
+  assert.ok(creds[0].expiresAt <= Date.now() + 3600_000 + 5000, "capped at the read credential's own expiry");
+  assert.equal((await readApp.c.query(api.assistant.status, { roomId })).maxPermission, "read");
+});
+
 test("revoking the assistant credential mid-turn fails its next call and ends the turn", { timeout: 120_000 }, async () => {
   const { members: [, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
   const sent = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ text: ["a", "b"], delayMs: 1500, tools: [{ name: "whoami" }] }, { text: "after" }]) });
@@ -210,6 +226,9 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   const firstStep = measured.messages.find((m: any) => m.role === "assistant").reservedTokens;
   assert.ok(firstStep > 0);
   const annUsed = (await ann.c.query(api.assistant.status, { roomId })).allowance.used;
+  // After trustworthy usage the room's assistant USD keeps only the actual cost, not the worst-case reservation.
+  const counters = await admin.query(internal.testing.rawAssistantPool, { roomId });
+  assert.ok(counters.roomUsd > 0 && counters.roomUsd < measured.turn.usage.reservedUsd, `room USD ${counters.roomUsd} < reserved ${measured.turn.usage.reservedUsd}`);
   // An allowance that covers one step but not two.
   await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: firstStep + 1000 });
   const sent = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "never" }]) });

@@ -6,6 +6,7 @@ import { v } from "convex/values";
  * conversation in one room; a turn is one answer to one user message, run as a chain of scheduled model steps; each
  * step writes one assistant message (its streamed text) and the tool calls the model asked for. Allowances are the
  * assistant pool per (room, human, epoch); the epoch is the room's current game id, or "lobby" before the first game.
+ * One more row per (room, epoch), with subject "", counts the room's assistant USD and call rate.
  *
  * Message text, tool arguments and results are private to the thread's human: only assistant.thread(s), which check
  * `subject`, read them, and logs never carry them.
@@ -70,8 +71,10 @@ export const assistantTables = {
 
   assistantAllowances: defineTable({
     roomId: v.id("rooms"), subject: v.string(), epoch: v.string(), usedTokens: v.number(),
-    /** Call times in the last minute (the per-player rate limit). */
+    /** Call times in the last minute (the per-player, or for the room row the per-room, rate limit). */
     calls: v.array(v.number()),
+    /** The room row only (subject "", ai/seats.ts ROOM_POOL): USD reserved this epoch (ASSISTANT_GAME_USD). */
+    reservedUsd: v.optional(v.number()),
   }).index("by_key", ["roomId", "subject", "epoch"]),
 
   /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). */

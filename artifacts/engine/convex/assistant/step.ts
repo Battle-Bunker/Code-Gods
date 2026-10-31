@@ -47,12 +47,13 @@ function providerFor(modelId: string | null): ChatProvider {
     : createDirectOpenAIChatProvider(key, config.id, config);
 }
 
-/** The cost a validate_agent call of this turn reported for exactly this source (for auto-approved summons). */
-function validatedCost(calls: CallRow[], source: unknown): number | undefined {
+/** The cost a validate_agent call of this turn reported for exactly this source and language (for auto-approved summons). */
+function validatedCost(calls: CallRow[], args: Record<string, unknown>): number | undefined {
   for (const c of calls) {
     if (c.tool !== "validate_agent" || c.status !== "ok" || !c.resultJson) continue;
     try {
-      if ((JSON.parse(c.argsJson) as { source?: unknown }).source !== source) continue;
+      const validated = JSON.parse(c.argsJson) as { source?: unknown; language?: unknown; gameId?: unknown };
+      if (validated.source !== args.source || validated.language !== args.language || validated.gameId !== args.gameId) continue;
       const result = JSON.parse(c.resultJson) as { data?: { receipt?: { accepted?: boolean; validation?: { valid?: boolean; cost?: number } } } };
       const validation = result.data?.receipt?.validation;
       if (result.data?.receipt?.accepted && validation?.valid && typeof validation.cost === "number") return validation.cost;
@@ -73,7 +74,7 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
     const args = JSON.parse(call.argsJson) as Record<string, unknown>;
     const definition = findTool(call.tool);
     const permitted = !!definition && !!who && mayUse(who.permission, definition);
-    if (permitted && !call.approved && needsConfirmation(call.tool, args, { autoApproveSummonBits: c.autoApproveSummonBits, validatedCost: validatedCost(c.calls, args.source) })) {
+    if (permitted && !call.approved && needsConfirmation(call.tool, args, { autoApproveSummonBits: c.autoApproveSummonBits, validatedCost: validatedCost(c.calls, args) })) {
       const { cancelled } = await ctx.runMutation(internal.assistant.store.awaitConfirmation, { turnId, gen, callDocId: call.id });
       return cancelled ? "cancelled" : "paused";
     }
@@ -97,20 +98,29 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
   return "resolved";
 }
 
-/** A text flusher: about every LIMITS.flushMs or LIMITS.flushChars, one flush in flight at a time. */
+/**
+ * A text flusher: about every LIMITS.flushMs or LIMITS.flushChars, one write in flight at a time. Each write reports
+ * cancellation; while no new text streams (a tool-use answer, a silent stretch) it checks about once a second.
+ */
 function flusher(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, messageId: Id<"assistantMessages">, onCancel: () => void) {
   let text = "", flushedLength = 0, lastAt = Date.now();
   let inFlight: Promise<void> | null = null;
-  const flushNow = () => {
-    if (inFlight || text.length === flushedLength) return;
-    const snapshot = text;
-    lastAt = Date.now();
-    inFlight = ctx.runMutation(internal.assistant.store.flush, { turnId, gen, messageId, text: snapshot })
-      .then(({ cancelled }) => { flushedLength = snapshot.length; if (cancelled) onCancel(); })
+  const track = (p: Promise<{ cancelled: boolean }>, after: () => void) => {
+    inFlight = p.then(({ cancelled }) => { after(); if (cancelled) onCancel(); })
       .catch(() => { /* the final write carries the text */ })
       .finally(() => { inFlight = null; });
   };
-  const timer = setInterval(() => { if (Date.now() - lastAt >= LIMITS.flushMs) flushNow(); }, LIMITS.flushMs / 2);
+  const flushNow = () => {
+    if (inFlight) return;
+    lastAt = Date.now();
+    if (text.length === flushedLength) return track(ctx.runQuery(internal.assistant.store.live, { turnId, gen }).then(live => ({ cancelled: !live })), () => {});
+    const snapshot = text;
+    track(ctx.runMutation(internal.assistant.store.flush, { turnId, gen, messageId, text: snapshot }), () => { flushedLength = snapshot.length; });
+  };
+  const timer = setInterval(() => {
+    const idle = Date.now() - lastAt;
+    if ((text.length !== flushedLength && idle >= LIMITS.flushMs) || idle >= 1000) flushNow();
+  }, LIMITS.flushMs / 2);
   return {
     push(delta: string) { text += delta; if (text.length - flushedLength >= LIMITS.flushChars || Date.now() - lastAt >= LIMITS.flushMs) flushNow(); },
     async stop() { clearInterval(timer); if (inFlight) await inFlight; },
@@ -186,6 +196,7 @@ export const run = internalAction({
       await ctx.runMutation(internal.ai.seats.settle, {
         pool: "assistant", roomId: c.roomId, subject: c.turn.subject, epoch: reservation.epoch,
         reservedTokens: reservation.reservedTokens, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+        reservedUsd: reservation.reservedUsd, usd: provider.estimateMaxUsd(result.inputTokens, result.outputTokens),
       });
     }
     log("step", { turnId, step: c.turn.step, outcome: result.stopReason, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
