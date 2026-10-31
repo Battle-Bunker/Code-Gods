@@ -21,7 +21,7 @@
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
-import { ANALYTIC_MAX_ERROR_BITS, assertAnalytic, type AnalyticSurvival } from "./analytic.ts";
+import { ANALYTIC_MAX_ERROR_BITS, assertAnalytic, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // format
@@ -254,14 +254,8 @@ export function tableKey(familyId: string, canonicalParams: Params, inst: Instan
 
 const tupleOf = (o: Ordinal): readonly number[] => (typeof o === "number" ? [o] : o);
 
-/** Lexicographic comparison; scalars as 1-tuples. */
-export function cmpOrdinal(a: Ordinal, b: Ordinal): number {
-  if (typeof a === "number" && typeof b === "number") return a < b ? -1 : a > b ? 1 : 0;
-  const x = tupleOf(a), y = tupleOf(b);
-  if (x.length !== y.length) throw new Error(`Cannot compare ordinals of arity ${x.length} and ${y.length}`);
-  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
-  return 0;
-}
+/** Lexicographic comparison; scalars as 1-tuples (analytic.ts `cmpOrdinals`). */
+export const cmpOrdinal = cmpOrdinals;
 
 /** Strictly increasing squash of any real into (0, 1). */
 const sq = (x: number) => 0.5 + 0.5 * x / (1 + Math.abs(x));

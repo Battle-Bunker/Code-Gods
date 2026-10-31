@@ -17,14 +17,14 @@
  * this nominal se is honest up to about 48 bits (RMS z ≈ 1) and about 1.4× optimistic above 64 bits.
  */
 import { objectType, seededRng, type Instantiation } from "@workspace/game-types";
-import { assertAnalytic, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
+import { assertAnalytic, cmpOrdinals, ordinalKey, type AnalyticSurvival } from "./analytic.ts";
 import type { CalibrationTable } from "./calibration.ts";
 import { evaluator, type Draw } from "./catalog.ts";
 import type { Ordinal } from "./types.ts";
 
 const SE_INFLATION = 1.6;
 const SE_FLOOR_BITS = 0.02;
-export const keyOfOrdinal = (o: Ordinal): string => (typeof o === "number" ? String(o) : o.join(","));
+export const keyOfOrdinal = ordinalKey;
 
 /** The nominal standard error (bits) of a table level at `bits`, from the table's budget; 0 for exact tables. */
 export function nominalSe(table: CalibrationTable, bits: number): number {
@@ -103,11 +103,14 @@ export function compareWithSpawns(a: AnalyticSurvival, draw: Draw, inst: Instant
   }
   const disagreements: SpawnComparison["disagreements"][number][] = [];
   let levelsChecked = 0;
+  ords.sort(cmpOrdinals);
+  let at = 0;   // levels are increasing, so the first sample ≥ the level only moves forward
   for (const [l, log2G] of a.levels) {
+    while (at < n && cmpOrdinals(ords[at], l) < 0) at++;
     const G = 2 ** log2G;
     if (G < 2 ** -9) continue;
     levelsChecked++;
-    const hits = ords.filter(o => cmpOrdinals(o, l) >= 0).length, sd = Math.sqrt(n * G * (1 - G)) + 1;
+    const hits = n - at, sd = Math.sqrt(n * G * (1 - G)) + 1;
     if (Math.abs(hits - n * G) > 5 * sd) disagreements.push({ ordinal: l, G, frequency: hits / n });
   }
   return { spawns: n, unlisted: [...unlisted.values()], disagreements, levelsChecked };

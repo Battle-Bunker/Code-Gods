@@ -44,8 +44,9 @@ export interface AnalyticSurvival {
 export const ANALYTIC_MAX_ERROR_BITS = 0.25;
 
 const tupleOf = (o: Ordinal): readonly number[] => (typeof o === "number" ? [o] : o);
-/** Lexicographic comparison (scalars as 1-tuples). */
+/** Lexicographic comparison of ordinals (scalars as 1-tuples): the one comparator of the package (calibration.ts re-exports it). */
 export function cmpOrdinals(a: Ordinal, b: Ordinal): number {
+  if (typeof a === "number" && typeof b === "number") return a < b ? -1 : a > b ? 1 : 0;
   const x = tupleOf(a), y = tupleOf(b);
   if (x.length !== y.length) throw new Error(`Cannot compare ordinals of arity ${x.length} and ${y.length}`);
   for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
@@ -79,7 +80,9 @@ export function assertAnalytic(a: AnalyticSurvival, where: string): void {
 /** A finite probability distribution over ordinals (scalars or tuples of one arity). */
 export type Dist = ReadonlyMap<string, { readonly o: Ordinal; readonly p: number }>;
 type MutDist = Map<string, { o: Ordinal; p: number }>;
-const keyOf = (o: Ordinal): string => (typeof o === "number" ? String(o) : o.join(","));
+/** The map key of an ordinal ("3" or "2,5"): the same for a scalar and its 1-tuple is NOT intended; arities never mix. */
+export const ordinalKey = (o: Ordinal): string => (typeof o === "number" ? String(o) : o.join(","));
+const keyOf = ordinalKey;
 
 /** Adds mass p at ordinal o (p ≤ 0 is ignored). */
 export function addMass(d: Map<string, { o: Ordinal; p: number }>, o: Ordinal, p: number): void {
@@ -127,13 +130,18 @@ export function iidSum(a: Dist, k: number): Dist {
   return result ?? pointMass(zero);
 }
 
+/** Total mass a distribution may deviate from 1 by before `survivalLevels` refuses it (mass lost to a bug or underflow). */
+export const MASS_TOLERANCE = 1e-9;
 /**
  * Exact survival levels of a distribution: [[t, log2 μ{u ≥ t}]] at every ordinal with positive mass, summed from the
- * top so the rare end keeps full relative precision. The first level has log2 G = 0 exactly.
+ * top so the rare end keeps full relative precision. The first level has log2 G = 0 exactly. Throws unless the total
+ * mass is 1 within MASS_TOLERANCE: a distribution that lost mass would make every level wrong.
  */
 export function survivalLevels(d: Dist): [Ordinal, number][] {
   const items = [...d.values()].sort((x, y) => cmpOrdinals(x.o, y.o));
   if (!items.length) throw new Error("survivalLevels of an empty distribution");
+  const mass = totalMass(d);
+  if (Math.abs(mass - 1) > MASS_TOLERANCE) throw new Error(`survivalLevels: the distribution has total mass ${mass}, not 1`);
   const out: [Ordinal, number][] = [];
   let G = 0;
   for (let i = items.length - 1; i >= 0; i--) { G += items[i].p; out.push([items[i].o, Math.log2(Math.min(G, 1))]); }
@@ -238,14 +246,16 @@ export function maxOfEqualMultinomial(n: number, k: number): [Ordinal, number][]
  * a row). Returns the exact law of the count (≤ maxCount). Cost O(N · M² · maxCount): fine up to M ≈ 1500.
  */
 export function rowTransferCount(N: number, M: number, h: (row: number) => number, v: (row: number, next: number) => number, maxCount: number): Dist {
-  let cur: Float64Array[] = Array.from({ length: M }, (_, r) => { const a = new Float64Array(maxCount + 1); a[h(r)] = 1 / M; return a; });
   const hs = Array.from({ length: M }, (_, r) => h(r));
+  if (hs.some(x => !Number.isInteger(x) || x < 0 || x > maxCount)) throw new Error("rowTransferCount: h(row) outside 0..maxCount");
+  let cur: Float64Array[] = Array.from({ length: M }, (_, r) => { const a = new Float64Array(maxCount + 1); a[hs[r]] = 1 / M; return a; });
   for (let step = 1; step < N; step++) {
     const next: Float64Array[] = Array.from({ length: M }, () => new Float64Array(maxCount + 1));
     for (let a = 0; a < M; a++) {
       const pa = cur[a];
       for (let b = 0; b < M; b++) {
         const shift = v(a, b) + hs[b], nb = next[b];
+        if (!Number.isInteger(shift) || shift < 0 || shift > maxCount) throw new Error("rowTransferCount: v(row, next) + h(next) outside 0..maxCount");
         for (let c = 0; c + shift <= maxCount; c++) if (pa[c]) nb[c + shift] += pa[c] / M;
       }
     }
@@ -257,6 +267,8 @@ export function rowTransferCount(N: number, M: number, h: (row: number) => numbe
 }
 /** P(Poisson(λ) ≥ t), summed from the top. The moderate-tail approximation for counts of rare, weakly dependent patterns. */
 export function poissonTail(lambda: number, t: number): number {
+  if (!(lambda >= 0)) throw new Error(`poissonTail: λ = ${lambda}`);
+  if (lambda === 0) return t <= 0 ? 1 : 0;
   let total = 0;
   const top = Math.ceil(lambda + 60 * Math.sqrt(lambda + 1) + t + 50);
   for (let k = top; k >= Math.max(0, t); k--) total += Math.exp(-lambda + k * Math.log(lambda) - logFactorial(k));

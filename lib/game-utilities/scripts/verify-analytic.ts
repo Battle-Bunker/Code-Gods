@@ -34,7 +34,7 @@ for (const dir of dirs) {
     tables.push(...json.tables);
   }
 }
-const byFamily = new Map<string, TableComparison[]>();
+const byFamily = new Map<string, { id: string; rows: TableComparison[] }>();
 let skipped = 0;
 for (const t of tables) {
   if (t.prior || typeof t.estimator.budget === "string") continue;   // only sampling tables are evidence
@@ -45,16 +45,15 @@ for (const t of tables) {
   if (t.key !== mcTableKey(t.family, t.canonicalParams, inst)) { skipped++; continue; }   // the card changed since: not evidence
   const a = analyticFor(t.family, t.canonicalParams, inst);
   if (!a) continue;
-  (byFamily.get(t.family) ?? byFamily.set(t.family, []).get(t.family)!).push(compareWithTable(a, t));
+  const entry = byFamily.get(t.family) ?? byFamily.set(t.family, { id: a.id, rows: [] }).get(t.family)!;
+  entry.rows.push(compareWithTable(a, t));
 }
-for (const [fam, rows] of [...byFamily].sort()) {
-  const inst = instantiateKey(rows[0].instance);
-  const id = analyticFor(fam, tables.find(t => t.family === fam)!.canonicalParams, inst)!.id;
+for (const [fam, { id, rows }] of [...byFamily].sort()) {
   console.log(`\n### ${fam} (${id}): ${rows.length} tables\n`);
   if (!bandsOnly) console.log(comparisonMarkdown(rows) + "\n");
   console.log(bandSummaryMarkdown(rows));
 }
-const all = [...byFamily.values()].flat();
+const all = [...byFamily.values()].flatMap(e => e.rows);
 console.log(`\n### All ${all.length} comparisons pooled\n`);
 console.log(bandSummaryMarkdown(all));
 if (skipped) console.error(`\n${skipped} tables skipped: built from a card that has since changed (their keys are not the current estimator's)`);

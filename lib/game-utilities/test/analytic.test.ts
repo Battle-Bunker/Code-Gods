@@ -11,7 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { instantiate, objectType, type Instantiation } from "@workspace/game-types";
 import { FAMILIES, available, canonicalSupport, context, evaluator, family } from "../src/catalog.ts";
-import { analyticFor, cmpOrdinal, tableKey, tableKeyParts, type CalibrationBudget, type CalibrationTable } from "../src/calibration.ts";
+import { analyticFor, cmpOrdinal, instantiateKey, tableKey, tableKeyParts, type CalibrationBudget, type CalibrationTable } from "../src/calibration.ts";
 import { shippedInstanceKeys, shippedManifest } from "../src/calibration-data.ts";
 import {
   assertAnalytic, binomial, combine, distOf, exactSurvival, iidSum, lineChainCount, maxOfEqualMultinomial, multinomial, pairOrdinal,
@@ -74,6 +74,11 @@ test("toolkit: binomial, multinomial, iid sums, chains, max of multinomial and t
   // Poisson tail
   close(poissonTail(2, 0), 1);
   close(poissonTail(2, 1), 1 - Math.exp(-2), 1e-12);
+  // lost mass is refused, as are out-of-range transfer-matrix terms and a negative Poisson rate
+  assert.throws(() => survivalLevels(distOf([[0, 0.5]])), /total mass/);
+  assert.throws(() => rowTransferCount(2, 2, r => r, () => 0, 0), /outside/);
+  assert.equal(poissonTail(0, 0), 1);
+  assert.equal(poissonTail(0, 1), 0);
   // validity checks
   assertAnalytic(exactSurvival("x@1", b), "ok");
   assert.throws(() => assertAnalytic({ id: "bad id", kind: "exact", levels: [[0, 0]] }, "t"), /must look like/);
@@ -185,7 +190,7 @@ test("archived reference tables: every Monte Carlo table of a family with an ana
     assert.ok(f.analytic, `${ref.family} has reference tables but no analytic`);
     let sz2 = 0, nz = 0;
     for (const t of ref.tables) {
-      const inst = objectType(instantiate(t.instance.startsWith("Grid") ? "Grid" : t.instance.startsWith("Int") ? "Int" : "string", {}).objectType).instantiate(MANIFEST.instances[t.instance]?.args ?? argsOf(t.instance));
+      const inst = instantiateKey(t.instance);
       const where = `${ref.family} ${JSON.stringify(t.canonicalParams)} on ${t.instance}`;
       assert.equal(t.key, mcTableKey(ref.family, t.canonicalParams, inst), `${where}: the reference table is stale (the card changed); rebuild it with ${REFERENCE_COMMAND}`);
       const a = analyticFor(ref.family, t.canonicalParams, inst);
@@ -202,11 +207,3 @@ test("archived reference tables: every Monte Carlo table of a family with an ana
   }
   assert.deepEqual(bad, [], bad.join("\n"));
 });
-
-/** Type args from an instance key (for reference tables of shapes that are not shipped). */
-function argsOf(key: string): Record<string, string | number> {
-  const m = /^(\w+)\((.*)\)$/.exec(key)!;
-  const parts = m[2].split(",");
-  return m[1] === "Int" ? { min: Number(parts[0]), max: Number(parts[1]) } : m[1] === "string" ? { maxLength: Number(parts[0]) }
-    : { size: Number(parts[0]), symbols: parts[1], colours: parts[2] };
-}

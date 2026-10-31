@@ -250,7 +250,9 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
     if (j + 1 < order.length && cmp(levels[order[j + 1]], levels[i]) === 0) continue;
     lvAll.push(levels[i]); lp.push(log2p[i]); se.push(Math.sqrt(vars[i]) * (i >= mcLevels ? SE_INFLATION : 1));
   }
-  const { levels: lv, bits } = thin(lvAll, strictBits(lp, se).map(round9));
+  // Analytic levels are kept whole (each is exact; the family decides how many it lists); sampled ones are thinned.
+  const strict = strictBits(lp, se).map(round9);
+  const { levels: lv, bits } = analytic ? { levels: lvAll, bits: strict } : thin(lvAll, strict);
   for (let i = 1; i < bits.length; i++) if (!(bits[i] > bits[i - 1])) throw new Error("internal: bits not strictly increasing");
   const top = bits.length - 1, back = Math.max(0, top - SLOPE_LEVELS);
   const fit = top > back ? (bits[top] - bits[back]) / ordinalDistance(lv[back], lv[top]) : 0;
