@@ -10,6 +10,7 @@ import { OWNER_TOOLS } from "@workspace/player-client/tools";
 import {
   LIMITS, argsLimit, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, uuidv5,
 } from "../../convex/assistant/rules.ts";
+import { TOOLS, toolJsonSchemas } from "@workspace/player-client/tools";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
 const DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
@@ -24,11 +25,12 @@ test("uuidv5 matches the RFC 9562 example; command ids depend only on (turn, cal
   assert.notEqual(commandIdFor("turn1t", "oolu_1", sha1), commandIdFor("turn1", "toolu_1", sha1), "the parts are delimited");
 });
 
-test("public chat, owner tools, pauses, destroys and panel and setup deletion always ask; summons ask unless auto-approved within budget; layout tools never", () => {
-  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "get_room_state", "delete_panel", "delete_setup", "pause_game", "destroy_agent"]) {
+test("public chat, owner actions, pauses, destroys and panel and setup deletion always ask; summons ask unless auto-approved within budget; reads and layout tools never", () => {
+  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "remove_ai", "resume_game", "delete_panel", "delete_setup", "pause_game", "destroy_agent"]) {
     assert.equal(needsConfirmation(tool, {}, { autoApproveSummonBits: 1e9, validatedCost: 1 }), true, tool);
   }
-  for (const tool of ["get_observation", "whoami", "validate_agent", "set_ready", "save_panel", "rollback_panel", "list_panels", "wake_engine", "list_setups", "save_setup",
+  // The owner's reads change nothing: a card for each made the owner approve every look at the room.
+  for (const tool of ["get_room_state", "get_ai_catalog", "get_observation", "whoami", "validate_agent", "set_ready", "save_panel", "rollback_panel", "list_panels", "wake_engine", "list_setups", "save_setup",
     "get_layout", "open_panel", "set_panel_params", "open_panel", "move_pane", "close_pane"]) {
     assert.equal(needsConfirmation(tool, {}, {}), false, tool);
   }
@@ -113,4 +115,14 @@ test("activity-chip summaries say what happened; argument limits fit panels and 
   assert.equal(summarize("open_panel", wrap({ paneId: "p1", summary: "Top 5 by payoff", reused: true })), "Updated Top 5 by payoff");
   assert.equal(summarize("close_pane", wrap({ paneId: "p3", summary: "closed", reused: false })), "Closed pane p3");
   assert.equal(summarize("get_layout", wrap({ layout: {} })), "Read");
+});
+
+test("the engine adds only arguments a tool's input schema has (every schema refuses unknown keys)", () => {
+  const id = "5c0d3a6e-9b1f-4c2a-8e7d-2f6b1a9c4d30";
+  const schemas = toolJsonSchemas();
+  for (const t of TOOLS) {
+    const properties = (schemas[t.name].input as { properties?: Record<string, unknown> }).properties ?? {};
+    const extra = Object.keys(prepareArgs(t.name, {}, id)).filter(k => !(k in properties));
+    assert.deepEqual(extra, [], `${t.name} gets arguments its schema does not have`);
+  }
 });

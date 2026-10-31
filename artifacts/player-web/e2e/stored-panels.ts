@@ -384,6 +384,26 @@ await check("sign-in still works under the page CSP: the signed-out page offers 
   await fresh.close();
 });
 
+await check("the assistant timeline stays at the bottom when the suggestion chips appear under a long answer (mock provider)", async () => {
+  // Real-provider testing hid the end of an answer under the chips: the timeline shrank without scrolling.
+  const other = await carol.mutation(fn.m("rooms:create"), { assistantBudget: 400_000 }) as { roomId: string; shortCode: string };
+  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 0, assistantBudget: 400_000 });
+  const chat = await browser.newContext({ viewport: { width: 1200, height: 700 } });
+  await chat.addCookies(sessionCookies(session));
+  const p = await chat.newPage();
+  p.on("pageerror", e => pageErrors.push(`timeline: ${e.message}`));
+  await p.goto(`${SITE}/player/?room=${other.shortCode}`);
+  await p.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
+  const lines = Array.from({ length: 40 }, (_, i) => `line ${i + 1}\n`);
+  await p.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ text: [...lines, "THE END"] }] })}`);
+  await p.click("[data-testid=button-assistant-send]");
+  await p.waitForSelector("[data-testid=assistant-chips]", { timeout: 60_000 });
+  await sleep(500);
+  const gap = await p.$eval("[data-testid=assistant-timeline]", el => el.scrollHeight - el.scrollTop - el.clientHeight);
+  assert(gap < 24, `the end of the answer is ${gap}px below the visible timeline`);
+  await chat.close();
+});
+
 await check("no uncaught page errors in the host", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));
 
 for (const slug of ["e2e-live", "e2e-throws", "e2e-hostile", "e2e-chat", "e2e-eval"]) await carol.mutation(fn.m("panels:remove"), { slug }).catch(() => {});

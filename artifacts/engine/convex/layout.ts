@@ -164,8 +164,16 @@ async function change(ctx: MutationCtx, p: Principal, apply: (layout: DockLayout
 }
 
 /** A built-in panel the assistant chose, with its parameters: reuse, switch or open (see openPanelAs). */
+/** JSON with sorted keys, for comparing panel parameters regardless of key order. */
+const canonical = (value: unknown): string => JSON.stringify(value, (_key, v: unknown) =>
+  v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : v);
+
 function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string, unknown>, place: Place | undefined) {
-  if (!place) {
+  if (place) {
+    // A pane already showing exactly this view is shown instead of a duplicate.
+    const same = panelPanesOf(layout).find(pane => pane.panelId === panelId && canonical(pane.params) === canonical(params));
+    if (same) return { layout: activatePane(layout, same.id), paneId: same.id, reused: true };
+  } else {
     const panels = panelPanesOf(layout);
     const open = panels.find(pane => pane.panelId === panelId);
     if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
@@ -182,7 +190,8 @@ function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string
  * Built-in, with parameters the assistant chose. Without `place`, no pane is added: an open pane of that panel is
  * reused (its parameters replaced, its tab activated); else a built-in panel nobody chose (setBy default) or one the
  * assistant set earlier is switched to it (the player's own choices are never overridden); only when every built-in
- * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`.
+ * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`; even then a pane
+ * already showing that panel with the same parameters is shown instead of a duplicate.
  *
  * Stored: without `place`, an open pane of that panel is activated; else it opens in a new pane.
  */
