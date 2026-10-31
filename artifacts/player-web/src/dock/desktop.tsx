@@ -81,6 +81,7 @@ export default function DesktopDock() {
       window.removeEventListener("pointerup", end, true);
       window.removeEventListener("dragend", end, true);
       window.removeEventListener("drop", end, true);
+      clearTimeout(watchdog);
     };
   }, [store]);
 

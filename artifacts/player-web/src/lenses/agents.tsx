@@ -3,7 +3,7 @@
  * sparkline and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
  * through the same command path as everything else.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-views";
 import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
@@ -22,14 +22,12 @@ export default function Agents({ params, phase }: LensProps<"agents">) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [, redraw] = useState(0);
   const world = game?.worldSeconds ?? 0;
-  const seen = useRef(world);
   useEffect(() => {
     for (const a of all) {
       const list = history.get(a.id) ?? [];
       if (list.at(-1)?.at !== world) list.push({ at: world, energy: a.energy, eligible: a.eligible });
       history.set(a.id, list.filter(s => s.at >= world - 600));
     }
-    seen.current = world;
     redraw(n => n + 1);
   }, [all, world]);
 

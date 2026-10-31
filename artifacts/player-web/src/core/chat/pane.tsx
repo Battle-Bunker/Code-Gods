@@ -14,6 +14,7 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } fro
 import { useMutation, useQuery } from "convex/react";
 import { ArrowDown, ChevronDown, ChevronRight, Send, Square } from "lucide-react";
 import { api } from "@workspace/engine/convex/_generated/api";
+import type { Phase } from "@workspace/player-client/lenses";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
@@ -32,6 +33,10 @@ const errText = (e: unknown) => {
   return data?.message ?? (e instanceof Error ? e.message : String(e));
 };
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
+type Note = { at: number; key: string; text: string };
+const PHASE_NOTE: Record<Phase, string> = {
+  lobby: "Back in the lobby", planning: "Game started · you're in planning", running: "The world is running", paused: "The world is paused", ended: "Game over",
+};
 const ARM_MS = 700;
 const CARD_MS = 120_000;
 /** The pane grows to this while a card waits, and returns to its size after. */
@@ -98,9 +103,19 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const empty = emptyStateFor(situation.phase, enabled);
   const showChips = !active && !card && !c.draft.trim() && (!items.length || items.at(-1)?.kind === "assistant");
 
+  // Phase changes seen while this pane is open become system lines where they happened in the conversation.
+  const [notes, setNotes] = useState<Note[]>([]);
+  const seenPhase = useRef<Phase | undefined>(undefined);
+  const phaseNow = situation.obs?.phase;
+  useEffect(() => {
+    if (!phaseNow) return;
+    if (seenPhase.current && seenPhase.current !== phaseNow) setNotes(n => [...n, { at: items.length, key: `${phaseNow}-${Date.now()}`, text: PHASE_NOTE[phaseNow] }].slice(-5));
+    seenPhase.current = phaseNow;
+  }, [phaseNow]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div data-testid="assistant-pane" className="flex h-full min-h-0 flex-col bg-card">
-      <Timeline items={items} empty={!status ? null : !enabled ? (
+      <Timeline items={items} notes={notes} empty={!status ? null : !enabled ? (
         <div data-testid="text-assistant-off" className="space-y-1 text-sm">
           <p className="font-serif text-xl">{empty.greeting}</p>
           <p className="text-muted-foreground">{empty.body}</p>
@@ -142,7 +157,7 @@ export function AssistantPane({ paneId }: { paneId: string }) {
 }
 
 /** The scrolling timeline: pinned to the bottom unless the player scrolled up ("↓ new" then). */
-function Timeline({ items, empty, footer }: { items: ChatItem[]; empty: React.ReactNode; footer: React.ReactNode }) {
+function Timeline({ items, notes, empty, footer }: { items: ChatItem[]; notes: Note[]; empty: React.ReactNode; footer: React.ReactNode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [fresh, setFresh] = useState(false);
@@ -163,14 +178,19 @@ function Timeline({ items, empty, footer }: { items: ChatItem[]; empty: React.Re
   return (
     <div className="relative min-h-0 flex-1">
       <div ref={scroller} onScroll={onScroll} className="h-full space-y-2 overflow-auto px-3 py-2" data-testid="assistant-timeline" aria-live="polite">
-        {items.length === 0 ? empty : items.map(item => item.kind === "user" ? (
-          <div key={item.key} className={`ml-auto max-w-[75%] whitespace-pre-wrap break-words bg-muted px-2.5 py-1.5 text-sm ${item.pending ? "opacity-60" : ""}`} data-testid="assistant-user-message">{item.text}</div>
-        ) : item.kind === "assistant" ? (
-          <div key={item.key} className="max-w-[68ch] whitespace-pre-wrap break-words text-sm" data-testid="assistant-message" data-status={item.status}>
-            {item.text || <span className="beat text-muted-foreground">thinking…</span>}
-            {item.status === "cancelled" && <span className="ml-1 text-[11px] text-muted-foreground">(stopped)</span>}
-          </div>
-        ) : <StepLine key={item.key} calls={item.calls} />)}
+        {items.length === 0 && empty}
+        {items.map((item, i) => [
+          ...notes.filter(n => n.at === i).map(n => <SystemLine key={n.key}>{n.text}</SystemLine>),
+          item.kind === "user" ? (
+            <div key={item.key} className={`ml-auto max-w-[75%] whitespace-pre-wrap break-words bg-muted px-2.5 py-1.5 text-sm ${item.pending ? "opacity-60" : ""}`} data-testid="assistant-user-message">{item.text}</div>
+          ) : item.kind === "assistant" ? (
+            <div key={item.key} className="max-w-[68ch] whitespace-pre-wrap break-words text-sm" data-testid="assistant-message" data-status={item.status}>
+              {item.text || <span className="beat text-muted-foreground">thinking…</span>}
+              {item.status === "cancelled" && <span className="ml-1 text-[11px] text-muted-foreground">(stopped)</span>}
+            </div>
+          ) : <StepLine key={item.key} calls={item.calls} />,
+        ])}
+        {notes.filter(n => n.at >= items.length).map(n => <SystemLine key={n.key}>{n.text}</SystemLine>)}
         {footer}
       </div>
       {fresh && (

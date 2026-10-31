@@ -4,7 +4,7 @@
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
@@ -47,8 +47,6 @@ function Editor({ language, assistantDraft, showHelpers }: { language: Lang; ass
   const { draft, validation, busy, notice, unknown } = useRunner();
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
-  // The language follows the room's until the player picks one.
-  useEffect(() => { if (draft.language === null && obs?.language) runner.setDraft({ language: null }); }, [obs?.language, draft.language]);
   const insert = (name: string) => {
     const el = editor.current;
     const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
