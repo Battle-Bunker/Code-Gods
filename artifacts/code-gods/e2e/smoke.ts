@@ -1,7 +1,7 @@
 /**
  * Playwright smoke test of the engine UI (artifacts/code-gods) against the LIVE local engine: the Convex
  * local backend from `pnpm --filter @workspace/engine dev`, its stand-in OIDC provider ("fake") and the mock AI
- * provider (CODE_GODS_AI_MOCK=1). The UI is built with the engine's Convex URL and uploaded to the
+ * provider (AI_MOCK=1). The UI is built with the engine's Convex URL and uploaded to the
  * engine's static hosting, so the browser talks to the real site origin: Better Auth session cookie, Convex JWTs,
  * reactive queries, mutations, actions and the device flow, exactly as deployed.
  *
@@ -23,6 +23,7 @@
  * credential appears under "Your player apps" and is revoked), and an owner request needs the consent
  * checkbox. Needs Playwright with Chromium available to `require("playwright")`.
  */
+import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";

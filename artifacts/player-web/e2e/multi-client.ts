@@ -20,6 +20,7 @@
  *
  * Commit before running: the simulated apps are worktrees of HEAD.
  */
+import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -82,7 +83,7 @@ if (!(await up())) {
   const engine = background("node", ["scripts/dev.mjs", "--typecheck", "disable"], { cwd: ENGINE, log: "engine.log" });
   await until(() => engine.output().includes("[dev] READY"), "engine ready", 300_000);
 }
-execFileSync("npx", ["convex", "env", "set", "CODE_GODS_DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
+execFileSync("npx", ["convex", "env", "set", "DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
 const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");

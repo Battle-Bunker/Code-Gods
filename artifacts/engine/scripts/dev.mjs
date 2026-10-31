@@ -13,7 +13,7 @@
  * Environment overrides (read by this script, not by the deployment):
  *   CONVEX_LOCAL_CLOUD_PORT / CONVEX_LOCAL_SITE_PORT   backend ports (default 3210 / 3211)
  *   FAKE_OIDC_PORT                                     stand-in OIDC port (default 3399)
- *   CODE_GODS_SEASON_SALT                              keep a fixed salt (default: keep the deployment's, else random)
+ *   SEASON_SALT                                        keep a fixed salt (default: keep the deployment's, else random)
  * Extra arguments are passed to the long-running `npx convex dev`.
  *
  * What it does: (1) starts the fake OIDC server; (2) `convex dev --once` creates/pushes the local
@@ -21,15 +21,16 @@
  * (`convex run auth/betterAuth:rotateKeys`); (5) runs `convex dev` (watch), whose first push re-evaluates
  * auth.config.ts with both JWKS. It prints "[dev] READY" once that push has finished.
  *
- * Deployment env vars set here (LOCAL ONLY; production must not set CODE_GODS_FAKE_OIDC_URL,
- * CODE_GODS_AI_MOCK or CODE_GODS_TEST_FIXTURES):
- *   CODE_GODS_JWT_PRIVATE_KEY, CODE_GODS_JWT_JWKS  player-JWT key, generated once per local deployment (kept)
+ * Deployment env vars set here (LOCAL ONLY; production must not set FAKE_OIDC_URL,
+ * AI_MOCK or TEST_FIXTURES):
+ *   PLAYER_JWT_PRIVATE_KEY, PLAYER_JWT_JWKS       player-JWT key, generated once per local deployment (kept)
  *   BETTER_AUTH_SECRET, BETTER_AUTH_JWKS          generated once per local deployment (kept)
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET        dummies: the Google button builds a real authorization URL
- *   CODE_GODS_FAKE_OIDC_URL   → the fake OIDC server (enables Better Auth's provider "fake" with fixtures on)
- *   CODE_GODS_ADMIN_EMAILS    admin@example.test (the fake "admin") and unverified@example.test (never verified)
- *   CODE_GODS_SEASON_SALT, CODE_GODS_AI_MOCK=1, CODE_GODS_TEST_FIXTURES=1 (enables convex/auth/testing.ts)
+ *   FAKE_OIDC_URL   → the fake OIDC server (enables Better Auth's provider "fake" with fixtures on)
+ *   ADMIN_EMAILS    admin@example.test (the fake "admin") and unverified@example.test (never verified)
+ *   SEASON_SALT, AI_MOCK=1, TEST_FIXTURES=1 (enables convex/auth/testing.ts)
  */
+import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { spawnSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
@@ -66,18 +67,18 @@ function setEnv(vars) {
 // 2. Test-only environment. Keep existing keys, secret and season salt so sessions survive restarts.
 const current = name => (convex(["env", "get", name]).stdout ?? "").trim();
 const vars = {
-  CODE_GODS_FAKE_OIDC_URL: oidc.issuer,
+  FAKE_OIDC_URL: oidc.issuer,
   GOOGLE_CLIENT_ID: "local-google-client-id.apps.googleusercontent.com",
   GOOGLE_CLIENT_SECRET: "local-google-client-secret",
-  CODE_GODS_ADMIN_EMAILS: "admin@example.test,unverified@example.test",
-  CODE_GODS_SEASON_SALT: process.env.CODE_GODS_SEASON_SALT ?? (current("CODE_GODS_SEASON_SALT") || `local-${randomBytes(16).toString("hex")}`),
-  CODE_GODS_AI_MOCK: "1",
-  CODE_GODS_TEST_FIXTURES: "1",
+  ADMIN_EMAILS: "admin@example.test,unverified@example.test",
+  SEASON_SALT: process.env.SEASON_SALT ?? (current("SEASON_SALT") || `local-${randomBytes(16).toString("hex")}`),
+  AI_MOCK: "1",
+  TEST_FIXTURES: "1",
 };
-if (!current("CODE_GODS_JWT_JWKS")) {
+if (!current("PLAYER_JWT_JWKS")) {
   const key = await generateJwtKey();
   // Single-line form for the .env file; convex/auth/jwt.ts turns "\n" escapes back into newlines.
-  Object.assign(vars, { CODE_GODS_JWT_PRIVATE_KEY: key.privateKey.trim().replace(/\n/g, "\\n"), CODE_GODS_JWT_JWKS: key.jwks });
+  Object.assign(vars, { PLAYER_JWT_PRIVATE_KEY: key.privateKey.trim().replace(/\n/g, "\\n"), PLAYER_JWT_JWKS: key.jwks });
 }
 // Better Auth encrypts its JWT signing key with BETTER_AUTH_SECRET, so a new secret needs a new JWKS.
 const newSecret = !current("BETTER_AUTH_SECRET");

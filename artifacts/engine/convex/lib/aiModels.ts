@@ -21,6 +21,6 @@ export const GAME_USD = 2, DAILY_HOST_USD = 5, CALLS_PER_MINUTE = 6;
 export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PER_MINUTE = 8, ASSISTANT_ROOM_CALLS_PER_MINUTE = 30;
 export const ASSISTANT_BUDGET_MAX = 2_000_000;
 export const PROMPT_MAX = 10_000;
-export const mockEnabled = () => process.env.CODE_GODS_AI_MOCK === "1";
+export const mockEnabled = () => process.env.AI_MOCK === "1";
 export const providerConfigured = (provider: string) =>
   !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();

@@ -163,7 +163,7 @@ optimistic-concurrency conflicts.
    proportional to ticks.
 
 **Determinism and secrecy.** The season salt comes from the Convex environment variable
-`CODE_GODS_SEASON_SALT`, which the deployment refuses to run without in production. Only Node
+`SEASON_SALT`, which the deployment refuses to run without in production. Only Node
 actions read it, to derive seeds. Games record its sha256 commitment. Target selection, agent
 selection and spawns use `crypto.getRandomValues`. Agent execution itself is deterministic given
 (source, input, prelude, seed).
@@ -241,7 +241,7 @@ Superseded for browser sign-in by `docs/surface-architecture.md` §2 and §7.1 (
   - Better Auth, issuer `CONVEX_SITE_URL`, audience `convex`, RS256, JWKS inlined from
     `BETTER_AUTH_JWKS` (else `/api/auth/convex/jwks`). These are `browser`-scope tokens;
   - player JWTs, issuer `CONVEX_SITE_URL/api/device`, audience `code-gods`, RS256, signed with
-    `CODE_GODS_JWT_PRIVATE_KEY` (JWKS `CODE_GODS_JWT_JWKS`, else `/api/.well-known/jwks.json`). They carry
+    `PLAYER_JWT_PRIVATE_KEY` (JWKS `PLAYER_JWT_JWKS`, else `/api/.well-known/jwks.json`). They carry
     `cred` (checked against revocation on every call), plus informational `room` and `perm`.
   Both last 10 minutes.
 - **Browser sign-in (engine UI and hosted player client, same origin).** Google only, through Better Auth
@@ -252,7 +252,7 @@ Superseded for browser sign-in by `docs/surface-architecture.md` §2 and §7.1 (
 - **Identity.** The god id is the Better Auth user id. Component triggers keep our `users` row
   `{subject, name, email, emailVerified, provider, googleSub}`; `name` is Google's given + family name.
   Account linking is off: one Google account is one god.
-- **Admins.** A verified Google email on `CODE_GODS_ADMIN_EMAILS`.
+- **Admins.** A verified Google email on `ADMIN_EMAILS`.
 - **Device approval for player apps.** `player connect <engine-url> --room CODE` → `POST /api/device/request`
   (PKCE challenge, room, requested permission `read`|`act`|`owner`, self-reported label) → the CLI
   prints the verification URL and code → the human approves on `/device` in their signed-in
@@ -268,8 +268,8 @@ Superseded for browser sign-in by `docs/surface-architecture.md` §2 and §7.1 (
   every query and mutation checks `cred` (an indexed point read), so a revoked credential stops
   working at once, even before its JWT expires.
 - **Local tests.** The stand-in OIDC server (`artifacts/engine/scripts/fake-oidc.mjs`) is a Better Auth
-  generic OAuth provider `fake`, which exists **only** when `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV`
-  and `CODE_GODS_FAKE_OIDC_URL` are set on the *local* deployment (`scripts/dev.mjs`). Production sets
+  generic OAuth provider `fake`, which exists **only** when `TEST_FIXTURES` or `DEV`
+  and `FAKE_OIDC_URL` are set on the *local* deployment (`scripts/dev.mjs`). Production sets
   none of them; the stand-in is never bundled into the deployment.
 
 ## 6. Disclosure enforced in queries
@@ -428,15 +428,15 @@ keys in the Convex env vars `ANTHROPIC_API_KEY` and `OPENAI_API_KEY`) → valida
 same command path → reschedule (backoff on errors, stop after five failures, visible status). Budget
 reservations (tokens, room USD, $2 per game, $5 per UTC day) are taken in a mutation **before** the
 call, and are never refunded on failure. Turns are not scheduled while the game is parked or
-paused. The test provider `mock` is enabled only when the env var `CODE_GODS_AI_MOCK=1`.
+paused. The test provider `mock` is enabled only when the env var `AI_MOCK=1`.
 
 ## 10. Test plan (all local; no Convex account)
 
 - **Backend:** the official CLI `npx convex dev` in local mode (verified in this container: the
   CLI downloads the `precompiled-*` local backend; queries, mutations, Node actions, HTTP actions and
   file storage all work). `artifacts/engine/scripts/dev.mjs` starts it with test env vars (season
-  salt, JWT keys, Better Auth secret and JWKS, `CODE_GODS_FAKE_OIDC_URL` → stand-in OIDC as the test-only
-  provider "fake", `CODE_GODS_AI_MOCK=1`).
+  salt, JWT keys, Better Auth secret and JWKS, `FAKE_OIDC_URL` → stand-in OIDC as the test-only
+  provider "fake", `AI_MOCK=1`).
 - **Unit and integration (Vitest + `convex-test` where it fits; live local backend otherwise):**
   the ported game integration (Int, string, Grid lifecycles; uniqueness; energy and cooldown; the
   floor; scoring parity with game-core), lifecycle (lobby → start → pause → end → history), the
@@ -533,23 +533,23 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
    (`https://<dep>.convex.cloud`) and the site URL (`https://<dep>.convex.site`).
 2. **Signing keys:**
    - player JWTs: `pnpm --filter @workspace/engine gen-jwt-key --set --prod`. This sets
-     `CODE_GODS_JWT_PRIVATE_KEY` and `CODE_GODS_JWT_JWKS`;
+     `PLAYER_JWT_PRIVATE_KEY` and `PLAYER_JWT_JWKS`;
    - Better Auth: set `BETTER_AUTH_SECRET` (step 3) first, then
      `npx convex run --prod auth/betterAuth:rotateKeys | npx convex env set --prod BETTER_AUTH_JWKS`.
 
    Then run `npx convex deploy` again (in `artifacts/engine`), so `auth.config.ts` inlines both JWKS.
 3. **Other environment variables** (`npx convex env set --prod NAME`; the value is read from stdin):
-   - `CODE_GODS_SEASON_SALT`: at least 16 random characters, secret for the season. Games refuse to
+   - `SEASON_SALT`: at least 16 random characters, secret for the season. Games refuse to
      start in production without it, and game records carry its sha256 commitment;
    - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: the Google OAuth client (step 4);
    - `BETTER_AUTH_SECRET`: 32+ random bytes (e.g. `openssl rand -base64 32`). It also encrypts the
      Better Auth signing key, so changing it needs a new `BETTER_AUTH_JWKS`;
-   - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist of verified Google emails;
+   - `ADMIN_EMAILS`: the admin allowlist of verified Google emails;
    - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`: the AI seats' provider keys;
-   - optionally, `CODE_GODS_SITE_URL` for a custom domain, and `CODE_GODS_VERSION`.
+   - optionally, `SITE_URL` for a custom domain, and `VERSION`.
 
-   **Never** set `CODE_GODS_FAKE_OIDC_URL`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or
-   `CODE_GODS_DEV` in production. They exist only for local tests.
+   **Never** set `FAKE_OIDC_URL`, `AI_MOCK`, `TEST_FIXTURES` or
+   `DEV` in production. They exist only for local tests.
 4. **Google OAuth client:** see `PILOT.md` ("Google sign-in"): a Web application client with the redirect
    URI `https://<dep>.convex.site/api/auth/callback/google`, the authorized domain `<dep>.convex.site`, and
    a published consent screen. Then verify one real sign-in.

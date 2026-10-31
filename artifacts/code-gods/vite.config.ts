@@ -18,7 +18,7 @@ const basePath = process.env.BASE_PATH || '/';
  * `/api` is proxied there so the page keeps one origin. The engine's token and logout routes accept
  * only their own Origin (CSRF), so the proxy presents the engine's origin. Login itself finishes on the
  * engine's callback URL; the session cookie is host-scoped, so run this dev server on the same host as
- * the site URL (e.g. both on 127.0.0.1), or set the engine env var CODE_GODS_SITE_URL to this server's
+ * the site URL (e.g. both on 127.0.0.1), or set the engine deployment's env var SITE_URL to this server's
  * origin so the whole flow (callback included) runs through the proxy.
  */
 const siteUrl = (process.env.CODE_GODS_SITE_URL ?? 'http://127.0.0.1:3211').replace(/\/+$/, '');

@@ -23,8 +23,8 @@ commands, from the repository root unless noted:
 
 ```sh
 cd artifacts/engine && npx convex login && npx convex deploy && cd ../..   # push the functions; note the .convex.cloud / .convex.site URLs
-pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # player JWTs: CODE_GODS_JWT_PRIVATE_KEY + CODE_GODS_JWT_JWKS
-(cd artifacts/engine && npx convex env set --prod CODE_GODS_SEASON_SALT)  # ≥ 16 random characters, read from stdin; secret for the season
+pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # player JWTs: PLAYER_JWT_PRIVATE_KEY + PLAYER_JWT_JWKS
+(cd artifacts/engine && npx convex env set --prod SEASON_SALT)            # ≥ 16 random characters, read from stdin; secret for the season
 (cd artifacts/engine && openssl rand -base64 32 | npx convex env set --prod BETTER_AUTH_SECRET)
 (cd artifacts/engine && npx convex env set --prod GOOGLE_CLIENT_ID)       # from the Google OAuth client below
 (cd artifacts/engine && npx convex env set --prod GOOGLE_CLIENT_SECRET)
@@ -35,13 +35,39 @@ pnpm --filter @workspace/engine upload-runtime --prod                     # the 
 pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the engine UI and /player/
 ```
 
-Also set `CODE_GODS_ADMIN_EMAILS` (verified Google emails) and the provider keys
+Also set `ADMIN_EMAILS` (verified Google emails) and the provider keys
 (`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`. Never set
-`CODE_GODS_FAKE_OIDC_URL`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` in production.
-Without `CODE_GODS_SEASON_SALT` the engine refuses to run games in production. Never share the salt
+`FAKE_OIDC_URL`, `AI_MOCK`, `TEST_FIXTURES` or `DEV` in production.
+Without `SEASON_SALT` the engine refuses to run games in production. Never share the salt
 during the season; game records carry its sha256 commitment. `BETTER_AUTH_SECRET` also encrypts the
 Better Auth signing key: if you change it (or to rotate the key), run `rotateKeys`, set `BETTER_AUTH_JWKS`
 again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
+
+### Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys on every push: `develop` → the dev deployment
+(`quixotic-gopher-395`), `main` → production (`original-bear-509`). One-time setup:
+
+1. **Deploy keys.** In the Convex dashboard, production deployment → Settings → General →
+   generate a production deploy key; dev deployment → Settings → generate a dev deploy key. Name both
+   for GitHub Actions.
+2. **GitHub Environments** (repository Settings → Environments): `development` with deployment branch
+   rule `develop`, and `production` with rule `main` (optionally with required reviewers). Each gets the
+   secret `CONVEX_DEPLOY_KEY` (that deployment's key); the key alone selects the deployment.
+3. **The deployment's env vars** (above): the workflow checks names only and fails before deploying when
+   `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PLAYER_JWT_PRIVATE_KEY`,
+   `PLAYER_JWT_JWKS`, `SEASON_SALT` or `ADMIN_EMAILS` is missing, or a test-only variable is set.
+
+Each run (one at a time per environment): install, root typecheck and the offline unit suites, the
+pinned Python runtime bundle (the CPython download is cached), `npx convex deploy` (it accepts dev and
+production deploy keys alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set →
+push again), `upload-runtime` (skipped when the bundle is already there), `deploy-static`, and a smoke
+test (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`). Re-run a failed run from the Actions
+tab; a manual run ("Run workflow") works on `develop` and `main` only.
+
+The local scripts (`scripts/dev.mjs`, `test:auth`, the e2e scripts, the player-client tests) refuse to run
+while `CONVEX_DEPLOY_KEY` is set or `CONVEX_DEPLOYMENT` names a cloud deployment: they set test-only env
+vars and must never reach one. Set a deploy key per command only, never export it.
 
 ### Google sign-in
 
@@ -53,7 +79,7 @@ Humans sign in with Google only, through Better Auth served by the deployment. I
 2. **Audience:** user type **External**; **Publish app** (in "Testing" only listed test users can sign in).
    The scopes are `openid`, `email` and `profile`, which need no verification review.
 3. **Clients → Create client:** type **Web application**. **Authorized redirect URI:**
-   `https://<dep>.convex.site/api/auth/callback/google` (with `CODE_GODS_SITE_URL` set, that origin instead).
+   `https://<dep>.convex.site/api/auth/callback/google` (with `SITE_URL` set, that origin instead).
    No JavaScript origins are needed. Copy the client id and secret into `GOOGLE_CLIENT_ID` and
    `GOOGLE_CLIENT_SECRET`.
 
@@ -65,7 +91,7 @@ in with your full name); `/api/health` answers;
 AI library shows which providers are configured. Then create a room, connect one player app and play
 the "First steps" preset.
 
-The admin check reads `CODE_GODS_ADMIN_EMAILS` on every call: no new sign-in is needed after changing it.
+The admin check reads `ADMIN_EMAILS` on every call: no new sign-in is needed after changing it.
 Open **AI library** to create or edit named agent templates. The seeded Sonnet Strategist uses
 Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are supported.
 
@@ -180,11 +206,11 @@ pnpm --filter @workspace/engine deploy-static     # engine UI at http://127.0.0.
 
 `dev` runs the official Convex CLI's local backend (`npx convex dev`, anonymous) and a stand-in OIDC
 provider (`scripts/fake-oidc.mjs`), which Better Auth offers as the test-only provider "fake" because the
-**local-only** env vars `CODE_GODS_TEST_FIXTURES` and `CODE_GODS_FAKE_OIDC_URL` are set. The UI's button goes to
+**local-only** env vars `TEST_FIXTURES` and `FAKE_OIDC_URL` are set. The UI's button goes to
 Google (dummy client id locally); sign in as a test identity with `POST /api/auth/sign-in/oauth2
 {"providerId":"fake","callbackURL":"/"}` from the page, as `artifacts/code-gods/e2e/smoke.ts` does.
 Signing in offers the test identities alice, bob, carol, admin and unverified. It also sets a random
-season salt, JWT keys, a Better Auth secret and JWKS, and `CODE_GODS_AI_MOCK=1` (an offline mock AI provider).
+season salt, JWT keys, a Better Auth secret and JWKS, and `AI_MOCK=1` (an offline mock AI provider).
 A local deployment created before Google sign-in (its `users` rows have `issuer`) refuses the new schema:
 there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again.
 

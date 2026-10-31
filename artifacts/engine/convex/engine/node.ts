@@ -23,16 +23,16 @@ import { fail } from "../lib/errors";
 let salt: string | undefined, commitment: string | undefined;
 /**
  * The season salt behind every measurement and play seed. Read only here (Node actions). Production (no
- * CODE_GODS_DEV) refuses without CODE_GODS_SEASON_SALT; dev uses a random per-instance salt with a warning.
+ * DEV) refuses without SEASON_SALT; dev uses a random per-instance salt with a warning.
  */
 export function seasonSalt(): string {
   if (salt !== undefined) return salt;
-  const configured = process.env.CODE_GODS_SEASON_SALT;
+  const configured = process.env.SEASON_SALT;
   if (configured && configured.length >= 16) salt = configured;
-  else if (!process.env.CODE_GODS_DEV) fail("UNAVAILABLE", "CODE_GODS_SEASON_SALT must be set (at least 16 characters) in production");
+  else if (!process.env.DEV) fail("UNAVAILABLE", "SEASON_SALT must be set (at least 16 characters) in production");
   else {
     salt = randomBytes(32).toString("hex");
-    console.warn("CODE_GODS_SEASON_SALT is not set: using a random per-instance season salt (development only)");
+    console.warn("SEASON_SALT is not set: using a random per-instance season salt (development only)");
   }
   commitment = createHash("sha256").update(salt!, "utf8").digest("hex");
   return salt!;

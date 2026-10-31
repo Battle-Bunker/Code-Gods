@@ -1,5 +1,5 @@
 /**
- * Test-only internal functions (internal = deployment admin only), refused unless CODE_GODS_DEV is set.
+ * Test-only internal functions (internal = deployment admin only), refused unless DEV is set.
  * Tests seed `users` (the auth agent owns the real login flow), steer clocks and read raw private state
  * to check scoring parity and disclosure.
  */
@@ -11,7 +11,7 @@ import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { fail } from "./lib/errors";
 
 const dev = () => {
-  if (process.env.CODE_GODS_DEV !== "1" && process.env.CODE_GODS_TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need CODE_GODS_DEV=1 or CODE_GODS_TEST_FIXTURES=1");
+  if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
 };
 
 export const seedUser = internalMutation({

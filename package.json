@@ -13,6 +13,7 @@
     "smoke:artifact": "node clients/claude-artifact/smoke.mjs"
   },
   "private": true,
+  "packageManager": "pnpm@10.28.0",
   "devDependencies": {
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"

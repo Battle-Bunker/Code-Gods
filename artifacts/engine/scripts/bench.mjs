@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Engine throughput benchmark against the local backend (npx convex dev on 3210, CODE_GODS_DEV=1).
+ * Engine throughput benchmark against the local backend (npx convex dev on 3210, DEV=1).
  *
  *   node scripts/bench.mjs [--language typescript|python] [--agents 12] [--rate 100] [--seconds 30] [--objects 80] [--type Int|Grid]
  *

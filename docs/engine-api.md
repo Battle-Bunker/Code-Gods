@@ -31,7 +31,7 @@ Every function authenticates with a 10-minute RS256 JWT. There are two kinds, to
 - **Permissions:** `read` < `act` < `owner`. An owner credential also needs the human to be the room's
   current owner. Errors are `ConvexError` with `data = {code, message}`; the codes are
   `UNAUTHENTICATED`, `FORBIDDEN`, `CONFLICT`, `INVALID`, `NOT_FOUND` and so on.
-- **Admins** have a verified Google email listed in `CODE_GODS_ADMIN_EMAILS`.
+- **Admins** have a verified Google email listed in `ADMIN_EMAILS`.
 
 ```ts
 // React, same origin as the site (artifacts/code-gods/src/lib/convex.tsx)
@@ -61,7 +61,7 @@ const convex = new ConvexReactClient(convexUrl);
 
 Local deployments only (`pnpm --filter @workspace/engine dev`): `POST /api/auth/sign-in/oauth2
 {providerId: "fake", callbackURL}` signs in through the stand-in OIDC server (`scripts/fake-oidc.mjs`); it
-exists only while `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` and `CODE_GODS_FAKE_OIDC_URL` are set.
+exists only while `TEST_FIXTURES` or `DEV` and `FAKE_OIDC_URL` are set.
 
 ## MCP (`POST /mcp`) and the agent tools
 
@@ -75,7 +75,7 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
   (`server/discover`, per-request `_meta` envelope, `MCP-Protocol-Version` / `Mcp-Method` / `Mcp-Name`
   headers) and 2025-era clients (`initialize`, `tools/list`, `tools/call`). `GET` and `DELETE` are 405;
   notifications get 202. Bodies over 256 KiB are 413. An `Origin` header, when present, must be the site,
-  `https://claude.ai`, `https://claude.com` or one listed in `CODE_GODS_MCP_ALLOWED_ORIGINS` (else 403).
+  `https://claude.ai`, `https://claude.com` or one listed in `MCP_ALLOWED_ORIGINS` (else 403).
 - **Authentication.** `Authorization: Bearer <access token>` (OAuth, below), or a device credential as
   `Authorization: Bearer cgc_…` or `x-api-key: cgc_…`. Without one: 401 with
   `WWW-Authenticate: Bearer resource_metadata="<site>/.well-known/oauth-protected-resource/mcp"`;
@@ -124,7 +124,7 @@ Public clients, PKCE S256, one room and one permission per connection (`credenti
 |---|---|
 | `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | `{resource: "<site>/mcp", authorization_servers: ["<site>"], scopes_supported: [read, act, owner]}` |
 | `GET /.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `token_endpoint_auth_methods_supported: ["none"]`, `client_id_metadata_document_supported: true` |
-| `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: Claude's callback (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/…`), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `CODE_GODS_OAUTH_REDIRECT_URIS`. At most 50 registrations per 10 minutes for the whole deployment (429 `temporarily_unavailable` with `Retry-After`); a client that redeems no code within 24 hours is deleted by the hourly sweep |
+| `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: Claude's callback (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/…`), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `OAUTH_REDIRECT_URIS`. At most 50 registrations per 10 minutes for the whole deployment (429 `temporarily_unavailable` with `Retry-After`); a client that redeems no code within 24 hours is deleted by the hourly sweep |
 | client ID metadata documents | an `https://` `client_id` is fetched (no redirects, 5 s, 32 KiB, public hosts only) and cached for an hour |
 | `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act), resource=<site>/mcp` → 302 to the engine UI's `/connect?request=…` |
 | `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`) |

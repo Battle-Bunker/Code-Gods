@@ -16,6 +16,7 @@
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
  *   the engine; ?panels=off loads only the core; the page CSP reports nothing of its own and sign-in still works.
  */
+import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";

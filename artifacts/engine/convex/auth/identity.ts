@@ -5,18 +5,18 @@
 type Env = Record<string, string | undefined>;
 
 /** Local deployments only: scripts/dev.mjs sets one of these; production never does. */
-export const fixturesOn = (env: Env) => env.CODE_GODS_TEST_FIXTURES === "1" || env.CODE_GODS_DEV === "1";
+export const fixturesOn = (env: Env) => env.TEST_FIXTURES === "1" || env.DEV === "1";
 
 const trimSlash = (url: string) => url.replace(/\/+$/, "");
 
 /**
- * Admin = a verified email on CODE_GODS_ADMIN_EMAILS, asserted by Google. The fake test provider
+ * Admin = a verified email on ADMIN_EMAILS, asserted by Google. The fake test provider
  * (scripts/fake-oidc.mjs) counts only while test fixtures are on, so the local tests can sign in as an admin.
  */
 export function isAdminUser(user: { email?: string; emailVerified: boolean; provider?: string }, env: Env): boolean {
   if (!user.emailVerified || !user.email) return false;
   if (user.provider !== "google" && !(user.provider === "fake" && fixturesOn(env))) return false;
-  const allowed = (env.CODE_GODS_ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+  const allowed = (env.ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
   return allowed.includes(user.email.trim().toLowerCase());
 }
 
@@ -24,10 +24,10 @@ export const FAKE_CLIENT_ID = "code-gods-local";
 
 /**
  * The fake OIDC provider (Better Auth genericOAuth, id "fake"): offered ONLY when test fixtures are on AND
- * CODE_GODS_FAKE_OIDC_URL names the local stand-in server. Otherwise null, and the provider does not exist.
+ * FAKE_OIDC_URL names the local stand-in server. Otherwise null, and the provider does not exist.
  */
 export function fakeProvider(env: Env): { providerId: "fake"; discoveryUrl: string; clientId: string } | null {
-  const url = env.CODE_GODS_FAKE_OIDC_URL?.trim();
+  const url = env.FAKE_OIDC_URL?.trim();
   if (!fixturesOn(env) || !url) return null;
   return { providerId: "fake", discoveryUrl: `${trimSlash(url)}/.well-known/openid-configuration`, clientId: FAKE_CLIENT_ID };
 }

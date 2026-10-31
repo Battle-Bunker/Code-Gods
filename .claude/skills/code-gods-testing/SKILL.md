@@ -40,7 +40,7 @@ can catch.
 - **Real identities, real auth.** Engine tests act as seeded users through real JWT paths or admin
   impersonation (`test/game-helpers.ts`). Never weaken `convex/auth/access.ts` for a test.
 - **Fixtures stay gated.** Test-only Convex functions (`convex/testing.ts`, `convex/auth/testing.ts`) are internal
-  functions and refuse to run unless `CODE_GODS_DEV` or `CODE_GODS_TEST_FIXTURES` is set. Don't add test-only
+  functions and refuse to run unless `DEV` or `TEST_FIXTURES` is set. Don't add test-only
   branches to production functions.
 - **Hand-derived expectations.** Scoring expectations come from game-core's documented formulas on literal
   inputs, or from hand-checked fixtures, never from the engine's own projection code.

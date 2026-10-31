@@ -91,6 +91,6 @@ message text or tool arguments.
 
 Tests use injected mock providers (`lib/ai-player`) or the engine's offline `mock`
 providers (the seats' mock and the assistant's scripted `mockChatProvider`, which runs `/mock {json}` scripts),
-enabled only by the env var `CODE_GODS_AI_MOCK=1` on a local deployment.
+enabled only by the env var `AI_MOCK=1` on a local deployment.
 They do not use a real key or spend paid tokens. Production must not set
-`CODE_GODS_AI_MOCK`.
+`AI_MOCK`.

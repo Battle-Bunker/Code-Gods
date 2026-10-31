@@ -1,5 +1,5 @@
 /**
- * The scripted mock ChatProvider: offline, deterministic, free. The engine selects it only when CODE_GODS_AI_MOCK=1
+ * The scripted mock ChatProvider: offline, deterministic, free. The engine selects it only when AI_MOCK=1
  * (local deployments), so the `/mock` syntax below is never parsed in production.
  *
  * The latest user message of the conversation (the one that started the turn) picks the script:

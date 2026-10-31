@@ -49,7 +49,7 @@ export const settings = action({
 
 /** AI seats can play only with a configured provider key, or the mock provider in development. */
 export function aiProviderAvailable(provider: string) {
-  if (process.env.CODE_GODS_AI_MOCK === "1") return true;
+  if (process.env.AI_MOCK === "1") return true;
   return !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
 }
 

@@ -7,14 +7,14 @@
  *   The session is an HttpOnly cookie on the site's own origin (24 h); both SPAs exchange it for 10-minute
  *   Convex JWTs at GET /api/auth/convex/token (issuer = CONVEX_SITE_URL, audience "convex").
  *   LOCAL TESTS ONLY: a generic OAuth provider "fake" (scripts/fake-oidc.mjs) exists while test fixtures are
- *   on and CODE_GODS_FAKE_OIDC_URL is set (identity.ts fakeProvider); production sets neither.
+ *   on and FAKE_OIDC_URL is set (identity.ts fakeProvider); production sets neither.
  *
  * Environment (Convex deployment env vars):
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   the Google Cloud "Web application" OAuth client (PILOT.md)
  *   BETTER_AUTH_SECRET                       random secret (cookies, and encryption of the JWT signing key)
  *   BETTER_AUTH_JWKS                         static JWKS from `npx convex run auth/betterAuth:rotateKeys`
  *                                            (auth.config.ts inlines it, so Convex never fetches it)
- *   CODE_GODS_SITE_URL                       optional public origin when it differs from CONVEX_SITE_URL
+ *   SITE_URL                                 optional public origin when it differs from CONVEX_SITE_URL
  */
 import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";

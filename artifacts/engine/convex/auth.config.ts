@@ -6,7 +6,7 @@
  *      /api/auth/convex/token. Its JWKS is inlined from BETTER_AUTH_JWKS (betterAuth.ts rotateKeys), else
  *      fetched from /api/auth/convex/jwks.
  *   2. Player JWTs (room credentials, convex/auth/jwt.ts): issuer CONVEX_SITE_URL/api/device, audience
- *      "code-gods". JWKS inlined from CODE_GODS_JWT_JWKS (scripts/gen-jwt-key.mjs), else fetched from
+ *      "code-gods". JWKS inlined from PLAYER_JWT_JWKS (scripts/gen-jwt-key.mjs), else fetched from
  *      /api/.well-known/jwks.json.
  *
  * Docs: https://docs.convex.dev/auth/advanced/custom-jwt: `jwks` may be a URL or a `data:` URI; `issuer` must
@@ -20,7 +20,7 @@ const site = (process.env.CONVEX_SITE_URL ?? "").replace(/\/+$/, "");
 // Convex refuses a push when auth config reads an UNSET env var; checking the key list first keeps the
 // URL fallbacks usable for a brand-new deployment (first push before the keys exist).
 const optional = (name: string) => Object.keys(process.env).includes(name) ? process.env[name] : undefined;
-const playerJwks = optional("CODE_GODS_JWT_JWKS");
+const playerJwks = optional("PLAYER_JWT_JWKS");
 
 export default {
   providers: [

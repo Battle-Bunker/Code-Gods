@@ -3,7 +3,7 @@
  * the one-shot JSON ModelProvider (provider.ts); the assistant converses, calls registry tools and streams its text.
  *
  * Adapters: Anthropic Messages (chat-anthropic.ts), OpenAI chat completions (chat-openai.ts) and the scripted mock
- * (chat-mock.ts, engine-selected only under CODE_GODS_AI_MOCK=1). Every adapter:
+ * (chat-mock.ts, engine-selected only under AI_MOCK=1). Every adapter:
  *   - makes exactly one attempt (SDK retries off), honours the abort signal and the output ceiling;
  *   - returns only complete answers: a model stop or a tool-use stop. A max-tokens cut, a refusal or any other stop
  *     is an error, so a truncated reply is never acted on;

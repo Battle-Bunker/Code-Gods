@@ -32,9 +32,9 @@ The engine UI (`/`) stays the common room display and owner control panel. Sign-
 - **Google is the only sign-in,** through Better Auth served by Convex (§7.1).
 - **Identity key.** A human's god id is a stable key derived from the auth library's user record, which is tied to Google's `sub`.
 - **Display name.** Google's given and family names give the full name.
-- **Admins.** The admin rule is an allowlist of verified Google emails (`CODE_GODS_ADMIN_EMAILS`).
+- **Admins.** The admin rule is an allowlist of verified Google emails (`ADMIN_EMAILS`).
 - **Removed.** Replit OIDC, the relay page and all `REPLIT_*` variables are deleted.
-- **Local tests.** Tests sign in without Google, through a test-only path that only works when `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` is set on the local deployment. Production refuses it.
+- **Local tests.** Tests sign in without Google, through a test-only path that only works when `TEST_FIXTURES` or `DEV` is set on the local deployment. Production refuses it.
 - **Unchanged.** Device approval, room credentials and player JWTs signed by the deployment (our `customJwt` provider) all stay. `getViewer` keeps returning the same `Viewer` shape: browser scope comes from the auth library's identity, player scope from our JWT.
 
 ## 3. Principals and credentials (contract for all waves)
@@ -177,7 +177,7 @@ Reads, `validate_agent`, `destroy_agent`, `set_ready`, `wake_engine` and panel s
 
 **Models and budget.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
 onText})`) has Anthropic Messages and OpenAI chat-completions adapters (direct endpoints, catalog prices, no retries;
-a max-tokens or other incomplete stop is an error) and `mockChatProvider()` under `CODE_GODS_AI_MOCK=1` (a message
+a max-tokens or other incomplete stop is an error) and `mockChatProvider()` under `AI_MOCK=1` (a message
 starting with `/mock {json}` scripts the steps; anything else reads the observation and summarizes it). Seats and the
 assistant explain the game with one `GAME_PRIMER`. The model is offered the registry's JSON Schemas for the
 credential's permission, without the engine-derived ids. The separate assistant pool: an equal allowance per human per
@@ -206,7 +206,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
    - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin. Both SPAs share it with no cross-domain plugin, and get Convex JWTs from `/api/auth/convex/token`.
    - **Identity:** the god id is the Better Auth user id. A `users` row is kept by component triggers and stores the Google `sub` for audit.
    - **Player JWTs:** they move to their own issuer, `<site>/api/device`, so the two token kinds are told apart by issuer.
-   - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `CODE_GODS_TEST_FIXTURES`.
+   - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `TEST_FIXTURES`.
    - **MCP OAuth:** our own small endpoints (§4), not Better Auth's MCP plugin.
    - **Browser sessions:** 24 h.
 2. **Pilot data:** none exists beyond local tests, so there is no migration (clean break).
