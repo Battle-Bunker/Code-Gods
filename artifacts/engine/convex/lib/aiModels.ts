@@ -22,5 +22,12 @@ export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PE
 export const ASSISTANT_BUDGET_MAX = 2_000_000;
 export const PROMPT_MAX = 10_000;
 export const mockEnabled = () => process.env.AI_MOCK === "1";
+/**
+ * The in-client assistant uses the mock only under AI_MOCK=1 without ASSISTANT_LIVE=1, so a local deployment can
+ * run the assistant against a real provider while AI seats stay mocked (scripts/assistant-provider.mjs).
+ * Production sets neither, so it is unaffected.
+ */
+export const assistantMockEnabled = (env: Record<string, string | undefined> = process.env) =>
+  env.AI_MOCK === "1" && env.ASSISTANT_LIVE !== "1";
 export const providerConfigured = (provider: string) =>
   !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();

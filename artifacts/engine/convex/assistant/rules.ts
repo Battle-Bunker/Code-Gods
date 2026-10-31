@@ -93,13 +93,16 @@ export function callLimitProblem(tool: string, prior: readonly string[]): string
   return null;
 }
 
+const takesRequestId = (tool: string) => "requestId" in ((findTool(tool)?.input as { shape?: Record<string, unknown> } | undefined)?.shape ?? {});
+
 export function prepareArgs(tool: string, args: Record<string, unknown>, id: string): Record<string, unknown> {
   if (isCommandTool(tool)) {
     const out: Record<string, unknown> = { ...args, commandId: id };
     if (tool === "validate_agent" || tool === "summon_agent") out.waitMs = Math.min(Number(args.waitMs ?? LIMITS.waitMs) || LIMITS.waitMs, LIMITS.waitMs);
     return out;
   }
-  if (OWNER.has(tool) && findTool(tool)) return { ...args, requestId: id };
+  // Only owner tools that take a request id (the read-only ones, get_room_state and get_ai_catalog, reject extras).
+  if (OWNER.has(tool) && takesRequestId(tool)) return { ...args, requestId: id };
   return args;
 }
 

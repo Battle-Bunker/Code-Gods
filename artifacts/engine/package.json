@@ -13,6 +13,10 @@
     "deploy-static": "node scripts/deploy-static.mjs",
     "fake-oidc": "node scripts/fake-oidc.mjs",
     "upload-runtime": "node scripts/upload-runtime.mjs",
+    "assistant:live": "node scripts/assistant-provider.mjs live",
+    "assistant:mock": "node scripts/assistant-provider.mjs mock",
+    "assistant:status": "node scripts/assistant-provider.mjs status",
+    "test:assistant-live": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/assistant-live.test.ts",
     "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },

@@ -28,7 +28,7 @@ import { internalAction, type ActionCtx } from "../_generated/server";
 import { runTool, toolError } from "../agent/registry";
 import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
-import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, mockEnabled } from "../lib/aiModels";
+import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
 import { LIMITS, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, argsLimit } from "./rules";
 import { log } from "./store";
@@ -41,7 +41,7 @@ type CallRow = Context["calls"][number];
 const loadContext = (ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number) => ctx.runQuery(internal.assistant.store.context, { turnId, gen });
 
 function providerFor(modelId: string | null): ChatProvider {
-  if (mockEnabled()) return mockChatProvider();
+  if (assistantMockEnabled()) return mockChatProvider();
   const config = AI_MODEL_CATALOG.find(m => m.id === (modelId ?? DEFAULT_AGENT_MODEL));
   if (!config) throw new Error("The assistant's model is no longer offered");
   const key = (config.provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
