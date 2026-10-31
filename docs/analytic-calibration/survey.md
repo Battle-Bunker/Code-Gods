@@ -8,7 +8,7 @@ records the status today.
 - **Code**: exact solutions live in `lib/game-utilities/src/analytic/` (`analyticLevels(familyId, params, inst)`).
 - **How to solve a new one**: [playbook.md](playbook.md). **Derivations and verification**: [solutions.md](solutions.md).
 - **Verification**: `node --experimental-strip-types lib/game-utilities/scripts/analytic-verify.ts <table dirs…>`
-  compares each solution with the empirical tables level by level; `test/analytic.test.ts` asserts the agreement on
+  compares each solution with the empirical tables level by level; `test/analytic-solutions.test.ts` asserts the agreement on
   the shipped tables and checks Int/string solutions against exhaustive enumeration.
 
 ## Legend
@@ -34,7 +34,7 @@ records the status today.
 approximation or the fallback.
 
 **Status**: ✅ exact solution shipped in `src/analytic` (verified on every shape that has tables); 🔒 already exact
-via `EXACT_TAILS` (scripts/exact.ts); ≈ approximation documented, not shipped; · not attempted.
+and wired through the family's `analytic` hook (src/analytic.ts); ≈ approximation documented, not shipped; · not attempted.
 
 ## Grid families (96)
 
@@ -131,7 +131,7 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `court_parade` | (2) | J-Q-K parades of one suit | rows+cols (rare local) | Poisson ≈ | R | · |
 | `kings_court` | scalar | different-colour neighbours of my rank | local | — | H | · |
 | `connect_four` | (2) | fours of standing counters; counters | block (columns) + chain | heights iid, chain over columns (state: last 3 heights) | E | ✅ |
-| `hate_colour` (penalty) | scalar | cells of the hated colour | cell | Binomial | E | ✅ |
+| `hate_colour` (penalty) | scalar | cells of the hated colour | cell | Binomial | E | ✅ 🔒 |
 | `hate_value` (penalty) | scalar | cells of the hated value | cell | Binomial | E | ✅ |
 | `hate_blob` (penalty) | scalar | largest hated-colour component | conn | — | H | · |
 | `hate_takeover` (penalty) | scalar | largest colour count | exch | max occupancy | E | ✅ |
@@ -140,7 +140,7 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `hate_repeat_row` (penalty) | (2) | repeats in one row | line | chain over (colour mask, last, repeats) | E | ✅ |
 | `hate_symbol_takeover` (penalty) | scalar | largest value count | exch | max occupancy | E | ✅ |
 
-Grid tally: **41 exact** (39 in `src/analytic`, 2 via `EXACT_TAILS`), of which 5 only for their `rows` params; 7 more
+Grid tally: **41 exact** (39 in `src/analytic`, 2 more via their own `analytic` hook), of which 5 only for their `rows` params; 7 more
 are cheap exact DPs not yet written (M: `rooks_watch`, `ladder_of_numbers`, `odds_evens`, `lantern_lighter`,
 `best_friends`, `othello_sandwich`, `rummy_melder`); the rest need connectivity or large-alphabet transfer matrices
 (H) or have no exact method (R).

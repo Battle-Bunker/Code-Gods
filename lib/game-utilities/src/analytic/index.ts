@@ -2,9 +2,9 @@
  * Analytic survival functions, by object type (docs/analytic-calibration/playbook.md).
  *
  * `analyticLevels(familyId, canonicalParams, inst)` returns [ordinal, log2 μ{u ≥ ordinal}] for every attainable
- * ordinal (the EXACT_TAILS level format, scripts/exact.ts), or null when the family has no analytic solution for
+ * ordinal (the `AnalyticSurvival.levels` format of src/analytic.ts), or null when the family has no analytic solution for
  * this draw (the caller falls back to the Monte Carlo + splitting estimator). Every solution is exact under the
- * uniform spawn prior and is verified against the shipped empirical tables (test/analytic.test.ts,
+ * uniform spawn prior and is verified against the shipped empirical tables (test/analytic-solutions.test.ts,
  * scripts/analytic-verify.ts).
  */
 import type { Instantiation } from "@workspace/game-types";

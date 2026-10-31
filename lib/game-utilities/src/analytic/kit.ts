@@ -14,7 +14,7 @@ import type { Ordinal } from "../types.ts";
 export type Vec = readonly number[];
 /** Outcome vector → probability (keys are `v.join(",")`). */
 export type Dist = Map<string, { readonly v: Vec; p: number }>;
-/** [ordinal, log2 μ{u ≥ ordinal}] for every attainable ordinal, increasing (the EXACT_TAILS level format). */
+/** [ordinal, log2 μ{u ≥ ordinal}] for every attainable ordinal, increasing (the `AnalyticSurvival.levels` format of src/analytic.ts). */
 export type Levels = readonly (readonly [Ordinal, number])[];
 
 const key = (v: Vec) => v.join(",");

@@ -1,9 +1,10 @@
 /**
- * Analytic survival functions (src/analytic): every solution is checked
+ * The exact solutions of src/analytic/ (the family-side hook and its harness are tested in analytic.test.ts): every
+ * solution is checked
  *  1. against exhaustive enumeration with the family's own card where the domain is small (Int ranges, strings of
  *     length ≤ 2): exact to 1e-9 bits;
  *  2. against every shipped empirical table: Monte Carlo body levels within 5.5 reconstructed standard errors, exact
- *     tables (Int(0,9999), EXACT_TAILS) to 1e-6 bits. Splitting-tail levels are reported by
+ *     tables (Int(0,9999), analytic-hook tables) to 2e-6 bits. Splitting-tail levels are reported by
  *     scripts/analytic-verify.ts but not asserted: docs/analytic-calibration/solutions.md shows the tail estimates are
  *     what is off there (every disagreement beyond the error model is a table bias).
  */

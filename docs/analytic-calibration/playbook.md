@@ -14,7 +14,7 @@ because exact answers are both faster and, in the deep tail, much more accurate 
 
 For a draw (family, canonical params, instantiation) return **every attainable ordinal t in increasing order, each
 with log2 μ{u ≥ t}**, where μ is the uniform spawn prior. This is the `Levels` format
-(`src/analytic/kit.ts`, the same as `EXACT_TAILS` in scripts/exact.ts):
+(`src/analytic/kit.ts`; the same as `AnalyticSurvival.levels` in src/analytic.ts):
 
 ```ts
 type Levels = readonly (readonly [Ordinal, number])[];   // [[t0, 0], [t1, log2 G(t1)], …], strictly decreasing log2
@@ -28,9 +28,13 @@ Requirements:
   (`priorMeanBits` in src/calibration.ts is exact for a complete step table);
 - **numerically safe**: see §5.
 
-Register it in `src/analytic/{grid,int,string}.ts` (`SOLVERS`, or `CELL_ADDITIVE` for Grid sum-over-cells rules).
-`test/analytic.test.ts` then checks it against every shipped table automatically, and against exhaustive enumeration
-for Int and string. Run `scripts/analytic-verify.ts` over every table you can find (§6) before you call it done.
+Write the solver in `src/analytic/{grid,int,string}.ts` (`SOLVERS`, or `CELL_ADDITIVE` for Grid sum-over-cells rules).
+`test/analytic-solutions.test.ts` then checks it against every shipped table automatically, and against exhaustive
+enumeration for Int and string. Run `scripts/analytic-verify.ts` over every table you can find (§6) before you call it
+done. To make the engine USE it, give the family its `analytic` hook (src/analytic.ts `AnalyticSurvival`: a versioned
+formula id such as `"rainbow-bands@1"` that becomes part of the table key, `kind: "exact"`, and the levels with the
+first level exactly 0), archive the family's Monte Carlo tables as its reference
+(`scripts/analytic-reference.ts <family> --from <dirs>`), and regenerate its tables (`calibrate`); §7.
 
 ## 2. Step 0: canonical params, symmetry, and the reduced alphabet
 
@@ -191,7 +195,7 @@ connectivity partition of the frontier (non-crossing partitions; Catalan-many). 
 ## 6. Verification (mandatory before shipping)
 
 1. **Exhaustive enumeration wherever the domain is small.** Int: any range of ~10^4–10^5 values, including negative
-   ones and both Int32 ends; string: every string of length ≤ 2 or 3 (16k / 2.1M strings). `test/analytic.test.ts`
+   ones and both Int32 ends; string: every string of length ≤ 2 or 3 (16k / 2.1M strings). `test/analytic-solutions.test.ts`
    does this for every registered Int and string solution, to 1e-9 bits.
 2. **Every empirical table.** `node --experimental-strip-types lib/game-utilities/scripts/analytic-verify.ts
    [dirs…] [--family ids] [--md] [--verbose]` compares each solution with each table level by level. Gather every
@@ -211,9 +215,12 @@ connectivity partition of the frontier (non-crossing partitions; Catalan-many). 
 
 ## 7. Where the hook is
 
-- `analyticLevels(familyId, canonicalParams, inst)` (src/analytic/index.ts) returns `Levels` or null. The engine-side
-  flow (ask the family first, else run and cache the estimator) and the per-family `probability` interface are
-  designed in [architecture.md](architecture.md) (owned by the architecture session); the `Levels` returned here are
-  the payload either way.
-- Precedents: `EXACT_TAILS` (src/calibration.ts + scripts/exact.ts) already replaces splitting for `picture_frame` and
-  `lone_peak`, with the formula id in the table key.
+- The family-side hook is `analytic(params, ctx): AnalyticSurvival | null` on the family definition (src/analytic.ts,
+  validated by `assertAnalytic`, looked up by calibration.ts `analyticFor`); the estimator then builds the table from it
+  instead of sampling, and the formula id is part of the table key (bump the version when the formula changes).
+  Engine flow and freshness rules: [architecture.md](architecture.md). `picture_frame`, `lone_peak` and `hate_colour`
+  are wired this way.
+- `analyticLevels(familyId, canonicalParams, inst)` (src/analytic/index.ts) returns the `Levels` of every solution in
+  this folder (or null); a family's hook wraps it with its formula id. src/analytic.ts has a smaller toolkit over plain
+  ordinals (`binomial`, `multinomial`, `lineChainCount`, `maxOfEqualMultinomial`, `rowTransferCount`, `poissonTail`);
+  kit.ts here generalises its `Dist` to vectors that carry DP state alongside the ordinal.

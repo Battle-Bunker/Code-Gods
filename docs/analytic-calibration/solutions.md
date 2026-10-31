@@ -153,7 +153,7 @@ Equality chains: `last-word` (≥ k iff n ≥ k and k equalities), `mirror` (k �
 Columns: shapes and tables compared; levels = table levels compared; max |Δbits| = max |table − exact| over all levels;
 max z = the largest |Δ|/se; **body max z** = the same over Monte Carlo body levels only (a wrong formula shows here);
 tail max |Δbits| = over splitting levels (dominated by the estimator failures of §1). Exact tables (Int(0,9999),
-`EXACT_TAILS`) agree to 2·10^−6 bits. Int and string solutions additionally equal exhaustive enumeration (Int: [−3001,
+analytic-hook tables) agree to 2·10^−6 bits. Int and string solutions additionally equal exhaustive enumeration (Int: [−3001,
 2468], [−123457, 98765], [0, 9999], both 2^31 ends; string: every string of length ≤ 3) to 1e-9 bits.
 Reproduce: `node --experimental-strip-types lib/game-utilities/scripts/analytic-verify.ts <dirs> --md`.
 
@@ -225,7 +225,8 @@ Reproduce: `node --experimental-strip-types lib/game-utilities/scripts/analytic-
 | `wordsmith` | 2 | 2 | 10 | 7.093 | 11.2 | 1.6 | 7.09 |
 | `zebra` | 2 | 2 | 44 | 0.424 | 1.0 | 1.0 | 0.42 |
 
-(`picture_frame` and `lone_peak` are exact via `EXACT_TAILS` and verified by test/calibration.test.ts.)
+(`picture_frame`, `lone_peak` and `hate_colour` are wired through their own `analytic` hook and verified by
+test/analytic.test.ts.)
 
 ## 4. Families that resisted, and the nearest approximation
 
