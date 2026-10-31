@@ -290,7 +290,7 @@ export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayo
   let layout = normaliseLayout({ version: 1, root: parsed.data.root, panes });
   if (!assistantPaneOf(layout)) { warnings.push("no assistant pane, added below"); layout = ensureAssistant(layout); }
   if (!lensPanesOf(layout).length) { warnings.push(`no lens pane, ${defaultLensFor(ctx.phase)} added above`); layout = ensureLens(layout, ctx.phase); }
-  return { layout, warnings };
+  return { layout: followPhase(layout, ctx.phase), warnings };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -336,13 +336,12 @@ function defaultPlace(layout: DockLayout, pane: Pane): Place {
     const assistant = assistantPaneOf(layout) ?? panesOf(layout).at(-1);
     return assistant ? { relativeTo: assistant.id, direction: "above" } : { direction: "tab" };
   }
-  if (pane.kind === "lens" && lenses.length >= LAYOUT_LIMITS.lensPanes) return { relativeTo: last.id, direction: "tab" };
   return { relativeTo: last.id, direction: assistantSide(layout) === "row" ? "below" : "right" };
 }
 
 /**
- * Add a pane. A lens pane past LAYOUT_LIMITS.lensPanes joins the last lens group as a tab; a second assistant or a
- * 13th pane is refused. `pane.id` is replaced by a fresh id when empty or taken. Returns the new pane's id.
+ * Add a pane. A fifth lens pane, a second assistant or a 13th pane is refused (CONFLICT). `pane.id` is replaced by a
+ * fresh id when empty or taken. Returns the new pane's id.
  */
 export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string } {
   if (pane.kind === "assistant" && assistantPaneOf(layout)) throw new LayoutError("CONFLICT", "There is already an assistant pane");
@@ -405,11 +404,41 @@ export function setPaneLens(layout: DockLayout, paneId: string, lensId: LensId, 
 
 /**
  * The layout a human carries into another room: the same arrangement with every lens's parameters reset (they name
- * one game's objects) and `setBy: "default"`; stored panels stay (they belong to the human across rooms).
+ * one game's objects) and `setBy: "default"` (so the first pane follows the new room's phase); stored panels stay
+ * (they belong to the human across rooms). A lens that needs parameters (what-if) becomes the overview.
  */
 export function carryLayout(layout: DockLayout): DockLayout {
-  const panes = Object.fromEntries(Object.entries(layout.panes).map(([id, pane]) => [id, pane.kind === "lens" ? lensPane(id, pane.lensId) : pane]));
+  const panes = Object.fromEntries(Object.entries(layout.panes).map(([id, pane]) => [id, pane.kind === "lens" ? lensPane(id, survivesReset(pane.lensId)) : pane]));
   return { ...layout, panes };
+}
+
+/** A lens whose parameters can be reset to defaults keeps its lens; one that needs parameters (what-if) becomes the overview. */
+const survivesReset = (lensId: LensId): LensId => (defaultLensParams(lensId) ? lensId : "overview");
+
+/**
+ * The same layout when a new game starts in the room: every lens keeps its lens and who chose it, but its parameters
+ * go back to the defaults (they named the previous game's objects); a lens that cannot show anything without
+ * parameters becomes the overview.
+ */
+export function resetLensParams(layout: DockLayout): DockLayout {
+  const panes = Object.fromEntries(Object.entries(layout.panes).map(([id, pane]) => {
+    if (pane.kind !== "lens") return [id, pane];
+    const lensId = survivesReset(pane.lensId);
+    return [id, { ...pane, lensId, params: defaultLensParams(lensId) ?? {} }];
+  }));
+  return { ...layout, panes };
+}
+
+/**
+ * The first lens pane follows the phase's default lens while nobody (neither the player nor the assistant) chose its
+ * lens (`setBy: "default"`); every other pane is left alone. Part of parseLayout, so the engine's view and the client's
+ * agree.
+ */
+export function followPhase(layout: DockLayout, phase: Phase): DockLayout {
+  const first = lensPanesOf(layout)[0];
+  const lensId = defaultLensFor(phase);
+  if (!first || first.setBy !== "default" || first.lensId === lensId) return layout;
+  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, lensId, params: defaultLensParams(lensId) ?? {} } } };
 }
 
 /** One line per pane for the assistant's briefing: "[p1] objects — Top 12 by payoff (set by you)". */

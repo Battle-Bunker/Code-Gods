@@ -18,6 +18,7 @@ export default function Race({ params }: LensProps<"race">) {
   const world = game?.worldSeconds ?? 0;
   useEffect(() => {
     if (!key || !board.length) return;
+    for (const k of [...samples.keys()]) if (k !== key) samples.delete(k);   // past games' samples go
     const list = samples.get(key) ?? [];
     if (list.at(-1)?.x !== world) list.push({ x: world, totals: Object.fromEntries(board.map(r => [r.godId, r.totalPayoff])) });
     samples.set(key, list.slice(-3600));

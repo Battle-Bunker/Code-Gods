@@ -23,6 +23,8 @@ export default function Agents({ params, phase }: LensProps<"agents">) {
   const [, redraw] = useState(0);
   const world = game?.worldSeconds ?? 0;
   useEffect(() => {
+    // Only live agents keep a history: a destroyed agent's (or a past game's) samples go.
+    for (const id of [...history.keys()]) if (!all.some(a => a.id === id)) history.delete(id);
     for (const a of all) {
       const list = history.get(a.id) ?? [];
       if (list.at(-1)?.at !== world) list.push({ at: world, energy: a.energy, eligible: a.eligible });

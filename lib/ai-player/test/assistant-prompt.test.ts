@@ -94,8 +94,10 @@ test("the briefing's LENSES block names the panes, who set them, the catalogue a
 });
 
 test("the briefing is bounded and survives a lobby (no game) or unexpected shapes", () => {
+  // No observation at all means the engine's read failed, not that the room is in the lobby.
   const lobby = assistantBriefing({ rules: { rules: "# Code Gods: rules" } });
-  assert.match(lobby, /no game is running/i);
+  assert.match(lobby, /could not read your observation/i);
+  assert.doesNotMatch(lobby, /no game is running/i);
   assert.ok(lobby.includes("# Code Gods: rules"));
   const lobbyView = assistantBriefing({ rules: { rules: "# Code Gods: rules" }, observation: { ...observation, phase: "lobby", self: { energy: 0, utility: null } } });
   assert.match(lobbyView, /no game is running/i);

@@ -16,7 +16,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, lensPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, lensPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetLensParams,
   placeSchema, setPaneLens, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
 import { LENS_IDS, isLensId, lensCatalog, parseLensParams, type LensId, type Phase } from "@workspace/player-client/lenses";
@@ -69,12 +69,15 @@ async function currentImpl(ctx: Ctx, viewer: Viewer, room: Doc<"rooms">): Promis
   const row = await rowOf(ctx, viewer.subject, room._id);
   if (row) {
     const parsed = parseLayout(row.layout, { phase, storedSlugs: slugs });
-    return { ...parsed, source: "room", phase, updatedAt: row.updatedAt, setBy: row.setBy };
+    // A new game since the row was written: lens parameters named the previous game's objects, so they reset.
+    const newGame = !!row.gameId && !!room.activeGameId && row.gameId !== room.activeGameId;
+    return { ...parsed, layout: newGame ? resetLensParams(parsed.layout) : parsed.layout, source: "room", phase, updatedAt: row.updatedAt, setBy: row.setBy };
   }
   const carried = await ctx.db.query("dockLayouts").withIndex("by_subject_updated", q => q.eq("subject", viewer.subject)).order("desc").first();
   if (carried) {
-    const parsed = parseLayout(carried.layout, { phase, storedSlugs: slugs });
-    return { layout: carryLayout(parsed.layout), warnings: parsed.warnings, source: "carried", phase, updatedAt: null, setBy: null };
+    // Carry (reset parameters, forget who chose) and then parse, so what is returned is exactly what a write would store.
+    const parsed = parseLayout(carryLayout(parseLayout(carried.layout, { phase, storedSlugs: slugs }).layout), { phase, storedSlugs: slugs });
+    return { ...parsed, source: "carried", phase, updatedAt: null, setBy: null };
   }
   return { layout: DEFAULT_LAYOUT(phase), warnings: [], source: "default", phase, updatedAt: null, setBy: null };
 }

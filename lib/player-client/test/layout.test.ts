@@ -6,9 +6,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, PRESET_LAYOUTS, activatePane, assistantSide, carryLayout, closePane, describeLayout, lensPanesOf,
-  movePane, nextPaneId, openPane, paneOrder, panesOf, parseLayout, setPaneLens, setPaneParams, type DockLayout, type Node, type Pane,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, PRESET_LAYOUTS, activatePane, assistantSide, carryLayout, closePane, describeLayout, followPhase, lensPanesOf,
+  movePane, nextPaneId, openPane, paneOrder, panesOf, parseLayout, resetLensParams, setPaneLens, setPaneParams, type DockLayout, type Node, type Pane,
 } from "../src/layout.ts";
+
+test("the first lens pane follows the phase only while nobody chose it; a new game resets parameters but keeps choices; what-if cannot survive a reset", () => {
+  const base = DEFAULT_LAYOUT("running");
+  // Nobody chose p1: at the end of the game it shows the results, in the engine's parse and the client's alike.
+  const ended = parseLayout(base, { phase: "ended", storedSlugs: [] }).layout;
+  assert.equal(lensPanesOf(ended)[0].lensId, "results");
+  assert.equal(lensPanesOf(followPhase(base, "ended"))[0].lensId, "results");
+  // The player chose objects: it stays through every phase.
+  const chosen = setPaneLens(base, "p1", "objects", "human", { limit: 5 });
+  assert.equal(lensPanesOf(parseLayout(chosen, { phase: "ended", storedSlugs: [] }).layout)[0].lensId, "objects");
+  // Only the first lens pane follows; a second default pane keeps its lens.
+  const two = openPane(ended, { id: "", kind: "lens", lensId: "race", params: {}, setBy: "default" }, { relativeTo: "p1", direction: "right" }).layout;
+  assert.deepEqual(lensPanesOf(parseLayout(two, { phase: "lobby", storedSlugs: [] }).layout).map(p => p.lensId), ["overview", "race"]);
+  // A new game: parameters reset, the choice and who made it stay; what-if becomes the overview.
+  const whatIf = openPane(chosen, { id: "", kind: "lens", lensId: "what-if", params: { objectId: "o1", calls: [["add", { k: 1 }]] }, setBy: "assistant" }, { relativeTo: "p1", direction: "right" }).layout;
+  const reset = resetLensParams(whatIf);
+  const [first, second] = lensPanesOf(reset);
+  assert.deepEqual([first.lensId, first.setBy], ["objects", "human"]);
+  assert.notEqual((first.params as { limit?: number }).limit, 5, "parameters are back to the defaults");
+  assert.deepEqual([second.lensId, second.setBy], ["overview", "assistant"]);
+  // Carried into another room, nobody has chosen anything yet: the first pane follows that room's phase and the
+  // what-if pane becomes the overview; it parses without warnings.
+  const carried = parseLayout(carryLayout(whatIf), { phase: "ended", storedSlugs: [] });
+  assert.deepEqual(carried.warnings, []);
+  assert.deepEqual(lensPanesOf(carried.layout).map(p => [p.lensId, p.setBy]), [["results", "default"], ["overview", "default"]]);
+});
 
 const ctx = { phase: "running" as const, storedSlugs: ["mine"] };
 const lens = (id: string, lensId = "objects", params: Record<string, unknown> = {}): Pane => ({ id, kind: "lens", lensId: lensId as never, params, setBy: "assistant" });

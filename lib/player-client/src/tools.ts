@@ -224,7 +224,7 @@ export const LAYOUT_TOOLS = [
     note: "Also the lens catalogue (id, title, blurb, phases, parameter JSON Schema, defaults) and the player's stored panels.",
     input: obj({}), output: result(anyData) }),
   def({ name: "open_lens", title: "Show a lens", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Show a lens with parameters you choose. Without `place` no pane is added: an open pane of that lens is reused (parameters replaced, tab activated), else a lens pane the player did not choose is switched to it; a new pane opens only when every lens pane is the player's. Give `place` only when the player asks for another pane (a fifth lens joins the last lens group as a tab). Say in one line what you showed and what to look at.",
+    about: "Show a lens with parameters you choose. Without `place` no pane is added: an open pane of that lens is reused (parameters replaced, tab activated), else a lens pane the player did not choose is switched to it; a new pane opens only when every lens pane is the player's. Give `place` only when the player asks for another pane; at most four lens panes are open at once (a fifth is refused: change a pane's lens instead). Say in one line what you showed and what to look at.",
     input: obj({ lensId, params: lensParams, place }), output: result(layoutData) }),
   def({ name: "set_lens_params", title: "Set a lens's parameters", functions: ["layout.set"], permission: "act", annotations: acts,
     about: "Replace one lens pane's parameters (the pane keeps its lens and place).",

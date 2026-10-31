@@ -102,6 +102,8 @@ export class DockStore {
     const first = this.sync.latest === null;
     this.raw = raw;
     this.dispatch({ type: "server", layout: this.parse(raw), updatedAt }, first);
+    // An edit made before the first server layout arrived had nothing to push against; now it does.
+    if (this.sync.dirty) this.schedule(PUSH_SOON_MS);
   }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
 

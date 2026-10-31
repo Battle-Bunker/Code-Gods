@@ -151,6 +151,8 @@ export function assistantBriefing({ rules, observation, layout }: { rules?: unkn
     const board = Array.isArray(o.leaderboard) ? o.leaderboard.map(rec) : [];
     const mine = board.findIndex(r => r.godId !== undefined ? r.godId === self.godId : r.label === self.label);
     if (board.length) lines.push(`Leaderboard: ${mine >= 0 ? `you are #${mine + 1} of ${board.length} with ${num(board[mine].totalPayoff) ?? "?"}` : `${board.length} gods`}.`);
+  } else if (observation === undefined || observation === null) {
+    lines.push("The engine could not read your observation when this message was sent: call get_observation before answering anything about the current game.");
   } else {
     lines.push("No game is running in this room (lobby): there is no utility or energy yet. The rules below describe the next game.",
       ...helperLines(rec(o.instance), language));

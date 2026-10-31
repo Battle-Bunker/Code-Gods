@@ -79,7 +79,7 @@ function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
   const presets = manifest?.presets ?? [];
   // The room records the preset it was set from; matching the settings covers rooms from before that record existed.
   const origin = room.settingsOrigin;
-  const current = (origin?.kind === "preset" ? presets.find(p => p.id === origin.id) : undefined) ?? matchPreset(room.settings, presets);
+  const current = origin ? (origin.kind === "preset" && !origin.modified ? presets.find(p => p.id === origin.id) : undefined) : matchPreset(room.settings, presets);
   const frozen = room.activeGame;
   const configure = `/rooms/${room.shortCode}/configure`;
   const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);

@@ -126,7 +126,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
     aiConfigured: manifest?.aiFunding.configured, presets: manifest?.presets ?? [],
     // The room records which preset it was set from; matching the settings is the fallback for rooms from before that.
-    currentPreset: room && manifest ? (room.settingsOrigin?.kind === "preset" ? room.settingsOrigin.id : matchPreset(room.settings, manifest.presets)?.id) : undefined,
+    currentPreset: room && manifest ? (room.settingsOrigin ? (room.settingsOrigin.kind === "preset" && !room.settingsOrigin.modified ? room.settingsOrigin.id : undefined) : matchPreset(room.settings, manifest.presets)?.id) : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
   };
   const act: EngineActions = {
