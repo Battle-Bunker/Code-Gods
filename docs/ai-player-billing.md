@@ -4,7 +4,7 @@ Code Gods uses direct Anthropic or OpenAI API billing for autonomous players.
 The engine reads `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` from the Convex deployment's
 environment variables (`npx convex env set --prod NAME VALUE`). AI seats run inside the
 engine (`artifacts/engine/convex/ai`), so player apps never need a key. Never put keys in
-client configuration, public snapshots, room settings, logs, or source control. There is no Replit-credit or alternate-provider fallback.
+client configuration, public snapshots, room settings, logs, or source control. There is no alternate-provider fallback.
 
 The engine's model catalog (`convex/lib/aiModels.ts`) uses these standard USD rates per million text tokens:
 

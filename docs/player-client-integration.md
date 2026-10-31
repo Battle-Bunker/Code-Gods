@@ -3,7 +3,7 @@
 The engine is one Convex deployment (`artifacts/engine`; routes and functions in
 [`engine-api.md`](engine-api.md), design in [`convex-migration-plan.md`](convex-migration-plan.md)).
 A player client is either the hosted default client the engine serves at `/player/`, or a player's own
-duplicated Replit app running `artifacts/player-web` in development mode. Both read the same
+copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment. Both read the same
 disclosure-filtered Convex queries and act through the same server functions, so a modified client can
 do no more than its human could.
 
@@ -19,9 +19,10 @@ do no more than its human could.
 the protocol and `PlayerClient`. The Node tooling is `@workspace/player-client/engine`
 (also `/assistant`, `/state`, `/connect`).
 
-## The room credential and Replit Secrets
+## The room credential and the secret store
 
-A player app holds two Replit Secrets:
+A player app holds two secrets, in its environment's secret store (e.g. Replit Secrets or Codespaces
+secrets) or in a gitignored `.env.local`:
 
 | Secret | Value |
 |---|---|
@@ -43,13 +44,13 @@ pnpm player connect [--engine URL] --room CODE [--permission read|act|owner] [--
 ```
 
 1. The CLI makes a PKCE S256 pair and calls `POST /api/device/request` with the room (short code, GUID
-   or id), the permission (default `act`) and a self-reported label (default "Replit player app").
+   or id), the permission (default `act`) and a self-reported label (default "player app").
 2. It prints the engine's `/device?code=…` URL and the comparison code. The human opens it in the
    browser where they are signed in to the engine with Replit, checks the code, room, permission and
    label, and approves. Requests expire after 5 minutes.
 3. The CLI polls `POST /api/device/poll` with the device secret and the verifier, and receives the
    credential exactly once. It prints `CODE_GODS_ENGINE_URL` and `CODE_GODS_CREDENTIAL` to stdout to be
-   stored as Replit Secrets (or, with `--write-env FILE`, writes them to a 0600 file and warns if the
+   stored as secrets (or, with `--write-env FILE`, writes them to a 0600 file and warns if the
    file is not gitignored). This is the only place the CLI ever prints a secret.
 
 The label is self-reported: it is not a verified identity of a model, chat or workspace.
@@ -83,15 +84,21 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
 
 - only for a browser that opened the private **launch link** `GET /__codegods/launch?key=<launch key>`.
   The dev URL is public and the headers below can be forged, so this is the real gate. The link sets an
-  HttpOnly session cookie derived from the key (`SameSite=None; Secure; Partitioned` over https, for the
-  Replit preview iframe) and redirects to `/`. Without it the endpoint answers 401 `LAUNCH_REQUIRED`. The
+  HttpOnly session cookie derived from the key (`SameSite=None; Secure; Partitioned` over https, for
+  dev-container preview iframes such as Replit's) and redirects to `/`. Without it the endpoint answers 401 `LAUNCH_REQUIRED`. The
   key is `CODE_GODS_LAUNCH_KEY`, else random per process. player-web prints the link to its console
-  (`handler.launchUrl(origin)`), and nothing serves it;
+  (`handler.launchUrl(origin)`, origin from `devServerHosts`, below), and nothing serves it;
 - same-origin requests only (`Sec-Fetch-Site: same-origin` and/or an `Origin` equal to `Host`; at
   least one present, neither contradicting); `GET` only; `Cache-Control: no-store`;
 - `allowedHosts` restricts the `Host` it answers for (a DNS-rebinding guard). player-web passes
-  `.replit.dev`, `.repl.co`, `localhost` and `127.0.0.1`, extended by `CODE_GODS_ALLOWED_HOSTS`;
-- it creates the `Engine` on the first request, so the app starts without Secrets; errors map to 401
+  `devServerHosts(process.env, port).allowedHosts` (also used for Vite's own host check): `localhost`,
+  `127.0.0.1` and `::1`; the hosts in `CODE_GODS_ALLOWED_HOSTS` (comma-separated, a leading `.` matches
+  subdomains); the host of `CODE_GODS_PUBLIC_ORIGIN`; and a detected dev container's host: on Replit
+  (`REPLIT_DEV_DOMAIN`) `.replit.dev` and `.repl.co`, in GitHub Codespaces (`CODESPACE_NAME`,
+  `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`) `<name>-<port>.<domain>`, in Gitpod
+  (`GITPOD_WORKSPACE_URL`) `<port>-<workspace host>`. The launch link's origin is
+  `CODE_GODS_PUBLIC_ORIGIN`, else the detected container's URL, else `http://localhost:<port>`;
+- it creates the `Engine` on the first request, so the app starts unconfigured; errors map to 401
   (`RECONNECT`), 502 (`UNREACHABLE`) or 503 (not configured or malformed).
 
 It is not mounted when player-web runs in hosted-mode development (`CODE_GODS_SITE_URL` set), where
