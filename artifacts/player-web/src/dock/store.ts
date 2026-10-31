@@ -35,6 +35,9 @@ export class DockStore {
   private storedSlugs: readonly string[] | null = null;
   private fileIds: readonly string[] | undefined;
   private focused: string | null = null;
+  /** The last layout the server sent, unparsed (re-parsed when the panels this client knows change). */
+  private raw: unknown = undefined;
+  private editedInGesture = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
   private listeners = new Set<() => void>();
@@ -81,17 +84,23 @@ export class DockStore {
   // ----- inputs -----
   setPusher(pusher: Pusher | undefined) { this.pusher = pusher; this.schedule(PUSH_SOON_MS); }
   setPhase(phase: Phase) { if (phase === this.phase) return; this.phase = phase; this.emit(); }
-  /** The stored panels (null until listed) and file panels this client can show; panes of others are dropped. */
+  /**
+   * The stored panels (null until listed) and file panels this client can show; panes of others are dropped. The
+   * server's layout is parsed again from what it sent, so a pane dropped while its panel was off or not yet listed
+   * comes back when it is.
+   */
   setPanels(storedSlugs: readonly string[] | null, fileIds: readonly string[] | undefined) {
     this.storedSlugs = storedSlugs; this.fileIds = fileIds;
-    const local = this.parse(this.sync.local);
-    const latest = this.sync.latest && { ...this.sync.latest, layout: this.parse(this.sync.latest.layout) };
+    const latest = this.sync.latest && (this.raw !== undefined ? { ...this.sync.latest, layout: this.parse(this.raw) } : this.sync.latest);
+    const clean = !this.sync.dirty && !this.sync.gesture && !this.sync.inFlight;
+    const local = clean && latest ? latest.layout : this.parse(this.sync.local);
     this.sync = { ...this.sync, local, latest };
     this.history = observe(this.history, null, local);
     this.emit();
   }
   server(raw: unknown, updatedAt: number | null) {
     const first = this.sync.latest === null;
+    this.raw = raw;
     this.dispatch({ type: "server", layout: this.parse(raw), updatedAt }, first);
   }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
@@ -99,13 +108,15 @@ export class DockStore {
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */
   edit(change: (layout: DockLayout) => DockLayout, delay = PUSH_SOON_MS) {
     const next = this.parse(change(this.snapshot.layout));
+    if (this.sync.gesture) this.editedInGesture = true;
     this.dispatch({ type: "edit", layout: next });
     this.schedule(delay);
   }
-  gestureStart() { if (!this.sync.gesture) this.dispatch({ type: "gesture-start" }); }
+  gestureStart() { if (!this.sync.gesture) { this.editedInGesture = false; this.dispatch({ type: "gesture-start" }); } }
+  /** The end of a drag: dockview's layout, read back. A store edit made meanwhile (a click during it) wins. */
   gestureEnd(result?: DockLayout) {
     if (!this.sync.gesture) return;
-    if (result) {
+    if (result && !this.editedInGesture) {
       const next = this.parse(result);
       if (!sameLayout(next, this.snapshot.layout)) this.dispatch({ type: "edit", layout: next });
     }
@@ -113,14 +124,22 @@ export class DockStore {
     this.schedule(PUSH_DELAY_MS);
   }
   get gesture() { return this.sync.gesture; }
+  /** Dockview changed its structure outside a gesture we saw (a touch drag): adopt it like a drag's result. */
+  dockChanged(result: DockLayout) {
+    const next = this.parse(result);
+    if (sameLayout(next, this.snapshot.layout)) return;
+    this.dispatch({ type: "edit", layout: next });
+    this.schedule(PUSH_DELAY_MS);
+  }
 
-  /** ‹: the view before the assistant's last change to a pane. */
+  /** ‹: the view before the assistant's last change to a pane (the step back is not itself a change to go back from). */
   undo(paneId: string) {
     const step = back(this.history, paneId);
     const pane = this.pane(paneId);
     if (!step || pane?.kind !== "lens") return;
-    this.history = step.history;
     this.edit(layout => ({ ...layout, panes: { ...layout.panes, [paneId]: { ...pane, ...step.view } } }));
+    this.history = { stacks: step.history.stacks, last: this.history.last };
+    this.emit();
   }
   /** ↺: the pane's lens at its defaults. */
   reset(paneId: string) {
@@ -159,6 +178,7 @@ export class DockStore {
     this.dispatch({ type: "push-start" });
     try {
       const result = await this.pusher(plan.layout, plan.ifUpdatedAt);
+      if ((this.sync.latest?.updatedAt ?? 0) <= result.updatedAt) this.raw = result.layout;
       this.dispatch({ type: "push-ok", layout: this.parse(result.layout), updatedAt: result.updatedAt });
       this.schedule(PUSH_SOON_MS);
     } catch (error) {

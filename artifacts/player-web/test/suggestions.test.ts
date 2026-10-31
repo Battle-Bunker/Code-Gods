@@ -11,7 +11,7 @@ import { nextStep } from "../src/lenses/next-step.ts";
 
 const PHASES = ["lobby", "planning", "running", "paused", "ended"] as const;
 const ctx = (over: Partial<SuggestionContext> = {}): SuggestionContext =>
-  ({ phase: "running", seated: true, isOwner: false, agents: 1, ready: false, members: 4, assistantOn: true, pauseUsed: false, ...over });
+  ({ phase: "running", seated: true, isOwner: false, agents: 1, ready: false, members: 4, assistantOn: true, ...over });
 
 test("every phase offers one to three chips; each sends a prompt when the assistant is on and runs a command when it is off", () => {
   for (const phase of PHASES) {

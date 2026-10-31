@@ -30,12 +30,15 @@ export default function DesktopDock() {
   const { layout, phase } = useDock();
   const container = useRef<HTMLDivElement>(null);
   const api = useRef<DockviewApi | null>(null);
+  /** Layout events until then come from our own fromJSON. */
+  const quietUntil = useRef(0);
 
   const apply = useCallback((target: DockLayout) => {
     const dock = api.current;
     if (!dock || store.gesture) return;
     if (sameLayout(fromDockview(dock.toJSON()), target)) return;
     const size = { width: dock.width, height: dock.height };
+    quietUntil.current = performance.now() + 300;
     try { dock.fromJSON(toDockview(target, size, titleOf), { reuseExistingPanels: true }); }
     catch (error) {
       console.warn("[dock] layout refused, showing the default", error);
@@ -49,35 +52,54 @@ export default function DesktopDock() {
     store.api = event.api;
     apply(store.layout);
     event.api.onDidActivePanelChange(e => { if (e.panel) store.setFocused(e.panel.id); });
+    // A move outside a pointer gesture we saw (a touch or pen drag, which dockview runs on pointer events of its
+    // own): read the new structure back. Sizes alone (the assistant growing for a card) are never saved this way.
+    event.api.onDidLayoutChange(e => {
+      if (store.gesture || performance.now() < quietUntil.current || !e.reasons.has("structure")) return;
+      store.dockChanged(fromDockview(event.api.toJSON()));
+    });
   }, [store, apply]);
   useEffect(() => () => { if (store.api === api.current) store.api = null; }, [store]);
 
-  // A gesture starts with any pointer down in the dock and ends with the pointer up, or with the end of an HTML5
-  // drag (Chrome cancels the pointer when a drag starts, so pointercancel is not an end).
+  // A gesture is a drag of a gutter or a pane header, or a click on a tab: it starts with a pointer down on a gutter
+  // or on a tab outside its buttons, or with an HTML5 drag start (a header dragged by its title), and ends with the
+  // pointer up or the drag's end (Chrome cancels the pointer when a drag starts, so pointercancel is not an end).
+  // Clicks on buttons and in pane bodies are not gestures: what they change goes through the store.
+  const applyLatest = useRef(apply);
+  applyLatest.current = apply;
   useEffect(() => {
     const el = container.current;
     if (!el) return;
     const readBack = () => (api.current ? fromDockview(api.current.toJSON()) : undefined);
     let watchdog: ReturnType<typeof setTimeout> | undefined;
+    const finish = () => { store.gestureEnd(readBack()); applyLatest.current(store.layout); };
     const end = () => {
       clearTimeout(watchdog);
-      if (!store.gesture) return;
       // After dockview has finished the move.
-      requestAnimationFrame(() => store.gestureEnd(readBack()));
+      if (store.gesture) requestAnimationFrame(finish);
     };
     const start = () => {
       // A release we never saw (it happened over a panel's frame) ends the previous gesture first.
-      if (store.gesture) store.gestureEnd(readBack());
+      if (store.gesture) finish();
       store.gestureStart();
       clearTimeout(watchdog);
       watchdog = setTimeout(end, 30_000);
     };
-    el.addEventListener("pointerdown", start, true);
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target) return;
+      const onTab = !!target.closest(".dv-tab") && !target.closest("button, a, input, textarea, select, [role=menuitem]");
+      if (target.closest(".dv-sash") || onTab) start();
+    };
+    const onDragStart = () => { if (!store.gesture) start(); };
+    el.addEventListener("pointerdown", onPointerDown, true);
+    el.addEventListener("dragstart", onDragStart, true);
     window.addEventListener("pointerup", end, true);
     window.addEventListener("dragend", end, true);
     window.addEventListener("drop", end, true);
     return () => {
-      el.removeEventListener("pointerdown", start, true);
+      el.removeEventListener("pointerdown", onPointerDown, true);
+      el.removeEventListener("dragstart", onDragStart, true);
       window.removeEventListener("pointerup", end, true);
       window.removeEventListener("dragend", end, true);
       window.removeEventListener("drop", end, true);

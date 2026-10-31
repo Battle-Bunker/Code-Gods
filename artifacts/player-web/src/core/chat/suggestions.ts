@@ -8,7 +8,7 @@ import type { Phase } from "@workspace/player-client/lenses";
 
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
-  phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; members: number; assistantOn: boolean; pauseUsed: boolean;
+  phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; members: number; assistantOn: boolean;
 };
 
 /** One chip in both forms: the question for the assistant, and the command that answers it without one. */

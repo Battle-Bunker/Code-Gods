@@ -18,20 +18,17 @@ import type { Phase } from "@workspace/player-client/lenses";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
-import { useSituation } from "@/core/game/situation";
+import { useNow, useSituation } from "@/core/game/situation";
+import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
 import { runPaletteCommand } from "@/core/palette/registry";
 import { composer, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps,
+  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, userCount, withPending, withSteps,
   type CallRow, type ChatItem, type StepTone,
 } from "./state";
 
-const errText = (e: unknown) => {
-  const data = (e as { data?: { message?: string } })?.data;
-  return data?.message ?? (e instanceof Error ? e.message : String(e));
-};
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 type Note = { at: number; key: string; text: string };
 const PHASE_NOTE: Record<Phase, string> = {
@@ -53,17 +50,20 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const thread = useQuery(api.assistant.thread, threadId ? { threadId: threadId as Id<"assistantThreads"> } : "skip");
   const send = useMutation(api.assistant.send);
   const cancel = useMutation(api.assistant.cancel);
-  const [pending, setPending] = useState<string | null>(null);
+  /** The message just sent, and how many user messages the thread had then: shown until the server has it. */
+  const [pending, setPending] = useState<{ text: string; users: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const calls = (thread?.toolCalls ?? []) as CallRow[];
-  const items = useMemo(() => withSteps(withPending(buildTimeline(thread?.messages ?? [], calls), pending)), [thread, pending]); // eslint-disable-line react-hooks/exhaustive-deps
+  const timeline = useMemo(() => buildTimeline(thread?.messages ?? [], calls), [thread]); // eslint-disable-line react-hooks/exhaustive-deps
+  const items = useMemo(() => withSteps(withPending(timeline, pending?.text ?? null, pending?.users)), [timeline, pending]);
   const latestTurn = thread?.turns.at(-1);
   const active = !!latestTurn && TURN_ACTIVE.includes(latestTurn.status);
   const card = calls.find(call => call.status === "awaiting_confirmation");
   const enabled = status?.enabled ?? false;
   const permission: Permission = c.permission ?? status?.credential?.permission ?? (status?.maxPermission === "read" ? "read" : "act");
-  useEffect(() => { if (pending && items.some(i => i.kind === "user" && !i.pending && i.text === pending)) setPending(null); }, [items, pending]);
+  const blocked = permission === "owner" && !c.ownerConsent && !status?.credential;
+  useEffect(() => { if (pending && userCount(timeline) > pending.users) setPending(null); }, [timeline, pending]);
   useEffect(() => { composer.setStatus(!status ? "" : !enabled ? "off" : card ? "waiting for you" : active ? "thinking…" : ""); }, [status, enabled, card, active]);
 
   // Grow the pane while a card waits, so the card and the composer both fit; give the space back after.
@@ -84,18 +84,19 @@ export function AssistantPane({ paneId }: { paneId: string }) {
 
   const submit = async (text: string) => {
     const message = text.trim();
-    if (!message || active || !status) return;
-    setError(null); setPending(message); composer.setDraft("");
+    if (!message || active || !status || blocked) return;
+    // A new conversation starts from no messages.
+    setError(null); setPending({ text: message, users: threadId ? userCount(timeline) : 0 }); composer.setDraft("");
     try {
       const firstUse = !status.credential;
       const sent = await send({ roomId: room, text: message, ...(threadId ? { threadId: threadId as Id<"assistantThreads"> } : {}),
         ...(firstUse || status.credential?.permission !== permission ? { permission } : {}), ...(permission === "owner" ? { ownerConsent: c.ownerConsent } : {}) });
       composer.setThread(sent.threadId);
-    } catch (e) { setError(errText(e)); setPending(null); composer.setDraft(message); }
+    } catch (e) { setError(errorText(e)); setPending(null); composer.setDraft(message); }
   };
 
   const chips = suggestionsFor({ phase: situation.phase, seated: situation.seated, isOwner: situation.isOwner, agents: situation.agents, ready: situation.ready,
-    members: situation.members, assistantOn: enabled, pauseUsed: situation.pauseUsed });
+    members: situation.members, assistantOn: enabled });
   const runChip = (chip: Suggestion) => {
     if (chip.command) runPaletteCommand(chip.command);
     else if (chip.prompt) void submit(chip.prompt);
@@ -107,6 +108,7 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const [notes, setNotes] = useState<Note[]>([]);
   const seenPhase = useRef<Phase | undefined>(undefined);
   const phaseNow = situation.obs?.phase;
+  useEffect(() => { setNotes([]); }, [threadId]);
   useEffect(() => {
     if (!phaseNow) return;
     if (seenPhase.current && seenPhase.current !== phaseNow) setNotes(n => [...n, { at: items.length, key: `${phaseNow}-${Date.now()}`, text: PHASE_NOTE[phaseNow] }].slice(-5));
@@ -141,9 +143,9 @@ export function AssistantPane({ paneId }: { paneId: string }) {
       {card && <ConfirmCard key={card._id} call={card} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
       {error && <p className="px-3 pb-1 text-xs text-destructive" data-testid="text-assistant-error">{error}</p>}
       {enabled
-        ? <Composer active={active} onSend={() => void submit(c.draft)} onStop={() => latestTurn && void cancel({ turnId: latestTurn._id }).catch(e => setError(errText(e)))}
+        ? <Composer active={active} onSend={() => void submit(c.draft)} onStop={() => latestTurn && void cancel({ turnId: latestTurn._id }).catch(e => setError(errorText(e)))}
             meter={status ? { used: status.allowance.used, limit: status.allowance.limit } : null}
-            blocked={permission === "owner" && !c.ownerConsent && !status?.credential} paneId={paneId} />
+            blocked={blocked} paneId={paneId} />
         : status && (
           <div className="border-t border-[hsl(var(--card-border))] p-2">
             <button type="button" onClick={() => paletteStore.open(paneId)} data-testid="button-assistant-palette"
@@ -241,26 +243,33 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
   const [state, dispatch] = useReducer(cardReducer, initialCard);
   const [armed, setArmed] = useState(false);
   const [details, setDetails] = useState(false);
-  const [now, setNow] = useState(Date.now());
+  const now = useNow(1000);
+  const card = useRef<HTMLDivElement>(null);
   useEffect(() => { const t = setTimeout(() => setArmed(true), ARM_MS); return () => clearTimeout(t); }, []);
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { dispatch({ type: "server", status: call.status }); }, [call.status]);
   const decide = async (decision: "approve" | "deny") => {
     if (!armed || (state.phase !== "idle" && state.phase !== "error")) return;
     dispatch({ type: "submit", decision });
     try { await confirm({ toolCallId: call._id as Id<"assistantToolCalls">, decision }); dispatch({ type: "sent" }); }
-    catch (e) { dispatch({ type: "failed", message: errText(e) }); }
+    catch (e) { dispatch({ type: "failed", message: errorText(e) }); }
   };
-  // ⌘↵ / Ctrl+↵ approves; a plain Enter never does.
+  // ⌘↵ / Ctrl+↵ approves, only from the assistant pane (or with nothing focused); a plain Enter never does.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void decide("approve"); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+      const focus = document.activeElement;
+      const pane = card.current?.closest("[data-testid=assistant-pane]");
+      if (focus && focus !== document.body && !pane?.contains(focus)) return;
+      e.preventDefault();
+      void decide("approve");
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
   const left = call.confirmDeadline ? Math.max(0, call.confirmDeadline - now) : null;
   const busy = state.phase === "submitting" || state.phase === "sent";
   return (
-    <div className="mx-2 mb-2 border border-[hsl(var(--card-border))] border-l-2 border-l-primary bg-card" data-testid={`assistant-card-${call.tool}`} role="alertdialog" aria-label="Your assistant asks first">
+    <div ref={card} className="mx-2 mb-2 border border-[hsl(var(--card-border))] border-l-2 border-l-primary bg-card" data-testid={`assistant-card-${call.tool}`} role="alertdialog" aria-label="Your assistant asks first">
       <div className="space-y-2 p-2.5 text-sm">
         <p className="font-medium">{confirmSentence(call, { energy, pauseSeconds })}</p>
         {state.phase === "error" && <p className="text-xs text-destructive">{state.message}</p>}
@@ -333,11 +342,11 @@ function Composer({ active, onSend, onStop, meter, blocked, paneId }: {
     <div className="relative border-t border-[hsl(var(--card-border))]">
       {m && !m.off && <div className="absolute inset-x-0 -top-px h-0.5" aria-hidden><div className={`h-full ${m.exhausted ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${m.fraction * 100}%` }} /></div>}
       {note && <p className="px-3 pt-1.5 text-[11px] text-muted-foreground" data-testid="text-assistant-allowance">{note}</p>}
-      <form className="flex items-end gap-2 p-2" onSubmit={e => { e.preventDefault(); onSend(); }}>
+      <form className="flex items-end gap-2 p-2" onSubmit={e => { e.preventDefault(); if (!blocked) onSend(); }}>
         <textarea ref={input} data-testid="input-assistant" value={draft} onChange={e => composer.setDraft(e.target.value)} rows={1} maxLength={4000}
           placeholder="Ask your assistant…" aria-label="Ask your assistant (private)"
           onKeyDown={e => {
-            if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); onSend(); }
+            if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); if (!blocked) onSend(); }
             if (e.key === "Escape" && !draft) { e.preventDefault(); input.current?.blur(); collapse(); }
           }}
           className="min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-5 outline-none" />

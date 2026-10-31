@@ -101,6 +101,15 @@ test("confirmation cards lead with a plain sentence", () => {
   assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: "not json" })), "Post to everyone: \"\"");
 });
 
+test("the optimistic message also shows when the same text is sent again (counted against the user messages before it)", () => {
+  const server = [msg(1, "user", "What next?"), msg(2, "assistant", "This.")];
+  const shown = withPending(buildTimeline(server, []), "What next?", 1);
+  assert.equal(shown.filter(i => i.kind === "user").length, 2, "the repeat shows as pending");
+  assert.ok(shown.at(-1)?.kind === "user" && shown.at(-1)!.pending);
+  const echoed = withPending(buildTimeline([...server, msg(3, "user", "What next?")], []), "What next?", 1);
+  assert.equal(echoed.filter(i => i.kind === "user").length, 2, "and goes once the server has it");
+});
+
 test("the allowance note is silent below 80 % and speaks after", () => {
   assert.equal(allowanceNote(500, 1000), null);
   assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant allowance left");

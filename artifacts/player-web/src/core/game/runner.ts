@@ -10,7 +10,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useActions, useObservation } from "@/sdk";
-import { noticeStore } from "@/core/notices";
+import { errorText, noticeStore } from "@/core/notices";
 
 export type Lang = "python" | "typescript";
 export type Unknown = { envelope: Envelope; error: string };
@@ -44,10 +44,6 @@ export function useRunner(): RunnerState {
   return useSyncExternalStore(runner.subscribe, runner.get, runner.get);
 }
 
-const message = (e: unknown) => {
-  const data = (e as { data?: { message?: string } })?.data;
-  return data?.message ?? (e instanceof Error ? e.message : String(e));
-};
 
 /** Run game commands: `run` builds a fresh envelope; `retry` resends the unknown one unchanged. */
 export function useGameCommands() {
@@ -71,7 +67,7 @@ export function useGameCommands() {
       return result;
     } catch (error) {
       // A transport failure leaves the outcome unknown: keep the envelope for an identical retry.
-      set({ unknown: { envelope, error: message(error) } });
+      set({ unknown: { envelope, error: errorText(error) } });
       return undefined;
     } finally { set({ busy: null }); }
   }, [actions]);

@@ -31,12 +31,17 @@ export function buildTimeline(messages: readonly MessageRow[], calls: readonly C
 }
 
 /** The user's just-sent message, shown until the server's copy arrives (the newest user message has the same text). */
-export function withPending(timeline: TimelineItem[], pending: string | null): TimelineItem[] {
+export function withPending(timeline: TimelineItem[], pending: string | null, usersBefore?: number): TimelineItem[] {
   if (!pending) return timeline;
-  const lastUser = [...timeline].reverse().find(i => i.kind === "user");
+  const users = timeline.filter(i => i.kind === "user");
+  // Known how many user messages there were when it was sent: shown until one more arrives (the same text twice too).
+  if (usersBefore !== undefined) return users.length > usersBefore ? timeline : [...timeline, { kind: "user", key: "pending", text: pending.trim(), pending: true }];
+  const lastUser = users.at(-1);
   if (lastUser?.kind === "user" && lastUser.text === pending.trim()) return timeline;
   return [...timeline, { kind: "user", key: "pending", text: pending.trim(), pending: true }];
 }
+/** User messages in a timeline (what withPending counts against). */
+export const userCount = (timeline: readonly TimelineItem[]) => timeline.filter(i => i.kind === "user" && !i.pending).length;
 
 // ---------------------------------------------------------------------------------------------
 // Confirmation cards
