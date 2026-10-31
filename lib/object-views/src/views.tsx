@@ -5,6 +5,10 @@ import {
   changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
+import {
+  TONE_DECORATION, TONE_SYMBOL, annotationBadges, annotationLegend, cellWeightMap, legendText, markFontWeight, regionEdges, textSegments,
+  toneColour, underlinePx, washOpacity, type Annotation, type BadgeAnnotation, type LegendEntry, type Mark, type RegionEdge,
+} from "./annotations.ts";
 
 export interface ObjectViewProps extends ObjectContext {
   /** The object's value as the public API carries it. */
@@ -16,6 +20,11 @@ export interface ObjectViewProps extends ObjectContext {
   showTitle?: boolean;
   /** Draw with this renderer of the type (e.g. "tiles") instead of the viewer's choice or the type's default. */
   renderer?: string;
+  /**
+   * Marks that draw the eye to what makes up a score (src/annotations.ts): grid cells as a soft wash (digits) or an
+   * outline (tiles), regions as one outline, string spans and Int digits underlined, badges as chips after the object.
+   */
+  annotations?: readonly Annotation[];
 }
 
 export type ObjectComponent = ComponentType<ObjectViewProps>;
@@ -57,14 +66,70 @@ export function objectText(value: ObjectValue): string {
   return typeof value === "number" ? String(value) : JSON.stringify(value);
 }
 
-export function IntObject({ value, className, showTitle }: ObjectViewProps) {
-  const text = objectText(value);
-  return <span className={className} title={showTitle ? text : undefined} data-object-type="Int">{text}</span>;
+/** Inline style of an annotated character: a soft wash, and an underline whose style says the tone and whose thickness the weight. */
+export function markStyle(mark: Mark): CSSProperties {
+  return {
+    backgroundColor: toneColour(mark.tone, washOpacity(mark.weight)),
+    textDecorationLine: "underline", textDecorationStyle: TONE_DECORATION[mark.tone], textDecorationColor: toneColour(mark.tone),
+    textDecorationThickness: underlinePx(mark.weight), textUnderlineOffset: 2, fontWeight: markFontWeight(mark.weight),
+  };
 }
 
-export function StringObject({ value, className, showTitle }: ObjectViewProps) {
+/** Small chips after an object, one per badge annotation; the tone's symbol leads so colour is not the only cue. */
+export function AnnotationBadges({ badges }: { badges: readonly BadgeAnnotation[] }) {
+  if (!badges.length) return null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1 align-middle" data-testid="object-annotation-badges">
+      {badges.map((b, i) => (
+        <span key={i} className="whitespace-nowrap border px-1 font-sans text-[10px] leading-4"
+          style={{ borderColor: toneColour(b.tone, 0.6), backgroundColor: toneColour(b.tone, 0.08) }}>
+          {TONE_SYMBOL[b.tone]} {b.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** The legend of an object's (or a list's) annotations: each label with its tone's swatch and symbol. */
+export function AnnotationLegend({ entries, className, testId = "annotation-legend" }: { entries: readonly LegendEntry[]; className?: string; testId?: string }) {
+  if (!entries.length) return null;
+  return (
+    <p className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${className ?? ""}`} data-testid={testId} aria-label={`Marked: ${legendText(entries)}`}>
+      {entries.map(e => (
+        <span key={`${e.tone}:${e.label}`} className="inline-flex items-center gap-1">
+          <span aria-hidden className="inline-flex h-3 w-3 items-center justify-center text-[9px] font-bold leading-none"
+            style={{ backgroundColor: toneColour(e.tone, washOpacity(1)), color: toneColour(e.tone), border: `1px solid ${toneColour(e.tone, 0.7)}` }}>
+            {TONE_SYMBOL[e.tone]}
+          </span>
+          {e.label}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** Int and string values: the text, with annotated digits or characters washed and underlined. */
+function TextObject({ value, className, showTitle, annotations, type }: ObjectViewProps & { type: "Int" | "string" }) {
   const text = objectText(value);
-  return <span className={className} title={showTitle ? text : undefined} data-object-type="string">{text}</span>;
+  const segments = useMemo(() => (annotations?.length ? textSegments(value, annotations) : null), [value, annotations]);
+  const legend = useMemo(() => (annotations?.length ? legendText(annotationLegend(annotations)) : ""), [annotations]);
+  if (!segments) return <span className={className} title={showTitle ? text : undefined} data-object-type={type}>{text}</span>;
+  const badges = annotationBadges(annotations!);
+  const title = [showTitle ? text : "", legend].filter(Boolean).join("\n") || undefined;
+  return (
+    <span className={className} title={title} data-object-type={type} data-annotated="">
+      {segments.map((s, i) => (s.mark ? <span key={i} style={markStyle(s.mark)} data-mark={s.mark.tone}>{s.text}</span> : <span key={i}>{s.text}</span>))}
+      {badges.length > 0 && <> <AnnotationBadges badges={badges} /></>}
+    </span>
+  );
+}
+
+export function IntObject(props: ObjectViewProps) {
+  return <TextObject {...props} type="Int" />;
+}
+
+export function StringObject(props: ObjectViewProps) {
+  return <TextObject {...props} type="string" />;
 }
 
 function useColourCue(): ColourCue {
@@ -74,8 +139,16 @@ function useColourCue(): ColourCue {
 const compactPx = (n: number) => (n <= 5 ? 14 : n <= 7 ? 12 : 10);
 const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 7 ? 28 : 20);
 
-function Cell({ cell, px, wide, cue, changed, detail }: {
-  cell: GridCellModel; px: number; wide: boolean; cue: ColourCue; changed: boolean; detail: boolean;
+/** Inset strokes along a region's outline (box-shadows, so they take no layout space and meet at the corners). */
+function edgeShadows(edge: RegionEdge | null, px: number): string[] {
+  if (!edge) return [];
+  const c = toneColour(edge.tone, 0.95);
+  return [edge.top && `inset 0 ${px}px 0 0 ${c}`, edge.right && `inset -${px}px 0 0 0 ${c}`, edge.bottom && `inset 0 -${px}px 0 0 ${c}`, edge.left && `inset ${px}px 0 0 0 ${c}`]
+    .filter((x): x is string => !!x);
+}
+
+function Cell({ cell, px, wide, cue, changed, detail, mark, edge }: {
+  cell: GridCellModel; px: number; wide: boolean; cue: ColourCue; changed: boolean; detail: boolean; mark?: Mark | null; edge?: RegionEdge | null;
 }) {
   const showPattern = cue === "pattern";
   const style: CSSProperties = {
@@ -86,9 +159,17 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
     textShadow: showPattern ? `0 0 2px ${cell.css}, 0 0 1px ${cell.css}` : undefined,
     // Changed cells get an outline in the surrounding text colour (inherited), not a hue.
     ...(changed ? { outline: "2px solid currentColor", zIndex: 1 } : {}),
+    // An annotated cell: an outline whose style says the tone and whose thickness the weight, with a soft glow.
+    ...(!changed && mark ? {
+      outline: `${underlinePx(mark.weight)}px ${TILE_OUTLINE[mark.tone]} ${toneColour(mark.tone)}`,
+      outlineOffset: -underlinePx(mark.weight), zIndex: 1,
+    } : {}),
   };
+  const shadows = [...edgeShadows(edge ?? null, detail ? 3 : 2), ...(mark ? [`0 0 ${2 + 4 * mark.weight}px ${toneColour(mark.tone, 2 * washOpacity(mark.weight))}`] : [])];
+  if (shadows.length) style.boxShadow = shadows.join(", ");
   return (
-    <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none" style={style} data-cell={`${cell.code}${cell.letter}`} data-changed={changed || undefined}>
+    <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none" style={style} data-cell={`${cell.code}${cell.letter}`} data-changed={changed || undefined}
+      data-mark={mark?.tone} data-region={edge ? edge.tone : undefined}>
       <span style={{ color: cell.ink, paddingBottom: detail ? Math.round(px * 0.12) : undefined }}>
         {detail ? cell.glyph : cell.compactGlyph}
         {!detail && wide && <span style={{ fontSize: "0.72em", marginLeft: 1 }}>{cell.letter}</span>}
@@ -98,8 +179,21 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
   );
 }
 
-function Cells({ model, px, cue, changes, detail, label }: {
-  model: GridModel; px: number; cue: ColourCue; changes: boolean[][] | null; detail: boolean; label?: string;
+/** Tile outlines per tone (CSS outlines cannot be wavy, so bad marks are dashed). */
+const TILE_OUTLINE = { good: "solid", bad: "dashed", neutral: "dotted" } as const;
+
+/** The marks of a grid's annotations, cell by cell: washes/outlines from `cells`, outline sides from `region`. */
+interface GridMarks {
+  marks: (Mark | null)[][];
+  edges: (RegionEdge | null)[][];
+}
+function gridMarks(annotations: readonly Annotation[] | undefined, size: number): GridMarks | null {
+  if (!annotations?.length) return null;
+  return { marks: cellWeightMap(annotations, size), edges: regionEdges(annotations, size) };
+}
+
+function Cells({ model, px, cue, changes, detail, label, marks }: {
+  model: GridModel; px: number; cue: ColourCue; changes: boolean[][] | null; detail: boolean; label?: string; marks?: GridMarks | null;
 }) {
   const wide = !detail && cue === "letter";
   return (
@@ -109,7 +203,8 @@ function Cells({ model, px, cue, changes, detail, label }: {
       style={{ gridTemplateColumns: `repeat(${model.size}, auto)` }}
     >
       {model.rows.flatMap((row, r) => row.map((cell, k) => (
-        <Cell key={`${r}-${k}`} cell={cell} px={px} wide={wide} cue={cue} detail={detail} changed={!!changes?.[r][k]} />
+        <Cell key={`${r}-${k}`} cell={cell} px={px} wide={wide} cue={cue} detail={detail} changed={!!changes?.[r][k]}
+          mark={marks?.marks[r]?.[k]} edge={marks?.edges[r]?.[k]} />
       )))}
     </span>
   );
@@ -123,17 +218,30 @@ const digitsPx = (n: number) => (n <= 4 ? 13 : n <= 6 ? 12 : n <= 8 ? 11 : 10);
  * Laid out as a CSS grid with right-aligned columns (not the helper's space padding), so columns stay
  * aligned even when a font draws the suit symbols wider than a digit.
  */
-function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string }) {
+function Digits({ model, cue, changes, label, marks }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string; marks?: GridMarks | null }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
+  // Annotated grids pad each cell instead of spacing the columns, so washes and region outlines meet edge to edge.
+  const spacing: CSSProperties = marks ? { columnGap: 0, justifyItems: "stretch" } : { columnGap: "0.45ch" };
   return (
     <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono font-semibold leading-[1.1] select-none"
-      style={{ fontSize: digitsPx(model.size), gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
-      {lines.flatMap((line, r) => line.cells.map((c, k) => (
-        <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}
-          style={{ color: textShadeVar(c.letter), ...(c.changed ? { fontWeight: 800, textDecorationLine: "underline", textDecorationThickness: 2, textUnderlineOffset: 2 } : {}) }}>
-          {c.glyph}
-        </span>
-      )))}
+      style={{ fontSize: digitsPx(model.size), gridTemplateColumns: `repeat(${model.size}, auto)`, ...spacing }} data-renderer="digits">
+      {lines.flatMap((line, r) => line.cells.map((c, k) => {
+        const mark = marks?.marks[r]?.[k], edge = marks?.edges[r]?.[k] ?? null;
+        const shadows = edgeShadows(edge, 1.5);
+        return (
+          <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined} data-mark={mark?.tone}
+            data-region={edge ? edge.tone : undefined}
+            style={{
+              color: textShadeVar(c.letter),
+              ...(marks ? { paddingInline: "0.225ch", textAlign: "right" } : {}),
+              ...(mark ? markStyle(mark) : {}),
+              ...(shadows.length ? { boxShadow: shadows.join(", ") } : {}),
+              ...(c.changed ? { fontWeight: 800, textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: "currentColor", textDecorationThickness: 2, textUnderlineOffset: 2 } : {}),
+            }}>
+            {c.glyph}
+          </span>
+        );
+      }))}
     </span>
   );
 }
@@ -175,8 +283,8 @@ export function useGridRenderer(): GridRendererId {
   return asGridRenderer(useObjectRenderer("Grid"));
 }
 
-function GridView({ model, previous, typeLabel, className, mode }: {
-  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId;
+function GridView({ model, previous, typeLabel, className, mode, annotations }: {
+  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; annotations?: readonly Annotation[];
 }) {
   const cue = useColourCue();
   const [open, setOpen] = useState(false);
@@ -185,16 +293,20 @@ function GridView({ model, previous, typeLabel, className, mode }: {
   const summary = useMemo(() => gridSummary(model), [model]);
   const changes = useMemo(() => changedCells(model, previous), [model, previous]);
   const nChanged = changes ? changes.flat().filter(Boolean).length : 0;
-  const label = nChanged ? `${summary} ${nChanged} cell${nChanged === 1 ? "" : "s"} changed.` : summary;
+  const marks = useMemo(() => gridMarks(annotations, model.size), [annotations, model.size]);
+  const legend = useMemo(() => (annotations?.length ? annotationLegend(annotations) : []), [annotations]);
+  const badges = useMemo(() => (annotations?.length ? annotationBadges(annotations) : []), [annotations]);
+  const legendLine = legendText(legend);
+  const label = [nChanged ? `${summary} ${nChanged} cell${nChanged === 1 ? "" : "s"} changed.` : summary, legendLine && `Marked: ${legendLine}.`].filter(Boolean).join(" ");
 
   const clear = () => { if (timer.current) clearTimeout(timer.current); timer.current = undefined; };
   const hoverIn = (e: PointerEvent) => { if (e.pointerType !== "mouse") return; clear(); if (!open) timer.current = setTimeout(() => setOpen(true), 120); };
   const hoverOut = (e: PointerEvent) => { if (e.pointerType !== "mouse" || pinned.current) return; clear(); timer.current = setTimeout(() => setOpen(false), 160); };
 
-  return (
+  const view = (
     <Popover.Root open={open} onOpenChange={(o) => { clear(); pinned.current = o; setOpen(o); }}>
       <Popover.Trigger asChild>
-        <button type="button" data-object-type="Grid" data-renderer={mode} data-testid="grid-object"
+        <button type="button" data-object-type="Grid" data-renderer={mode} data-testid="grid-object" title={legendLine || undefined}
           className={`inline-flex align-middle rounded-[2px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring ${className ?? ""}`}
           onPointerEnter={hoverIn} onPointerLeave={hoverOut}
           onClick={(e) => {
@@ -204,8 +316,8 @@ function GridView({ model, previous, typeLabel, className, mode }: {
             pinned.current = !open; setOpen(!open);
           }}>
           {mode === "digits"
-            ? <Digits model={model} cue={cue} changes={changes} label={label} />
-            : <Cells model={model} px={compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} />}
+            ? <Digits model={model} cue={cue} changes={changes} label={label} marks={marks} />
+            : <Cells model={model} px={compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} marks={marks} />}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
@@ -219,8 +331,10 @@ function GridView({ model, previous, typeLabel, className, mode }: {
             <span className="text-sm font-semibold">Grid {model.size}×{model.size}</span>
             {typeLabel && <span className="font-mono text-xs text-muted-foreground truncate">{typeLabel}</span>}
           </div>
-          <div className="flex justify-center"><Cells model={model} px={detailPx(model.size)} cue={cue} changes={changes} detail /></div>
+          <div className="flex justify-center"><Cells model={model} px={detailPx(model.size)} cue={cue} changes={changes} detail marks={marks} /></div>
           {changes && <p className="text-xs text-muted-foreground">{nChanged ? `${nChanged} cell${nChanged === 1 ? "" : "s"} changed (outlined).` : "No cells changed."}</p>}
+          <AnnotationLegend entries={legend} testId="grid-object-legend" />
+          {badges.length > 0 && <AnnotationBadges badges={badges} />}
           <code className="block font-mono text-xs break-all bg-muted px-2 py-1 select-all" data-testid="grid-object-canonical">{model.canonical}</code>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <RendererToggle mode={mode} />
@@ -237,6 +351,8 @@ function GridView({ model, previous, typeLabel, className, mode }: {
       </Popover.Portal>
     </Popover.Root>
   );
+  if (!badges.length) return view;
+  return <span className="inline-flex items-center gap-1.5 align-middle">{view}<AnnotationBadges badges={badges} /></span>;
 }
 
 /**
@@ -244,14 +360,14 @@ function GridView({ model, previous, typeLabel, className, mode }: {
  * an open detail view stays open when the viewer switches the display from inside it.
  */
 export function GridObject(props: ObjectViewProps) {
-  const { value, compareTo, grid, className } = props;
+  const { value, compareTo, grid, className, annotations } = props;
   const mode = asGridRenderer(props.renderer);
   const key = `${grid?.size}|${grid?.symbols}|${grid?.colours}`;
   const model = useMemo(() => gridModel(value, grid), [value, key]);
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
   if (!model) return <StringObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
-  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} />;
+  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} annotations={annotations} />;
 }
 
 // Built-in types. Later registrations are tried first when inferring, so Grid wins over string.
