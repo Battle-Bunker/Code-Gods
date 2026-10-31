@@ -119,6 +119,13 @@ type Data = Record<string, any>;
 /** A tool's `data` (the engine's untrusted game data). */
 const call = async (engine: Engine, name: string, args: Record<string, unknown> = {}, timeoutMs?: number): Promise<Data> =>
   (await callTool(engine, name, args, timeoutMs ? { timeoutMs } : {})).data as Data;
+/**
+ * A definite refusal (nothing was applied): a tool's own refusal, a JSON-RPC error, or a configuration /
+ * reconnect problem. A timeout, a dropped connection or an unexpected answer (EngineError UNREACHABLE, a
+ * tool's INTERNAL error) is NOT: the command may have been applied.
+ */
+const definite = (error: unknown): error is ToolError | EngineError | McpError =>
+  (error instanceof ToolError && error.code !== "INTERNAL") || error instanceof McpError || (error instanceof EngineError && error.code !== "UNREACHABLE");
 /** A tool refusal as the CLI's {error, code}. */
 const refusal = (error: unknown, extra: Record<string, unknown> = {}) =>
   error instanceof ToolError ? new AssistantError(error.code, error.message, extra) : error;
@@ -139,10 +146,11 @@ export async function runAssistant(engine: Engine, command: string, flags: Recor
   try {
     switch (command) {
       case "observation": {
-        const o = await call(engine, "get_observation", { objectsLimit: OBSERVATION_LIMITS.objects });
-        const { caps, objectCount, agentCount, ...observation } = o;
+        const result = await callTool(engine, "get_observation", { objectsLimit: OBSERVATION_LIMITS.objects });
+        const { caps, objectCount, agentCount, ...observation } = result.data as Data;
         return { untrustedContent: UNTRUSTED_GAME_DATA, observation, limits: { ...OBSERVATION_LIMITS, ...caps },
-          truncated: objectCount > observation.objects.length || agentCount > observation.agents.length };
+          truncated: result.truncated === true || objectCount > observation.objects.length || agentCount > observation.agents.length ||
+            observation.agents.some((a: { source: string }) => a.source.length >= caps.sourceChars) };
       }
       case "events": {
         const after = flags.after === undefined ? undefined : Number(flags.after);
@@ -190,8 +198,8 @@ export async function runAssistant(engine: Engine, command: string, flags: Recor
           const result = await call(engine, OWNER_TOOL[action.action], ownerArgs(action), 120_000);
           return { requestId: action.requestId, action: action.action, status: "received", result: result.result };
         } catch (error) {
-          if (error instanceof ToolError || error instanceof EngineError || error instanceof McpError) {
-            const code = error instanceof ToolError ? error.code : error instanceof EngineError ? error.code : "INVALID";
+          if (definite(error)) {
+            const code = error instanceof McpError ? "INVALID" : error.code;
             throw new AssistantError(code, error.message, { requestId: action.requestId, status: "rejected" });
           }
           throw new AssistantError("UNCERTAIN", "The engine's answer was lost; the action may already have happened. Never replay a room action automatically: inspect `assistant room-state` first, and keep the original requestId if you retry the same start.",
@@ -266,11 +274,11 @@ async function submitCommand(engine: Engine, token: PlayerToken, retryUnknown: b
     return { commandId, status: "uncertain", message: UNCERTAIN };
   } catch (error) {
     if (error instanceof AssistantError) throw error;
-    if (error instanceof ToolError || error instanceof EngineError || error instanceof McpError) {
+    if (definite(error)) {
       // A definite refusal: nothing was applied, so the journal entry goes.
       delete journal[commandId];
       writeJournal(dir, file, journal);
-      const code = error instanceof ToolError ? error.code : error instanceof EngineError ? error.code : "INVALID";
+      const code = error instanceof McpError ? "INVALID" : error.code;
       throw new AssistantError(code, error.message, { commandId, status: "rejected" });
     }
     journal[commandId].status = "uncertain";

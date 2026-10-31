@@ -4,8 +4,12 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { TOOLS, TOOL_NAMES, buildEnvelope, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
+import { Engine } from "../src/engine.ts";
+import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
   "evaluate_value", "get_chat", "get_receipt"];
@@ -85,4 +89,47 @@ test("buildEnvelope: v3 envelopes with the game's language and id; the given com
   assert.deepEqual(buildEnvelope("destroy_agent", { agentId: "a1", commandId: uuid }, game).command, { type: "destroy", agentId: "a1" });
   assert.deepEqual(buildEnvelope("validate_agent", { source: "def agent(x):\n    return []", language: "python", commandId: uuid }, game).command.type, "validate");
   assert.throws(() => buildEnvelope("summon_agent", { source: "x", commandId: uuid }, { gameId: undefined, language: undefined }), /No game/);
+});
+
+test("envelopeNeedsGame: only game commands without a gameId, or agents without a language, read the current game", () => {
+  assert.equal(envelopeNeedsGame("send_chat", { text: "hi" }), false);
+  assert.equal(envelopeNeedsGame("set_ready", { ready: true }), false);
+  assert.equal(envelopeNeedsGame("pause_game", {}), true);
+  assert.equal(envelopeNeedsGame("pause_game", { gameId: "g" }), false);
+  assert.equal(envelopeNeedsGame("summon_agent", { gameId: "g" }), true, "the language comes from the game");
+  assert.equal(envelopeNeedsGame("summon_agent", { gameId: "g", language: "python" }), false);
+});
+
+/** An engine site whose /mcp loses the summon's answer (a dropped connection), for the CLI's command journal. */
+function lostAnswers(seen: string[]) {
+  return (async (input: string | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url.endsWith("/api/device/token")) {
+      return Response.json({ token: "eyJ.a.b", expiresAt: Date.now() + 600_000, roomId: "room1", permission: "act", credentialId: "cred1", credentialExpiresAt: Date.now() + 86400_000 });
+    }
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    seen.push(body.params?.name ?? body.method);
+    if (body.params?.name === "summon_agent") throw new TypeError("socket hang up");
+    if (body.params?.name === "get_receipt") {
+      return Response.json({ jsonrpc: "2.0", id: body.id, result: { structuredContent: { untrusted: true, notice: "", data: { status: "not_found", commandId: uuid } } } });
+    }
+    return Response.json({ jsonrpc: "2.0", id: body.id, error: { code: -32601, message: "no" } });
+  }) as typeof fetch;
+}
+
+test("assistant command: a lost answer is uncertain and stays in the journal; a JSON-RPC refusal is rejected", async () => {
+  const seen: string[] = [];
+  const env = { CODE_GODS_STATE_DIR: mkdtempSync(join(tmpdir(), "cg-journal-")) };
+  const engine = new Engine({ engineUrl: "https://dep-1.convex.site", credential: "cgc_" + "A".repeat(43) }, { fetch: lostAnswers(seen) });
+  const envelope = { version: "code-gods.player.v3", commandId: uuid, gameId: "g1", command: { type: "summon", language: "typescript", source: "function agent(x) { return [add(1)]; }" } };
+  const io = { readStdin: async () => JSON.stringify(envelope), env };
+  const lost = await runAssistant(engine, "command", {}, io) as { status: string };
+  assert.equal(lost.status, "uncertain", "the summon may have been applied: never 'rejected'");
+  assert.equal(JSON.parse(readFileSync(journalPath("cred1", env).file, "utf8"))[uuid].status, "uncertain");
+  // Resending without --retry-unknown checks the receipt and sends nothing.
+  assert.equal((await runAssistant(engine, "command", {}, io) as { status: string }).status, "uncertain");
+  assert.deepEqual(seen, ["summon_agent", "get_receipt"]);
+  const chat = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), command: { type: "chat", text: "hi" } };
+  await assert.rejects(runAssistant(engine, "command", {}, { readStdin: async () => JSON.stringify(chat), env }),
+    (e: Error & { extra?: { status?: string } }) => e.extra?.status === "rejected");
 });

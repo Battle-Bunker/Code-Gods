@@ -69,7 +69,8 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
   const credentialId = typeof identity.cred === "string" ? identity.cred : null;
   const id = credentialId ? ctx.db.normalizeId("credentials", credentialId) : null;
   const credential = id ? await ctx.db.get(id) : null;
-  if (!credential || credential.subject !== user.subject || credential.revokedAt !== undefined || credential.expiresAt <= Date.now()) return null;
+  if (!credential || credential.subject !== user.subject || credential.revokedAt !== undefined || credential.expiresAt <= Date.now() ||
+    (credential.refreshExpiresAt !== undefined && credential.refreshExpiresAt <= Date.now())) return null;
   return {
     subject: user.subject, name: user.name, scope, roomId: credential.roomId, permission: credential.permission,
     credentialId: credential._id as Id<"credentials">, label: credential.label, isAdmin: false,

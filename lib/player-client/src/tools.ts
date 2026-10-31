@@ -213,6 +213,12 @@ export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_age
 
 type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: "python" | "typescript"; agentId?: string; ready?: boolean; text?: string };
 
+/** Does buildEnvelope need the current game (its id or language) for these arguments? */
+export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
+  const gameCommand = name !== "set_ready" && name !== "send_chat";
+  return (gameCommand && !args.gameId) || ((name === "validate_agent" || name === "summon_agent") && !args.language);
+}
+
 /**
  * The v3 envelope a command tool submits. Game commands (validate, summon, destroy, pause) carry the given
  * gameId or the current game's; validate and summon default to the game's language. commandId is the

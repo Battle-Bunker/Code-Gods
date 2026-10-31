@@ -11,7 +11,7 @@
  */
 import { ConvexError } from "convex/values";
 import {
-  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
+  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
@@ -70,7 +70,8 @@ async function receiptStatus(ctx: ActionCtx, principal: Principal, who: Who, com
  */
 async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, name: CommandToolName, args: Record<string, unknown>): Promise<Page> {
   const { principal, who } = p;
-  const game = await gameOf(ctx, principal, who.roomId);
+  // The observation (a full projection) is read only when the envelope needs the current game or its language.
+  const game = envelopeNeedsGame(name, args) ? await gameOf(ctx, principal, who.roomId) : {};
   let envelope: Envelope;
   try { envelope = buildEnvelope(name, args, game); } catch (error) { return fail("CONFLICT", (error as Error).message); }
   if (name !== "validate_agent" && name !== "summon_agent") {
@@ -151,7 +152,11 @@ export const EXECUTORS: Executors = {
   },
   get_chat: async (ctx, { principal, who }, { before, limit }) => {
     const messages: R<typeof chatFor> = await ctx.runQuery(internal.rooms.chatHistoryAs, { principal, roomId: who.roomId, before, limit });
-    return { data: { messages }, nextCursor: messages.length === limit ? messages[0].timestamp : null };
+    // The next page is strictly older than `before`: when several messages share the oldest timestamp, the
+    // cursor stays just above it, so the next page repeats them rather than skipping any (dedupe by id).
+    const oldest = messages[0]?.timestamp;
+    const shared = messages.length > 1 && messages.every(m => m.timestamp === oldest);
+    return { data: { messages }, nextCursor: messages.length === limit ? (shared ? oldest : oldest + 1) : null };
   },
   get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
   // ----- act -----
@@ -202,7 +207,9 @@ export async function runTool(ctx: ActionCtx, principal: Principal, name: string
   }
   const exec = EXECUTORS[name as ToolName] as Exec<ToolName>;
   const page = await exec(ctx, { principal, who: resolved }, parsed.data as never);
+  // A paged result is never trimmed (its cursor would then skip what was cut): ask for a smaller page instead.
   const { value, truncated } = bound(page.data);
+  if (truncated && page.nextCursor !== undefined) return fail("BAD_REQUEST", "Result too large: request a smaller page (a lower limit)");
   return { untrusted: true, notice: UNTRUSTED_NOTICE, data: value, ...(page.nextCursor !== undefined ? { nextCursor: page.nextCursor } : {}), ...(truncated ? { truncated } : {}) };
 }
 

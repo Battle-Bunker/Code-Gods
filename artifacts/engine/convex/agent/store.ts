@@ -62,8 +62,8 @@ export const authenticate = internalMutation({
 const key = (args: { roomId: string; subject: string; commandId: string }) =>
   (q: any) => q.eq("roomId", args.roomId).eq("subject", args.subject).eq("commandId", args.commandId);
 
-/** A job still "running" after this long died without reporting (its action was killed): treat it as failed. */
-const STALE_MS = 5 * 60_000;
+/** A job still "running" after this long died without reporting (Convex stops actions after 10 minutes): treat it as failed. */
+const STALE_MS = 11 * 60_000;
 const stale = (job: { status: string; createdAt: number }) => job.status === "running" && job.createdAt < Date.now() - STALE_MS;
 
 export const jobFor = internalQuery({
