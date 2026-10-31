@@ -124,7 +124,15 @@ test("open_panel with a place reuses a pane already showing that panel with the 
   assert.ok(objects, "the default layout shows the objects panel");
   const copy = await admin.mutation(internal.layout.openPanelAs, { principal, panelId: "objects", params: {}, place: { relativeTo: "p2", direction: "right" } });
   assert.deepEqual([copy.paneId, copy.reused, Object.keys(copy.layout.panes).length], [objects.id, true, Object.keys(start.layout.panes).length], "no duplicate pane");
+  // … but it does go where it was asked: right after p2 in a row.
+  const order = JSON.stringify(copy.layout.root);
+  assert.ok(order.indexOf(`"${objects.id}"`) > order.indexOf('"p2"'), `the existing pane moved to the right of p2: ${order}`);
   // Different parameters are a different view: the asked-for second pane opens.
   const second = await admin.mutation(internal.layout.openPanelAs, { principal, panelId: "objects", params: { filter: "chips" }, place: { relativeTo: "p2", direction: "right" } });
   assert.deepEqual([second.reused, Object.keys(second.layout.panes).length], [false, Object.keys(start.layout.panes).length + 1]);
+  // A stored panel already open is moved, not opened twice.
+  await ada.c.action(api.panels.save, { slug: "dupe", source: `export default () => null;\n` });
+  const stored = await admin.mutation(internal.layout.openPanelAs, { principal, slug: "dupe" });
+  const again = await admin.mutation(internal.layout.openPanelAs, { principal, slug: "dupe", place: { relativeTo: "p2", direction: "left" } });
+  assert.deepEqual([again.paneId, again.reused, Object.keys(again.layout.panes).length], [stored.paneId, true, Object.keys(stored.layout.panes).length]);
 });

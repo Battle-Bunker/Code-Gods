@@ -7,14 +7,15 @@
  *   - assistantBriefing: the player's own situation (utility, energy, phase, the room language's helpers, the room's
  *     rules, and the panes on their screen), fetched once at the start of each turn and put in front of their message.
  */
-import { toolsFor } from "@workspace/player-client/tools";
+import { OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { GAME_PRIMER } from "./policy.ts";
 
 export type AssistantPromptContext = { playerName: string; roomCode: string | null; permission: "read" | "act" | "owner" };
 
 /** Tools whose calls the player confirms on a card before they run (assistant/rules.ts needsConfirmation). */
 const CONFIRMED = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "delete_setup", "summon_agent"]);
-const OWNER = new Set(["update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"]);
+/** The owner's actions, confirmed like the engine's (assistant/rules.ts): not the owner's reads. */
+const OWNER = new Set<string>(OWNER_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
 
 export function assistantSystemPrompt({ playerName, roomCode, permission }: AssistantPromptContext): string {
   const rights = permission === "read" ? "read-only: you can look things up, explain and arrange the player's screen, but not act in the game"
