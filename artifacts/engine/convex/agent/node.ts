@@ -42,7 +42,10 @@ export const evaluate = internalAction({
   handler: async (ctx, { principal, roomId, value }): Promise<Evaluation> => {
     const mine: Awaited<ReturnType<typeof myUtilityFor>> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId });
     if (!mine) return fail("CONFLICT", "You are not seated in a current game");
-    const tables = await tablesFor(ctx, instantiationOf(mine.settings as GameSettings));
+    let tables;
+    try { tables = await tablesFor(ctx, instantiationOf(mine.settings as GameSettings)); } catch (error) {
+      return fail("UNAVAILABLE", `The calibration tables could not be loaded: ${messageOf(error).slice(0, 300)}`);
+    }
     let s;
     try {
       s = score(tables, mine.settings as GameSettings, mine.utility as UtilityDescriptor, value as ObjectValue);

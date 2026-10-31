@@ -16,7 +16,7 @@
  */
 import { createHash } from "node:crypto";
 import {
-  CALIBRATION_FORMAT, instanceTables, manifestOf, type CalibrationFile, type CalibrationManifest, type InstanceTables,
+  instanceTables, manifestOf, type CalibrationFile, type CalibrationManifest, type InstanceTables,
 } from "@workspace/game-utilities";
 import type { Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
@@ -28,24 +28,32 @@ export const INDEX_TTL_MS = 60_000;
 export const MAX_INSTANCES = 8;
 
 type Row = { instance: string; sha256: string; storageId: Id<"_storage">; entry: string };
-type Index = { manifest: CalibrationManifest; rows: ReadonlyMap<string, Row> };
+type Index = { manifest: CalibrationManifest; rows: ReadonlyMap<string, Row>; signature: string };
 
 let index: { at: number; load: Promise<Index> } | undefined;
 const files = new Map<string, Promise<{ tables: InstanceTables; bytes: number }>>();
 /** How the last tables were obtained (diagnostics and the round-trip test). */
 export const calibrationLoad: { instance?: string; source?: "memory" | "storage" | "none"; ms?: number; bytes?: number } = {};
 
-async function readIndex(ctx: ActionCtx): Promise<Index> {
+/**
+ * The stored rows as a manifest. Unchanged rows (same instances, order and bytes) keep the previous manifest object,
+ * so the memos keyed by it (coverage, the settings domain, manifest.get's lists) survive the refresh.
+ */
+async function readIndex(ctx: ActionCtx, previous: Promise<Index> | undefined): Promise<Index> {
   const rows: Row[] = await ctx.runQuery(internal.calibration.files.index, {});
+  const signature = rows.map(r => `${r.instance}\0${r.sha256}\0${r.storageId}`).join("\n");
+  const old = await previous?.catch(() => undefined);
+  if (old && old.signature === signature) return old;
   return {
     manifest: manifestOf(rows.map(r => [r.instance, JSON.parse(r.entry)] as const)),
     rows: new Map(rows.map(r => [r.instance, r])),
+    signature,
   };
 }
 
 async function currentIndex(ctx: ActionCtx): Promise<Index> {
   if (!index || Date.now() - index.at > INDEX_TTL_MS) {
-    const entry = { at: Date.now(), load: readIndex(ctx) };
+    const entry = { at: Date.now(), load: readIndex(ctx, index?.load) };
     index = entry;
     entry.load.catch(() => { if (index === entry) index = undefined; });
   }
@@ -67,9 +75,7 @@ async function loadFile(ctx: ActionCtx, row: Row): Promise<{ tables: InstanceTab
   const bytes = Buffer.from(await blob.arrayBuffer());
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   if (sha256 !== row.sha256) throw new Error(`The stored calibration file of ${row.instance} has SHA-256 ${sha256}, expected ${row.sha256}`);
-  const file = JSON.parse(bytes.toString("utf8")) as CalibrationFile;
-  if (file.format !== CALIBRATION_FORMAT) throw new Error(`The stored calibration file of ${row.instance} has format ${file.format}`);
-  const tables = instanceTables(row.instance, file);
+  const tables = instanceTables(row.instance, JSON.parse(bytes.toString("utf8")) as CalibrationFile);
   Object.assign(calibrationLoad, { instance: row.instance, source: "storage", ms: performance.now() - start, bytes: bytes.length });
   return { tables, bytes: bytes.length };
 }
@@ -79,6 +85,18 @@ async function loadFile(ctx: ActionCtx, row: Row): Promise<{ tables: InstanceTab
  * dealt there). Cached per process by content hash; a re-uploaded file is a new hash, hence a fresh load.
  */
 export async function tablesFor(ctx: ActionCtx, inst: Instantiation): Promise<InstanceTables> {
+  try {
+    return await tablesFrom(ctx, inst);
+  } catch (error) {
+    // A re-upload deletes the file it replaces: an index cached before it may name a deleted file. Retry once with a
+    // fresh index (a real failure fails again).
+    if (!index) throw error;
+    forgetCalibrationIndex();
+    return tablesFrom(ctx, inst);
+  }
+}
+
+async function tablesFrom(ctx: ActionCtx, inst: Instantiation): Promise<InstanceTables> {
   const row = (await currentIndex(ctx)).rows.get(inst.key);
   if (!row) {
     Object.assign(calibrationLoad, { instance: inst.key, source: "none", ms: 0, bytes: 0 });

@@ -55,8 +55,6 @@ export const run = internalAction({
     if (!snap) return { result: "stale" };
     const { game } = snap;
     const settings = game.settings as GameSettings;
-    // The game's tables: loaded from storage once per process, then served from memory for every tick and act.
-    const tables = await tablesFor(ctx, instantiationOf(settings));
     const base = {
       gameId, seq, epoch: game.executionEpoch, phaseBefore: game.phase, lastTickBefore: game.lastTick,
       objects: [], spawns: [], agents: [], events: [], stats: { opportunities: 0, acts: 0, simulateMs: 0 },
@@ -74,6 +72,8 @@ export const run = internalAction({
       phase = "running"; lastTick = deadline;
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
+    // The game's tables (only a simulating tick needs them): from storage once per process, then from memory.
+    const tables = await tablesFor(ctx, instantiationOf(settings));
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);

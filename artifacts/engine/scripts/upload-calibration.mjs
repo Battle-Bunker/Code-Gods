@@ -31,6 +31,12 @@ export function instanceFiles(dir = CALIBRATION_DIR) {
 /** Upload what changed. `convex(fn, args)` runs a deployment function and resolves with its JSON result. */
 export async function uploadCalibration(convex, { dir = CALIBRATION_DIR, log = console.log } = {}) {
   const keys = instanceFiles(dir);
+  // Pruning mirrors this directory, so refuse a partial one (a sparse checkout, a wrong dir): every instance
+  // manifest.json lists must have its file.
+  if (!existsSync(`${dir}manifest.json`)) throw new Error(`${dir}manifest.json is missing: not a calibration data directory`);
+  const listed = Object.keys(JSON.parse(readFileSync(`${dir}manifest.json`, "utf8")).instances);
+  const absent = listed.filter(k => !keys.includes(k));
+  if (absent.length) throw new Error(`Calibration files listed in manifest.json are missing (${absent.join(", ")}); refusing to upload a partial set`);
   const stored = new Map(((await convex("calibration/files:list")) ?? []).map(r => [r.instance, r]));
   const local = keys.map((instance, rank) => {
     const bytes = readFileSync(`${dir}${instance}.json`);
