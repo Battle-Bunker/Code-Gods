@@ -65,7 +65,7 @@ exists only while `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` and `CODE_GODS_FA
 
 ## MCP (`POST /mcp`) and the agent tools
 
-Every assistant surface (Claude, Claude Code, Replit Agent, the CLI, later the in-client assistant) uses
+Every assistant surface (Claude, Claude Code, Replit Agent, the CLI and the in-client assistant) uses
 one tool registry: definitions in `lib/player-client/src/tools.ts` (zod; JSON Schema committed as
 `tools.schema.json`), executors in `artifacts/engine/convex/agent/registry.ts`. A tool runs inside Convex
 as the human behind the credential, in the credential's one room, through the same projections and
@@ -151,11 +151,11 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 ### Rooms (`rooms`)
 - `create()` mutation (browser) → `{roomId, shortCode, guid}`
 - `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode}]`
-- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, objectInstance, utilityCatalog|null, activeGame|null, serverTime}`
+- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, serverTime}`
 - `join({room})`, `leave({roomId})`, `setReady({roomId, ready})` mutations
 - `chatHistory({roomId, before?})` query
 - `history({room})` query → ended games, newest first: `{id, guid, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, scoring, seasonCommitment}`
-- Owner-only mutations: `approveAiBudget({roomId, aiBudget})`, `addAi({roomId, templateId})` → `{godId}`, `removeAi({roomId, godId})`, `endActiveGame({roomId})`, `resume({roomId})`
+- Owner-only mutations: `approveAiBudget({roomId, aiBudget, assistantBudget?, assistantModel?})` → `{aiBudget, assistantBudget, assistantModel}` (the seats' budget is frozen during games; the assistant allowance per human per game, 0 = off, and its catalog model may change any time), `addAi({roomId, templateId})` → `{godId}`, `removeAi({roomId, godId})`, `endActiveGame({roomId})`, `resume({roomId})`
 
 ### Owner actions (`owner`)
 Browser owner, or an `owner` credential held by the current owner.
@@ -180,6 +180,36 @@ A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any ca
 - `panels.save({slug, source, title?, placement?, size?})` action → `{ok: true, slug, version, diagnostics: []}` or `{ok: false, slug, diagnostics[{line, column, code, message}]}` (nothing stored). Limits: source ≤ 64 KB, compiled ≤ 128 KB, 32 panels, 30 saves a minute.
 - `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`; `panels.place({slug, placement?, size?, title?})`
 - `panels.layout()` query → the dock layout or null; `panels.setLayout({layout})` (≤ 16 KB)
+
+### In-client assistant (`assistant`)
+The assistant drawer of the player client (`docs/surface-architecture.md` §6). Callers: browser sessions and player
+credentials of a room member. Threads, messages and tool calls are visible to their human only (another human gets
+NOT_FOUND).
+- `assistant.send({roomId, text ≤ 4000, threadId?, permission?: read|act|owner, ownerConsent?})` mutation → `{threadId, turnId}`.
+  The first send creates (or reuses) the caller's `kind: "assistant"` credential for the room (default `act`; never
+  above the caller's own; `owner` only for the current owner with `ownerConsent: true`); a different `permission`
+  replaces it. FORBIDDEN when the owner has not enabled the assistant (allowance 0); CONFLICT while the caller's
+  previous turn in the room is still active.
+- `assistant.cancel({turnId})` mutation → `{status}`: `cancelling` (the running step stops at its next flush or between
+  tool calls) or `cancelled`.
+- `assistant.confirm({toolCallId, decision: approve|deny})` mutation → `{status}`: decides a call waiting for
+  confirmation (summons unless auto-approved, public chat, pauses, panel deletion, owner tools). A decision on a call
+  that no longer waits changes nothing. Unanswered cards are denied after 2 minutes.
+- `assistant.setPrefs({roomId, autoApproveSummonBits})` mutation: summons up to this many bits, validated earlier in
+  the same turn, run without a card (0 = always ask).
+- `assistant.status({roomId})` query → `{enabled, allowance{limit, used, epoch}, model{id, label, provider}|null,
+  credential{credentialId, permission, expiresAt}|null, activeTurn{turnId, threadId, status}|null, isOwner, maxPermission,
+  autoApproveSummonBits}`.
+- `assistant.threads({roomId})` query → `[{_id, title, createdAt, updatedAt, activeTurnId}]` (the caller's, newest first).
+- `assistant.thread({threadId})` query → `{thread, turns[{_id, status: running|awaiting_confirmation|cancelling|done|failed|cancelled|budget_exhausted,
+  step, maxSteps, deadline, usage{inputTokens, outputTokens, reservedTokens, reservedUsd}, tools, credentialId, error|null, …}],
+  messages[{_id, turnId, seq, role, text, status: streaming|done|error|cancelled, reservedTokens, inputTokens, outputTokens}],
+  toolCalls[{_id, turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied,
+  summary, resultJson, commandId, confirmDeadline}]}`. `argsJson` is the exact payload the call runs with; `resultJson` is
+  the registry result the model saw (`{untrusted: true, …}` or `{error}`), at most 8 KB.
+
+Internal: `assistant/step:run({turnId, gen})` (one Node action per model step), `assistant/store:*` (the turn loop's
+mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", …})`.
 
 ### Other modules
 - `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, stats, roomActiveGame). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.

@@ -1,0 +1,154 @@
+/**
+ * Pure rules of the in-client assistant (docs/surface-architecture.md §6), shared by the turn loop and the unit
+ * tests (test/unit/assistant.test.ts): no Convex imports.
+ */
+import { OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
+import { bound } from "../agent/bound.ts";
+
+export const LIMITS = {
+  /** Model steps per turn, and a turn's wall-clock deadline. */
+  maxSteps: 12,
+  turnMs: 10 * 60_000,
+  /** A confirmation card waits this long before the call counts as denied. */
+  confirmMs: 2 * 60_000,
+  /** Stored sizes (bytes of UTF-16 text; Convex documents stay small). */
+  textChars: 16 * 1024,
+  argsChars: 8 * 1024,
+  resultChars: 8 * 1024,
+  userTextChars: 4000,
+  /** Streaming flushes: about every 250 ms or 400 characters. */
+  flushMs: 250,
+  flushChars: 400,
+  /** Output ceiling per model step, and how long a summon/validate tool call waits for its receipt. */
+  maxOutputTokens: 4096,
+  waitMs: 60_000,
+  /** Model context: the thread's history is cut (oldest first) to this many characters. */
+  historyChars: 60_000,
+  historyMessages: 60,
+} as const;
+
+export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
+export const ACTIVE: readonly TurnStatus[] = ["running", "awaiting_confirmation", "cancelling"];
+export const isActive = (status: TurnStatus) => ACTIVE.includes(status);
+
+const OWNER = new Set<string>(OWNER_TOOLS.map(t => t.name));
+const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "delete_panel"]);
+
+/**
+ * Does this call wait for the player's confirmation card? Public chat, pauses, panel deletion and every owner tool
+ * always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and this turn already
+ * validated the same source at a cost of at most N.
+ */
+export function needsConfirmation(tool: string, _args: Record<string, unknown>, ctx: { autoApproveSummonBits?: number; validatedCost?: number }): boolean {
+  if (OWNER.has(tool) || ALWAYS_CONFIRM.has(tool)) return true;
+  if (tool !== "summon_agent") return false;
+  const limit = ctx.autoApproveSummonBits ?? 0;
+  return !(limit > 0 && ctx.validatedCost !== undefined && ctx.validatedCost <= limit);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Deterministic ids (RFC 9562 UUIDv5)
+// ---------------------------------------------------------------------------------------------
+
+/** The namespace of assistant command ids. */
+export const COMMAND_NAMESPACE = "5c0d3a6e-9b1f-4c2a-8e7d-2f6b1a9c4d30";
+const hex = (bytes: Uint8Array) => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+const parseUuid = (uuid: string) => Uint8Array.from(uuid.replace(/-/g, "").match(/../g)!.map(h => parseInt(h, 16)));
+
+export function uuidv5(name: string, namespace: string, sha1: (bytes: Uint8Array) => Uint8Array): string {
+  const ns = parseUuid(namespace);
+  const text = new TextEncoder().encode(name);
+  const input = new Uint8Array(ns.length + text.length);
+  input.set(ns); input.set(text, ns.length);
+  const h = sha1(input).slice(0, 16);
+  h[6] = (h[6] & 0x0f) | 0x50;
+  h[8] = (h[8] & 0x3f) | 0x80;
+  const s = hex(h);
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
+}
+/** The command (or owner request) id of one tool call: derived from the turn and the call, never chosen by the model. */
+export const commandIdFor = (turnId: string, callId: string, sha1: (bytes: Uint8Array) => Uint8Array) =>
+  uuidv5(`${turnId.length}:${turnId}:${callId}`, COMMAND_NAMESPACE, sha1);
+
+/** The arguments a call runs with: the derived id in place of any the model gave; summon/validate waits capped. */
+export function prepareArgs(tool: string, args: Record<string, unknown>, id: string): Record<string, unknown> {
+  if (isCommandTool(tool)) {
+    const out: Record<string, unknown> = { ...args, commandId: id };
+    if (tool === "validate_agent" || tool === "summon_agent") out.waitMs = Math.min(Number(args.waitMs ?? LIMITS.waitMs) || LIMITS.waitMs, LIMITS.waitMs);
+    return out;
+  }
+  if (OWNER.has(tool) && findTool(tool)) return { ...args, requestId: id };
+  return args;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tools offered to the model
+// ---------------------------------------------------------------------------------------------
+
+export type ModelTool = { name: string; description: string; inputSchema: Record<string, unknown> };
+let schemas: ReturnType<typeof toolJsonSchemas> | undefined;
+const ENGINE_IDS = ["commandId", "requestId"];
+
+/** The registry's tools a grant may use, as model tool definitions; the ids the engine derives are removed. */
+export function modelTools(permission: "read" | "act" | "owner"): ModelTool[] {
+  schemas ??= toolJsonSchemas();
+  return toolsFor(permission).map(t => {
+    const { $schema: _, ...schema } = schemas![t.name].input as Record<string, unknown> & { properties?: Record<string, unknown>; required?: string[] };
+    const properties = Object.fromEntries(Object.entries((schema.properties ?? {}) as Record<string, unknown>).filter(([k]) => !ENGINE_IDS.includes(k)));
+    const required = ((schema.required ?? []) as string[]).filter(k => !ENGINE_IDS.includes(k));
+    return { name: t.name, description: `${t.title}. ${t.description}`, inputSchema: { ...schema, properties, ...(required.length ? { required } : { required: undefined }) } };
+  }).map(t => ({ ...t, inputSchema: JSON.parse(JSON.stringify(t.inputSchema)) as Record<string, unknown> }));
+}
+
+/**
+ * Stored argument sizes: 8 KB, except agent sources (validate/summon, up to 16 KiB of source) and stored panels
+ * (save_panel, up to 64 KB of TSX), which carry their full code.
+ */
+export function argsLimit(tool: string): number {
+  if (tool === "save_panel") return 70_000;
+  if (tool === "validate_agent" || tool === "summon_agent") return 20_000;
+  return LIMITS.argsChars;
+}
+
+/** A tool result's one-line activity-chip summary (shown to the thread's human only; never logged). */
+export function summarize(tool: string, result: { data: unknown }): string {
+  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string };
+  const line = (text: string) => text.length > 200 ? `${text.slice(0, 199)}…` : text;
+  if (isCommandTool(tool)) {
+    if (data.status === "received") return line(`${data.receipt?.accepted ? "Accepted" : "Rejected"}: ${data.receipt?.message ?? ""}`.trim());
+    if (data.status === "pending") return line(`Pending: ${data.message ?? ""}`);
+    return line(`${data.status === "failed" ? "Failed" : "Not found"}: ${data.message ?? ""}`);
+  }
+  if (tool === "save_panel") {
+    return data.ok ? `Saved version ${data.version}` : `Not saved: ${data.diagnostics?.length ?? 0} diagnostic${data.diagnostics?.length === 1 ? "" : "s"}`;
+  }
+  if (OWNER.has(tool) && data.requestId) return "Done";
+  if (findTool(tool)?.annotations.readOnlyHint) return "Read";
+  return "Done";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bounded JSON
+// ---------------------------------------------------------------------------------------------
+
+/** Cut every string longer than `max` characters (recursively), marking the cut. */
+function cutStrings(value: unknown, max: number): unknown {
+  if (typeof value === "string") return value.length > max ? `${value.slice(0, max)}… [cut]` : value;
+  if (Array.isArray(value)) return value.map(v => cutStrings(v, max));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cutStrings(v, max)]));
+  return value;
+}
+
+/** JSON of `value` in at most `max` characters: arrays trimmed from the end first, then long strings cut. */
+export function clipJson(value: unknown, max: number): string {
+  const json = JSON.stringify(value) ?? "null";
+  if (json.length <= max) return json;
+  for (let strings = max; strings >= 16; strings = Math.floor(strings / 2)) {
+    try {
+      const { value: trimmed } = bound(cutStrings(value, strings), max - 32);
+      const out = JSON.stringify({ ...(trimmed as object), truncated: true });
+      if (out.length <= max) return out;
+    } catch { /* cut strings further */ }
+  }
+  return JSON.stringify({ truncated: true, preview: json.slice(0, Math.max(0, max - 64)) }).slice(0, max);
+}

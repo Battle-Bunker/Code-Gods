@@ -306,7 +306,48 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run("budget", () => approveBudget({ roomId: room.id, aiBudget: b }), () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
       </fieldset>
+      <AssistantBudget room={room} act={act} models={aiFunding?.models} max={aiFunding?.assistantBudgetMax} />
     </Panel>
+  );
+}
+
+/**
+ * The in-client assistant's pool (docs/ai-player-billing.md): an equal allowance of tokens per human per game and the
+ * model, approved by the owner. 0 keeps the assistant off. It may change during a game (everyone's changes alike).
+ */
+function AssistantBudget({ room, act, models, max: ASSISTANT_MAX = 2_000_000 }: { room: RoomState; act: Run; models?: NonNullable<Manifest["aiFunding"]>["models"]; max?: number }) {
+  const approve = useMutation(api.rooms.approveAiBudget);
+  const [tokens, setTokens] = useState(String(room.assistantBudget ?? 0));
+  const [model, setModel] = useState(room.assistantModel);
+  const [agree, setAgree] = useState(false);
+  const n = Number(tokens);
+  const ok = tokens.trim() !== "" && Number.isInteger(n) && n >= 0 && n <= ASSISTANT_MAX;
+  const field = "w-full min-w-0 border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
+  return (
+    <div className="border-t p-4 space-y-3" data-testid="assistant-budget">
+      <div className="flex items-baseline justify-between">
+        <span className="label-mono !text-foreground">In-client assistant</span>
+        <span className="font-mono text-xs" data-testid="text-assistant-budget">{room.assistantBudget ? `${fmt(room.assistantBudget)} tokens per player per game` : "off"}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">Each human in the room gets the same allowance for their own assistant in the player client, per game. It is a separate pool from the AI seats' budget. 0 turns the assistant off.</p>
+      <label className="block text-xs space-y-1"><span>Tokens per player per game</span>
+        <input type="number" min={0} max={ASSISTANT_MAX} step={1000} value={tokens} onChange={(e) => { setTokens(e.target.value); setAgree(false); }} className={field} data-testid="input-assistant-budget" />
+      </label>
+      {!ok && <p role="alert" className="text-xs text-accent">Enter a whole number from 0 to {fmt(ASSISTANT_MAX)} tokens.</p>}
+      <label className="block text-xs space-y-1"><span>Model</span>
+        <select value={model} onChange={(e) => { setModel(e.target.value); setAgree(false); }} className={field} data-testid="select-assistant-model">
+          {(models ?? [{ id: room.assistantModel, label: room.assistantModel, configured: true }]).map(m => (
+            <option key={m.id} value={m.id}>{m.label}{m.configured ? "" : " (no API key on this deployment)"}</option>
+          ))}
+        </select>
+      </label>
+      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-assistant" />
+        I approve each player's assistant in this room using up to {ok ? fmt(n) : "?"} tokens per game, billed directly to the server owner's provider accounts. Separate dollar limits per game and per day still apply.
+      </label>
+      <button disabled={!ok || !agree || act.pending} onClick={() => act.run("assistant-budget", () => approve({ roomId: room.id, aiBudget: room.aiBudget, assistantBudget: n, assistantModel: model }), () => setAgree(false))}
+        className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-assistant-budget">Approve assistant allowance</button>
+    </div>
   );
 }
 

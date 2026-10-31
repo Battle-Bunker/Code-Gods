@@ -9,6 +9,7 @@ import { instantiationOf, leaderboard, type GameSettings } from "@workspace/game
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
+import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { agentStatus, godEnergy, viewOf, viewOfNet, worldNow } from "./world";
 
 export const SCORING = "information-v1" as const;
@@ -86,6 +87,8 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     chat: chat.map(chatView),
     aiBudget: room.aiBudget, aiUsed: room.aiUsed, aiReservedUsd: room.aiReservedUsd,
     aiInputTokens: room.aiInputTokens, aiOutputTokens: room.aiOutputTokens,
+    // The in-client assistant's pool: tokens per human per game (0 = off) and its model.
+    assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel ?? DEFAULT_AGENT_MODEL,
     // The lobby describes the NEXT game: its object type and the families its gods might draw, never who drew which.
     objectInstance: objectInstance(settings),
     utilityCatalog: catalog ?? null,

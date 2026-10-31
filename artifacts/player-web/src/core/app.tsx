@@ -11,6 +11,7 @@ import { RoomProvider } from "@/sdk/context";
 import { Dock } from "@/shell/dock";
 import Console from "./console";
 import { CoreBoundary } from "./core-boundary";
+import { AssistantToggle } from "./assistant/drawer";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -94,7 +95,10 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
     <RoomProvider room={room}>
       <Dock>
         <CoreBoundary>
-          <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>} />
+          <Console header={<>
+            <span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
+            <AssistantToggle />
+          </>} />
         </CoreBoundary>
       </Dock>
     </RoomProvider>
