@@ -21,6 +21,7 @@ const run = (script: string, env: Record<string, string>) => spawnSync(node[0], 
 const SCRIPTS = [
   "artifacts/engine/scripts/dev.mjs",
   "artifacts/engine/scripts/test-auth.mjs",
+  "artifacts/engine/scripts/assistant-provider.mjs",
   "lib/player-client/scripts/test.mjs",
   "artifacts/code-gods/e2e/smoke.ts",
   "artifacts/player-web/e2e/multi-client.ts",
