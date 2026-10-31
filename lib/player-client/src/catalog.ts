@@ -248,7 +248,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "owner.settings": {
     kind: "action", audience: "owner",
     human: { title: "Choose the next game's setup", tooltip: "Applies a preset or edits settings for the next game; running games keep theirs." },
-    ai: { description: "Owner: edit the next game's settings (a partial settings object, retuned to its instantiation, or a preset id) and the AI token budget, sending the room's current revision (CONFLICT when stale)." },
+    ai: { description: "Owner: edit the next game's settings (a partial settings object, retuned to its instantiation, or a preset id) and the AI token budget, sending the room's current revision (CONFLICT when stale). Records settingsOrigin: a preset keeps its id with modified: false; explicit settings mark the preset modified when they differ from it." },
     tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["preset", "configuration", "settings", "world"], surfaces: BOTH },
   },
   "owner.start": {
@@ -343,8 +343,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- rooms -----
   "rooms.create": {
     kind: "mutation", audience: "player",
-    human: { title: "Create a room", tooltip: "Opens a new room with you as owner; share its code to invite players." },
-    ai: { description: "Create a room owned by the signed-in human (browser only), starting on the grid-first-steps preset." },
+    human: { title: "Create a room", tooltip: "Opens a new room on the First steps preset with you as owner, and can turn the assistant on for its players." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It starts on the grid-first-steps preset (settingsOrigin {kind: preset, id, modified: false}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: E },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },

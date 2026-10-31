@@ -145,3 +145,15 @@ Every assistant surface uses one agent interface: the tool registry (lib/player-
 **Why:** The owner wants Replit, Claude artifacts and an in-client assistant to plug into exactly the same interfaces. That interface has to let them act, query state and history, and live-update the client UI.
 
 **How to apply:** New agent capabilities are registry tools, run inside Convex as the human behind a revocable credential (principal = credential), never a surface-specific API. Live UI changes are stored panels: TSX in Convex, compiled on save, rendered in sandboxed frames by every open client. The in-client assistant uses the same executors, is off until the room owner approves an allowance, and asks the player to confirm public chat, summons, pauses and owner actions.
+
+Every public Convex function has an entry in one typed catalogue (lib/player-client/src/catalog.ts: `CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from the generated `api` type) with documentation for humans (title, tooltip) and for the AI (description), the tools that reach it, and a palette spec or a `why`.
+
+**Why:** The owner wants every affordance a player has to be available and documented for their assistant, enumerated in one place that forks into the human and the AI API, with the documentation required by the type system (2026-10-31).
+
+**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palette in both apps read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
+
+The player client is a dock of panes: built-in lenses, the human's stored panels and exactly one assistant pane (never closable). A human picks a pane's lens from a menu; a lens's parameters are set only by the assistant, through the layout tools.
+
+**Why:** The owner centred the interface on the assistant, wants IDE-style movable panes with one analytics lens over the chat by default, and wants every lens parameterised by the AI rather than by controls (docs/ui-redesign.md, 2026-10-31).
+
+**How to apply:** Lens metadata and the layout tree are pure modules in lib/player-client (`lenses.ts`, `layout.ts`) shared by the engine (validation in `convex/layout.ts`, one row per human per room in `dockLayouts`) and the client (rendering). New views are lenses with zod parameter schemas whose fields all default (so the client is complete with the assistant off); the assistant changes the screen only through `open_lens`, `set_lens_params`, `open_panel`, `move_pane` and `close_pane` (no confirmation card, at most two per step, never a pane the player arranged unless asked). Do not reintroduce per-lens controls, dock regions or a per-human-only layout.

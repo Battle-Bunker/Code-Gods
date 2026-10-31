@@ -150,7 +150,8 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   const reader = await credential(ada, roomId, "read");
   const names = await listTools(reader.token);
   assert.ok(names.includes("get_observation") && names.includes("get_receipt"));
-  for (const name of ["send_chat", "summon_agent", "validate_agent", "set_ready", "wake_engine", "start_game", "get_room_state"]) {
+  assert.ok(names.includes("get_layout"), "a read grant may look at the player's screen");
+  for (const name of ["send_chat", "summon_agent", "validate_agent", "set_ready", "wake_engine", "start_game", "get_room_state", "open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"]) {
     assert.ok(!names.includes(name), `read grant lists ${name}`);
     const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : {});
     assert.ok(r.error || r.rpcError, `read grant ran ${name}: ${JSON.stringify(r)}`);
@@ -261,6 +262,20 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     assert.equal(result.untrusted, true, `${name} marks game data untrusted`);
     await check(`mcp ${name}`, result);
   }
+  // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
+  await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
+  const opened = await call(token, "open_lens", { lensId: "objects", params: { limit: 3, highlight: [objects[0].id] } });
+  assert.ok(!opened.error, JSON.stringify(opened).slice(0, 300));
+  const layoutCalls: [string, Record<string, unknown>][] = [
+    ["get_layout", {}], ["set_lens_params", { paneId: opened.data.paneId, params: { sortBy: "othersCare" } }], ["open_panel", { slug: "mcp-mine" }],
+    ["move_pane", { paneId: opened.data.paneId, place: { relativeTo: "p1", direction: "tab" } }], ["close_pane", { paneId: opened.data.paneId }],
+  ];
+  for (const [name, args] of layoutCalls) {
+    const result = await call(token, name, args);
+    assert.ok(result && !result.error && !result.rpcError, `${name}: ${JSON.stringify(result).slice(0, 300)}`);
+    await check(`mcp ${name}`, result);
+  }
+  await check("mcp open_lens", opened);
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);

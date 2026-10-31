@@ -13,6 +13,10 @@ async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
   return "no error";
 }
+async function errorMessage(promise: Promise<unknown>): Promise<string> {
+  try { await promise; } catch (error) { return (error as { data?: { message?: string } }).data?.message ?? (error as Error).message; }
+  return "no error";
+}
 const lensPane = (layout: DockLayout, id: string) => { const p = layout.panes[id]; assert.equal(p.kind, "lens"); return p as Extract<typeof p, { kind: "lens" }>; };
 
 test("a layout is per human per room; the arrangement follows the human to a new room with parameters reset", async () => {
@@ -31,6 +35,9 @@ test("a layout is per human per room; the arrangement follows the human to a new
   assert.equal(mine.setBy?.kind, "browser");
   assert.equal(mine.updatedAt, written.updatedAt);
   assert.equal((await bob.c.query(api.layout.current, { roomId })).source, "default", "another human has their own layout");
+  const [outsider] = await gods("Cyd Outsider");
+  assert.equal(await errorCode(outsider.c.query(api.layout.current, { roomId })), "FORBIDDEN", "a non-member has no layout in the room");
+  assert.equal(await errorCode(outsider.c.mutation(api.layout.set, { roomId, layout: side })), "FORBIDDEN");
   // A second room: the shape is carried, the parameters are not.
   const other = await roomWith([ada, bob]);
   const carried = await ada.c.query(api.layout.current, { roomId: other.roomId });
@@ -50,16 +57,28 @@ test("the layout tools open, reparameterise, move and close panes as the human, 
   const { roomId } = await roomWith([ada]);
   const act = await admin.mutation(internal.testing.seedCredential, { subject: ada.subject, roomId, permission: "act" });
   const principal = { credentialId: act };
+  // Without a place, the default (never chosen) lens pane is switched to the lens: no pane is added to illustrate.
+  const first = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "feed", params: {} });
+  assert.deepEqual([first.paneId, first.reused, Object.keys(first.layout.panes).sort()], ["p1", false, ["p1", "p2"]]);
+  assert.equal(lensPane(first.layout, "p1").lensId, "feed");
+  // Another lens without a place: the assistant's own pane is switched again (still no new pane) …
+  const second = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "race" });
+  assert.deepEqual([second.paneId, Object.keys(second.layout.panes).sort()], ["p1", ["p1", "p2"]]);
+  // … but a pane the player chose is never overridden: a new pane opens instead.
+  await ada.c.mutation(api.layout.set, { roomId, layout: { ...second.layout, panes: { ...second.layout.panes, p1: { ...second.layout.panes.p1, setBy: "human" } } } });
   const opened = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 5, filter: "chips" } });
   assert.equal(opened.reused, false);
   assert.equal(opened.summary, "Top 5 by payoff · only ones others care about");
   assert.deepEqual(Object.keys(opened.layout.panes).sort(), ["p1", "p2", "p3"]);
   assert.equal(lensPane(opened.layout, opened.paneId).setBy, "assistant");
+  assert.equal(lensPane(opened.layout, "p1").lensId, "race", "the player's pane is untouched");
   const again = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 7 } });
   assert.equal(again.reused, true, "one pane per lens unless placed");
   assert.equal(again.paneId, opened.paneId);
   assert.equal(lensPane(again.layout, again.paneId).params.limit, 7);
-  assert.equal(await errorCode(admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 9999 } })), "BAD_REQUEST");
+  const invalid = await errorMessage(admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 9999 } }));
+  assert.match(invalid, /limit/);
+  assert.match(invalid, /Schema: \{"type":"object"/, "the refusal carries the lens's JSON Schema so the model can correct itself");
   assert.equal(await errorCode(admin.mutation(internal.layout.openLensAs, { principal, lensId: "stored" })), "BAD_REQUEST");
   const set = await admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: opened.paneId, params: { sortBy: "mine" } });
   assert.deepEqual(lensPane(set.layout, opened.paneId).params, { sortBy: "mine", filter: "all", limit: 12, highlight: [], layout: "list" });
@@ -81,8 +100,8 @@ test("the layout tools open, reparameterise, move and close panes as the human, 
   // The same read of the layout the assistant gets.
   const current = await admin.query(internal.layout.currentAs, { principal });
   assert.deepEqual(current.layout, seen.layout);
-  // Rate limit: 12 writes a minute per human per room.
+  // Rate limit: 12 writes a minute per human per room (the human's own writes count too).
   let code = "no error";
-  for (let i = 0; i < 12 && code === "no error"; i++) code = await errorCode(admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: "p1", params: { focus: i % 2 ? "goal" : "auto" } }));
+  for (let i = 0; i < 12 && code === "no error"; i++) code = await errorCode(admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: "p1", params: { show: i % 2 ? "top3" : "all" } }));
   assert.equal(code, "RATE_LIMITED");
 });

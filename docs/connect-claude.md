@@ -42,9 +42,12 @@ the page. Setup, the capabilities to declare, limits and how Claude should custo
 `tools/list` shows only what the grant allows:
 
 - **read:** `whoami`, `get_rules`, `get_observation`, `get_events`, `get_trajectories`, `list_games`,
-  `get_game_history`, `get_my_utility`, `evaluate_value` (your own utility only), `get_chat`, `get_receipt`;
+  `get_game_history`, `get_my_utility`, `evaluate_value` (your own utility only), `get_chat`, `get_receipt`,
+  `list_panels`, `get_panel`, `get_layout` (the panes of your player client and the lens catalogue);
 - **act:** also `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat` (public!),
-  `pause_game`, `wake_engine`;
+  `pause_game`, `wake_engine`, your stored panels (`save_panel`, `rollback_panel`, `delete_panel`) and your
+  screen (`open_lens`, `set_lens_params`, `open_panel`, `move_pane`, `close_pane`: every open player client of
+  yours follows at once);
 - **owner:** also `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`,
   `end_game`, `add_ai`, `remove_ai`.
 

@@ -17,7 +17,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
   DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, lensPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout,
-  placeSchema, setPaneParams, type DockLayout, type Pane, type Place,
+  placeSchema, setPaneLens, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
 import { LENS_IDS, isLensId, lensCatalog, parseLensParams, type LensId, type Phase } from "@workspace/player-client/lenses";
 import type { Viewer } from "./auth/access";
@@ -161,8 +161,10 @@ async function change(ctx: MutationCtx, p: Principal, apply: (layout: DockLayout
 }
 
 /**
- * Show a lens with parameters the assistant chose. Without `place`, an open pane of that lens is reused (its
- * parameters replaced, its tab activated) instead of adding a pane: one pane per lens unless asked otherwise.
+ * Show a lens with parameters the assistant chose. Without `place`, no pane is added: an open pane of that lens is
+ * reused (its parameters replaced, its tab activated); else a lens pane nobody chose (setBy default) or one the
+ * assistant set earlier is switched to the lens (the player's own choices are never overridden); only when every
+ * lens pane is the player's does a new pane open. The assistant adds panes only when asked, with `place`.
  */
 export const openLensAs = internalMutation({
   args: { principal, lensId: v.string(), params: v.optional(v.any()), place: placeV },
@@ -171,8 +173,13 @@ export const openLensAs = internalMutation({
     const params = requireParams(lensId, rawParams);
     const place = parsePlace(rawPlace);
     return change(ctx, p, layout => {
-      const open = place ? undefined : lensPanesOf(layout).find(pane => pane.lensId === lensId);
-      if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
+      if (!place) {
+        const lenses = lensPanesOf(layout);
+        const open = lenses.find(pane => pane.lensId === lensId);
+        if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
+        const target = lenses.find(pane => pane.setBy === "default") ?? lenses.filter(pane => pane.setBy === "assistant").at(-1);
+        if (target) return { layout: activatePane(setPaneLens(layout, target.id, lensId, "assistant", params), target.id), paneId: target.id, reused: false };
+      }
       const pane: Pane = { id: "", kind: "lens", lensId, params, setBy: "assistant" };
       return openPane(layout, pane, place);
     });

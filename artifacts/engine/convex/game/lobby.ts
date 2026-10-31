@@ -14,7 +14,7 @@ import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { LEASE_MS } from "../lib/world";
-import { scoreV } from "./tables";
+import { scoreV, settingsOriginV } from "./tables";
 
 /** The room as its current owner sees it, for an owner action. */
 export const ownerContext = internalQuery({
@@ -41,7 +41,7 @@ export const receiptFor = internalQuery({
 });
 
 export const commitSettings = internalMutation({
-  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), catalog: v.any(), aiBudget: v.optional(v.number()) },
+  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), settingsOrigin: v.optional(settingsOriginV), catalog: v.any(), aiBudget: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
     await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
@@ -55,6 +55,7 @@ export const commitSettings = internalMutation({
     await putCatalog(ctx, `room:${room._id}`, args.catalog, room.revision + 1);
     await ctx.db.patch(room._id, {
       settings: args.settings, revision: room.revision + 1, seq: room.seq + 1,
+      ...(args.settingsOrigin ? { settingsOrigin: args.settingsOrigin } : {}),
       ...(args.aiBudget !== undefined ? { aiBudget: args.aiBudget } : {}),
     });
     return { revision: room.revision + 1 };
@@ -99,7 +100,7 @@ export const commitStart = internalMutation({
     const planningEndsAt = now + settings.planningSeconds * 1000;
     const gameId: Id<"games"> = await ctx.db.insert("games", {
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
-      settings, roster,
+      settings, roster, ...(room.settingsOrigin ? { settingsOrigin: room.settingsOrigin } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
       endAtWorld: args.endAtWorld, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
       nextBatch: 0, agentCount: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },

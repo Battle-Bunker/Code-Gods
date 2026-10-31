@@ -20,6 +20,7 @@
     "assistant": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts assistant",
     "test": "node scripts/test.mjs",
     "gen:tools": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-tools.ts",
+    "gen:catalog": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-catalog-doc.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json"
   },
   "dependencies": {

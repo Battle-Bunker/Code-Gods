@@ -63,6 +63,7 @@ import type * as lib_http from "../lib/http.js";
 import type * as lib_load from "../lib/load.js";
 import type * as lib_projection from "../lib/projection.js";
 import type * as lib_rooms from "../lib/rooms.js";
+import type * as lib_settingsOrigin from "../lib/settingsOrigin.js";
 import type * as lib_world from "../lib/world.js";
 import type * as manifest from "../manifest.js";
 import type * as owner from "../owner.js";
@@ -144,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   "lib/load": typeof lib_load;
   "lib/projection": typeof lib_projection;
   "lib/rooms": typeof lib_rooms;
+  "lib/settingsOrigin": typeof lib_settingsOrigin;
   "lib/world": typeof lib_world;
   manifest: typeof manifest;
   owner: typeof owner;

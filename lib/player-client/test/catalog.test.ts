@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { CATALOG, CATALOG_LIMITS, CATALOG_PATHS, paletteEntries, type CatalogEntry, type PublicFunctionPath } from "../src/catalog.ts";
 import { TOOLS, tool, toolsReaching } from "../src/tools.ts";
+import { CATALOG_DOC_END, catalogMarkdown, withCatalogDoc } from "../src/catalog-doc.ts";
 
 const engine = new URL("../../../artifacts/engine/convex/", import.meta.url);
 
@@ -78,6 +79,13 @@ test("human text is short, verb-first and never model instructions; AI text is b
     assert.equal(titles.get(human.title), undefined, `${path}: title "${human.title}" also used by ${titles.get(human.title)}`);
     titles.set(human.title, path);
   }
+});
+
+test("docs/engine-api.md carries the current generated catalogue table", () => {
+  const doc = readFileSync(new URL("../../../docs/engine-api.md", import.meta.url), "utf8");
+  assert.equal(doc, withCatalogDoc(doc), "docs/engine-api.md is stale: run `pnpm --filter @workspace/player-client gen:catalog` and commit it");
+  assert.ok(doc.includes(CATALOG_DOC_END) && doc.includes("| `layout.set` |"));
+  assert.equal(catalogMarkdown().split("\n").length, CATALOG_PATHS.length + 2);
 });
 
 test("palette specs name surfaces and groups; the engine UI never gets player-only commands", () => {
