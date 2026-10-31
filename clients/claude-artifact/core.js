@@ -42,7 +42,8 @@ export function readyInput(ready, commandId) { return { ready: !!ready, commandI
 /** A v4 UUID: a fresh commandId per new intent. */
 export function uuid() {
   const c = globalThis.crypto;
-  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  if (!c?.getRandomValues) throw new Error("This browser has no crypto API to make a command ID.");
+  if (typeof c.randomUUID === "function") return c.randomUUID();
   const b = new Uint8Array(16);
   c.getRandomValues(b);
   b[6] = (b[6] & 0x0f) | 0x40;
@@ -158,9 +159,10 @@ export function viewModel(o, now) {
     id: str(a?.id), energy: num(a?.energy), eligible: a?.eligible === true, acts: num(a?.acts), spent: num(a?.spent),
     summonCost: num(a?.summonCost), expectedActCost: num(a?.expectedActCost),
   }));
+  const me = str(self.godId);
   const leaderboard = list(o.leaderboard).map(r => ({ godId: str(r?.godId), label: str(r?.label), isAI: r?.isAI === true, totalPayoff: num(r?.totalPayoff) }))
     .sort((a, b) => b.totalPayoff - a.totalPayoff)
-    .map((r, i) => ({ rank: i + 1, label: r.label, isAI: r.isAI, totalPayoff: r.totalPayoff, mine: r.godId === str(self.godId) }));
+    .map((r, i) => ({ rank: i + 1, label: r.label, isAI: r.isAI, totalPayoff: r.totalPayoff, mine: me !== "" && r.godId === me }));
   const chat = list(o.chat).slice(-CHAT_TAIL).map(m => ({ id: str(m?.id), label: str(m?.label), isAI: m?.isAI === true, text: str(m?.text) }));
   return {
     phase: str(o.phase), roomShortCode: str(o.roomShortCode), seated: o.seated !== false,

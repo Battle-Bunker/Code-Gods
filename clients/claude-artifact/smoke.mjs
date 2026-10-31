@@ -132,6 +132,24 @@ try {
     await p.close();
   });
 
+  await step("a lost chat locks new messages and offers a resend of the same message and commandId", async () => {
+    const { page: p } = await open({ options: { chatFailsOnce: true } });
+    await p.waitForSelector("#board tr");
+    await p.fill("#chat-text", "hi");
+    await p.click("#chat-open");
+    await p.click("#chat-send");
+    await p.waitForSelector("#chat-action:not([hidden])", { timeout: 10_000 });
+    assert.equal(await p.textContent("#chat-action"), "Resend (same command)");
+    assert.equal(await p.isDisabled("#chat-open"), true, "no second message while the first one's outcome is open");
+    await p.click("#chat-action");
+    await p.waitForFunction(() => /Done/.test(document.querySelector("#chat-status").textContent));
+    const sent = await calls(p, "send_chat");
+    assert.equal(sent.length, 2);
+    assert.deepEqual(sent[1].input, sent[0].input);
+    assert.equal(await p.isDisabled("#chat-open"), false);
+    await p.close();
+  });
+
   await step("phone width, dark scheme: no horizontal page scroll, Ask hidden without sample", async () => {
     const { page: p, errors: e } = await open({ viewport: { width: 390, height: 844 }, scheme: "dark", options: { noSample: true } });
     await p.waitForSelector("#board tr");

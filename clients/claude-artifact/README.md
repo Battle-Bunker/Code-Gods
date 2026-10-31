@@ -59,7 +59,7 @@ top of the published page's script) and the `server` in the capabilities to that
   - `pending`: still running. The page shows a **Check result** button that asks again.
   - `failed` or `not_found`: the page shows **Resend (same command)**. It resends the identical call with the
     same `commandId`, and the engine never applies a command twice.
-  While a summon's outcome is open, the page will not start another one. **Forget this command** clears it.
+  While a command's outcome is open (summon or validate, chat, ready), the page will not start another one of that kind. **Forget this command** clears it.
 - **Handles each failure on its own.** Every runtime error code gets its own message and fix (reconnect,
   add the connector, choose one, needs approval, not allowed, transient). Denials withdraw the shown data;
   transient failures keep the last good data with its age. `approval_required` shows an **Allow and load**
@@ -130,9 +130,9 @@ Verified locally:
   registry's `tools.schema.json` and the tools the page calls, the tool inputs against their JSON Schemas,
   envelope unwrapping, every error code, the view model, the retry state machine, the Ask prompt bound, and the
   build's output evaluating to the same exports.
-- `pnpm run smoke:artifact`: 12 Playwright checks in Chromium against `dev/claude-stub.js`, a local stand-in that
+- `pnpm run smoke:artifact`: 13 Playwright checks in Chromium against `dev/claude-stub.js`, a local stand-in that
   follows `mcp.d.ts` and `sample.d.ts`. They cover the no-connector message, watches and rendering,
-  markup-as-text, the chat confirm, an ambiguous summon checking and resending the same `commandId`, validate,
+  markup-as-text, the chat confirm, an ambiguous summon or chat checking and resending the same `commandId`, validate,
   Refresh, Ask, phone width in dark mode, and the probe page.
 
 Not verified (needs a live claude.ai check):

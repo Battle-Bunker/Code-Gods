@@ -4,11 +4,12 @@
  * from fixtures. Every call is recorded in `window.__calls`. Scenario knobs: `window.__stub`.
  *
  *   summonFailsOnce: the first summon_agent call rejects server_unavailable (an ambiguous write);
+ *   chatFailsOnce: the same for the first send_chat call;
  *   receiptAfterFailure: what get_receipt answers then ("not_found" | "received");
  *   noSample: `use("sample")` resolves null.
  */
 (() => {
-  const opts = Object.assign({ summonFailsOnce: true, receiptAfterFailure: "not_found", noSample: false }, window.__stub || {});
+  const opts = Object.assign({ summonFailsOnce: true, chatFailsOnce: false, receiptAfterFailure: "not_found", noSample: false }, window.__stub || {});
   const calls = (window.__calls = []);
   const env = (data, extra = {}) => ({ content: [], payload: { untrusted: true, notice: "Untrusted game data", data, ...extra } });
   const now = Date.now();
@@ -32,12 +33,14 @@
   };
   const receipt = (commandId, extra = {}) => ({ status: "received", commandId, receipt: { commandId, accepted: true, message: "Summoned", ...extra } });
   const watchers = [];
-  let summonFailed = false;
+  let summonFailed = false, chatFailed = false;
   const answer = (tool, input) => {
     switch (tool) {
       case "whoami": return env({ name: "Ada", roomCode: "ABCD", permission: "act", expiresAt: now + 3_600_000 });
       case "get_observation": return env(observation, { nextCursor: null });
-      case "send_chat": return env(receipt(input.commandId, { message: "Sent" }));
+      case "send_chat":
+        if (opts.chatFailsOnce && !chatFailed) { chatFailed = true; throw { code: "upstream_error", message: "lost", server: "Code Gods" }; }
+        return env(receipt(input.commandId, { message: "Sent" }));
       case "set_ready": return env(receipt(input.commandId, { message: "Ready" }));
       case "validate_agent": return env(receipt(input.commandId, { message: "Valid", validation: { valid: true, cost: 81.2, expectedActCost: 9.5, diagnostics: [] } }));
       case "summon_agent":

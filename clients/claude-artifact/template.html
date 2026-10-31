@@ -110,8 +110,10 @@
       <div class="stats" id="stats"><span class="muted">Waiting for the first observation.</span></div>
       <div class="row" id="ready-row" hidden>
         <button id="ready" type="button">Mark ready</button>
-        <span class="status" id="ready-status"></span>
+        <button id="ready-action" type="button" hidden></button>
+        <button id="ready-forget" type="button" hidden>Forget this command</button>
       </div>
+      <div class="status" id="ready-status"></div>
       <p class="error" id="obs-error" hidden></p>
       <div class="row" id="approve-row" hidden><button id="approve" type="button">Allow and load</button></div>
     </section>
@@ -152,13 +154,14 @@
       <ul class="chat" id="chat"></ul>
       <form class="row" id="chat-form">
         <input type="text" id="chat-text" maxlength="2000" placeholder="Message the room" autocomplete="off">
-        <button type="submit">Send…</button>
+        <button type="submit" id="chat-open">Send…</button>
       </form>
       <div class="confirm" id="chat-confirm" hidden>
         <span>Everyone in the room reads this. Send it as you?</span>
         <q id="chat-preview"></q>
         <div class="row"><button id="chat-send" type="button" class="primary">Send publicly</button><button id="chat-cancel" type="button">Cancel</button></div>
       </div>
+      <div class="row"><button id="chat-action" type="button" hidden></button><button id="chat-forget" type="button" hidden>Forget this command</button></div>
       <div class="status" id="chat-status"></div>
     </section>
 
@@ -271,8 +274,8 @@ function renderFresh() {
 function renderWho() {
   const w = state.who;
   $("who").textContent = w ? `${w.name || "You"} in room ${w.roomCode || "?"}, ${w.permission} access` : "";
-  for (const id of ["summon-section", "chat-form"]) $(id).querySelectorAll("button, textarea, input").forEach(n => { n.disabled = !state.canAct; });
-  lockSummon(unresolved(summonSlot.s));
+  $("source").disabled = $("chat-text").disabled = !state.canAct;
+  SLOTS.forEach(renderSlot); // re-applies which buttons may start a new command
   if (w && !state.canAct) $("cmd-status").replaceChildren(el("p", { class: "note", text: "This connection has read access. Reconnect with act permission to summon or chat." }));
 }
 
@@ -329,17 +332,21 @@ const STATUS_TEXT = {
 };
 const ACTION_LABEL = { check: "Check result", resend: "Resend (same command)" };
 
-/** One command slot: its state, where it renders, and an optional action button. */
-function slot(statusId, actionId, forgetId) { return { s: null, statusId, actionId, forgetId }; }
-const summonSlot = slot("cmd-status", "cmd-action", "cmd-forget");
-const chatSlot = slot("chat-status");
-const readySlot = slot("ready-status");
+/**
+ * One command slot: its state, where it renders, its check/resend and forget buttons, and the buttons that
+ * start a new command there (locked while the last one's outcome is open, so one intent never runs twice).
+ */
+function slot(prefix, starters) { return { s: null, statusId: `${prefix}-status`, actionId: `${prefix}-action`, forgetId: `${prefix}-forget`, starters }; }
+const summonSlot = slot("cmd", ["validate", "summon"]);
+const chatSlot = slot("chat", ["chat-open", "chat-send"]);
+const readySlot = slot("ready", ["ready"]);
+const SLOTS = [summonSlot, chatSlot, readySlot];
 
 function renderSlot(sl) {
   const s = sl.s;
   const box = $(sl.statusId);
-  if (sl === summonSlot) lockSummon(unresolved(s));
-  if (!s) { box.replaceChildren(); if (sl.actionId) $(sl.actionId).hidden = $(sl.forgetId).hidden = true; return; }
+  for (const id of sl.starters) $(id).disabled = unresolved(s) || !state.canAct;
+  if (!s) { box.replaceChildren(); $(sl.actionId).hidden = $(sl.forgetId).hidden = true; return; }
   const lines = [el("span", { text: `${s.tool}: ${STATUS_TEXT[s.status] ?? s.status}` })];
   if (s.error?.text) lines.push(el("span", { class: "error", text: s.error.text }));
   const r = core.receiptView(s.receipt);
@@ -352,15 +359,14 @@ function renderSlot(sl) {
     }
   }
   box.replaceChildren(...lines);
-  if (sl.actionId) {
-    const action = core.nextAction(s);
-    const btn = $(sl.actionId);
-    btn.hidden = !(action === "check" || action === "resend") || !!core.autoAction(s); // hidden while the page checks by itself
-    btn.textContent = ACTION_LABEL[action] ?? "";
-    btn.disabled = !!s.inFlight;
-    btn.onclick = () => run(sl, action);
-    $(sl.forgetId).hidden = !unresolved(s) || !!s.inFlight;
-  }
+  const action = core.nextAction(s);
+  const btn = $(sl.actionId);
+  btn.hidden = !(action === "check" || action === "resend") || !!core.autoAction(s); // hidden while the page checks by itself
+  btn.textContent = ACTION_LABEL[action] ?? "";
+  btn.disabled = !!s.inFlight;
+  btn.onclick = () => run(sl, action);
+  $(sl.forgetId).hidden = !unresolved(s) || !!s.inFlight;
+  $(sl.forgetId).onclick = () => { sl.s = null; renderSlot(sl); };
 }
 
 /** A command whose outcome is still open: starting a new intent now could run twice. */
@@ -382,10 +388,15 @@ async function run(sl, action) {
   if (sl.s === waiting) return run(sl, auto); // unless the player forgot the command meanwhile
 }
 
-function start(sl, command) { sl.s = command; return run(sl, "send"); }
+/** Start a new command in a slot, unless the slot's last command is still open (its buttons are locked too). */
+function start(sl, command) {
+  if (unresolved(sl.s)) return Promise.resolve();
+  sl.s = command;
+  return run(sl, "send");
+}
 
 function summonOrValidate(tool) {
-  if (unresolved(summonSlot.s)) return; // the buttons are disabled, but keep the rule here too
+  if (unresolved(summonSlot.s)) return;
   const source = $("source").value;
   if (!source.trim()) { $("cmd-status").textContent = "Write an agent first."; return; }
   const id = core.uuid();
@@ -393,10 +404,8 @@ function summonOrValidate(tool) {
   const command = tool === "summon_agent" ? core.newCommand("summon_agent", input, id) : core.newCommand("validate_agent", input, id);
   start(summonSlot, command);
 }
-function lockSummon(locked) { $("validate").disabled = $("summon").disabled = locked || !state.canAct; }
 $("validate").onclick = () => summonOrValidate("validate_agent");
 $("summon").onclick = () => summonOrValidate("summon_agent");
-$("cmd-forget").onclick = () => { summonSlot.s = null; renderSlot(summonSlot); };
 
 // Chat is public: a typed message waits for an explicit second click that shows exactly what goes out.
 $("chat-form").onsubmit = (e) => {
@@ -411,9 +420,10 @@ $("chat-cancel").onclick = () => { $("chat-confirm").hidden = true; };
 $("chat-send").onclick = async () => {
   const text = $("chat-preview").textContent;
   $("chat-confirm").hidden = true;
+  if (unresolved(chatSlot.s)) return;
   const id = core.uuid();
   await start(chatSlot, core.newCommand("send_chat", core.chatInput(text, id), id));
-  if (chatSlot.s.status === "done") $("chat-text").value = "";
+  if (chatSlot.s?.status === "done") $("chat-text").value = "";
 };
 
 $("ready").onclick = () => {
@@ -457,7 +467,7 @@ async function use(name) { try { return window.claude?.use ? await window.claude
 
 setInterval(() => { if (state.obs) { renderStatus(core.viewModel(state.obs.data, Date.now())); renderFresh(); } }, 1000); // local clocks only, no calls
 render();
-[summonSlot, chatSlot, readySlot].forEach(renderSlot);
+SLOTS.forEach(renderSlot);
 
 const [mcpNs, sample] = await Promise.all([use("mcp"), use("sample")]);
 if (sample) setupAsk(sample);

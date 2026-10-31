@@ -182,6 +182,8 @@ test("viewModel: leaderboard ranked by payoff with my row marked; chat is the ta
   assert.equal(vm.chat.length, 10);
   assert.equal(vm.chat.at(-1).text, "m14");
   assert.deepEqual(vm.chat[0], { id: "c5", label: "Bo", isAI: true, text: "m5" });
+  const anonymous = viewModel({ ...observation, self: { label: "Ada" }, leaderboard: [{ label: "Bo", totalPayoff: 1 }] }, 0);
+  assert.equal(anonymous.leaderboard[0].mine, false, "a missing godId on both sides is not a match");
 });
 
 test("viewModel: game strings stay strings, and a sparse lobby observation does not throw", () => {
