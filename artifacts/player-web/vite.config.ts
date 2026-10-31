@@ -77,7 +77,13 @@ export default defineConfig({
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
     // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211
-    ...(process.env.CODE_GODS_SITE_URL ? { proxy: { '/api': { target: process.env.CODE_GODS_SITE_URL, changeOrigin: true } } } : {}),
+    // Better Auth trusts only the engine's origin, so the proxy presents it (as artifacts/code-gods does).
+    ...(process.env.CODE_GODS_SITE_URL ? { proxy: { '/api': {
+      target: process.env.CODE_GODS_SITE_URL, changeOrigin: true,
+      configure: (proxy: { on(event: 'proxyReq', fn: (req: { getHeader(n: string): unknown; setHeader(n: string, v: string): void }) => void): void }) => {
+        proxy.on('proxyReq', req => { if (req.getHeader('origin')) req.setHeader('origin', new URL(process.env.CODE_GODS_SITE_URL!).origin); });
+      },
+    } } } : {}),
     fs: {
       strict: true,
     },

@@ -20,6 +20,7 @@ import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { createClient, type AuthFunctions, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
+import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
 import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import { internalAction, type MutationCtx } from "../_generated/server";
@@ -43,11 +44,16 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           subject: doc._id, name: doc.name, email: doc.email, emailVerified: doc.emailVerified, updatedAt: Date.now(),
         });
       },
+      // Every sign-in refreshes the Better Auth user from the provider; touch our row only on a real change,
+      // since getViewer reads it in every query. A missing row (or provider) is rebuilt from the account.
       onUpdate: async (ctx, doc) => {
         const row = await userBySubject(ctx, doc._id);
-        const fields = { name: doc.name, email: doc.email, emailVerified: doc.emailVerified, updatedAt: Date.now() };
-        if (row) await ctx.db.patch(row._id, fields);
-        else await ctx.db.insert("users", { subject: doc._id, ...fields });
+        const fields = { name: doc.name, email: doc.email, emailVerified: doc.emailVerified };
+        if (!row) {
+          await ctx.db.insert("users", { subject: doc._id, ...fields, ...(await providerFields(ctx, doc._id)), updatedAt: Date.now() });
+        } else if (row.name !== doc.name || row.email !== doc.email || row.emailVerified !== doc.emailVerified || !row.provider) {
+          await ctx.db.patch(row._id, { ...fields, ...(row.provider ? {} : await providerFields(ctx, doc._id)), updatedAt: Date.now() });
+        }
       },
       onDelete: async (ctx, doc) => {
         const row = await userBySubject(ctx, doc._id);
@@ -58,13 +64,21 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
       // Linking is off, so a user has exactly one account: the provider that created it.
       onCreate: async (ctx, doc) => {
         const row = await userBySubject(ctx, doc.userId);
-        if (row) {
-          await ctx.db.patch(row._id, { provider: doc.providerId, ...(doc.providerId === "google" ? { googleSub: doc.accountId } : {}) });
-        }
+        if (row) await ctx.db.patch(row._id, accountFields(doc));
       },
     },
   },
 });
+
+const accountFields = (account: { providerId: string; accountId: string }) =>
+  ({ provider: account.providerId, ...(account.providerId === "google" ? { googleSub: account.accountId } : {}) });
+/** The provider fields from the user's (only) account, or none yet. */
+async function providerFields(ctx: MutationCtx, userId: string) {
+  const account = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "account", where: [{ field: "userId", value: userId }],
+  }) as { providerId: string; accountId: string } | null;
+  return account ? accountFields(account) : {};
+}
 
 export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 
@@ -76,10 +90,14 @@ export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
 const betterAuthProvider = authConfig.providers.find(p => p.applicationID === "convex");
 const staticJwks = () => betterAuthProvider && "jwks" in betterAuthProvider && betterAuthProvider.jwks?.startsWith("data:")
   ? process.env.BETTER_AUTH_JWKS : undefined;
+/** The auth config with Better Auth's JWKS by URL: what rotateKeys runs with, whatever BETTER_AUTH_JWKS holds. */
+const dynamicAuthConfig = {
+  providers: authConfig.providers.map(p => p.applicationID === "convex" ? getAuthConfigProvider() : p),
+};
 
-const profileToUser =(profile: Record<string, unknown>) => ({ name: profileName(profile) });
+const profileToUser = (profile: Record<string, unknown>) => ({ name: profileName(profile) });
 
-export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly } = { optionsOnly: false }) {
+export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly = false, rotating = false } = {}) {
   const base = siteUrl();
   const fake = fakeProvider(process.env);
   const options = {
@@ -101,7 +119,8 @@ export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly } = { optio
       },
     },
     plugins: [
-      convex({ authConfig, jwks: staticJwks(), jwt: { expirationSeconds: 600, definePayload: () => ({}) } }),
+      // Rotating ignores a static JWKS, so the plugin can write a new key to its table and return it.
+      convex({ authConfig: rotating ? dynamicAuthConfig : authConfig, jwks: rotating ? undefined : staticJwks(), jwt: { expirationSeconds: 600, definePayload: () => ({}) } }),
       ...(fake ? [genericOAuth({
         config: [{
           ...fake, clientSecret: "fake-oidc-local", scopes: ["openid", "profile", "email"], pkce: true, overrideUserInfo: true,
@@ -121,5 +140,5 @@ export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly } = { optio
  */
 export const rotateKeys = internalAction({
   args: {},
-  handler: async (ctx) => await createAuth(ctx).api.rotateKeys(),
+  handler: async (ctx) => await createAuth(ctx, { rotating: true }).api.rotateKeys(),
 });

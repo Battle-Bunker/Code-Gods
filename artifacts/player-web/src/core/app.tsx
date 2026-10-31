@@ -58,7 +58,8 @@ function Hosted() {
     return (
       <Screen title="Sign in to the pantheon">
         <p>Sign in with Google on this engine. Your full name is shown in the room; chat is public.</p>
-        <button data-testid="link-login" onClick={signIn} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Google</button>
+        {error && <p className="text-sm text-destructive" data-testid="text-login-error">{error}</p>}
+        <button data-testid="link-login" onClick={() => { void signIn().then(e => { if (e) setError(e); }); }} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Google</button>
       </Screen>
     );
   }

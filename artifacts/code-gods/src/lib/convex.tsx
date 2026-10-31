@@ -16,6 +16,7 @@ import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-au
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { api } from "@/lib/convex-api";
+import { toast } from "@/hooks/use-toast";
 
 export { api };
 
@@ -53,14 +54,20 @@ function useBrowserSession(): Session {
   const me = useLive(api.auth.user.me, isAuthenticated ? {} : "skip");
   const login = useCallback(() => {
     const returnTo = window.location.pathname + window.location.search || "/";
-    void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
+    // Better Auth resolves with {error} rather than throwing; without a redirect the button would look dead.
+    void authClient.signIn.social({ provider: "google", callbackURL: returnTo }).then(
+      r => { if (r.error) toast({ title: "Sign-in failed", description: r.error.message ?? `HTTP ${r.error.status}`, variant: "destructive" }); },
+      (e: unknown) => toast({ title: "Sign-in failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" }));
   }, []);
   const logout = useCallback(() => {
     void authClient.signOut().finally(() => { window.location.href = base || "/"; });
   }, []);
   const data = me.data;
   const user = useMemo(() => (data && data.scope === "browser" ? { id: data.subject, name: data.name, isAdmin: data.isAdmin } : null), [data]);
-  return { user, isLoading: authLoading || me.isLoading, error: me.error, refetch: () => window.location.reload(), login, logout };
+  // Convex still holds a JWT but the engine knows no such human (the session just ended, or no users row):
+  // say so instead of offering a "Sign in" that would come back to the same state.
+  const missing = isAuthenticated && data === null ? new Error("Your session ended or the engine has no profile for you. Reload to sign in again; if it persists, ask the operator.") : null;
+  return { user, isLoading: authLoading || me.isLoading, error: me.error ?? missing, refetch: () => window.location.reload(), login, logout };
 }
 
 export function useSession(): Session {

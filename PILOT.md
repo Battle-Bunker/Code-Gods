@@ -40,8 +40,8 @@ Also set `CODE_GODS_ADMIN_EMAILS` (verified Google emails) and the provider keys
 `CODE_GODS_FAKE_OIDC_URL`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` in production.
 Without `CODE_GODS_SEASON_SALT` the engine refuses to run games in production. Never share the salt
 during the season; game records carry its sha256 commitment. `BETTER_AUTH_SECRET` also encrypts the
-Better Auth signing key: if you change it, run `rotateKeys` and set `BETTER_AUTH_JWKS` again (to rotate
-the key alone, first `npx convex env remove --prod BETTER_AUTH_JWKS`, then run it), and push.
+Better Auth signing key: if you change it (or to rotate the key), run `rotateKeys`, set `BETTER_AUTH_JWKS`
+again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
 
 ### Google sign-in
 
@@ -184,7 +184,9 @@ provider (`scripts/fake-oidc.mjs`), which Better Auth offers as the test-only pr
 Google (dummy client id locally); sign in as a test identity with `POST /api/auth/sign-in/oauth2
 {"providerId":"fake","callbackURL":"/"}` from the page, as `artifacts/code-gods/e2e/smoke.ts` does.
 Signing in offers the test identities alice, bob, carol, admin and unverified. It also sets a random
-season salt, a JWT key and `CODE_GODS_AI_MOCK=1` (an offline mock AI provider).
+season salt, JWT keys, a Better Auth secret and JWKS, and `CODE_GODS_AI_MOCK=1` (an offline mock AI provider).
+A local deployment created before Google sign-in (its `users` rows have `issuer`) refuses the new schema:
+there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again.
 
 A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room CODE --write-env .env.local`
 (gitignored), approve as a test identity, then `PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.

@@ -101,6 +101,14 @@ test("sign-out ends the session at once, even for an unexpired browser JWT", asy
   assert.equal((await browserToken(session)).status, 401, "no new JWTs for the old cookie");
 });
 
+test("an expired session stops an unexpired browser JWT at once", async () => {
+  const { session, jwt } = await login("carol");
+  assert.equal(await errorCode(client(jwt).query("auth/testing:probe", {})), "no error");
+  await fixtures.mutation("auth/testing:expireSession", { sessionId: decodeJwt(jwt).payload.sessionId as string });
+  assert.equal(await errorCode(client(jwt).query("auth/testing:probe", {})), "UNAUTHENTICATED");
+  assert.equal((await browserToken(session)).status, 401, "no new JWTs for an expired session");
+});
+
 test("browser and player JWTs are both accepted and told apart by issuer", async () => {
   const alice = await login("alice");
   const room = await newRoom(alice.subject);

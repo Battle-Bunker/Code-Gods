@@ -73,7 +73,12 @@ export function authClient(): AuthClient {
   return k.__cgAuth ??= makeAuthClient();
 }
 
-/** Hosted mode: start Google sign-in, coming back to this page. */
-export function signIn(): void {
-  void authClient().signIn.social({ provider: "google", callbackURL: location.pathname + location.search });
+/** Hosted mode: start Google sign-in, coming back to this page. Resolves with an error message, if any. */
+export async function signIn(): Promise<string | null> {
+  try {
+    const { error } = await authClient().signIn.social({ provider: "google", callbackURL: location.pathname + location.search });
+    return error ? `Sign-in failed: ${error.message ?? `HTTP ${error.status}`}` : null;
+  } catch (e) {
+    return `Sign-in failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }
