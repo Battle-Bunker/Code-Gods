@@ -77,6 +77,7 @@ A credential is always bound to one human (`subject`), one room and one permissi
 | Read | `whoami`, `get_rules`, `get_observation`, `get_events`, `get_trajectories`, `list_games`, `get_game_history`, `get_my_utility`, `evaluate_value` (own utility only), `get_chat`, `get_receipt` |
 | Act | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game`, `wake_engine` |
 | Owner | `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
+| Game setups | `list_setups` (read); `save_setup`, `delete_setup` (act) |
 | Panels | `list_panels`, `get_panel` (read); `save_panel`, `delete_panel`, `rollback_panel` (act) |
 | Layout (docs/ui-redesign.md §2.4) | `get_layout` (read); `open_panel`, `set_panel_params`, `move_pane`, `close_pane` (act) |
 
@@ -176,7 +177,7 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
   and denies unanswered confirmations.
 
 **Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
-same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel` and every owner tool wait for a card:
+same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel`, `delete_setup` and every owner tool wait for a card:
 the call goes `awaiting_confirmation`, the turn pauses with no action open, the pane shows the exact payload, and
 `assistant.confirm(toolCallId, approve|deny)` resumes it (a new `gen`). Unanswered after 2 minutes, the call is denied.
 Reads, `validate_agent`, `set_ready`, `wake_engine`, panel saves (`save_panel`, `rollback_panel`) and the layout tools

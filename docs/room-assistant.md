@@ -102,11 +102,15 @@ finish with `get_receipt`.
 The tools cover everything the human can do in their client, in four groups: reads (`get_observation`,
 `get_rules`, `get_my_utility`, `evaluate_value`, `get_events`, `get_trajectories`, `get_chat`, `list_games`,
 `get_game_history`, `get_receipt`, `whoami`), acts (`validate_agent`, `summon_agent`, `destroy_agent`,
-`set_ready`, `send_chat`, `pause_game`, `wake_engine`), the human's stored panels (`list_panels`, `get_panel`,
+`set_ready`, `send_chat`, `pause_game`, `wake_engine`), the human's game setups (`list_setups` to read;
+`save_setup` and `delete_setup` with an act grant: named complete settings, the seeded defaults plus the human's
+own, across their rooms), the human's stored panels (`list_panels`, `get_panel`,
 `save_panel`, `rollback_panel`, `delete_panel`) and their screen (`get_layout`, then `open_panel` for a built-in
 or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: the player client is a dock of panels whose
 built-in panels' parameters only an assistant sets; `docs/ui-redesign.md`). Owner grants add `get_room_state`,
-`get_ai_catalog`, `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai`. Each
+`get_ai_catalog`, `update_settings` (a `setupId` from `list_setups`, or the settings fields to change),
+`start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai`. In the in-client assistant, `delete_setup`
+always asks the player first; `save_setup` changes no room and does not. Each
 tool's text comes from the function catalogue (`docs/engine-api.md` "Public function catalogue").
 
 ## Assistant commands
@@ -187,9 +191,10 @@ cat room-action.json | pnpm -s player assistant room-command
 ```
 
 The action JSON is `{"action": settings|start|resume|endGame|addAi|removeAi, "requestId": "NEW_UUID", …}`
-with `revision`, `settings`, `preset` and `aiBudget` for settings, `aiAgentId` for addAi (from
-`ai-catalog`), and `deityId` for removeAi. For settings, read `room-state` first and send its
-`revision`. Use ordinary `command` envelopes to play as the owner.
+with `revision`, `setupId` or `settings` (the fields to change; a language change moves its grammar and
+summon price, an object type its default instantiation, and nothing else moves) and `aiBudget` for settings,
+`aiAgentId` for addAi (from `ai-catalog`), and `deityId` for removeAi. For settings, read `room-state` first and
+send its `revision`. Use ordinary `command` envelopes to play as the owner.
 
 Owner actions are never retried automatically. If the result is `uncertain`, the action may already
 have happened: inspect `room-state` before retrying, and keep the original `requestId` for a retry of

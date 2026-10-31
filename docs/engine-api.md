@@ -108,9 +108,11 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `pause_game` | act | `commandId, gameId?` |
 | `wake_engine` | act | → `activity.touch` |
 | `get_room_state`, `get_ai_catalog` | owner | → `rooms.get`, `aiTemplates.catalog` |
-| `update_settings` | owner | `requestId, revision, settings?, preset?, aiBudget?` |
+| `update_settings` | owner | `requestId, revision, setupId?, settings?, aiBudget?`: a setup from `list_setups` or the settings fields to change, not both |
 | `start_game`, `resume_game`, `end_game` | owner | `requestId` (start is idempotent per requestId) |
 | `add_ai`, `remove_ai` | owner | `requestId, aiAgentId` / `requestId, deityId` |
+| `list_setups` | read | → `setups.list` (the defaults, then the human's own) |
+| `save_setup`, `delete_setup` | act | `name, settings, setupId?, summary?` → `setups.save` (changes no room, so the in-client assistant needs no card); `setupId` → `setups.remove` (always confirmed by the player) |
 | `list_panels`, `get_panel` | read | → `panels.list`; `slug, version?` → `panels.code` |
 | `save_panel`, `rollback_panel`, `delete_panel` | act | `slug, source, title?, placement?, size?` → `panels.save`; `slug, version` → `panels.rollback`; `slug` → `panels.remove` |
 | `get_layout` | read | → `layout.current` plus the built-in panel catalogue (`panels[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's enabled stored panels (`storedPanels[{slug, title, placement, size}]`) |
@@ -156,10 +158,10 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 - `auth/credentials:revoke({credentialId})` mutation; takes effect on the next call
 
 ### Rooms (`rooms`)
-- `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room starts on the `grid-first-steps` preset (`settingsOrigin {kind: "preset", id, modified: false}`); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
+- `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room starts on the seeded First steps setup (`settingsOrigin {kind: "setup", id, modified: false}`; its built-in settings, custom, if an admin removed it); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
 - `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode, settingsOrigin|null}]`
 - `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, settingsOrigin|null, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, serverTime}`.
-  `settingsOrigin` is `{kind: "preset" | "custom", id?, modified}`: which preset the next game is on and whether the owner changed it since (null on rooms older than presets).
+  `settingsOrigin` is `{kind: "setup" | "custom", id?, modified}`: which game setup the next game was put on and whether its settings differ from that setup's now (null on rooms older than origins; `kind: "preset"` only on rooms and games stored before setups, read as custom).
 - `join({room})`, `leave({roomId})`, `setReady({roomId, ready})` mutations
 - `chatHistory({roomId, before?})` query
 - `history({room})` query → ended games, newest first: `{id, guid, shortCode, roomId, startedAt, endedAt, endReason, settings, settingsOrigin|null, roster, leaderboard, winners, worldSeconds, objectCount, scoring, seasonCommitment}`
@@ -167,9 +169,15 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 
 ### Owner actions (`owner`)
 Browser owner, or an `owner` credential held by the current owner.
-- `settings({roomId, revision, settings?, preset?, aiBudget?})` → `{revision}`: merges partial settings and retunes them to the instantiation. It records `settingsOrigin`: a `preset` gives `{kind: "preset", id, modified: false}`; explicit `settings` keep the room's preset and set `modified` to whether they differ from what it produces (custom when the room has no usable preset)
+- `settings({roomId, revision, setupId?, settings?, aiBudget?})` → `{revision}`. `setupId` (a setup the caller can see in `setups.list`) applies that setup's complete settings and records `settingsOrigin {kind: "setup", id, modified: false}`. `settings` holds the fields to change (a whole settings object is fine: unchanged fields are no change), applied through the settings model (`lib/game-core/src/settings-model.ts`): a `language` change sets the grammar and summon-price function to the language's; an `objectType` change takes that type's default offered instantiation and drops excluded families it lacks; `typeArgs` must be an offered instantiation (and drop excluded families it lacks); grammar, goal dealing and summon price must be choices of the language and type; excluded families must exist in the instantiation; every other field is free within `validateSettings` and the server's limits (objects ≤ 1000, spawns ≤ 10/s, planning and pauses ≤ 1 h). Nothing is retuned to suit another field. Explicit settings keep the origin's setup id and set `modified` to whether they differ from that setup's current settings (custom when the room is on no setup). Not both (BAD_REQUEST).
 - `start({roomId, requestId?})` → `{gameId, shortCode, guid}`, idempotent per `requestId`
-- `command({roomId, action: settings|start|resume|endGame|addAi|removeAi, requestId?, revision?, settings?, preset?, aiBudget?, aiAgentId?, deityId?})`: the room assistant's `room-command`
+- `command({roomId, action: settings|start|resume|endGame|addAi|removeAi, requestId?, revision?, setupId?, settings?, aiBudget?, aiAgentId?, deityId?})`: the room assistant's `room-command`
+
+### Game setups (`setups`)
+A catalogue of complete next-game settings with a name (≤ 40 characters) and a one-line summary: the seeded defaults (game-core `SEED_SETUPS`: First steps, Classic, Low income, Big board, Master; `ownerId: null`, changed only by admins in the browser) and each human's own. Defaults are seeded once by `seedId` (also at deploy: `setups:ensureSeeded`); an admin's edits are kept, and a removed default is never re-seeded. Another human's setup is NOT_FOUND. Reads: any caller of that human. Writes: browser sessions and `act`/`owner` credentials. Internal twins `listAs`, `saveAs`, `removeAs` serve the registry.
+- `setups.list()` query → the defaults in shipped order, then the caller's own by name: `[{id, name, summary, settings, seeded, seedId?, mine, editable, updatedAt}]`
+- `setups.save({name, settings, setupId?, summary?})` action → the setup. `settings` must be complete (every GameSettings field, no other), valid, offered and within the server's limits. Without `setupId` a new setup of the caller's (names unique among their own: CONFLICT; at most 50); with it, over one of their own (or, for an admin, a default). The summary defaults to a line generated from the settings (a default keeps its own). Changes no room.
+- `setups.remove({setupId})` mutation → `{removed, name}`: one of the caller's own (an admin may remove a default). Rooms keep their settings.
 
 ### Player (`player`, `commands`, `receipts`)
 Each of these returns the caller's own projection only.
@@ -297,14 +305,14 @@ mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", �
 - `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, stats, roomActiveGame). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
-- `manifest.get()` action: object types with their offered instantiations, presets, options, runtimes and AI funding status.
+- `manifest.get()` action: object types with their offered instantiations (every dealable family calibrated, whatever a room excludes), options, runtimes and AI funding status.
 
 ### Internal twins (principals)
 
 Each player-facing projection and command has an internal twin `<name>As` taking
 `principal: {credentialId}` (`player.observationAs`, `eventsAs`, `historyAs`, `trajectoriesAs`, `myUtilityAs`,
 `receipts.getAs`, `rooms.getAs`, `chatHistoryAs`, `historyAs`, `addAiAs`, `removeAiAs`, `endActiveGameAs`,
-`resumeAs`, `activity.touchAs`, `aiTemplates.catalogAs`, `commands.submitAs`, `owner.commandAs`). They
+`resumeAs`, `activity.touchAs`, `aiTemplates.catalogAs`, `commands.submitAs`, `owner.commandAs`, `setups.listAs`, `saveAs`, `removeAs`). They
 resolve the viewer with `auth/access.ts viewerForCredential` (not revoked, not expired, owner grants only
 for the current owner) and run the same code as the public function.
 
