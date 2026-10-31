@@ -4,9 +4,9 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { OBJECT_RENDERER_KEY_PREFIX, createObjectTypeRegistry, type ObjectRenderer } from "../src/registry.ts";
+import { OBJECT_RENDERER_KEY_PREFIX, createObjectTypeRegistry, type ObjectRendererOf } from "../src/registry.ts";
 
-const r = (id: string): ObjectRenderer<string> => ({ id, label: id, blurb: `${id} blurb`, Component: id.toUpperCase() });
+const r = (id: string): ObjectRendererOf<string> => ({ id, label: id, blurb: `${id} blurb`, Component: id.toUpperCase() });
 
 /** A Map-backed localStorage stand-in, installed for one test and removed after. */
 function withStorage(fn: (store: Map<string, string>) => void, opts: { throws?: boolean } = {}) {

@@ -30,6 +30,7 @@ export const UI_COMMANDS = {
   "ui.aiSpending": { title: "AI spending…", tooltip: "The AI players' token budget and every player's assistant allowance.", group: "owner", section: "settings", keywords: ["budget", "tokens", "billing", "assistant"] },
   "ui.auth.signIn": { title: "Sign in with Google", tooltip: "Sign in with your Google account to create or join rooms.", group: "account", section: "settings", keywords: ["login", "log in"] },
   "ui.auth.signOut": { title: "Sign out", tooltip: "Signs you out of this browser.", group: "account", section: "settings", keywords: ["logout", "log out"] },
+  "ui.objects.renderer": { title: "Show grids as tiles", tooltip: "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", group: "view", section: "views", keywords: ["grid", "tiles", "digits", "display", "compact", "colour"] },
 } as const satisfies Record<string, { title: string; tooltip: string; group: PaletteGroup; section: PaletteSection; keywords: readonly string[] }>;
 export type UiCommandId = keyof typeof UI_COMMANDS;
 
@@ -67,6 +68,8 @@ export interface EngineScope {
   currentPreset?: string;
   minPlayers: number;
   maxPlayers: number;
+  /** How this viewer sees grids (lib/object-views' Grid renderer); digits when absent. */
+  gridRenderer?: "digits" | "tiles";
 }
 
 export interface EngineActions {
@@ -95,6 +98,8 @@ export interface EngineActions {
   rulesText(): string | null;
   serverInfo(): readonly string[];
   whoAmI(): readonly string[];
+  /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
+  setGridRenderer(id: "digits" | "tiles"): void;
   origin: string;
 }
 
@@ -221,6 +226,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.aiSpending", { kind: "local", run: () => act.openSheet("ai-spending") }, () => (!room ? no("Open a room first.", { hidden: true }) : isOwner ? ok : no(`Only the owner, ${room.ownerName}, can change spending.`))),
     ui("ui.auth.signIn", { kind: "local", run: act.login }, () => (user ? no("You are signed in.", { hidden: true }) : ok)),
     ui("ui.auth.signOut", { kind: "local", run: act.logout }, signedIn),
+    scope.gridRenderer === "tiles"
+      ? ui("ui.objects.renderer", { kind: "local", run: () => act.setGridRenderer("digits") }, () => ok,
+        { human: { title: "Show grids as coloured digits", tooltip: "Draws every grid as rows of coloured digits: compact and quick to scan. Remembered in this browser." } })
+      : ui("ui.objects.renderer", { kind: "local", run: () => act.setGridRenderer("tiles") }),
     explainTermCommand(1),
     shortcutsCommand(),
     ...glossaryCommands(),

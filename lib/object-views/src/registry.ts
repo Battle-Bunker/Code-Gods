@@ -28,7 +28,7 @@ export interface ObjectContext {
  * One way to draw a type's values, e.g. a Grid as coloured digits or as tiles. `Component` is whatever the
  * caller renders with (a React component in `views.tsx`; a plain value in the tests).
  */
-export interface ObjectRenderer<C> {
+export interface ObjectRendererOf<C> {
   /** Stable id, remembered per viewer, e.g. "digits". */
   id: string;
   /** Short name for toggles and the palette, e.g. "Digits". */
@@ -42,7 +42,7 @@ export interface ObjectRenderer<C> {
 export interface ObjectTypeEntry<C> {
   /** The settings `objectType` this entry renders, e.g. "Grid". */
   type: string;
-  renderers: readonly ObjectRenderer<C>[];
+  renderers: readonly ObjectRendererOf<C>[];
   /** The id of the renderer used when neither the caller nor the viewer chose one. */
   defaultRenderer: string;
   /** The default renderer's component (the one-renderer shape, for callers that need no choice). */
@@ -56,7 +56,7 @@ export interface ObjectTypeEntry<C> {
 
 /** What `register` takes: several named renderers, or (the original shape) one component. */
 export type ObjectTypeRegistration<C> =
-  | { type: string; renderers: readonly ObjectRenderer<C>[]; defaultRenderer?: string; infer?: (value: ObjectValue) => boolean }
+  | { type: string; renderers: readonly ObjectRendererOf<C>[]; defaultRenderer?: string; infer?: (value: ObjectValue) => boolean }
   | { type: string; component: C; infer?: (value: ObjectValue) => boolean };
 
 export interface ObjectTypeRegistry<C> {
@@ -66,7 +66,7 @@ export interface ObjectTypeRegistry<C> {
   resolve(value: ObjectValue, context?: ObjectContext): ObjectTypeEntry<C> | undefined;
   types(): string[];
   /** A type's renderers, in registration order; empty for an unknown type. */
-  renderers(type: string): readonly ObjectRenderer<C>[];
+  renderers(type: string): readonly ObjectRendererOf<C>[];
   /** The renderer id in effect for this viewer: their remembered choice while the type still has it, else the default. */
   choice(type: string): string | undefined;
   /** Remembers the viewer's renderer for a type. Refuses (false) an id the type does not have. */
@@ -74,7 +74,7 @@ export interface ObjectTypeRegistry<C> {
   /** Called after every accepted `choose`. */
   subscribe(listener: () => void): () => void;
   /** The renderer to draw with: `explicit` when the type has it, else the viewer's choice, else the default. */
-  pick(type: string, explicit?: string): ObjectRenderer<C> | undefined;
+  pick(type: string, explicit?: string): ObjectRendererOf<C> | undefined;
 }
 
 /** localStorage key prefix of the viewer's renderer choice; the type id follows, e.g. `…renderer.Grid`. */

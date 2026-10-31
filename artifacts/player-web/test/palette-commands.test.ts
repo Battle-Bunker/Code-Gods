@@ -28,6 +28,7 @@ const actions: Actions = {
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
   links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
+  objects: { setGridRenderer: rec("gridRenderer") },
   notify: rec("notify"),
 };
 const state = (over: Partial<State> = {}): State => ({
@@ -35,7 +36,7 @@ const state = (over: Partial<State> = {}): State => ({
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, roomCode: "ABCD", gameCode: "WXYZ",
   panes: [{ id: "p1", kind: "lens", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: false }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
-  presets: [{ id: "grid-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], ...over,
+  presets: [{ id: "grid-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
 });
 const ctx = (over: Partial<PaletteContext> = {}): PaletteContext => ({ role: "seated", admin: false, permission: "act", phase: "running", assistantOn: true, scope: { paneId: "p1" }, ...over });
 const find = (commands: Command[], id: string) => { const c = commands.find(x => x.id === id); assert.ok(c, `no command ${id}`); return c; };
@@ -142,4 +143,18 @@ test("pick pages: stored panels open as panes, a glossary term is explained, con
   const glossary = find(commands, "ui.glossary").performer;
   assert.equal(glossary.kind, "form");
   if (glossary.kind === "form" && glossary.page.kind === "pick") assert.ok((await glossary.page.options()).length >= 15);
+});
+
+test("grids switch between coloured digits and tiles, for this viewer, from the view group", async () => {
+  calls.length = 0;
+  const digits = find(playerCommands(state(), actions), "ui.objects.renderer");
+  assert.equal(digits.human.title, "Show grids as tiles");
+  assert.equal(digits.group, "view");
+  assert.equal(digits.performer.kind, "local", "no game command: a display preference");
+  assert.ok(digits.available(ctx({ permission: "read" })).ok, "a read-only connection may still change how it sees grids");
+  await perform(digits);
+  const tiles = find(playerCommands(state({ gridRenderer: "tiles" }), actions), "ui.objects.renderer");
+  assert.equal(tiles.human.title, "Show grids as coloured digits");
+  await perform(tiles);
+  assert.deepEqual(calls, ['gridRenderer ["tiles"]', 'gridRenderer ["digits"]']);
 });

@@ -10,6 +10,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { Link, useLocation } from "wouter";
 import { useAction, useConvex, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
+import { setObjectRenderer, useObjectRenderer } from "@workspace/object-views";
 import { useAuth } from "@/hooks/use-auth";
 import { useManifest } from "@/hooks/use-manifest";
 import { useToast } from "@/hooks/use-toast";
@@ -107,6 +108,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const approve = useMutation(api.rooms.approveAiBudget);
   const saveSettings = useAction(api.owner.settings);
   const revoke = useMutation(api.auth.credentials.revoke);
+  const gridRenderer = useObjectRenderer("Grid") === "tiles" ? "tiles" : "digits";
 
   const fail = useCallback((what: string, e: unknown) => toast({ title: `${what} failed`, description: errMsg(e), variant: "destructive" }), [toast]);
   const roomId = room?.id;
@@ -128,6 +130,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     // The room records which preset it was set from; matching the settings is the fallback for rooms from before that.
     currentPreset: room && manifest ? (room.settingsOrigin ? (room.settingsOrigin.kind === "preset" && !room.settingsOrigin.modified ? room.settingsOrigin.id : undefined) : matchPreset(room.settings, manifest.presets)?.id) : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
+    gridRenderer,
   };
   const act: EngineActions = {
     navigate: to => navigate(to),
@@ -172,10 +175,11 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       manifest.aiFunding.configured ? `AI players and assistants: available${manifest.aiFunding.mock ? " (development: scripted, nothing billed)" : ""}.` : "AI players and assistants: not set up on this server.",
     ] : ["Loading server info…"],
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],
+    setGridRenderer: id => { setObjectRenderer("Grid", id); },
     origin: window.location.origin,
   };
   // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
-  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
