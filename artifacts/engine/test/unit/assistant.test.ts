@@ -6,6 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { OWNER_TOOLS } from "@workspace/player-client/tools";
 import {
   LIMITS, argsLimit, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, uuidv5,
 } from "../../convex/assistant/rules.ts";
@@ -61,6 +62,17 @@ test("command ids and request ids come from the engine, overriding the model's; 
   assert.deepEqual(prepareArgs("send_chat", { text: "hi" }, id), { text: "hi", commandId: id });
   assert.deepEqual(prepareArgs("start_game", { requestId: "x" }, id), { requestId: id });
   assert.deepEqual(prepareArgs("get_observation", { objectsLimit: 5, commandId: "x" }, id), { objectsLimit: 5, commandId: "x" }, "non-command tools are left alone (the schema rejects extras)");
+});
+
+test("owner tools get a request id only when their schema takes one (get_room_state and get_ai_catalog take none and reject extras)", () => {
+  const id = "11111111-2222-5333-8444-555555555555";
+  for (const tool of OWNER_TOOLS) {
+    const prepared = prepareArgs(tool.name, {}, id);
+    const takesId = "requestId" in (tool.input as unknown as { shape: Record<string, unknown> }).shape;
+    assert.deepEqual(prepared, takesId ? { requestId: id } : {}, tool.name);
+    if (!takesId) assert.ok(tool.input.safeParse(prepared).success, `${tool.name} accepts what the engine sends`);
+  }
+  assert.ok(OWNER_TOOLS.some(t => t.name === "get_room_state"), "the catalogue still has the read-only owner tools");
 });
 
 test("a step runs at most 16 calls and at most 2 layout changes", () => {
