@@ -48,6 +48,13 @@ export class EngineError extends Error {
   readonly code: EngineErrorCode;
   constructor(code: EngineErrorCode, message: string) { super(message); this.name = "EngineError"; this.code = code; }
 }
+/** The MCP protocol revision the CLI speaks to the engine's `POST /mcp`. */
+export const MCP_PROTOCOL_VERSION = "2026-07-28";
+/** A JSON-RPC error answer of `POST /mcp` (e.g. -32601 unknown method, -32602 invalid params). */
+export class McpError extends Error {
+  readonly code: number;
+  constructor(code: number, message: string) { super(message); this.name = "McpError"; this.code = code; }
+}
 export const RECONNECT_MESSAGE =
   "reconnect: the room credential was revoked or has expired. Run `pnpm player connect --room CODE` and replace the CODE_GODS_CREDENTIAL Secret.";
 
@@ -200,6 +207,7 @@ export class Engine {
   #pending: Promise<PlayerToken> | undefined;
   #http: ConvexHttpClient | undefined;
   #httpToken: string | undefined;
+  #rpcId = 0;
 
   constructor(config: EngineConfig | { engineUrl: string; credential: string }, options: EngineOptions = {}) {
     if (!CREDENTIAL_PATTERN.test(config.credential)) throw new EngineError("INVALID_CONFIG", `${CREDENTIAL_VAR} is not a Code Gods room credential (cgc_…)`);
@@ -292,6 +300,33 @@ export class Engine {
       catch (error) { lost = error instanceof EngineError ? error : new EngineError("UNREACHABLE", "Token refresh failed"); return null; }
     }, authenticated => { if (!authenticated) options.onAuthLost?.(lost ?? new EngineError("RECONNECT", RECONNECT_MESSAGE)); });
     return client;
+  }
+
+  /**
+   * One MCP JSON-RPC request to the engine's `POST /mcp` (protocol 2026-07-28: per-request `_meta` envelope
+   * and headers; stateless, JSON), authenticated with this credential. Returns the JSON-RPC `result`.
+   * A JSON-RPC error throws McpError; 401 throws EngineError RECONNECT.
+   */
+  async mcp(method: string, params: Record<string, unknown> = {}, options: { timeoutMs?: number } = {}): Promise<Record<string, unknown>> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json", Accept: "application/json, text/event-stream", Authorization: `Bearer ${this.#credential}`,
+      "MCP-Protocol-Version": MCP_PROTOCOL_VERSION, "Mcp-Method": method,
+    };
+    if (method === "tools/call" && typeof params.name === "string") headers["Mcp-Name"] = params.name;
+    const body = { jsonrpc: "2.0", id: ++this.#rpcId, method, params: { ...params, _meta: {
+      "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+      "io.modelcontextprotocol/clientInfo": { name: "code-gods-cli", version: "0.1.0" },
+      "io.modelcontextprotocol/clientCapabilities": {},
+    } } };
+    const response = await request(this.#fetch, `${this.engineUrl}/mcp`, {
+      method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
+    });
+    if (response.status === 401) { this.#token = undefined; throw new EngineError("RECONNECT", RECONNECT_MESSAGE); }
+    const reply = await readJson(response);
+    const error = reply.error as { code?: number; message?: string } | undefined;
+    if (error) throw new McpError(Number(error.code ?? -32603), String(error.message ?? "MCP error"));
+    if (!response.ok || !reply.result || typeof reply.result !== "object") throw new EngineError("UNREACHABLE", `MCP request failed (HTTP ${response.status})`);
+    return reply.result as Record<string, unknown>;
   }
 
   /** `POST /api/device/revoke`: "revoked", or "already_invalid" when the engine no longer accepts it. */

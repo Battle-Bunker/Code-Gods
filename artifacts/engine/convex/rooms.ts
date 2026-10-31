@@ -7,12 +7,15 @@ import { v } from "convex/values";
 import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { requireViewer } from "./auth/access";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
-import { displayName, getCatalog, membersOf, memberOf, recentChat, requireMember, requireOwner, requireReader, requireRoom, shortCodeFor } from "./lib/rooms";
+import {
+  displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
+  shortCodeFor, viewerOf,
+} from "./lib/rooms";
 import { touchActivity } from "./activity";
 
 export const MAX_GODS = 8;
@@ -69,15 +72,22 @@ export const list = query({
 });
 
 /** A room's public state by id, GUID or short code: owner, creation date, members, chat, settings, active game. */
-export const get = query({
-  args: { room: v.string() },
-  handler: async (ctx, { room: ref }) => {
-    const room = await requireRoom(ctx, ref);
-    await requireReader(ctx, room);
-    const [members, chat] = await Promise.all([membersOf(ctx, room._id), recentChat(ctx, room._id)]);
-    const game = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
-    const owner = members.find(m => m.godId === room.ownerId)?.name ?? await displayName(ctx, room.ownerId);
-    return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`)), serverTime: Date.now() };
+export async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
+  const room = await requireRoom(ctx, ref);
+  requireReaderAs(viewer, room);
+  const [members, chat] = await Promise.all([membersOf(ctx, room._id), recentChat(ctx, room._id)]);
+  const game = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
+  const owner = members.find(m => m.godId === room.ownerId)?.name ?? await displayName(ctx, room.ownerId);
+  return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`)), serverTime: Date.now() };
+}
+export const get = query({ args: { room: v.string() }, handler: async (ctx, args) => roomFor(ctx, await requireViewer(ctx), args) });
+/** Internal twin of `get` for a principal; `requireOwner` makes it the owner-only room state of the agent registry. */
+export const getAs = internalQuery({
+  args: { principal: principalV, room: v.string(), requireOwner: v.optional(v.boolean()) },
+  handler: async (ctx, { principal, requireOwner, ...args }) => {
+    const viewer = await viewerOf(ctx, principal);
+    if (requireOwner) await requireOwnerAs(ctx, viewer, await requireRoom(ctx, args.room));
+    return roomFor(ctx, viewer, args);
   },
 });
 
@@ -125,25 +135,32 @@ export const setReady = mutation({
 });
 
 /** Older public chat (members only), 100 messages before `before`. */
+export async function chatFor(ctx: QueryCtx, viewer: Viewer, { roomId, before, limit }: { roomId: string; before?: number; limit?: number }) {
+  const room = await requireRoom(ctx, roomId);
+  await requireMemberAs(ctx, viewer, room, "read");
+  const rows = await recentChat(ctx, room._id, Math.max(1, Math.min(100, Math.floor(limit ?? 100))), 0, (before ?? Infinity) - 1);
+  return rows.map(m => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp }));
+}
 export const chatHistory = query({
   args: { roomId: v.id("rooms"), before: v.optional(v.number()) },
-  handler: async (ctx, { roomId, before }) => {
-    const room = await requireRoom(ctx, roomId);
-    await requireMember(ctx, room, "read");
-    const rows = await recentChat(ctx, room._id, 100, 0, (before ?? Infinity) - 1);
-    return rows.map(m => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp }));
-  },
+  handler: async (ctx, args) => chatFor(ctx, await requireViewer(ctx), args),
+});
+export const chatHistoryAs = internalQuery({
+  args: { principal: principalV, roomId: v.string(), before: v.optional(v.number()), limit: v.optional(v.number()) },
+  handler: async (ctx, { principal, ...args }) => chatFor(ctx, await viewerOf(ctx, principal), args),
 });
 
 /** The room's finished games, newest first: public results only. */
-export const history = query({
-  args: { room: v.string() },
-  handler: async (ctx, { room: ref }) => {
-    const room = await requireRoom(ctx, ref);
-    await requireReader(ctx, room);
-    const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc").take(200);
-    return games.filter(g => g.phase === "ended" && g.summary).slice(0, 100).map(g => g.summary);
-  },
+export async function historyFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
+  const room = await requireRoom(ctx, ref);
+  requireReaderAs(viewer, room);
+  const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc").take(200);
+  return games.filter(g => g.phase === "ended" && g.summary).slice(0, 100).map(g => g.summary);
+}
+export const history = query({ args: { room: v.string() }, handler: async (ctx, args) => historyFor(ctx, await requireViewer(ctx), args) });
+export const historyAs = internalQuery({
+  args: { principal: principalV, room: v.string() },
+  handler: async (ctx, { principal, ...args }) => historyFor(ctx, await viewerOf(ctx, principal), args),
 });
 
 // ------------------------------------------------------------------------------------------------
@@ -166,9 +183,15 @@ export const approveAiBudget = mutation({
 /** Add an AI seat from the template library; the seat snapshots the template (name, provider, model, prompt, revision). */
 export const addAi = mutation({
   args: { roomId: v.id("rooms"), templateId: v.string() },
-  handler: async (ctx, { roomId, templateId }) => {
+  handler: async (ctx, args) => addAiFor(ctx, await requireViewer(ctx), args),
+});
+export const addAiAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms"), templateId: v.string() },
+  handler: async (ctx, { principal, ...args }) => addAiFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }: { roomId: string; templateId: string }) {
     const room = await requireRoom(ctx, roomId);
-    await requireOwner(ctx, room);
+    await requireOwnerAs(ctx, viewer, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     if ((await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "Maximum eight gods");
     const template = await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique();
@@ -180,42 +203,51 @@ export const addAi = mutation({
     });
     await bump(ctx, room);
     return { godId };
-  },
-});
+}
 
 export const removeAi = mutation({
   args: { roomId: v.id("rooms"), godId: v.string() },
-  handler: async (ctx, { roomId, godId }) => {
+  handler: async (ctx, args) => removeAiFor(ctx, await requireViewer(ctx), args),
+});
+export const removeAiAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms"), godId: v.string() },
+  handler: async (ctx, { principal, ...args }) => removeAiFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function removeAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, godId }: { roomId: string; godId: string }) {
     const room = await requireRoom(ctx, roomId);
-    await requireOwner(ctx, room);
+    await requireOwnerAs(ctx, viewer, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     const seat = await memberOf(ctx, room._id, godId);
     if (!seat || seat.kind !== "ai") fail("NOT_FOUND", "AI seat not found");
     await ctx.db.delete(seat._id);
     await bump(ctx, room);
     return null;
-  },
-});
+}
 
 /** The owner closes the active game early; its final state is recorded like any other ending. */
-export const endActiveGame = mutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
-    const room = await requireRoom(ctx, roomId);
-    await requireOwner(ctx, room);
-    const game = await activeGame(ctx, room);
-    if (!game) fail("CONFLICT", "There is no active game to end");
-    await endGame(ctx, game, "owner");
-    return { gameId: game._id };
-  },
+export const endActiveGame = mutation({ args: { roomId: v.id("rooms") }, handler: async (ctx, args) => endFor(ctx, await requireViewer(ctx), args) });
+export const endActiveGameAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms") },
+  handler: async (ctx, { principal, ...args }) => endFor(ctx, await viewerOf(ctx, principal), args),
 });
+async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: string }) {
+  const room = await requireRoom(ctx, roomId);
+  await requireOwnerAs(ctx, viewer, room);
+  const game = await activeGame(ctx, room);
+  if (!game) return fail("CONFLICT", "There is no active game to end");
+  await endGame(ctx, game, "owner");
+  return { gameId: game._id };
+}
 
 /** The owner resumes a game in recovery (e.g. after the 2,000-object safety stop). */
-export const resume = mutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
+export const resume = mutation({ args: { roomId: v.id("rooms") }, handler: async (ctx, args) => resumeFor(ctx, await requireViewer(ctx), args) });
+export const resumeAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms") },
+  handler: async (ctx, { principal, ...args }) => resumeFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function resumeFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: string }) {
     const room = await requireRoom(ctx, roomId);
-    await requireOwner(ctx, room);
+    await requireOwnerAs(ctx, viewer, room);
     const game = await activeGame(ctx, room);
     if (game?.phase !== "recovery") fail("CONFLICT", "Game is not in recovery");
     // Human activity resumes idle-parked games by itself; a safety stop still needs the explicit resume.
@@ -223,5 +255,4 @@ export const resume = mutation({
     const after = await ctx.db.get(game._id);
     if (after?.phase === "recovery") await resumeGame(ctx, after);
     return { gameId: game._id };
-  },
-});
+}

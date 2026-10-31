@@ -33,13 +33,14 @@ export async function jwks(): Promise<{ keys: JWK[] }> {
 
 export type MintInput = { subject: string; credentialId: string; roomId: string; permission: string };
 
-export async function mintPlayerJwt(input: MintInput): Promise<{ token: string; expiresAt: number }> {
+/** `ttlSeconds` (default 10 minutes): MCP OAuth access tokens last 60 minutes (convex/agent/oauth.ts). */
+export async function mintPlayerJwt(input: MintInput, ttlSeconds = JWT_TTL_SECONDS): Promise<{ token: string; expiresAt: number }> {
   const { key, publicJwk } = await signer();
   const now = Math.floor(Date.now() / 1000);
   const token = await new SignJWT({ scope: "player", cred: input.credentialId, room: input.roomId, perm: input.permission })
     .setProtectedHeader({ alg: "RS256", kid: publicJwk.kid, typ: "JWT" })
     .setIssuer(playerIssuer()).setAudience(PLAYER_JWT_AUDIENCE).setSubject(input.subject)
-    .setIssuedAt(now).setExpirationTime(now + JWT_TTL_SECONDS)
+    .setIssuedAt(now).setExpirationTime(now + ttlSeconds)
     .sign(key);
-  return { token, expiresAt: (now + JWT_TTL_SECONDS) * 1000 };
+  return { token, expiresAt: (now + ttlSeconds) * 1000 };
 }

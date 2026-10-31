@@ -31,4 +31,5 @@ export const convexSiteUrl = () => trimSlash(required("CONVEX_SITE_URL"));
 export const playerIssuer = () => playerIssuerFor(convexSiteUrl());
 /** The public origin browsers use (Better Auth baseURL, device verification links). Empty only before deployment. */
 export const siteUrl = () => trimSlash(process.env.CODE_GODS_SITE_URL || process.env.CONVEX_SITE_URL || "");
+export const siteOrigin = () => new URL(siteUrl()).origin;
 export const jwtPrivateKey = () => required("CODE_GODS_JWT_PRIVATE_KEY");

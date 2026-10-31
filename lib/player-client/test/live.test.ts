@@ -96,6 +96,31 @@ test("status: engine, credential, room, permission, expiry and the current user"
   assert.match(parse(missing).error, /CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL/);
 });
 
+test("tools and call: the CLI is an MCP client of /mcp with the device credential, filtered by its permission", async () => {
+  const tools = parse(await cli(["tools"], { env: apps.bob.env }));
+  const names = tools.tools.map((t: { name: string }) => t.name);
+  assert.ok(names.includes("summon_agent") && names.includes("get_observation"), names.join());
+  assert.ok(!names.includes("start_game"), "an act credential lists no owner tools");
+  assert.equal(tools.tools.find((t: { name: string }) => t.name === "get_rules").readOnly, true);
+  const who = await cli(["call", "whoami", "{}"], { env: apps.bob.env });
+  assert.equal(who.status, 0, who.stdout);
+  noSecrets(who.stdout);
+  const me = parse(who);
+  assert.equal(me.untrusted, true);
+  assert.equal(me.data.name, "Bob Okafor");
+  assert.equal(me.data.roomCode, room.shortCode);
+  assert.equal(me.data.kind, "device");
+  const rules = parse(await cli(["call", "get_rules", "-"], { env: apps.bob.env, input: "{}" }));
+  assert.match(rules.data.rules, /payoff/);
+  const readOnly = parse(await cli(["tools"], { env: apps.carol.env })).tools.map((t: { name: string }) => t.name);
+  assert.ok(!readOnly.includes("send_chat"), "a read credential lists no act tools");
+  const refused = await cli(["call", "send_chat", JSON.stringify({ text: "carol's read grant must not post" })], { env: apps.carol.env });
+  assert.equal(refused.status, 1);
+  assert.ok(parse(refused).code, refused.stdout);
+  const bad = await cli(["call", "get_events", "not json"], { env: apps.bob.env });
+  assert.equal(parse(bad).code, "INVALID");
+});
+
 test("owner: room-command needs an owner credential; with one, start works", async () => {
   const start = JSON.stringify({ action: "start", requestId: randomUUID() });
   const refused = await cli(["assistant", "room-command"], { env: apps.bob.env, input: start });

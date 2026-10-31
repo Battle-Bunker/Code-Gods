@@ -24,6 +24,8 @@ export const list = query({
       const room = roomId ? await ctx.db.get(roomId) : null;
       return {
         credentialId: row._id, roomId: row.roomId, roomCode: room?.shortCode ?? null, permission: row.permission,
+        /** device (device flow), oauth (an MCP connection; label = its client's self-reported name) or assistant. */
+        kind: row.kind ?? "device", ...(row.clientId ? { clientId: row.clientId } : {}),
         /** Self-reported by the app that requested it: NOT a verified identity. */
         label: row.label,
         createdAt: row.createdAt, expiresAt: row.expiresAt, lastUsedAt: row.lastUsedAt ?? null,

@@ -13,11 +13,13 @@
     "deploy-static": "node scripts/deploy-static.mjs",
     "fake-oidc": "node scripts/fake-oidc.mjs",
     "upload-runtime": "node scripts/upload-runtime.mjs",
+    "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts",
     "test:unit": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.6",
     "@convex-dev/static-hosting": "0.2.1",
+    "@modelcontextprotocol/server": "2.4.0",
     "@workspace/ai-player": "workspace:*",
     "@workspace/game-core": "workspace:*",
     "@workspace/game-runtime": "workspace:*",
@@ -31,6 +33,8 @@
     "typescript": "5.9.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/node": "catalog:"
   }
 }

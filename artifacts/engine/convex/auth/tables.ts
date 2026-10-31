@@ -26,9 +26,16 @@ export const authTables = {
     /** Poll throttling and proof-failure counting. */
     lastPolledAt: v.optional(v.number()), failures: v.optional(v.number()),
   }).index("by_user_code", ["userCodeHash"]).index("by_room", ["roomId", "expiresAt"]).index("by_expires", ["expiresAt"]),
-  /** Scoped player credentials (default 7 days), exchanged for 10-minute player JWTs. */
+  /**
+   * Scoped player credentials (default 7 days), exchanged for 10-minute player JWTs. One credential is one
+   * principal (docs/surface-architecture.md §3): `kind` says who holds it ("device" when absent: the device
+   * flow, the only kind before MCP). OAuth rows (MCP connections) also keep their client and the hash of the
+   * current rotating refresh token, which expires after 30 days without use.
+   */
   credentials: defineTable({
     tokenHash: v.string(), subject: v.string(), roomId: v.string(), permission, label: v.string(),
     createdAt: v.number(), expiresAt: v.number(), revokedAt: v.optional(v.number()), lastUsedAt: v.optional(v.number()),
-  }).index("by_token", ["tokenHash"]).index("by_subject", ["subject"]),
+    kind: v.optional(v.union(v.literal("device"), v.literal("oauth"), v.literal("assistant"))),
+    clientId: v.optional(v.string()), refreshHash: v.optional(v.string()), refreshExpiresAt: v.optional(v.number()),
+  }).index("by_token", ["tokenHash"]).index("by_subject", ["subject"]).index("by_refresh", ["refreshHash"]),
 };

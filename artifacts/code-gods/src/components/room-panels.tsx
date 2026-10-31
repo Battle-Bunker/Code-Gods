@@ -10,6 +10,7 @@ import { useRun, type Run } from "@/hooks/use-run";
 import { api, useLive } from "@/lib/convex";
 import { errMsg, rid, fmt } from "@/lib/errors";
 import { fmtDuration, fmtWhen, isoWhen, endReasonLabel, toMs } from "@/lib/time";
+import { kindLabel } from "@/lib/device-approval";
 import { catalogOf, type RoomState, type Settings, type SettingsOptions, type GameRecord, type ObjectTypeInfo, type SettingsPreset, type Manifest, type Credential } from "@/lib/types";
 import { Bot, Crown, Play, Trash2, User, Check, Circle, LogOut, Trophy, ArrowRight, Eye, KeyRound, ExternalLink } from "lucide-react";
 
@@ -362,7 +363,7 @@ export function PlayerApps({ room }: { room: RoomState }) {
       <KeyRound className="h-4 w-4 text-accent mt-0.5 shrink-0" />
       <span className="flex-1 min-w-0">
         <span className="block break-words" title="Self-reported by the app; not a verified identity">{c.label || "Unlabelled app"}</span>
-        <span className="label-mono block">{c.permission} · room {c.roomCode ?? "gone"} · expires {fmtWhen(c.expiresAt)}</span>
+        <span className="label-mono block">{kindLabel(c.kind)} · {c.permission} · room {c.roomCode ?? "gone"} · expires {fmtWhen(c.expiresAt)}{c.kind === "oauth" ? " unless used" : ""}</span>
         <span className="label-mono block">{c.lastUsedAt ? `last used ${fmtWhen(c.lastUsedAt)}` : "never used"}</span>
       </span>
       <button onClick={() => act.run("revoke", () => revoke({ credentialId: c.credentialId }))} disabled={act.pending} className="border border-destructive/50 text-destructive px-2.5 py-1 text-xs hover:bg-destructive/5 disabled:opacity-40" data-testid={`button-revoke-${c.credentialId}`}>Revoke</button>

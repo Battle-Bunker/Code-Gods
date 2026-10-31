@@ -287,7 +287,7 @@ test("revocation is immediate: the next call fails although the JWT is still val
   const listed = await client(alice).query("auth/credentials:list") as Array<Record<string, unknown>>;
   const mine = listed.find(c => c.credentialId === granted.credentialId)!;
   assert.deepEqual({ ...mine, createdAt: typeof mine.createdAt, expiresAt: typeof mine.expiresAt, lastUsedAt: typeof mine.lastUsedAt }, {
-    credentialId: granted.credentialId, roomId: room.roomId, roomCode: room.shortCode, permission: "act", label: "Revocable assistant",
+    credentialId: granted.credentialId, roomId: room.roomId, roomCode: room.shortCode, permission: "act", kind: "device", label: "Revocable assistant",
     createdAt: "number", expiresAt: "number", lastUsedAt: "number",
   });
   assert.ok(!JSON.stringify(listed).includes("cgc_"), "no credential secrets listed");

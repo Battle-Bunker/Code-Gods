@@ -7,6 +7,7 @@ import { api, useLive } from "@/lib/convex";
 import { errMsg } from "@/lib/errors";
 import { Check } from "lucide-react";
 import { ownerApprovalBlocker } from "@/lib/device-approval";
+import { OwnerAccessWarning, OwnerConsentCheck, permissionDescription } from "@/components/grant-review";
 
 const normal = (code: string) => code.trim().toUpperCase();
 const validCode = (code: string) => /^[A-Z0-9]{4}-?[A-Z0-9]{4}$/.test(normal(code));
@@ -77,21 +78,18 @@ export default function Device() {
                   <div><dt className="label-mono">Comparison code — must match your client</dt><dd className="font-mono text-2xl tracking-[0.2em]" data-testid="text-device-code">{d.userCode}</dd></div>
                   <div><dt className="label-mono">Resolved room</dt><dd className="font-mono break-all" data-testid="text-device-room">{d.roomCode} · {d.roomId}{d.isRoomOwner ? " · you own it" : ""}</dd></div>
                   <div><dt className="label-mono">Requester label — self-reported, not verified</dt><dd className="break-words" data-testid="text-device-requester">{d.label || "No label supplied"}</dd></div>
-                  <div><dt className="label-mono">Requested permission</dt><dd data-testid="text-device-permission">{d.permission === "read" ? "Read — view your private room observation; no game actions." : d.permission === "act" ? "Act — view your private room observation and send game actions as you." : d.permission === "owner" ? "Owner — full control of this room and permission to play as you." : "Unknown permission — do not approve."}</dd></div>
+                  <div><dt className="label-mono">Requested permission</dt><dd data-testid="text-device-permission">{permissionDescription(d.permission)}</dd></div>
                   <div><dt className="label-mono">Approval request expires</dt><dd data-testid="text-device-expiry">{Number.isFinite(expires) ? new Date(expires).toLocaleString() : "Invalid expiry"}{expires <= now ? " · expired" : ` · in ${Math.max(0, Math.round((expires - now) / 1000))}s`}</dd></div>
                   <div><dt className="label-mono">Request status</dt><dd data-testid="text-device-status">{d.status}</dd></div>
                 </dl>
                 <p className="text-muted-foreground">Approval issues a credential for this room only, valid for up to 7 days; you can revoke it at any time from the room page. A requester label is not proof of identity. Deny any request you do not recognize.</p>
                 {d.permission === "owner" && (
                   <div className="space-y-3" data-testid="panel-device-owner-warning">
-                    <p>Owner access allows changing room settings, approving AI budgets (provider spending), managing AI seats, starting, ending and resuming games, viewing your private observation and playing as you. It applies only to this room and does not grant admin access.</p>
+                    <OwnerAccessWarning />
                     {ownerBlocker ? (
                       <p role="alert" className="text-destructive" data-testid="text-device-owner-required">{ownerBlocker}</p>
                     ) : (
-                      <label className="flex items-start gap-3" htmlFor="device-owner-consent">
-                        <input id="device-owner-consent" type="checkbox" checked={ownerConsent} disabled={!canDecide} onChange={(e) => setOwnerConsent(e.target.checked)} className="mt-1" data-testid="checkbox-device-owner-consent" />
-                        <span>I understand and explicitly authorize this client to control this room, approve AI budgets, change AI seats, start, end and resume games, and play as me.</span>
-                      </label>
+                      <OwnerConsentCheck id="device-owner-consent" checked={ownerConsent} disabled={!canDecide} onChange={setOwnerConsent} testId="checkbox-device-owner-consent" />
                     )}
                   </div>
                 )}

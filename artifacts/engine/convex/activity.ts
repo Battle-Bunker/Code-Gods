@@ -5,11 +5,11 @@
  * When idle, the tick loop and the watchdog park running games in `recovery` with auto-resume; a touch
  * resumes them. A fresh deployment starts idle.
  */
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { requireViewer } from "./auth/access";
+import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { requireViewer, type Viewer } from "./auth/access";
 import { resumeGame } from "./engine/loop";
 import { fail } from "./lib/errors";
-import { lastHumanActivity } from "./lib/rooms";
+import { lastHumanActivity, principalV, viewerOf } from "./lib/rooms";
 import { IDLE_MS } from "./lib/world";
 
 /** Writes at most once a minute (unless forced), then resumes idle-parked games. */
@@ -26,17 +26,15 @@ export async function touchActivity(ctx: MutationCtx, force = false) {
 }
 
 /** Authenticated human activity (browser, or a player credential with act/owner: the assistant's `wake`). */
-export const touch = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const viewer = await requireViewer(ctx);
-    if (viewer.scope === "player" && viewer.permission === "read") {
-      fail("FORBIDDEN", "Read-only assistants cannot wake the engine. Resume in your signed-in browser.");
-    }
-    const { resumed } = await touchActivity(ctx);
-    return { active: true as const, idleDeadline: Date.now() + IDLE_MS, resumed };
-  },
-});
+async function touchFor(ctx: MutationCtx, viewer: Viewer) {
+  if (viewer.scope === "player" && viewer.permission === "read") {
+    fail("FORBIDDEN", "Read-only assistants cannot wake the engine. Resume in your signed-in browser.");
+  }
+  const { resumed } = await touchActivity(ctx);
+  return { active: true as const, idleDeadline: Date.now() + IDLE_MS, resumed };
+}
+export const touch = mutation({ args: {}, handler: async (ctx) => touchFor(ctx, await requireViewer(ctx)) });
+export const touchAs = internalMutation({ args: { principal: principalV }, handler: async (ctx, { principal }) => touchFor(ctx, await viewerOf(ctx, principal)) });
 
 export const status = query({
   args: {},
