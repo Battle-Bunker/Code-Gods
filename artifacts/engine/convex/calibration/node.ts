@@ -60,8 +60,8 @@ export const tables = action({
     if (draws.length < 1 || draws.length > 2) fail("BAD_REQUEST", "Ask for one or two draws (a utility and its defence goal)");
     let inst;
     try { inst = instantiationOf(settings as GameSettings); } catch (error) { return fail("BAD_REQUEST", `Invalid settings: ${(error as Error).message}`); }
+    const loaded = await tablesFor(ctx, inst);   // first: it loads the manifest, which names the priors priorOf knows
     const prior = priorOf((settings as GameSettings).priorId);
-    const loaded = await tablesFor(ctx, inst);
     const found = draws.map(d => {
       let t;
       try { t = tableFor(loaded, d, inst, prior); } catch (error) { return fail("BAD_REQUEST", (error as Error).message); }
