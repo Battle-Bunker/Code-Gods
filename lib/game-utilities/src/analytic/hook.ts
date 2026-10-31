@@ -30,7 +30,7 @@ export function solvedAnalytic(familyId: string) {
       get levels() {
         if (memo) return memo;
         const L = analyticLevels(familyId, p, ctx.inst);
-        if (!L) throw new Error(`${familyId}: solution disappeared for ${JSON.stringify(p)}`);
+        if (!L?.length) throw new Error(`${familyId}: no levels for ${JSON.stringify(p)} although hasSolution said yes`);
         // log2 G of the least ordinal is 0 up to rounding; anything further from 0 means the law lost mass: refuse it.
         if (Math.abs(L[0][1]) > FIRST_LEVEL_SLACK) throw new Error(`${familyId}: total mass 2^${L[0][1]} ≠ 1`);
         return (memo = L.map(([o, l], i) => [o, i === 0 ? 0 : Math.min(0, l)] as const));

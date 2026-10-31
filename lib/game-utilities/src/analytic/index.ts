@@ -29,5 +29,6 @@ export const ANALYTIC_FAMILIES: Readonly<Record<string, readonly string[]>> = { 
 /** Whether `analyticLevels` returns levels for this draw, without computing them (the table key needs only this). */
 export function hasSolution(familyId: string, params: Params, inst: Instantiation): boolean {
   if (inst.objectType === "Grid") return gridApplies(familyId, params, inst);
+  // Int and string solvers cover every params of their family (none declines a draw), so membership decides.
   return (ANALYTIC_FAMILIES[inst.objectType] ?? []).includes(familyId);
 }
