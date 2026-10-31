@@ -4,6 +4,7 @@
  * to check scoring parity and disclosure.
  */
 import { v } from "convex/values";
+import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
@@ -18,22 +19,36 @@ export const seedUser = internalMutation({
   handler: async (ctx, args) => {
     dev();
     const existing = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", args.subject)).unique();
-    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, issuer: "test", updatedAt: Date.now() };
+    const now = Date.now();
+    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: "test", updatedAt: now };
     if (existing) await ctx.db.replace(existing._id, doc);
     else await ctx.db.insert("users", doc);
-    // Browser JWTs name a session (`sid`) that access.ts checks: return one for impersonated browser calls.
-    return ctx.db.insert("sessions", { tokenHash: crypto.randomUUID(), subject: args.subject, expiresAt: Date.now() + 24 * 3600_000 });
+    // Browser JWTs name a Better Auth session (`sessionId`) that access.ts checks: return one for impersonated
+    // browser calls (test/game-helpers.ts clientFor).
+    const session = await ctx.runMutation(components.betterAuth.adapter.create, {
+      input: { model: "session", data: { token: crypto.randomUUID(), userId: args.subject, expiresAt: now + 24 * 3600_000, createdAt: now, updatedAt: now } },
+    }) as { _id: string };
+    return session._id;
   },
 });
 
-/** Mint a player credential row (the auth agent's device flow is not in this worktree). */
+/** Mint a player credential row; with `tokenHash` (sha256 hex of a `cgc_…` value) it also works as a bearer for POST /mcp. */
 export const seedCredential = internalMutation({
-  args: { subject: v.string(), roomId: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")) },
+  args: { subject: v.string(), roomId: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")), tokenHash: v.optional(v.string()) },
   handler: async (ctx, args) => {
     dev();
     const now = Date.now();
-    return ctx.db.insert("credentials", { tokenHash: crypto.randomUUID(), subject: args.subject, roomId: args.roomId, permission: args.permission,
+    return ctx.db.insert("credentials", { tokenHash: args.tokenHash ?? crypto.randomUUID(), subject: args.subject, roomId: args.roomId, permission: args.permission,
       label: "test", createdAt: now, expiresAt: now + 3600_000 });
+  },
+});
+
+/** Patch a credential (revokedAt, expiresAt, refreshExpiresAt) to test revocation and expiry. */
+export const patchCredential = internalMutation({
+  args: { credentialId: v.id("credentials"), patch: v.object({ revokedAt: v.optional(v.number()), expiresAt: v.optional(v.number()), refreshExpiresAt: v.optional(v.number()) }) },
+  handler: async (ctx, { credentialId, patch }) => {
+    dev();
+    await ctx.db.patch(credentialId, patch);
   },
 });
 
@@ -101,10 +116,41 @@ export const rawGame = internalQuery({
   },
 });
 
+/** The assistant pool rows of a room (per human and the room's own row, subject ""). */
+export const rawAssistantPool = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    dev();
+    const room = await ctx.db.get(roomId);
+    const epoch = room?.currentGameId ? String(room.currentGameId) : "lobby";
+    const rows = (await ctx.db.query("assistantAllowances").collect()).filter(r => r.roomId === roomId && r.epoch === epoch);
+    return { rows, roomUsd: rows.find(r => r.subject === "")?.reservedUsd ?? 0 };
+  },
+});
+
 export const rawRoom = internalQuery({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {
     dev();
     return { room: await ctx.db.get(roomId), members: await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect() };
+  },
+});
+
+/** Forget that an OAuth client was used, as for a client registered before `usedAt` existed. */
+export const forgetClientUse = internalMutation({
+  args: { clientId: v.string() },
+  handler: async (ctx, { clientId }) => {
+    dev();
+    const row = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", clientId)).unique();
+    if (row) await ctx.db.patch(row._id, { usedAt: undefined });
+  },
+});
+
+/** Insert chat messages that all share one timestamp (paging must neither skip nor repeat them). */
+export const seedChat = internalMutation({
+  args: { roomId: v.id("rooms"), authorId: v.string(), texts: v.array(v.string()), timestamp: v.number() },
+  handler: async (ctx, { roomId, authorId, texts, timestamp }) => {
+    dev();
+    for (const text of texts) await ctx.db.insert("chat", { roomId, authorId, authorName: authorId, kind: "human", text, timestamp });
   },
 });

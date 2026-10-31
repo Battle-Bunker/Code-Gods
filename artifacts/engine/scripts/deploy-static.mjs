@@ -11,8 +11,10 @@
  *   engine UI       artifacts/code-gods   → instance engineSite, served at /         (Vite base "/")
  *   player client   artifacts/player-web  → instance playerSite, served at /player/  (Vite base "/player/")
  *
- * Both builds get VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud), read
- * from the component itself, never from a local .env. Each upload is atomic (the previous version
+ * Both builds get VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud) and VITE_CONVEX_SITE_URL
+ * (its site URL, where the stored-panel frame loads its runtime from: the frame CSP names it), read
+ * from the component itself, never from a local .env. With a custom domain, also export CODE_GODS_SITE_URL here:
+ * the frame CSP then names that origin too (besides 'self'). Each upload is atomic (the previous version
  * stays live if it fails) and garbage-collects the previous upload. SPA fallback stays on.
  */
 import { spawnSync } from "node:child_process";
@@ -42,9 +44,9 @@ export function deploymentUrls({ prod = false } = {}) {
   return JSON.parse(result.stdout);
 }
 
-export function buildSite(site, convexUrl) {
+export function buildSite(site, convexUrl, siteUrl) {
   run("pnpm", ["--filter", site.pkg, "run", "build"], {
-    cwd: artifacts, env: { ...env, NODE_ENV: "production", BASE_PATH: site.base, VITE_CONVEX_URL: convexUrl },
+    cwd: artifacts, env: { ...env, NODE_ENV: "production", BASE_PATH: site.base, VITE_CONVEX_URL: convexUrl, ...(siteUrl ? { VITE_CONVEX_SITE_URL: siteUrl } : {}) },
   });
   return resolve(site.dir, "dist/public");
 }
@@ -62,7 +64,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   console.log(`[deploy-static] VITE_CONVEX_URL=${cloudUrl} site=${siteUrl}`);
   for (const [name, site] of Object.entries(SITES)) {
     if (only && only !== name) continue;
-    const dist = arg(`--${name}-dist`) ? resolve(arg(`--${name}-dist`)) : skipBuild ? resolve(site.dir, "dist/public") : buildSite(site, cloudUrl);
+    const dist = arg(`--${name}-dist`) ? resolve(arg(`--${name}-dist`)) : skipBuild ? resolve(site.dir, "dist/public") : buildSite(site, cloudUrl, siteUrl);
     uploadSite(site.component, dist, { prod });
     console.log(`[deploy-static] ${name} → ${siteUrl.replace(/\/$/, "")}${site.base}`);
   }

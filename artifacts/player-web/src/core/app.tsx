@@ -3,13 +3,15 @@
  * core console inside the panel dock.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
 import { ConvexProviderWithAuth, useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
-import { connection, convexClient, fetchAccessToken, loginUrl, type Connection } from "./connection";
+import { authClient, connection, convexClient, fetchAppAccessToken, signIn, type Connection } from "./connection";
 import { RoomProvider } from "@/sdk/context";
 import { Dock } from "@/shell/dock";
 import Console from "./console";
 import { CoreBoundary } from "./core-boundary";
+import { AssistantToggle } from "./assistant/drawer";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -20,30 +22,20 @@ export function App() {
   return <Authenticated conn={conn} />;
 }
 
+/** Convex auth for either mode (see connection.ts): player JWTs from the dev server, or Better Auth hosted. */
 function Authenticated({ conn }: { conn: Connection }) {
   const client = convexClient(conn.convexUrl);
-  const useAuth = useMemo(() => makeUseAuth(conn), [conn]);
-  return (
-    <ConvexProviderWithAuth client={client} useAuth={useAuth}>
-      {conn.mode === "devserver" ? <DevServerMode conn={conn} /> : <Hosted />}
-    </ConvexProviderWithAuth>
-  );
+  if (conn.mode === "devserver") {
+    return <ConvexProviderWithAuth client={client} useAuth={useDevServerAuth}><DevServerMode conn={conn} /></ConvexProviderWithAuth>;
+  }
+  // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (see artifacts/code-gods/src/lib/convex.tsx).
+  return <ConvexBetterAuthProvider client={client} authClient={authClient() as unknown as AuthClient}><Hosted /></ConvexBetterAuthProvider>;
 }
 
-/** Convex's auth adapter for either mode (see connection.ts). */
-function makeUseAuth(conn: Connection) {
-  return function useAuth() {
-    const [state, setState] = useState<{ isLoading: boolean; isAuthenticated: boolean }>(
-      conn.mode === "devserver" ? { isLoading: false, isAuthenticated: true } : { isLoading: true, isAuthenticated: false });
-    useEffect(() => {
-      if (conn.mode === "devserver") { setState({ isLoading: false, isAuthenticated: true }); return; }
-      fetch("/api/auth/user", { cache: "no-store" }).then(r => r.json()).then(
-        (b: { user: unknown }) => setState({ isLoading: false, isAuthenticated: !!b.user }),
-        () => setState({ isLoading: false, isAuthenticated: false }));
-    }, []);
-    const fetchToken = useCallback(() => fetchAccessToken(conn.mode), []);
-    return { ...state, fetchAccessToken: fetchToken };
-  };
+/** Dev-server mode: the dev server holds the credential and always answers with a player JWT (or refuses). */
+function useDevServerAuth() {
+  const fetchAccessToken = useCallback(() => fetchAppAccessToken(), []);
+  return useMemo(() => ({ isLoading: false, isAuthenticated: true, fetchAccessToken }), [fetchAccessToken]);
 }
 
 /** Dev-server mode: the credential's room, once Convex holds a token (no query may run unauthenticated). */
@@ -66,8 +58,9 @@ function Hosted() {
   if (!isAuthenticated) {
     return (
       <Screen title="Sign in to the pantheon">
-        <p>Sign in with Replit on this engine. Your full name is shown in the room; chat is public.</p>
-        <a data-testid="link-login" href={loginUrl()} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Replit</a>
+        <p>Sign in with Google on this engine. Your full name is shown in the room; chat is public.</p>
+        {error && <p className="text-sm text-destructive" data-testid="text-login-error">{error}</p>}
+        <button data-testid="link-login" onClick={() => { void signIn().then(e => { if (e) setError(e); }); }} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Google</button>
       </Screen>
     );
   }
@@ -102,7 +95,10 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
     <RoomProvider room={room}>
       <Dock>
         <CoreBoundary>
-          <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>} />
+          <Console header={<>
+            <span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
+            <AssistantToggle />
+          </>} />
         </CoreBoundary>
       </Dock>
     </RoomProvider>

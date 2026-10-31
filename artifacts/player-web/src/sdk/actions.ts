@@ -8,8 +8,7 @@
  * command, so a summon is not paid twice.
  */
 import { useCallback, useMemo } from "react";
-import { useAction } from "convex/react";
-import { api } from "@workspace/engine/convex/_generated/api";
+import { useSdkSubmit } from "@sdk-transport";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useRoom } from "./context";
 import { useObservation } from "./hooks";
@@ -19,9 +18,9 @@ export type Language = "python" | "typescript";
 export function useActions() {
   const { roomId, permission } = useRoom();
   const gameId = useObservation({ hz: 1 })?.gameId;
-  const submit = useAction(api.commands.submit);
+  const submit = useSdkSubmit();
   const send = useCallback(async (envelope: Envelope): Promise<CommandResult> =>
-    await submit({ roomId, envelope }) as CommandResult, [submit, roomId]);
+    await submit(roomId, envelope), [submit, roomId]);
   const run = useCallback((command: Command) => {
     const envelope: Envelope = {
       version: VERSION, commandId: crypto.randomUUID(), command,

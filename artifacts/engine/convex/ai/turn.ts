@@ -17,6 +17,7 @@ import { internalAction } from "../_generated/server";
 import { runEnvelope } from "../commands";
 import { findModel, mockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
+import type { Reservation } from "./seats";
 
 /** A simple valid agent for each object type, in each language. */
 export const SIMPLE_AGENTS: Record<string, { python: string; typescript: string }> = {
@@ -74,8 +75,9 @@ export const run = internalAction({
         roomId, godId, provider: providerFor(agent), customPrompt: agent.prompt,
         budget: {
           reserve: async (tokens, usd) => {
-            const reservation = await ctx.runMutation(internal.ai.seats.reserve, { roomId, gameId, tokens, usd });
-            return { ...reservation, settle: async (_actual: number, usage: { inputTokens: number; outputTokens: number }) => {
+            const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, { roomId, gameId, tokens, usd });
+            if (!reservation.ok) throw new Error(reservation.message);
+            return { reservedTokens: reservation.reservedTokens, reservedUsd: reservation.reservedUsd, settle: async (_actual: number, usage: { inputTokens: number; outputTokens: number }) => {
               await ctx.runMutation(internal.ai.seats.settle, { roomId, gameId, reservedTokens: tokens, ...usage });
             } };
           },

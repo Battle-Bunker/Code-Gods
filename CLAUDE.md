@@ -24,4 +24,4 @@
 - API: `docs/engine-api.md`.
 - Pilot and deploy: `PILOT.md`.
 - Running locally (no Convex account needed): `pnpm --filter @workspace/engine dev`. It starts the official
-  CLI's local Convex backend plus a stand-in Replit OIDC provider.
+  CLI's local Convex backend plus a stand-in OIDC provider, which Better Auth offers as the test-only provider "fake" beside Google.

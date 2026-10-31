@@ -24,7 +24,8 @@ This page is written for the coding agent. Read all of it before writing a panel
   other panels.
 - **Layout.** Panels dock left, right or bottom of the core console. The player can move them (drag
   the header, or use ◧ ◨ ⬓), resize them (sm, md, lg), hide them, or switch a region to tabs. Their
-  layout is saved in this browser. A panel's manifest only sets its defaults.
+  layout follows you across devices (stored in the engine; this browser keeps a copy). A panel's manifest
+  only sets its defaults.
 - **The core console** (`src/core/`) is the protected game UI: the forge, agents, utility card,
   objects, chat and leaderboard. **Never edit `src/core/`, `src/shell/` or `src/sdk/` to add a
   feature;** write a panel. Panels import only from `@sdk` (and React).
@@ -198,10 +199,74 @@ Copy one into `src/panels/` to enable it, then adapt it.
 | `what-if-mutation.tsx` | apply calls to a live object and score the result locally |
 | `leaderboard-race.tsx` | public total payoffs over time |
 
+## Stored panels
+
+A panel can also live in the engine instead of a file. A **stored panel** is the same TSX, saved to Convex
+for your human (across all your rooms). Every open client of yours (the hosted client at `/player/`, your
+dev server, another device) re-renders it live through its subscription: no dev server, no reload. Any of
+your agents can write one; the file workflow above keeps working beside it.
+
+**Writing one.**
+
+| Way | How |
+|---|---|
+| CLI (device credential) | `pnpm -s player panel push my-view` saves `artifacts/player-web/src/panels/my-view.tsx` (or `--file PATH`) |
+| | `pnpm -s player panel pull my-view [--version N] [--file PATH] [--force]` writes a stored version to a file |
+| | `pnpm -s player panel list` shows your stored panels with version, author and placement |
+| Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`, `panels.place`, `panels.layout`, `panels.setLayout` |
+| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`): MCP clients, the CLI and the in-client assistant |
+| In-client assistant | ask it in the player client's **Assistant** drawer ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), shows the save as an activity chip, and asks you before `delete_panel` |
+
+- **The slug** is the panel's id: kebab-case, like a file name (`my-view`). Saving an existing slug makes a
+  new version.
+- **Imports:** only `react`, `react/jsx-runtime` and `@sdk`. No other modules, no dynamic `import()`, no
+  computed `require()`. shadcn components and other npm packages are not available to stored panels.
+- **Styling:** Tailwind classes that appear somewhere in the player app's sources work, as do the
+  `hsl(var(--…))` tokens and the `label`/`panel` classes; use `style={{…}}` for anything else.
+- **Manifest:** `title`, `placement` and `size` are read from a literal `definePanel({...})`; the save call
+  can override them.
+
+**Diagnostics.** `save` compiles at once (TypeScript, syntax only; type-checking is a later phase). A syntax
+error or a refused import returns `{ok: false, diagnostics: [{line, column, code, message}]}` and stores
+nothing; fix the line and save again. Success returns `{ok: true, version}`. The CLI prints the same JSON
+and exits 1 on errors.
+
+**Limits.** Source ≤ 64 KB; compiled ≤ 128 KB; ≤ 32 panels per player; ≤ 30 saves (and rollbacks) per
+minute; the last 20 versions of each panel are kept (`rollback` makes an old one current again, as a new
+version).
+
+**Who may write.** You in a browser, and your `act` or `owner` credentials (CLI, coding agents, MCP, the
+in-client assistant). A `read` credential can list and read, not write. Nobody else can see or address your
+panels: another player's call gets `NOT_FOUND`.
+
+**How it runs.** Each stored panel runs in a sandboxed frame (`/player/panel-frame.html`, `sandbox="allow-scripts"`,
+an opaque origin, its own CSP with `connect-src 'none'`), and the client page's CSP (`frame-src 'self'`, in the
+hosted client and in a dev server) stops it navigating itself to another site. It cannot read the page, your cookies
+or storage, and cannot reach the network: every hook goes through the client over `postMessage`, which serves only the
+SDK's own read queries, for the current room, at most `hz` times a second. A crash stays inside the frame.
+`useEvaluator()` works too: the client sends your calibration tables to the frame once per game.
+
+**Confirmations.** `chat`, `summon`, `destroy` and `pause` from a stored panel open a confirmation in the
+client showing the exact command; nothing is sent until you confirm. "Send, and let this panel act without
+asking" grants that panel (in this browser) until an agent or another device saves a newer version of it;
+your own browser edits keep the grant. `validate` and `ready` never ask.
+
+**Both kinds at once.** If a file panel has the same id as a stored one, the file wins (it is the one you
+are editing with HMR) and its header says "shadows stored vN". In a dev server, the "sandbox" button in a
+file panel's header runs it in a frame exactly as a stored panel would: use it before you push.
+
+**Safe mode.** Open the client with `?panels=off` to load only the core console (no file or stored panels),
+for example to remove a panel that misbehaves (`pnpm player panel list`, then `panels.remove` or
+`panels.setEnabled`).
+
+**Layout.** Where you put panels (region, order, size, hidden, tabs) follows you across devices
+(`panels.setLayout`); this browser's copy is only the boot cache.
+
 ## Isolation and trust
 
-- **Your app only.** Panels run only in your app and your browser, with your credential. Another
-  player's app is a different repository; nothing you write reaches them.
+- **Your panels only.** Panels run only in your clients, with your credential. Another player's app is a
+  different repository, and another player's stored panels are theirs; nothing you write reaches them.
+- **Stored panels are sandboxed** (above). File panels run in-process: they are code in your own checkout.
 - **The engine stays authoritative.** Every action goes through the engine's permission and rule
   checks.
 - **No secrets.** The credential stays in the dev server (`/__codegods/token` hands the browser

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * Stand-in OIDC provider for LOCAL TESTS ONLY. Never bundled into the deployment (it lives outside
- * convex/), and only used when the local deployment's env var REPLIT_OIDC_ISSUER points at it.
+ * Stand-in OIDC provider for LOCAL TESTS ONLY: Better Auth's generic OAuth provider "fake"
+ * (convex/auth/betterAuth.ts), which exists only while the local deployment has test fixtures on and
+ * CODE_GODS_FAKE_OIDC_URL pointing here (scripts/dev.mjs). Never bundled into the deployment (it lives
+ * outside convex/). Production signs in with Google only.
  *
  *   node scripts/fake-oidc.mjs [--port 3399] [--client-id code-gods-local]
  *
@@ -14,7 +16,7 @@
  *   POST /token                              authorization_code grant: single-use code, client_id,
  *                                            redirect_uri and PKCE verifier are all checked
  *
- * Test identities (fixed names and emails; `subject` is the Replit-style `sub`):
+ * Test identities (fixed names and emails; `sub` is the provider's subject, not the god id):
  */
 import { createServer } from "node:http";
 import { createHash, randomBytes, generateKeyPairSync } from "node:crypto";
@@ -27,7 +29,8 @@ export const IDENTITIES = {
   bob: { sub: "test-bob", given_name: "Bob", family_name: "Okafor", email: "bob@example.test", email_verified: true },
   carol: { sub: "test-carol", given_name: "Carol", family_name: "Nguyen", email: "carol@example.test", email_verified: true },
   admin: { sub: "test-admin", given_name: "Ada", family_name: "Admin", email: "admin@example.test", email_verified: true },
-  unverified: { sub: "test-unverified", given_name: "Uma", family_name: "Unverified", email: "admin@example.test", email_verified: false },
+  // Allowlisted as an admin by dev.mjs, but the provider does not vouch for the email: never an admin.
+  unverified: { sub: "test-unverified", given_name: "Uma", family_name: "Unverified", email: "unverified@example.test", email_verified: false },
 };
 
 const b64url = buffer => buffer.toString("base64url");
@@ -78,8 +81,8 @@ export async function startFakeOidc({ port = 3399, host = "127.0.0.1", clientId 
       if (req.method === "GET" && url.pathname === "/authorize") {
         const p = Object.fromEntries(url.searchParams);
         if (p.client_id !== clientId) return send(res, 400, "unknown client_id");
-        if (p.response_type !== "code" || p.code_challenge_method !== "S256" || !p.code_challenge || !p.redirect_uri || !p.state || !p.nonce) {
-          return send(res, 400, "authorization request must carry response_type=code, S256 PKCE, redirect_uri, state and nonce");
+        if (p.response_type !== "code" || p.code_challenge_method !== "S256" || !p.code_challenge || !p.redirect_uri || !p.state) {
+          return send(res, 400, "authorization request must carry response_type=code, S256 PKCE, redirect_uri and state");
         }
         const identity = IDENTITIES[p.login_hint];
         if (!identity) {
@@ -120,7 +123,7 @@ export async function startFakeOidc({ port = 3399, host = "127.0.0.1", clientId 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const arg = name => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : undefined; };
   const { issuer, clientId } = await startFakeOidc({
-    port: Number(arg("--port") ?? process.env.FAKE_OIDC_PORT ?? 3399), clientId: arg("--client-id") ?? process.env.REPLIT_OIDC_CLIENT_ID ?? "code-gods-local",
+    port: Number(arg("--port") ?? process.env.FAKE_OIDC_PORT ?? 3399), clientId: arg("--client-id") ?? "code-gods-local",
   });
   console.log(`fake OIDC (local tests only) at ${issuer}, client_id ${clientId}; identities: ${Object.keys(IDENTITIES).join(", ")}`);
 }

@@ -196,8 +196,8 @@ export default function Game() {
         <div className="mx-auto max-w-lg px-4 py-20 text-center rise">
           <p className="label-mono">Game {code}</p>
           <h1 className="font-display text-5xl mt-2">A match is underway.</h1>
-          <p className="text-muted-foreground mt-3">Log in to watch this game.</p>
-          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-game">Log in to open game</button>
+          <p className="text-muted-foreground mt-3">Sign in to watch this game.</p>
+          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-game">Sign in with Google to open game</button>
         </div>
       ) : q.isLoading ? (
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-3 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>

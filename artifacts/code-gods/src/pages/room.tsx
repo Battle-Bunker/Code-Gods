@@ -109,8 +109,8 @@ export default function Room() {
         <div className="mx-auto max-w-lg px-4 py-20 text-center rise">
           <p className="label-mono">Shared room</p>
           <h1 className="font-display text-5xl mt-2">You were summoned.</h1>
-          <p className="text-muted-foreground mt-3">Log in to view this room and claim a seat.</p>
-          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-room">Log in</button>
+          <p className="text-muted-foreground mt-3">Sign in to view this room and claim a seat.</p>
+          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-room">Sign in with Google</button>
         </div>
       ) : q.isLoading ? (
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-3 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>

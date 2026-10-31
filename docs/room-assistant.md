@@ -82,27 +82,47 @@ pnpm -s player state --watch 2                       # one JSON line per change,
 utility, peer aggregates, your agents, public chat and the leaderboard. Use it to write panels against
 real data.
 
+## Agent tools (MCP)
+
+The CLI is an MCP client of the engine's `POST /mcp`, authenticated with `CODE_GODS_CREDENTIAL`. Claude,
+Claude Code and other MCP clients use the same tools (`docs/connect-claude.md`); the tool list and
+arguments are in `docs/engine-api.md`.
+
+```sh
+pnpm -s player tools --pretty                                  # the tools this credential may use
+pnpm -s player call get_observation '{"objectsLimit": 10}'
+pnpm -s player call summon_agent "{\"commandId\": \"$(uuidgen)\", \"source\": \"function agent(x) { return [add(1)]; }\"}"
+echo '{"commandId": "…"}' | pnpm -s player call get_receipt -
+```
+
+Every result is `{untrusted: true, notice, data, nextCursor?}`; a refusal prints `{error, code}` and exits 1.
+Summon and validate wait up to `waitMs` (default 90 s) and otherwise answer `{status: "pending"}`:
+finish with `get_receipt`.
+
 ## Assistant commands
+
+The `assistant` commands below are thin aliases of those tools (one server path), with the CLI's
+receipt journal on top.
 
 ```sh
 pnpm -s player assistant status
-pnpm -s player assistant observation                  # bounded: 50 objects, 10 agents, 20 chat lines, 2 KB sources
+pnpm -s player assistant observation                  # bounded: 50 objects, 20 agents, 20 chat lines, 4 KB sources
 pnpm -s player assistant events --after SEQ --limit 20  # your projected event log; omit --after for the latest
 pnpm -s player assistant receipt COMMAND_UUID
 pnpm -s player assistant wake                         # act/owner only
 pnpm -s player assistant disconnect
 ```
 
-| Command | Engine call |
+| Command | Tool |
 |---|---|
-| `observation` | `player.observation` |
-| `events --after --limit` (≤ 50) | `player.events` |
-| `command` (envelope on stdin) | `commands.submit` |
-| `receipt ID` | `receipts.get` |
-| `wake` | `activity.touch` |
-| `room-state` | `rooms.get` |
-| `ai-catalog` | `aiTemplates.catalog` |
-| `room-command` (JSON on stdin) | `owner.command` |
+| `observation` | `get_observation` |
+| `events --after --limit` (≤ 50) | `get_events` |
+| `command` (envelope on stdin) | the command's tool (`summon_agent`, `send_chat`, …) |
+| `receipt ID` | `get_receipt` |
+| `wake` | `wake_engine` |
+| `room-state` | `get_room_state` |
+| `ai-catalog` | `get_ai_catalog` |
+| `room-command` (JSON on stdin) | the owner tool (`start_game`, `update_settings`, …) |
 | `disconnect` | `POST /api/device/revoke` |
 
 After 30 minutes without human activity the engine parks running games. `wake` (act or owner)

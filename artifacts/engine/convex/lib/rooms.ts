@@ -2,7 +2,8 @@
 import { encodeUuid } from "@workspace/game-core";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { requireRoomPermission, requireViewer, type Permission, type Viewer } from "../auth/access";
+import { v } from "convex/values";
+import { requireRoomPermission, requireViewer, requireViewerFor, type Permission, type Viewer } from "../auth/access";
 import { fail } from "./errors";
 import { IDLE_MS } from "./world";
 
@@ -58,7 +59,10 @@ export async function membersOf(ctx: Ctx, roomId: Id<"rooms">) {
 
 /** The viewer as an acting member of this room, with at least `need` (player credentials are room-bound). */
 export async function requireMember(ctx: Ctx, room: Doc<"rooms">, need: Permission): Promise<{ viewer: Viewer; member: Doc<"members">; actor: Actor }> {
-  const viewer = await requireViewer(ctx);
+  return requireMemberAs(ctx, await requireViewer(ctx), room, need);
+}
+/** requireMember for an already resolved viewer (from ctx.auth, or a principal through viewerForCredential). */
+export async function requireMemberAs(ctx: Ctx, viewer: Viewer, room: Doc<"rooms">, need: Permission): Promise<{ viewer: Viewer; member: Doc<"members">; actor: Actor }> {
   requireRoomPermission(viewer, room._id, need);
   const member = await memberOf(ctx, room._id, viewer.subject);
   if (!member) fail("FORBIDDEN", "Join this room first");
@@ -66,15 +70,28 @@ export async function requireMember(ctx: Ctx, room: Doc<"rooms">, need: Permissi
 }
 /** The browser owner, or an `owner` credential approved for this room, who is the room's CURRENT owner. */
 export async function requireOwner(ctx: Ctx, room: Doc<"rooms">) {
-  const found = await requireMember(ctx, room, "owner");
+  return requireOwnerAs(ctx, await requireViewer(ctx), room);
+}
+export async function requireOwnerAs(ctx: Ctx, viewer: Viewer, room: Doc<"rooms">) {
+  const found = await requireMemberAs(ctx, viewer, room, "owner");
   if (room.ownerId !== found.viewer.subject) fail("FORBIDDEN", "Room owner access required");
   return found;
 }
 /** Read access to a room's public state: browser humans, or a player credential bound to this room. */
 export async function requireReader(ctx: Ctx, room: Doc<"rooms">): Promise<Viewer> {
-  const viewer = await requireViewer(ctx);
+  return requireReaderAs(await requireViewer(ctx), room);
+}
+export function requireReaderAs(viewer: Viewer, room: Doc<"rooms">): Viewer {
   requireRoomPermission(viewer, room._id, "read");
   return viewer;
+}
+
+/** A tool execution's principal (docs/surface-architecture.md §3). */
+export type Principal = { credentialId: string };
+export const principalV = v.object({ credentialId: v.string() });
+/** The caller's viewer: from a principal when given (internal twins), else from ctx.auth. */
+export async function viewerOf(ctx: Ctx, principal?: Principal): Promise<Viewer> {
+  return principal ? requireViewerFor(ctx, principal) : requireViewer(ctx);
 }
 
 export async function displayName(ctx: Ctx, godId: string): Promise<string> {

@@ -1,13 +1,13 @@
 /**
  * LOCAL ONLY. Seed a room on the local engine and connect simulated player apps, the way real players
- * would: each identity signs in through the stand-in OIDC provider (scripts/fake-oidc.mjs), the first
+ * would: each identity signs in through Better Auth's test-only provider "fake" (scripts/fake-oidc.mjs), the first
  * creates the room and the others join, and each player app gets a room credential through the real
  * device flow (request → approve in the "browser" → poll).
  *
  *   node --experimental-transform-types scripts/seed-players.ts [--players alice,bob,carol]
  *        [--permission act] [--out DIR] [--settings '{"objectType":"Int"}']
  *
- * Prints JSON {roomId, shortCode, players: [{identity, session, envFile}]}. Each env file holds
+ * Prints JSON {roomId, shortCode, players: [{identity, session (a browser cookie header), envFile}]}. Each env file holds
  * CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL (mode 0600), standing in for that app's secret store.
  * Ports follow the CG_TEST_* variables of test/helpers.ts (defaults: the dev.mjs ports 3210/3211/3399).
  */

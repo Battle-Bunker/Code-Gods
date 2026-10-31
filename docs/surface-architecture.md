@@ -23,7 +23,7 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 | **Hosted client** (`/player/` on the deployment) | Convex WebSocket, browser session | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
 | **Dev container** (any Vite environment: local, Codespaces, Gitpod, Replit, …) | Convex WebSocket, JWTs from the dev server's `/__codegods/token` after the private launch link | same | file panels (HMR, in-process) **and** stored panels | the environment's coding agent through MCP or the CLI, plus the in-client assistant |
 | **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the hosted client | Claude itself |
-| **Claude artifact** (claude.ai page) | the Code Gods connector through the page's `mcp` capability (`watchTool`, about 30 s polling floor) | `callTool` | Claude republishes the page; optionally renders stored panels | Claude, plus the page's `sample` |
+| **Claude artifact** (claude.ai page; `clients/claude-artifact/`) | the Code Gods connector through the page's `mcp` capability: `watchTool` on `get_observation` and `whoami` (about 30 s polling floor, paused while hidden) | `callTool` on a click: `send_chat` (confirmed in the page), `validate_agent`, `summon_agent`, `set_ready`; ambiguous failures check `get_receipt` and resend with the same `commandId` | Claude republishes the page; whether it could render stored panels is what `probe.html` checks | Claude, plus the page's `sample` ("Ask Claude") |
 
 The engine UI (`/`) stays the common room display and owner control panel. Sign-in, device and connector approval, and credential management live there.
 
@@ -54,7 +54,7 @@ A credential is always bound to one human (`subject`), one room and one permissi
 **Who holds which credential.**
 - Device flow (CLI, coding agents): `kind: "device"`, 7 days, as today.
 - MCP OAuth connections (claude.ai, Claude Code, Replit Agent): `kind: "oauth"`. Access tokens are 60-minute player JWTs carrying `cred`. Refresh tokens rotate, and reusing one revokes the credential. The grant expires after 30 days without use.
-- The in-client assistant: `kind: "assistant"`. It is created when the human enables the assistant in a room, with a permission the human chooses (default `act`), and is listed and revocable like any other.
+- The in-client assistant: `kind: "assistant"`. It is created by the human's first assistant message in a room, with a permission the human chooses (default `act`), and is listed and revocable like any other (§6).
 
 ## 4. Agent interface: registry and MCP (Wave 1B)
 
@@ -120,7 +120,7 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 **Client (`artifacts/player-web`).**
 - The shell registry merges file panels with stored panels from `panels.list`. On an id clash the file panel wins and shows a "shadows stored vN" badge.
-- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/player/panel-frame.html`, with its own meta CSP (`connect-src 'none'`).
+- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/player/panel-frame.html`, with its own meta CSP (`connect-src 'none'`). The client page's CSP has `frame-src 'self'` (hosted and dev server alike), so a frame cannot navigate itself off-origin.
 - **Bridge:** a postMessage bridge carries the same `@sdk` API. The SDK is built twice with a swapped transport: `useQuery` on the host, bridge subscriptions in the frame. Panels keep real React hooks.
 - **Confirmations:** the host enforces a confirmation for `chat`, `summon`, `destroy` and `pause` coming from a stored panel. A per-panel "let it act" grant is set by the player and reset whenever a non-browser author writes a new version.
 - **Failure handling:** a crashing panel stays inside its frame. `?panels=off` is safe mode.
@@ -130,38 +130,75 @@ Type-checking against `sdk.d.ts` is phase 2.
 - The production `/player/` page gets a build-time meta CSP: `connect-src` limited to the deployment, `script-src 'self' 'unsafe-eval'`, which the utility evaluator needs.
 - The CLI's `pnpm player panel push|pull <slug>` moves panels between `src/panels/` and the store, through the registry tools.
 
-## 6. In-client assistant (Wave 2)
+## 6. In-client assistant (Wave 2A, built)
 
-**Data.** `convex/assistant/`:
-- `assistantThreads`, `assistantTurns`, `assistantMessages`, `assistantToolCalls`;
-- `assistantAllowances {roomId, subject, epoch, usedTokens}`.
+A model served by Convex that answers one human in the player client's **Assistant** drawer and acts for them
+through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.
 
-**Turn loop.** One scheduled Node action per model step, chained with a generation number.
-- Streaming text is patched into the message document about every 250 ms.
-- Only one active turn runs per (room, human).
-- Cancellation takes effect between steps and between stream flushes.
-- A cron fails turns that pass their deadline.
+**Data** (`convex/assistant/tables.ts`):
+- `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
+- `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
+  status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
+- `assistantMessages {threadId, turnId, seq, role, text (≤ 16 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?}`:
+  the user's message, then one assistant message per model step.
+- `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?, confirmDeadline?, approved?}`.
+  `argsJson` is ≤ 8 KB, except agent sources (validate/summon, 20 KB) and stored panels (`save_panel`, 70 KB).
+- `assistantAllowances {roomId, subject, epoch, usedTokens, calls}` (epoch: the room's current game id, or `lobby`) and
+  `assistantPrefs {roomId, subject, autoApproveSummonBits}`.
 
-**Tools.** The registry executors, run in-process with the human's `assistant` credential as principal. There is no other path to game state.
-- **Need confirmation** (a card in the chat): `summon_agent` (unless the player sets "auto-approve summons up to N bits"), `send_chat` (always), owner tools (always) and `delete_panel`.
-- **Run automatically and listed as activity chips:** reads, `validate_agent`, `destroy_agent`, `set_ready` and panel saves.
+**Principal.** The first `assistant.send` in a room creates (or reuses) the human's `kind: "assistant"` credential for
+that room: permission as chosen in the drawer (default `act`; never above the caller's own; `owner` only for the current
+owner with explicit consent; a different choice revokes the old one and creates a new one), 30 days, never longer than a
+player credential that created it. It is listed and revocable on the engine UI like any other credential; it is never a
+bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
-**Models and budget.**
-- `lib/ai-player` gains a streaming, tool-using `ChatProvider` (Anthropic and OpenAI) plus a scripted mock (`CODE_GODS_AI_MOCK`).
-- It is paid by the deployment's provider keys from a separate **assistant pool**. The room owner approves an equal allowance per seated human per game, and the model, in the existing AI budget card. The default is 0, so the assistant is off until approved. There are per-player and per-room rate limits and a daily USD ceiling.
+**Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/step.ts`).
+- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0; CONFLICT while the human's previous turn in the
+  room is active) inserts the user message and the turn and schedules `assistant/step:run({turnId, gen})`.
+- One scheduled Node action per model step, chained with `gen`; a step whose `gen` or status is stale exits. A step:
+  resolves the previous step's tool calls → reserves from the assistant pool → streams from the provider, flushing the
+  text into the message about every 250 ms or 400 characters through a mutation that also reports cancellation →
+  settles the usage → records the tool calls → runs them → schedules the next step, or finishes (model stop, 12 steps,
+  10-minute deadline, budget refusal). A rate-limited step waits and retries.
+- `cancel` marks the turn `cancelling` and bumps `gen`: the step aborts the stream at its next flush, or stops between
+  tool calls. A turn waiting for a confirmation is cancelled at once.
+- Command and request ids of tool calls are UUIDv5 of (turnId, callId), replacing any id the model wrote, so a replayed
+  approval or a re-run step never applies a command twice.
+- A cron (`assistant sweeper`, every minute) fails turns past their deadline, finishes cancellations whose step died
+  and denies unanswered confirmations.
+
+**Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
+same source at most at N), `send_chat`, `pause_game`, `delete_panel` and every owner tool wait for a card: the call goes
+`awaiting_confirmation`, the turn pauses with no action open, the drawer shows the exact payload, and
+`assistant.confirm(toolCallId, approve|deny)` resumes it (a new `gen`). Unanswered after 2 minutes, the call is denied.
+Reads, `validate_agent`, `destroy_agent`, `set_ready`, `wake_engine` and panel saves (`save_panel`, `rollback_panel`,
+`place_panel`) run automatically and show as activity chips. A tool the grant does not allow is refused at once
+(FORBIDDEN), with no card.
+
+**Models and budget.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
+onText})`) has Anthropic Messages and OpenAI chat-completions adapters (direct endpoints, catalog prices, no retries;
+a max-tokens or other incomplete stop is an error) and `mockChatProvider()` under `CODE_GODS_AI_MOCK=1` (a message
+starting with `/mock {json}` scripts the steps; anything else reads the observation and summarizes it). Seats and the
+assistant explain the game with one `GAME_PRIMER`. The model is offered the registry's JSON Schemas for the
+credential's permission, without the engine-derived ids. The separate assistant pool: an equal allowance per human per
+game and the model, approved by the owner in the AI budget card (default 0 = off); `ASSISTANT_GAME_USD` per room per
+game, `DAILY_ASSISTANT_USD` per day; per-player and per-room call rates (`convex/lib/aiModels.ts`).
 
 **Safety.**
-- Game data reaches the model only as untrusted JSON tool results.
-- Public chat is never auto-sent.
-- Logs record ids, tools, outcomes and usage, never message text.
-- Threads are visible only to their human.
+- Tool results reach the model as the registry's untrusted JSON (`{untrusted: true, notice, data}`); the system prompt
+  says only the player's messages are instructions.
+- Public chat is never sent without the player's confirmation.
+- Logs record ids, tools, outcomes and usage, never message text or tool arguments.
+- Threads, messages and tool calls are readable only by their human (`assistant.thread(s)` check `subject`, and a
+  player credential reaches its own room only); stored tool results are the human's own projections.
 
-**UI.** A core drawer in player-web (`src/core/assistant/`) with:
-- streaming messages, tool chips and confirmation cards;
-- a Stop button;
-- an allowance meter.
+**UI** (`artifacts/player-web/src/core/assistant/`): a core drawer behind the header's "Assistant" toggle, in hosted and
+dev-server modes: streaming messages, tool chips (expandable to the exact arguments and the outcome), confirmation cards
+with a countdown, Stop, the allowance meter, the permission choice on first use, and an explanation while the owner has
+not enabled it. The owner's side is the "In-client assistant" part of the engine UI's AI budget card.
 
-**Deferred.** Phase 2 **watches**: declarative per-tick triggers for AI-speed tactics, open to every surface.
+**Deferred.** Phase 2 **watches**: declarative per-tick triggers for AI-speed tactics, open to every surface. A browser
+e2e of the drawer (the unit-tested UI state and the engine suite cover the behaviour).
 
 ## 7. Decisions
 
@@ -176,7 +213,16 @@ Type-checking against `sdk.d.ts` is phase 2.
 3. **Stored panels:** sandboxed iframes; compile-time syntax checks only in phase 1; scoped to the human; `act` credentials may write.
 4. **MCP:** stateless JSON. OAuth with DCR and CIMD, plus raw `cgc_` bearer tokens. One room per connection. `evaluate_value` covers the caller's own utility only. The CLI becomes an MCP client.
 5. **Assistant:** a separate pool, an equal allowance per seated human, default off, owner-approved. Confirmations as in §6. No public "via assistant" label: delegation is to the same human. Watches are deferred.
-6. **Artifacts:** an experimental, slow-dashboard surface. A reference page (`clients/claude-artifact/`) and a CSP probe come in Wave 2. 1 Hz play stays on the clients built on Convex.
+6. **Artifacts:** an experimental, slow-dashboard surface. 1 Hz play stays on the clients built on Convex.
+   - **Reference page** (Wave 2B): `clients/claude-artifact/template.html`, with its pure logic in `core.js` (unit-tested with
+     `node --test`) inlined by `build.mjs` into `dist/template.html`, the file that gets published. It declares
+     `capabilities: {mcp: {servers: [{server: "Code Gods", tools: [whoami, get_observation, get_receipt, send_chat,
+     validate_agent, summon_agent, set_ready]}]}, sample: {}}`. Game data is rendered as text only.
+   - **Probe:** `probe.html` reports whether the artifact runtime allows `new Function`, sandboxed `blob:` and `srcdoc`
+     frames, `postMessage` and `MessagePort` round trips, and blob Workers: the prerequisites for running stored panels
+     (`panel-runtime.js`) inside an artifact. It still has to be run in claude.ai.
+   - Verified only locally, against a stand-in for the runtime (`dev/claude-stub.js`, `pnpm run smoke:artifact`). A live
+     claude.ai check is still open (README).
 
 ## 8. Waves and ownership
 

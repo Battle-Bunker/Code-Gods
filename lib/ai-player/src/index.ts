@@ -3,3 +3,8 @@ export * from "./budget.ts";
 export * from "./provider.ts";
 export * from "./anthropic-provider.ts";
 export * from "./controller.ts";
+export * from "./chat.ts";
+export * from "./chat-anthropic.ts";
+export * from "./chat-openai.ts";
+export * from "./chat-mock.ts";
+export * from "./assistant-prompt.ts";

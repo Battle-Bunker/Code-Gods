@@ -8,12 +8,15 @@
     "./engine": "./src/engine.ts",
     "./assistant": "./src/assistant.ts",
     "./state": "./src/state.ts",
-    "./connect": "./src/connect.ts"
+    "./connect": "./src/connect.ts",
+    "./tools": "./src/tools.ts",
+    "./rules": "./src/rules.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",
     "assistant": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts assistant",
     "test": "node scripts/test.mjs",
+    "gen:tools": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-tools.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json"
   },
   "dependencies": {

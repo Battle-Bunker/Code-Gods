@@ -7,16 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
 import { admin, api, envelope, gods, internal, playerClient, raw, roomWith, touch, waitFor } from "./game-helpers.ts";
+import { disclosureChecker } from "./disclosure.ts";
 
-const FORBIDDEN_KEYS = ["scores", "endAtWorld", "net", "deities", "prompt", "penaltyOrdinal", "aiAgent", "descriptor", "seed"];
-
-/** Every number (as JSON prints it) in a value. */
-function numbers(value: unknown, out = new Set<string>()) {
-  if (typeof value === "number") out.add(JSON.stringify(value));
-  else if (Array.isArray(value)) value.forEach(v => numbers(v, out));
-  else if (value && typeof value === "object") Object.values(value).forEach(v => numbers(v, out));
-  return out;
-}
 
 test("no player-facing result discloses another god's scores, descriptor, agent source, prompt, salt or end", { timeout: 240000 }, async () => {
   const [host, ada, bo] = await gods("Disclosure Host", "Disclosure Ada", "Disclosure Bo");
@@ -58,30 +50,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
     };
   };
-  const check = async (label: string, result: unknown) => {
-    const secret = await raw(game.gameId);
-    const json = JSON.stringify(result);
-    for (const key of FORBIDDEN_KEYS) assert.ok(!json.includes(`"${key}":`), `${label}: never discloses "${key}"`);
-    assert.ok(!json.includes(SECRET_BO) && !json.includes(SECRET_HOST), `${label}: never another god's agent source`);
-    assert.ok(!json.includes("Play strategically"), `${label}: never an AI seat's prompt`);
-    assert.ok(!json.includes("local-test-salt"), `${label}: never the season salt`);
-    assert.ok(!numbers(result).has(JSON.stringify(secret.game.endAtWorld)), `${label}: never the end deadline`);
-    // Other gods' individual per-object net bits (where distinctive) never appear.
-    const seen = numbers(result);
-    for (const o of secret.objects) for (const s of o.scores) {
-      if (s.god === ada.subject) continue;
-      const distinctive = Math.abs(s.netBits) > 1e-6 && !o.scores.some((x: any) => x.god === ada.subject && Math.abs(x.netBits - s.netBits) < 1e-12);
-      if (distinctive) assert.ok(!seen.has(JSON.stringify(s.netBits)), `${label}: ${s.god}'s net bits ${s.netBits} on ${o._id}`);
-    }
-    // Other gods' descriptors never appear.
-    for (const d of secret.deities) {
-      if (d.godId === ada.subject) continue;
-      const own = secret.deities.find((x: any) => x.godId === ada.subject).utility;
-      if (JSON.stringify(d.utility.params) !== JSON.stringify(own.params) && JSON.stringify(d.utility.params) !== "{}") {
-        assert.ok(!json.includes(JSON.stringify(d.utility.params)), `${label}: ${d.godId}'s utility parameters`);
-      }
-    }
-  };
+  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
 
   const live = await collect(ada);
   for (const [label, result] of Object.entries(live)) await check(`live ${label}`, result);

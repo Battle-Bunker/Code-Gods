@@ -4,7 +4,8 @@
  * backend. Production must never set it.
  */
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { components } from "../_generated/api";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireRoomPermission, requireViewer } from "./access";
 import { normalizeUserCode, sha256Hex } from "./crypto";
 import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
@@ -46,6 +47,37 @@ export const setRoomOwner = internalMutation({
   handler: async (ctx, { roomId, ownerId }) => {
     guard();
     await ctx.db.patch(roomId, { ownerId });
+  },
+});
+
+/** Delete a room row (its members stay): credentials bound to it must stop working. */
+export const deleteRoom = internalMutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    guard();
+    await ctx.db.delete(roomId);
+  },
+});
+
+/** Our `users` row for a god id, as the Better Auth triggers wrote it. */
+export const userRow = internalQuery({
+  args: { subject: v.string() },
+  handler: async (ctx, { subject }) => {
+    guard();
+    const row = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", subject)).unique();
+    if (!row) return null;
+    return { subject: row.subject, name: row.name, email: row.email, emailVerified: row.emailVerified, provider: row.provider };
+  },
+});
+
+/** Move a Better Auth session's expiry into the past (it is otherwise 24 hours away). */
+export const expireSession = internalMutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    guard();
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: { model: "session", where: [{ field: "_id", value: sessionId }], update: { expiresAt: Date.now() - 1000 } },
+    });
   },
 });
 
