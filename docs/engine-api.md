@@ -97,6 +97,14 @@ Each of these returns the caller's own projection only.
 - `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT.
 - `receipts.get({roomId, commandId})` query → `CommandResult | null`
 
+### Stored panels (`panels`)
+A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any caller of that human. Writes: browser sessions and `act`/`owner` credentials. Another human's slug is NOT_FOUND. Each function has an internal twin `<fn>As({principal: {credentialId}, …})` for the agent registry.
+- `panels.list()` query → `[{slug, title, placement, size, currentVersion, enabled, updatedAt, author{kind, label}, lastForeignVersion}]`
+- `panels.code({slug, version?})` query → `{slug, version, source, compiled, diagnostics, compilerVersion, sourceHash, author, createdAt}` (the last 20 versions are kept)
+- `panels.save({slug, source, title?, placement?, size?})` action → `{ok: true, slug, version, diagnostics: []}` or `{ok: false, slug, diagnostics[{line, column, code, message}]}` (nothing stored). Limits: source ≤ 64 KB, compiled ≤ 128 KB, 32 panels, 30 saves a minute.
+- `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`; `panels.place({slug, placement?, size?, title?})`
+- `panels.layout()` query → the dock layout or null; `panels.setLayout({layout})` (≤ 16 KB)
+
 ### Other modules
 - `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, stats, roomActiveGame). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
