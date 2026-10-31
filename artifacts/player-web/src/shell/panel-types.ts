@@ -1,12 +1,12 @@
 import type { ComponentType } from "react";
 
-/** Where a panel docks. The player can drag it elsewhere; their choice wins over the manifest. */
+/** A hint for where a new pane of this panel opens beside the lenses; the player and the assistant arrange panes freely. */
 export type Placement = "left" | "right" | "bottom";
 export type PanelSize = "sm" | "md" | "lg";
 
 /** A panel's manifest plus its component. Panels live one per file in src/panels/*.tsx. */
 export type PanelDefinition = {
-  /** Stable id; defaults to the file name. Used for layout persistence. */
+  /** Stable id; defaults to the file name. */
   id?: string;
   title: string;
   description?: string;

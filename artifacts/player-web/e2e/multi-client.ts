@@ -12,11 +12,13 @@
  *   - Humans, driven by Playwright through each app's own UI, plus one mock AI seat.
  *
  * What it checks (each line printed as ok / FAIL):
- *   full Int, string and Grid games (validate + summon through the UI, transformations, chat, owner end,
- *   room history); live HMR of a new panel in one app during a running game (no reload, live data, the
- *   other apps unaffected); a syntax error contained in its panel; the room assistant acting for its
- *   player (chat, summon, owner start) through `pnpm player assistant`; disclosure in what the
- *   assistant receives; both frontends served by the engine's static hosting.
+ *   the dock: the palette adds a lens and the lens menu changes it, and the layout is stored in the engine; a
+ *   layout written to the engine reaches the open client; full Int, string and Grid games (validate + summon in
+ *   the Agent code lens, transformations, chat, owner end, room history); live HMR of a new panel in one app
+ *   during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected); a
+ *   syntax error contained in its pane; the room assistant acting for its player (chat, summon, owner start)
+ *   through `pnpm player assistant`; disclosure in what the assistant receives; both frontends served by the
+ *   engine's static hosting; the hosted client at phone size (390×844: no dockview, the assistant as a sheet).
  *
  * Commit before running: the simulated apps are worktrees of HEAD.
  */
@@ -87,6 +89,7 @@ execFileSync("npx", ["convex", "env", "set", "DEV", "1"], { cwd: ENGINE, stdio: 
 const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
+const { DEFAULT_LAYOUT, openPane } = await import("@workspace/player-client/layout");
 
 // ------------------------------------------------------------------------------------------------
 // three duplicated repositories (worktrees of HEAD), each a player app
@@ -125,6 +128,43 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
   const args: Record<string, unknown> = { roomId, action, requestId: crypto.randomUUID(), ...extra };
   if (action === "settings") args.revision = (await c.query(ref.query("rooms:get"), { room: roomId }) as { revision: number }).revision;
   return c.action(ref.action("owner:command"), args);
+}
+
+/**
+ * The dock layout the games are played in, written to the engine as that human (the open client follows it, as it
+ * would an arrangement made on another device): lens p1 (Agent code; switched to Objects by payoff once the agent
+ * runs), My agents, What just changed and Public chat side by side on top, the assistant below.
+ */
+const LENSES_FOR_PLAY = ["agents", "feed", "public-chat"] as const;
+async function arrangeForPlay(p: Player) {
+  let layout = DEFAULT_LAYOUT("running");
+  layout = { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "lens", lensId: "forge", params: {}, setBy: "human" } } };
+  for (const lensId of LENSES_FOR_PLAY) layout = openPane(layout, { id: "", kind: "lens", lensId, params: {}, setBy: "human" }).layout;
+  const c = new ConvexHttpClient(CLOUD);
+  c.setAuth(await browserJwt(sessionOf(p)));
+  await c.mutation(makeFunctionReference<"mutation">("layout:set"), { roomId, layout });
+  // p1 forge, p3 agents, p4 feed, p5 public chat: all on screen.
+  await pages[p].waitForSelector("[data-testid=pane-p5] [data-testid=input-chat]", { state: "attached", timeout: 30_000 });
+}
+/** Change a pane's lens through its header's lens menu (the player's own control). */
+async function useLens(p: Player, paneId: string, lensId: string) {
+  const page = pages[p];
+  if (await page.locator(`[data-testid=tab-${paneId}] [data-testid=menu-lens]`).textContent() === lensTitle(lensId)) return;
+  await page.click(`[data-testid=tab-${paneId}] [data-testid=menu-lens]`);
+  await page.click(`[data-testid=menu-lens-item-${lensId}]`);
+  // The menu hands focus back to its trigger as it closes: let it, before typing anywhere else.
+  await page.waitForFunction(([id, title]) => document.querySelector(`[data-testid=tab-${id}] [data-testid=menu-lens]`)?.textContent === title, [paneId, lensTitle(lensId)] as const);
+  await sleep(300);
+}
+const lensTitle = (lensId: string) => ({ forge: "Agent code", objects: "Objects by payoff", race: "Leaderboard race", rules: "How to play" } as Record<string, string>)[lensId] ?? lensId;
+/** Run a palette command by its title (Cmd/Ctrl+K, type, Enter). */
+async function palette(p: Player, title: string) {
+  const page = pages[p];
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("[data-testid=dialog-palette]");
+  await page.keyboard.type(title);
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("[data-testid=dialog-palette]", { state: "detached", timeout: 10_000 });
 }
 
 /** The player's coding agent: `pnpm player …` inside that player's own app, with that app's secrets. */
@@ -190,6 +230,26 @@ await check("each app is connected to the shared engine as its own player, with 
   }
 });
 
+await check("the dock: the default is one lens over the assistant; the palette adds a lens, the lens menu changes it, the engine stores it", async () => {
+  const page = pages.alice;
+  await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
+  // A long-lived engine may carry alice's arrangement from an earlier run's room: start from the default.
+  await palette("alice", "Reset layout");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-lens]").length === 1, null, { timeout: 10_000 });
+  await palette("alice", "Add lens: Leaderboard race");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-lens]").length === 2, null, { timeout: 10_000 });
+  await useLens("alice", "p3", "rules");
+  const stored = async () => JSON.stringify((await (await ownerClient()).query(ref.query("layout:current"), { roomId }) as { layout: unknown }).layout);
+  await until(async () => /"lensId":"rules"/.test(await stored()), "the layout stored in the engine");
+  await page.click("[data-testid=button-close-p3]");
+  await until(async () => !/"p3"/.test(await stored()), "the closed pane gone from the engine's layout");
+});
+
+await check("a layout written to the engine reaches each open client (four lenses over the assistant)", async () => {
+  for (const p of PLAYERS) await arrangeForPlay(p);
+  for (const p of PLAYERS) assert(await pages[p].locator("[data-testid=dock] [data-testid=menu-lens]").count() === 4, `${p}: four lens panes`);
+});
+
 await check("an AI seat with a budget joins the room (mock provider)", async () => {
   await owner("addAi", { aiAgentId: "sonnet-strategist" });
   await owner("settings", { aiBudget: 50_000 });
@@ -209,6 +269,8 @@ const AGENTS = {
 
 async function summonThroughUi(p: Player, language: string, source: string) {
   const page = pages[p];
+  // The forge is the Agent code lens; with nothing drafted it opens as the editor.
+  await useLens(p, "p1", "forge");
   await page.click(`[data-testid=button-lang-${language}]`);
   await page.fill("[data-testid=input-source]", source);
   await page.click("[data-testid=button-validate]");
@@ -233,6 +295,8 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
   await check(`${type} game: the world runs and each player sees their own transformations and scores`, async () => {
     for (const p of PLAYERS) {
       await pages[p].waitForSelector("[data-testid^=row-transformation-]", { timeout: 90_000 });
+      // The agent runs: the first pane changes from the forge to the objects (the lens menu).
+      await useLens(p, "p1", "objects");
       await pages[p].waitForSelector("[data-testid^=row-object-]", { timeout: 10_000 });
     }
   });
@@ -385,6 +449,28 @@ await check("the hosted player client (engine site, /player/) plays as the signe
   const label = await page.textContent("[data-testid=text-self-label]");
   assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
   assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
+  await context.close();
+});
+
+await check("at phone size (390×844) the same layout is stacked, the assistant is a sheet, dockview is never loaded", async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  const page = await context.newPage();
+  const scripts: string[] = [];
+  page.on("request", r => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
+  page.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await page.goto(`${SITE}/player/?room=${shortCode}`);
+  await page.waitForSelector("[data-testid=dock-stacked]", { timeout: 60_000 });
+  await page.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached" });
+  // carol's layout from the games: four lens panes, each stacked with its own header.
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock-stacked] [data-testid=menu-lens]").length === 4, null, { timeout: 30_000 });
+  assert(await page.locator(".dv-dockview").count() === 0, "dockview rendered on a phone");
+  assert(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
+  const width = await page.evaluate(() => document.scrollingElement!.scrollWidth);
+  assert(width <= 390, `the page scrolls sideways: ${width}px`);
+  await page.click("[data-testid=button-sheet]");
+  await page.waitForSelector(".cg-sheet[data-snap=half] [data-testid=assistant-pane]", { timeout: 5_000 });
+  assert(await page.textContent("[data-testid=text-self-label]") === "Carol Nguyen", "identity on the phone");
   await context.close();
 });
 

@@ -38,7 +38,7 @@ const frameConfig = path.resolve(import.meta.dirname, 'vite.frame.config.ts');
  * Stored panels in a dev server. The frame (panel-frame.html, panel-runtime.js, panel-frame.css) is built in memory
  * with vite.frame.config.ts on first use and rebuilt after an SDK, shell, frame or style change; the frame CSP names
  * this request's own origin. GET /__codegods/panel-compiled?file=x.tsx compiles a file panel with the engine's
- * compiler, for the dock's "run sandboxed" toggle.
+ * compiler, for a file panel pane's "sandbox" toggle.
  */
 function framePlugin(): Plugin {
   let built: Promise<Map<string, string>> | undefined;
