@@ -184,7 +184,7 @@ One shared collection of complete next-game settings, each with a name (≤ 40 c
 
 ### Player (`player`, `commands`, `receipts`)
 Each of these returns the caller's own projection only.
-- `player.observation({roomId, at?})` query → a v3 `Observation` (`lib/player-client` `observationSchema`). `at` is only a cache key; pass e.g. `Math.floor(Date.now()/1000)` when polling for fresh energy during planning or a pause.
+- `player.observation({roomId, at?})` query → a v3 `Observation` (`lib/player-client` `observationSchema`). `at` is only a cache key; pass e.g. `Math.floor(Date.now()/1000)` when polling for fresh energy during planning or a pause. After the end it is the ended game's frozen final state (phase `ended`; objects, own agents, transformations, leaderboard, own card; god energy stops at `endedAt`) until the room's next game starts. Ended games are kept whole and are not deleted (no retention limit; a game is its objects ≤ 2,100, agents ≤ 2,000, deities and event batches).
 - `player.events({roomId, gameId?, after?, limit≤50})` query → `{gameId, events[{seq, type, …}], nextCursor, latestCursor, gap}`. Event types are `object.spawned`, `object.transformed` (calls and cost only when `mine`), `agent.failed` (own agents only) and `phase`. Object events carry own bits plus `peerNetBits`, `peerCare` and `payoff`.
 - `player.history({roomId, gameId, afterSeq?, limit?})` query: the same projection for any game of the room, ended games included
 - `player.trajectories({roomId, gameId?, afterSeq?, limit≤200})` query → `{objects[{objectId, points[{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], nextCursor, latestCursor}`

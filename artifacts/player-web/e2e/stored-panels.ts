@@ -16,7 +16,8 @@
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
- *   the engine; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
+ *   the engine; after the game ends every built-in panel shows the frozen final state (none blank) and the forge says
+ *   why it is read-only; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
  *   built-in panels and the assistant; the page CSP reports nothing of its own and sign-in still works.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
@@ -39,6 +40,10 @@ async function check(name: string, run: () => Promise<unknown> | unknown) {
 }
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+async function until<T>(read: () => Promise<T | undefined>, label: string, ms = 60_000): Promise<T> {
+  for (const end = Date.now() + ms; Date.now() < end; await sleep(500)) { const value = await read(); if (value) return value; }
+  throw new Error(`timed out: ${label}`);
+}
 
 if (!(await fetch(`${SITE}/api/health`).then(r => r.ok, () => false))) {
   console.error(`No engine at ${SITE}. Start one: pnpm --filter @workspace/engine dev`);
@@ -334,7 +339,75 @@ export default definePanel({ title: "Evaluator", Component() {
   // Objects spawn once the game runs; wait for some, then every local score must equal the engine's.
   const text = await (async () => { for (let i = 0; i < 4; i++) { try { return await frameShows("e2e-eval", "sp-eval", /^(match|mismatch) \d+$/); } catch { /* still planning */ } } return frameText("e2e-eval", "sp-eval"); })();
   assert(/^match \d+$/.test(text ?? ""), `evaluator: ${text}`);
+});
+
+await check("after the game ends every built-in panel shows the frozen final state (no placeholder), the forge says why it is read-only", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) =>
+    carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  type Obs = { gameId: string; language: "python" | "typescript"; instance: { objectType: string }; objects: { id: string }[]; agents: unknown[]; transformations: { calls?: [string, Record<string, unknown>][] }[] };
+  const observe = () => carol.query(fn.q("player:observation"), { roomId, at: Date.now() }) as Promise<Obs>;
+  let obs = await observe();
+  const AGENT: Record<string, Record<string, string>> = {
+    python: { Int: "def agent(x):\n    return [add(1)]", string: "def agent(s):\n    return [swap_chars(0, 1)]", Grid: "def agent(grid):\n    return [slide(row(0), 1)]" },
+    typescript: { Int: "function agent(x) { return [add(1)]; }", string: "function agent(s) { return [swapChars(0, 1)]; }", Grid: "function agent(grid) { return [slide(row(0), 1)]; }" },
+  };
+  const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
+    command: { type: "summon", language: obs.language, source: AGENT[obs.language][obs.instance.objectType] } } }) as { accepted: boolean; message?: string };
+  assert(summon.accepted, `summon: ${summon.message}`);
+  obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
   await owner("endGame");
+  await page.waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 });
+  const whatIf = { objectId: obs.objects[0].id, calls: [obs.transformations.find(t => t.calls?.length)!.calls![0]] };
+  /** Each panel's own content, as it renders with data (any one selector). */
+  const CONTENT: Record<string, string> = {
+    overview: "[data-testid=panel-overview]", "my-card": "[data-testid=panel-utility]", objects: "[data-testid^=row-object-]", "others-care": "[data-testid=panel-others-care]",
+    "bits-over-time": "[data-testid=panel-bits-over-time]", race: "[data-testid^=row-leader-]", agents: "[data-testid^=row-agent-]", feed: "[data-testid^=row-transformation-]",
+    "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
+  };
+  const { PANEL_IDS } = await import("@workspace/player-client/panels");
+  assert(PANEL_IDS.length === 13 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
+  // layout:set allows 12 changes a minute: a sweep of 13 panels waits for the window instead of failing.
+  const setLayout = (layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, (e: Error) => {
+    if (/RATE_LIMITED/.test(e.message)) return sleep(4_000).then(() => undefined);
+    throw e;
+  }), "layout:set", 120_000);
+  const show = (panelId: string) => {
+    const layout = DEFAULT_LAYOUT("ended");
+    layout.panes.p1 = { id: "p1", kind: "panel", panelId: panelId as never, params: panelId === "what-if" ? whatIf : {}, setBy: "human" };
+    return setLayout(layout);
+  };
+  // The checks after this one use carol's arrangement (her stored panels' panes): put it back at the end.
+  const arranged = (await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout;
+  try { await sweep(); } finally { await setLayout(arranged); }
+  async function sweep() {
+  const blank: string[] = [];
+  for (const id of PANEL_IDS) {
+    await show(id);
+    const pane = page.locator("[data-testid=pane-p1]");
+    const ok = await pane.locator(CONTENT[id]).first().waitFor({ state: "attached", timeout: 20_000 }).then(() => true, () => false);
+    const text = (await pane.textContent()) ?? "";
+    if (!ok || await pane.locator("[data-testid^=panel-empty-]").count() > 0 || /shows data|How the game went\.$/.test(text)) blank.push(`${id}: ${text.slice(0, 120)}`);
+  }
+  assert(blank.length === 0, `blank after the end: ${blank.join(" | ")}`);
+  await show("forge");
+  await page.locator("[data-testid=pane-p1] [data-testid=input-source]").fill("def agent(x):\n    return []");
+  assert(await page.locator("[data-testid=pane-p1] [data-testid=button-summon]").isDisabled() && await page.locator("[data-testid=pane-p1] [data-testid=button-validate]").isDisabled(), "summon and validate are off after the end");
+  // Phone-size screenshots of the frozen agents, objects and feed panels (CG_E2E_SHOTS=<dir> keeps them).
+  if (process.env.CG_E2E_SHOTS) {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await phone.addCookies(sessionCookies(session));
+    const shot = await phone.newPage();
+    await shot.goto(`${SITE}/player/?room=${shortCode}`);
+    await shot.waitForSelector("[data-testid=dock-stacked]", { state: "attached", timeout: 60_000 });
+    for (const id of ["agents", "objects", "feed"]) {
+      await show(id);
+      await shot.locator(`[data-testid=pane-p1] ${CONTENT[id]}`).first().waitFor({ state: "attached", timeout: 20_000 }).catch(() => {});
+      await sleep(800);
+      await shot.screenshot({ path: join(process.env.CG_E2E_SHOTS, `ended-${id}-after.png`) });
+    }
+    await phone.close();
+  }
+  }
 });
 
 await check("at phone size (390×844) a panel's pane runs in the stacked layout, with the assistant as a sheet", async () => {

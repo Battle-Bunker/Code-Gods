@@ -71,3 +71,8 @@ test("the catalogue carries a JSON Schema per panel for the model", () => {
   assert.deepEqual(whatIf.required, ["objectId", "calls"]);
   assert.ok(JSON.stringify(catalog).length < 20_000, "small enough to ride in a tool result");
 });
+
+test("an ended game stays inspectable: every built-in panel has data in the ended phase", () => {
+  for (const id of PANEL_IDS) assert.ok(PANELS[id].phases.includes("ended"), `${id} goes blank when the game ends`);
+  assert.equal(defaultPanelFor("ended"), "results", "results stays the default once the game is over");
+});

@@ -12,7 +12,9 @@ import { z } from "zod/v4";
 
 export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
 const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"];
-const LIVE: readonly Phase[] = ["running", "paused"];
+/** The game's phases with a world (planning has the dealt cards, not yet objects). `ended` is the frozen final state. */
+const WORLD: readonly Phase[] = ["running", "paused", "ended"];
+const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
 
 export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
@@ -22,7 +24,10 @@ export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
   title: string;
   /** One sentence for a newcomer. */
   blurb: string;
-  /** Where the panel has data; elsewhere its empty state names the next step. */
+  /**
+   * Where the panel has data; elsewhere its empty state names the next step. Every panel with game data includes
+   * `ended`: an ended game stays inspectable, frozen at its final tick (docs/ui-redesign.md §3, "frozen end state").
+   */
   phases: readonly Phase[];
   /** Strict; every field optional with a default, except what-if's objectId and calls. */
   params: P;
@@ -49,12 +54,12 @@ export const PANELS = {
     summary: p => (p.focus === "auto" ? "Situation, standing, next step" : `Focus: ${p.focus}`),
   }),
   "my-card": def({
-    id: "my-card", title: "Your secret goal", blurb: "Your utility card in plain words, with live examples.", phases: ["planning", "running", "paused"],
+    id: "my-card", title: "Your secret goal", blurb: "Your utility card in plain words, with live examples.", phases: GAME,
     params: z.strictObject({ examples: z.number().int().min(0).max(6).default(3), showSource: bool(false), exampleSort: z.enum(["best", "worst"]).default("best") }),
     summary: p => line([p.examples ? `${p.examples} ${p.exampleSort} example${p.examples === 1 ? "" : "s"}` : "No examples", ...when(p.showSource, "with source")]),
   }),
   objects: def({
-    id: "objects", title: "Objects by payoff", blurb: "Which things in the world earn you points.", phases: ["running", "paused", "ended"],
+    id: "objects", title: "Objects by payoff", blurb: "Which things in the world earn you points.", phases: WORLD,
     params: z.strictObject({
       sortBy: z.enum(["payoff", "mine", "othersCare"]).default("payoff"),
       filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
@@ -69,12 +74,12 @@ export const PANELS = {
       ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid"), ...when(p.annotate === "none", "no marks")]),
   }),
   "others-care": def({
-    id: "others-care", title: "What others care about", blurb: "Where the others' interests lie, from totals only.", phases: LIVE,
+    id: "others-care", title: "What others care about", blurb: "Where the others' interests lie, from totals only.", phases: WORLD,
     params: z.strictObject({ mode: z.enum(["snapshot", "movements"]).default("snapshot"), quadrant: z.enum(["none", "chips", "conflict", "shared"]).default("none"), window: z.number().int().min(10).max(50).default(50) }),
     summary: p => line([p.mode === "snapshot" ? "Now" : `Movements over ${p.window} ticks`, ...when(p.quadrant !== "none", `highlighting ${p.quadrant}`)]),
   }),
   "bits-over-time": def({
-    id: "bits-over-time", title: "My points over time", blurb: "Is it getting better or worse for you.", phases: ["running", "paused", "ended"],
+    id: "bits-over-time", title: "My points over time", blurb: "Is it getting better or worse for you.", phases: WORLD,
     params: z.strictObject({
       metric: z.enum(["payoff", "mine", "others"]).default("payoff"), objects: z.enum(["top", "bottom", "ids"]).default("top"), ids: objectIds(8),
       count: z.number().int().min(1).max(8).default(5), window: seconds(0, 3600, 0),
@@ -83,17 +88,17 @@ export const PANELS = {
       ...when(p.window > 0, `last ${p.window} s`)]),
   }),
   race: def({
-    id: "race", title: "Leaderboard race", blurb: "Who's winning, and is anyone catching up.", phases: ["running", "paused", "ended"],
+    id: "race", title: "Leaderboard race", blurb: "Who's winning, and is anyone catching up.", phases: WORLD,
     params: z.strictObject({ show: z.enum(["all", "top3", "me-vs-leader"]).default("all"), metric: z.enum(["total", "gap"]).default("total"), window: seconds(60, 3600, 300) }),
     summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total payoff", `last ${p.window} s`]),
   }),
   agents: def({
-    id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: LIVE,
+    id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: GAME,
     params: z.strictObject({ agentIds: z.array(z.string().min(1).max(128)).max(32).default([]), window: seconds(30, 600, 120), showSource: bool(false), showCosts: bool(false) }),
     summary: p => line([p.agentIds.length ? `${p.agentIds.length} agent${p.agentIds.length === 1 ? "" : "s"}` : "All agents", `last ${p.window} s`, ...when(p.showSource, "with source"), ...when(p.showCosts, "with costs")]),
   }),
   feed: def({
-    id: "feed", title: "What just changed", blurb: "The latest changes and what they did to you.", phases: ["running", "paused", "ended"],
+    id: "feed", title: "What just changed", blurb: "The latest changes and what they did to you.", phases: WORLD,
     params: z.strictObject({
       who: z.enum(["all", "mine", "others"]).default("all"), objectId: objectId.optional(), minImpact: z.number().min(0).max(64).default(0),
       limit: z.number().int().min(5).max(50).default(20), groupBy: z.enum(["none", "object", "mutator"]).default("none"),
@@ -102,7 +107,7 @@ export const PANELS = {
       ...when(p.minImpact > 0, `≥ ${p.minImpact} bits`), ...when(p.groupBy !== "none", `by ${p.groupBy}`)]),
   }),
   "what-if": def({
-    id: "what-if", title: "What if…", blurb: "What a move would do to your score before anyone makes it.", phases: ["planning", "running", "paused"],
+    id: "what-if", title: "What if…", blurb: "What a move would do to your score before anyone makes it.", phases: GAME,
     params: z.strictObject({ objectId, calls, compare: calls.optional(), value: z.union([z.number(), z.string().max(1024)]).optional() }),
     summary: p => line([`${p.calls.length} move${p.calls.length === 1 ? "" : "s"} on one object`, ...when(!!p.compare, "vs an alternative"), ...when(p.value !== undefined, "and a raw value")]),
   }),
@@ -112,7 +117,7 @@ export const PANELS = {
     summary: p => line([{ all: "Everyone", humans: "Humans only", ai: "AI only", mentionsMe: "Mentions of you" }[p.filter], ...when(p.highlight.length > 0, `highlighting ${p.highlight.join(", ")}`)]),
   }),
   forge: def({
-    id: "forge", title: "Agent code", blurb: "The agent being written for you and what it costs; Edit opens the editor.", phases: ["planning", "running", "paused"],
+    id: "forge", title: "Agent code", blurb: "The agent being written for you and what it costs; Edit opens the editor.", phases: GAME,
     params: z.strictObject({ language: z.enum(["python", "typescript"]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
     summary: p => line([p.agentId ? "A live agent's code" : p.source ? "A draft" : "Empty", ...when(!!p.language, p.language ?? ""), ...when(p.showHelpers, "with helpers")]),
   }),

@@ -37,7 +37,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const canAct = commands.canAct && !unknown && (phase === "running" || phase === "paused" || phase === "planning");
   if (!all.length) {
     return <PanelEmpty action={phase === "planning" || phase === "running" ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
-      No agents summoned yet. An agent is a small program that changes objects your way when the world picks it.
+      {phase === "ended" ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
     </PanelEmpty>;
   }
   const lanes = agents.map((a, i) => {
@@ -49,8 +49,10 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
       <ul className="space-y-4">
         {agents.map((a, i) => {
           const cap = Math.max(a.expectedActCost * (economy?.agentBatteryActs ?? 2), 1e-9);
-          const status = a.energy < 0 ? "cooldown" : a.eligible ? "ready to act" : "charging";
-          const wait = a.eligible ? 0 : secondsUntilEligible(a);
+          const ended = phase === "ended";
+          // Frozen at the final tick: what the agent was doing when the game ended, and no countdown.
+          const status = (ended ? "at the end: " : "") + (a.energy < 0 ? "cooldown" : a.eligible ? (ended ? "ready" : "ready to act") : "charging");
+          const wait = a.eligible || ended ? 0 : secondsUntilEligible(a);
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
@@ -85,6 +87,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
           );
         })}
       </ul>
+      {phase === "ended" && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">The game is over: these are your agents as they ended it. Destroy is off; Edit a copy keeps the code for the next game.</p>}
       {lanes.some(l => l.spans.length) && <Timeline lanes={lanes} from={Math.max(0, world - params.window)} to={world} now={world} width={380} />}
     </div>
   );

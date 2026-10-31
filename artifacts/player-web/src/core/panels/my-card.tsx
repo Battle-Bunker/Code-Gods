@@ -3,7 +3,7 @@ import { HowScoringWorks, ScoreBreakdown, UtilityCardView } from "@workspace/obj
 import { Obj, useMyCard, useObjectContext, useObjects } from "@/sdk";
 import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
-export default function MyCard({ params }: PanelProps<"my-card">) {
+export default function MyCard({ params, phase }: PanelProps<"my-card">) {
   const card = useMyCard();
   const objects = useObjects({ hz: 1 });
   const ranks = useObjectRanks(objects);
@@ -15,7 +15,7 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
       <UtilityCardView card={card} />
       {params.showSource && <pre className="max-h-48 overflow-auto bg-secondary p-3 font-mono text-[12px] text-secondary-foreground">{card.source}</pre>}
       {params.examples > 0 && (
-        <Section title={params.exampleSort === "best" ? `Live ${noun}s you like most` : `Live ${noun}s you like least`}>
+        <Section title={`${phase === "ended" ? "Final" : "Live"} ${noun}s you like ${params.exampleSort === "best" ? "most" : "least"}`}>
           {examples.length === 0 ? <p className="text-sm text-muted-foreground">No {noun}s yet: they appear when the world starts.</p> : (
             <ul className="space-y-2">
               {examples.map(o => (
