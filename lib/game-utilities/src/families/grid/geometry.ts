@@ -708,6 +708,66 @@ function pieceForms(P: PieceP["P"]): [number, number][][] {
   }
   return [...seen.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
 }
+const packings = new Map<string, boolean[][]>();
+/**
+ * Tetromino Tamer's best board: the cells to paint MY_COLOUR so that no two islands touch and there are as many
+ * islands shaped like P as possible, then as many 4-cell islands of any shape. Exact (a greedy first fit is not: on
+ * 4×4 it puts a Z in the corner and leaves no room for a second S). A memoised search over cells in reading order,
+ * where each island is placed at its first cell; the state is the cursor and which of the next 4N cells are taken
+ * or touched, since an island placed before the cursor reaches no further. About 11k states on 7×7.
+ */
+function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
+  const cached = packings.get(`${N}:${P}`);
+  if (cached) return cached;
+  const shapes = (["I", "O", "T", "L", "S"] as const).flatMap(q => pieceForms(q).map(f => ({
+    mine: q === P, cells: f.map(([r, c]) => [r - f[0][0], c - f[0][1]] as [number, number]),
+  })));
+  const NN = N * N, W = NN + 1, blocked = new Uint8Array(NN), memo = new Map<string, [value: number, choice: number]>();
+  /** The cells of shape s placed at cell i, or null if it leaves the grid or meets a taken or touched cell. */
+  const place = (i: number, s: number) => {
+    const r = Math.floor(i / N), c = i % N, cells = shapes[s].cells.map(([a, b]) => [r + a, c + b]);
+    return cells.every(([x, y]) => x >= 0 && x < N && y >= 0 && y < N && !blocked[x * N + y]) ? cells : null;
+  };
+  /** Marks the cells and their neighbours taken; returns the ones it changed, for undo. */
+  const take = (cells: number[][]) => {
+    const changed: number[] = [];
+    for (const [x, y] of cells) for (const [a, b] of [[x, y], [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+      if (a >= 0 && a < N && b >= 0 && b < N && !blocked[a * N + b]) { blocked[a * N + b] = 1; changed.push(a * N + b); }
+    }
+    return changed;
+  };
+  const next = (i: number) => { while (i < NN && blocked[i]) i++; return i; };
+  const keyOf = (i: number) => `${i}:${blocked.subarray(i + 1, Math.min(NN, i + 4 * N + 1)).join("")}`;
+  /** Best value (islands like P × W + 4-cell islands) from cursor i on, which must be a free cell or NN. */
+  const best = (i: number): number => {
+    if (i >= NN) return 0;
+    const key = keyOf(i), hit = memo.get(key);
+    if (hit) return hit[0];
+    blocked[i] = 1;
+    let value = best(next(i + 1)), choice = -1;
+    blocked[i] = 0;
+    for (let s = 0; s < shapes.length; s++) {
+      const cells = place(i, s);
+      if (!cells) continue;
+      const changed = take(cells), v = best(next(i + 1)) + (shapes[s].mine ? W : 0) + 1;
+      for (const k of changed) blocked[k] = 0;
+      if (v > value) { value = v; choice = s; }
+    }
+    memo.set(key, [value, choice]);
+    return value;
+  };
+  best(0);
+  const occ = range(N).map(() => Array<boolean>(N).fill(false));
+  for (let i = next(0); i < NN; i = next(i + 1)) {
+    const choice = memo.get(keyOf(i))![1];
+    if (choice < 0) { blocked[i] = 1; continue; }
+    const cells = place(i, choice)!;
+    take(cells);
+    for (const [x, y] of cells) occ[x][y] = true;
+  }
+  packings.set(`${N}:${P}`, occ);
+  return occ;
+}
 const tetText = (p: PieceP, g: GridSpec): CardText => ({
   emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", cname(g, p.C)], ["MY_PIECE", p.P]],
   about: `Every island of exactly 4 ${cname(g, p.C)} cells shaped like a Tetris ${p.P} piece (turned or flipped is fine) `
@@ -780,23 +840,7 @@ const tetrominoTamer = gridFamily<PieceP>({
       }
       return [pieces, fours];
     }`),
-  exemplar: (p, g) => {
-    const N = g.N, occ = range(N).map(() => Array<boolean>(N).fill(false)), forms = pieceForms(p.P);
-    const inGrid = (x: number, y: number) => x >= 0 && x < N && y >= 0 && y < N;
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      for (const f of forms) {
-        const cells = f.map(([a, b]) => [r + a, c + b]);
-        if (!cells.every(([x, y]) => inGrid(x, y) && !occ[x][y])) continue;
-        const key = new Set(cells.map(([x, y]) => x * N + y));
-        const touches = cells.some(([x, y]) => [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]
-          .some(([a, b]) => inGrid(a, b) && !key.has(a * N + b) && occ[a][b]));
-        if (touches) continue;
-        for (const [x, y] of cells) occ[x][y] = true;
-        break;
-      }
-    }
-    return wire(g, full(N, 0), occ.map(row => row.map(o => (o ? p.C : (p.C + 1) % g.C))));
-  },
+  exemplar: (p, g) => wire(g, full(g.N, 0), bestPacking(g.N, p.P).map(row => row.map(o => (o ? p.C : (p.C + 1) % g.C)))),
 });
 
 // --- Rainbow Bands -----------------------------------------------------------------------------------
