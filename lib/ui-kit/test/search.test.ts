@@ -5,7 +5,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG } from "@workspace/player-client/catalog";
+import { CATALOG, CATALOG_PATHS } from "@workspace/player-client/catalog";
+import { TOOLS } from "@workspace/player-client/tools";
 import { commandsFromCatalog } from "../src/commands.ts";
 import { EMPTY_VIEW_LIMIT, matchScore, paletteRows, scoreCommand, sectionOf } from "../src/search.ts";
 import { INLINE_TIMEOUT_MS, deriveConfirm, inlineStep } from "../src/confirm.ts";
@@ -98,6 +99,14 @@ test("confirmation levels: explicit wins; irreversible for everyone is a modal; 
   assert.equal(deriveConfirm({ explicit: "none", destructive: true }), "none");
   const fromCatalog = commandsFromCatalog(CATALOG, () => local, "engine");
   assert.equal(fromCatalog.find(c => c.id === "rooms.removeAi")?.confirm, "inline");
+  // A palette entry reached by a destructive tool states its confirmation (the multiplexed game-command entry is
+  // the player client's, which confirms its destroy row itself).
+  const destructive = new Set(TOOLS.filter(t => t.annotations.destructiveHint).map(t => t.name as string));
+  for (const path of CATALOG_PATHS) {
+    const e = CATALOG[path];
+    if (!e.palette || path === "commands.submit" || !e.tools.some(t => destructive.has(t))) continue;
+    assert.ok(e.palette.confirm && e.palette.confirm !== "none", `${path} is reached by a destructive tool and is confirmed`);
+  }
   assert.equal(fromCatalog.find(c => c.id === "rooms.endActiveGame")?.confirm, "modal");
 });
 

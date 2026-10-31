@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, WEAK_GRID_FAMILIES, presetSettings, defaultSettingsFor } from "@workspace/game-core";
 import {
-  draftErrors, fieldError, fieldsOf, isHidden, lengthLine, matchPreset, paceWord, retune, settingsDiff, stepChoices, threeWayMerge, withLanguage,
+  choiceLabel, draftErrors, fieldError, fieldsOf, isHidden, lengthLine, matchPreset, paceWord, retune, settingsDiff, stepChoices, threeWayMerge, withLanguage,
 } from "../src/lib/settings-form.ts";
 
 test("limits mirror validateSettings and the engine's resource limits, with the message on the field", () => {
@@ -68,6 +68,10 @@ test("the diff names each change in plain words; the summary gives length and pa
   const diff = settingsDiff(base, { ...base, interactionRateHz: 25, defenceRate: 0.5 });
   assert.deepEqual(diff.map(d => `${d.label}: ${d.from} → ${d.to}`), ["Defence goals: off → 50% of players", "World speed: 100 acts/s → 25 acts/s"]);
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
+  assert.deepEqual(stepChoices("interactionRateHz", 25).map(v => choiceLabel("interactionRateHz", v)), ["Slow (25/s)", "Normal (100/s)", "Fast (300/s)", "Max (1,000/s)"]);
+  assert.deepEqual([30, 60, 90].map(v => choiceLabel("planningSeconds", v)), ["30 s", "1 min", "90 s"]);
+  assert.equal(choiceLabel("defenceRate", 0.25), "25%");
+  assert.equal(choiceLabel("commitClause", true), "Offered");
   assert.equal(paceWord(25), "slow");
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");

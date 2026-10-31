@@ -17,14 +17,14 @@ test("a visitor signs in; a signed-in stranger joins (and may watch a running ga
 
 test("in the lobby a member opens the player client and may mark ready; the owner invites, then starts", () => {
   assert.deepEqual(nextStep("bob", room(["ada", "bob"])), { status: "Waiting for Ada to start the game.", primary: "ui.nav.playerClient", secondary: ["rooms.setReady"] });
-  assert.deepEqual(nextStep("ada", room(["ada"])), { status: "2 more players needed. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.addAi"] });
+  assert.deepEqual(nextStep("ada", room(["ada"])), { status: "2 more players needed. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.addAi", "ui.nav.playerClient"] });
   assert.equal(nextStep("ada", room(["ada", "bob"])).status, "1 more player needed. AI players count.");
-  assert.deepEqual(nextStep("ada", room(["ada", "bob", "ai:x"])), { status: "3 players are in; start when you're ready.", primary: "owner.start", secondary: ["rooms.addAi"] });
+  assert.deepEqual(nextStep("ada", room(["ada", "bob", "ai:x"])), { status: "3 players are in; start when you're ready.", primary: "owner.start", secondary: ["rooms.addAi", "ui.nav.playerClient"] });
 });
 
 test("without AI on the server, AI is neither offered nor mentioned; a full room offers no more seats", () => {
-  assert.deepEqual(nextStep("ada", room(["ada"]), { aiAvailable: false }), { status: "2 more players needed.", primary: "ui.copyInviteLink", secondary: [] });
-  assert.deepEqual(nextStep("ada", room(["ada", "b", "c", "d", "e", "f", "g", "h"])).secondary, []);
+  assert.deepEqual(nextStep("ada", room(["ada"]), { aiAvailable: false }), { status: "2 more players needed.", primary: "ui.copyInviteLink", secondary: ["ui.nav.playerClient"] });
+  assert.deepEqual(nextStep("ada", room(["ada", "b", "c", "d", "e", "f", "g", "h"])).secondary, ["ui.nav.playerClient"]);
 });
 
 test("during a game: seated players play, other members watch, the owner resumes a safety pause", () => {

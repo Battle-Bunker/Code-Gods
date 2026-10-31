@@ -171,6 +171,27 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
 
+const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
+  interactionRateHz: { 25: "Slow", 100: "Normal", 300: "Fast", 1000: "Max" },
+  halfLifeSeconds: { 120: "Short", 300: "Normal", 600: "Long", 1200: "Marathon" },
+  utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
+  objectSelection: { uniform: "Uniform", shelter: "Shelter" },
+  language: { python: "Python", typescript: "TypeScript" },
+};
+const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);
+/** A stepped choice's label: "Slow (25/s)", "2 min", "50%", "500,000 steps". */
+export function choiceLabel(key: SettingsKey, v: number | string | boolean): string {
+  const named = NAMED[key]?.[String(v)];
+  if (typeof v === "boolean") return v ? "Offered" : "Off";
+  if (key === "interactionRateHz" && typeof v === "number") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
+  if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
+  if (named) return named;
+  if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
+  if (key === "defenceRate" && typeof v === "number") return v === 0 ? "Never" : v === 1 ? "Always" : `${Math.round(v * 100)}%`;
+  if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
+  return typeof v === "number" ? n(v) : v;
+}
+
 export interface Change { key: SettingsKey; label: string; from: string; to: string }
 /** What differs from the base, in field order. */
 export function settingsDiff(base: Settings, draft: Settings): Change[] {

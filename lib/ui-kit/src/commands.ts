@@ -3,11 +3,11 @@
  * to a performer by the app (`bind` returns null to leave an entry out, e.g. a function the app has no UI for yet).
  * Availability follows the entry's audience: owner entries need the owner, admin entries an admin, player entries a
  * member (or a credential that may act), infrastructure entries a signed-in human. The confirmation level is the
- * palette spec's, else derived: a function whose tool is destructive is confirmed inline (a new destructive tool
- * cannot land unconfirmed).
+ * palette spec's; test/search.test.ts checks that every entry reached by a destructive tool states one, so a new
+ * destructive tool cannot land unconfirmed (checked there rather than here, to keep the tool schemas out of the
+ * engine UI's bundle).
  */
 import { CATALOG, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { TOOLS } from "@workspace/player-client/tools";
 import { deriveConfirm } from "./confirm.ts";
 import { paletteRows } from "./search.ts";
 import type { Availability, Command, PaletteContext, Performer } from "./types.ts";
@@ -32,8 +32,6 @@ export function availabilityFor(entry: CatalogEntry, ctx: PaletteContext): Avail
   }
 }
 
-const destructiveTools = new Set(TOOLS.filter(t => t.annotations.destructiveHint).map(t => t.name as string));
-
 export function commandsFromCatalog(
   catalog: typeof CATALOG,
   bind: (path: PublicFunctionPath, entry: CatalogEntry) => Performer | null,
@@ -47,7 +45,7 @@ export function commandsFromCatalog(
     if (!performer) continue;
     out.push({
       id: path, human: { title: entry.palette.label, tooltip: entry.human.tooltip }, group: entry.palette.group, keywords: entry.palette.keywords,
-      confirm: deriveConfirm({ explicit: entry.palette.confirm, destructive: entry.tools.some(t => destructiveTools.has(t)) }),
+      confirm: deriveConfirm({ explicit: entry.palette.confirm }),
       performer, available: ctx => availabilityFor(entry, ctx),
     });
   }

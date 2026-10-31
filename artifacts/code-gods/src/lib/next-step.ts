@@ -56,7 +56,8 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   }
   const n = room.members.length;
   if (!owner) return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "ui.nav.playerClient", secondary: ["rooms.setReady"] };
-  const addAi: StepId[] = ai && n < max ? ["rooms.addAi"] : [];
+  // The owner plays too: the player client stays one click away beside the AI seats.
+  const addAi: StepId[] = [...(ai && n < max ? ["rooms.addAi" as const] : []), "ui.nav.playerClient"];
   if (n < min) return { status: `${plural(min - n, "more player")} needed.${ai ? " AI players count." : ""}`, primary: "ui.copyInviteLink", secondary: addAi };
   return { status: `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: addAi };
 }
