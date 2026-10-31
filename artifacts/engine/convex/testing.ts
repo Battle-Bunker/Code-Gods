@@ -123,3 +123,12 @@ export const rawRoom = internalQuery({
     return { room: await ctx.db.get(roomId), members: await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect() };
   },
 });
+
+/** Insert chat messages that all share one timestamp (paging must neither skip nor repeat them). */
+export const seedChat = internalMutation({
+  args: { roomId: v.id("rooms"), authorId: v.string(), texts: v.array(v.string()), timestamp: v.number() },
+  handler: async (ctx, { roomId, authorId, texts, timestamp }) => {
+    dev();
+    for (const text of texts) await ctx.db.insert("chat", { roomId, authorId, authorName: authorId, kind: "human", text, timestamp });
+  },
+});

@@ -43,7 +43,7 @@ const result = <T extends z.ZodType>(data: T) => z.object({
   untrusted: z.literal(true),
   notice: z.string(),
   data,
-  nextCursor: z.union([z.number(), z.null()]).optional().describe("Pass back as the cursor argument for the next page; null when there is none."),
+  nextCursor: z.union([z.number(), z.string(), z.null()]).optional().describe("Pass back as the cursor argument for the next page; null when there is none."),
   truncated: z.boolean().optional(),
 });
 const anyData = z.unknown();
@@ -58,7 +58,7 @@ const receiptData = z.object({
 const ownerData = z.object({ requestId: uuid, result: z.unknown() });
 
 /** What every tool returns (its MCP structuredContent). */
-export type ToolResult = { untrusted: true; notice: string; data: unknown; nextCursor?: number | null; truncated?: boolean };
+export type ToolResult = { untrusted: true; notice: string; data: unknown; nextCursor?: number | string | null; truncated?: boolean };
 
 type Annotations = { readOnlyHint: boolean; destructiveHint: boolean };
 export interface ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> {
@@ -110,8 +110,8 @@ export const READ_TOOLS = [
     input: obj({ value: z.union([z.number(), z.string().max(1024)]).describe("A wire value of the game's object type (see the observation's instance.codec).") }),
     output: result(anyData) }),
   def({ name: "get_chat", title: "Chat", permission: "read", annotations: read,
-    description: "The room's public chat, newest last, paged backwards by timestamp.",
-    input: obj({ before: z.number().optional().describe("Only messages before this timestamp (nextCursor)."), limit: z.number().int().min(1).max(100).default(50) }),
+    description: "The room's public chat, newest last, paged backwards (nextCursor gives the next older page).",
+    input: obj({ cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the newest page)."), limit: z.number().int().min(1).max(100).default(50) }),
     output: result(anyData) }),
   def({ name: "get_receipt", title: "Command receipt", permission: "read", annotations: read,
     description: "The receipt of one of your commands by commandId: received (with the engine's result), pending (still running), failed (not applied: resend the identical call) or not_found.",

@@ -173,6 +173,25 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.equal((await modern(old.token, "tools/list")).status, 401);
 });
 
+test("get_chat pages through messages that share one timestamp without skipping or repeating any", async () => {
+  const { ada, roomId } = await lobby();
+  const { token } = await credential(ada, roomId, "read");
+  const texts = Array.from({ length: 7 }, (_, i) => `same-ms ${i}`);
+  // Older than anything the lobby posted: these seven are the last pages.
+  await admin.mutation(internal.testing.seedChat, { roomId, authorId: ada.subject, texts, timestamp: 1000 });
+  const seen: string[] = [];
+  let cursor: unknown;
+  for (let pages = 0; pages < 20; pages++) {
+    const page = await call(token, "get_chat", { limit: 3, ...(cursor !== undefined ? { cursor } : {}) });
+    assert.ok(!page.error, JSON.stringify(page.error));
+    seen.push(...page.data.messages.map((m: any) => m.text));
+    if (page.nextCursor === null) break;
+    cursor = page.nextCursor;
+  }
+  const mine = seen.filter(t => t.startsWith("same-ms "));
+  assert.deepEqual([...mine].sort(), texts, `each seeded message exactly once: ${JSON.stringify(mine)}`);
+});
+
 test("commands: summon is idempotent per commandId, a changed payload is a CONFLICT, pending completes through get_receipt", { timeout: 180000 }, async () => {
   const { host, ada, roomId } = await lobby();
   const owner = await credential(host, roomId, "owner");

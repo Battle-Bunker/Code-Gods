@@ -23,6 +23,7 @@ import type { Principal } from "../lib/rooms";
 import type { eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
 import { bound } from "./bound";
+import { pollDelay } from "./rules";
 import type { Who } from "./store";
 
 // Explicit result types break Convex's api ⇄ module type cycle (this module calls `internal`).
@@ -36,12 +37,11 @@ type ReceiptStatus =
   | { status: "failed"; commandId: string; error: { code: string; message: string }; message: string }
   | { status: "not_found"; commandId: string; message: string };
 
-type Page = { data: unknown; nextCursor?: number | null };
+type Page = { data: unknown; nextCursor?: number | string | null };
 type Exec<N extends ToolName> = (ctx: ActionCtx, p: { principal: Principal; who: Who }, args: ToolInput<N>) => Promise<Page>;
 type Executors = { [N in ToolName]: Exec<N> };
 
 const OBSERVATION_CAPS = { agents: 20, sourceChars: 4096, transformations: 50, chat: 20 };
-const POLL_MS = 250;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const observe = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<Observation> =>
@@ -90,13 +90,14 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   const { started }: { started: boolean } = await ctx.runMutation(internal.agent.store.startJob, { credentialId: who.credentialId, ...job });
   if (started) await ctx.scheduler.runAfter(0, internal.agent.node.runCommand, { principal, roomId: who.roomId, subject: who.subject, envelope });
   const deadline = Date.now() + Number(args.waitMs ?? DEFAULT_WAIT_MS);
-  for (;;) {
+  for (let attempt = 0; ; attempt++) {
     const status = await receiptStatus(ctx, principal, who, envelope.commandId);
     if (status.status !== "pending" && status.status !== "not_found") return { data: status };
-    if (Date.now() + POLL_MS > deadline) {
+    const delay = pollDelay(attempt);
+    if (Date.now() + delay > deadline) {
       return { data: { status: "pending", commandId: envelope.commandId, message: "Still running. Call get_receipt with this commandId to get the result." } };
     }
-    await sleep(POLL_MS);
+    await sleep(delay);
   }
 }
 
@@ -161,13 +162,10 @@ export const EXECUTORS: Executors = {
     const scored: unknown = await ctx.runAction(internal.agent.node.evaluate, { principal, roomId: who.roomId, value });
     return { data: scored };
   },
-  get_chat: async (ctx, { principal, who }, { before, limit }) => {
-    const messages: R<typeof chatFor> = await ctx.runQuery(internal.rooms.chatHistoryAs, { principal, roomId: who.roomId, before, limit });
-    // The next page is strictly older than `before`: when several messages share the oldest timestamp, the
-    // cursor stays just above it, so the next page repeats them rather than skipping any (dedupe by id).
-    const oldest = messages[0]?.timestamp;
-    const shared = messages.length > 1 && messages.every(m => m.timestamp === oldest);
-    return { data: { messages }, nextCursor: messages.length === limit ? (shared ? oldest : oldest + 1) : null };
+  get_chat: async (ctx, { principal, who }, { cursor, limit }) => {
+    const { messages, nextCursor }: { messages: R<typeof chatFor>; nextCursor: string | null } =
+      await ctx.runQuery(internal.rooms.chatHistoryAs, { principal, roomId: who.roomId, cursor, limit });
+    return { data: { messages }, nextCursor };
   },
   get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
   // ----- act -----

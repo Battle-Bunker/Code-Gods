@@ -25,6 +25,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -65,6 +68,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -122,6 +128,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -185,6 +194,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -245,6 +257,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -299,6 +314,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -363,6 +381,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -403,6 +424,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -463,6 +487,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -484,9 +511,10 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
       "properties": {
-        "before": {
-          "description": "Only messages before this timestamp (nextCursor).",
-          "type": "number"
+        "cursor": {
+          "description": "The previous page's nextCursor (omit for the newest page).",
+          "type": "string",
+          "maxLength": 2000
         },
         "limit": {
           "default": 50,
@@ -514,6 +542,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -610,6 +641,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -736,6 +770,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -860,6 +897,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -969,6 +1009,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1067,6 +1110,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1169,6 +1215,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1274,6 +1323,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1314,6 +1366,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1358,6 +1413,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1398,6 +1456,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1489,6 +1550,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1554,6 +1618,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1623,6 +1690,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1688,6 +1758,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1763,6 +1836,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1836,6 +1912,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -1876,6 +1955,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -1932,6 +2014,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -2011,6 +2096,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -2066,6 +2154,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -2139,6 +2230,9 @@
               "type": "number"
             },
             {
+              "type": "string"
+            },
+            {
               "type": "null"
             }
           ]
@@ -2188,6 +2282,9 @@
           "anyOf": [
             {
               "type": "number"
+            },
+            {
+              "type": "string"
             },
             {
               "type": "null"

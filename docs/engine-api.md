@@ -98,7 +98,7 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `get_game_history` | read | `gameId, afterSeq?, limit≤50` → `player.history` |
 | `get_my_utility` | read | → `player.myUtility` |
 | `evaluate_value` | read | `value` → `{ordinal, rewardBits, netBits, penalty?}` with YOUR utility in the current game |
-| `get_chat` | read | `before?, limit≤100` → `{messages}` |
+| `get_chat` | read | `cursor?, limit≤100` → `{messages}`, `nextCursor` (an opaque string: the next older page; null at the end) |
 | `get_receipt` | read | `commandId` → `{status: received\|pending\|failed\|not_found, receipt?, error?}` |
 | `validate_agent`, `summon_agent` | act | `source, language?, commandId (summon: required), gameId?, waitMs≤120000 (default 90000)` |
 | `destroy_agent` | act | `agentId, commandId, gameId?` |
