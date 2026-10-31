@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
-import { useActivityReady, useServerIdle } from "@/hooks/use-server-idle";
-import { useListRooms, getListRoomsQueryKey, useCreateRoom } from "@workspace/api-client-react";
+import { useMutation } from "convex/react";
+import { api, useLive } from "@/lib/convex";
 import { useManifest } from "@/hooks/use-manifest";
 import { Shell, Panel, Empty, ErrorLine, Sigil } from "@/components/shell";
 import { useAuth, displayName } from "@/hooks/use-auth";
@@ -34,9 +33,9 @@ function Landing() {
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <button onClick={login} className="group inline-flex items-center gap-3 bg-foreground text-background px-6 py-3.5 text-base" data-testid="button-login">
-              Log in to enter the pantheon <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              Sign in with Google to enter the pantheon <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <span className="label-mono">Have a room link? Log in, then open it.</span>
+            <span className="label-mono">Have a room link? Sign in, then open it.</span>
           </div>
         </div>
         <div className="relative hidden md:flex items-center justify-center rise" style={{ animationDelay: ".15s" }}>
@@ -80,21 +79,19 @@ function phaseTone(p: string) {
 }
 
 function Rooms() {
-  const idle=useServerIdle();
-  const activityReady=useActivityReady();
   const { user } = useAuth();
   const [, nav] = useLocation();
-  const qc = useQueryClient();
-  const rooms = useListRooms({ query: { queryKey: getListRoomsQueryKey(), enabled:!!user && activityReady && !idle, refetchInterval: idle || !activityReady ? false : 5000 } });
-  const create = useCreateRoom();
+  const rooms = useLive(api.rooms.list, {});
+  const createRoom = useMutation(api.rooms.create);
+  const [creating, setCreating] = useState(false);
+  const [createErr, setCreateErr] = useState<unknown>(null);
   const [code, setCode] = useState("");
   const [codeErr, setCodeErr] = useState("");
 
   const submitCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    create.mutate({ data: {} }, {
-      onSuccess: (room) => { qc.invalidateQueries({ queryKey: getListRoomsQueryKey() }); nav(`/rooms/${room.shortCode}`); },
-    });
+    setCreating(true); setCreateErr(null);
+    createRoom({}).then((room) => nav(`/rooms/${room.shortCode}`), setCreateErr).finally(() => setCreating(false));
   };
   const submitCode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +115,7 @@ function Rooms() {
       <div className="grid lg:grid-cols-[1fr_360px] gap-6">
         <Panel title="Rooms" meta={rooms.data ? `${rooms.data.length} listed` : undefined}>
           {rooms.isLoading && <div className="p-4 space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>}
-          {rooms.error && <div className="p-4"><ErrorLine message={errMsg(rooms.error)} onRetry={() => rooms.refetch()} /></div>}
+          {rooms.error && <div className="p-4"><ErrorLine message={errMsg(rooms.error)}  /></div>}
           {rooms.data && rooms.data.length === 0 && <Empty title="No rooms exist yet" body="Create a room, share its code or link, and wait for at least two more deities." />}
           {rooms.data && rooms.data.length > 0 && (
             <ul className="divide-y">
@@ -129,9 +126,7 @@ function Rooms() {
                     <span className="min-w-0 space-y-1">
                       <span className="block text-sm font-medium break-words">Owner: {r.ownerName}{r.ownerId === user?.id ? " (you)" : ""}</span>
                       <span className="block text-sm">
-                        Created: {r.createdAt === null
-                          ? <span title="This room predates creation-date tracking.">Not recorded</span>
-                          : <time dateTime={isoWhen(r.createdAt)} title={isoWhen(r.createdAt)}>{fmtWhen(r.createdAt)}</time>}
+                        Created: <time dateTime={isoWhen(r.createdAt)} title={isoWhen(r.createdAt)}>{fmtWhen(r.createdAt)}</time>
                       </span>
                     </span>
                     <span className="font-mono text-sm tabular-nums">{r.memberCount}<span className="text-muted-foreground"> seats</span></span>
@@ -149,10 +144,10 @@ function Rooms() {
           <Panel title="Found a room">
             <form onSubmit={submitCreate} className="p-4 space-y-3">
               <p className="text-sm text-muted-foreground">Your room’s short code is generated automatically from its GUID.</p>
-              <button disabled={create.isPending} className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-50" data-testid="button-create-room">
-                <Plus className="h-4 w-4" /> {create.isPending ? "Founding..." : "Create room"}
+              <button disabled={creating} className="w-full inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2 text-sm disabled:opacity-50" data-testid="button-create-room">
+                <Plus className="h-4 w-4" /> {creating ? "Founding..." : "Create room"}
               </button>
-              {create.error && <ErrorLine message={errMsg(create.error)} />}
+              {!!createErr && <ErrorLine message={errMsg(createErr)} />}
             </form>
           </Panel>
           <Panel title="Join by code">

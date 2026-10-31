@@ -1,30 +1,46 @@
 # Isolated computational runtime adapters
 
 This package owns no server, database, authentication, transport or game rules.
-Use the asynchronous adapter, **not** the Python `Runner` directly in a request
-handler. The latter is a single-threaded internal worker with no admission queue.
+Both languages run in WebAssembly on Node's own V8, with no child processes:
+Python is CPython 3.15 (WASI) hosted by `engine/python.mjs`, TypeScript is
+QuickJS (`engine/quickjs.mjs`) behind the TypeScript 5.9.3 compiler
+(`engine/typescript.mjs`). `GameRuntime` (index.mjs) is the asynchronous,
+bounded pool to use from a request handler or a Convex action; the engines
+themselves are synchronous and have no admission queue.
 
 ## Setup (pinned)
 
 Install workspace dependencies from the committed pnpm lockfile. This package pins
-TypeScript 5.9.3 and quickjs-emscripten 0.31.0. Install
-`python/requirements.txt` with the project's Python package manager (Wasmtime
-49.0.0); no virtual environment is required. Run:
+TypeScript 5.9.3 and quickjs-emscripten 0.31.0 (the TypeScript engine refuses any
+other compiler version). Python needs one build artifact, the **runtime bundle**:
 
 ```
-pnpm --filter @workspace/game-runtime setup:python
+pnpm --filter @workspace/game-runtime setup:python    # pinned CPython WASI download (python3, stdlib only)
+pnpm --filter @workspace/game-runtime build:python    # dist/python-runtime.bin.gz, checked against its pin
 pnpm --filter @workspace/game-runtime test
-pnpm --filter @workspace/game-runtime test:python
-python3 lib/game-runtime/python/inventory.py
 pnpm --filter @workspace/game-runtime benchmark
 ```
 
-Setup verifies the SHA-256 of the exact CPython 3.15.0 WASI SDK 33 archive before
-extracting into the ignored `.cache/code-gods/python-3.15.0` directory. Provision
-that directory before starting the service. Treat it as immutable trusted
-dependency content; do not modify it while workers run. Workers do not download
-anything. Missing dependencies produce `UNAVAILABLE`, never native execution.
-Supply `python` in the constructor if Python is not on the launcher's PATH.
+`setup:python` verifies the SHA-256 of the exact CPython 3.15.0 WASI SDK 33 archive
+before extracting into the ignored `.cache/code-gods/python-3.15.0` directory.
+`build:python` (scripts/build-python-bundle.mjs) checks the pinned `python.wasm`
+(SHA-256 `9f58ad34…`), applies the reactor transform (engine/reactor.mjs: exports
+the C APIs the host calls and every global as `snapshot_global_<i>`, rejects table
+mutation instructions and non-function imports, caps linear memory at 128 MiB),
+whose output is pinned (`REACTOR_SHA256`), and packs it with the trusted guest
+code (`python/boot_guest.py`, `sandbox_guest.py`, `astbits_guest.py`,
+`ast_bits_v1.json`) and the bundled standard library into one reproducible file
+(19.6 MB, 5.2 MB gzip). Its SHA-256 is pinned in `engine/bundle.mjs`
+(`PYTHON_BUNDLE_SHA256`); the runtime refuses any other bytes. After an intended
+change to the guest code, run `build:python --pin` and commit the new pin. Workers
+do not download anything themselves: the bundle comes from the `assets` option
+(default: the built file next to the package). A missing or mismatched bundle is
+`UNAVAILABLE`, never native execution.
+
+Workers start from `generated/worker-source.mjs`, a single-string build of
+`worker.mjs` and `engine/*` (`pnpm --filter @workspace/game-runtime build:worker`;
+`test` fails if it is stale), so they also work where this package is bundled into
+other code, as in a Convex action.
 
 ## Integration
 
@@ -58,6 +74,52 @@ runtime.close(); // shutdown hook: rejects outstanding work, kills workers
 TypeScript source: `function agent(n) { return [add(1)]; }` (annotations allowed).
 `runtime.grammarId` is `python-agent-v1` or `typescript-agent-v1` (`GRAMMAR_IDS`).
 
+### Pool options
+
+`createRuntime({ language, workers, queueLimit, deadlineMs, startupMs, prepareMs, execution, assets, typescriptFiles, compilerIdleMs })`
+(index.d.ts documents each):
+
+* `execution: "worker"` (default): each engine runs in a `worker_thread`. A hard
+  wall terminates a worker that is stuck past its deadline, for example inside one
+  long native step such as `sum(range(10**9))` or a catastrophic regex, and the
+  pool replaces it. A Python worker restarts from the shared snapshot in ~100 ms,
+  with no second bootstrap. `"inline"`: one engine on the calling thread,
+  requests one at a time, **no hard wall**. The step budget and the
+  post-execution CPU check still apply, but a native step that never returns
+  blocks the thread. Neither QuickJS's regex engine nor CPython's `re` polls an
+  interrupt. Use inline only for trusted code or measurement.
+* TypeScript in worker mode is **one compiler worker** (type-check, transpile,
+  price; the TypeScript compiler is most of the memory) plus `workers`
+  **QuickJS-only execution workers**. Compiled output is trusted and is cached in
+  the pool (LRU, 128 entries / 4 MiB), so an act of a known source never waits
+  for the compiler. The compiler worker stops after `compilerIdleMs` (default
+  60 s) idle and restarts on the next new source.
+* Python: `workers` engines. The first one bootstraps CPython into the
+  initialized snapshot (~0.6 s); the rest start from that snapshot. The compiled
+  reactor and the snapshot are shared by all workers of the process.
+* `assets` (Python): the bundle's bytes, a file path, or an async loader. It is
+  loaded, verified and compiled **once per process per source** (`loadPythonRuntime`).
+  `typescriptFiles` (TypeScript): the files of `typescript` and
+  `quickjs-emscripten` to load. The runtime never imports them by package name,
+  so a bundler cannot inline them. The default is `typescriptPaths()`.
+* `warm(n)` starts engines ahead of demand; `close()` rejects outstanding work and terminates workers.
+
+### In a Convex Node action
+
+`artifacts/engine/convex/runtime/node.ts` holds warm module-scope pools and the
+asset hook. `pnpm --filter @workspace/engine upload-runtime` stores the bundle in
+file storage (`runtimeAssets`). Each warm instance fetches it once, caches it in
+`/tmp`, and verifies the pin:
+
+```ts
+"use node";
+import { bindRuntime, runtimeFor } from "../runtime/node";
+export const tick = internalAction({ args: {...}, handler: async (ctx, args) => {
+  bindRuntime(ctx);   // the Python bundle loads from storage through this action's context
+  const { calls, usedRandom, steps } = await runtimeFor(settings.language).act(source, input, actSettings(settings), seed);
+} });
+```
+
 **`act` returns the exact ASCII string the guest's `__encode_calls` produced**
 (at most 64 KiB), unparsed. The host must `JSON.parse` it as `MutatorCallWire[]`,
 enforce `MAX_CALLS`, validate every call with the type's mutators and re-validate
@@ -84,9 +146,9 @@ other fields (a full room settings object) are ignored and never sent to workers
 * `wireMaxLength`: 0–1024. An input is valid if it is a safe integer, or an
   ASCII string of at most `wireMaxLength` characters. No other check: the host
   validates objects with the type's codec. No coercion, wrapping or truncation.
-* `interactionComputeMs`: integer 1–1000, default 5: the CPU backstop, and (Python) the scale of the
-  deterministic fuel ceiling. Open agents should run with a generous value (1000) so the
-  deterministic step budget binds.
+* `interactionComputeMs`: integer 1–1000, default 5: the CPU backstop (not deterministic; see
+  "Determinism"). Open agents should run with a generous value (1000) so the deterministic step
+  budget binds.
 * `stepBudget`: integer 1–10,000,000, default 500,000 (docs/open-agents.md §1.3).
 * `prelude.key`: 1–128 printable ASCII characters (`PreludeParts.hash`).
   `python`, `js`, `dts`: NUL-free, well-formed UTF-8, at most 64 KiB each; the
@@ -163,7 +225,7 @@ its fields) as the fallback, for a call the host finds invalid. Every spelling o
 the same move (`paint_row(2, "red")`, `paint(row(2), red)`, the raw `move(...)`)
 gets one price.
 
-*Test vectors.* `python/test_astbits.py` runs the 17 programs of grid-lab's
+*Test vectors.* `test/python-host.test.mjs` runs the 17 programs of grid-lab's
 `test_vectors.json` (copied to `test/ast-bits-v1-vectors.json`) with a
 grid-lab-vocabulary config and prelude, under both schemes: `structure`, `names`
 and `literals` match to 1e-5 bits (all 17 × corpus and uniform, in the pinned
@@ -221,9 +283,9 @@ code cannot break them by accident; this is a convenience, not a boundary.
 
 ### One act
 
-| Step | Python (Wasmtime CPython) | TypeScript (QuickJS) | Budget |
+| Step | Python (CPython WASI on V8) | TypeScript (QuickJS) | Budget |
 |---|---|---|---|
-| compile | prelude and player module compiled by the trusted compiler in a pristine guest; marshal bytes cached | type-check + transpile cached | outside (3 s / startup wall) |
+| compile | prelude and player module compiled by the trusted compiler in a pristine guest; marshal bytes cached | type-check + transpile in the compiler worker; output cached in the pool | outside (3 s / startup wall) |
 | fresh guest | restore the one initialized snapshot; fresh agent builtins and import proxies, a private `Random(seed)`, the virtual clock and a seeded entropy stream restarted; fresh globals | fresh runtime and context; virtual `Date` / `performance`, seeded `Math.random` | outside |
 | prelude | prelude code `exec`'d into those globals | prelude script evaluated | outside |
 | decode | `obj = __decode(input)` | `obj = __decode(input)`; `__encode_calls` captured | outside |
@@ -241,7 +303,7 @@ the budget and read back as an exact, length-capped string.
 
 ### Cache keys
 
-Both workers cache only trusted compiler output and inspection results, keyed by
+Engines cache only trusted compiler output and inspection results, keyed by
 the grammar id, the complexity id (and, in Python, the pricing scheme), the object
 type, `prelude.key`, a SHA-256 the worker computes over the exact prelude text
 and pricing vocabulary (`[python, js, dts, pricing]`), and the exact source
@@ -249,13 +311,14 @@ and pricing vocabulary (`[python, js, dts, pricing]`), and the exact source
 different text therefore cannot get a stale compilation. Python caches compiled
 preludes (`("prelude", key, digest)`) and player modules in one LRU
 (128 entries, 4 MiB including keys); TypeScript caches compilations (128 entries,
-4 MiB) and self-checked prelude declaration files (16 entries). Results are
-never cached.
+4 MiB) and self-checked prelude declaration files (16 entries); in worker mode the pool keeps
+its own copy of the compiler worker's output under the same key (128 entries, 4 MiB), so
+execution workers receive only trusted JavaScript. Results are never cached.
 
 ## Computational module inventory
 
-`python/inventory.py` executes representative workloads in the actual pinned
-guest, not host Python. Verified: **math, itertools, functools, collections,
+`test/python-host.test.mjs` ("runner: calls, the standard library ...") executes
+representative workloads in the actual pinned guest, not host Python. Verified: **math, itertools, functools, collections,
 re, json, decimal, fractions, statistics, hashlib**. This is an inventory of
 tested computational uses, not a promise of every API in those modules.
 These modules, plus `ast`, `operator`, `random` and `time`, are preloaded during
@@ -280,7 +343,7 @@ and the seeded generator.
 ## Determinism (docs/open-agents.md §1.3, §3.5)
 
 The same (source, input, settings, seed) gives the same act result, in
-measurement and in play:
+measurement and in play, on every host:
 
 * **Clock.** Every act starts at 2026-01-01T00:00:00Z and the clock advances
   1 µs per read. Python: the **host** answers WASI `clock_time_get` (all clock
@@ -297,153 +360,274 @@ measurement and in play:
 * **`usedRandom`** is true if the act drew from the seeded generator (Python:
   the proxy's flag; also any `random_get` the host saw during execution; JS: the
   host callback).
-* **Steps.** Python: `sys.monitoring` LINE and JUMP events in the player's own
-  code objects (not the prelude's); over `stepBudget`, a `BaseException` is
-  raised at that event and every later one, so `except Exception` (or
-  `BaseException`) cannot swallow it, and the act is a `LIMIT` ("Step limit
-  exceeded"). Grid-lab's `full_greedy` uses 196k of the 500k default. JS:
-  QuickJS's interrupt handler, polled every 10,000 ticks (calls and backward
-  jumps), so the JS count has a 10,000-step granularity and includes prelude
-  helper code the agent calls. Both counters are deterministic. A further
-  deterministic ceiling in Python is Wasmtime fuel (2,000,000 instructions per
-  configured ms; on this host that is about 0.3–0.7 of the CPU budget, so it
-  binds first). The CPU-ms sampler and the wall watchdogs remain backstops; when
-  they fire the result is not deterministic.
+* **Steps: the deterministic bound.** Python: `sys.monitoring` LINE and JUMP
+  events in the player's own code objects (not the prelude's); over `stepBudget`,
+  a `BaseException` is raised at that event and every later one, so `except
+  Exception` (or `BaseException`) cannot swallow it, and the act is a `LIMIT`
+  ("Step limit exceeded"). Grid-lab's `full_greedy` uses 196k of the 500k
+  default. JS: QuickJS's interrupt handler, polled every 10,000 ticks (calls and
+  backward jumps), so the JS count has a 10,000-step granularity and includes
+  prelude helper code the agent calls. Both counters are deterministic.
+* **What changed with the move from Wasmtime to V8.** V8 has no instruction fuel,
+  so the former second deterministic ceiling (2,000,000 Wasmtime fuel units per
+  configured ms) is gone. The step budget is now the **only** deterministic bound
+  in both languages. One step can contain arbitrary native work (`sum(range(10**9))`,
+  big-integer arithmetic, one regex match, one `sorted` of a huge list), and only
+  the CPU/wall backstops stop that:
+  - a post-execution check in the engine: this thread's CPU time
+    (`process.threadCpuUsage`, present in Node 22.22, which the local backend and
+    Convex's Node 22 use; on a Node without it, this thread's wall time). Execution
+    past `interactionComputeMs` is a `LIMIT`;
+  - in worker mode, the pool's hard wall, min(`deadlineMs`, max(50 ms, 10 ×
+    `interactionComputeMs`)) after the execute phase starts. It **terminates the
+    worker** (`Worker.terminate()`), and the pool replaces it from the shared
+    snapshot.
+  When a backstop fires, the result is not deterministic. Open agents run with
+  `interactionComputeMs: 1000`, so the step budget binds first for any agent that
+  loops in Python or JS code.
 * **No state** survives an act (snapshot restore / fresh context); the decimal
   context is reset; module attribute writes fail; `PYTHONHASHSEED=0`.
+* **The initialized snapshot is identical on every host.** Bootstrap itself runs on
+  the virtual clock and a fixed entropy stream, and reads the standard library
+  from the bundle with directory listings in sorted order. CPython object
+  addresses (`repr(object())`) are therefore reproducible everywhere. They differ
+  from the former Wasmtime host's, whose heap layout depended on the host file
+  system's readdir order; that was the only result difference the parity test
+  found (see "Security gates").
 * **Seeds** are the host's (`deriveSeed(salt, ["play", ...])` for play,
   `["measure", instKey, gridIndex, replicate]` for measurement). The salt must be
   a season secret, or an agent could recognise measurement seeds.
 
-What remains outside the deterministic semantics: the CPU/wall backstops, and
-memory exhaustion near the 128 MiB / 32 MiB limits.
+What remains outside the deterministic semantics: the CPU/wall backstops,
+memory exhaustion near the 128 MiB (Python linear memory) / 32 MiB (QuickJS heap)
+limits, and very deep **C-level** recursion in Python, which ends either at
+CPython's own guard (`RecursionError`, deterministic) or at the V8 thread's native
+stack (`LIMIT`, "Recursion too deep"), depending on the thread's stack size. A
+given pool configuration always answers the same; inline (main thread, ~1 MiB
+stack) and worker (4 MiB) can differ for such programs.
 
 ## Capability and state-isolation boundary
 
-Submitted Python runs only inside Wasmtime; submitted JavaScript runs only in a
-fresh QuickJS Wasm context/runtime. Neither is evaluated by the host interpreter.
-Workers receive an empty host environment. Trusted WASI startup uses synthetic
-`PYTHONHOME=/` and `PYTHONHASHSEED=0`, no inherited descriptors, and a read-only
-bundled-library preopen. PYTHONHOME is removed from guest `os.environ` afterward.
-After bootstrap, **every WASI import except clock_time_get, clock_res_get and
-random_get is denied**, and those three are answered by the host from the
-virtual clock and the act's seeded stream (never the real clock or entropy). This includes bundled-file reads, writes, stdin/stdout,
-directory and metadata operations, sockets, process exit and blocking poll.
-Import-name filtering is not the boundary: recovered builtins face the same
-host-side capability checks. Guest stdout is not a result channel. Results cross
-the C API only as an exact `str` (type identity checked, at most 65536 characters,
-ASCII); no attacker-provided repr/str/JSON hook is invoked for extraction.
+Submitted Python runs only inside the CPython WebAssembly instance; submitted
+JavaScript runs only in a fresh QuickJS Wasm context/runtime. Neither is evaluated
+by the host interpreter. Workers receive an empty host environment.
 
-The pinned CPython command module is converted to a reactor by parsing standard
-Wasm sections and its debug name map to expose existing C APIs. Its exact binary
-SHA-256 is required. Before every execution, all linear memory and mutable globals
-are restored from one trusted initialized snapshot. An instruction decoder rejects
-table mutation instructions and unknown proposals; imported tables/globals are
-also rejected. Thus no table state can change during execution. Traps discard the
-store; grown memory causes store replacement before reuse. Builtins, modules,
-globals and heaps cannot retain mutations across calls or agents.
+Trusted WASI startup (engine/wasi.mjs, "bootstrap" mode) uses synthetic
+`PYTHONHOME=/` and `PYTHONHASHSEED=0`, no inherited descriptors (stdin is empty,
+stdout and stderr are discarded), and a **read-only, in-memory** `/lib` holding
+the bundled standard library. No host file is reachable at any time, and there is
+no create, write, rename, link or delete operation. PYTHONHOME is removed from
+guest `os.environ` afterward. After bootstrap, **every WASI import except
+clock_time_get, clock_res_get and random_get is denied**: it returns
+`ENOTCAPABLE`, or traps for `proc_exit`, which has no result. The three answered
+imports come from the virtual clock and the act's seeded stream, never the real
+clock or entropy. This covers bundled-file reads, writes, stdin/stdout, directory
+and metadata operations, sockets, process exit and blocking poll. Import-name
+filtering is not the boundary: recovered builtins face the same host-side
+capability checks. Guest stdout is not a result channel. Results cross the C API
+only as an exact `str` (type identity checked, at most 65536 characters, ASCII);
+no attacker-provided repr/str/JSON hook is invoked for extraction.
+
+The pinned CPython command module is converted to a reactor, offline (engine/reactor.mjs,
+a port of the former reactor.py, pinned by SHA-256), by parsing standard Wasm sections
+and its debug name map to expose existing C APIs, every global as an export, and a
+128 MiB memory maximum (V8 has no store limits). An instruction decoder rejects table
+mutation instructions and unknown proposals; imported tables, memories and globals are
+also rejected. No table state can therefore change during execution. Before every
+compilation, inspection and act, all linear memory and mutable globals are restored
+from one trusted initialized snapshot. The snapshot is stored as its nonzero 4 KiB-page
+runs (12.9 of 40 MiB in 28 runs). Restore copies those runs and clears any other page
+that is no longer zero. A trap, a host fault, or a grown memory replaces the
+instance (a fresh `WebAssembly.Instance` of the same compiled module) before reuse.
+Builtins, modules, globals and heaps cannot retain mutations across calls or agents.
 
 Compiled modules (player modules and room preludes) are cached as **trusted
 compiler-produced marshal bytes**, never user-supplied marshal data. After
 snapshot restoration, code is deserialized into fresh globals; the trusted
 prelude runs first, then the player's module. The cache is LRU-bounded to 128
-entries and 4 MiB including keys. There is no 40 MiB snapshot per source or
-per prelude.
+entries and 4 MiB including keys. There is no snapshot per source or per prelude.
 Restoring the snapshot restores the real `random` module's state too; agents use
 the per-act seeded proxy. Hash seeding is fixed.
 
-QuickJS uses a fresh context/runtime per act. Seeded random APIs are not a claim
-of cryptographic safety.
+QuickJS uses a fresh context/runtime per act. A TypeScript execution worker only
+ever receives JavaScript produced by the trusted compiler worker. Seeded random APIs
+are not a claim of cryptographic safety.
 
 ## Resource limits and capacity
 
-* Source: 16 KiB UTF-8; each prelude part: 64 KiB; IPC request: 512 KiB;
+* Source: 16 KiB UTF-8; each prelude part: 64 KiB; request: 512 KiB;
   input strings: 1024 characters; encoded calls: 64 KiB.
 * `interactionComputeMs` defaults to 5 ms. Compilation, cache lookup, snapshot
   restoration, the trusted prelude and `__decode` are outside this budget (the
-  prepare watchdog and the parent's startup deadline bound them). Executing the
-  player's module, calling `agent`, `__encode_calls` and extracting the result
-  are inside it. The parent's execution wall starts only after trusted setup.
-* Python:128MiB linear memory,1MiB Wasm stack, one initialized snapshot
-  (~40MiB measured,48MiB maximum), and a separate4MiB/128-entry code cache.
-  Trusted compilation/preparation has a three-second epoch watchdog and10billion
-  fuel ceiling. Guest execution uses 2,000,000 fuel units per configured millisecond
-  (deterministic) and `stepBudget` monitored steps,
-  process-CPU sampling at0.5ms intervals, and a post-execution CPU check including
-  exact primitive extraction/domain validation. Fuel is a conservative
-  instruction ceiling, **not an exact CPU-time conversion**.
-* Python's independent execution wall watchdog is at least50ms or10times the
-  compute budget, whichever is larger. Scheduling, native host callbacks and
-  sampling can overshoot; expired results are rejected. Host cyclic-GC and
-  watchdog construction are trusted bookkeeping outside the timed guest phase.
-* QuickJS: 32 MiB heap, 512 KiB stack, interrupt checks (deterministic steps, then
-  CPU) and an expiry post-check. Each worker runs a trusted warm-up act before announcing
-  readiness, so V8's lazy compilation of QuickJS's Wasm is not charged to a
-  player's first act. Thread CPU is used when available, otherwise conservative process
-  CPU. Long native builtins may return late; the parent kills hard hangs.
-* Workers announce execution phases. The parent separates preparation/startup
-  (default30seconds) from execution hard-wall timeouts (default4seconds).
-  SIGKILL is a backstop, not a5ms real-time scheduling guarantee. Module
-  transformation/initial Wasmtime compilation falls under the startup deadline.
-* Node worker V8 old-space is capped at 192 MiB. This is not an OS RSS quota;
-  native Wasmtime compilation, allocator overhead and the OS require extra memory.
+  preparation wall bounds them). Executing the player's module, calling `agent`,
+  `__encode_calls` and extracting the result are inside it. The execution wall
+  starts only after trusted setup.
+* Python: 128 MiB linear memory (the module's own maximum; `MemoryError` beyond
+  it), one initialized snapshot (40 MiB of memory, 12.9 MiB stored; 48 MiB maximum),
+  and a separate 4 MiB / 128-entry code cache. Trusted preparation (compile,
+  inspect, prelude, decode) has a 3-second wall in worker mode (`prepareMs`).
+  Guest execution is bounded by `stepBudget` (deterministic), the post-execution CPU
+  check and the execution wall (above). There is no fuel.
+* QuickJS: 32 MiB heap, 512 KiB stack, interrupt checks (deterministic steps,
+  then CPU) and an expiry post-check. Each engine runs a trusted warm-up act
+  before announcing readiness, so V8's lazy compilation of QuickJS's Wasm is not
+  charged to a player's first act. Long native builtins may return late; the
+  worker wall terminates hard hangs.
+* Workers report the start of the execute phase. The pool separates startup
+  (default 30 s), preparation (`prepareMs`: 3 s for Python, startup for
+  TypeScript) and execution hard walls (default cap 4 s). `terminate()` is a
+  backstop, not a 5 ms real-time scheduling guarantee.
+* Worker V8 old-space caps: Python 96 MiB, TypeScript compiler 192 MiB,
+  TypeScript execution 64 MiB. These are not OS RSS quotas. Wasm memory, compiled
+  code and the allocator are extra.
 * One worker by default; maximum 16. Queue defaults to 32 waiting requests,
   capped at 1024. Queue waits expire; overload returns `CAPACITY`. Worker crashes
-  reject the active call and workers restart for queued work. Missing setup
-  rejects queued work rather than spawning indefinitely.
+  reject the active call, and workers restart for queued work. Missing setup
+  rejects queued work rather than respawning indefinitely.
 
-Measured in this workspace (`pnpm --filter @workspace/game-runtime benchmark`)
-through the actual worker subprocess JSON IPC, with the fixture prelude, four
-workers, eight distinct warmed agents, 800 requests in rounds of eight concurrent
-acts, open-agent settings (`interactionComputeMs: 1000`, default step budget),
-and a fresh seed per act, on a shared host under load (load average ≈ 10 from
-other jobs, so these are pessimistic):
+## Measurements
 
-| | attempted acts/s | p50 | p95 | max | sequential warm mean | errors |
-|---|---|---|---|---|---|---|
-| Python | 119.8 | 40.2 ms | 75.3 ms | 146.5 ms | 20.0 ms | 0 |
-| TypeScript | 359.3 | 5.2 ms | 20.2 ms | 410 ms | 1.8 ms | 0 |
+The workload throughout is the realistic Grid agent `GRID_AGENTS` in
+`benchmark.mjs`. It scans every row, column and diagonal, finds colour regions
+with `grid.regions`, and makes two moves; about 190 Python steps. It runs on the
+default Grid prelude (`objectType("Grid").prelude(inst)` with
+`defaultSettingsFor("Grid", lang)`: 4×4, base10, rgb), with open-agent settings
+(`interactionComputeMs: 1000`, step budget 500,000), a fresh seed per act, and
+16 spawned grids. The host is a shared 4-vCPU container, with other agents' jobs
+running (load average 1.4–3.1 during the runs).
 
-In-process on the same host, a Python act took 13.5 ms, of which the snapshot
-restore was 8.2 ms and the deterministic sandbox's per-act setup (seeded
-`random` proxy, agent builtins, `sys.monitoring` instrumentation) 1.6 ms; the
-rest is two unmarshals, the prelude, decode and the agent. Monitored steps cost
-about 0.3 µs each (≈ 2,900 fuel units), so a 500,000-step agent spends roughly
-150 ms on counting alone. Under this load the 5 ms default budget's 50 ms wall
-backstop can kill a Python act, which is why open agents should run with a
-generous `interactionComputeMs`. Real preludes (Grid) cost more to run per act
-than the fixture. This is a small
-microbenchmark, not a capacity reservation or a whole-engine throughput claim.
+### Convex measurements
 
-Current copying of the entire initialized linear memory remains a throughput
-cost. No Linux MAP_FIXED/memfd copy-on-write remapping is installed: replacing
-Wasmtime-owned mappings without a supported allocator integration would require
-additional safety proof. Thousands of Python interactions/second have **not**
-been demonstrated. Benchmark on the target host, include realistic agent work,
-and budget CPU/memory plus rejection rates before admission. Production room
-scheduling remains capped at100Hz; benchmark throughput does not raise that cap.
-Do not silently queue unbounded work to imitate real-time throughput.
+These ran inside a `"use node"` Convex action (`artifacts/engine/convex/runtime/probe.ts`)
+on the **local** backend (`npx convex dev`, backend `precompiled-2026-10-22-1447815`,
+Node 22.22). Each measurement started from a freshly started executor process with an
+empty `/tmp`, and the Python bundle came from file storage. Run them with
+`npx convex run runtime/probe:cold` (first call after a push), `runtime/probe:footprint`,
+and `runtime/probe:bench '{"language":"python","workers":2,"acts":400}'`.
+
+**Cold start** (first call after a push; the module was loaded 0–1 ms before the call):
+
+| step | Python | TypeScript |
+|---|---|---|
+| bundle from file storage (5.2 MB gzip) | 122–171 ms | n/a |
+| + SHA-256 check, gunzip, `WebAssembly.compile` | 292–414 ms in total | n/a |
+| first worker ready (Python: bootstrap to the snapshot) | 635–781 ms | 310–335 ms (compiler + 1 executor) |
+| first inspection (TS: first type-check, Grid `.d.ts`) | 46–72 ms | 854–1,250 ms |
+| first act / second act | 10–12 / 7–17 ms | 8–12 / 6–15 ms |
+| both languages ready, sequentially, from module load | 2.3–2.6 s | |
+
+**Warm acts** (400 acts per row; sequential = one at a time; parallel = `workers`
+in flight):
+
+| pool | sequential p50 / p95 / max | sequential acts/s | parallel p50 / p95 / max | parallel acts/s |
+|---|---|---|---|---|
+| Python inline | 6.3 / 8.5 / 11.6 ms | 157 | 6.0 / 7.7 / 14.9 ms | 172 |
+| Python 1 worker | 5.4 / 7.5 / 9.4 ms | 180 | 5.0 / 6.9 / 12.6 ms | 189 |
+| Python 2 workers | 6.1 / 8.1 / 16.3 ms | 160 | 6.6 / 11.4 / 25.5 ms | 276 |
+| Python 4 workers | 6.5 / 9.5 / 14.0 ms | 150 | 9.2 / 17.2 / 44.8 ms | 399 |
+| TypeScript inline | 4.4 / 6.8 / 13.4 ms | 209 | 4.1 / 6.2 / 8.3 ms | 229 |
+| TypeScript 1 executor | 4.9 / 8.9 / 13.4 ms | 181 | 4.6 / 9.9 / 23.1 ms | 182 |
+| TypeScript 2 executors | 4.8 / 7.1 / 12.1 ms | 194 | 4.9 / 7.6 / 14.3 ms | 374 |
+| TypeScript 4 executors | 4.7 / 6.7 / 12.9 ms | 202 | 6.4 / 10.5 / 30.5 ms | 585 |
+
+A TypeScript act costs more than with the fixture prelude, because the 16 KiB Grid
+JS prelude is evaluated in a fresh QuickJS context on every act. Four workers on a
+4-vCPU host with other load scale sub-linearly.
+
+**Memory** (`process.memoryUsage().rss` of the whole action process; the 512 MiB limit
+applies to it). The production pools in `runtime/node.ts` are 2 Python workers, 1
+TypeScript compiler and 2 TypeScript executors:
+
+| state | RSS |
+|---|---|
+| executor at the first call (Node, Convex runtime, bundled code) | 134–140 MiB |
+| after cold start (1 Python worker, TS compiler + 1 executor) | 418–437 MiB |
+| all production workers warm, compiler resident | 425–486 MiB |
+| after 1,200 acts with all workers busy (445–494 combined acts/s) | 447–506 MiB |
+| steady state, compiler stopped after 60 s idle | **312 MiB** |
+
+The spread between runs is mostly garbage that V8 had not yet collected (bundle
+buffers, up to 64 MiB of array buffers in the main thread). So **the production
+configuration fits in 512 MiB, but with little headroom while the TypeScript
+compiler runs** (compiling a new source). A Python act that grows its instance
+toward the 128 MiB cap adds up to ~88 MiB more per worker until the instance is
+replaced. 4 Python or 4 TypeScript workers, on top of the production pools, went
+over 512 MiB in the benchmark runs (488–641 MiB). Use 4 only in a dedicated
+action without the other language's pools.
+
+### Compared with the former Wasmtime host
+
+Same host and workload, measured just before the Wasmtime host was deleted
+(in-process, no IPC: python/runner.py at commit `a34ec2c`):
+
+| | Wasmtime (wasmtime-py 49) | V8 (this package), in-process |
+|---|---|---|
+| Grid act, mean / p50 / p95 | 12.4–12.9 / 11.2–12.2 / 18.0–18.5 ms | 6.2 / 5.9 / 8.0 ms |
+| sequential acts/s | 77–80 | 160–164 |
+| snapshot restore | 8.2 ms (full 40 MiB copy) | 2.6–3.0 ms (12.9 MiB of nonzero runs; zero pages checked) |
+| bootstrap (startup to snapshot) | 4.7–7.0 s, including the module compile | 0.57 s + 30 ms lazy compile |
+
+Python on V8 is about 2× **faster** than on Wasmtime for this workload. Pyodide (the
+plan's fallback) was therefore not needed. Its trade-offs, for the record: CPython
+3.13 rather than 3.15, a different build and stdlib (the ast-bits-v1 tables and all
+golden results would need re-qualifying), an Emscripten JS runtime with a much
+larger import surface than the 3-function WASI table, and per-act isolation inside
+one interpreter unless snapshotted in the same way.
+
+### Local (`pnpm --filter @workspace/game-runtime benchmark`)
+
+The same `measure()` in a plain Node 22 process gives the same picture (load average
+1.2–2): Python 6.0–6.3 ms per act (p95 7.8–11 ms), 140–157 acts/s sequential, 331
+with 2 workers and 512 with 4; TypeScript 4.1–4.8 ms per act, 188–231 acts/s
+sequential, 341 with 2 executors and 589 with 4. `node --experimental-strip-types scripts/memory.mjs` breaks memory down
+by part (Node 22 baseline 101 MiB, then: Python bundle and compiled reactor +41,
+first Python worker with its bootstrap +116, second from the snapshot +3, TS
+compiler and first executor +142, second executor +1).
+
+These are microbenchmarks of the sandbox, not a whole-engine capacity claim.
+Production room scheduling remains capped at 100 Hz by default; benchmark
+throughput does not raise that cap. Do not silently queue unbounded work to
+imitate real-time throughput.
 
 ## Security gates
 
-The hostile regression suites (`test/runtime.test.mjs`, `test/pricing.test.mjs`,
-`python/test_reactor.py`, `python/test_runner.py`, `python/test_sandbox.py`,
-`python/test_astbits.py`, using the fixture prelude in `test/fixture-prelude.json`)
-cover host file/network attempts (directly and past the agent proxies via the
-real builtins module), invalid inputs and settings, broken preludes,
-stdout forgery, state across acts, non-executing inspection, budgeted player
-modules, a slow prelude/decode outside the budget, compilation abuse, infinite
-loops, malicious regex, the virtual clock and seeded entropy (also past the
-proxies), read-only module proxies, step budgets that `except BaseException`
-cannot swallow, deterministic replays per seed, snapshot reset of
-builtins/modules/prelude state, monkeypatched encoders and constructors,
+The hostile regression suites, using the fixture prelude in `test/fixture-prelude.json`:
+
+* `test/runtime.test.mjs` and `test/pricing.test.mjs`: the pool contract for both
+  languages, including the TypeScript compiler/executor split, inline mode and
+  the idle compiler.
+* `test/python-host.test.mjs`: the former `python/test_reactor.py`,
+  `test_runner.py`, `test_sandbox.py` and `test_astbits.py`, ported call for call,
+  plus the V8 host's own checks. The WASI table denies everything but the virtual
+  clock and seeded entropy; the 128 MiB cap holds; the pinned bundle is required;
+  the worker watchdog terminates native work and restarts from the snapshot.
+* `test/parity.test.mjs`: Python on V8 ≡ the former Wasmtime host. It replays 364
+  requests from `test/parity/cases.json` against results recorded from
+  `python/runner.py` (`test/parity/golden.json`). Those requests cover the
+  fixture, all 17 ast-bits-v1 vectors under both schemes, literal moves, the
+  universal codes, every object type's default prelude and a 5×5 rgby Grid with
+  realistic agents, errors and limits. 349 are **identical**: calls,
+  `usedRandom`, steps, every inspection bit, error codes and messages. The 15
+  accepted differences are documented in the test. One is an old-host bug: an
+  inspection over 2,000 bytes was truncated and failed. The other is a CPython
+  object address.
+
+Together they cover host file, network and process attempts (directly and past
+the agent proxies via the real builtins module), invalid inputs and settings,
+broken preludes, stdout forgery, state across acts, non-executing inspection,
+budgeted player modules, a slow prelude/decode outside the budget, compilation
+abuse, infinite loops, malicious regex, the virtual clock and seeded entropy
+(also past the proxies), read-only module proxies, step budgets that `except
+BaseException` cannot swallow, deterministic replays per seed, snapshot reset of
+builtins, modules and prelude state, monkeypatched encoders and constructors,
 malicious result hooks and str subclasses, non-string, non-ASCII and oversized
-encoder output, embedded NULs, cache keys across preludes (including a reused
-key with different text, and a changed pricing vocabulary), the ast-bits-v1
-test vectors, literal-move detection and fallback, renaming invariance, code-cache bounds, capacity failure and worker
-recovery. It is not a sandbox security audit.
+encoder output, embedded NULs, and cache keys across preludes (including a reused
+key with different text, and a changed pricing vocabulary). They also cover the
+ast-bits-v1 test vectors, literal-move detection and fallback, renaming
+invariance, code-cache bounds, memory growth and the memory cap, the table
+decoder, capacity failure and worker recovery. It is not a sandbox security audit.
 Before public hostile multi-tenant use, independently audit both engines and
-the host imports, test engine-version upgrades, and add OS-level worker RSS/CPU
-limits and target-host concurrent capacity qualification. QuickJS upstream does
-not claim a completed security audit. Do not represent this package as formally
-verified or as permission to expose full native Python/Node standard libraries.
+the host imports, test engine-version upgrades, and qualify memory and CPU on the
+target host. QuickJS upstream does not claim a completed security audit. Do not
+represent this package as formally verified or as permission to expose full
+native Python/Node standard libraries.

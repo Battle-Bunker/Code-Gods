@@ -1,101 +1,77 @@
 /**
- * Playwright smoke tests of both UIs (artifacts/code-gods and artifacts/player-web) against a stubbed
- * API. Every request to the fake origin is intercepted: static files come from the two vite builds,
- * /api/* from fixtures built with the real product libraries (e2e/fixtures.ts), and the player socket
- * from page.routeWebSocket. No server, login or database is needed.
+ * Playwright smoke test of the engine UI (artifacts/code-gods) against the LIVE local engine: the Convex
+ * local backend from `pnpm --filter @workspace/engine dev`, its stand-in OIDC provider ("fake") and the mock AI
+ * provider (AI_MOCK=1). The UI is built with the engine's Convex URL and uploaded to the
+ * engine's static hosting, so the browser talks to the real site origin: Better Auth session cookie, Convex JWTs,
+ * reactive queries, mutations, actions and the device flow, exactly as deployed.
  *
- *   pnpm --filter @workspace/code-gods run e2e          (SKIP_BUILD=1 to reuse dist/, SHOTS_DIR=… for screenshots)
+ *   pnpm --filter @workspace/engine dev                       (or let this script start it, see below)
+ *   pnpm --filter @workspace/code-gods run e2e
  *
- * Needs Playwright with Chromium available to `require("playwright")` (not a package dependency).
+ * Environment:
+ *   CODE_GODS_SITE_URL      engine site URL (default http://127.0.0.1:$CONVEX_LOCAL_SITE_PORT, else :3211)
+ *   SKIP_DEPLOY=1           reuse the engine UI already uploaded to the site
+ *   SHOTS_DIR               screenshots (default artifacts/code-gods/e2e/shots, gitignored)
+ * If the site does not answer, the script starts the engine itself (same port variables:
+ * CONVEX_LOCAL_CLOUD_PORT, CONVEX_LOCAL_SITE_PORT, FAKE_OIDC_PORT) and stops it at the end.
+ *
+ * Scenario, at desktop and phone widths: alice, bob and carol sign in (three browser contexts). Alice
+ * creates a room; bob and carol join; alice switches the next game to TypeScript / Int with a short
+ * planning phase, adds a mock AI seat and approves an AI budget; bob chats; alice starts the game and
+ * every viewer is taken to the game page, which updates live; alice ends it; the room history shows
+ * it. Then the device page approves an `act` request made through POST /api/device/request (the
+ * credential appears under "Your player apps" and is revoked), and an owner request needs the consent
+ * checkbox. Needs Playwright with Chromium available to `require("playwright")`.
  */
+import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { observationSchema } from "../../../lib/player-client/src/protocol.ts";
-import * as F from "./fixtures.ts";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
 const root = path.resolve(import.meta.dirname, "../../..");
-const apps = { gods: path.join(root, "artifacts/code-gods/dist/public"), player: path.join(root, "artifacts/player-web/dist/public") };
-const shots = process.env.SHOTS_DIR ?? path.join(tmpdir(), "code-gods-e2e");
+const SITE = (process.env.CODE_GODS_SITE_URL ?? `http://127.0.0.1:${process.env.CONVEX_LOCAL_SITE_PORT ?? "3211"}`).replace(/\/+$/, "");
+const shots = process.env.SHOTS_DIR ?? path.join(import.meta.dirname, "shots");
 mkdirSync(shots, { recursive: true });
-// https so the pages are a secure context (crypto.randomUUID); nothing leaves the browser.
-const ORIGIN = "https://code-gods.test";
 
-if (!process.env.SKIP_BUILD) {
-  for (const app of ["./artifacts/code-gods", "./artifacts/player-web"]) {
-    const env = { ...process.env };
-    delete env.PORT; delete env.BASE_PATH; // builds use their own defaults: code-gods at /, player-web at /player/
-    const b = spawnSync("pnpm", ["--filter", app, "run", "build"], { cwd: root, stdio: "inherit", env });
-    if (b.status !== 0) process.exit(b.status ?? 1);
-  }
+// ---------------------------------------------------------------------------------------------
+// The engine: reuse a running one, or start `pnpm --filter @workspace/engine dev`
+// ---------------------------------------------------------------------------------------------
+async function healthy() {
+  try { return (await fetch(`${SITE}/api/health`, { signal: AbortSignal.timeout(2000) })).ok; } catch { return false; }
 }
-for (const dir of Object.values(apps)) assert.ok(existsSync(path.join(dir, "index.html")), `missing build in ${dir}`);
-
-const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".txt": "text/plain", ".png": "image/png", ".woff2": "font/woff2" };
-function staticFile(urlPath: string) {
-  const [dir, rel] = urlPath.startsWith("/player") ? [apps.player, urlPath.replace(/^\/player\/?/, "")] : [apps.gods, urlPath.slice(1)];
-  let file = path.join(dir, rel);
-  if (!file.startsWith(dir) || !existsSync(file) || !path.extname(file)) file = path.join(dir, "index.html"); // SPA fallback
-  return { body: readFileSync(file), contentType: TYPES[path.extname(file)] ?? "application/octet-stream" };
-}
-
-/** Requests the stub API received (method, path, body), so tests can assert what the UI sent. */
-type Sent = { method: string; path: string; body: any };
-
-async function stubbed(browser: any, viewport: { width: number; height: number }) {
-  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
-  const sent: Sent[] = [];
-  let obs = F.observation();
-  const json = (route: any, body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-  await context.route(`${ORIGIN}/**`, async (route: any) => {
-    const req = route.request(), url = new URL(req.url()), p = url.pathname, method = req.method();
-    if (!p.startsWith("/api/")) { const f = staticFile(p); return route.fulfill({ status: 200, body: f.body, contentType: f.contentType }); }
-    const body = req.postData() ? JSON.parse(req.postData()) : undefined;
-    sent.push({ method, path: p, body });
-    const room = /^\/api\/rooms\/([^/]+)(\/.*)?$/.exec(p);
-    if (p === "/api/auth/user") return json(route, { user: F.OWNER });
-    if (p === "/api/activity") return json(route, { status: "ok" });
-    if (p === "/api/manifest") return json(route, F.manifest());
-    if (p === "/api/ai-agents") return json(route, { agents: [{ id: "lib-1", name: "Sonnet Oracle", provider: "anthropic", model: "claude-sonnet-5-5" }] });
-    if (p === "/api/device/grants") return json(route, { grants: [] });
-    if (p === "/api/rooms" && method === "GET") return json(route, F.roomList());
-    if (room && !room[2] && method === "GET") return json(route, F.roomState());
-    if (room && room[2] === "/games") return json(route, F.history());
-    if (room && room[2] === "/actions") return json(route, F.roomState());
-    if (/^\/api\/games\/[^/]+\/state$/.test(p)) return json(route, F.gameView());
-    if (p.endsWith("/observation")) return json(route, obs);
-    if (p.endsWith("/commands")) {
-      const c = body.command;
-      if (c.type === "destroy") obs = { ...obs, revision: obs.revision + 1, agents: obs.agents.filter(a => a.id !== c.agentId) };
-      return json(route, { commandId: body.commandId, accepted: true, message: c.type === "validate" ? "Valid." : `${c.type} accepted.`, ...(c.type === "validate" ? { validation: F.validation } : {}) });
-    }
-    return json(route, { error: `no stub for ${method} ${p}` }, 404);
+let engine: ChildProcess | null = null;
+if (!(await healthy())) {
+  console.log(`# starting the engine (site ${SITE})`);
+  const sitePort = new URL(SITE).port;
+  engine = spawn("pnpm", ["--filter", "@workspace/engine", "dev"], {
+    cwd: root, detached: true, stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, CONVEX_LOCAL_SITE_PORT: sitePort },
   });
-  await context.routeWebSocket(/\/api\/rooms\/[^/]+\/ws$/, (ws: any) => {
-    ws.send(JSON.stringify({ protocolVersion: 1, type: "player.observation", seq: 1, payload: obs }));
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("engine did not become READY in 180 s")), 180_000);
+    const watch = (chunk: Buffer) => { if (/\[dev\] READY/.test(String(chunk))) { clearTimeout(timer); resolve(); } };
+    engine!.stdout!.on("data", watch);
+    engine!.stderr!.on("data", watch);
+    engine!.on("exit", code => { clearTimeout(timer); reject(new Error(`engine exited (${code})`)); });
   });
-  const page = await context.newPage();
-  const errors: string[] = [];
-  page.on("pageerror", (e: Error) => errors.push(e.message));
-  return { context, page, sent, errors };
+}
+const stopEngine = () => { if (engine?.pid) { try { process.kill(-engine.pid, "SIGINT"); } catch { /* gone */ } } };
+
+if (!process.env.SKIP_DEPLOY) {
+  // Builds this UI with VITE_CONVEX_URL = the deployment's client URL and uploads it to the site at "/".
+  const deploy = spawnSync("pnpm", ["--filter", "@workspace/engine", "run", "deploy-static", "--only", "engine"], { cwd: root, stdio: "inherit" });
+  if (deploy.status !== 0) { stopEngine(); process.exit(deploy.status ?? 1); }
 }
 
-async function noHorizontalScroll(page: any, label: string) {
-  const { sw, iw, wide } = await page.evaluate(() => {
-    const iw = window.innerWidth;
-    // The innermost elements sticking out of the viewport, to say what overflows.
-    const wide = [...document.querySelectorAll("body *")].filter(el => el.getBoundingClientRect().right > iw + 0.5 && ![...el.children].some(c => c.getBoundingClientRect().right > iw + 0.5))
-      .slice(0, 5).map(el => `${el.tagName.toLowerCase()}${el.getAttribute("data-testid") ? `[${el.getAttribute("data-testid")}]` : ""}.${String(el.className).slice(0, 60)} → ${Math.round(el.getBoundingClientRect().right)}px`);
-    return { sw: document.documentElement.scrollWidth, iw, wide };
-  });
-  assert.ok(sw <= iw, `${label}: page scrolls horizontally (${sw}px wide in a ${iw}px viewport): ${wide.join("; ")}`);
-}
-
+// ---------------------------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------------------------
+type Page = any;
 const results: string[] = [];
 async function check(name: string, fn: () => Promise<void>) {
   await fn();
@@ -103,193 +79,277 @@ async function check(name: string, fn: () => Promise<void>) {
   console.log(`ok - ${name}`);
 }
 
+/**
+ * A signed-in browser context. The UI's button goes to Google, which a local deployment cannot use, so the
+ * page starts Better Auth's test-only provider "fake" itself (same origin, as the button would), then the
+ * stand-in OIDC identity picker → /api/auth/oauth2/callback/fake → the session cookie → back to "/".
+ */
+async function signIn(browser: any, who: "alice" | "bob" | "carol" | "admin", viewport: { width: number; height: number }) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e: Error) => errors.push(`${who}: ${e.message}`));
+  await page.goto(`${SITE}/`);
+  await page.getByTestId("button-login").waitFor();
+  const url = await page.evaluate(async () => {
+    const r = await fetch("/api/auth/sign-in/oauth2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerId: "fake", callbackURL: "/" }) });
+    return ((await r.json()) as { url: string }).url;
+  });
+  await page.goto(url);
+  await page.getByRole("link", { name: new RegExp(`\\(${who}\\)`) }).click();
+  await page.waitForURL(`${SITE}/`);
+  await page.getByTestId("button-logout").waitFor();
+  // The god id (member row ids) is the Better Auth user id.
+  const subject = await page.evaluate(async () => ((await (await fetch("/api/auth/get-session")).json()) as { user: { id: string } }).user.id);
+  return { context, page, errors, subject };
+}
+
+async function noHorizontalScroll(page: Page, label: string) {
+  const { sw, iw, wide } = await page.evaluate(() => {
+    const iw = window.innerWidth;
+    const wide = [...document.querySelectorAll("body *")].filter(el => el.getBoundingClientRect().right > iw + 0.5 && ![...el.children].some(c => c.getBoundingClientRect().right > iw + 0.5))
+      .slice(0, 5).map(el => `${el.tagName.toLowerCase()}${el.getAttribute("data-testid") ? `[${el.getAttribute("data-testid")}]` : ""}.${String(el.className).slice(0, 60)} → ${Math.round(el.getBoundingClientRect().right)}px`);
+    return { sw: document.documentElement.scrollWidth, iw, wide };
+  });
+  assert.ok(sw <= iw, `${label}: page scrolls horizontally (${sw}px wide in a ${iw}px viewport): ${wide.join("; ")}`);
+}
+
+const shot = (page: Page, name: string, fullPage = true) => page.screenshot({ path: path.join(shots, `${name}.png`), fullPage });
+
+/** POST /api/device/request as a player app would (`pnpm player connect`), PKCE S256. */
+async function deviceRequest(room: string, permission: "read" | "act" | "owner", label: string) {
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const r = await fetch(`${SITE}/api/device/request`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challenge, room, permission, label }),
+  });
+  assert.equal(r.status, 200, `device request: ${r.status} ${await r.clone().text()}`);
+  const body = await r.json() as { deviceId: string; deviceSecret: string; userCode: string; verificationUrl: string; roomCode: string };
+  return { ...body, verifier };
+}
+const lastPoll = new Map<string, number>();
+/** POST /api/device/poll, honouring the 2 s interval (a faster poll gets 429 slow_down). */
+async function devicePoll(d: { deviceId: string; deviceSecret: string; verifier: string }) {
+  const wait = (lastPoll.get(d.deviceId) ?? 0) + 2100 - Date.now();
+  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+  lastPoll.set(d.deviceId, Date.now());
+  const r = await fetch(`${SITE}/api/device/poll`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ deviceId: d.deviceId, deviceSecret: d.deviceSecret, verifier: d.verifier }),
+  });
+  return { status: r.status, body: await r.json() as { status: string; credential?: string; credentialId?: string } };
+}
+
 const VIEWPORTS = [["desktop", { width: 1280, height: 900 }], ["phone", { width: 390, height: 844 }]] as const;
 
-assert.ok(observationSchema.safeParse(F.observation()).success, "observation fixture matches protocol v3");
 const browser = await chromium.launch();
 let failed = false;
 try {
   for (const [name, viewport] of VIEWPORTS) {
-    // --- Room lobby: settings pickers, presets, rule shelf with locked reasons and unlock ------------------
-    {
-      const { context, page, sent, errors } = await stubbed(browser, viewport);
-      await page.goto(`${ORIGIN}/rooms/${F.ROOM_CODE}`);
-      await page.getByTestId("object-type-picker").waitFor();
-      await check(`${name}: room header shows code, owner and creation date (no room name)`, async () => {
-        assert.equal(await page.getByTestId("text-room-code").innerText(), F.ROOM_CODE);
-        assert.match(await page.getByTestId("text-room-owner").innerText(), /Ada Lovelace/);
-        assert.match(await page.getByTestId("text-room-created").innerText(), /2026/);
-      });
-      await check(`${name}: presets in learning order, component cards with capability badges`, async () => {
-        const presets = await page.getByTestId("settings-presets").locator("button").allInnerTexts();
-        assert.deepEqual(presets.map(t => t.split("\n")[0].replace(" ✓", "")), ["First steps", "Classic", "Low income", "Big board", "Master"]);
-        assert.equal(await page.getByTestId("button-preset-grid-classic").getAttribute("aria-pressed"), "true");
-        assert.equal(await page.getByTestId("type-Grid").getAttribute("aria-checked"), "true");
-        const cards = await page.getByTestId("option-symbols-cards").innerText();
-        assert.match(cards, /♠ Suits/);
-        assert.match(cards, /👑 Picture cards/);
-        assert.match(await page.getByTestId("option-symbols-base10").innerText(), /🔟 Place value/);
-        assert.match(await page.getByTestId("option-symbols-cards").innerText(), /[+−]\d/, "cards show the rule-shelf delta");
-        assert.ok(await page.getByTestId("option-symbols-base12").isDisabled(), "components with no offered instantiation are disabled");
-        assert.match(await page.getByTestId("input-interactionRateHz").locator("xpath=ancestor::fieldset[1]").innerText(), /Slower = easier to follow your score/);
-        for (const id of ["agentEnergyPerSecond", "agentBatteryActs", "defenceRate", "penaltyWeight"]) assert.ok(await page.getByTestId(`input-${id}`).isVisible(), id);
-      });
-      await check(`${name}: rule shelf counts, excluded families and locked reasons`, async () => {
-        const shelf = page.getByTestId("rule-shelf").first();
-        assert.match(await shelf.getByTestId("text-shelf-count").innerText(), /^\d+ of \d+$/);
-        assert.equal(await shelf.getByTestId("text-excluded-seed2_patchwork").innerText(), "not dealt in this game");
-        await shelf.getByTestId("button-show-locked").click();
-        const locked = await shelf.locator('[data-testid^="text-locked-"]').allInnerTexts();
-        assert.ok(locked.length > 0);
-        assert.ok(locked.every(t => t.startsWith("locked: ")), locked.join(" | "));
-        assert.ok(locked.includes("locked: needs ♠ Suits. Pick Playing cards"), locked.join(" | "));
-      });
-      await page.screenshot({ path: path.join(shots, `room-${name}.png`), fullPage: true });
-      await noHorizontalScroll(page, `${name} room`);
-      await check(`${name}: unlock applies the patch to the draft and highlights the changed control`, async () => {
-        const shelf = page.getByTestId("rule-shelf").first();
-        const row = shelf.locator('[data-testid^="row-family-"]', { hasText: "locked: needs ♠ Suits. Pick Playing cards" }).first();
-        await row.locator('[data-testid^="button-unlock-"]').click();
-        await page.getByTestId("param-symbols").and(page.locator("[data-highlight]")).waitFor({ timeout: 2000 });
-        assert.equal(await page.getByTestId("option-symbols-cards").getAttribute("aria-pressed"), "true");
-        assert.equal(await page.getByTestId("option-size-7").getAttribute("aria-pressed"), "true", "snapped to the offered Grid(7,cards,rainbow6)");
-        assert.ok(await page.getByTestId("button-save-settings").isEnabled());
-        await page.screenshot({ path: path.join(shots, `room-${name}-unlocked.png`), fullPage: false });
-        await page.getByTestId("button-save-settings").click();
-        await page.waitForTimeout(300);
-        const save = sent.find(s => s.body?.action === "settings");
-        assert.ok(save, "settings action sent");
-        assert.equal(save.body.settings.objectType, "Grid");
-        assert.deepEqual(save.body.settings.typeArgs, { size: 7, symbols: "cards", colours: "rainbow6" });
-        assert.deepEqual(save.body.settings.excludedFamilies, ["seed2_patchwork"]);
-        assert.equal("intMin" in save.body.settings || "gridSize" in save.body.settings, false, "no legacy settings fields");
-      });
-      await check(`${name}: one-click preset sends the preset action`, async () => {
-        await page.getByTestId("button-preset-grid-first-steps").click();
-        await page.waitForTimeout(300);
-        assert.ok(sent.some(s => s.body?.action === "settings" && s.body.preset === "grid-first-steps"));
-      });
-      assert.deepEqual(errors, []);
-      await context.close();
-    }
-    // --- Game page: a Grid world, public salience only, leaderboard in total payoff ----------------------
-    {
-      const { context, page, errors } = await stubbed(browser, viewport);
-      await page.goto(`${ORIGIN}/games/${F.GAME_CODE}`);
-      await page.locator('[data-testid="grid-object"]').first().waitFor();
-      await check(`${name}: game page renders the Grid world with ObjectView`, async () => {
-        assert.equal(await page.locator('[data-testid^="row-object-"] [data-testid="grid-object"]').count(), 12);
-        const label = await page.locator('[data-testid^="row-object-"] [role="img"]').first().getAttribute("aria-label");
-        assert.match(label ?? "", /^Grid, 5 by 5 /);
-        assert.match(await page.getByTestId("text-instance").innerText(), /Grid\(5,base10,rgby\)/);
-        const head = await page.locator("thead").first().innerText();
-        assert.match(head, /salience/i);
-        assert.doesNotMatch(await page.locator("main").innerText(), /Σ utility|total utility/i);
-      });
-      await check(`${name}: leaderboard in total payoff with agent count and scoring explainer`, async () => {
-        assert.equal(await page.locator('[data-testid^="row-standing-"]').count(), 3);
-        assert.match(await page.getByTestId("row-standing-u-ada").innerText(), /412\.6/);
-        assert.equal(await page.getByTestId("text-agent-count").textContent(), "9 agents");
-        await page.getByTestId("link-scoring-explainer").click();
-        await page.getByTestId("how-scoring-works").locator("summary").click();
-        assert.match(await page.getByTestId("how-scoring-works").innerText(), /if the others don't care, nobody scores/i);
-      });
-      await check(`${name}: possible gods grouped by badge with a locked toggle`, async () => {
-        const shelf = page.getByTestId("rule-shelf");
-        assert.ok(await shelf.getByTestId("shelf-group-everywhere").isVisible());
-        assert.equal(await shelf.locator('[data-testid^="button-unlock-"]').count(), 0, "no unlock outside owner settings");
-      });
-      await page.screenshot({ path: path.join(shots, `game-${name}.png`), fullPage: true });
-      await noHorizontalScroll(page, `${name} game`);
-      await check(`${name}: grid detail view shows the canonical string and cell names`, async () => {
-        await page.locator('[data-testid^="row-object-"] [data-testid="grid-object"]').first().click();
-        const detail = page.getByTestId("grid-object-detail");
-        await detail.waitFor({ state: "visible", timeout: 3000 });
-        assert.equal((await page.getByTestId("grid-object-canonical").innerText()).split("/").length, 5);
-        assert.match(await detail.innerText(), /Row 1: \w+, (red|yellow|green|blue)/);
-        await page.screenshot({ path: path.join(shots, `game-${name}-detail.png`) });
-        await noHorizontalScroll(page, `${name} grid detail`);
-        await page.keyboard.press("Escape");
-      });
-      assert.deepEqual(errors, []);
-      await context.close();
-    }
-    // --- Player console: utility card, rarity, forge with helpers, agent energy ------------------------
-    {
-      const { context, page, sent, errors } = await stubbed(browser, viewport);
-      await page.goto(`${ORIGIN}/player/?room=${F.ROOM_CODE}`);
-      await page.getByTestId("utility-card").waitFor({ timeout: 10000 });
-      await check(`${name}: utility card with uses chips, source and penalty card`, async () => {
-        assert.match(await page.getByTestId("utility-card-name").innerText(), /Green Ones/);
-        assert.ok((await page.getByTestId("text-utility-summary").innerText()).length > 10);
-        assert.ok(await page.getByTestId("utility-card-uses").isVisible());
-        assert.match(await page.getByTestId("text-utility-source").innerText(), /def utility\(grid\):/);
-        assert.match(await page.getByTestId("utility-card-penalty").innerText(), /your defence goal/);
-        assert.match(await page.getByTestId("text-penalty-source").innerText(), /def penalty\(grid\):/);
-      });
-      await check(`${name}: objects show ObjectView, rarity and an aggregate-only score breakdown`, async () => {
-        const rarity = await page.locator('[data-testid^="text-rarity-"]').allInnerTexts();
-        assert.ok(rarity.some(t => /✨ 7\.2 · 1 in 145/.test(t)), rarity.join(" | "));
-        assert.ok(rarity.some(t => /an everyday grid/.test(t)), rarity.join(" | "));
-        assert.ok(rarity.some(t => /⚠️ redder than \d+% of grids/.test(t)), rarity.join(" | "));
-        assert.equal(await page.locator('[data-testid^="row-object-"] [data-testid="grid-object"]').count(), 6);
-        await page.getByTestId("button-object-detail-o1").click();
-        const detail = await page.getByTestId("object-detail-o1").innerText();
-        assert.match(detail, /everyone else, together/);
-        assert.match(detail, /1 in 145/);
-        assert.match(detail, /rarer than 993 of 1,000 grids/);
-      });
-      await check(`${name}: agents show energy, eligibility and cooldown`, async () => {
-        assert.equal(await page.getByTestId("text-agent-status-agent-1").innerText(), "ready to act");
-        assert.match(await page.getByTestId("text-agent-status-agent-2").innerText(), /^cooldown/);
-        assert.match(await page.getByTestId("text-agent-energy-agent-1").innerText(), /⚡ 5\.2 bits · 3\.5 per act/);
-      });
-      await check(`${name}: transformations as before/after boards with changed cells outlined`, async () => {
-        const t = page.getByTestId("row-transformation-t1");
-        assert.equal(await t.locator('[data-testid="grid-object"]').count(), 2);
-        assert.equal(await t.locator('[data-testid="grid-object"]').nth(1).locator("[data-changed]").count(), 2);
-      });
-      await page.screenshot({ path: path.join(shots, `player-${name}.png`), fullPage: true });
-      await noHorizontalScroll(page, `${name} player`);
-      await check(`${name}: forge with Room helpers, validate shows summon and per-act cost, summon`, async () => {
-        const drawer = page.getByTestId("helpers-drawer");
-        await drawer.locator("summary").click();
-        assert.ok(await drawer.getByTestId("helpers-read").isVisible());
-        assert.ok(await drawer.getByTestId("helpers-mutator").isVisible());
-        const editor = page.getByTestId("input-source");
-        assert.match(await editor.getAttribute("placeholder") ?? "", /^def agent\(grid\):/);
-        await editor.fill("def agent(grid):\n    return [");
-        await drawer.locator('[data-testid="helper-row"]').first().click();
-        assert.match(await editor.inputValue(), /return \[row$/);
-        await editor.fill("def agent(grid):\n    return []\n");
-        await page.getByTestId("button-validate").click();
-        await page.getByTestId("text-summon-cost").waitFor();
-        assert.match(await page.getByTestId("text-summon-cost").innerText(), /^42\.0 bits/);
-        assert.match(await page.getByTestId("text-expected-act-cost").innerText(), /^3\.5 bits · about one act every 1\.8s/);
-        assert.ok(await page.getByTestId("button-summon").isEnabled());
-        await page.getByTestId("button-summon").click();
-        await page.waitForTimeout(300);
-        assert.ok(sent.some(s => s.body?.command?.type === "summon" && s.body.version === "code-gods.player.v3" && s.body.gameId === F.GAME_ID));
-        await page.screenshot({ path: path.join(shots, `player-${name}-forge.png`), fullPage: false });
-      });
-      await check(`${name}: destroying an agent is free and confirmed inline`, async () => {
-        await page.getByTestId("button-destroy-agent-agent-2").click();
-        await page.getByTestId("button-confirm-destroy-agent-2").click();
-        await page.getByTestId("row-agent-agent-2").waitFor({ state: "detached", timeout: 3000 });
-        const d = sent.find(s => s.body?.command?.type === "destroy");
-        assert.equal(d?.body.command.agentId, "agent-2");
-        assert.equal(d?.body.gameId, F.GAME_ID);
-      });
-      await noHorizontalScroll(page, `${name} player after forge`);
-      assert.deepEqual(errors, []);
-      await context.close();
+    const alice = await signIn(browser, "alice", viewport);
+    const bob = await signIn(browser, "bob", viewport);
+    const carol = await signIn(browser, "carol", viewport);
+    const a = alice.page, b = bob.page, c = carol.page;
+    let code = "";
+
+    await check(`${name}: alice creates a room; it shows its short code, owner and creation date (no name)`, async () => {
+      await a.getByTestId("button-create-room").click();
+      await a.waitForURL(/\/rooms\/[0-9A-Z]+$/);
+      code = (await a.getByTestId("text-room-code").innerText()).trim();
+      assert.match(code, /^[0-9A-Z]{4,}$/);
+      assert.match(await a.getByTestId("text-room-owner").innerText(), /Alice Liddell/);
+      assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
+      await a.goto(`${SITE}/`);
+      const row = a.locator('[data-testid^="row-room-"]', { hasText: code });
+      await row.waitFor();
+      assert.match(await row.innerText(), /Owner: Alice Liddell \(you\)/);
+      await shot(a, `home-${name}`);
+      await noHorizontalScroll(a, `${name} home`);
+      await row.click();
+      await a.getByTestId("text-room-code").waitFor();
+    });
+
+    await check(`${name}: bob and carol join by code; alice's member list updates live`, async () => {
+      for (const p of [b, c]) {
+        await p.getByTestId("input-join-code").fill(code);
+        await p.getByTestId("button-join-code").click();
+        await p.getByTestId("button-join").click();
+        await p.getByTestId("button-ready").waitFor();
+      }
+      await a.locator('[data-testid^="row-member-"]').nth(2).waitFor();
+      const members = await a.locator('[data-testid^="row-member-"]').allInnerTexts();
+      assert.ok(members.some(t => /Bob Okafor/.test(t)) && members.some(t => /Carol Nguyen/.test(t)), members.join(" | "));
+      await b.getByTestId("button-ready").click();
+      await a.getByTestId(`row-member-${bob.subject}`).getByText("ready").waitFor();
+    });
+
+    await check(`${name}: alice switches the next game to TypeScript / Int with 1 s planning; bob sees it live`, async () => {
+      await a.getByTestId("select-language").selectOption("typescript");
+      await a.getByTestId("type-Int").click();
+      await a.getByTestId("input-planningSeconds").fill("1");
+      // On a freshly started engine the first manifest.get boots both sandboxes (seconds), and the form
+      // stays invalid until the manifest arrives.
+      await a.getByTestId("button-save-settings").click({ timeout: 120_000 });
+      await a.getByTestId("button-save-settings").and(a.locator(":disabled")).waitFor();
+      const listed = b.getByTestId("list-settings");
+      await listed.filter({ hasText: "typescript" }).waitFor();
+      assert.match(await listed.innerText(), /Int/);
+    });
+
+    await check(`${name}: alice adds a mock AI seat and approves an AI budget`, async () => {
+      await a.getByTestId("text-ai-mock").waitFor();
+      await a.getByTestId("button-add-ai").click();
+      await a.locator('[data-testid^="row-member-ai:"]').waitFor();
+      await b.locator('[data-testid^="row-member-ai:"]').waitFor();
+      await a.getByTestId("input-ai-budget").fill("50000");
+      await a.getByTestId("checkbox-approve-budget").check();
+      await a.getByTestId("button-save-budget").click();
+      await a.getByTestId("text-ai-usage").filter({ hasText: /\/ 50,000 used/ }).waitFor();
+    });
+
+    await check(`${name}: public chat reaches every member live`, async () => {
+      await b.getByTestId("input-chat").fill(`Bob says hello (${name})`);
+      await b.getByTestId("button-send-chat").click();
+      await a.locator('[data-testid^="row-chat-"]', { hasText: `Bob says hello (${name})` }).waitFor();
+      await c.locator('[data-testid^="row-chat-"]', { hasText: `Bob says hello (${name})` }).waitFor();
+    });
+
+    await check(`${name}: "Your player apps" explains connecting your own player app and links the hosted client`, async () => {
+      const panel = a.getByTestId("panel-player-apps");
+      await panel.waitFor();
+      assert.equal(await a.getByTestId("text-engine-url").innerText(), SITE);
+      assert.equal(await a.getByTestId("text-connect-command").innerText(), `pnpm player connect --room ${code}`);
+      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      await shot(a, `room-${name}`);
+      await noHorizontalScroll(a, `${name} room`);
+    });
+
+    let gameCode = "";
+    await check(`${name}: alice starts the game; every viewer is taken to the game page, which updates live`, async () => {
+      await a.getByTestId("button-start").click();
+      await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
+      await b.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
+      gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
+      assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
+      // The world clock and the objects move without any reload or polling.
+      const t0 = Number((await a.getByTestId("text-world-t").innerText()).replace(/[^\d.]/g, ""));
+      await a.waitForFunction((t: number) => Number(document.querySelector('[data-testid="text-world-t"]')!.textContent!.replace(/[^\d.]/g, "")) > t + 0.5, t0, { timeout: 30_000 });
+      await a.locator('[data-testid^="row-object-"]').first().waitFor({ timeout: 30_000 });
+      await a.locator('[data-testid^="row-standing-"]').nth(3).waitFor();
+      assert.equal(await a.locator('[data-testid^="row-roster-"]').count(), 4);
+      assert.match(await b.getByTestId("text-viewer-seat").innerText(), /seated/);
+      assert.doesNotMatch(await a.locator("main").innerText(), /value function/i);
+      await shot(a, `game-${name}`);
+      await noHorizontalScroll(a, `${name} game`);
+    });
+
+    await check(`${name}: the owner ends the game; every viewer sees the final result`, async () => {
+      await a.getByTestId("button-end-game").click();
+      await a.getByTestId("button-confirm-end-game").click();
+      await a.getByTestId("panel-final-results").waitFor({ timeout: 30_000 });
+      await b.getByTestId("panel-final-results").waitFor({ timeout: 30_000 });
+      assert.equal(await a.getByTestId("text-game-status").innerText(), "ENDED");
+      assert.match(await a.getByTestId("text-end-reason").innerText(), /ended by owner/);
+      await shot(a, `game-${name}-ended`);
+    });
+
+    await check(`${name}: the room history shows the ended game`, async () => {
+      await a.getByTestId("button-back-to-room").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}$`));
+      await a.getByTestId(`link-game-${gameCode}`).waitFor();
+      assert.match(await a.locator('[data-testid^="text-game-winners-"]').first().innerText(), /\w/);
+    });
+
+    await check(`${name}: the device page approves an act request; the credential is listed and revoked`, async () => {
+      const req = await deviceRequest(code, "act", `e2e smoke app (${name})`);
+      assert.equal(req.roomCode, code);
+      assert.equal(new URL(req.verificationUrl).pathname, "/device");
+      await c.goto(`${SITE}/device?code=${encodeURIComponent(req.userCode)}`);
+      const panel = c.getByTestId("panel-device-details");
+      await panel.waitFor();
+      assert.equal(await c.getByTestId("text-device-code").innerText(), req.userCode);
+      assert.match(await c.getByTestId("text-device-room").innerText(), new RegExp(`^${code} · `));
+      assert.equal(await c.getByTestId("text-device-requester").innerText(), `e2e smoke app (${name})`);
+      assert.match(await c.getByTestId("text-device-permission").innerText(), /^Act/);
+      assert.match(await c.getByTestId("text-device-expiry").innerText(), /in \d+s/);
+      assert.equal(await c.getByTestId("text-device-status").innerText(), "pending");
+      await shot(c, `device-${name}`);
+      await noHorizontalScroll(c, `${name} device`);
+      assert.equal((await devicePoll(req)).status, 202, "pending before approval");
+      await c.getByTestId("button-approve-device").click();
+      await c.getByTestId("status-approved").waitFor();
+      const claimed = await devicePoll(req);
+      assert.equal(claimed.status, 200);
+      assert.match(claimed.body.credential ?? "", /^cgc_/);
+      await c.goto(`${SITE}/rooms/${code}`);
+      const row = c.getByTestId(`row-credential-${claimed.body.credentialId}`);
+      await row.waitFor();
+      assert.match(await row.innerText(), /e2e smoke app/);
+      assert.match(await row.innerText(), /act · room/i);
+      await c.getByTestId(`button-revoke-${claimed.body.credentialId}`).click();
+      await row.waitFor({ state: "detached" });
+      const token = await fetch(`${SITE}/api/device/token`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credential: claimed.body.credential }) });
+      assert.equal(token.status, 401, "a revoked credential no longer gets tokens");
+    });
+
+    await check(`${name}: an owner grant needs the owner's explicit consent`, async () => {
+      const req = await deviceRequest(code, "owner", "e2e owner assistant");
+      await c.goto(`${SITE}/device?code=${encodeURIComponent(req.userCode)}`);
+      await c.getByTestId("text-device-owner-required").waitFor();
+      assert.ok(await c.getByTestId("button-approve-device").isDisabled(), "a non-owner cannot approve an owner grant");
+      await a.goto(`${SITE}/device?code=${encodeURIComponent(req.userCode)}`);
+      await a.getByTestId("checkbox-device-owner-consent").waitFor();
+      assert.ok(await a.getByTestId("button-approve-device").isDisabled(), "approval waits for consent");
+      await a.getByTestId("checkbox-device-owner-consent").check();
+      await a.getByTestId("button-approve-device").click();
+      await a.getByTestId("status-approved").waitFor();
+      assert.equal((await devicePoll(req)).body.status, "approved");
+    });
+
+    for (const who of [alice, bob, carol]) {
+      assert.deepEqual(who.errors, []);
+      await who.context.close();
     }
   }
+
+  await check("admin: the AI library is for admins only", async () => {
+    const admin = await signIn(browser, "admin", { width: 1280, height: 900 });
+    await admin.page.getByTestId("link-admin-agents").click();
+    await admin.page.locator('[data-testid^="row-agent-"]').first().waitFor();
+    assert.match(await admin.page.locator("main").innerText(), /Sonnet Strategist/);
+    await shot(admin.page, "admin-agents-desktop");
+    const alice = await signIn(browser, "alice", { width: 1280, height: 900 });
+    await alice.page.goto(`${SITE}/admin/agents`);
+    await alice.page.getByText("Admins only").waitFor();
+    for (const who of [admin, alice]) { assert.deepEqual(who.errors, []); await who.context.close(); }
+  });
+
+  await check("sign-in goes to Google; sign-out returns to the landing page", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    // Never leave the machine: answer Google's authorization endpoint locally and record the request.
+    await context.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
+    await page.goto(`${SITE}/`);
+    const google = page.waitForRequest(/^https:\/\/accounts\.google\.com\//);
+    await page.getByTestId("button-login").click();
+    const url = new URL((await google).url());
+    assert.equal(url.searchParams.get("redirect_uri"), `${SITE}/api/auth/callback/google`);
+    assert.equal(url.searchParams.get("prompt"), "select_account");
+    await context.close();
+
+    const carol = await signIn(browser, "carol", { width: 1280, height: 900 });
+    await carol.page.getByTestId("button-logout").click();
+    await carol.page.getByTestId("button-login").waitFor();
+    await carol.page.reload();
+    await carol.page.getByTestId("button-login").waitFor();
+    assert.deepEqual(carol.errors, []);
+    await carol.context.close();
+  });
 } catch (e) {
   failed = true;
   console.error(e);
 } finally {
   await browser.close();
+  stopEngine();
 }
 console.log(`\n${results.length} checks passed${failed ? ", then one FAILED" : ""}. Screenshots: ${shots}`);
 process.exit(failed ? 1 : 0);

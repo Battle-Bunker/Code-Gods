@@ -98,7 +98,7 @@ test("familyUses: badges a card relies on, [] for unknown or unconstrained", () 
 
 const gridType = (): ObjectTypeInfoLike => {
   const T = OBJECT_TYPES.find(t => t.id === "Grid")!;
-  // The server's offered Grid instantiations (artifacts/api-server calibration-fallback.ts).
+  // A fixed set of offered Grid instantiations (the engine offers those with calibration tables: manifest.get).
   const offered = [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 5, symbols: "base10", colours: "rgby" },
     { size: 6, symbols: "base16", colours: "rainbow6" }, { size: 7, symbols: "cards", colours: "rainbow6" }]
     .map(args => { const info = instanceInfo(instantiate("Grid", args)); return { key: info.key, args: info.args as Record<string, string | number>, label: info.label, badges: info.badges }; });

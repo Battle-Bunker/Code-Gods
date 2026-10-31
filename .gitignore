@@ -10,7 +10,6 @@ out-tsc
 
 # dependencies
 node_modules
-.pythonlibs/
 __pycache__/
 *.pyc
 
@@ -44,11 +43,15 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
+# local caches and tool state
 .cache/
 .local/
-artifacts/api-server/test/.integration-*/
-artifacts/api-server/test/.client-integration-*/
+
+# Claude Code agent worktrees (temporary)
+.claude/worktrees/
+
+# Local player-app Secrets for tests (pnpm player connect --write-env); never commit
+.env.local
+
+# multi-client e2e: simulated player apps (worktrees) and their secrets
+.e2e/

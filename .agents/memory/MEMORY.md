@@ -1,3 +1,3 @@
-- [Code Gods intent](code-gods-product.md) — unrestricted AI, customizable Replit player clients, server display boundaries and aggregate-only opponent valuations.
-- [WASI determinism](wasi-determinism.md) — capability isolation does not remove clocks, entropy or host file metadata; WASI wrappers need a Wasm caller.
-- [Room assistant boundary](room-assistant-boundary.md) — same-human delegation, trusted workspace editors and real OIDC pilot limitations.
+- [Code Gods intent](code-gods-product.md) — unrestricted AI, no platform dependency (Google sign-in only), one agent interface (MCP tool registry) for every surface, stored panels as live UI, customizable player clients in any dev environment, aggregate-only opponent valuations, everything persisted in one Convex deployment with batched ticks and idle parking.
+- [WASI determinism](wasi-determinism.md) — capabilities at the WASI import boundary, virtual clock and seeded randomness only, snapshot restore, the step budget as the only deterministic bound (no fuel on V8).
+- [Room assistant boundary](room-assistant-boundary.md) — same-human delegation through a revocable room credential in the environment's secret store, owner consent, Google-only sign-in with a fake provider only on local deployments.

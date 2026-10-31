@@ -104,6 +104,22 @@ export const resultSchema = z.object({
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
+/** Room-credential permissions, weakest first: read < act < owner. */
+export const permissionSchema = z.enum(["read", "act", "owner"]);
+export type Permission = z.infer<typeof permissionSchema>;
+/** The room assistant's `room-command` (engine `owner.command`): owner credential (or browser owner) only. */
+export const ownerActionSchema = z.object({
+  action: z.enum(["settings", "start", "resume", "endGame", "addAi", "removeAi"]),
+  requestId: z.string().uuid(),
+  revision: z.number().int().nonnegative().optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+  preset: z.string().max(128).optional(),
+  aiBudget: z.number().int().min(0).max(1000000).optional(),
+  aiAgentId: z.string().max(128).optional(),
+  deityId: z.string().max(128).optional(),
+}).strict();
+export type OwnerAction = z.infer<typeof ownerActionSchema>;
+/** What an AI seat or other driver needs from the engine: its observation, and a v3 envelope → its receipt. */
 export interface PlayerTransport {
   observe(signal?: AbortSignal): Promise<Observation>;
   send(envelope: Envelope, signal?: AbortSignal): Promise<CommandResult>;

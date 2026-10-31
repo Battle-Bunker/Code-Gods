@@ -1,0 +1,135 @@
+<title>Code Gods Artifact Probe</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Could a claude.ai artifact render Code Gods stored panels? The player client runs each stored panel's
+  compiled code with `new Function` inside a sandboxed frame (`sandbox="allow-scripts"`) and talks to it over
+  postMessage and a transferred MessagePort (artifacts/player-web/src/frame). This page checks each of those
+  in whatever runtime shows it and prints the results. Publish it as an artifact (optionally with
+  `capabilities: {db: {}}`, and then it also saves the results to the doc `probe/latest`). README.md, "Probe".
+-->
+<style>
+  /* Layout: one narrow column, a results table. */
+  :root {
+    --bg: #f4f4f8; --surface: #ffffff; --fg: #1c1b2b; --muted: #5d5b72; --line: #dddbe8;
+    --good: #1d7a46; --bad: #b3261e; --warn: #9a5b00;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-data: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #13121c; --surface: #1c1b29; --fg: #ebe9f5; --muted: #a29fba; --line: #2f2d42; --good: #5fcf8e; --bad: #ff8a80; --warn: #f0b45a; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #13121c; --surface: #1c1b29; --fg: #ebe9f5; --muted: #a29fba; --line: #2f2d42; --good: #5fcf8e; --bad: #ff8a80; --warn: #f0b45a; color-scheme: dark; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font-ui);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 32px;
+  }
+  main { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+  h1 { font-size: 1.3rem; margin: 0; text-wrap: balance; }
+  p { margin: 0; max-width: 65ch; }
+  .scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.detail { font-family: var(--font-data); font-size: 0.8rem; color: var(--muted); overflow-wrap: anywhere; }
+  .yes { color: var(--good); font-weight: 600; } .no { color: var(--bad); font-weight: 600; } .wait { color: var(--warn); }
+  #summary, #saved { color: var(--muted); }
+</style>
+
+<main>
+  <h1>Artifact runtime probe</h1>
+  <p>Checks what this page's runtime allows, for running Code Gods stored panels inside an artifact.</p>
+  <div class="scroll"><table><thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody id="results"></tbody></table></div>
+  <p id="summary">Running…</p>
+  <p id="saved"></p>
+</main>
+
+<script>
+(async () => {
+  const TIMEOUT_MS = 3000;
+  const results = [];
+  const violations = [];
+  document.addEventListener("securitypolicyviolation", e => violations.push(`${e.violatedDirective} blocked ${e.blockedURI || "inline"}`));
+
+  const row = (name) => {
+    const tr = document.createElement("tr");
+    const [a, b, c] = [0, 1, 2].map(() => document.createElement("td"));
+    a.textContent = name; b.textContent = "…"; b.className = "wait"; c.className = "detail";
+    tr.append(a, b, c);
+    document.getElementById("results").append(tr);
+    return (ok, detail) => { b.textContent = ok ? "allowed" : "blocked"; b.className = ok ? "yes" : "no"; c.textContent = detail; };
+  };
+  const withTimeout = (p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`no answer in ${TIMEOUT_MS} ms`)), TIMEOUT_MS))]);
+  async function check(name, fn) {
+    const show = row(name);
+    try { const detail = await withTimeout(Promise.resolve().then(fn)); results.push({ name, ok: true, detail: String(detail) }); show(true, String(detail)); }
+    catch (e) { results.push({ name, ok: false, detail: String(e?.message ?? e) }); show(false, String(e?.message ?? e)); }
+  }
+
+  // The frame document: answers "ping" on window messages and on a transferred port, and tries new Function inside.
+  const FRAME = `<!doctype html><meta charset="utf-8"><script>
+    let evalOk; try { evalOk = new Function("return 6 * 7")() === 42 ? "yes" : "wrong"; } catch (e) { evalOk = "no: " + e.message; }
+    addEventListener("message", (e) => {
+      if (e.data && e.data.type === "ping") parent.postMessage({ type: "pong", n: e.data.n, evalOk, origin: String(location.origin) }, "*");
+      if (e.data && e.data.type === "port") { const port = e.ports[0]; port.onmessage = (m) => port.postMessage({ type: "pong", n: m.data.n, evalOk }); }
+    });
+    parent.postMessage({ type: "ready" }, "*");
+  <\/script>`;
+
+  /** Load a sandboxed frame (blob: URL or srcdoc), then round-trip a window message and a MessagePort message. */
+  function frame(kind) {
+    return new Promise((resolve, reject) => {
+      const f = document.createElement("iframe");
+      f.setAttribute("sandbox", "allow-scripts");
+      f.hidden = true;
+      const onMsg = (e) => {
+        if (e.source !== f.contentWindow) return;
+        if (e.data?.type === "ready") f.contentWindow.postMessage({ type: "ping", n: 1 }, "*");
+        if (e.data?.type === "pong" && e.data.n === 1) {
+          removeEventListener("message", onMsg);
+          const ch = new MessageChannel();
+          ch.port1.onmessage = (m) => { f.remove(); resolve({ ...e.data, portOk: m.data?.n === 2, evalInPort: m.data?.evalOk }); };
+          f.contentWindow.postMessage({ type: "port" }, "*", [ch.port2]);
+          ch.port1.postMessage({ n: 2 });
+        }
+      };
+      addEventListener("message", onMsg);
+      if (kind === "blob") f.src = URL.createObjectURL(new Blob([FRAME], { type: "text/html" }));
+      else f.srcdoc = FRAME;
+      f.onerror = () => reject(new Error("frame failed to load"));
+      document.body.append(f);
+    });
+  }
+
+  await check("new Function in the page", () => { if (new Function("return 6 * 7")() !== 42) throw new Error("wrong result"); return "ran"; });
+  await check("eval in the page", () => { if ((0, eval)("6 * 7") !== 42) throw new Error("wrong result"); return "ran"; });
+  for (const kind of ["blob", "srcdoc"]) {
+    const label = kind === "blob" ? "blob: URL" : "srcdoc";
+    let r;
+    await check(`sandboxed ${label} frame + postMessage round trip`, async () => { r = await frame(kind); return `origin ${r.origin}`; });
+    await check(`MessagePort to the ${label} frame`, () => { if (!r) throw new Error("frame did not load"); if (!r.portOk) throw new Error("no reply on the port"); return "round trip"; });
+    await check(`new Function inside the ${label} frame`, () => { if (!r) throw new Error("frame did not load"); if (r.evalOk !== "yes") throw new Error(r.evalOk); return "ran"; });
+  }
+  await check("Worker from a blob: URL", () => new Promise((resolve, reject) => {
+    const w = new Worker(URL.createObjectURL(new Blob(["onmessage = e => postMessage(e.data * 2)"], { type: "text/javascript" })));
+    w.onmessage = (e) => { w.terminate(); e.data === 42 ? resolve("round trip") : reject(new Error("wrong answer")); };
+    w.onerror = (e) => reject(new Error(e.message || "worker error"));
+    w.postMessage(21);
+  }));
+  await check("CSP violations seen", () => { if (violations.length) throw new Error(violations.join("; ")); return "none"; });
+
+  const panelsPossible = ["new Function in the page"].every(n => results.find(r => r.name === n)?.ok)
+    && results.some(r => r.name.startsWith("new Function inside") && r.ok)
+    && results.some(r => r.name.startsWith("MessagePort") && r.ok);
+  const summary = { at: new Date().toISOString(), userAgent: navigator.userAgent, panelsPossible, results };
+  window.__probe = summary;
+  document.getElementById("summary").textContent = panelsPossible
+    ? "Stored panels could run here: code evaluation, a sandboxed frame and a port bridge all work."
+    : "Stored panels cannot run here as built today: see the blocked rows.";
+
+  // Optional: keep the results in the artifact's store when the page declares `db`, so Claude can read them back.
+  try {
+    const db = window.claude?.use ? await window.claude.use("db") : null;
+    if (db) { await db.doc("probe/latest").set(JSON.parse(JSON.stringify(summary))); document.getElementById("saved").textContent = "Saved to the artifact's store as probe/latest."; }
+  } catch (e) { document.getElementById("saved").textContent = `Could not save the results: ${e?.code ?? e?.message ?? e}.`; }
+})();
+</script>
