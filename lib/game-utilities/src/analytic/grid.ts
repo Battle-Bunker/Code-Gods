@@ -11,7 +11,7 @@ import { evaluator } from "../catalog.ts";
 import { gridSpec, type GridSpec } from "../families/grid/_util.ts";
 import type { FamilyContext, Ordinal, Params } from "../types.ts";
 import {
-  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, point, power, sumAll, uniform,
+  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, point, power, sum, sumAll, uniform,
   type Dist, type Levels, type Vec,
 } from "./kit.ts";
 
@@ -389,6 +389,35 @@ function bingo(g: GridSpec, q: number): Dist {
     arr.forEach((p, v) => add(res, [v + bonus], p));
   }
   return res;
+}
+
+// ------------------------------------------------------------------------------------------------
+// approximations (NOT exact; documented with their measured error in docs/analytic-calibration/solutions.md)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * Rows + columns rules treated as 2N INDEPENDENT lines: the row law convolved with itself 2N times. Exact for the
+ * marginal of each line, wrong only through the shared cells. Used to measure how far this nearest approximation is.
+ */
+const lineApprox = (solver: Solver, rowParams: (p: any) => any): Solver => (p, g) => {
+  const rowsOnly = solver(rowParams(p), g); // law of the sum over N independent rows
+  return sum(rowsOnly, rowsOnly); // columns: the same law, assumed independent of the rows
+};
+const APPROX: Readonly<Record<string, Solver>> = {
+  magic_accountant: lineApprox(SOLVERS.magic_accountant, p => ({ ...p, axis: "rows" })),
+  seesaw: lineApprox(SOLVERS.seesaw, p => ({ ...p, scope: "rows" })),
+  sudoku_scholar: lineApprox(SOLVERS.sudoku_scholar, p => ({ ...p, dir: "rows" })),
+  round_numbers: lineApprox(SOLVERS.round_numbers, p => ({ ...p, axis: "rows" })),
+  divisibility_detective: lineApprox(SOLVERS.divisibility_detective, p => ({ ...p, scope: "rows" })),
+  /** Knight-move twins: Binomial(#knight edges, p) as if the knight graph were a forest (it has cycles). */
+  knight_riders: (p, g) => binomial(4 * (g.N - 1) * (g.N - 2), p.X === null ? 1 / (g.S * g.C) : 1 / (g.S * g.C * g.C)),
+};
+
+/** Approximate levels for the "both"-axis variants and rare-pattern families (null when none). Not exact. */
+export function gridApproxLevels(familyId: string, params: Params, inst: Instantiation): Levels | null {
+  const a = APPROX[familyId];
+  if (!a || gridLevels(familyId, params, inst)) return null;
+  return levels(a(params, gridSpec({ inst } as FamilyContext)));
 }
 
 /** Exact levels for a Grid draw, or null when this module has no solution for it. */

@@ -3,6 +3,7 @@
  *
  *   node --experimental-strip-types scripts/analytic-verify.ts [table dir …] [--family id] [--md]
  *
+ * --approx compares the documented approximations (src/analytic/grid.ts APPROX) instead of the exact solutions.
  * Default dir: data/calibration/v1. Prints one line per (family, canonical params, instance) and a per-family
  * summary (shapes, levels, max |Δbits|, max z); --md prints the summary as the Markdown table the docs use.
  */
@@ -10,10 +11,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { instantiateKey, type CalibrationFile } from "../src/calibration.ts";
 import { analyticLevels } from "../src/analytic/index.ts";
+import { gridApproxLevels } from "../src/analytic/grid.ts";
 import { compareTable } from "../src/analytic/compare.ts";
 
 const args = process.argv.slice(2);
-const md = args.includes("--md"), verbose = args.includes("--verbose");
+const md = args.includes("--md"), verbose = args.includes("--verbose"), approx = args.includes("--approx");
 const fi = args.indexOf("--family"), only = fi >= 0 ? args[fi + 1].split(",") : null;
 const dirs = args.filter((a, i) => !a.startsWith("--") && (fi < 0 || i !== fi + 1));
 if (!dirs.length) dirs.push(new URL("../data/calibration/v1", import.meta.url).pathname);
@@ -27,7 +29,7 @@ for (const dir of dirs) {
     for (const t of file.tables) {
       if (only && !only.includes(t.family)) continue;
       if (t.prior) continue;
-      const L = analyticLevels(t.family, t.canonicalParams, inst);
+      const L = approx ? (inst.objectType === "Grid" ? gridApproxLevels(t.family, t.canonicalParams, inst) : null) : analyticLevels(t.family, t.canonicalParams, inst);
       if (!L) continue;
       const c = compareTable(t, L);
       const k = t.family;
