@@ -214,7 +214,8 @@ your agents can write one; the file workflow above keeps working beside it.
 | | `pnpm -s player panel pull my-view [--version N] [--file PATH] [--force]` writes a stored version to a file |
 | | `pnpm -s player panel list` shows your stored panels with version, author and placement |
 | Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`, `panels.place`, `panels.layout`, `panels.setLayout` |
-| Agent registry (Wave 1B) | the `*_panel` tools call the same functions (internal twins `<fn>As`) |
+| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`): MCP clients, the CLI and the in-client assistant |
+| In-client assistant | ask it in the player client's **Assistant** drawer ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), shows the save as an activity chip, and asks you before `delete_panel` |
 
 - **The slug** is the panel's id: kebab-case, like a file name (`my-view`). Saving an existing slug makes a
   new version.
