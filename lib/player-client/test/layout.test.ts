@@ -21,7 +21,7 @@ test("the first built-in panel follows the phase only while nobody chose it; a n
   assert.equal(panelPanesOf(parseLayout(chosen, { phase: "ended", storedSlugs: [] }).layout)[0].panelId, "objects");
   // Only the first built-in panel follows; a second default pane keeps its panel.
   const two = openPane(ended, { id: "", kind: "panel", panelId: "race", params: {}, setBy: "default" }, { relativeTo: "p1", direction: "right" }).layout;
-  assert.deepEqual(panelPanesOf(parseLayout(two, { phase: "lobby", storedSlugs: [] }).layout).map(p => p.panelId), ["overview", "race"]);
+  assert.deepEqual(panelPanesOf(parseLayout(two, { phase: "lobby", storedSlugs: [] }).layout).map(p => p.panelId), ["objects", "race"]);
   // A new game: parameters reset, the choice and who made it stay; what-if becomes the overview.
   const whatIf = openPane(chosen, { id: "", kind: "panel", panelId: "what-if", params: { objectId: "o1", calls: [["add", { k: 1 }]] }, setBy: "assistant" }, { relativeTo: "p1", direction: "right" }).layout;
   const reset = resetPanelParams(whatIf);
@@ -35,7 +35,7 @@ test("the first built-in panel follows the phase only while nobody chose it; a n
   assert.deepEqual(carried.warnings, []);
   assert.deepEqual(panelPanesOf(carried.layout).map(p => [p.panelId, p.setBy]), [["objects", "human"], ["overview", "assistant"]]);
   // A never-chosen first pane carried into a lobby shows that lobby's default.
-  assert.equal(panelPanesOf(parseLayout(carryLayout(DEFAULT_LAYOUT("ended")), { phase: "lobby", storedSlugs: [] }).layout)[0].panelId, "overview");
+  assert.equal(panelPanesOf(parseLayout(carryLayout(DEFAULT_LAYOUT("ended")), { phase: "lobby", storedSlugs: [] }).layout)[0].panelId, "objects");
 });
 
 const ctx = { phase: "running" as const, storedSlugs: ["mine"] };
@@ -59,7 +59,7 @@ test("the default layout is one default panel over the assistant, 50/50, and par
   const layout = DEFAULT_LAYOUT("running");
   wellFormed(layout);
   assert.deepEqual(paneOrder(layout.root), ["p1", "p2"]);
-  assert.deepEqual(layout.panes.p1, { id: "p1", kind: "panel", panelId: "overview", params: { focus: "auto" }, setBy: "default" });
+  assert.deepEqual(layout.panes.p1, { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "default" });
   assert.equal(layout.panes.p2.kind, "assistant");
   assert.equal(assistantSide(layout), "column");
   assert.deepEqual(parseLayout(layout, ctx), { layout, warnings: [] });
@@ -78,14 +78,14 @@ test("parseLayout never throws: each failure class degrades and is named in warn
   // Unknown panel → the phase's default panel; invalid params → defaults; bad setBy → default.
   const odd = { ...base, panes: { ...base.panes, p1: { id: "p1", kind: "panel", panelId: "stored", params: { nope: 1 }, setBy: "robot" } } };
   const fixed = parseLayout(odd, ctx);
-  assert.deepEqual(fixed.layout.panes.p1, { id: "p1", kind: "panel", panelId: "overview", params: { focus: "auto" }, setBy: "default" });
+  assert.deepEqual(fixed.layout.panes.p1, { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "default" });
   assert.match(fixed.warnings.join("\n"), /unknown panel "stored"/);
   const badParams = parseLayout({ ...base, panes: { ...base.panes, p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 9999 }, setBy: "assistant" } } }, ctx);
   assert.equal(badParams.layout.panes.p1.kind === "panel" && badParams.layout.panes.p1.params.limit, 12);
   assert.match(badParams.warnings[0], /invalid objects parameters/);
   // what-if without its required params cannot show anything: the default panel takes its place.
   const whatIf = parseLayout({ ...base, panes: { ...base.panes, p1: { id: "p1", kind: "panel", panelId: "what-if", params: {}, setBy: "human" } } }, ctx);
-  assert.equal(whatIf.layout.panes.p1.kind === "panel" && whatIf.layout.panes.p1.panelId, "overview");
+  assert.equal(whatIf.layout.panes.p1.kind === "panel" && whatIf.layout.panes.p1.panelId, "objects");
   // Unknown stored panel or file panel → dropped; a missing assistant or panel → added.
   const panels: DockLayout = { version: 1, root: { type: "split", direction: "row", sizes: [1, 1, 1], children: [
     { type: "tabs", panes: ["s1"], active: "s1" }, { type: "tabs", panes: ["s2"], active: "s2" }, { type: "tabs", panes: ["f1"], active: "f1" }] },
@@ -115,7 +115,7 @@ test("parseLayout never throws: each failure class degrades and is named in warn
   assert.equal(panelPanesOf(trimmed.layout).length, LAYOUT_LIMITS.panelPanes);
   assert.match(trimmed.warnings.join("\n"), /more than 4 built-in panels/);
   assert.match(parseLayout(many, ctx).warnings[0], /^layout reset: deeper/);
-  const huge = { ...base, panes: { ...base.panes, p1: { ...base.panes.p1, params: { focus: "x".repeat(40_000) } } } };
+  const huge = { ...base, panes: { ...base.panes, p1: { ...base.panes.p1, params: { highlight: ["x".repeat(40_000)] } } } };
   assert.match(parseLayout(huge, ctx).warnings[0], /^layout reset: larger/);
   // Nested same-direction splits merge; sizes renormalise.
   const nested: DockLayout = { version: 1, root: { type: "split", direction: "column", sizes: [2, 2], children: [
@@ -182,18 +182,18 @@ test("closePane refuses the assistant and the last panel; movePane relocates; se
   assert.throws(() => movePane(base, "p1", { relativeTo: "p1", direction: "tab" }), (e: LayoutError) => e.code === "BAD_REQUEST");
   assert.throws(() => movePane(base, "nope", { relativeTo: "p1", direction: "tab" }), (e: LayoutError) => e.code === "NOT_FOUND");
   // Parameters: defaults filled, setBy recorded, invalid refused with the issues, non-panel refused.
-  const set = setPaneParams(base, "p1", { focus: "goal" }, "assistant");
-  assert.deepEqual(set.panes.p1, { id: "p1", kind: "panel", panelId: "overview", params: { focus: "goal" }, setBy: "assistant" });
-  assert.throws(() => setPaneParams(base, "p1", { focus: "nope" }, "assistant"), (e: LayoutError) => e.code === "BAD_REQUEST" && /focus/.test(e.message));
+  const set = setPaneParams(base, "p1", { limit: 5, annotate: "none" }, "assistant");
+  assert.deepEqual(set.panes.p1, { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "none" }, setBy: "assistant" });
+  assert.throws(() => setPaneParams(base, "p1", { limit: 1000 }, "assistant"), (e: LayoutError) => e.code === "BAD_REQUEST" && /limit/.test(e.message));
   assert.throws(() => setPaneParams(base, "p2", {}, "assistant"), (e: LayoutError) => e.code === "BAD_REQUEST");
-  const swapped = setPanePanel(base, "p1", "objects", "human");
-  assert.deepEqual(swapped.panes.p1, { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "human" });
+  const swapped = setPanePanel(base, "p1", "overview", "human");
+  assert.deepEqual(swapped.panes.p1, { id: "p1", kind: "panel", panelId: "overview", params: { focus: "auto" }, setBy: "human" });
   const active = activatePane(openPane(base, panel("", "feed"), { relativeTo: "p1", direction: "tab" }).layout, "p1");
   assert.equal((active.root as Extract<Node, { type: "split" }>).children[0].type === "tabs" && ((active.root as Extract<Node, { type: "split" }>).children[0] as Extract<Node, { type: "tabs" }>).active, "p1");
 });
 
 test("presets keep every built-in panel; carried layouts reset parameters; the briefing lines name panes", () => {
-  const base = openPane(DEFAULT_LAYOUT("running"), panel("", "objects", { limit: 5 })).layout;
+  const base = openPane(DEFAULT_LAYOUT("running"), panel("", "objects", { limit: 5 })).layout;  // p1: the default objects panel, p3: chosen
   for (const name of ["stacked", "side-by-side", "two-panels"] as const) {
     const preset = PRESET_LAYOUTS[name](base);
     wellFormed(preset);
@@ -206,8 +206,8 @@ test("presets keep every built-in panel; carried layouts reset parameters; the b
   assert.equal(panelPanesOf(two).length, 2, "a second panel is opened when there is only one");
   assert.equal(assistantSide(two), "row");
   const carried = carryLayout(setPaneParams(base, "p3", { limit: 3, highlight: ["o1"] }, "assistant"));
-  assert.deepEqual(carried.panes.p3, { id: "p3", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
+  assert.deepEqual(carried.panes.p3, { id: "p3", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
   assert.deepEqual(carried.root, base.root, "the arrangement is kept");
   const lines = describeLayout(setPaneParams(base, "p3", { limit: 3 }, "assistant"));
-  assert.deepEqual(lines, ["[p1] overview — Situation, standing, next step (default)", "[p3] objects — Top 3 by payoff (set by you)", "[p2] this conversation (below the panels)"]);
+  assert.deepEqual(lines, ["[p1] objects — Top 12 by payoff (default)", "[p3] objects — Top 3 by payoff (set by you)", "[p2] this conversation (below the panels)"]);
 });

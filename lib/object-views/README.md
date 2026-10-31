@@ -24,6 +24,19 @@ The chosen renderer's id reaches the component as `renderer`, so one component c
 (the Grid's detail view stays open when the viewer switches from inside it).
 
 `objectContext(instance)` turns the API's `InstanceInfo` into the context (`objectType`, Grid args).
+
+### Annotations
+
+`ObjectView` takes `annotations` (`src/annotations.ts`; the types come from `@workspace/game-utilities`, which produces
+them): marks that show which parts of an object make up a utility's score. Grid `cells` (weighted) are a soft wash plus
+an underline in digits and an outline plus glow in tiles; a grid `region` is one outline around the group; string `spans`
+and Int `digits` (positions from the left, past the sign) are washed and underlined; `badge`s are chips after the object.
+Tones: good (the theme's `--accent`, ✓, solid), bad (`--destructive`, ✗, wavy or dashed), neutral (`--muted-foreground`,
+•, dotted). Weight sets the wash opacity (`washOpacity`) and the underline or outline thickness (`underlinePx`) and font
+weight (`markFontWeight`), so colour is never the only cue. The labels make the legend: the grid detail view
+(`grid-object-legend`), the trigger's tooltip and the accessible label, and `AnnotationLegend` for lists. Helpers:
+`mergeAnnotations`, `annotationLegend`, `legendText`, `annotationBadges`, `cellWeightMap(annotations, size)`,
+`regionEdges`, `textSegments`, `toneColour`. Who produces annotations: docs/panels.md "Annotations".
 `TransformationView` shows before → after; on grids the changed cells are outlined. When the type is
 unknown, numbers render as Int, strings that parse as a grid of at least 2×2 as Grid, others as string.
 
@@ -79,7 +92,8 @@ app's `src/index.css` has `@source "../../../lib/object-views/src";`.
 
 - `pnpm --filter @workspace/object-views test`: rarity and penalty wording, locked reasons, catalog
   grouping, settings snapping and badges, dispatch, renderers and the viewer's choice, grid display model,
-  digit lines, contrast and cue tests, and the text shades (contrast on both apps' CSS surfaces, ΔE, hue, and
+  digit lines, the annotation helpers (merging, legend, cell and character marks, region outlines, weight encodings),
+  contrast and cue tests, and the text shades (contrast on both apps' CSS surfaces, ΔE, hue, and
   that both `index.css` files carry the same values).
 - The Playwright smoke tests of both apps (`pnpm --filter @workspace/code-gods run e2e`, see
   `artifacts/code-gods/e2e/smoke.ts`) exercise these components in the real pages at desktop and phone width.
