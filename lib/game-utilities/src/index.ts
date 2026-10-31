@@ -25,7 +25,7 @@ export {
   nominalSe, DEPTH_BANDS, type TableComparison, type SpawnComparison, type EnumerationComparison,
 } from "./analytic-verify.ts";
 export {
-  tableFor, hasTable, instanceTables, analyticFor, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
+  tableFor, hasTable, instanceTables, analyticFor, tableKey, tableKeyParts, keyFromParts, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
   offeredInstantiations, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
   type CalibrationFile, type CalibrationManifest, type CalibrationTable, type InstanceTables, type PriorRef,
 } from "./calibration.ts";

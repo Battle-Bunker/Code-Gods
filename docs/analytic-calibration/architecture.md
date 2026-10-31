@@ -1,8 +1,10 @@
 # Analytic calibration: architecture
 
 **Status.** Phase A (the family-side interface, the probability toolkit and the verification harness) is merged
-(PR #51, `lib/game-utilities/src/analytic.ts`, `analytic-verify.ts`, `test/analytic.test.ts`). Phases B–D below are
-the design the engine converges on; each names the code it touches. The mathematics lives in `tail-toolkit.md`
+(PR #51, `lib/game-utilities/src/analytic.ts`, `analytic-verify.ts`, `test/analytic.test.ts`), with six families
+solved and verified on 48 shapes (PR #54). Phase B1 (the computed-table cache, the per-table compute action,
+`resolveTables` and the `prepare` entry point, with measured first-use latency, §9) is merged; B2–D below are the
+design the engine converges on; each names the code it touches. The mathematics lives in `tail-toolkit.md`
 (rare-event tools, the trustworthiness of the sampling estimator) and `playbook.md` (the catalogue of solved
 families, by the Opus session). This document stands alone: a future agent adding a rule, or wiring the engine, should
 need nothing else to know *where* a probability comes from and *what to do when there is none yet*.
@@ -98,16 +100,17 @@ removes the last two constraints.
 
 ### 3.1 Resolution order for one draw
 
-`resolveTable(ctx, inst, draw, prior)`:
+`resolveTables(ctx, inst, draws, prior)` in `artifacts/engine/convex/engine/calibration.ts` (merged), for each draw:
 
 1. **Process memory** (`InstanceTables` already loaded, plus a per-process map of analytic and computed tables).
 2. **Analytic.** `analyticFor` non-null → build the table in process (`buildTable`, milliseconds). Analytic tables are
    never persisted: recomputing is cheaper than a storage read and they cannot go stale independently of the key.
 3. **Warm cache.** The instantiation's shipped file (`calibrationFiles` rows + storage), as today.
-4. **Computed cache.** A row of the new `calibrationTables` table (§3.3) with this key and `status: "ready"`: parse its
-   JSON.
-5. **Compute.** Insert `{ key, status: "computing" }` (idempotent: the unique index on `key` makes a second starter a
-   no-op that joins the wait), schedule the fan-out (§3.2), and report "preparing".
+4. **Computed cache.** A row of the `calibrationComputed` table (§3.3) with this key and `status: "ready"`: parse its
+   JSON (and check its key).
+5. **Compute.** `calibration.cache.claim` inserts `{ key, status: "computing" }` (a second starter is told to wait;
+   a failed row is retried once; a computing row older than 15 minutes is a crashed action and is restarted),
+   `calibration.compute.run` is scheduled for the key (§3.2), and the draw is reported pending.
 
 ### 3.2 Fan-out
 
@@ -127,29 +130,28 @@ removes the last two constraints.
   se at every depth band, §6). Until measured, K = 1 and the per-draw fan-out alone keep first use inside the planning
   window (60 s default) for a 5×5 Grid.
 - **Coordinator.** No long-running coordinator: every compute action ends by calling one mutation,
-  `calibration.compute.finished(key, table | error)`, which marks the row and, for every room waiting on that key
-  (§3.4), checks whether its pending set is empty and if so schedules the start's second half. Failure: the row gets
+  `calibration.cache.finished(key, table | error, buildMs)`, which marks the row (merged). B2 adds: for every room
+  waiting on that key (§3.4), check whether its pending set is empty and if so schedule the start's second half. Failure: the row gets
   `status: "failed", error, attempts`; the starter retries once, then the room's start fails with a message naming the
   draw. Nothing is left half-written: the table JSON is written in the same mutation that flips the status.
 
 ### 3.3 The computed cache
 
 ```ts
-// artifacts/engine/convex/calibration/tables.ts (schema)
-calibrationTables: {
-  key: string,            // tableKey (unique)
+// artifacts/engine/convex/calibration/tables.ts (merged)
+calibrationComputed: {
+  key: string,            // tableKey (unique by construction: claim checks before inserting)
   instance: string, family: string, paramsKey: string, prior: string,   // for listing and pruning
   status: "computing" | "ready" | "failed",
-  table?: string,         // CalibrationTable JSON (≈ 2.4 KB; analytic-sized tables are never stored)
-  estimator: { id: string; version: number; replicates?: number },
-  startedAt: number, finishedAt?: number, attempts: number, error?: string, lastUsedAt: number,
+  table?: string,         // CalibrationTable JSON (≈ 2.4 KB; analytic tables are never stored)
+  startedAt: number, finishedAt?: number, attempts: number, error?: string, buildMs?: number, lastUsedAt: number,
 }  // .index("by_key", ["key"]).index("by_instance", ["instance"]).index("by_status", ["status"])
 ```
 
 A table is a document, not a storage blob: a Convex document holds 1 MiB, lookups by key are a single indexed read,
 and the row doubles as the job record. The existing per-instance files in storage stay as the warm layer and are
-re-exported from the cache on demand (`scripts/export-cache.ts`, §5). **Pruning**: a nightly cron drops `ready` rows
-not used for 90 days and `computing` rows older than 15 minutes (a crashed action; the next request recomputes).
+re-exported from the cache on demand (`scripts/export-cache.ts`, §5). **Pruning** (B2): a nightly cron drops `ready`
+rows not used for 90 days; stale `computing` rows are already restarted by `claim`.
 
 ### 3.4 Dealing and the "preparing" state
 
@@ -263,8 +265,8 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 
 | Phase | Lands | Touches | Size |
 |---|---|---|---|
-| A (done) | family `analytic`, toolkit, harness, references, first example | `lib/game-utilities` only | PR #51 |
-| B1 | `calibrationTables` schema, `resolveTable`, per-draw compute action + `finished` mutation, cache pruning cron | `convex/calibration/*`, `engine/calibration.ts` | small |
+| A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
+| B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/game-ondemand.test.ts` | PR (this) |
 | B2 | two-half `start`, room `preparing`, lobby UI progress, `playableInstantiations`, settings badge | `owner.ts`, `game/lobby.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods` settings | medium |
 | B3 | within-draw replicates (estimator v4) after measuring fidelity with the harness | `scripts/estimator.ts`, compute action | small |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
@@ -272,3 +274,28 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 
 Measured numbers to record as each phase lands: first-use latency per draw (Grid 4/5/6/7, Int, string), cold-start
 overhead of a Node action in the dev deployment, cache hit latency, and the harness bands for estimator v4 against v3.
+
+## 9. Measured (Phase B1, local Convex backend, this container)
+
+`artifacts/engine/test/game-ondemand.test.ts` and an ad-hoc probe of `calibration.compute.prepare` on shapes with no
+shipped tables, default budgets, polling every second:
+
+| shape | sampled tables | per-table build | wall to all ready | notes |
+|---|---|---|---|---|
+| Grid(4,base10,rgby) | 3 (snap, odds_evens, hate_blob) | 1.9–3.0 s | 9.3 s | plus `hate_colour` analytic in 4 ms |
+| Grid(5,base12,rgb) | 3 (snap, hate_blob, kingdom) | 5.5–6.7 s | 19.6 s | |
+| Grid(7,base16,rgby) | 4 (snap, odds_evens, hate_blob, kingdom) | 19–36 s | 110.8 s | |
+
+Warm resolution of four draws (file, analytic or cache): 2 ms.
+
+**The local backend runs the scheduled Node actions one after another**: the recorded action start offsets on the 7×7
+run were 0.0, 19.1, 40.3 and 75.9 s, each starting as the previous finished, so the wall time is the *sum* of the
+builds, not their maximum. The Convex cloud runs scheduled actions concurrently; the same probe on the dev deployment
+(`npx convex run calibration/compute:prepare '{"settings": …, "draws": …}'` with the deploy key) should give about the
+largest single build plus scheduling, i.e. ≈ 3 s for a 4×4, ≈ 7 s for a 5×5 and ≈ 36 s for a 7×7 game's draws. That
+measurement is the first thing to record when B2 lands; until it is, treat 7×7 first use as needing either the warm
+cache (the 48 shipped shapes) or the within-draw split of §3.2.
+
+What this says for the design: the per-draw fan-out is sufficient for 4×4 and 5×5 inside a 60 s planning window even
+with local-style serialisation; 6×6 and 7×7 want either cloud concurrency or the replicate split (B3), and every shape
+is instant the second time.
