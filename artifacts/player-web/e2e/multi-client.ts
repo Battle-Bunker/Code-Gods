@@ -376,8 +376,10 @@ await check("the hosted player client (engine site, /player/) plays as the signe
   await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}/player/?room=${shortCode}`);
-  await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
-  assert(await page.textContent("[data-testid=text-self-label]") === "Carol Nguyen", "hosted identity");
+  // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
+  await page.waitForFunction(() => { const t = document.querySelector("[data-testid=text-self-label]")?.textContent; return !!t && t !== "—"; }, null, { timeout: 60_000 }).catch(() => {});
+  const label = await page.textContent("[data-testid=text-self-label]");
+  assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
   assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
   await context.close();
 });

@@ -16,7 +16,7 @@ const UNREACHABLE = { CONVEX_LOCAL_CLOUD_PORT: "1", CONVEX_LOCAL_SITE_PORT: "1",
 const run = (script: string, env: Record<string, string>) => spawnSync(node[0], [...node.slice(1), script], {
   cwd: ROOT, encoding: "utf8", timeout: 30_000,
   // Unreachable ports: if the guard were missing, nothing local would answer and nothing would be reused.
-  env: { ...process.env, CONVEX_DEPLOY_KEY: "", CONVEX_DEPLOYMENT: "", ...UNREACHABLE, ...env },
+  env: { ...process.env, CONVEX_DEPLOY_KEY: "", CONVEX_DEPLOYMENT_TOKEN: "", CONVEX_SELF_HOSTED_URL: "", CONVEX_DEPLOYMENT: "", ...UNREACHABLE, ...env },
 });
 const SCRIPTS = [
   "artifacts/engine/scripts/dev.mjs",
@@ -36,14 +36,19 @@ for (const script of SCRIPTS) {
   });
 }
 
-test("a CONVEX_DEPLOYMENT naming a cloud deployment is refused too; the local anonymous one is not", () => {
+test("a CONVEX_DEPLOYMENT naming a cloud deployment, a deployment token or a self-hosted URL is refused too; the local anonymous deployment is not", () => {
   for (const deployment of ["dev:not-a-deployment", "prod:not-a-deployment"]) {
     const result = run(SCRIPTS[0], { CONVEX_DEPLOYMENT: deployment });
     assert.equal(result.status, 1, deployment);
     assert.match(result.stderr, /CONVEX_DEPLOYMENT is set/);
   }
+  for (const name of ["CONVEX_DEPLOYMENT_TOKEN", "CONVEX_SELF_HOSTED_URL"]) {
+    const result = run(SCRIPTS[0], { [name]: name === "CONVEX_SELF_HOSTED_URL" ? "https://convex.example.org" : "token" });
+    assert.equal(result.status, 1, name);
+    assert.match(result.stderr, new RegExp(`${name} is set`));
+  }
   // The guard alone, so nothing starts: "anonymous:…" (the local backend) passes it.
   const local = spawnSync(process.execPath, ["scripts/local-only.mjs"], { cwd: `${ROOT}artifacts/engine`, encoding: "utf8",
-    env: { ...process.env, CONVEX_DEPLOY_KEY: "", CONVEX_DEPLOYMENT: "anonymous:anonymous-engine" } });
+    env: { ...process.env, CONVEX_DEPLOY_KEY: "", CONVEX_DEPLOYMENT_TOKEN: "", CONVEX_SELF_HOSTED_URL: "", CONVEX_DEPLOYMENT: "anonymous:anonymous-engine" } });
   assert.equal(local.status, 0, local.stderr);
 });

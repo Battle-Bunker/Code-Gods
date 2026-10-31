@@ -29,7 +29,7 @@ export function seasonSalt(): string {
   if (salt !== undefined) return salt;
   const configured = process.env.SEASON_SALT;
   if (configured && configured.length >= 16) salt = configured;
-  else if (!process.env.DEV) fail("UNAVAILABLE", "SEASON_SALT must be set (at least 16 characters) in production");
+  else if (process.env.DEV !== "1") fail("UNAVAILABLE", "SEASON_SALT must be set (at least 16 characters) in production");
   else {
     salt = randomBytes(32).toString("hex");
     console.warn("SEASON_SALT is not set: using a random per-instance season salt (development only)");

@@ -29,7 +29,7 @@ export const SITES = {
   engine: { component: "engineSite", pkg: "@workspace/code-gods", dir: resolve(artifacts, "code-gods"), base: "/" },
   player: { component: "playerSite", pkg: "@workspace/player-web", dir: resolve(artifacts, "player-web"), base: "/player/" },
 };
-// Without a deploy key or configured deployment, the CLI uses the local anonymous one.
+// With a deploy key the key picks the deployment; otherwise the configured one (.env.local), else the local anonymous one.
 const env = process.env.CONVEX_DEPLOY_KEY ? { ...process.env } : { ...process.env, CONVEX_AGENT_MODE: process.env.CONVEX_AGENT_MODE ?? "anonymous" };
 
 function run(command, args, options = {}) {
@@ -50,7 +50,9 @@ export function deploymentUrls({ prod = false } = {}) {
 /** The deployment's custom public origin (its env var SITE_URL), or "" when it has none. */
 export function publicSiteUrl({ prod = false } = {}) {
   const result = spawnSync("npx", ["convex", "env", "get", "SITE_URL", ...(prod ? ["--prod"] : [])], { cwd: root, env, encoding: "utf8" });
-  return result.status === 0 ? result.stdout.trim() : "";
+  // An unset variable prints nothing and succeeds; a failure must not silently drop the custom origin from the CSP.
+  if (result.status !== 0) throw new Error(`Could not read the deployment's SITE_URL\n${result.stderr}`);
+  return result.stdout.trim();
 }
 
 export function buildSite(site, convexUrl, siteUrl, publicUrl = "") {

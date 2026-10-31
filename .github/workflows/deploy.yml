@@ -42,7 +42,7 @@ jobs:
       - name: Unit tests
         run: |
           pnpm --filter @workspace/engine test:unit
-          for pkg in ai-player game-core game-types object-views player-web code-gods; do pnpm --filter "@workspace/$pkg" test; done
+          for pkg in ai-player game-core game-types game-utilities object-views player-web code-gods; do pnpm --filter "@workspace/$pkg" test; done
           pnpm run test:artifact
 
       # ---- the pinned Python runtime bundle ----
@@ -54,6 +54,7 @@ jobs:
       - if: steps.cpython.outputs.cache-hit != 'true'
         run: pnpm --filter @workspace/game-runtime setup:python
       - run: pnpm --filter @workspace/game-runtime build:python
+      - run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
 
       # ---- deploy (from here on the deploy key is in the environment) ----
       - name: Check the deployment's env vars
@@ -70,6 +71,8 @@ jobs:
           for n in DEV TEST_FIXTURES AI_MOCK FAKE_OIDC_URL; do
             if grep -qx "$n" <<<"$names"; then forbidden="$forbidden $n"; fi
           done
+          stale=$(grep '^CODE_GODS_' <<<"$names" | tr '\n' ' ' || true)   # renamed without the prefix (PILOT.md)
+          [ -z "$stale" ] || { echo "::error::Old CODE_GODS_ env vars on the deployment: $stale(move each to its new name, then remove it)"; exit 1; }
           [ -z "$forbidden" ] || { echo "::error::Test-only env vars set on a cloud deployment:$forbidden (remove them)"; exit 1; }
           [ -z "$missing" ] || { echo "::error::Missing deployment env vars:$missing (see PILOT.md)"; exit 1; }
 
@@ -85,10 +88,12 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: |
           if npx convex env list --names-only | grep -qx BETTER_AUTH_JWKS; then echo "BETTER_AUTH_JWKS is set"; exit 0; fi
-          # The JWKS goes straight from rotateKeys into env set (compacted to one line), never to the log.
-          npx convex run auth/betterAuth:rotateKeys \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(JSON.stringify(JSON.parse(s))))' \
-            | npx convex env set BETTER_AUTH_JWKS
+          # The JWKS (compacted to one line) stays in a shell variable and goes to env set on stdin, never to the log;
+          # an empty or invalid result stops here, so a broken value is never stored.
+          jwks=$(npx convex run auth/betterAuth:rotateKeys \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.keys?.length)process.exit(1);process.stdout.write(JSON.stringify(j))})')
+          [ -n "$jwks" ] || { echo "::error::rotateKeys returned no keys"; exit 1; }
+          printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS
 
       - name: Upload the Python runtime bundle
