@@ -96,6 +96,40 @@ test("a read credential reads but cannot write; an act credential writes as a de
   assert.equal(listed.lastForeignVersion, 2, "the version a non-browser author wrote (resets a 'let it act' grant)");
   await ada.c.action(api.panels.save, { slug: "shared", source: panel("browser again") });
   assert.equal((await ada.c.query(api.panels.list, {}))[0].lastForeignVersion, 2, "a browser save keeps it");
+  // Rolling back (even in the browser) to code an agent wrote makes agent code current again: it counts as foreign.
+  const back = await ada.c.mutation(api.panels.rollback, { slug: "shared", version: 2 });
+  assert.equal((await ada.c.query(api.panels.list, {}))[0].lastForeignVersion, back.version);
+  await ada.c.mutation(api.panels.rollback, { slug: "shared", version: 3 });
+  assert.equal((await ada.c.query(api.panels.list, {}))[0].lastForeignVersion, back.version, "rolling back to browser code keeps it");
+});
+
+test("a removed and re-created slug is a different panel (its id changes), so old client grants cannot carry over", async () => {
+  const [ada] = await gods("Ada Lovelace");
+  await ada.c.action(api.panels.save, { slug: "again", source: panel("one") });
+  const [first] = await ada.c.query(api.panels.list, {});
+  assert.equal(typeof first.id, "string");
+  await ada.c.mutation(api.panels.remove, { slug: "again" });
+  await ada.c.action(api.panels.save, { slug: "again", source: panel("two") });
+  const [second] = await ada.c.query(api.panels.list, {});
+  assert.equal(second.currentVersion, 1);
+  assert.notEqual(second.id, first.id);
+});
+
+test("a save's literal manifest sets title, placement and size; explicit arguments win", async () => {
+  const [ada] = await gods("Ada Lovelace");
+  await ada.c.action(api.panels.save, { slug: "where", source: panel("a") });
+  await ada.c.mutation(api.panels.place, { slug: "where", placement: "bottom", title: "Renamed" });
+  const moved = `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Moved", placement: "right", size: "lg", Component: () => null });\n`;
+  await ada.c.action(api.panels.save, { slug: "where", source: moved });
+  const [after] = await ada.c.query(api.panels.list, {});
+  assert.deepEqual([after.title, after.placement, after.size], ["Moved", "right", "lg"]);
+  await ada.c.action(api.panels.save, { slug: "where", source: moved, placement: "left", title: "Mine" });
+  const [explicit] = await ada.c.query(api.panels.list, {});
+  assert.deepEqual([explicit.title, explicit.placement, explicit.size], ["Mine", "left", "lg"]);
+  // No manifest values: the stored ones stay.
+  await ada.c.action(api.panels.save, { slug: "where", source: `export default () => null;\n` });
+  const [kept] = await ada.c.query(api.panels.list, {});
+  assert.deepEqual([kept.title, kept.placement, kept.size], ["Mine", "left", "lg"]);
 });
 
 test("internal twins act as a credential principal: act may write, read may not, revoked is refused", async () => {

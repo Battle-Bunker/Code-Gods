@@ -58,7 +58,10 @@ function framePlugin(): Plugin {
       server.watcher.on("change", file => { if (file.startsWith(src) && !file.startsWith(panelsDir)) built = undefined; });
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://x");
-        const name = url.pathname.slice(1);
+        // Paths relative to the app's base ("/" by default, "/player/" with BASE_PATH), as the client requests them.
+        const base = server.config.base;
+        if (!url.pathname.startsWith(base)) { next(); return; }
+        const name = url.pathname.slice(base.length);
         try {
           if (name === "panel-frame.html") {
             const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim() || ((req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
@@ -74,7 +77,7 @@ function framePlugin(): Plugin {
             res.end(body ?? "");
             return;
           }
-          if (url.pathname === "/__codegods/panel-compiled") {
+          if (name === "__codegods/panel-compiled") {
             const file = url.searchParams.get("file") ?? "";
             res.setHeader("Content-Type", "application/json");
             res.setHeader("Cache-Control", "no-store");

@@ -46,18 +46,18 @@ function render(panel: BridgePanel) {
   );
 }
 
+function onHost(message: HostMessage) {
+  if (message.type === "load") render(message.panel);
+}
+
+// The handshake: one `boot` from the parent window, carrying the port for everything else.
 window.addEventListener("message", event => {
-  if (event.source !== window.parent) return;
   const message = event.data as HostMessage;
-  if (!message || typeof message !== "object" || typeof message.type !== "string") return;
-  if (client.handle(message)) return;
-  if (message.type === "boot") {
-    room = message.room;
-    document.documentElement.classList.toggle("dark", !!message.theme?.dark);
-    render(message.panel);
-  } else if (message.type === "load") {
-    render(message.panel);
-  }
+  if (event.source !== window.parent || room || !message || message.type !== "boot" || !event.ports[0]) return;
+  room = message.room;
+  document.documentElement.classList.toggle("dark", !!message.theme?.dark);
+  client.attach(event.ports[0], onHost);
+  render(message.panel);
 });
 
 // The host sizes the iframe to the content; drag and resize stay in the host's header.
@@ -67,4 +67,4 @@ new ResizeObserver(() => {
   if (height !== lastHeight) { lastHeight = height; client.post({ type: "resize", height }); }
 }).observe(mount);
 
-client.post({ type: "ready" });
+client.ready();

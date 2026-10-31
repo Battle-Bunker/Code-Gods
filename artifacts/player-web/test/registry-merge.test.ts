@@ -1,7 +1,7 @@
 /** Merging file panels (src/panels/*.tsx) with stored panels (panels.list) into one registry (src/shell/registry-merge.ts). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergePanels, type StoredPanelMeta } from "../src/shell/registry-merge.ts";
+import { mergePanels, policyKey, type StoredPanelMeta } from "../src/shell/registry-merge.ts";
 import type { PanelEntry } from "../src/shell/panel-store.ts";
 
 const file = (id: string): PanelEntry => ({ file: `${id}.tsx`, id, origin: "file", load: async () => ({}) });
@@ -19,6 +19,13 @@ test("on an id clash the file panel wins and records the stored version it shado
   assert.equal(entries.length, 1);
   assert.equal(entries[0].origin, "file");
   assert.equal(entries[0].shadows, 7);
+});
+
+test("a 'let it act' grant key names the stored panel's identity, not just its slug (a re-created slug is new code)", () => {
+  const [a] = mergePanels([], [stored("tool", { id: "id-1" })]);
+  const [b] = mergePanels([], [stored("tool", { id: "id-2", currentVersion: 1 })]);
+  assert.notEqual(policyKey(a), policyKey(b));
+  assert.equal(policyKey(file("x")), "file:x");
 });
 
 test("disabled stored panels are left out", () => {

@@ -52,7 +52,7 @@ async function quota(ctx: Ctx, subject: string, record: boolean) {
 }
 
 const metadata = (p: Doc<"panels">) => ({
-  slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.currentVersion, enabled: p.enabled,
+  id: p._id, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.currentVersion, enabled: p.enabled,
   updatedAt: p.updatedAt, author: p.author, lastForeignVersion: p.lastForeignVersion ?? 0,
 });
 
@@ -120,7 +120,7 @@ async function addVersion(ctx: MutationCtx, panelId: Id<"panels">, version: numb
   for (const doc of stale) await ctx.db.delete(doc._id);
 }
 
-const foreign = (author: Author, version: number, previous?: number) => author.kind === "browser" ? previous : version;
+const foreignVersion = (author: Author, version: number, previous?: number) => author.kind === "browser" ? previous : version;
 
 export const commit = internalMutation({
   args: {
@@ -136,13 +136,13 @@ export const commit = internalMutation({
     const version = (existing?.currentVersion ?? 0) + 1;
     const fields = {
       title: (title ?? manifest.title ?? existing?.title ?? slug).slice(0, 80),
-      placement: where ?? existing?.placement ?? manifest.placement ?? "right",
-      size: howBig ?? existing?.size ?? manifest.size ?? "md",
-      currentVersion: version, updatedAt: now, author, lastForeignVersion: foreign(author, version, existing?.lastForeignVersion),
+      placement: where ?? manifest.placement ?? existing?.placement ?? "right",
+      size: howBig ?? manifest.size ?? existing?.size ?? "md",
+      currentVersion: version, updatedAt: now, author, lastForeignVersion: foreignVersion(author, version, existing?.lastForeignVersion),
     };
     const panelId = existing?._id ?? await ctx.db.insert("panels", { subject: viewer.subject, slug, enabled: true, ...fields });
     if (existing) await ctx.db.patch(existing._id, fields);
-    await addVersion(ctx, panelId, version, { source, compiled, diagnostics, compilerVersion, sourceHash, author, manifest, createdAt: now });
+    await addVersion(ctx, panelId, version, { source, compiled, diagnostics, compilerVersion, sourceHash, author, manifest, createdAt: now, foreign: author.kind !== "browser" });
     return { ok: true as const, slug, version, diagnostics };
   },
 });
@@ -185,13 +185,16 @@ async function rollbackImpl(ctx: MutationCtx, viewer: Viewer, { slug, version }:
   const author = await authorOf(ctx, viewer);
   const now = Date.now();
   const next = panel.currentVersion + 1;
+  const foreign = author.kind !== "browser" || (old.foreign ?? old.author.kind !== "browser");
   await ctx.db.patch(panel._id, {
     currentVersion: next, updatedAt: now, author, title: old.manifest.title ?? panel.title,
-    lastForeignVersion: foreign(author, next, panel.lastForeignVersion),
+    placement: old.manifest.placement ?? panel.placement, size: old.manifest.size ?? panel.size,
+    // Restoring code an agent wrote makes agent code current again, whoever rolls back.
+    lastForeignVersion: foreign ? next : panel.lastForeignVersion,
   });
   await addVersion(ctx, panel._id, next, {
     source: old.source, compiled: old.compiled, diagnostics: old.diagnostics, compilerVersion: old.compilerVersion,
-    sourceHash: old.sourceHash, author, manifest: old.manifest, createdAt: now,
+    sourceHash: old.sourceHash, author, manifest: old.manifest, createdAt: now, foreign,
   });
   return { slug, version: next, from: version };
 }

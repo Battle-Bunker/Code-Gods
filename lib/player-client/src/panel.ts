@@ -9,6 +9,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// The engine's own slug rule, so the CLI never accepts or refuses differently.
+import { SLUG } from "@workspace/engine/convex/panels/limits.ts";
 import { api, type Engine } from "./engine.ts";
 
 export class PanelCliError extends Error {
@@ -17,7 +19,6 @@ export class PanelCliError extends Error {
 }
 
 const PANELS_DIR = fileURLToPath(new URL("../../../artifacts/player-web/src/panels/", import.meta.url));
-const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
 export function panelFile(slug: string, file: string | undefined, cwd = process.env.INIT_CWD ?? process.cwd()): string {
   return file ? resolve(cwd, file) : resolve(PANELS_DIR, `${slug}.tsx`);

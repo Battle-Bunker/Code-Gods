@@ -15,7 +15,7 @@ import { panelStore, type PanelEntry } from "./panel-store";
 import { PanelBody, PanelBoundary, usePanelModules, type FrameStatus } from "./panel-frame";
 import { layoutStore, useLayout, type Layout } from "./layout";
 import { useLayoutSync } from "./layout-sync";
-import { mergePanels } from "./registry-merge";
+import { mergePanels, policyKey } from "./registry-merge";
 import { SandboxedFilePanelBody, StoredPanelBody } from "./stored-frame";
 import { Confirmations } from "./confirmations";
 import { policyStore } from "./policy-store";
@@ -73,8 +73,8 @@ export function Dock({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (stored === undefined) return;
     policyStore.dispatch({ type: "panels", panels: [
-      ...stored.map(p => ({ key: `stored:${p.slug}`, currentVersion: p.currentVersion, lastForeignVersion: p.lastForeignVersion })),
-      ...files.map(f => ({ key: `file:${f.id}`, currentVersion: 0, lastForeignVersion: 0 })),
+      ...mergePanels([], stored).map(e => ({ key: policyKey(e), currentVersion: e.stored!.currentVersion, lastForeignVersion: e.stored!.lastForeignVersion })),
+      ...files.map(f => ({ key: policyKey(f), currentVersion: 0, lastForeignVersion: 0 })),
     ] });
   }, [stored, files]);
 

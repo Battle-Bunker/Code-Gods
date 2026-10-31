@@ -8,7 +8,13 @@ import type { PanelEntry, StoredPanelMeta } from "./panel-store.ts";
 
 export type { StoredPanelMeta };
 
-const sameMeta = (a: StoredPanelMeta | undefined, b: StoredPanelMeta) => !!a && a.slug === b.slug && a.currentVersion === b.currentVersion &&
+/**
+ * The key a "let it act" grant is kept under: a stored panel's identity (removing and re-creating a slug makes a
+ * new panel whose versions restart at 1, so its slug alone must not carry an old grant), or a file panel's id.
+ */
+export const policyKey = (entry: PanelEntry) => entry.origin === "stored" ? `stored:${entry.id}#${entry.stored?.id ?? ""}` : `file:${entry.id}`;
+
+const sameMeta = (a: StoredPanelMeta | undefined, b: StoredPanelMeta) => !!a && a.id === b.id && a.slug === b.slug && a.currentVersion === b.currentVersion &&
   a.title === b.title && a.placement === b.placement && a.size === b.size && a.lastForeignVersion === b.lastForeignVersion;
 
 export function mergePanels(files: readonly PanelEntry[], stored: readonly StoredPanelMeta[], previous: readonly PanelEntry[] = []): PanelEntry[] {

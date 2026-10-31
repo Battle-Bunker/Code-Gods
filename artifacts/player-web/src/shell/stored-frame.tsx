@@ -5,6 +5,11 @@
  * navigation) loads /player/panel-frame.html, which has its own CSP (connect-src 'none'). The host serves it over
  * a BridgeHost: the SDK's read queries for this room, throttled per hz; commands, with a host-rendered
  * confirmation for chat, summon, destroy and pause; and the evaluator's calibration tables once.
+ *
+ * Handshake: the frame's document posts `ready` (with the nonce from its URL) to the parent window, once. The host
+ * answers `boot` with a MessagePort, and everything after that travels over the port. A document the frame
+ * navigates to later does not own the port, so it can neither read the player's data nor send commands; a second
+ * `ready` or a second load event means the frame navigated, and the bridge stops for good.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useConvex, useQuery } from "convex/react";
@@ -12,26 +17,27 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import { envelopeSchema, type Envelope } from "@workspace/player-client";
 import { useRoom } from "@/sdk/context";
 import { QUERY_REFS, loadTables } from "@/sdk/transport";
-import type { BridgePanel, HostMessage } from "@/sdk/bridge-protocol";
+import { isFrameMessage, type BridgePanel, type HostMessage } from "@/sdk/bridge-protocol";
 import { acceptMessage, BridgeHost } from "./bridge-host";
 import { policyStore } from "./policy-store";
 import type { PanelInfo } from "./action-policy";
 import { PanelError } from "./panel-frame";
+import { policyKey } from "./registry-merge";
 import type { PanelEntry } from "./panel-store";
 
 export const frameUrl = (nonce: string) => `${import.meta.env.BASE_URL}panel-frame.html#n=${nonce}`;
-type Code = { panel: BridgePanel } | { error: string } | undefined;
 type FrameState = "booting" | "ready" | "failed" | "crashed" | "navigated";
 
 /** A stored panel: its current version's code from panels.code (immutable per version, so cached by Convex). */
 export function StoredPanelBody({ entry }: { entry: PanelEntry }) {
   const meta = entry.stored!;
   const code = useQuery(api.panels.code, { slug: meta.slug, version: meta.currentVersion });
-  const panel = useMemo<Code>(() => code && { panel: { slug: meta.slug, version: code.version, compiled: code.compiled, title: meta.title } },
+  const panel = useMemo<BridgePanel | undefined>(() => code && { slug: meta.slug, version: code.version, compiled: code.compiled, title: meta.title },
     [code, meta.slug, meta.title]);
-  const info = useMemo<PanelInfo>(() => ({ key: entry.file, currentVersion: meta.currentVersion, lastForeignVersion: meta.lastForeignVersion }),
-    [entry.file, meta.currentVersion, meta.lastForeignVersion]);
-  return <SandboxedPanel file={entry.file} title={meta.title} code={panel} info={info} />;
+  const key = policyKey(entry);
+  const info = useMemo<PanelInfo>(() => ({ key, currentVersion: meta.currentVersion, lastForeignVersion: meta.lastForeignVersion }),
+    [key, meta.currentVersion, meta.lastForeignVersion]);
+  return <SandboxedPanel file={entry.file} title={meta.title} panel={panel} info={info} />;
 }
 
 /**
@@ -39,7 +45,7 @@ export function StoredPanelBody({ entry }: { entry: PanelEntry }) {
  * the engine uses on save, so this proves the file works as a stored panel. Re-fetched on every registry update.
  */
 export function SandboxedFilePanelBody({ entry, generation }: { entry: PanelEntry; generation: number }) {
-  const [code, setCode] = useState<Code>();
+  const [code, setCode] = useState<{ panel: BridgePanel } | { error: string }>();
   useEffect(() => {
     let live = true;
     fetch(`${import.meta.env.BASE_URL}__codegods/panel-compiled?file=${encodeURIComponent(entry.file)}`, { cache: "no-store" })
@@ -51,29 +57,34 @@ export function SandboxedFilePanelBody({ entry, generation }: { entry: PanelEntr
       }, error => { if (live) setCode({ error: String(error) }); });
     return () => { live = false; };
   }, [entry.file, entry.id, generation]);
-  const info = useMemo<PanelInfo>(() => ({ key: `file:${entry.id}`, currentVersion: 0, lastForeignVersion: 0 }), [entry.id]);
-  return <SandboxedPanel file={entry.file} title={entry.id} code={code} info={info} />;
+  const key = policyKey(entry);
+  const info = useMemo<PanelInfo>(() => ({ key, currentVersion: 0, lastForeignVersion: 0 }), [key]);
+  // A compile error replaces the frame; the fixed version then starts a fresh one.
+  if (code && "error" in code) return <PanelError file={entry.file} title="This panel does not compile" message={code.error} />;
+  return <SandboxedPanel file={entry.file} title={entry.id} panel={code?.panel} info={info} />;
 }
 
-function SandboxedPanel({ file, title, code, info }: { file: string; title: string; code: Code; info: PanelInfo }) {
+const dark = () => document.documentElement.classList.contains("dark");
+
+function SandboxedPanel({ file, title, panel, info }: { file: string; title: string; panel: BridgePanel | undefined; info: PanelInfo }) {
   const room = useRoom();
   const convex = useConvex();
   const iframe = useRef<HTMLIFrameElement>(null);
   const nonce = useMemo(() => crypto.randomUUID(), []);
   const [height, setHeight] = useState(80);
   const [state, setState] = useState<{ kind: FrameState; message?: string }>({ kind: "booting" });
-  const host = useRef<BridgeHost>(undefined);
-  const latest = useRef({ code, info, title });
-  latest.current = { code, info, title };
-  const booted = useRef(false);
-  const sentVersion = useRef<string>(undefined);
+  const latest = useRef({ panel, info });
+  latest.current = { panel, info };
+  // The bridge of this frame element: its port (after boot), the version sent, and a stop switch.
+  const link = useRef<{ port?: MessagePort; sent?: string; ready: boolean; stop: () => void; boot: () => void }>({ ready: false, stop: () => {}, boot: () => {} });
 
   useEffect(() => {
     const frame = () => iframe.current?.contentWindow;
-    const post = (message: HostMessage) => frame()?.postMessage(message, "*");
+    let port: MessagePort | undefined;
+    let stopped = false;
     const bridge = new BridgeHost({
       roomId: room.roomId,
-      post,
+      post: message => port?.postMessage(message),
       watch(name, args, onValue, onError) {
         const watch = convex.watchQuery(QUERY_REFS[name], args as never);
         const read = () => {
@@ -100,54 +111,68 @@ function SandboxedPanel({ file, title, code, info }: { file: string; title: stri
         return { key: `${mine.gameId}:${mine.godId}`, settings: mine.settings, utility: mine.utility, ...tables };
       },
     });
-    host.current = bridge;
-    const onMessage = (event: MessageEvent) => {
-      const message = acceptMessage(event, frame(), nonce);
-      if (!message) return;
-      if (message.type === "ready") {
-        booted.current = true;
-        const current = latest.current.code;
-        if (current && "panel" in current) {
-          sentVersion.current = `${current.panel.slug}@${current.panel.version}`;
-          post({ type: "boot", room, panel: current.panel, theme: { dark: document.documentElement.classList.contains("dark") } });
-        }
-      } else if (message.type === "resize") {
-        if (typeof message.height === "number") setHeight(Math.min(4000, Math.max(24, Math.ceil(message.height))));
-      } else if (message.type === "status") {
-        setState({ kind: message.status, message: typeof message.message === "string" ? message.message : undefined });
-      } else {
-        bridge.receive(message);
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => {
-      window.removeEventListener("message", onMessage);
+    const stop = (navigated: boolean) => {
+      if (stopped) return;
+      stopped = true;
       bridge.dispose();
+      port?.close();
+      port = undefined;
+      link.current.port = undefined;
       policyStore.dropPanel(latest.current.info.key);
+      if (navigated) setState({ kind: "navigated" });
     };
+    link.current = { ready: false, stop: () => stop(true), boot: () => {} };
+    const boot = () => {
+      const current = latest.current.panel;
+      const target = frame();
+      if (!current || !target || stopped || link.current.port) return;
+      const channel = new MessageChannel();
+      port = channel.port1;
+      link.current.port = port;
+      link.current.sent = `${current.slug}@${current.version}`;
+      port.onmessage = event => {
+        const message = event.data;
+        if (stopped || !isFrameMessage(message) || (message as { nonce?: unknown }).nonce !== nonce) return;
+        if (message.type === "resize") {
+          if (typeof message.height === "number") setHeight(Math.min(4000, Math.max(24, Math.ceil(message.height))));
+        } else if (message.type === "status") {
+          setState({ kind: message.status, message: typeof message.message === "string" ? message.message : undefined });
+        } else if (message.type === "ready") {
+          stop(true);
+        } else {
+          bridge.receive(message);
+        }
+      };
+      target.postMessage({ type: "boot", room, panel: current, theme: { dark: dark() } } satisfies HostMessage, "*", [channel.port2]);
+    };
+    const onWindowMessage = (event: MessageEvent) => {
+      const message = acceptMessage(event, frame(), nonce);
+      if (!message || message.type !== "ready") return;
+      // One document, one ready. Another one comes from a page the frame navigated to.
+      if (link.current.ready) { stop(true); return; }
+      link.current.ready = true;
+      boot();
+    };
+    window.addEventListener("message", onWindowMessage);
+    link.current.boot = boot;
+    return () => { window.removeEventListener("message", onWindowMessage); stop(false); };
   }, [convex, room, nonce]);
 
-  // A new version: send it to the running frame (it swaps the module; the frame and its subscriptions stay).
+  // Code arrives (or a new version): boot the waiting frame, or swap the module in the running one.
   useEffect(() => {
-    if (!code || !("panel" in code) || !booted.current) return;
-    const key = `${code.panel.slug}@${code.panel.version}`;
-    if (sentVersion.current === key) return;
-    const first = sentVersion.current === undefined;
-    sentVersion.current = key;
-    iframe.current?.contentWindow?.postMessage(first
-      ? { type: "boot", room, panel: code.panel, theme: { dark: document.documentElement.classList.contains("dark") } } satisfies HostMessage
-      : { type: "load", panel: code.panel } satisfies HostMessage, "*");
-  }, [code, room]);
+    if (!panel || !link.current.ready) return;
+    if (!link.current.port) { link.current.boot(); return; }
+    const key = `${panel.slug}@${panel.version}`;
+    if (link.current.sent === key) return;
+    link.current.sent = key;
+    link.current.port.postMessage({ type: "load", panel } satisfies HostMessage);
+  }, [panel]);
 
-  // The frame may navigate itself away (the sandbox allows that much). Its first load is ours; on any later one the
-  // bridge stops and the frame is removed, so nothing more reaches whatever document it loaded.
+  // The frame element's first load is ours; any later one is a navigation (the sandbox allows a frame to
+  // navigate itself), so the bridge stops and nothing more reaches whatever document it loaded.
   const loads = useRef(0);
-  const onLoad = () => {
-    loads.current++;
-    if (loads.current > 1) { host.current?.dispose(); setState({ kind: "navigated" }); }
-  };
+  const onLoad = () => { if (++loads.current > 1) link.current.stop(); };
 
-  if (code && "error" in code) return <PanelError file={file} title="This panel does not compile" message={code.error} />;
   if (state.kind === "navigated") {
     return <PanelError file={file} title="This panel tried to navigate away and was stopped" message="Its frame loaded another page, so it was closed. Reload the client to run it again." />;
   }

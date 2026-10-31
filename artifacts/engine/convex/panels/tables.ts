@@ -28,6 +28,8 @@ export const panelTables = {
   panelVersions: defineTable({
     panelId: v.id("panels"), version: v.number(), source: v.string(), compiled: v.string(), diagnostics: v.array(diagnostic),
     compilerVersion: v.string(), sourceHash: v.string(), author, manifest, createdAt: v.number(),
+    /** Code a non-browser author wrote (also when a browser rollback restored such code). */
+    foreign: v.optional(v.boolean()),
   }).index("by_panel_version", ["panelId", "version"]),
   /** The dock layout, following the player across devices (localStorage is only the boot cache). */
   panelLayouts: defineTable({ subject: v.string(), layout: v.any(), updatedAt: v.number() }).index("by_subject", ["subject"]),

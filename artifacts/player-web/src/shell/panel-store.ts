@@ -21,6 +21,8 @@ export type PanelEntry = {
 
 /** One row of panels.list. */
 export type StoredPanelMeta = {
+  /** The panel's Convex id: a removed and re-created slug gets a new one. */
+  id?: string;
   slug: string; title: string; placement: "left" | "right" | "bottom"; size: "sm" | "md" | "lg";
   currentVersion: number; enabled: boolean; lastForeignVersion: number;
   updatedAt?: number; author?: { kind: string; label: string };
