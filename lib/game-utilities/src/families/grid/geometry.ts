@@ -4,6 +4,7 @@ import {
   SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product,
   pyCard, range, recipes, recolour, symForValue, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const other = (g: GridSpec, ...cs: number[]) => range(g.C).find(k => !cs.includes(k))!;
 
@@ -270,6 +271,7 @@ function orbits(N: number): [number, number][][] {
 }
 const cardWindmill = gridFamily<Record<string, never>>({
   id: "card_windmill", name: "Card Windmill", emoji: "🌀", theme: "Suits spin round a quarter turn at a time",
+  analytic: solvedAnalytic("card_windmill"),
   requires: { classes: ["Suited"] }, shape: tuple(2), tags: ["shortlist"],
   support: () => [{}],
   summary: () => "Turn the grid a quarter turn and every suit should move on one: ♠→♥→♦→♣→♠. Every set of 4 "
@@ -1120,6 +1122,7 @@ const sandText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const gravity = gridFamily<ColourP>({
   id: "gravity", name: "Falling Sand", emoji: "⏳", theme: "Your colour sinks to the bottom", shape: SCALAR,
+  analytic: solvedAnalytic("gravity"),
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => `${cap(cname(g, p.X))} is sand that sinks. Score every ${cname(g, p.X)} cell that has only `
@@ -1266,6 +1269,7 @@ const mapText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const treasureMap = gridFamily<ColourP>({
   id: "treasure_map", name: "Treasure Map", emoji: "🗝️", theme: "Big numbers of your colour near the middle",
+  analytic: solvedAnalytic("treasure_map"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),

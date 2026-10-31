@@ -7,7 +7,7 @@
  * orbits, columns), or a Markov chain along a line / across columns.
  */
 import { objectType, type GridValue, type Instantiation } from "@workspace/game-types";
-import { evaluator } from "../catalog.ts";
+import { hostEval } from "../families/define.ts";
 import { gridSpec, type GridSpec } from "../families/grid/_util.ts";
 import type { FamilyContext, Ordinal, Params } from "../types.ts";
 import {
@@ -44,7 +44,9 @@ const keyCount = (g: GridSpec, layer: string): number => (layer === "colour" ? g
 export function cellAdditive(familyId: string, params: Params, inst: Instantiation): Dist {
   const ctx = { inst } as FamilyContext;
   const g = gridSpec(ctx), n = g.N * g.N, T = objectType("Grid"), codec = T.codec(inst);
-  const ev = evaluator({ familyId, params }, inst);
+  // The catalog's evaluator, installed by catalog.ts (families import this module, so it cannot import the catalog):
+  // callers must have loaded the catalog, as every caller of a family's analytic has.
+  const ev = hostEval(familyId, params, ctx);
   const vec = (o: Ordinal): number[] => (typeof o === "number" ? [o] : [...o]);
   const score = (v: GridValue) => vec(ev(codec.encode(v)));
   const base: GridValue = { size: g.N, sym: new Uint8Array(n), col: new Uint8Array(n) };
@@ -402,6 +404,27 @@ export function gridApproxLevels(familyId: string, params: Params, inst: Instant
     if (e instanceof NoSolution) return null;
     throw e;
   }
+}
+
+/** The draws a Grid solver declines (NoSolution) for, decided from the params and shape alone. */
+const DECLINES: Readonly<Record<string, (p: any, g: GridSpec) => boolean>> = {
+  sudoku_scholar: p => p.dir !== "rows",
+  magic_accountant: p => p.axis !== "rows",
+  seesaw: p => p.scope !== "rows",
+  flag_bearer: p => p.axis !== "rows",
+  round_numbers: p => p.axis !== "rows",
+  divisibility_detective: p => p.scope !== "rows",
+};
+
+/**
+ * Whether `gridLevels` has a solution for this draw, without computing it. Cell-additive families are assumed additive
+ * here (their additivity is checked when the levels are computed, and every listed family is additive on every shape:
+ * test/analytic-solutions.test.ts).
+ */
+export function gridApplies(familyId: string, params: Params, inst: Instantiation): boolean {
+  if (CELL_ADDITIVE.includes(familyId)) return true;
+  if (!SOLVERS[familyId]) return false;
+  return !DECLINES[familyId]?.(params, gridSpec({ inst } as FamilyContext));
 }
 
 /** Exact levels for a Grid draw, or null when this module has no solution for it. */

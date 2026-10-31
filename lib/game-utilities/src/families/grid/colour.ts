@@ -5,6 +5,7 @@ import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
   recipes, recolour, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 // --- Stripe Painter --------------------------------------------------------------------------------
 type StripeP = { axis: "rows" | "cols" };
@@ -18,6 +19,7 @@ const stripeText = (p: StripeP): CardText => {
 };
 const stripePainter = gridFamily<StripeP>({
   id: "stripe_painter", name: "Stripe Painter", emoji: "🦓", theme: "A striped flag",
+  analytic: solvedAnalytic("stripe_painter"),
   shape: tuple(2), tags: ["shortlist"],
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
@@ -424,6 +426,7 @@ const stepsText = (p: DirP, g: GridSpec): CardText => ({
 });
 const rainbowSteps = gridFamily<DirP>({
   id: "rainbow_steps", name: "Rainbow Steps", emoji: "👣", theme: "Next-door colours step round the rainbow",
+  analytic: solvedAnalytic("rainbow_steps"),
   requires: { classes: ["Spectral"] }, shape: SCALAR,
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "→" }),
@@ -502,6 +505,7 @@ const flagText = (p: FlagP, g: GridSpec): CardText => ({
 });
 const flagBearer = gridFamily<FlagP>({
   id: "flag_bearer", name: "Flag Bearer", emoji: "🚩", theme: "Your colour wins the vote in every row", shape: tuple(2),
+  analytic: solvedAnalytic("flag_bearer"),
   support: g => product<FlagP>({ C: range(g.C), axis: ["rows", "cols"] }),
   canonical: () => ({ C: 0, axis: "rows" }),
   summary: (p, g) => `A ${p.axis === "rows" ? "row" : "column"} is yours if it has more ${cname(g, p.C)} `
@@ -555,6 +559,7 @@ const keyText = (p: ShiftP, g: GridSpec): CardText => ({
 });
 const colourByNumber = gridFamily<ShiftP>({
   id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has its own colour",
+  analytic: solvedAnalytic("colour_by_number"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => range(g.C).map(t => ({ t })),
   canonical: () => ({ t: 0 }), // cyclic colour relabelling shifts t
@@ -623,6 +628,7 @@ const paperText = (p: PaperP): CardText => ({
 });
 const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
+  analytic: solvedAnalytic("wallpaper_weaver"),
   support: g => product<PaperP>({ p: g.N >= 4 ? [2, 3] : [2], dir: ["right", "down"] }),
   canonical: p => ({ p: p.p, dir: "right" }),
   summary: p => `Every cell whose colour matches the cell ${p.p} steps ${p.dir === "right" ? "to its right" : "below it"} scores a point.`,
@@ -658,6 +664,7 @@ const sunsetText = (p: DirP, g: GridSpec): CardText => ({
 });
 const sunsetSky = gridFamily<DirP>({
   id: "sunset_sky", name: "Sunset Sky", emoji: "🌅", theme: "Lines that fade smoothly along the rainbow",
+  analytic: solvedAnalytic("sunset_sky"),
   requires: { classes: ["Spectral"] }, shape: tuple(2),
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "↓" }),

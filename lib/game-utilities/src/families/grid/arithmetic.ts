@@ -4,6 +4,7 @@ import {
   SCALAR, an, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
   recolour, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 type Axis = "rows" | "cols" | "both";
 const PY_AXIS: Record<Axis, [string, string]> = {
@@ -174,6 +175,7 @@ const magicText = (p: MagicP, g: GridSpec): CardText => ({
 });
 const magicAccountant = gridFamily<MagicP>({
   id: "magic_accountant", name: "Magic Accountant", emoji: "🧮", theme: "Lines that add up to your magic number",
+  analytic: solvedAnalytic("magic_accountant"),
   requires: { classes: ["Valued"] }, shape: tuple(2), tags: ["shortlist"],
   support: g => product<MagicP>({ axis: ["rows", "cols", "both"], T: magicTargets(g) }),
   sample: (rng, g) => {
@@ -266,6 +268,7 @@ const divText = (p: DivP, g: GridSpec): CardText => ({
 });
 const divisibility = gridFamily<DivP>({
   id: "divisibility_detective", name: "Divisibility Detective", emoji: "🔍", theme: "Rows read as numbers that divide evenly",
+  analytic: solvedAnalytic("divisibility_detective"),
   requires: { classes: ["Numeral"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => product<DivP>({ m: DIVISORS[g.base!], scope: ["rows", "both"] }),
   summary: (p, g) => `Read each row${p.scope === "both" ? " (and each column, top to bottom)" : ""} as one big `
@@ -314,6 +317,7 @@ const roundText = (p: RoundP, g: GridSpec): CardText => ({
 });
 const roundNumbers = gridFamily<RoundP>({
   id: "round_numbers", name: "Round Numbers", emoji: "⭕", theme: "Line totals that end in zero",
+  analytic: solvedAnalytic("round_numbers"),
   requires: { classes: ["Numeral"] }, shape: tuple(2),
   support: () => (["rows", "cols", "both"] as const).map(axis => ({ axis })),
   canonical: p => ({ axis: p.axis === "cols" ? "rows" : p.axis }),
@@ -606,6 +610,7 @@ const paintText = (p: PaintP, g: GridSpec): CardText => ({
 });
 const numberPainter = gridFamily<PaintP>({
   id: "number_painter", name: "Number Painter", emoji: "🖍️", theme: "Paint by numbers",
+  analytic: solvedAnalytic("number_painter"),
   requires: { classes: ["Valued", "Spectral"] }, shape: SCALAR,
   support: g => offsets(g).map(o => ({ o })),
   canonical: (_, g) => ({ o: offsets(g)[0] }),
@@ -690,6 +695,7 @@ const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
 });
 const seesaw = gridFamily<SeesawP>({
   id: "seesaw", name: "Seesaw", emoji: "⚖️", theme: "Lines that balance",
+  analytic: solvedAnalytic("seesaw"),
   requires: { classes: ["Valued"] }, shape: tuple(2),
   support: g => (["rows", "cols", "both"] as const).flatMap(scope => [
     { scope, mode: "halves" as const, X: null, Y: null },
@@ -800,6 +806,7 @@ const sumText = (p: SumP, g: GridSpec): CardText => ({
 });
 const columnAddition = gridFamily<SumP>({
   id: "column_addition", name: "Column Addition", emoji: "➕", theme: "Three rows make a written sum",
+  analytic: solvedAnalytic("column_addition"),
   requires: { classes: ["Numeral"] }, shape: tuple(2),
   support: g => range(g.N - 2).map(top => ({ top })),
   canonical: () => ({ top: 0 }),

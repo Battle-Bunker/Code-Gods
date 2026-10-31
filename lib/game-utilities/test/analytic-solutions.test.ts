@@ -4,7 +4,8 @@
  *  1. against exhaustive enumeration with the family's own card where the domain is small (Int ranges, strings of
  *     length ≤ 2): exact to 1e-9 bits;
  *  2. against every shipped empirical table: Monte Carlo body levels within 5.5 reconstructed standard errors, exact
- *     tables (Int(0,9999), analytic-hook tables) to 2e-6 bits. Splitting-tail levels are reported by
+ *     tables (Int(0,9999), analytic-hook tables) to 1e-6 bits per level (the clean-up's MIN_STEP_BITS between close
+ *     levels accumulates). Splitting-tail levels are reported by
  *     scripts/analytic-verify.ts but not asserted: docs/analytic-calibration/solutions.md shows the tail estimates are
  *     what is off there (every disagreement beyond the error model is a table bias).
  */
@@ -14,7 +15,9 @@ import { objectType } from "@workspace/game-types";
 import { canonicalSupport, context, evaluator, family } from "../src/catalog.ts";
 import { instantiateKey } from "../src/calibration.ts";
 import { shippedFile, shippedInstanceKeys } from "../src/calibration-data.ts";
-import { ANALYTIC_FAMILIES, analyticLevels } from "../src/analytic/index.ts";
+import { ANALYTIC_FAMILIES, analyticLevels, hasSolution } from "../src/analytic/index.ts";
+import { formulaId } from "../src/analytic/hook.ts";
+import { FAMILIES } from "../src/catalog.ts";
 import { compareTable } from "../src/analytic/compare.ts";
 import { NoSolution, cellAdditive } from "../src/analytic/grid.ts";
 import { add, levels, type Dist } from "../src/analytic/kit.ts";
@@ -69,10 +72,38 @@ test("every analytic solution agrees with every shipped table (Monte Carlo body 
       if (!L) continue;
       const c = compareTable(t, L);
       const where = `${t.family} ${JSON.stringify(t.canonicalParams)} ${key}`;
-      if (typeof t.estimator.budget === "string") assert.ok(c.maxAbsDelta < 2e-6, `${where}: exact table differs by ${c.maxAbsDelta} bits`);
+      if (typeof t.estimator.budget === "string") assert.ok(c.maxAbsDelta < Math.min(1e-6 * (t.levels.length + 1), 0.01), `${where}: exact table differs by ${c.maxAbsDelta} bits`);
       else assert.ok(c.bodyZ < 5.5, `${where}: Monte Carlo body z = ${c.bodyZ.toFixed(2)} (worst ${JSON.stringify(c.worst)})`);
       compared++;
     }
   }
   assert.ok(compared > 300, `only ${compared} tables compared`);
+});
+
+/** Families with their own analytic hook (written in the family file, documented in tail-toolkit.md). */
+const OWN_HOOKS = ["picture_frame", "lone_peak", "hate_colour", "hate_takeover", "seed3_green_ones", "staircase_climber", "rainbow_road", "best_friends"];
+
+/** Solved in src/analytic but deliberately not wired (docs/analytic-calibration/solutions.md §5). */
+const UNWIRED = [
+  "looking_glass", "pinwheel", "rainbow_bands", "bullseye", "colour_carousel", "smooth-operator",
+  "glyph-glutton", "last-word", "mirror", "echo", "haiku-master", "incantor", "wordsmith", "palette-keeper", "scale-keeper",
+];
+
+test("every solved family is either wired to its own solution or listed as unwired; hasSolution matches analyticLevels", () => {
+  for (const [type, ids] of Object.entries(ANALYTIC_FAMILIES)) {
+    for (const id of ids) {
+      const f = family(id);
+      if (UNWIRED.includes(id)) { assert.equal(f.analytic, undefined, `${id} is listed as unwired but has a hook`); continue; }
+      if (OWN_HOOKS.includes(id)) { assert.ok(f.analytic, `${id} is listed in OWN_HOOKS but has no hook`); continue; }
+      assert.ok(f.analytic, `${id} is solved but neither wired nor listed in UNWIRED`);
+      const key = shippedInstanceKeys().find(k => k.startsWith(type + "("))!, inst = instantiateKey(key);
+      for (const p of canonicalSupport(f, context(inst))) {
+        const a = f.analytic!(p, context(inst)), L = analyticLevels(id, p, inst);
+        assert.equal(hasSolution(id, p, inst), L !== null, `${id} ${JSON.stringify(p)}: hasSolution disagrees`);
+        if (OWN_HOOKS.includes(id)) continue; // wired with its own formula (tail-toolkit.md)
+        assert.equal(a?.id ?? null, L ? formulaId(id) : null, `${id} ${JSON.stringify(p)}: hook does not wrap its own solution`);
+      }
+    }
+  }
+  for (const f of FAMILIES) if (f.analytic && !Object.values(ANALYTIC_FAMILIES).flat().includes(f.id)) assert.ok(OWN_HOOKS.includes(f.id), `${f.id} has a hook but is neither solved here nor listed in OWN_HOOKS`);
 });

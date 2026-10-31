@@ -270,3 +270,40 @@ the fallback.
 
 **Int**: `many-faced` (ω(x)) and `truncation-saint` (prime prefixes) need prime counting; the Selberg–Delange law
 (P(ω = k) ≈ (ln ln X)^(k−1)/((k−1)! ln X) times a correction) is the nearest approximation, not measured here.
+
+## 5. Wiring status: which solutions the engine uses
+
+A solution is live when its family declares `analytic: solvedAnalytic("<id>")` (src/analytic/hook.ts; formula id
+`<family-id>@1`, part of the table key). The tables of live families are rebuilt from the formula (`calibrate`), and their
+former Monte Carlo tables are archived as references (data/analytic-reference/<family>.json), which
+test/analytic.test.ts compares within the estimator's measured error (|Δ| ≤ 1.2 / 2.5 / 5 / 10 bits below 16 / 32 / 64
+/ above, RMS z ≤ 1.5 below 32 bits).
+
+**Live (50 of the 65 solutions here):** 45 through `solvedAnalytic`, and 5 the architecture session wired with its own
+formulas before these landed (`hate_colour`, `hate_takeover`, `seed3_green_ones`, `staircase_climber`, `rainbow_road`;
+tail-toolkit.md). The two sides agree on every shipped table. With `picture_frame`, `lone_peak` and `best_friends`,
+53 families now calibrate from formulas.
+
+**Exact but not wired (15, ✅‡ in survey.md):**
+- `scale-keeper`, for table size. Its ordinal has about 16 000 attainable values on string(128), and an analytic table
+  lists them all (3.3 MB, against 0.4 MB for the whole string(128) file today). Wiring it needs a table format that
+  stores exact levels thinned to an interpolation error bound.
+- `bullseye`, `rainbow_bands`, `colour_carousel`, `looking_glass`, `pinwheel`, `smooth-operator`, `echo`, `last-word`, `mirror`, `haiku-master`, `glyph-glutton`, `incantor`, `wordsmith`, `palette-keeper`. Each
+  fails the reference test only because the archived table is wrong in the tail (§1). Example: `echo` with period 5
+  on string(16), where ≥ 8 echoes is exactly 128^−8 = 2^−56 and the table says 63.5 bits. The thresholds cannot tell
+  "the formula is wrong" from "the table is wrong". These families need either:
+  1. an entry in test/analytic.test.ts `KNOWN_TABLE_BIAS`: from which depth the table is known to be biased, by
+     how much, and why, with an independent exact check of a disputed level (a closed form such as 128^−8). This is how
+     `rainbow_road` is wired. The string families also fail the RMS-z check below 32 bits (`wordsmith` 4.0,
+     `incantor` 2.4, `haiku-master` 2.2, `mirror` 2.0, `echo` 1.9), so the allowance must extend to that check; or
+  2. regenerated references from a better estimator (e.g. splitting on a finer score that counts partial progress).
+
+`test/analytic-solutions.test.ts` keeps this list honest: every solved family is either wired to its own solution or
+listed as unwired.
+
+**Cost of wiring.** The hook returns its formula id at once and computes the levels on first read. calibration.ts
+`analyticIdFor` builds table keys from the id alone, so coverage of all 13 shipped instances stays at 0.4 s. Exact
+tables pass through the estimator's clean-up (MIN_STEP_BITS = 1e-6 bits between neighbours), which shifts a family
+with thousands of close levels by up to 1e-3 bits (`tallykeeper`). This is harmless, and the test bounds it at 0.01.
+
+Until then these 15 keep their Monte Carlo tables, and so keep tail errors of up to 14 bits.
