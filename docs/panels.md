@@ -153,6 +153,7 @@ never send a new one. A summon must not be paid twice.
 | `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
 | `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
 | `ObjectView`, `TransformationView`, `useObjectContext()` | the engine UI's renderers, plus their props for this game |
+| `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
 | `Sparkline({values})` | a tiny inline line |
 | `LineChart({series: [{label, points: [{x, y}]}]})` | multi-series lines with axes and a legend |
 | `BarList({items: [{label, value}]})` | horizontal bars; negative values go left |
@@ -164,6 +165,15 @@ never send a new one. A summon must not be paid twice.
 
 All charts are SVG. Colours come from the theme with colour-blind-safe fallbacks, and series also
 differ by dash pattern.
+
+**Renderers.** An object type can have several named renderers (`lib/object-views`, `objectViews.register({type,
+renderers, defaultRenderer, infer})`); each viewer picks one per type and the choice is remembered in their browser
+(`localStorage` key `code-gods.object-views.renderer.<type>`). Grids have two: `digits` (the default: rows of
+coloured digits, or card rank and suit, compact enough for lists) and `tiles` (coloured tiles with a pattern or
+letter per colour). Int and string have one each (`text`). The viewer switches grids from the palette ("Show grids as
+tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
+every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only
+where one form is essential. The digit colours are the theme tokens `--cg-ink-R` … `--cg-ink-V`.
 
 ## Performance rules
 

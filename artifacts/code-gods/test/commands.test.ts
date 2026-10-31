@@ -12,7 +12,9 @@ const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
   resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applyPreset: nothing, templates: async () => [], adminTemplates: async () => [],
   pastGames: async () => [], credentials: async () => [], revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
+  setGridRenderer: id => { gridCalls.push(id); },
 };
+const gridCalls: string[] = [];
 const ada = { id: "ada", name: "Ada Lovelace", isAdmin: false };
 const room = (members: string[], activeGame: NonNullable<EngineScope["room"]>["activeGame"] = null): NonNullable<EngineScope["room"]> => ({
   id: "r1", shortCode: "K7QX", ownerId: "ada", ownerName: "Ada Lovelace", aiBudget: 0, assistantBudget: 0, activeGame,
@@ -68,4 +70,19 @@ test("outside a room (the landing page, your rooms) every command answers availa
     const ids = paletteRows(engineCommands(s, act), paletteContextFor(s), { query: "start game" }).flatMap(x => x.rows).map(r => r.command.id);
     assert.ok(!ids.includes("owner.start"), "room commands are hidden where there is no room");
   }
+});
+
+test("grids switch between coloured digits and tiles for this viewer, anywhere, signed in or not", () => {
+  for (const s of [scope({ user: null }), scope({ room: room(["ada"]) })]) {
+    const c = find(s, "ui.objects.renderer");
+    assert.equal(c.human.title, "Show grids as tiles", "digits is the default");
+    assert.equal(c.group, "view");
+    assert.deepEqual(c.available(paletteContextFor(s)), { ok: true });
+  }
+  gridCalls.length = 0;
+  const toTiles = find(scope({}), "ui.objects.renderer").performer;
+  const toDigits = find(scope({ gridRenderer: "tiles" }), "ui.objects.renderer");
+  assert.equal(toDigits.human.title, "Show grids as coloured digits");
+  for (const p of [toTiles, toDigits.performer]) { assert.equal(p.kind, "local"); if (p.kind === "local") p.run(); }
+  assert.deepEqual(gridCalls, ["tiles", "digits"]);
 });
