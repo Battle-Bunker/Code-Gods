@@ -60,12 +60,25 @@ again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
    `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PLAYER_JWT_PRIVATE_KEY`,
    `PLAYER_JWT_JWKS`, `SEASON_SALT` or `ADMIN_EMAILS` is missing, or a test-only variable is set.
 
-Each run (one at a time per environment): install, root typecheck and the offline unit suites, the
-pinned Python runtime bundle (the CPython download is cached), `npx convex deploy` (it accepts dev and
-production deploy keys alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set →
-push again), `upload-runtime` (skipped when the bundle is already there), `deploy-static`, and a smoke
-test (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`). Re-run a failed run from the Actions
-tab; a manual run ("Run workflow") works on `develop` and `main` only.
+Each deploy (one at a time per environment): install, the pinned Python runtime bundle (the CPython
+download is cached) and a check that the sandbox worker build is current, `npx convex deploy --typecheck
+enable` (it typechecks every function, validates the schema, and accepts dev and production deploy keys
+alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again),
+`upload-runtime` (skipped when the bundle is already there), `deploy-static --if-changed` (both sites
+build in parallel; a site whose build hashes to the deployment's env var `STATIC_SHA256_ENGINE` /
+`STATIC_SHA256_PLAYER`, recorded at its last upload, isn't uploaded again), and a smoke test
+(`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`).
+
+**The gate differs by branch.** The root typecheck, `pnpm run test:offline` (every offline unit suite)
+and the `game-runtime` sandbox tests run before every **production** deploy, inside the deploy job. On
+**`develop`** they run in the parallel `checks` job instead, so a change reaches dev in about 1½–2 minutes.
+A failure there marks the commit red but doesn't hold back the dev deploy, so fix or revert it before
+merging `develop` into `main`. A newer push to `develop` cancels the dev deploy still running; production
+deploys never cancel. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/` don't deploy.
+
+Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
+Release `develop` → `main` with a pull request whose head is a short-lived branch cut from `develop`, never
+`develop` itself: merging deletes the head branch.
 
 The local scripts (`scripts/dev.mjs`, `test:auth`, the e2e scripts, the player-client tests) refuse to run
 while `CONVEX_DEPLOY_KEY` is set or `CONVEX_DEPLOYMENT` names a cloud deployment: they set test-only env
