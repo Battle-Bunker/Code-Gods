@@ -47,6 +47,8 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@workspace/engine": "workspace:*",
+    "@workspace/player-client": "workspace:*",
+    "@workspace/ui-kit": "workspace:*",
     "@workspace/game-core": "workspace:*",
     "@workspace/object-views": "workspace:*",
     "better-auth": "1.6.33",

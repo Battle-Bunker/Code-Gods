@@ -10,7 +10,10 @@
     "./state": "./src/state.ts",
     "./connect": "./src/connect.ts",
     "./tools": "./src/tools.ts",
-    "./rules": "./src/rules.ts"
+    "./rules": "./src/rules.ts",
+    "./catalog": "./src/catalog.ts",
+    "./lenses": "./src/lenses.ts",
+    "./layout": "./src/layout.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",

@@ -1,0 +1,436 @@
+/**
+ * The catalogue of EVERY public Convex function (docs/ui-redesign.md §2.1): one place that forks into the human API
+ * (titles and tooltips for buttons, menus and the command palette in both apps) and the AI API (the registry's tool
+ * descriptions, hence MCP, the CLI and the in-client assistant).
+ *
+ * `PublicFunctionPath` is derived from the generated `api` type, so a public function added without an entry here
+ * fails the typecheck (a missing key), and an entry for a removed function fails too (an excess key). The runtime
+ * test (test/catalog.test.ts) adds the completeness rules the type system cannot state: every player/owner entry
+ * reaches the assistant through a tool or says `why` not, and has a palette command or says why not.
+ *
+ * Pure data: no React, no Convex server code (the api import is type-only).
+ */
+import type { FunctionReference } from "convex/server";
+import type { api } from "@workspace/engine/convex/_generated/api";
+import type { GROUPS, ToolName } from "./tools.ts";
+
+type Paths<T, P extends string = ""> = { [K in keyof T & string]: T[K] extends FunctionReference<any, "public"> ? `${P}${K}` : Paths<T[K], `${P}${K}.`> }[keyof T & string];
+/** "rooms.join" | "auth.credentials.list" | "agent.connect.pending" | … (module path with dots, then the export). */
+export type PublicFunctionPath = Paths<typeof api>;
+type Kinds<T, P extends string = ""> = { [K in keyof T & string]: T[K] extends FunctionReference<infer Ty, "public"> ? [`${P}${K}`, Ty] : Kinds<T[K], `${P}${K}.`> }[keyof T & string];
+/** The registered kind of one public function, from the generated api. */
+export type FunctionKind<P extends PublicFunctionPath> = Extract<Kinds<typeof api>, [P, unknown]>[1];
+
+export type Audience = "player" | "owner" | "infrastructure" | "admin" | "test";
+export type PaletteGroup = "play" | "view" | "room" | "owner" | "account" | "help";
+export type PaletteSurface = "player" | "engine";
+export type Confirm = "none" | "inline" | "summary" | "modal";
+export interface PaletteSpec {
+  label: string;
+  group: PaletteGroup;
+  keywords?: readonly string[];
+  surfaces: readonly PaletteSurface[];
+  /** none: run on Enter; inline: press Enter again; summary: a card first; modal: the alert dialog. Default none. */
+  confirm?: Confirm;
+}
+export interface CatalogEntry {
+  kind: "query" | "mutation" | "action";
+  audience: Audience;
+  /** ≤ 60 / ≤ 240 characters; a verb-first title; one plain sentence, never model instructions. */
+  human: { title: string; tooltip: string };
+  /** ≤ 600 characters, written for a model: what it does, when to use it, what comes back. */
+  ai: { description: string };
+  /** The registry tools that reach this function (through its `As` twin); [] when none. */
+  tools: readonly ToolName[];
+  palette: PaletteSpec | null;
+  /** Required (by the runtime test) when the audience is player or owner and `tools` or `palette` is empty. */
+  why?: string;
+}
+export const CATALOG_LIMITS = { title: 60, tooltip: 240, description: 600 } as const;
+
+const P: readonly PaletteSurface[] = ["player"], E: readonly PaletteSurface[] = ["engine"], BOTH: readonly PaletteSurface[] = ["player", "engine"];
+const NO_SELF_DRIVE = "The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.";
+const SUBSCRIPTION = "A live subscription a page renders; there is nothing to run.";
+
+export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kind: FunctionKind<K> } } = {
+  // ----- activity -----
+  "activity.touch": {
+    kind: "mutation", audience: "player",
+    human: { title: "Wake the game", tooltip: "Counts as human activity and resumes a game parked after 30 idle minutes." },
+    ai: { description: "Record human activity for the deployment. Games park after 30 minutes without a human (no ticks, no AI turns); this resumes them. Call it when the observation says the game is parked or recovering for lack of activity; harmless otherwise." },
+    tools: ["wake_engine"], palette: { label: "Wake the game", group: "play", keywords: ["wake", "parked", "idle", "resume"], surfaces: P },
+  },
+  "activity.status": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Show activity status", tooltip: "When a human was last active and whether games are parked." },
+    ai: { description: "Deployment-wide activity: the last human activity time and whether games are parked. The observation already says when a game is parked." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
+  // ----- agent/connect (MCP OAuth approval; reached from an OAuth redirect only) -----
+  "agent.connect.pending": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Review a connection request", tooltip: "Shows which app wants to connect, with which rights, before you approve it." },
+    ai: { description: "The engine UI's /connect page reads a pending OAuth authorization request: client name, redirect host, requested permission and the rooms the human may bind it to." },
+    tools: [], palette: null, why: "Reached only from an OAuth redirect; approvals keep their consent page.",
+  },
+  "agent.connect.approve": {
+    kind: "mutation", audience: "infrastructure",
+    human: { title: "Approve the connection", tooltip: "Lets this app act as you in one room with the rights shown." },
+    ai: { description: "Approve an OAuth connection request for one room and one permission (owner rights need explicit consent). The /connect page calls it with the completion secret it generated." },
+    tools: [], palette: null, why: "Consent is given on the /connect page only.",
+  },
+  "agent.connect.deny": {
+    kind: "mutation", audience: "infrastructure",
+    human: { title: "Deny the connection", tooltip: "Sends the app away without any access." },
+    ai: { description: "Deny a pending OAuth connection request; the client's redirect receives error=access_denied." },
+    tools: [], palette: null, why: "Consent is given on the /connect page only.",
+  },
+  // ----- aiTemplates -----
+  "aiTemplates.catalog": {
+    kind: "query", audience: "owner",
+    human: { title: "Browse AI players", tooltip: "The AI players an owner can seat, with their provider and model." },
+    ai: { description: "The public AI player library (ids, names, providers, models; no prompts): the choices for add_ai. Owner tool get_ai_catalog returns it." },
+    tools: ["get_ai_catalog"], palette: null, why: "The choices behind 'Add an AI player…', not a command of its own.",
+  },
+  "aiTemplates.adminList": {
+    kind: "query", audience: "admin",
+    human: { title: "Open the AI library", tooltip: "Every AI player template with its prompt, for admins." },
+    ai: { description: "Admin only: the full AI player templates including prompts and revisions, for the /admin/agents page." },
+    tools: [], palette: null, why: "Admin page data; the palette navigates to the library instead.",
+  },
+  "aiTemplates.create": {
+    kind: "mutation", audience: "admin",
+    human: { title: "Add an AI player template", tooltip: "Creates a named AI player with a provider, model and prompt (admins only)." },
+    ai: { description: "Admin only: create an AI player template (name, provider, model, prompt ≤ 10,000 characters)." },
+    tools: [], palette: { label: "Add an AI player template", group: "account", keywords: ["admin", "ai", "template", "new"], surfaces: E },
+  },
+  "aiTemplates.update": {
+    kind: "mutation", audience: "admin",
+    human: { title: "Edit an AI player template", tooltip: "Changes a template's name, model or prompt; send its current revision." },
+    ai: { description: "Admin only: edit an AI player template by id with its current revision (optimistic concurrency)." },
+    tools: [], palette: { label: "Edit an AI player template…", group: "account", keywords: ["admin", "ai", "template"], surfaces: E },
+  },
+  "aiTemplates.remove": {
+    kind: "mutation", audience: "admin",
+    human: { title: "Delete an AI player template", tooltip: "Removes a template from the library; seated copies keep playing." },
+    ai: { description: "Admin only: delete an AI player template by id and revision." },
+    tools: [], palette: { label: "Delete an AI player template…", group: "account", keywords: ["admin", "ai", "template", "remove"], surfaces: E, confirm: "modal" },
+  },
+  // ----- assistant -----
+  "assistant.send": {
+    kind: "mutation", audience: "player",
+    human: { title: "Ask the assistant", tooltip: "Sends your message; the assistant answers and acts as you with the rights you chose." },
+    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. FORBIDDEN while the owner's allowance is 0; CONFLICT while a turn is active." },
+    tools: [], palette: { label: "Ask the assistant…", group: "help", keywords: ["ask", "assistant", "help", "ai"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.cancel": {
+    kind: "mutation", audience: "player",
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer; a card waiting for you is cancelled at once." },
+    ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
+    tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.confirm": {
+    kind: "mutation", audience: "player",
+    human: { title: "Decide a confirmation", tooltip: "Approves or denies an action the assistant asked permission for." },
+    ai: { description: "Approve or deny one tool call waiting on a confirmation card (public chat, summons, destroys, pauses, panel deletion, owner actions). Unanswered cards are denied after 2 minutes." },
+    tools: [], palette: null, why: "Decided on the confirmation card in the assistant pane, never elsewhere.",
+  },
+  "assistant.setPrefs": {
+    kind: "mutation", audience: "player",
+    human: { title: "Set assistant preferences", tooltip: "Lets summons the assistant validated run without a card up to this many bits (0 asks every time)." },
+    ai: { description: "Set the human's assistant preference for a room: auto-approve summons up to N bits when the same turn validated the source at that cost (0 = always ask)." },
+    tools: [], palette: { label: "Auto-approve summons up to…", group: "help", keywords: ["assistant", "summon", "approve", "preferences"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.status": {
+    kind: "query", audience: "player",
+    human: { title: "Show assistant status", tooltip: "Whether the assistant is on, its allowance, model, credential and active turn." },
+    ai: { description: "The assistant pane's status subscription: enabled, allowance used, model, credential, active turn and preferences." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
+  "assistant.threads": {
+    kind: "query", audience: "player",
+    human: { title: "Switch conversation", tooltip: "Your assistant conversations in this room, newest first." },
+    ai: { description: "The human's assistant threads in a room (titles and times), for the conversation picker." },
+    tools: [], palette: { label: "Switch assistant conversation…", group: "help", keywords: ["thread", "conversation", "history"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.thread": {
+    kind: "query", audience: "player",
+    human: { title: "Show a conversation", tooltip: "One conversation's messages, tool calls and confirmation cards." },
+    ai: { description: "One assistant thread's turns, messages and tool calls, readable by its human only." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
+  // ----- auth -----
+  "auth.credentials.list": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Show connected apps", tooltip: "Every app, connector and assistant acting as you, with its room, rights and expiry." },
+    ai: { description: "The human's active credentials (device, OAuth and assistant) with room, permission, label and expiry. whoami covers the calling credential." },
+    tools: [], palette: { label: "Show connected apps", group: "account", keywords: ["credential", "connections", "apps", "revoke"], surfaces: E },
+  },
+  "auth.credentials.revoke": {
+    kind: "mutation", audience: "infrastructure",
+    human: { title: "Revoke a connected app", tooltip: "Cuts that app's access on its next call; you can reconnect it later." },
+    ai: { description: "Revoke one of the human's credentials by id; takes effect on the next call." },
+    tools: [], palette: { label: "Revoke a connected app…", group: "account", keywords: ["credential", "disconnect", "revoke"], surfaces: E, confirm: "inline" },
+  },
+  "auth.device.pending": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Review a device code", tooltip: "Shows what a player app asks for before you approve its code." },
+    ai: { description: "The /device page reads a pending device-flow request by user code: room, permission, label, expiry." },
+    tools: [], palette: null, why: "The /device page's data; approval keeps its consent page.",
+  },
+  "auth.device.approve": {
+    kind: "mutation", audience: "infrastructure",
+    human: { title: "Approve a device code", tooltip: "Gives the player app a credential for the room and rights shown." },
+    ai: { description: "Approve a device-flow request (owner rights need explicit consent); the app then receives its credential." },
+    tools: [], palette: null, why: "Consent is given on the /device page only.",
+  },
+  "auth.device.deny": {
+    kind: "mutation", audience: "infrastructure",
+    human: { title: "Deny a device code", tooltip: "Refuses the player app; it gets nothing." },
+    ai: { description: "Deny a pending device-flow request by user code; the player app's poll then answers denied." },
+    tools: [], palette: null, why: "Consent is given on the /device page only.",
+  },
+  "auth.testing.probe": {
+    kind: "query", audience: "test",
+    human: { title: "Probe authentication", tooltip: "A test-only check of the signed-in identity on local deployments." },
+    ai: { description: "Test fixture: echoes the viewer on local deployments; refused in production." },
+    tools: [], palette: null, why: "Test only.",
+  },
+  "auth.user.me": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Show who I am", tooltip: "Your name, god id and, for a player app, its room and rights." },
+    ai: { description: "The signed-in human: subject, name, admin flag and, for a player credential, its room, permission and label. whoami adds the credential's expiry." },
+    tools: ["whoami"], palette: { label: "Show who I am", group: "account", keywords: ["account", "identity", "credential", "expiry"], surfaces: BOTH },
+  },
+  // ----- commands -----
+  "commands.submit": {
+    kind: "action", audience: "player",
+    human: { title: "Send a game command", tooltip: "Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause." },
+    ai: { description: "Submit one v3 command envelope as the human: validate, summon, destroy, ready, chat or pause. The engine checks permission, phase, energy and idempotency and returns a receipt {accepted, message, validation?}. Replaying an identical envelope returns its receipt; a reused commandId with other content is CONFLICT." },
+    tools: ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game"],
+    palette: { label: "Send a game command…", group: "play", keywords: ["validate", "summon", "destroy", "ready", "chat", "pause"], surfaces: P },
+  },
+  // ----- games -----
+  "games.resolve": {
+    kind: "query", audience: "player",
+    human: { title: "Open a game by code", tooltip: "Finds a game's page from its code, current or historical." },
+    ai: { description: "Resolve a game code to the public game view plus a status (current, historical, unavailable). The assistant reads the room's games with list_games and get_game_history." },
+    tools: [], palette: null, why: "Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.",
+  },
+  "games.view": {
+    kind: "query", audience: "player",
+    human: { title: "Watch a game", tooltip: "The public view of a game: salience, standings, roster and winners." },
+    ai: { description: "The public, non-private view of one game for the shared display. Private per-god data is never in it; the assistant uses get_observation for the human's own view." },
+    tools: [], palette: null, why: "The public game page's subscription; the human's private view is get_observation.",
+  },
+  // ----- layout -----
+  "layout.current": {
+    kind: "query", audience: "player",
+    human: { title: "Show the dock layout", tooltip: "The panes you see in this room, as every open client of yours renders them." },
+    ai: { description: "The human's dock layout for the room: panes (lenses with parameters, the assistant, stored panels), their arrangement, who set each lens, and repair warnings. get_layout returns it with the lens catalogue." },
+    tools: ["get_layout"], palette: null, why: "The dock's own subscription; the assistant reads it with get_layout.",
+  },
+  "layout.set": {
+    kind: "mutation", audience: "player",
+    human: { title: "Arrange the dock", tooltip: "Moves, resizes, adds or closes panes; every open client of yours follows." },
+    ai: { description: "Store the human's whole dock layout for the room (drags, the lens menu, presets), compare-and-set with ifUpdatedAt, at most 12 writes a minute. Assistants use the pane operations open_lens, set_lens_params, open_panel, move_pane and close_pane instead." },
+    tools: ["open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"],
+    palette: { label: "Arrange the dock…", group: "view", keywords: ["layout", "pane", "lens", "dock", "move", "split", "reset"], surfaces: P },
+  },
+  // ----- manifest -----
+  "manifest.get": {
+    kind: "action", audience: "infrastructure",
+    human: { title: "Show server info", tooltip: "Object types, presets, options, runtimes and whether AI players are funded." },
+    ai: { description: "The deployment's manifest: object types with instantiations, settings presets, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it." },
+    tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "presets"], surfaces: E },
+  },
+  // ----- owner -----
+  "owner.settings": {
+    kind: "action", audience: "owner",
+    human: { title: "Choose the next game's setup", tooltip: "Applies a preset or edits settings for the next game; running games keep theirs." },
+    ai: { description: "Owner: edit the next game's settings (a partial settings object, retuned to its instantiation, or a preset id) and the AI token budget, sending the room's current revision (CONFLICT when stale)." },
+    tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["preset", "configuration", "settings", "world"], surfaces: BOTH },
+  },
+  "owner.start": {
+    kind: "action", audience: "owner",
+    human: { title: "Start the game", tooltip: "Deals secret goals and spawns the world for 3 to 8 players; planning begins at once." },
+    ai: { description: "Owner: launch the next game (3–8 gods seated): deals utility functions, spawns the starting objects and begins planning. Idempotent per requestId." },
+    tools: ["start_game"], palette: { label: "Start the game", group: "owner", keywords: ["launch", "begin", "play"], surfaces: BOTH, confirm: "summary" },
+  },
+  "owner.command": {
+    kind: "action", audience: "owner",
+    human: { title: "Run an owner action", tooltip: "Settings, start, resume, end, add or remove an AI player, in one call." },
+    ai: { description: "Owner: one entry point for settings, start, resume, endGame, addAi and removeAi with a requestId; the owner tools map onto it one to one." },
+    tools: ["update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"], palette: null,
+    why: "The assistant's single owner entry point; humans use the direct owner functions.",
+  },
+  // ----- panels -----
+  "panels.list": {
+    kind: "query", audience: "player",
+    human: { title: "Show my panels", tooltip: "Your stored panels with version, author and whether each is on." },
+    ai: { description: "The human's stored UI panels (slug, title, version, author, enabled, add-pane hints), across rooms." },
+    tools: ["list_panels"], palette: { label: "Show my panels", group: "view", keywords: ["panels", "custom", "stored"], surfaces: P },
+  },
+  "panels.code": {
+    kind: "query", audience: "player",
+    human: { title: "View a panel's source", tooltip: "The TSX, compiled code and diagnostics of one panel version." },
+    ai: { description: "One stored panel's TSX source, compiled code and diagnostics (default: the current version; the last 20 are kept)." },
+    tools: ["get_panel"], palette: { label: "View a panel's source…", group: "view", keywords: ["panel", "source", "code", "tsx"], surfaces: P },
+  },
+  "panels.save": {
+    kind: "action", audience: "player",
+    human: { title: "Make a panel", tooltip: "Saves TSX as a panel you can open as a pane; a syntax error saves nothing." },
+    ai: { description: "Create or update a stored panel from TSX importing only react, react/jsx-runtime and @sdk and exporting definePanel({...}). Compiled on save: a syntax error returns diagnostics with line and column and commits nothing. Every open client of the human can show it in a pane (open_panel)." },
+    tools: ["save_panel"], palette: { label: "Make a panel…", group: "view", keywords: ["panel", "custom", "build", "tsx", "chart"], surfaces: P },
+  },
+  "panels.rollback": {
+    kind: "mutation", audience: "player",
+    human: { title: "Roll back a panel", tooltip: "Makes an older version current again, as a new version." },
+    ai: { description: "Make an older version of a stored panel current again (recorded as a new version)." },
+    tools: ["rollback_panel"], palette: { label: "Roll back a panel…", group: "view", keywords: ["panel", "version", "undo"], surfaces: P, confirm: "inline" },
+  },
+  "panels.setEnabled": {
+    kind: "mutation", audience: "player",
+    human: { title: "Turn a panel on or off", tooltip: "Hides a panel in every client without deleting it, or shows it again." },
+    ai: { description: "Enable or disable a stored panel everywhere (it stays stored). Assistants open or close panes instead." },
+    tools: [], palette: { label: "Turn a panel on or off…", group: "view", keywords: ["panel", "hide", "show", "enable"], surfaces: P },
+    why: "The assistant opens and closes panes with open_panel and close_pane; hiding a panel for good is the human's choice.",
+  },
+  "panels.remove": {
+    kind: "mutation", audience: "player",
+    human: { title: "Delete a panel", tooltip: "Deletes a panel and all its versions; this cannot be undone." },
+    ai: { description: "Delete a stored panel and all its versions." },
+    tools: ["delete_panel"], palette: { label: "Delete a panel…", group: "view", keywords: ["panel", "remove", "delete"], surfaces: P, confirm: "inline" },
+  },
+  // ----- player -----
+  "player.observation": {
+    kind: "query", audience: "player",
+    human: { title: "Inspect the raw observation", tooltip: "Your private view of the game as the engine sends it, once per tick." },
+    ai: { description: "The human's private v3 observation: phase, energy and utility card, objects with their own bits and the peers' aggregate, agents, recent transformations, leaderboard, chat and the object instance. The start for anything about the current game." },
+    tools: ["get_observation"], palette: { label: "Inspect the raw observation", group: "view", keywords: ["json", "debug", "observation"], surfaces: P },
+  },
+  "player.events": {
+    kind: "query", audience: "player",
+    human: { title: "Open the event log", tooltip: "Spawns, transformations and phase changes of the current game, as they affect you." },
+    ai: { description: "The human's projected event log of a game by batch cursor: spawns, transformations (own bits and peer aggregates) and phase changes." },
+    tools: ["get_events"], palette: { label: "Open the event log", group: "view", keywords: ["events", "log", "transformations", "feed"], surfaces: P },
+  },
+  "player.history": {
+    kind: "query", audience: "player",
+    human: { title: "Replay a past game's log", tooltip: "The event log of any game of this room, finished ones included." },
+    ai: { description: "The same projected event log for any game of the room, finished games included, from a seq cursor." },
+    tools: ["get_game_history"], palette: { label: "Replay a past game's log…", group: "view", keywords: ["replay", "history", "past game"], surfaces: P },
+  },
+  "player.trajectories": {
+    kind: "query", audience: "player",
+    human: { title: "Open my points over time", tooltip: "Per-object series of your bits, the others' total and your payoff." },
+    ai: { description: "Per-object series over the game of the human's net bits, the peer aggregate and payoff: which objects are rising or falling for them." },
+    tools: ["get_trajectories"], palette: { label: "Open my points over time", group: "view", keywords: ["chart", "trajectories", "over time", "trend"], surfaces: P },
+  },
+  "player.myUtility": {
+    kind: "query", audience: "player",
+    human: { title: "Open my secret goal", tooltip: "Your own utility descriptor and the settings to evaluate it; nobody else's." },
+    ai: { description: "The human's own utility descriptor (family, parameters, defence goal) with the game's settings and instantiation; null when not seated. Never another god's." },
+    tools: ["get_my_utility"], palette: { label: "Open my secret goal", group: "view", keywords: ["utility", "goal", "card", "incentives"], surfaces: P },
+  },
+  // ----- receipts -----
+  "receipts.get": {
+    kind: "query", audience: "player",
+    human: { title: "Check a command's status", tooltip: "Whether a command you sent was received, is pending or failed." },
+    ai: { description: "The receipt of one of the human's commands by commandId: the engine's result, or null when it never arrived." },
+    tools: ["get_receipt"], palette: { label: "Check a command's status…", group: "play", keywords: ["receipt", "pending", "command"], surfaces: P },
+  },
+  // ----- rooms -----
+  "rooms.create": {
+    kind: "mutation", audience: "player",
+    human: { title: "Create a room", tooltip: "Opens a new room with you as owner; share its code to invite players." },
+    ai: { description: "Create a room owned by the signed-in human (browser only), starting on the grid-first-steps preset." },
+    tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: E },
+    why: "A credential is bound to one existing room; rooms are created in the browser.",
+  },
+  "rooms.list": {
+    kind: "query", audience: "player",
+    human: { title: "Show my rooms", tooltip: "Rooms you can see, with owner, creation date, players and phase." },
+    ai: { description: "The rooms list for the signed-in human (code, owner, created, members, phase)." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
+  "rooms.get": {
+    kind: "query", audience: "player",
+    human: { title: "Show the room", tooltip: "Members, settings, chat, budgets and the active game of a room." },
+    ai: { description: "A room's public state: settings and revision, members and AI seats, chat, budgets, object instance and the active game. get_rules gives a player the rules part; get_room_state gives the owner all of it." },
+    tools: ["get_rules", "get_room_state"], palette: null, why: SUBSCRIPTION,
+  },
+  "rooms.join": {
+    kind: "mutation", audience: "player",
+    human: { title: "Join this room", tooltip: "Takes a seat; joining mid-game makes you a spectator until the next game." },
+    ai: { description: "Join a room as the signed-in human (browser only)." },
+    tools: [], palette: { label: "Join this room", group: "room", keywords: ["join", "seat", "member"], surfaces: BOTH },
+    why: "Membership precedes any credential: the human joins in the browser before an assistant can act for them there.",
+  },
+  "rooms.leave": {
+    kind: "mutation", audience: "player",
+    human: { title: "Leave this room", tooltip: "Gives up your seat; you can join again later." },
+    ai: { description: "Leave a room (browser only; not while seated in a running game)." },
+    tools: [], palette: { label: "Leave this room", group: "room", keywords: ["leave", "exit"], surfaces: E, confirm: "inline" },
+    why: "Leaving would revoke the very credential the assistant acts through.",
+  },
+  "rooms.setReady": {
+    kind: "mutation", audience: "player",
+    human: { title: "Mark me ready", tooltip: "Tells the room you are ready for the next game; it gates nothing." },
+    ai: { description: "Mark the human ready (or not) in the room lobby; advisory. set_ready does the same through the command path." },
+    tools: ["set_ready"], palette: { label: "Mark me ready", group: "play", keywords: ["ready", "not ready"], surfaces: E },
+  },
+  "rooms.chatHistory": {
+    kind: "query", audience: "player",
+    human: { title: "Show older chat", tooltip: "Earlier public messages than the ones on screen." },
+    ai: { description: "The room's public chat paged backwards from a cursor (older than the observation's recent chat)." },
+    tools: ["get_chat"], palette: { label: "Show older chat", group: "view", keywords: ["chat", "history", "scroll back"], surfaces: BOTH },
+  },
+  "rooms.history": {
+    kind: "query", audience: "player",
+    human: { title: "Show past games", tooltip: "Finished games of this room with their standings and winners." },
+    ai: { description: "The room's finished games, newest first, with public results (leaderboard, winners, settings)." },
+    tools: ["list_games"], palette: { label: "Show past games", group: "room", keywords: ["history", "results", "past games"], surfaces: BOTH },
+  },
+  "rooms.approveAiBudget": {
+    kind: "mutation", audience: "owner",
+    human: { title: "Set AI spending", tooltip: "Approves the AI players' token budget and the assistant allowance per player per game." },
+    ai: { description: "Owner: approve the AI seats' token budget (frozen during games), the in-client assistant allowance per human per game (0 = off) and the assistant's model. update_settings covers the AI budget." },
+    tools: ["update_settings"], palette: { label: "Set AI spending…", group: "owner", keywords: ["budget", "tokens", "billing", "assistant allowance"], surfaces: E, confirm: "summary" },
+  },
+  "rooms.addAi": {
+    kind: "mutation", audience: "owner",
+    human: { title: "Add an AI player", tooltip: "Seats an AI player from the library between games; it spends the room's AI budget." },
+    ai: { description: "Owner: seat an AI player from the library (aiTemplates.catalog / get_ai_catalog) between games." },
+    tools: ["add_ai"], palette: { label: "Add an AI player…", group: "owner", keywords: ["bot", "ai seat", "add"], surfaces: BOTH, confirm: "summary" },
+  },
+  "rooms.removeAi": {
+    kind: "mutation", audience: "owner",
+    human: { title: "Remove an AI player", tooltip: "Unseats an AI player between games." },
+    ai: { description: "Owner: remove an AI seat by its member id between games." },
+    tools: ["remove_ai"], palette: { label: "Remove an AI player…", group: "owner", keywords: ["bot", "kick", "remove"], surfaces: BOTH, confirm: "inline" },
+  },
+  "rooms.endActiveGame": {
+    kind: "mutation", audience: "owner",
+    human: { title: "End the game now", tooltip: "Ends the running game for everyone; its final standings are recorded." },
+    ai: { description: "Owner: end the active game now; its final state is recorded like any other ending." },
+    tools: ["end_game"], palette: { label: "End the game now", group: "owner", keywords: ["stop", "finish", "end"], surfaces: BOTH, confirm: "modal" },
+  },
+  "rooms.resume": {
+    kind: "mutation", audience: "owner",
+    human: { title: "Resume the game", tooltip: "Restarts a game stopped in recovery." },
+    ai: { description: "Owner: resume a game stopped in recovery (e.g. after the safety stop or idle parking)." },
+    tools: ["resume_game"], palette: { label: "Resume the game", group: "owner", keywords: ["recovery", "unpause", "resume"], surfaces: BOTH },
+  },
+};
+
+export const CATALOG_PATHS = Object.keys(CATALOG) as PublicFunctionPath[];
+
+/** Every function a registry tool names is a public function (a renamed or removed one fails the typecheck here). */
+type ToolFunctions = (typeof GROUPS)[number][number]["functions"][number];
+const _toolFunctionsExist: [ToolFunctions] extends [PublicFunctionPath] ? true : never = true;
+void _toolFunctionsExist;
+export const catalogEntry = (path: PublicFunctionPath): CatalogEntry => CATALOG[path];
+/** The entries with a palette command on a surface. */
+export const paletteEntries = (surface: PaletteSurface) =>
+  CATALOG_PATHS.filter(path => CATALOG[path].palette?.surfaces.includes(surface)).map(path => ({ path, entry: CATALOG[path] as CatalogEntry, palette: CATALOG[path].palette! }));

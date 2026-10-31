@@ -47,7 +47,7 @@ export const assistantTables = {
   assistantMessages: defineTable({
     threadId: v.id("assistantThreads"), turnId: v.id("assistantTurns"), seq: v.number(),
     role: v.union(v.literal("user"), v.literal("assistant")),
-    /** ≤ 16 KB. */
+    /** ≤ LIMITS.textChars (32 KB). */
     text: v.string(),
     status: v.union(v.literal("streaming"), v.literal("done"), v.literal("error"), v.literal("cancelled")),
     /** Assistant messages (one per model step): the step's budget reservation and provider usage. */

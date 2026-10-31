@@ -264,6 +264,12 @@ importers:
       '@workspace/object-views':
         specifier: workspace:*
         version: link:../../lib/object-views
+      '@workspace/player-client':
+        specifier: workspace:*
+        version: link:../../lib/player-client
+      '@workspace/ui-kit':
+        specifier: workspace:*
+        version: link:../../lib/ui-kit
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -409,6 +415,9 @@ importers:
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../../lib/player-client
+      '@workspace/ui-kit':
+        specifier: workspace:*
+        version: link:../../lib/ui-kit
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)
@@ -673,6 +682,25 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
+
+  lib/ui-kit:
+    dependencies:
+      '@workspace/player-client':
+        specifier: workspace:*
+        version: link:../player-client
+    devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: 'catalog:'
+        version: 19.1.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.1.0(react@19.1.0)
 
 packages:
 

@@ -75,6 +75,7 @@
     "@workspace/game-utilities": "workspace:*",
     "@workspace/object-views": "workspace:*",
     "@workspace/player-client": "workspace:*",
+    "@workspace/ui-kit": "workspace:*",
     "convex": "1.48.0"
   }
 }

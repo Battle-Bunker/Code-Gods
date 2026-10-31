@@ -1,0 +1,88 @@
+/**
+ * The dock layout (convex/layout.ts; docs/ui-redesign.md §2.3–2.4) against the live local backend. What would break:
+ * a layout leaking to another human or room, the arrangement not following a human into a new room (or the lens
+ * parameters following, which name one game's objects), a stale write overwriting a newer one, an assistant tool
+ * adding panes past the limits or closing the assistant, invalid lens parameters stored, the rate limit.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { DEFAULT_LAYOUT, type DockLayout } from "@workspace/player-client/layout";
+import { admin, api, gods, internal, roomWith } from "./game-helpers.ts";
+
+async function errorCode(promise: Promise<unknown>): Promise<string> {
+  try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
+  return "no error";
+}
+const lensPane = (layout: DockLayout, id: string) => { const p = layout.panes[id]; assert.equal(p.kind, "lens"); return p as Extract<typeof p, { kind: "lens" }>; };
+
+test("a layout is per human per room; the arrangement follows the human to a new room with parameters reset", async () => {
+  const [ada, bob] = await gods("Ada Layout", "Bob Layout");
+  const { roomId } = await roomWith([ada, bob]);
+  const fresh = await ada.c.query(api.layout.current, { roomId });
+  assert.equal(fresh.source, "default");
+  assert.deepEqual(fresh.layout, DEFAULT_LAYOUT("lobby"));
+  const side: DockLayout = { version: 1, root: { type: "split", direction: "row", sizes: [62, 38], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+    panes: { p1: { id: "p1", kind: "lens", lensId: "objects", params: { limit: 5 }, setBy: "assistant" }, p2: { id: "p2", kind: "assistant" } } };
+  const written = await ada.c.mutation(api.layout.set, { roomId, layout: side });
+  assert.deepEqual(written.warnings, []);
+  assert.deepEqual(lensPane(written.layout, "p1").params, { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" }, "defaults are filled in");
+  const mine = await ada.c.query(api.layout.current, { roomId });
+  assert.equal(mine.source, "room");
+  assert.equal(mine.setBy?.kind, "browser");
+  assert.equal(mine.updatedAt, written.updatedAt);
+  assert.equal((await bob.c.query(api.layout.current, { roomId })).source, "default", "another human has their own layout");
+  // A second room: the shape is carried, the parameters are not.
+  const other = await roomWith([ada, bob]);
+  const carried = await ada.c.query(api.layout.current, { roomId: other.roomId });
+  assert.equal(carried.source, "carried");
+  assert.equal(carried.layout.root.type === "split" && carried.layout.root.direction, "row");
+  assert.deepEqual(lensPane(carried.layout, "p1"), { id: "p1", kind: "lens", lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "default" });
+  // Compare-and-set: a stale write is refused; a broken layout is repaired, never stored broken.
+  assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: side, ifUpdatedAt: written.updatedAt - 1 })), "CONFLICT");
+  const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["x"], active: "x" }, panes: { x: { id: "x", kind: "lens", lensId: "nope" } } }, ifUpdatedAt: written.updatedAt });
+  assert.ok(repaired.warnings.some((w: string) => /unknown lens/.test(w)) && repaired.warnings.some((w: string) => /no assistant pane/.test(w)), repaired.warnings.join("\n"));
+  assert.equal(lensPane(repaired.layout, "x").lensId, "overview");
+  assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["p1"], active: "p1" }, panes: { p1: { id: "p1", kind: "lens", lensId: "overview", params: { focus: "x".repeat(40_000) } } } } })), "BAD_REQUEST");
+});
+
+test("the layout tools open, reparameterise, move and close panes as the human, within the limits", async () => {
+  const [ada] = await gods("Ada Tools");
+  const { roomId } = await roomWith([ada]);
+  const act = await admin.mutation(internal.testing.seedCredential, { subject: ada.subject, roomId, permission: "act" });
+  const principal = { credentialId: act };
+  const opened = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 5, filter: "chips" } });
+  assert.equal(opened.reused, false);
+  assert.equal(opened.summary, "Top 5 by payoff · only ones others care about");
+  assert.deepEqual(Object.keys(opened.layout.panes).sort(), ["p1", "p2", "p3"]);
+  assert.equal(lensPane(opened.layout, opened.paneId).setBy, "assistant");
+  const again = await admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 7 } });
+  assert.equal(again.reused, true, "one pane per lens unless placed");
+  assert.equal(again.paneId, opened.paneId);
+  assert.equal(lensPane(again.layout, again.paneId).params.limit, 7);
+  assert.equal(await errorCode(admin.mutation(internal.layout.openLensAs, { principal, lensId: "objects", params: { limit: 9999 } })), "BAD_REQUEST");
+  assert.equal(await errorCode(admin.mutation(internal.layout.openLensAs, { principal, lensId: "stored" })), "BAD_REQUEST");
+  const set = await admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: opened.paneId, params: { sortBy: "mine" } });
+  assert.deepEqual(lensPane(set.layout, opened.paneId).params, { sortBy: "mine", filter: "all", limit: 12, highlight: [], layout: "list" });
+  assert.equal(await errorCode(admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: "p2", params: {} })), "BAD_REQUEST", "the assistant pane has no parameters");
+  const moved = await admin.mutation(internal.layout.movePaneAs, { principal, paneId: "p2", place: { relativeTo: "p1", direction: "right" } });
+  assert.equal(moved.layout.root.type === "split" && moved.layout.root.direction, "row");
+  assert.equal(await errorCode(admin.mutation(internal.layout.closePaneAs, { principal, paneId: "p2" })), "CONFLICT", "the assistant stays");
+  const closed = await admin.mutation(internal.layout.closePaneAs, { principal, paneId: opened.paneId });
+  assert.deepEqual(Object.keys(closed.layout.panes).sort(), ["p1", "p2"]);
+  assert.equal(await errorCode(admin.mutation(internal.layout.closePaneAs, { principal, paneId: "p1" })), "CONFLICT", "the last lens stays");
+  assert.equal(await errorCode(admin.mutation(internal.layout.openPanelAs, { principal, slug: "nope" })), "NOT_FOUND");
+  await ada.c.action(api.panels.save, { slug: "mine", source: `export default () => null;\n` });
+  const panel = await admin.mutation(internal.layout.openPanelAs, { principal, slug: "mine" });
+  assert.equal(panel.layout.panes[panel.paneId].kind, "stored-panel");
+  // The browser sees what the tools did, attributed to the credential.
+  const seen = await ada.c.query(api.layout.current, { roomId });
+  assert.equal(seen.setBy?.kind, "device");
+  assert.equal(Object.keys(seen.layout.panes).length, 3);
+  // The same read of the layout the assistant gets.
+  const current = await admin.query(internal.layout.currentAs, { principal });
+  assert.deepEqual(current.layout, seen.layout);
+  // Rate limit: 12 writes a minute per human per room.
+  let code = "no error";
+  for (let i = 0; i < 12 && code === "no error"; i++) code = await errorCode(admin.mutation(internal.layout.setLensParamsAs, { principal, paneId: "p1", params: { focus: i % 2 ? "goal" : "auto" } }));
+  assert.equal(code, "RATE_LIMITED");
+});

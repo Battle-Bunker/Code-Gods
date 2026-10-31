@@ -139,7 +139,7 @@ through the agent registry. API: `docs/engine-api.md` "In-client assistant"; bil
 - `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
 - `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
   status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
-- `assistantMessages {threadId, turnId, seq, role, text (≤ 16 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?}`:
+- `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?}`:
   the user's message, then one assistant message per model step.
 - `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?, confirmDeadline?, approved?}`.
   `argsJson` is ≤ 8 KB, except agent sources (validate/summon, 20 KB) and stored panels (`save_panel`, 70 KB).

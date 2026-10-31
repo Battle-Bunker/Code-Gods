@@ -8,8 +8,8 @@
  *      characters through a mutation that also reports cancellation), settle the usage, record its tool calls;
  *   3. run those calls (step 1), then schedule the next step, or finish (model stop, step ceiling, deadline, budget).
  *
- * Before the turn's first model step, the briefing (the player's utility, energy, helpers and the room's rules) is read
- * through the same registry and stored with the turn. The model's blocks of each step are stored verbatim and replayed
+ * Before the turn's first model step, the briefing (the player's utility, energy, helpers, the room's rules and the
+ * panes on their screen) is read through the same registry and stored with the turn. The model's blocks of each step are stored verbatim and replayed
  * in its history (rules.ts buildHistory), so Claude's thinking blocks stay valid across the turn's steps.
  *
  * Every tool runs through the agent registry as the turn's assistant credential (`runTool(ctx, {credentialId}, …)`):
@@ -30,7 +30,7 @@ import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, mockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { LIMITS, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, argsLimit } from "./rules";
+import { LIMITS, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, argsLimit } from "./rules";
 import { log } from "./store";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
@@ -74,8 +74,8 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   const read = async (tool: string, args: Record<string, unknown>) => {
     try { return (await runTool(ctx, { credentialId }, tool, args)).data; } catch { return undefined; }
   };
-  const [rules, observation] = await Promise.all([read("get_rules", {}), read("get_observation", { objectsLimit: 1 })]);
-  return assistantBriefing({ rules, observation });
+  const [rules, observation, layout] = await Promise.all([read("get_rules", {}), read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
+  return assistantBriefing({ rules, observation, layout });
 }
 
 /**
@@ -231,9 +231,10 @@ export const run = internalAction({
       const args = prepareArgs(use.name, use.input, id);
       const argsJson = JSON.stringify(args);
       const ids = args.commandId === id || args.requestId === id ? { commandId: id } : {};
-      if (n >= LIMITS.callsPerStep) {
+      const limited = callLimitProblem(use.name, uses.slice(0, n).map(u => u.name));
+      if (limited) {
         return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Too many calls in one step",
-          resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: `At most ${LIMITS.callsPerStep} tool calls run per step; repeat this one in the next step` } }) };
+          resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: limited } }) };
       }
       if (argsJson.length > argsLimit(use.name)) {
         return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Arguments too large",

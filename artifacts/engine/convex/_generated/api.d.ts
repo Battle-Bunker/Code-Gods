@@ -55,6 +55,8 @@ import type * as game_queries from "../game/queries.js";
 import type * as game_tables from "../game/tables.js";
 import type * as games from "../games.js";
 import type * as http from "../http.js";
+import type * as layout from "../layout.js";
+import type * as layout_tables from "../layout/tables.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_http from "../lib/http.js";
@@ -134,6 +136,8 @@ declare const fullApi: ApiFromModules<{
   "game/tables": typeof game_tables;
   games: typeof games;
   http: typeof http;
+  layout: typeof layout;
+  "layout/tables": typeof layout_tables;
   "lib/aiModels": typeof lib_aiModels;
   "lib/errors": typeof lib_errors;
   "lib/http": typeof lib_http;
