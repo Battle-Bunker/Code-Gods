@@ -6,7 +6,7 @@
  * What it simulates:
  *   - The engine: the local Convex backend from `pnpm --filter @workspace/engine dev` (started here if
  *     it is not already running), with the stand-in Replit OIDC provider and the mock AI provider.
- *   - Three players (alice, bob, carol) who each duplicated the repository as their own Replit app: three
+ *   - Three players (alice, bob, carol) who each run their own copy of the repository as a player app: three
  *     git worktrees of HEAD, each with its own install, panels directory, credential (obtained through
  *     the real device flow) and Vite dev server on its own port.
  *   - Humans, driven by Playwright through each app's own UI, plus one mock AI seat.
@@ -126,7 +126,7 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
   return c.action(ref.action("owner:command"), args);
 }
 
-/** The player's Replit Agent: `pnpm player …` inside that player's own app, with that app's Secrets. */
+/** The player's coding agent: `pnpm player …` inside that player's own app, with that app's secrets. */
 function playerCli(p: Player, args: string[], input?: string, secrets = secretsOf(p)) {
   return execFileSync("pnpm", ["-s", "player", ...args], {
     cwd: appDir(p), input, encoding: "utf8", env: { ...process.env, ...secrets, CODE_GODS_STATE_DIR: join(WORK, `state-${p}`) },
@@ -256,9 +256,9 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
 // Int: started from the engine (the owner's browser session).
 await playGame("Int", () => owner("start"));
 
-// string: started by alice's Replit Agent as her room assistant, with an owner credential she approved.
+// string: started by alice's coding agent as her room assistant, with an owner credential she approved.
 const ownerSecrets = await (async () => {
-  const device = await deviceRequest(roomId, "owner", "alice's Replit Agent");
+  const device = await deviceRequest(roomId, "owner", "alice's coding agent");
   await client(await browserJwt(sessionOf("alice"))).mutation("auth/device:approve", { userCode: device.userCode, ownerConsent: true });
   const claimed = await until(async () => { const r = await poll(device); if (r.status === 200) return r.body; await sleep(2100); return undefined; }, "owner credential");
   return { CODE_GODS_ENGINE_URL: SITE, CODE_GODS_CREDENTIAL: claimed.credential as string };
@@ -267,7 +267,7 @@ await playGame("string", async () => {
   const out = JSON.parse(playerCli("alice", ["assistant", "room-command"], JSON.stringify({ action: "start", requestId: crypto.randomUUID() }), ownerSecrets));
   assert(JSON.stringify(out).includes("gameId") || out.ok !== false, `start via assistant: ${JSON.stringify(out).slice(0, 200)}`);
 }, async () => {
-  await check("assistant (bob's Replit Agent, act credential): chats and summons on bob's behalf", async () => {
+  await check("assistant (bob's coding agent, act credential): chats and summons on bob's behalf", async () => {
     const chat = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), command: { type: "chat", text: "assistant speaking for bob" } };
     const receipt = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(chat)));
     assert(JSON.stringify(receipt).includes("\"accepted\":true"), `chat receipt ${JSON.stringify(receipt).slice(0, 200)}`);

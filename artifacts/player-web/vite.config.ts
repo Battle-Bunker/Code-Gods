@@ -2,48 +2,33 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
-import { tokenHandler } from '@workspace/player-client/engine';
-
+import { devServerHosts, tokenHandler } from '@workspace/player-client/engine';
 
 const isBuild = process.argv.includes("build");
-// Static builds do not bind a port and can run outside the managed workflow.
-const rawPort = process.env.PORT ?? (isBuild ? "22772" : undefined);
-
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
-
+// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/player/".
+const rawPort = process.env.PORT || "22772";
 const port = Number(rawPort);
 
-if (Number.isNaN(port) || port <= 0) {
+if (!Number.isInteger(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const hostedDev = !!process.env.CODE_GODS_SITE_URL;
-// Hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
-// host check). Replit dev URLs plus loopback; extend with CODE_GODS_ALLOWED_HOSTS=".example.com,host".
-const allowedHosts = [".replit.dev", ".repl.co", "localhost", "127.0.0.1",
-  ...(process.env.CODE_GODS_ALLOWED_HOSTS ?? "").split(",").map(h => h.trim()).filter(Boolean)];
+const basePath = process.env.BASE_PATH || (isBuild ? "/player/" : "/");
 
+const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
+  // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
+  // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
+  // loopback, CODE_GODS_ALLOWED_HOSTS, CODE_GODS_PUBLIC_ORIGIN and a detected dev container (Replit, GitHub
+  // Codespaces, Gitpod). See devServerHosts in lib/player-client/src/engine.ts.
+  const { allowedHosts, publicOrigin } = devServerHosts(process.env, port);
   const handler = tokenHandler({ allowedHosts });
   server.middlewares.use(handler);
-  const origin = process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `http://localhost:${port}`;
-  server.httpServer?.once("listening", () => console.log(`\n  Code Gods: open your player app with its launch link (keep it private):\n  ${handler.launchUrl(origin)}\n`));
+  server.httpServer?.once("listening", () => console.log(`\n  Code Gods: open your player app with its launch link (keep it private):\n  ${handler.launchUrl(publicOrigin)}\n`));
 }
 
 const panelsDir = path.resolve(import.meta.dirname, 'src/panels') + path.sep;
 const registryFile = path.resolve(import.meta.dirname, 'src/shell/registry.ts');
-
-const basePath = process.env.BASE_PATH ?? (isBuild ? "/player/" : "/");
-
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
-}
 
 export default defineConfig({
   base: basePath,
@@ -71,30 +56,11 @@ export default defineConfig({
     },
     react(),
     tailwindcss(),
-    ...(process.env.NODE_ENV !== 'production' &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import('@replit/vite-plugin-cartographer').then((m) =>
-            m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
-            }),
-          ),
-          await import('@replit/vite-plugin-dev-banner').then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
   ],
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
       '@sdk': path.resolve(import.meta.dirname, 'src/sdk/index.ts'),
-      '@assets': path.resolve(
-        import.meta.dirname,
-        '..',
-        '..',
-        'attached_assets',
-      ),
     },
     dedupe: ['react', 'react-dom'],
   },

@@ -1,6 +1,6 @@
 ---
 name: Room assistant trust boundary
-description: Human delegation through a room credential in Replit Secrets, workspace trust and live authentication test limits.
+description: Human delegation through a room credential in the environment's secret store, workspace trust and live authentication test limits.
 ---
 The room assistant is the same approving human, not an AI competitor or a verified
 model/workspace identity. Same-OS-identity editors and processes are trusted.
@@ -11,8 +11,9 @@ delegation, including configuration, game start and playing as themselves, and o
 that stores the scoped credential in Replit Secrets.
 
 **How to apply:** The assistant uses a room-scoped, revocable credential (`read`, `act` or
-`owner`; up to 7 days) from `pnpm player connect`, held in the Replit Secret
-`CODE_GODS_CREDENTIAL` and exchanged for 10-minute JWTs on every call. There is no
+`owner`; up to 7 days) from `pnpm player connect`, held as the secret
+`CODE_GODS_CREDENTIAL` (the environment's secret store, e.g. Replit Secrets, or `.env.local`) and
+exchanged for 10-minute JWTs on every call. There is no
 persistent bridge or daemon: each `pnpm player assistant` command is one stateless engine
 call. Revocation is from the engine UI's player page or `pnpm player assistant disconnect`,
 and takes effect on the next call. Owner grants still need the current room owner's

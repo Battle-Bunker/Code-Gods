@@ -12,9 +12,8 @@ store. At `https://<dep>.convex.site` it serves:
 | `/api/*` | HTTP actions: Replit OIDC login, device flow, token exchange, JWKS, `/api/config`, `/api/health` |
 
 Clients call Convex queries, mutations and actions at `https://<dep>.convex.cloud`. AI seats, the tick
-loop, idle parking and the agent sandboxes all run inside the deployment. There is no PostgreSQL, no
-Express server and no Replit Publish step for the engine. API reference: `docs/engine-api.md`; design:
-`docs/convex-migration-plan.md`.
+loop, idle parking and the agent sandboxes all run inside the deployment. API reference:
+`docs/engine-api.md`; design: `docs/convex-migration-plan.md`.
 
 ## Connecting the real Convex account
 
@@ -73,35 +72,46 @@ Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are 
 ### Hosted player client (no duplicate needed)
 
 Each human can play at `https://<dep>.convex.site/player/?room=CODE`, signed in on the engine site.
-Use it as the fallback for anyone without their own Replit app.
+Use it as the fallback for anyone without their own player app.
 
-### Independent Replit player apps
+### Your own player app (any dev environment)
 
-Each player duplicates the repository as their own Replit app, a live-moddable client of the one
-engine. Player apps need no engine code, database or provider keys. Do not give players editor access
-to the engine's own workspace.
+Each player runs their own copy of the repository as a live-moddable client of the one engine: a
+local checkout, GitHub Codespaces, Gitpod or Replit all work. Player apps need no engine code, database
+or provider keys. Do not give players editor access to the engine's own deployment.
 
-1. Duplicate the repository.
-2. Set the Replit Secret `CODE_GODS_ENGINE_URL` to the engine's site URL (`https://<dep>.convex.site`).
+1. Clone (or fork) the repository and run `pnpm install`.
+2. Set `CODE_GODS_ENGINE_URL` to the engine's site URL (`https://<dep>.convex.site`), in your
+   environment's secret store (e.g. Codespaces secrets) or in a gitignored `.env.local` where you run
+   pnpm.
 3. Run `pnpm player connect --room CODE` (add `--permission owner` for the room owner's full
-   delegation, or `read` for observation only; the default is `act`).
+   delegation, or `read` for observation only; the default is `act`; `--write-env .env.local` stores
+   both values for you).
 4. Open the printed `/device` link in the browser where you are signed in to the engine, check the
    comparison code, room, permission and label, and approve. An owner grant needs the current room
    owner's extra consent.
-5. Store the printed credential as the Replit Secret `CODE_GODS_CREDENTIAL`. It is shown once; it is
+5. Store the printed credential as `CODE_GODS_CREDENTIAL` the same way. It is shown once; it is
    room-bound, expires after 7 days and can be revoked on the engine's player page or with
    `pnpm player assistant disconnect`.
-6. Run the **Player** workflow (`pnpm --filter @workspace/player-web dev`). The Vite dev server keeps
-   the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
-7. Open the app through the **launch link** the workflow prints to its console
-   (`…/__codegods/launch?key=…`). The dev URL is public, so tokens go only to a browser that opened this
-   link. Keep it private. To keep the link stable across restarts, store a long random value as the
-   Replit Secret `CODE_GODS_LAUNCH_KEY`. Otherwise each restart prints a new link.
+6. Run `pnpm --filter @workspace/player-web dev` (port 22772 unless `PORT` is set). The Vite dev server
+   keeps the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
+7. Open the app through the **launch link** the dev server prints to its console
+   (`…/__codegods/launch?key=…`). A forwarded dev URL is public, so tokens go only to a browser that
+   opened this link. Keep it private. To keep the link stable across restarts, store a long random
+   value as `CODE_GODS_LAUNCH_KEY`. Otherwise each restart prints a new link. Replit, Codespaces and
+   Gitpod URLs are detected; behind another proxy or tunnel set `CODE_GODS_PUBLIC_ORIGIN` (and
+   `CODE_GODS_ALLOWED_HOSTS` for any further hosts).
 
-`pnpm player status` checks the connection. The player's Replit Agent is their **room assistant**
+#### On Replit
+
+Import the repository as a Repl. `.replit` defines the **Player** workflow (the dev server above, port
+22772); store the two values (and optionally `CODE_GODS_LAUNCH_KEY`) in Replit Secrets and restart
+the workflow. The Replit Agent can act as the room assistant (`replit.md`).
+
+`pnpm player status` checks the connection. The player's coding agent is their **room assistant**
 (`docs/room-assistant.md`): it uses the same credential through `pnpm player assistant …` and can
 build live panels in the running client (`docs/panels.md`). Client UI and analytics are freely
-editable; to update, pull from Git and restart the Player workflow. The engine stays authoritative:
+editable; to update, pull from Git and restart the dev server. The engine stays authoritative:
 a modified client can do no more than its human could, and never sees opponents' individual scores.
 
 ## First smoke game
@@ -178,5 +188,6 @@ Needs the real account and is **not** yet verified:
   page on a Replit domain, plan §5);
 - cloud behaviour: Node action memory (512 MiB) and cold starts with the Python bundle, function time
   limits, and throughput under real load;
-- independent player apps in separate real Replit workspaces, through Replit's preview proxy;
+- independent player apps in separate real dev environments (e.g. Replit, Codespaces), through their
+  preview proxies;
 - paid model inference with real provider keys.

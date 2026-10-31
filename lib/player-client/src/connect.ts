@@ -116,7 +116,7 @@ export async function connectDevice(options: ConnectOptions): Promise<ConnectRes
 }
 
 // ---------------------------------------------------------------------------------------------
-// Env files (local tests and simulated apps only; a Replit app uses Secrets)
+// Env files (.env.local: local checkouts, tests and simulated apps; elsewhere the secret store)
 // ---------------------------------------------------------------------------------------------
 
 const quote = (value: string) => /^[A-Za-z0-9_\-.:/@+=,]*$/.test(value) ? value : JSON.stringify(value);

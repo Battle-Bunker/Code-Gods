@@ -7,9 +7,9 @@
  *   assistant <status | observation | events [--after SEQ] [--limit N] | receipt ID | wake | disconnect |
  *              command [--retry-unknown] < envelope.json | room-state | ai-catalog | room-command < action.json>
  *
- * Configuration: the Replit Secrets CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL (or, for local tests, a
- * gitignored .env.local / $CODE_GODS_ENV_FILE). No secret is ever accepted in argv or printed, except the
- * one-time credential that `connect` prints to stdout (or writes with --write-env).
+ * Configuration: CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL from the environment (your environment's
+ * secret store, e.g. Replit Secrets or Codespaces secrets), else a gitignored .env.local / $CODE_GODS_ENV_FILE.
+ * No secret is ever accepted in argv or printed, except the one-time credential that `connect` prints to stdout (or writes with --write-env).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -23,7 +23,7 @@ import { playerState, watchState } from "./state.ts";
 const USAGE = `Usage: pnpm player <command>
 
   connect [--engine URL] --room CODE [--permission read|act|owner] [--label TEXT] [--write-env FILE]
-      Approve this app for one room in your signed-in browser. Prints the Replit Secrets to store
+      Approve this app for one room in your signed-in browser. Prints the two values to store
       (CODE_GODS_ENGINE_URL, CODE_GODS_CREDENTIAL). Default permission: act. The label is self-reported.
   status [--pretty]
       Engine reachable, credential valid, room, permission, expiry and the current user.
@@ -95,7 +95,7 @@ async function connect(args: string[]) {
   if (typeof flags.room !== "string") throw new AssistantError("INVALID", "--room CODE is required (the room's short code, GUID or id).");
   const permission = permissionSchema.safeParse(flags.permission ?? "act");
   if (!permission.success) throw new AssistantError("INVALID", "--permission must be read, act or owner");
-  const label = typeof flags.label === "string" ? flags.label : "Replit player app";
+  const label = typeof flags.label === "string" ? flags.label : "player app";
   if (process.env[CREDENTIAL_VAR]) note(`Note: ${CREDENTIAL_VAR} is already set. The old credential stays valid until it expires or you revoke it (pnpm player assistant disconnect, or the engine's player page).`);
   const result = await connectDevice({
     engineUrl, room: flags.room, permission: permission.data, label,
@@ -123,7 +123,7 @@ async function connect(args: string[]) {
   process.stdout.write([
     `Approved: room ${result.roomCode}, permission ${result.permission}, credential expires ${expires}.`,
     "",
-    "Store these two values as Replit Secrets (Tools > Secrets), then restart the Player workflow:",
+    "Store these two values in your environment's secret store (e.g. Replit Secrets, Codespaces secrets or .env.local), then restart the player app's dev server:",
     "",
     `${ENGINE_URL_VAR}=${result.engineUrl}`,
     `${CREDENTIAL_VAR}=${result.credential}`,

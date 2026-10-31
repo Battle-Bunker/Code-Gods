@@ -1,22 +1,23 @@
 /**
  * How this client reaches the engine. Two modes, detected at startup:
  *
- *  "app"    : a player's own Replit app (Vite dev server). The dev server holds the room credential
- *             (Replit Secret CODE_GODS_CREDENTIAL) and answers GET /__codegods/token with a 10-minute
- *             player JWT; the browser never sees the credential. The room is the credential's room.
- *  "hosted" : the default client served by the engine at /player/. The human signs in on that site;
- *             POST /api/auth/token turns the session cookie into a JWT. The room comes from ?room=.
+ *  "devserver": a player's own app, run as a Vite dev server in any environment. The dev server holds the
+ *               room credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local)
+ *               and answers GET /__codegods/token with a 10-minute player JWT; the browser never sees the
+ *               credential. The room is the credential's room.
+ *  "hosted"   : the default client served by the engine at /player/. The human signs in on that site;
+ *               POST /api/auth/token turns the session cookie into a JWT. The room comes from ?room=.
  *
  * The Convex client is kept on globalThis, so hot updates of any module (core included) never open a
  * second connection or drop subscriptions.
  */
 import { ConvexReactClient } from "convex/react";
 
-export type Mode = "app" | "hosted";
+export type Mode = "devserver" | "hosted";
 export type Connection = {
   mode: Mode;
   convexUrl: string;
-  /** App mode: the credential's room (Convex id) and permission. */
+  /** Dev-server mode: the credential's room (Convex id) and permission. */
   roomId?: string;
   permission?: "read" | "act" | "owner";
   /** Hosted mode: the engine site the client is served from (same origin). */
@@ -40,7 +41,7 @@ async function fetchAppToken(): Promise<TokenResponse | null> {
 
 async function detect(): Promise<Connection> {
   const app = await fetchAppToken();
-  if (app) return { mode: "app", convexUrl: app.convexUrl, roomId: app.roomId, permission: app.permission };
+  if (app) return { mode: "devserver", convexUrl: app.convexUrl, roomId: app.roomId, permission: app.permission };
   const configured = import.meta.env.VITE_CONVEX_URL as string | undefined;
   if (configured) return { mode: "hosted", convexUrl: configured, siteUrl: location.origin };
   const config = await (await fetch("/api/config", { cache: "no-store" })).json() as { convexUrl: string; siteUrl: string };
@@ -58,7 +59,7 @@ export function convexClient(url: string): ConvexReactClient {
 
 /** A fresh JWT for the Convex client's fetchAccessToken (null = not signed in). */
 export async function fetchAccessToken(mode: Mode): Promise<string | null> {
-  if (mode === "app") return (await fetchAppToken())?.token ?? null;
+  if (mode === "devserver") return (await fetchAppToken())?.token ?? null;
   const response = await fetch("/api/auth/token", { method: "POST", credentials: "same-origin", cache: "no-store" });
   return response.ok ? ((await response.json()) as { token: string | null }).token : null;
 }

@@ -1,16 +1,17 @@
 # Live panels: custom views of the game, built while you play
 
-Your player app (this repository, running as your own Replit app) is a live-moddable client. Ask your
-Replit Agent for a visualisation or tool, for example "show which objects the others care about that I
-don't", and it writes one file in `artifacts/player-web/src/panels/`. The panel appears in the running
-client within a second, with live data. You don't reload, and you don't lose your place.
+Your player app (this repository, running as your own Vite dev server in any dev environment: a local
+checkout, Codespaces, Gitpod or Replit) is a live-moddable client. Ask your coding agent for a
+visualisation or tool, for example "show which objects the others care about that I don't", and it
+writes one file in `artifacts/player-web/src/panels/`. The panel appears in the running client within a
+second, with live data. You don't reload, and you don't lose your place.
 
-This page is written for the Agent. Read all of it before writing a panel.
+This page is written for the coding agent. Read all of it before writing a panel.
 
 ## How it works
 
-- The client runs as a Vite dev server with hot module replacement (the **Player** workflow:
-  `pnpm --filter @workspace/player-web dev`). All game state lives in Convex subscriptions, so a hot
+- The client runs as a Vite dev server with hot module replacement
+  (`pnpm --filter @workspace/player-web dev`; on Replit, the **Player** workflow). All game state lives in Convex subscriptions, so a hot
   update never loses it.
 - `src/panels/*.tsx` (top level only) is discovered automatically. Adding, editing or deleting a
   file updates the page in place; no reload.
@@ -84,7 +85,7 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useEvaluator()` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
-| `useRoom()` | `{roomId, permission, mode}` |
+| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/player/`) |
 
 `TrajectoryPoint` is `{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}`.
 
@@ -204,5 +205,5 @@ Copy one into `src/panels/` to enable it, then adapt it.
 - **The engine stays authoritative.** Every action goes through the engine's permission and rule
   checks.
 - **No secrets.** The credential stays in the dev server (`/__codegods/token` hands the browser
-  10-minute tokens, only after the private launch link has been opened). Never read Secrets in a panel, never send game data to other hosts, and never
+  10-minute tokens, only after the private launch link has been opened). Never read secrets in a panel, never send game data to other hosts, and never
   `fetch` anything except through the SDK.

@@ -68,7 +68,7 @@ test("connect without --write-env prints the two Secrets once, to stdout, with a
   assert.match(run.stdout, /^CODE_GODS_CREDENTIAL=cgc_[A-Za-z0-9_-]+$/m);
   assert.match(run.stdout, /Keep CODE_GODS_CREDENTIAL private/);
   assert.ok(!existsSync(apps.stdout.envFile), "nothing written without --write-env");
-  // Use it the way a Replit app does: as Secrets in the environment.
+  // Use it the way a dev container does: as secrets in the environment.
   const credential = /^CODE_GODS_CREDENTIAL=(cgc_[A-Za-z0-9_-]+)$/m.exec(run.stdout)![1];
   const status = await cli(["status"], { env: { ...apps.carol.env, CODE_GODS_ENGINE_URL: SITE, CODE_GODS_CREDENTIAL: credential } });
   assert.equal(status.status, 0, status.stdout);

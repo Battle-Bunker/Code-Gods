@@ -1,6 +1,6 @@
 /**
  * `pnpm player state`: the player-visible state as JSON (the same disclosure-filtered projections the
- * panels read), for the player's Replit Agent to inspect the live metagame while it writes panels.
+ * panels read), for the player's coding agent to inspect the live metagame while it writes panels.
  */
 import { api, type Engine, type EngineError } from "./engine.ts";
 import { observationSchema, type Observation } from "./protocol.ts";
