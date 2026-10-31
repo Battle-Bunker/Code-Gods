@@ -230,7 +230,9 @@ try {
       const listed = b.getByTestId("list-settings");
       await listed.filter({ hasText: "typescript" }).waitFor();
       assert.match(await listed.innerText(), /Whole numbers/);
-      assert.equal(await a.getByTestId("select-setup").inputValue(), "__custom", "no preset matches: Current (custom)");
+      // Alice's page re-subscribes after coming back from /configure: wait for the saved revision to reach it.
+      await a.waitForFunction(() => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === "__custom", null, { timeout: 15_000 })
+        .catch(async () => { throw new Error(`no preset matches: expected Current (custom), got ${await a.getByTestId("select-setup").inputValue()}`); });
       // Non-owners read the same configuration page.
       await b.goto(`${SITE}/rooms/${code}/configure`);
       await b.getByTestId("page-configure").waitFor();

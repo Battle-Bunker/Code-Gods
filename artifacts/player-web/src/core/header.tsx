@@ -66,7 +66,7 @@ export function Header() {
       </div>
       {/* The dock shell binds Cmd/Ctrl+K, "/" and "?" itself (it knows the focused pane), so the palette's own hotkeys stay off. */}
       <CommandPalette commands={commands} context={context} open={palette.open} onOpenChange={open => (open ? paletteStore.open(focused) : paletteStore.close())}
-        init={palette.init} hotkeys={false} handoff={draft => composer.fill(draft.text)} onError={(error, command) => noticeStore.push(`${command.human.title}: ${error instanceof Error ? error.message : String(error)}`)}
+        init={palette.init} hotkeys={false} handoff={draft => composer.fill(draft.text)}
         placeholder="Search or do…" recentKey="cg.palette.player" suggested={["ui.forge.edit", "ui.lens.add.objects", "ui.chat", "ui.layout.side-by-side"]} />
     </header>
   );

@@ -43,7 +43,7 @@ export function lensOrder(phase: Phase): LensId[] {
 
 /** "Add lens below / to the right" from a pane's ⋯ menu: the first useful lens not shown yet, next to that pane. */
 export function addLensNextTo(layout: DockLayout, paneId: string, phase: Phase): { layout: DockLayout; paneId: string } {
-  if (lensPanesOf(layout).length >= LAYOUT_LIMITS.lensPanes) throw new Error(`At most ${LAYOUT_LIMITS.lensPanes} lenses at a time: change a pane's lens from its menu, or close one.`);
+  // openPane refuses a fifth lens pane itself, with the one message every surface shows.
   const open = new Set(lensPanesOf(layout).map(p => p.lensId));
   const lensId = lensOrder(phase).find(id => !open.has(id)) ?? "overview";
   const direction: Place["direction"] = assistantSide(layout) === "row" ? "below" : "right";

@@ -47,9 +47,11 @@ const typing = (target: EventTarget | null) => {
 function useShortcuts(store: DockStore) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); paletteStore.open(store.getSnapshot().focused); return; }
+      // Cmd/Ctrl+K toggles the palette (the ui-kit's own hotkeys are off: this shell knows the focused pane).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); if (paletteStore.get().open) paletteStore.close(); else paletteStore.open(store.getSnapshot().focused); return; }
       if (e.ctrlKey && e.key === "`") { e.preventDefault(); composer.focus(); return; }
-      if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      // "/" and "?" are plain keys: never inside an input, a modifier chord or an open dialog (the palette, a confirmation).
+      if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
       if (e.key === "/") { e.preventDefault(); composer.focus(); }
       else if (e.key === "?") { e.preventDefault(); paletteStore.open(store.getSnapshot().focused, { page: "help" }); }
     };

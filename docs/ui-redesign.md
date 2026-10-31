@@ -110,7 +110,7 @@ export type Place = { relativeTo?: string; direction: "left" | "right" | "above"
 export const LAYOUT_LIMITS = { panes: 12, lensPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
 export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column split 50/50: p1 lens (defaultLensFor), p2 assistant
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws
-export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent lens when the assistant is left/right, else to its right; 5th lens → tab
+export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent lens when the assistant is left/right, else to its right; a 5th lens pane is refused (CONFLICT)
 export function movePane(layout: DockLayout, paneId: string, place: Place): DockLayout;
 export function closePane(layout: DockLayout, paneId: string): DockLayout;                 // refuses the assistant and the last lens
 export function setPaneParams(layout: DockLayout, paneId: string, params: Record<string, unknown>, setBy: SetBy): DockLayout;

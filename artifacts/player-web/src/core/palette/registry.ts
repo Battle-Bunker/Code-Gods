@@ -24,8 +24,11 @@ export function runPaletteCommand(id: string) {
   const availability = command.available(current.context);
   if (!availability.ok) { notify(availability.fix ? `${availability.reason} ${availability.fix}` : availability.reason); return; }
   const p = command.performer;
-  // A command with a form or a confirmation opens the palette on that command's own page.
-  if (p.kind === "form" || (command.confirm && command.confirm !== "none")) { paletteStore.open(current.context.scope?.paneId ?? null, { page: command.id }); return; }
+  // A command with a form opens the palette on that command's own page; one that only needs a confirmation opens the
+  // palette with the command found, so the confirmation runs from its row.
+  const scope = current.context.scope?.paneId ?? null;
+  if (p.kind === "form") { paletteStore.open(scope, { page: command.id }); return; }
+  if (command.confirm && command.confirm !== "none") { paletteStore.open(scope, { query: command.human.title }); return; }
   if (p.kind === "handoff") composer.fill(p.draft);
   else if (p.kind === "local") p.run();
   else if (p.kind === "submit") void p.run().catch(notifyError);

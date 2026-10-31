@@ -154,6 +154,15 @@ test("openPane: default placement, the reuse rule is the caller's, a 5th lens is
   assert.throws(() => openPane(four, lens("", "rules"), { relativeTo: "p1", direction: "below" }), (e: LayoutError) => e.code === "CONFLICT" && /4 lens panes/.test(e.message));
   assert.throws(() => openPane(four, lens("", "rules")), (e: LayoutError) => e.code === "CONFLICT");
   assert.deepEqual(parseLayout(four, { phase: "running", storedSlugs: [] }).warnings, [], "four lens panes parse without warnings");
+  // One assistant pane, at most 12 panes.
+  assert.throws(() => openPane(base, { id: "", kind: "assistant" }), (e: LayoutError) => e.code === "CONFLICT");
+  let full = base;
+  for (let i = 0; i < LAYOUT_LIMITS.panes - 2; i++) full = openPane(full, { id: "", kind: "stored-panel", slug: `s${i}` }).layout;
+  assert.throws(() => openPane(full, { id: "", kind: "stored-panel", slug: "more" }), (e: LayoutError) => e.code === "CONFLICT");
+  // A given id is kept when free; a taken id gets a fresh one.
+  assert.equal(openPane(base, lens("mine", "race")).paneId, "mine");
+  assert.equal(openPane(base, lens("p1", "race")).paneId, "p3");
+  assert.equal(nextPaneId(base), "p3");
 });
 
 test("closePane refuses the assistant and the last lens; movePane relocates; setPaneParams validates", () => {
