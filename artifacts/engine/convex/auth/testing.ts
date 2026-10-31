@@ -50,6 +50,15 @@ export const setRoomOwner = internalMutation({
   },
 });
 
+/** Delete a room row (its members stay): credentials bound to it must stop working. */
+export const deleteRoom = internalMutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    guard();
+    await ctx.db.delete(roomId);
+  },
+});
+
 /** Our `users` row for a god id, as the Better Auth triggers wrote it. */
 export const userRow = internalQuery({
   args: { subject: v.string() },

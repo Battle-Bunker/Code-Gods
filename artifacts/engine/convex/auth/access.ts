@@ -14,7 +14,6 @@
  */
 import { ConvexError } from "convex/values";
 import { components } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { convexSiteUrl } from "./config";
 import { isAdminUser, tokenKind } from "./identity";
@@ -35,7 +34,7 @@ export type Viewer = {
   label?: string;
   /** Verified Google email on the admin allowlist (browser scope only). */
   isAdmin: boolean;
-  /** Player scope from viewerForCredential: who holds the credential (device flow, MCP OAuth, in-client assistant). */
+  /** Player scope: who holds the credential (device flow, MCP OAuth, in-client assistant). */
   credentialKind?: CredentialKind;
 };
 
@@ -57,21 +56,15 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
   if (!identity) return null;
   const scope = tokenKind(identity.issuer, convexSiteUrl());
   if (!scope) return null;
-  const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", identity.subject)).unique();
-  if (!user) return null;
   if (scope === "browser") {
-    if (!(await liveSession(ctx, identity.sessionId, user.subject))) return null;
+    const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", identity.subject)).unique();
+    if (!user || !(await liveSession(ctx, identity.sessionId, user.subject))) return null;
     return { subject: user.subject, name: user.name, scope, isAdmin: isAdminUser(user, process.env) };
   }
-  const credentialId = typeof identity.cred === "string" ? identity.cred : null;
-  const id = credentialId ? ctx.db.normalizeId("credentials", credentialId) : null;
-  const credential = id ? await ctx.db.get(id) : null;
-  if (!credential || credential.subject !== user.subject || credential.revokedAt !== undefined || credential.expiresAt <= Date.now() ||
-    (credential.refreshExpiresAt !== undefined && credential.refreshExpiresAt <= Date.now())) return null;
-  return {
-    subject: user.subject, name: user.name, scope, roomId: credential.roomId, permission: credential.permission,
-    credentialId: credential._id as Id<"credentials">, label: credential.label, isAdmin: false,
-  };
+  // A player JWT names its credential (`cred`): the same rules as any principal (viewerForCredential), for the JWT's own human.
+  if (typeof identity.cred !== "string") return null;
+  const viewer = await viewerForCredential(ctx, identity.cred);
+  return viewer && viewer.subject === identity.subject ? viewer : null;
 }
 
 /** Throws ConvexError {code: "UNAUTHENTICATED"} without a valid caller. */
@@ -101,8 +94,9 @@ export function requireRoomPermission(viewer: Viewer, roomId: string, need: Perm
 export { credentialKind, credentialProblem, type CredentialKind };
 
 /**
- * The Viewer of a principal `{credentialId}` (tool executions, scheduled commands), after the same checks
- * as a player JWT plus `credentialProblem`. Null when unknown or unusable.
+ * The Viewer of a principal `{credentialId}` (tool executions, scheduled commands) and of a player JWT (getViewer):
+ * the one place a credential's validity is decided (`credentialProblem`: revoked, expired, room gone, owner grant
+ * of a human who no longer owns the room). Null when unknown or unusable.
  */
 export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentialId: string): Promise<Viewer | null> {
   const id = ctx.db.normalizeId("credentials", credentialId);
