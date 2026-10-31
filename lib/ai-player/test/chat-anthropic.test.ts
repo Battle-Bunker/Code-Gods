@@ -68,8 +68,76 @@ test("streams text to onText, parses tool_use blocks and reports usage; the requ
     { role: "assistant", content: [{ type: "text", text: "Looking." }, { type: "tool_use", id: "toolu_0", name: "get_observation", input: {} }] },
     { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_0", content: '{"untrusted":true,"data":{}}' }, { type: "text", text: "And now?" }] },
   ]);
-  assert.equal(body.thinking, undefined);
+  assert.deepEqual(body.thinking, { type: "adaptive" }, "thinking is explicit: models that think by default keep doing so");
+  assert.deepEqual(body.output_config, { effort: "medium" });
   assert.equal(model.estimateMaxUsd(1_000_000, 1_000_000), 12);
+});
+
+const thinking = (index: number, signature: string) => [
+  { type: "content_block_start", index, content_block: { type: "thinking", thinking: "", signature: "" } },
+  { type: "content_block_delta", index, delta: { type: "signature_delta", signature } },
+  { type: "content_block_stop", index },
+];
+const redacted = (index: number, data: string) => [
+  { type: "content_block_start", index, content_block: { type: "redacted_thinking", data } },
+  { type: "content_block_stop", index },
+];
+
+// The bug behind "Unsupported Anthropic content block: thinking": Claude 5 models think by default and return
+// thinking blocks with every answer. They must come back opaque, in order, and be replayed byte-for-byte.
+test("thinking and redacted_thinking blocks come back opaque and in order, and are replayed verbatim", async () => {
+  const bodies: any[] = [];
+  const model = provider(async (_url, init) => {
+    bodies.push(JSON.parse(String(init!.body)));
+    return bodies.length === 1
+      ? stream([start(), ...thinking(0, "sig-1"), ...redacted(1, "opaque-2"), ...text(2, "Reading."), ...toolUse(3, "toolu_1", "get_observation", ["{}"]), ...end("tool_use")])
+      : stream([start(), ...thinking(0, "sig-3"), ...text(1, "Done."), ...end("end_turn")]);
+  });
+  const first = await model.stream(request({ messages: [{ role: "user", content: "Suggest an opening agent for me" }] }));
+  assert.deepEqual(first.content, [
+    { type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature: "sig-1" } },
+    { type: "thinking", provider: "anthropic", block: { type: "redacted_thinking", data: "opaque-2" } },
+    { type: "text", text: "Reading." },
+    { type: "tool_use", id: "toolu_1", name: "get_observation", input: {} },
+  ]);
+  const second = await model.stream(request({ messages: [
+    { role: "user", content: "Suggest an opening agent for me" },
+    { role: "assistant", content: first.content },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_1", content: "{}" }] },
+  ] }));
+  assert.deepEqual(second.content.map(b => b.type), ["thinking", "text"]);
+  assert.deepEqual(bodies[1].messages[1].content, [
+    { type: "thinking", thinking: "", signature: "sig-1" },
+    { type: "redacted_thinking", data: "opaque-2" },
+    { type: "text", text: "Reading." },
+    { type: "tool_use", id: "toolu_1", name: "get_observation", input: {} },
+  ]);
+});
+
+test("a history the API rejects for its thinking signatures is retried once without thinking; other 400s are not", async () => {
+  const bodies: any[] = [];
+  const rejectThinking = provider(async (_url, init) => {
+    const body = JSON.parse(String(init!.body));
+    bodies.push(body);
+    if (JSON.stringify(body.messages).includes('"thinking"')) {
+      return Response.json({ type: "error", error: { type: "invalid_request_error", message: "messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation." } }, { status: 400 });
+    }
+    return stream([start(), ...text(0, "Recovered."), ...end("end_turn")]);
+  });
+  const history = request({ messages: [
+    { role: "user", content: "Hi" },
+    { role: "assistant", content: [{ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature: "stale" } }, { type: "tool_use", id: "toolu_1", name: "get_observation", input: {} }] },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_1", content: "{}" }] },
+  ] });
+  const result = await rejectThinking.stream(history);
+  assert.deepEqual(result.content, [{ type: "text", text: "Recovered." }]);
+  assert.equal(bodies.length, 2);
+  assert.deepEqual(bodies[1].messages[1].content, [{ type: "tool_use", id: "toolu_1", name: "get_observation", input: {} }]);
+
+  let calls = 0;
+  const otherError = provider(async () => { calls++; return Response.json({ type: "error", error: { type: "invalid_request_error", message: "max_tokens: too large" } }, { status: 400 }); });
+  await assert.rejects(otherError.stream(history));
+  assert.equal(calls, 1);
 });
 
 test("a plain answer ends the turn", async () => {

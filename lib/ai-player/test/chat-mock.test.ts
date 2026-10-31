@@ -35,6 +35,17 @@ test("a script runs one step per model call, counted from the latest user messag
   assert.equal(second.stopReason, "end_turn");
 });
 
+test("a prompt may follow a briefing block in the same user message; echo shows what the model was given", async () => {
+  const mock = mockChatProvider();
+  const prompt: ChatMessage = { role: "user", content: [{ type: "text", text: "<briefing>Power Hoarder</briefing>" }, { type: "text", text: '/mock [{"tools":[{"name":"whoami"}]},{"echo":true}]' }] };
+  const first = await mock.stream(ask([prompt], { system: "SYS", tools: [{ name: "whoami", description: "d", inputSchema: {} }] }));
+  assert.deepEqual(first.content.map(b => b.type === "tool_use" && b.name), ["whoami"], "the script is read from the message's last text block");
+  const second = await mock.stream(ask([prompt, { role: "assistant", content: first.content },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "mock_0_0", content: "{}" }] }], { system: "SYS", tools: [{ name: "whoami", description: "d", inputSchema: {} }] }));
+  const echoed = JSON.parse((second.content[0] as { text: string }).text);
+  assert.deepEqual(echoed, { system: "SYS", tools: ["whoami"], context: ["<briefing>Power Hoarder</briefing>"] });
+});
+
 test("the default script reads the observation, then summarizes it", async () => {
   const mock = mockChatProvider();
   const prompt: ChatMessage = { role: "user", content: "How am I doing?" };

@@ -85,6 +85,29 @@ test("a scripted turn reads, validates and answers as the human's assistant cred
   assert.deepEqual(await bob.c.query(api.assistant.threads, { roomId }), []);
 });
 
+test("each turn starts with a briefing of the player's own utility and the rules, kept for every step; the prompt documents the tools", { timeout: 180_000 }, async () => {
+  const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+  const [mine, theirs] = await Promise.all([ann, bob].map(g => g.c.query(api.player.observation, { roomId })));
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ echo: true, tools: [{ name: "whoami" }] }, { echo: true }]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const [first, second] = t.messages.filter((m: any) => m.role === "assistant").map((m: any) => JSON.parse(m.text));
+  assert.deepEqual(second, first, "the same briefing, system prompt and tools at every step of the turn");
+  const [briefing] = first.context as string[];
+  assert.ok(briefing.startsWith("<briefing>"), briefing);
+  for (const expected of [mine.self.utility.name, mine.self.utility.summary, "phase: planning", "Room rules:", "Mutators"]) {
+    assert.ok(briefing.includes(expected), `the briefing has ${expected}`);
+  }
+  if (theirs.self.utility.name !== mine.self.utility.name) assert.ok(!briefing.includes(theirs.self.utility.name), "never another god's utility");
+  for (const name of first.tools) assert.ok(first.system.includes(`\n- ${name}: `), `the system prompt documents ${name}`);
+  assert.ok(first.tools.includes("get_observation") && first.tools.includes("summon_agent") && !first.tools.includes("start_game"));
+
+  const lobby = await assistantRoom(["Lia Lobby", "Max Lobby", "Ned Lobby"], { start: false });
+  const inLobby = await lobby.members[0].c.mutation(api.assistant.send, { roomId: lobby.roomId, text: mock([{ echo: true }]) });
+  const l = await until(lobby.members[0], inLobby, DONE, "the lobby turn finishes");
+  assert.match(JSON.parse(finalText(l)).context[0], /no game is running[\s\S]*Room rules:/i);
+});
+
 test("streaming text grows in the message document before the step ends", { timeout: 120_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: ["one ", "two ", "three ", "four "], delayMs: 700 }]) });

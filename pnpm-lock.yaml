@@ -376,6 +376,9 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
     devDependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.133.0
+        version: 0.133.0(zod@4.6.7)
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
@@ -2758,6 +2761,13 @@ snapshots:
       standardwebhooks: 1.1.1
     optionalDependencies:
       zod: 3.25.76
+
+  '@anthropic-ai/sdk@0.133.0(zod@4.6.7)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+      standardwebhooks: 1.1.1
+    optionalDependencies:
+      zod: 4.6.7
 
   '@babel/code-frame@7.29.7':
     dependencies:
