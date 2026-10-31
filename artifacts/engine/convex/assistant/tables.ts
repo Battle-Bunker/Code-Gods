@@ -18,7 +18,11 @@ const turnStatus = v.union(
 const callStatus = v.union(
   v.literal("pending"), v.literal("awaiting_confirmation"), v.literal("running"), v.literal("ok"), v.literal("error"), v.literal("denied"),
 );
-export const usageV = v.object({ inputTokens: v.number(), outputTokens: v.number(), reservedTokens: v.number(), reservedUsd: v.number() });
+/**
+ * A turn's usage: provider input and output tokens, the reservations, and `billedTokens`, the allowance tokens its
+ * steps used (input-price equivalent: cache reads count 0.1 at Anthropic; lib/ai-player usageCost).
+ */
+export const usageV = v.object({ inputTokens: v.number(), outputTokens: v.number(), reservedTokens: v.number(), reservedUsd: v.number(), billedTokens: v.optional(v.number()) });
 
 export const assistantTables = {
   assistantThreads: defineTable({
@@ -52,6 +56,10 @@ export const assistantTables = {
     status: v.union(v.literal("streaming"), v.literal("done"), v.literal("error"), v.literal("cancelled")),
     /** Assistant messages (one per model step): the step's budget reservation and provider usage. */
     reservedTokens: v.optional(v.number()), inputTokens: v.optional(v.number()), outputTokens: v.optional(v.number()),
+    /** The parts of inputTokens read from / written to the prompt cache, the allowance tokens the step used, and the
+     * input estimate its reservation was made from. `usageEstimated`: a cancelled step billed from what was known. */
+    cacheReadTokens: v.optional(v.number()), cacheWriteTokens: v.optional(v.number()), billedTokens: v.optional(v.number()),
+    inputEstimate: v.optional(v.number()), usageEstimated: v.optional(v.boolean()),
     /** Assistant messages: the model's own blocks of the step, verbatim (thinking included), replayed in its history. */
     contentJson: v.optional(v.string()),
     createdAt: v.number(), updatedAt: v.number(),

@@ -6,12 +6,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { anthropicChatProvider, createDirectAnthropicChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
+import { ChatAbortedError, anthropicChatProvider, createDirectAnthropicChatProvider, inputChars, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const config = { model: "claude-sonnet-5-5", inputUsdPerMillion: 2, outputUsdPerMillion: 10 };
 const sse = (events: Record<string, unknown>[]) =>
   events.map(e => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join("");
-const start = (input = 20) => ({ type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: config.model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: input, output_tokens: 1 } } });
+const start = (input = 20, cache: { cache_read_input_tokens?: number; cache_creation_input_tokens?: number } = {}) =>
+  ({ type: "message_start", message: { id: "msg_1", type: "message", role: "assistant", model: config.model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: input, output_tokens: 1, ...cache } } });
 const text = (index: number, ...parts: string[]) => [
   { type: "content_block_start", index, content_block: { type: "text", text: "" } },
   ...parts.map(t => ({ type: "content_block_delta", index, delta: { type: "text_delta", text: t } })),
@@ -55,12 +56,15 @@ test("streams text to onText, parses tool_use blocks and reports usage; the requ
   assert.deepEqual(deltas, ["Let me ", "look."]);
   assert.deepEqual(result, {
     content: [{ type: "text", text: "Let me look." }, { type: "tool_use", id: "toolu_1", name: "get_observation", input: { objectsLimit: 5 } }],
-    stopReason: "tool_use", inputTokens: 20, outputTokens: 15,
+    stopReason: "tool_use", inputTokens: 20, outputTokens: 15, cacheReadTokens: 0, cacheWriteTokens: 0,
   });
   assert.equal(body.model, config.model);
   assert.equal(body.stream, true);
   assert.equal(body.max_tokens, 100);
-  assert.equal(body.system, "You are the assistant.");
+  // Prompt caching: a breakpoint on the system prompt (tools and system, shared by every step of a thread) and
+  // top-level automatic caching for the growing conversation.
+  assert.deepEqual(body.system, [{ type: "text", text: "You are the assistant.", cache_control: { type: "ephemeral" } }]);
+  assert.deepEqual(body.cache_control, { type: "ephemeral" });
   assert.deepEqual(body.tools, [{ name: "get_observation", description: "Your view", input_schema: { type: "object", properties: { objectsLimit: { type: "integer" } }, additionalProperties: false } }]);
   // Consecutive user turns (a tool result, then the next question) are merged into one user message.
   assert.deepEqual(body.messages, [
@@ -142,7 +146,7 @@ test("a history the API rejects for its thinking signatures is retried once with
 
 test("a plain answer ends the turn", async () => {
   const result = await provider(async () => stream([start(), ...text(0, "Done."), ...end("end_turn", 3)])).stream(request());
-  assert.deepEqual(result, { content: [{ type: "text", text: "Done." }], stopReason: "end_turn", inputTokens: 20, outputTokens: 3 });
+  assert.deepEqual(result, { content: [{ type: "text", text: "Done." }], stopReason: "end_turn", inputTokens: 20, outputTokens: 3, cacheReadTokens: 0, cacheWriteTokens: 0 });
 });
 
 test("max_tokens, refusals and other stops are errors, never a complete answer", async () => {
@@ -154,6 +158,47 @@ test("max_tokens, refusals and other stops are errors, never a complete answer",
 test("usage beyond the output ceiling or a malformed count is rejected", async () => {
   await assert.rejects(provider(async () => stream([start(), ...text(0, "x"), ...end("end_turn", 101)])).stream(request()), /usage/i);
   await assert.rejects(provider(async () => stream([start(-1), ...text(0, "x"), ...end("end_turn", 1)])).stream(request()), /usage/i);
+});
+
+test("cache reads and writes are reported as parts of the input; a cache split larger than the input is rejected", async () => {
+  const cached = await provider(async () => stream([start(20, { cache_read_input_tokens: 900, cache_creation_input_tokens: 50 }), ...text(0, "Done."), ...end("end_turn", 3)])).stream(request());
+  assert.deepEqual([cached.inputTokens, cached.cacheReadTokens, cached.cacheWriteTokens, cached.outputTokens], [970, 900, 50, 3]);
+});
+
+test("estimateInputTokens asks count_tokens with the request's system, tools and history; falls back to characters per token", async () => {
+  let body: any, url = "";
+  const counted = await provider(async (u, init) => { url = String(u); body = JSON.parse(String(init!.body)); return Response.json({ input_tokens: 1234 }); })
+    .estimateInputTokens(request());
+  assert.deepEqual(counted, { tokens: 1234, counted: true });
+  assert.equal(url, "https://api.anthropic.com/v1/messages/count_tokens");
+  assert.equal(body.model, config.model);
+  assert.equal(body.system[0].text, "You are the assistant.");
+  assert.equal(body.tools[0].name, "get_observation");
+  assert.equal(body.messages.length, 3, "merged history");
+  assert.deepEqual(body.thinking, { type: "adaptive" }, "counted with the request's thinking settings");
+  const fallback = await provider(async () => Response.json({ type: "error", error: { type: "rate_limit_error", message: "slow down" } }, { status: 429 }))
+    .estimateInputTokens(request());
+  assert.deepEqual(fallback, { tokens: Math.ceil(inputChars(request()) / 2.5), counted: false });
+});
+
+test("an abort rejects the stream with what is known: the reported input, the streamed characters and reasoning time", async () => {
+  const controller = new AbortController();
+  const model = provider(async (_url, init) => {
+    const signal = (init as RequestInit).signal!;
+    const body = new ReadableStream({
+      start(c) {
+        c.enqueue(new TextEncoder().encode(sse([start(100, { cache_read_input_tokens: 5000, cache_creation_input_tokens: 300 }), ...thinking(0, "sig"),
+          { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } }, { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "Partial" } }])));
+        signal.addEventListener("abort", () => c.error(new DOMException("aborted", "AbortError")));
+      },
+    });
+    return new Response(body, { headers: { "content-type": "text/event-stream" } });
+  });
+  const error = await model.stream(request({ signal: controller.signal, onText: () => controller.abort() })).then(() => null, e => e);
+  assert.ok(error instanceof ChatAbortedError, String(error));
+  assert.deepEqual(error.partial.input, { inputTokens: 5400, cacheReadTokens: 5000, cacheWriteTokens: 300 });
+  assert.equal(error.partial.outputChars, "Partial".length);
+  assert.ok(error.partial.reasoningMs >= 0 && error.partial.reasoningMs < 5000);
 });
 
 test("an abort rejects the stream", async () => {

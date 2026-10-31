@@ -148,8 +148,9 @@ through the agent registry. API: `docs/engine-api.md` "In-client assistant"; bil
 - `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
 - `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
   status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
-- `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?}`:
-  the user's message, then one assistant message per model step.
+- `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?,
+  cacheReadTokens?, cacheWriteTokens?, billedTokens?, inputEstimate?, usageEstimated?, contentJson?}`: the user's message, then one assistant message
+  per model step (`usageEstimated`: a cancelled step billed from what was known).
 - `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?, confirmDeadline?, approved?}`.
   `argsJson` is ≤ 8 KB, except agent sources (validate/summon, 20 KB) and stored panels (`save_panel`, 70 KB).
 - `assistantAllowances {roomId, subject, epoch, usedTokens, calls}` (epoch: the room's current game id, or `lobby`) and
@@ -192,6 +193,18 @@ assistant explain the game with one `GAME_PRIMER`. The model is offered the regi
 credential's permission, without the engine-derived ids. The separate assistant pool: an equal allowance per human per
 game and the model, approved by the owner in the AI budget card (default 0 = off); `ASSISTANT_GAME_USD` per room per
 game, `DAILY_ASSISTANT_USD` per day; per-player and per-room call rates (`convex/lib/aiModels.ts`).
+
+**Cost.** Anthropic requests cache the tools and system prompt (an explicit breakpoint) and the conversation so far
+(top-level automatic caching), so a turn's later steps read most of their input from the cache; OpenAI caches the same
+stable prefix automatically (`prompt_cache_key` per thread). The allowance counts billed tokens (a cache read at its
+price relative to input; `lib/ai-player` `usageCost`) and USD uses the catalogue's cache prices. A step's reservation
+is its input estimate (Anthropic `count_tokens`; otherwise a characters-per-token ratio measured from live usage,
+`CHARS_PER_TOKEN`) with a margin, at its dearest price, plus the 8,192-token output ceiling; it settles to the actual
+cost, even past the reservation. A cancelled step is billed from what was known: the input the provider reported when
+the stream opened (else the estimate) and the streamed output plus hidden reasoning time at a speed bound. An earlier
+turn that ended without its answer (allowance, failure, cancellation) is followed in the model's history by an
+"Engine note" saying so, so the next turn neither treats it as answered nor answers it unasked. A tool result clipped
+to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the prompt forbids counts from it.
 
 **Safety.**
 - Tool results reach the model as the registry's untrusted JSON (`{untrusted: true, notice, data}`); the system prompt

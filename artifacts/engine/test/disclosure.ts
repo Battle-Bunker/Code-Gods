@@ -17,6 +17,10 @@ export function numbers(value: unknown, out = new Set<string>()) {
   return out;
 }
 
+/** Integers below this magnitude collide with ordinary public numbers and are not checked as secrets. */
+export const SMALL_INTEGER = 1000;
+export const isSmallInteger = (n: number) => Number.isInteger(n) && Math.abs(n) < SMALL_INTEGER;
+
 /**
  * A checker for one viewer of one game: `check(label, result)` fails if `result` discloses anything private
  * to another god. `secrets` are marker strings planted in other gods' agent sources.
@@ -30,11 +34,14 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
     assert.ok(!json.includes("Play strategically"), `${label}: never an AI seat's prompt`);
     assert.ok(!json.includes("local-test-salt"), `${label}: never the season salt`);
     assert.ok(!numbers(result).has(JSON.stringify(secret.game.endAtWorld)), `${label}: never the end deadline`);
-    // Other gods' individual per-object net bits (where distinctive) never appear.
+    // Other gods' individual per-object net bits (where distinctive) never appear. Numbers are compared as whole JSON
+    // values, never substrings. A small integer is not distinctive: ordinary public data (counts, ids, values, a
+    // seat's energy) holds the same numbers, so "7 net bits" matched "objectCount: 7" about one run in two.
     const seen = numbers(result);
     for (const o of secret.objects) for (const s of o.scores) {
       if (s.god === viewerSubject) continue;
-      const distinctive = Math.abs(s.netBits) > 1e-6 && !o.scores.some((x: any) => x.god === viewerSubject && Math.abs(x.netBits - s.netBits) < 1e-12);
+      const distinctive = Math.abs(s.netBits) > 1e-6 && !isSmallInteger(s.netBits) &&
+        !o.scores.some((x: any) => x.god === viewerSubject && Math.abs(x.netBits - s.netBits) < 1e-12);
       if (distinctive) assert.ok(!seen.has(JSON.stringify(s.netBits)), `${label}: ${s.god}'s net bits ${s.netBits} on ${o._id}`);
     }
     // Other gods' descriptors never appear.

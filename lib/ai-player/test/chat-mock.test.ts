@@ -43,7 +43,11 @@ test("a prompt may follow a briefing block in the same user message; echo shows 
   const second = await mock.stream(ask([prompt, { role: "assistant", content: first.content },
     { role: "user", content: [{ type: "tool_result", toolUseId: "mock_0_0", content: "{}" }] }], { system: "SYS", tools: [{ name: "whoami", description: "d", inputSchema: {} }] }));
   const echoed = JSON.parse((second.content[0] as { text: string }).text);
-  assert.deepEqual(echoed, { system: "SYS", tools: ["whoami"], context: ["<briefing>Power Hoarder</briefing>"] });
+  assert.deepEqual(echoed, { system: "SYS", tools: ["whoami"], context: ["<briefing>Power Hoarder</briefing>"], earlier: [] });
+  // Earlier user messages (an older question, an engine note) are echoed too.
+  const later = await mock.stream(ask([{ role: "user", content: "old question" }, { role: "user", content: [{ type: "text", text: "Engine note: unanswered" }] },
+    { role: "user", content: '/mock [{"echo":true}]' }]));
+  assert.deepEqual(JSON.parse((later.content[0] as { text: string }).text).earlier, ["old question", "Engine note: unanswered"]);
 });
 
 test("the default script reads the observation, then summarizes it", async () => {
