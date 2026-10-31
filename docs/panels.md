@@ -90,7 +90,8 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useTrajectories({hz})` | `Map<objectId, TrajectoryPoint[]>` for the whole current game (the last 600 points per object) |
 | `useObjectHistory(id, {hz})` | one object's `TrajectoryPoint[]` |
 | `useMyUtility()` | your descriptor and the game settings (the evaluator's input); null when not seated |
-| `useEvaluator()` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below) |
+| `useEvaluator({enabled?})` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below); `enabled: false` keeps the scoring tables from loading |
+| `useAnnotations(objects, {utility: "mine" \| "none"})` | `Map<objectId, Annotation[]>`: what makes up your score on each object, for `ObjectView`'s `annotations` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
 | `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/player/`) |
@@ -151,7 +152,8 @@ never send a new one. A summon must not be paid twice.
 | Component or helper | What it draws |
 |---|---|
 | `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
-| `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
+| `ObjectGrid({objects, badge?, onSelect?, annotations?})` | a wrapping grid of objects with an optional badge and annotations (`o => Annotation[]`) |
+| `ObjectView({value, annotations?})` | one object with annotations drawn on it (see Annotations below) |
 | `ObjectView`, `TransformationView`, `useObjectContext()` | the engine UI's renderers, plus their props for this game |
 | `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
 | `Sparkline({values})` | a tiny inline line |
@@ -174,6 +176,52 @@ letter per colour). Int and string have one each (`text`). The viewer switches g
 tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
 every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only
 where one form is essential. The digit colours are the theme tokens `--cg-ink-R` … `--cg-ink-V`.
+
+**Annotations.** An annotation draws the eye to the parts of an object that make up a utility's score. The vocabulary
+(`lib/game-utilities/src/annotations.ts`, re-exported by `@workspace/object-views` with its helpers):
+
+| kind | for | shape | drawn as |
+|---|---|---|---|
+| `cells` | Grid | `{cells: [{r, c, weight?}], tone, label?}` | digits: a soft wash behind the glyph (opacity by weight) and an underline (thickness by weight); tiles: an outline (thickness by weight) and a glow |
+| `region` | Grid | `{cells, tone, label?}`, a connected group | one outline around the group |
+| `spans` | string | `{spans: [{start, end, weight?}], tone, label?}`, character indices, end exclusive | washed and underlined characters |
+| `digits` | Int | `{positions, weights?, tone, label?}`, positions from the left of the decimal digits, the minus sign not counted | washed and underlined digits |
+| `badge` | any | `{text, tone}` | a small chip after the object |
+
+`tone` is `good` (theme accent, ✓, solid underline), `bad` (destructive, ✗, wavy underline; dashed outline on tiles) or
+`neutral` (muted, •, dotted). Colour is never the only cue: weight also sets the underline or outline thickness and the
+font weight, and tones differ by symbol and line style. The labels form a legend: in a grid's detail view, as the object's
+tooltip, and under the objects panel's caption (`AnnotationLegend`, `annotationLegend`, `legendText`). Helpers:
+`mergeAnnotations`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`, `washOpacity`, `toneColour`.
+
+```tsx
+const { ctx } = useObjectContext();
+const objects = useObjects({ hz: 1 }).slice(0, 12);
+const marks = useAnnotations(objects, { utility: "mine" });       // computed in idle time, cached per game and value
+return <>{objects.map(o => <ObjectView key={o.id} value={o.value} {...ctx} annotations={marks.get(o.id)} />)}</>;
+```
+
+`useAnnotations` uses the family's own annotator when it has one, else a generic **sensitivity analysis**
+(`src/sdk/annotate.ts`): it re-scores the value with each cell (Int: digit; string: character) changed to up to six
+alternatives (other colours first, then symbols spread over the set), at most 300 scorings per object, through your
+local evaluator. A position whose change can lower your net bits supports your score (weight: the largest drop); one
+that no change lowers but some change raises holds it back (weight: the largest rise); weights are relative to the
+strongest position. Pass only the objects you show: annotations are computed lazily, in idle time, never during a render.
+Only your own utility can be annotated: the client has no one else's.
+
+**A family's own annotator.** Where a family's idea has a clearer picture than per-cell sensitivity (the patch it measures,
+the stripe it counts, the cells that touch), register an annotator beside the families in
+`lib/game-utilities/src/families/annotators.ts`:
+
+```ts
+const kingdom: Annotator = (value, { params }, inst) => { /* decode, find the biggest patch of params.C */ return [{ kind: "region", cells, tone: "good", label: "biggest blue patch (5)" }]; };
+export const ANNOTATORS = { …, kingdom };
+```
+
+An annotator is a pure function `(value, descriptor, instance) => Annotation[]` mirroring the family's TypeScript card;
+it must not throw (`annotatorFor` also guards it). Test it on a literal value with hand-derived marks, and cross-check
+against the card's ordinal (`lib/game-utilities/test/annotators.test.ts`). Families with one today: Green Ones, Homebody,
+Picture Frame, Feuding Families, Kingdom, Stripe Painter (Grid), Digit Devotee (Int), Glyph Glutton (string).
 
 ## Performance rules
 

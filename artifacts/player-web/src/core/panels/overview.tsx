@@ -4,30 +4,17 @@
  * when the game starts. `focus` (set by the assistant) chooses what the middle sentence is about.
  */
 import { useMemo } from "react";
-import { useMyAgents, useLeaderboard, useObjects } from "@/sdk";
-import { useDockActions } from "@/dock/actions";
-import { useOwnerActions } from "@/core/game/owner";
+import { useLeaderboard, useObjects } from "@/sdk";
 import { useNow, useSituation } from "@/core/game/situation";
-import { paletteStore } from "@/core/palette/store";
-import { nextStep } from "./next-step";
+import type { nextStep } from "./next-step";
+import { useNextStep } from "./use-next-step";
 import { BigNumber, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
 
 export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
-  const s = useSituation();
+  const { step, go, situation: s, agents } = useNextStep(paneId, phase);
   const objects = useObjects({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
-  const { agents } = useMyAgents({ hz: 1 });
-  const dock = useDockActions();
-  const owner = useOwnerActions();
   const now = useNow();
-  const step = nextStep({ phase, seated: s.seated, isOwner: s.isOwner, members: s.members, agents: agents.length });
-  const go = () => {
-    const action = step.action;
-    if (action.kind === "panel") dock.show(action.panelId);
-    else if (action.kind === "forge") dock.forgeEdit();
-    else if (action.kind === "start") void owner.start();
-    else paletteStore.open(paneId, step.label);
-  };
   const standing = useMemo(() => {
     const ranked = [...board].sort((a, b) => b.totalPayoff - a.totalPayoff);
     const index = ranked.findIndex(r => r.godId === s.obs?.self.godId);
