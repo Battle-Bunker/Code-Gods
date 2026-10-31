@@ -10,6 +10,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
+import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
 import {
@@ -167,16 +168,24 @@ export const historyAs = internalQuery({
 // owner actions (mutations; settings and start are Node actions in owner.ts)
 // ------------------------------------------------------------------------------------------------
 
-/** The owner approves the room's AI token budget (between games). */
+/**
+ * The owner approves the room's AI token budget for its AI seats (between games) and, optionally, the in-client
+ * assistant's allowance: tokens per human per game (0 = off) and its model. The assistant fields may change during
+ * a game (every human's allowance changes alike); the seats' budget stays frozen then.
+ */
 export const approveAiBudget = mutation({
-  args: { roomId: v.id("rooms"), aiBudget: v.number() },
-  handler: async (ctx, { roomId, aiBudget }) => {
+  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
+  handler: async (ctx, { roomId, aiBudget, assistantBudget, assistantModel }) => {
     const room = await requireRoom(ctx, roomId);
     await requireOwner(ctx, room);
     if (!Number.isSafeInteger(aiBudget) || aiBudget < 0 || aiBudget > 1_000_000) fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
-    if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
-    await bump(ctx, room, { aiBudget });
-    return { aiBudget };
+    if (assistantBudget !== undefined && (!Number.isSafeInteger(assistantBudget) || assistantBudget < 0 || assistantBudget > ASSISTANT_BUDGET_MAX)) {
+      fail("BAD_REQUEST", `The assistant allowance is a whole number of tokens from 0 to ${ASSISTANT_BUDGET_MAX.toLocaleString("en")}`);
+    }
+    if (assistantModel !== undefined && !AI_MODEL_CATALOG.some(m => m.id === assistantModel)) fail("BAD_REQUEST", "Unknown assistant model");
+    if (aiBudget !== room.aiBudget && await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
+    await bump(ctx, room, { aiBudget, ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}) });
+    return { aiBudget, assistantBudget: assistantBudget ?? room.assistantBudget ?? 0, assistantModel: assistantModel ?? room.assistantModel ?? DEFAULT_AGENT_MODEL };
   },
 });
 

@@ -14,6 +14,12 @@ export function findModel(provider: string, model: string): AIModel | undefined 
 }
 /** Host-key safety ceilings, in addition to the room owner's token budget. */
 export const GAME_USD = 2, DAILY_HOST_USD = 5, CALLS_PER_MINUTE = 6;
+/**
+ * The in-client assistant's pool (assistant/*), separate from the seats': USD reserved per room per game and per
+ * UTC day across rooms, model calls per player and per room per rolling minute, and the largest per-human allowance.
+ */
+export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PER_MINUTE = 8, ASSISTANT_ROOM_CALLS_PER_MINUTE = 30;
+export const ASSISTANT_BUDGET_MAX = 2_000_000;
 export const PROMPT_MAX = 10_000;
 export const mockEnabled = () => process.env.CODE_GODS_AI_MOCK === "1";
 export const providerConfigured = (provider: string) =>

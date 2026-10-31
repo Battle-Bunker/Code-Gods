@@ -119,7 +119,7 @@ export const commitStart = internalMutation({
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     await ctx.db.patch(room._id, {
       activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1,
-      aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
+      aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [], assistantReservedUsd: 0,
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
