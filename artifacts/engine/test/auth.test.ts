@@ -230,7 +230,7 @@ test("device flow end to end, with wrong proofs, slow-down, replay, expiry and d
   const viewer = await client(exchanged.body.token).query("auth/testing:probe", {}) as Record<string, unknown>;
   assert.deepEqual(viewer, {
     subject: A.subject, name: "Alice Liddell", scope: "player", roomId: room.roomId, permission: "act",
-    credentialId: claimed.body.credentialId, label: "Replit Agent (self-reported)", isAdmin: false,
+    credentialId: claimed.body.credentialId, label: "Replit Agent (self-reported)", isAdmin: false, credentialKind: "device",
   });
   assert.equal((await post("/api/device/token", { credential: "cgc_" + "A".repeat(43) })).status, 401);
   assert.equal((await post("/api/device/token", { credential: "nope" })).status, 400);
