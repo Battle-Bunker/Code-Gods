@@ -8,7 +8,6 @@
  * engine UI's bundle).
  */
 import { CATALOG, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { deriveConfirm } from "./confirm.ts";
 import { paletteRows } from "./search.ts";
 import type { Availability, Command, PaletteContext, Performer } from "./types.ts";
 
@@ -45,7 +44,7 @@ export function commandsFromCatalog(
     if (!performer) continue;
     out.push({
       id: path, human: { title: entry.palette.label, tooltip: entry.human.tooltip }, group: entry.palette.group, keywords: entry.palette.keywords,
-      confirm: deriveConfirm({ explicit: entry.palette.confirm }),
+      confirm: entry.palette.confirm ?? "none",
       performer, available: ctx => availabilityFor(entry, ctx),
     });
   }

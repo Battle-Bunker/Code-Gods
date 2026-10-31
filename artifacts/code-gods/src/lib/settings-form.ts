@@ -73,9 +73,9 @@ const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u: string) => (u ? ` ${u}` : "");
 
 /** The message for a number outside its field's limits, or null when it is fine. */
-export function limitError(limit: Limit | undefined, value: number): string | null {
+export function limitError(limit: Limit | undefined, value: unknown): string | null {
   if (!limit) return null;
-  if (!Number.isFinite(value)) return "Enter a number.";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "Enter a number.";
   if (limit.int && !Number.isInteger(value)) return "Must be a whole number.";
   if (limit.above && value <= limit.min) return `Must be more than ${n(limit.min)}${unitText(limit.unit)}.`;
   if (value < limit.min || (limit.max !== undefined && value > limit.max)) {
@@ -83,13 +83,13 @@ export function limitError(limit: Limit | undefined, value: number): string | nu
   }
   return null;
 }
-export const fieldError = (key: SettingsKey, value: number) => limitError(LIMITS[key], value);
+export const fieldError = (key: SettingsKey, value: unknown) => limitError(LIMITS[key], value);
 
 /** Every field error of a draft, plus `_form` for anything else validateSettings refuses (e.g. an unknown option). */
 export function draftErrors(s: Settings): Partial<Record<SettingsKey | "_form", string>> {
   const out: Partial<Record<SettingsKey | "_form", string>> = {};
   for (const key of Object.keys(LIMITS) as SettingsKey[]) {
-    const e = fieldError(key, Number(s[key]));
+    const e = fieldError(key, s[key]);
     if (e) out[key] = e;
   }
   if (!Object.keys(out).length) {

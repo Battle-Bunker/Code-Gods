@@ -5,9 +5,12 @@
  * (catalogue paths or `ui.*` ids) so the page button and the palette row run the same command.
  */
 
-export type StepId =
-  | "ui.auth.signIn" | "rooms.join" | "ui.nav.playerClient" | "rooms.setReady" | "ui.copyInviteLink" | "rooms.addAi"
-  | "owner.start" | "ui.nav.game" | "rooms.resume" | "ui.nav.room" | "rooms.create";
+/** The ids a page's next step can name; every one is a palette command (tested). */
+export const STEP_IDS = [
+  "ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
+  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create",
+] as const;
+export type StepId = (typeof STEP_IDS)[number];
 
 export interface NextStep {
   /** One sentence, ≤ 12 words. */
@@ -26,7 +29,7 @@ export interface StepRoom {
 }
 export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null }
 
-const firstName = (name: string) => name.split(/\s+/)[0] || name;
+export const firstName = (name: string) => name.split(/\s+/)[0] || name;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The room page's next step for this viewer (`viewerId` null when signed out). */

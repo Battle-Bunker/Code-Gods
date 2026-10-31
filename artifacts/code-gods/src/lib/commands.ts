@@ -9,7 +9,8 @@ import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
-import type { StepId } from "./next-step.ts";
+import { firstName } from "./next-step.ts";
+export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
 export const UI_COMMANDS = {
@@ -109,7 +110,6 @@ export function paletteContextFor(scope: EngineScope): PaletteContext {
 
 const ok: Availability = { ok: true };
 const no = (reason: string, extra: Partial<Extract<Availability, { ok: false }>> = {}): Availability => ({ ok: false, reason, ...extra });
-const firstName = (s: string) => s.split(/\s+/)[0] || s;
 
 /** Every command of the engine UI for this scope. */
 export function engineCommands(scope: EngineScope, act: EngineActions): Command[] {
@@ -215,7 +215,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       `2. Run: pnpm player connect --room ${roomCode ?? "CODE"}`,
       "3. Approve the code it prints (Approve a device code…), then save the credential it prints as CODE_GODS_CREDENTIAL.",
     ], copy: { label: "Copy the connect command", text: `pnpm player connect --room ${roomCode ?? "CODE"}` } } }, member),
-    ui("ui.copyRules", { kind: "local", run: () => { const t = act.rulesText(); if (t) act.copy(t, "Game rules"); } }, () => (act.rulesText() ? ok : no("Open a room or game first.", { hidden: true }))),
+    ui("ui.copyRules", { kind: "local", run: () => { const t = act.rulesText(); if (t) act.copy(t, "Game rules"); } }, () => (room || game ? ok : no("Open a room or game first.", { hidden: true }))),
     ui("ui.help.scoring", { kind: "local", run: () => act.openSheet("scoring") }, () => ok, { defaultScore: 1 }),
     ui("ui.help.howToPlay", { kind: "form", page: { kind: "info", title: "How to play", lines: HOW_TO_PLAY } }, () => ok, { defaultScore: 2 }),
     ui("ui.aiSpending", { kind: "local", run: () => act.openSheet("ai-spending") }, () => (!room ? no("Open a room first.", { hidden: true }) : isOwner ? ok : no(`Only the owner, ${room.ownerName}, can change spending.`))),
@@ -246,8 +246,6 @@ export function codeCommands(query: string, act: Pick<EngineActions, "navigate">
   return [row("room"), row("game")];
 }
 
-/** The ids a page's next step can name; every one is a command (tested). */
-export const STEP_IDS: readonly StepId[] = ["ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi", "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create"];
 
 /** The game in 90 seconds (onboarding-and-config.md §2), for "How to play". */
 export const HOW_TO_PLAY: readonly string[] = [

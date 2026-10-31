@@ -56,7 +56,7 @@ function statusLine(game: GameView, now: number) {
 function OwnerMenu({ game }: { game: GameView }) {
   const { run, unavailable } = usePage();
   const [confirm, setConfirm] = useState(false);
-  const act = useRun();
+  const [ending, setEnding] = useState(false);
   const recovery = game.phase === "recovery";
   return (<>
     <DropdownMenu>
@@ -76,7 +76,7 @@ function OwnerMenu({ game }: { game: GameView }) {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel autoFocus data-testid="button-cancel-end-game">Keep playing</AlertDialogCancel>
-          <AlertDialogAction disabled={act.pending} onClick={() => run("rooms.endActiveGame")} data-testid="button-confirm-end-game">End game {game.shortCode}</AlertDialogAction>
+          <AlertDialogAction disabled={ending} onClick={() => { if (!ending) { setEnding(true); run("rooms.endActiveGame"); } }} data-testid="button-confirm-end-game">End game {game.shortCode}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

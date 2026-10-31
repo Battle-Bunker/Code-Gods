@@ -195,7 +195,7 @@ export default function Room() {
   }, [activeId, room, navigate]);
   useEffect(() => { document.title = `Room ${room?.shortCode ?? id} · Code Gods`; }, [room?.shortCode, id]);
   const code = room?.shortCode ?? id.toUpperCase();
-  const step = room ? nextStep(user?.id, room, { aiAvailable: manifest?.aiFunding.configured !== false }) : null;
+  const step = room ? nextStep(user?.id, room, { minPlayers: manifest?.minimumPlayers, maxPlayers: manifest?.maximumPlayers, aiAvailable: manifest?.aiFunding.configured !== false }) : null;
 
   return (
     <Page room={room ?? null} history={games} crumbs={[{ label: code }]} placeholder={`Search or do anything in ${code}`}

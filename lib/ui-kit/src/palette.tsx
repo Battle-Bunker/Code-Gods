@@ -197,10 +197,10 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
   };
 
   // ----- rows of the root page -----
-  const sections = useMemo(() => page.kind !== "root" ? [] : paletteRows(commands, context, {
+  const sections = useMemo(() => !open || page.kind !== "root" ? [] : paletteRows(commands, context, {
     query, suggested, recent, browse: page.browse, only: page.only, dynamic,
   }).map(s => ({ ...s, rows: s.rows.map(r => ({ ...r, availability: effective(r.command) })) })), // eslint-disable-line react-hooks/exhaustive-deps
-  [page, commands, context, query, suggested, recent, dynamic, handoff]);
+  [open, page, commands, context, query, suggested, recent, dynamic, handoff]);
   const rowById = useMemo(() => new Map(sections.flatMap(s => s.rows).map(r => [r.command.id, r])), [sections]);
   const selectedRow = rowById.get(selected) ?? sections[0]?.rows[0];
   const askRow = page.kind === "root" && query.trim() && !sections.length && handoff && context.assistantOn;

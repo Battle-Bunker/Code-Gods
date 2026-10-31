@@ -177,10 +177,10 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],
     origin: window.location.origin,
   };
-  // The actions close over the latest props; rebuilding the list per render is cheap (a few dozen rows).
-  const commands = engineCommands(scope, act);
+  // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
-  const byId = new Map(commands.map(c => [c.id, c]));
+  const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
   const openPalette = (init?: PaletteOpenInit) => setPalette({ open: true, init });
   const api_: PageApi = {
@@ -243,7 +243,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       <CommandPalette commands={commands} context={ctx} open={palette.open} init={palette.init} onOpenChange={o => setPalette(p => ({ open: o, init: o ? p.init : undefined }))}
         placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
         dynamic={q => (user ? codeCommands(q, act) : [])} onNavigate={to => navigate(to)} onError={(e, c) => fail(c.human.title, e)} />
-      {room && <AiSpendingSheet key={`${room.id}-${room.revision}`} room={room} manifest={manifest} open={sheet === "ai-spending"} onOpenChange={o => setSheet(o ? "ai-spending" : null)} />}
+      {room && <AiSpendingSheet key={`${room.id}-${room.aiBudget}-${room.assistantBudget}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-spending"} onOpenChange={o => setSheet(o ? "ai-spending" : null)} />}
       <ConnectedAppsSheet open={sheet === "connected-apps"} onOpenChange={o => setSheet(o ? "connected-apps" : null)} roomCode={room?.shortCode} />
       <ScoringSheet open={sheet === "scoring"} onOpenChange={o => setSheet(o ? "scoring" : null)} objectType={room?.settings.objectType ?? game?.settings.objectType} />
       <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} />

@@ -142,12 +142,12 @@ export function paletteRows(commands: readonly Command[], ctx: PaletteContext, o
     return { ...r, score: m.score + (m.score && suggested.includes(r.command.id) ? 10 : 0), ...(m.alias ? { alias: m.alias } : {}) };
   }).filter(r => r.score > 0);
   const rank = (r: PaletteRow) => recent.indexOf(r.command.id) < 0 ? Infinity : recent.indexOf(r.command.id);
-  const rows = [...dynamic, ...matched].filter(r => visible(r.availability))
+  const rows = [...dynamic, ...matched].filter(r => visible(r.availability) && (!opts.only || sectionOf(r.command) === opts.only))
     .sort((a, b) => Number(b.availability.ok) - Number(a.availability.ok) || b.score - a.score
       || (b.command.defaultScore ?? 0) - (a.command.defaultScore ?? 0) || rank(a) - rank(b) || a.command.human.title.localeCompare(b.command.human.title))
     .slice(0, TYPED_LIMIT);
   // Sections in the order of their best row, so the top match is also the first row on screen.
   const order: PaletteSection[] = [];
   for (const r of rows) { const s = opts.only ?? sectionOf(r.command); if (!order.includes(s)) order.push(s); }
-  return group(opts.only ? rows.filter(r => sectionOf(r.command) === opts.only) : rows, r => opts.only ?? sectionOf(r.command), order);
+  return group(rows, r => opts.only ?? sectionOf(r.command), order);
 }

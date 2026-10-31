@@ -24,6 +24,7 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   const grid = presetSettings("grid-classic");
   assert.deepEqual(draftErrors(grid), {});
   assert.deepEqual(Object.keys(draftErrors({ ...grid, stepBudget: 0 })), ["stepBudget"]);
+  assert.equal(draftErrors({ ...grid, startingEnergy: null as unknown as number }).startingEnergy, "Enter a number.", "an emptied field (NaN, stored as null) is an error, not 0");
   assert.match(draftErrors({ ...grid, utilitySelectorId: "nope" })._form ?? "", /utilitySelectorId/);
 });
 

@@ -83,15 +83,32 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
   const dirtyBudgets = !same(budgets, roomBudgets);
   const dirty = dirtySettings || dirtyBudgets;
 
+  // Budgets approved elsewhere (the AI spending sheet, another tab) replace the draft's unless edited here.
+  const lastRoomBudgets = useRef(roomBudgets);
+  useEffect(() => {
+    const prev = lastRoomBudgets.current;
+    lastRoomBudgets.current = roomBudgets;
+    if (same(prev, roomBudgets)) return;
+    setBudgets(b => (same(b, prev) ? roomBudgets : b));
+  }, [room.aiBudget, room.assistantBudget, room.assistantModel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ?from=<preset> opens the page pre-filled from that preset (once the manifest has it; never over a stored draft).
+  const appliedFrom = useRef(!from || !!stored || !editable);
+  useEffect(() => {
+    if (appliedFrom.current) return;
+    const p = manifest?.presets.find(x => x.id === from);
+    if (!manifest) return;
+    appliedFrom.current = true;
+    if (p?.settings) setDraft(withLanguage(p.settings, room.settings.language)); else setStartFrom("current");
+  }, [manifest]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keep the draft across reloads; clear it once nothing differs.
   useEffect(() => { if (editable) saveDraft(room.id, dirty ? { base, draft, budgets } : null); }, [editable, room.id, base, draft, budgets, dirty]);
 
   // Settings saved elsewhere (another tab, the assistant): merge them into the draft, never discard it.
-  const seen = useRef(room.revision);
   useEffect(() => {
     if (room.revision === base.revision || same(room.settings, base.settings)) {
       if (room.revision !== base.revision) setBase({ settings: room.settings, revision: room.revision });
-      seen.current = room.revision;
       return;
     }
     if (!dirtySettings) { setDraft(room.settings); setBase({ settings: room.settings, revision: room.revision }); return; }
