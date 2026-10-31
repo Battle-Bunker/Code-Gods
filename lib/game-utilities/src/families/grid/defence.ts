@@ -9,6 +9,7 @@ import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, cname, full, gridFamily, range, symForValue, tsCard, pyCard, tuple, valueNote, wire,
 } from "./_util.ts";
+import { binomial, exactSurvival } from "../../analytic.ts";
 
 const COMPARATIVE_COLOUR: Readonly<Record<string, string>> = {
   red: "redder", green: "greener", blue: "bluer", yellow: "yellower", orange: "more orange", violet: "more violet",
@@ -44,6 +45,8 @@ const hateColour = gridFamily<ColourP>({
       return bad;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.colour)),
+  /** Cells are iid, each the hated colour with probability 1/C: the count is Binomial(N², 1/C) (tail-toolkit.md §2). */
+  analytic: (_p, g) => exactSurvival("binomial-cells@1", binomial(g.N * g.N, 1 / g.C)),
 });
 
 // --- Hated number ---------------------------------------------------------------------------------

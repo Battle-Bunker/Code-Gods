@@ -8,6 +8,7 @@
  */
 import type { Constraint, ObjectValue, Rng } from "@workspace/game-types";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
+import type { AnalyticSurvival } from "../../analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // the instantiation, as grid-lab's GridType
@@ -72,6 +73,12 @@ export function gridSpec(ctx: FamilyContext): GridSpec {
   return s;
 }
 
+/** The law of one cell's value under μ, indexed by value (digits: 1/S each; cards: values 1..13 at 1/13, index 0 empty). */
+export function valueLaw(g: GridSpec): number[] {
+  const pv: number[] = new Array(g.vmax + 1).fill(0);
+  for (const v of g.value) pv[v] += 1 / g.S;
+  return pv;
+}
 export const cname = (g: GridSpec, c: number) => g.colourNames[c];
 export const colourIndex = (g: GridSpec, name: string) => g.colourNames.indexOf(name);
 /** A symbol index with value v (cards: in the given suit). */
@@ -200,6 +207,8 @@ export interface GridFamilyDef<P extends Params> {
   readonly exemplar?: (p: P, g: GridSpec, ctx: FamilyContext) => ObjectValue;
   /** Penalties: "redder", "blobbier" (the ⚠️ line). */
   readonly comparative?: (p: P, g: GridSpec) => string;
+  /** The analytic survival function (src/analytic.ts), or null for params/shapes it does not cover. */
+  readonly analytic?: (p: P, g: GridSpec, ctx: FamilyContext) => AnalyticSurvival | null;
 }
 
 export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily<P> {
@@ -218,6 +227,7 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
     },
     ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, gridSpec(ctx), ctx) } : {}),
     ...(d.comparative ? { comparative: (p: P, ctx: FamilyContext) => d.comparative!(p, gridSpec(ctx)) } : {}),
+    ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, gridSpec(ctx), ctx) } : {}),
   };
 }
 
