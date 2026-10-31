@@ -211,7 +211,8 @@ export const run = internalAction({
       ...usage, tokens: cost.tokens, reservedUsd: reservation.reservedUsd, usd: cost.usd,
     });
     const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), Math.max(1000, c.turn.deadline - Date.now()));
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; abort.abort(); }, Math.max(1000, c.turn.deadline - Date.now()));
     const flush = flusher(ctx, turnId, gen, messageId, () => abort.abort());
     let result: ChatResult;
     try {
@@ -233,8 +234,9 @@ export const run = internalAction({
         await settle(billed, { inputTokens, outputTokens }).catch(() => log("budget", { turnId, reason: "settle_failed" }));
         await ctx.runMutation(internal.assistant.store.recordAbortedUsage, {
           turnId, messageId, inputTokens, outputTokens, cacheReadTokens: partial.input?.cacheReadTokens ?? 0, cacheWriteTokens: partial.input?.cacheWriteTokens ?? 0, billedTokens: billed.tokens,
-        });
-        return void await finish("cancelled");
+        }).catch(() => log("budget", { turnId, reason: "record_failed" }));
+        // A deadline abort fails the turn (finish turns a cancelling turn into cancelled either way).
+        return void await (timedOut ? finish("failed", { code: "DEADLINE", message: "The turn ran past its 10-minute deadline" }) : finish("cancelled"));
       }
       log("step", { turnId, step: c.turn.step, outcome: abort.signal.aborted ? "aborted" : "provider_error" });
       // A provider failure, or a cancellation the flush saw (finish turns a cancelling turn into cancelled, never
@@ -263,11 +265,11 @@ export const run = internalAction({
       const ids = args.commandId === id || args.requestId === id ? { commandId: id } : {};
       const limited = callLimitProblem(use.name, uses.slice(0, n).map(u => u.name));
       if (limited) {
-        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Too many calls in one step",
+        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars, { notice: false }), ...ids, status: "error" as const, summary: "Too many calls in one step",
           resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: limited } }) };
       }
       if (argsJson.length > argsLimit(use.name)) {
-        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Arguments too large",
+        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars, { notice: false }), ...ids, status: "error" as const, summary: "Arguments too large",
           resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: `Tool arguments are limited to ${argsLimit(use.name)} characters` } }) };
       }
       return { callId: use.id, tool: use.name, argsJson, ...ids, status: "pending" as const, summary: "" };

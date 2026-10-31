@@ -64,7 +64,6 @@ const MOCK_PRICES = { inputUsdPerMillion: 0.01, outputUsdPerMillion: 0.01, cache
 export function mockChatProvider(): ChatProvider {
   return {
     prices: MOCK_PRICES,
-    estimateMaxUsd: (input, output) => (input * MOCK_PRICES.cacheWriteUsdPerMillion + output * MOCK_PRICES.outputUsdPerMillion) / 1e6,
     async estimateInputTokens(input) { return { tokens: charsEstimate(input, CHARS_PER_TOKEN.mock), counted: false }; },
     async stream(request): Promise<ChatResult> {
       let promptAt = -1;

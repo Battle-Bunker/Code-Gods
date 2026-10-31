@@ -9,7 +9,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import type { ChatMessage } from "@workspace/ai-player";
-import { LIMITS, buildHistory, isActive, type TurnStatus } from "./rules";
+import { LIMITS, buildHistory, isActive, turnEnding, type TurnStatus } from "./rules";
 
 type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
@@ -82,11 +82,12 @@ async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
   const rows = [...before, ...mine.sort((a, b) => a.seq - b.seq)];
   const turnIds = [...new Set(rows.map(m => m.turnId))];
   const calls = (await Promise.all(turnIds.map(id => callsOf(ctx, id)))).flat();
-  const statuses = Object.fromEntries((await Promise.all(turnIds.map(id => ctx.db.get(id)))).flatMap(t => t ? [[t._id, t.status]] : []));
+  const earlier = await Promise.all(turnIds.filter(id => id !== turn._id).map(id => ctx.db.get(id)));
+  const endings = Object.fromEntries(earlier.flatMap(t => t ? [[t._id, turnEnding(t.status, t.error?.code)]] : []));
   return buildHistory(
     rows.map(m => ({ id: m._id, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
     calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
-    { turnId: turn._id, briefing: turn.briefing ?? null, statuses },
+    { turnId: turn._id, briefing: turn.briefing ?? null, endings },
   );
 }
 

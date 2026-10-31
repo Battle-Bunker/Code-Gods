@@ -56,8 +56,6 @@ export type ChatInput = Pick<ChatRequest, "system" | "messages" | "tools">;
 export interface ChatProvider {
   /** The prices this provider bills at (USD per million tokens). */
   readonly prices: Prices;
-  /** Worst-case USD of a call with this many input and output tokens (every input token at its dearest price). */
-  estimateMaxUsd(inputTokens: number, outputTokens: number): number;
   /**
    * The request's input tokens: the provider's own count where it has one (Anthropic count_tokens), else the request
    * size divided by the provider's measured characters per token. Never throws; `counted` says which.
@@ -82,8 +80,6 @@ export function checkPrices(model: string, prices: Prices) {
 const readPrice = (p: Prices) => p.cacheReadUsdPerMillion ?? p.inputUsdPerMillion;
 const writePrice = (p: Prices) => p.cacheWriteUsdPerMillion ?? p.inputUsdPerMillion;
 const dearestInput = (p: Prices) => Math.max(p.inputUsdPerMillion, writePrice(p));
-export const usdEstimator = (prices: Prices) => (input: number, output: number) =>
-  (input * dearestInput(prices) + output * prices.outputUsdPerMillion) / 1_000_000;
 
 /**
  * What one call costs: USD at the provider's prices, and the allowance tokens it uses. Allowance tokens are
@@ -99,7 +95,7 @@ export function usageCost(prices: Prices, u: ChatUsage): { usd: number; tokens: 
 }
 /** The worst case of a call (every input token written to the cache, if that is dearer; the whole output ceiling). */
 export function worstCaseCost(prices: Prices, inputTokens: number, outputTokens: number): { usd: number; tokens: number } {
-  return { usd: usdEstimator(prices)(inputTokens, outputTokens), tokens: Math.ceil(inputTokens * dearestInput(prices) / prices.inputUsdPerMillion) + outputTokens };
+  return { usd: (inputTokens * dearestInput(prices) + outputTokens * prices.outputUsdPerMillion) / 1_000_000, tokens: Math.ceil(inputTokens * dearestInput(prices) / prices.inputUsdPerMillion) + outputTokens };
 }
 
 /** The size the characters-per-token estimates are measured against: the system prompt, the history and the tools as JSON. */

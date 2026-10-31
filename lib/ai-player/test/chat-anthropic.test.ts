@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { ChatAbortedError, anthropicChatProvider, createDirectAnthropicChatProvider, inputChars, providerFailure, type ChatRequest } from "../src/index.ts";
+import { ChatAbortedError, worstCaseCost, anthropicChatProvider, createDirectAnthropicChatProvider, inputChars, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const config = { model: "claude-sonnet-5-5", inputUsdPerMillion: 2, outputUsdPerMillion: 10 };
 const sse = (events: Record<string, unknown>[]) =>
@@ -74,7 +74,7 @@ test("streams text to onText, parses tool_use blocks and reports usage; the requ
   ]);
   assert.deepEqual(body.thinking, { type: "adaptive" }, "thinking is explicit: models that think by default keep doing so");
   assert.deepEqual(body.output_config, { effort: "medium" });
-  assert.equal(model.estimateMaxUsd(1_000_000, 1_000_000), 12);
+  assert.equal(worstCaseCost(model.prices, 1_000_000, 1_000_000).usd, 12);
 });
 
 const thinking = (index: number, signature: string) => [

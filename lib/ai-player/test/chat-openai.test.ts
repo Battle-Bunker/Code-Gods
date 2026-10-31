@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import OpenAI from "openai";
-import { ChatAbortedError, openAIChatProvider, createDirectOpenAIChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
+import { ChatAbortedError, worstCaseCost, openAIChatProvider, createDirectOpenAIChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const prices = { inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6 };
 const chunk = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
@@ -58,7 +58,7 @@ test("streams text, assembles tool calls from fragments, reports usage; the requ
     { role: "assistant", content: null, tool_calls: [{ id: "call_0", type: "function", function: { name: "get_observation", arguments: "{}" } }] },
     { role: "tool", tool_call_id: "call_0", content: "{}" },
   ]);
-  assert.equal(model.estimateMaxUsd(1_000_000, 1_000_000), 2);
+  assert.equal(worstCaseCost(model.prices, 1_000_000, 1_000_000).usd, 2);
 });
 
 test("cached input is reported (prompt_tokens_details.cached_tokens); the cache key routes a thread to its cache; the system prompt comes first", async () => {

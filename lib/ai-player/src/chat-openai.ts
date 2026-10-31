@@ -1,7 +1,7 @@
 /** The OpenAI chat-completions adapter of the assistant's ChatProvider (chat.ts): streaming text and tool calls. */
 import OpenAI from "openai";
 import {
-  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop, usdEstimator,
+  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop,
   type ChatProvider, type ChatResult, type Prices,
 } from "./chat.ts";
 
@@ -11,7 +11,6 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
   checkPrices(model, prices);
   return {
     prices,
-    estimateMaxUsd: usdEstimator(prices),
     async estimateInputTokens(input) { return { tokens: charsEstimate(input, CHARS_PER_TOKEN.openai), counted: false }; },
     /**
      * OpenAI caches stable request prefixes automatically (1024 tokens and up): the tools and the system prompt come
@@ -63,7 +62,7 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
       }
       // Usage arrives only in the last chunk: an aborted stream (the SDK may end it quietly) knows only what it
       // streamed; this API shows no hidden reasoning.
-      if (request.signal.aborted) throw new ChatAbortedError({ outputChars: text.length + calls.reduce((n, c) => n + c.args.length, 0), reasoningMs: 0 });
+      if (request.signal.aborted && !(finish && usage)) throw new ChatAbortedError({ outputChars: text.length + calls.reduce((n, c) => n + c.args.length, 0), reasoningMs: 0 });
       const stopReason = completeStop(finish, { stop: "end_turn", tool_calls: "tool_use" });
       const counted = checkUsage(usage?.prompt_tokens, usage?.completion_tokens, request.maxOutputTokens, { read: usage?.prompt_tokens_details?.cached_tokens ?? 0 });
       const content: ChatResult["content"] = text ? [{ type: "text", text }] : [];

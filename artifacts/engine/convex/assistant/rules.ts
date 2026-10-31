@@ -177,6 +177,23 @@ function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | n
   try { const blocks = JSON.parse(json) as unknown; return Array.isArray(blocks) ? blocks as ChatAssistantBlock[] : null; } catch { return null; }
 }
 
+/** How an earlier turn ended, for its note: its status, or why a "done" or "failed" turn stopped short. */
+export type TurnEnding = TurnStatus | "step_limit" | "deadline";
+export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnEnding =>
+  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : status;
+
+/**
+ * The note closing an earlier turn that ended before its answer, so the model neither takes the player's message as
+ * answered nor answers it unasked. Keyed by how the turn ended; a finished ("done") turn gets none.
+ */
+export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
+  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant allowance ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
+  step_limit: "Engine note (not from the player): the turn above stopped at the step limit, possibly before you finished. If the player's next message does not make it moot, say briefly where you stopped.",
+  deadline: "Engine note (not from the player): the turn above ran past its time limit before you finished. Treat the player's message above as unanswered unless their next message makes it moot.",
+  failed: "Engine note (not from the player): the turn above failed before you finished answering it (a provider or tool error). Treat the player's message above as unanswered unless their next message makes it moot.",
+  cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",
+};
+
 /**
  * The thread as model messages. Rules (Claude 5 thinking blocks are valid only while everything before them is
  * byte-identical, so the history must be append-only within a turn):
@@ -188,17 +205,7 @@ function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | n
  *   - an earlier turn that ended without its answer (allowance, failure, cancellation) closes with UNANSWERED_NOTES.
  * Rows from before stored blocks existed are rebuilt from their text and calls.
  */
-/**
- * The note closing an earlier turn that ended before its answer, so the model neither takes the player's message as
- * answered nor answers it unasked. Keyed by the turn's final status; a finished ("done") turn gets none.
- */
-export const UNANSWERED_NOTES: Partial<Record<TurnStatus, string>> = {
-  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant allowance ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
-  failed: "Engine note (not from the player): the turn above failed before you finished answering it (a provider or tool error). Treat the player's message above as unanswered unless their next message makes it moot.",
-  cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",
-};
-
-export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefing?: string | null; statuses?: Record<string, TurnStatus> }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
+export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefing?: string | null; endings?: Record<string, TurnEnding> }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
   const byMessage = new Map<string, HistoryCall[]>();
   for (const c of calls) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
   const groups: { turnId: string; messages: ChatMessage[] }[] = [];
@@ -229,7 +236,7 @@ export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: 
     if (results.length) group.messages.push({ role: "user", content: results });
   }
   for (const g of groups) {
-    const note = g.turnId !== current.turnId ? UNANSWERED_NOTES[current.statuses?.[g.turnId] ?? "done"] : undefined;
+    const note = g.turnId !== current.turnId ? UNANSWERED_NOTES[current.endings?.[g.turnId] ?? "done"] : undefined;
     if (note) g.messages.push({ role: "user", content: [{ type: "text", text: note }] });
   }
   const older = groups.filter(g => g.turnId !== current.turnId);
@@ -267,9 +274,9 @@ const TRUNCATED_ADVICE = "Counts and totals from this result are NOT complete: n
 /**
  * JSON of `value` in at most `max` characters: arrays trimmed from the end first, then long strings cut. A clipped
  * result starts with a TRUNCATED field saying what was cut (an array's kept and total items), so the model reads it
- * before the data; `truncated: true` stays at the end for programs.
+ * before the data; `truncated: true` stays at the end for programs. Stored arguments (`notice: false`) get no notice.
  */
-export function clipJson(value: unknown, max: number): string {
+export function clipJson(value: unknown, max: number, { notice: withNotice = true }: { notice?: boolean } = {}): string {
   const json = JSON.stringify(value) ?? "null";
   if (json.length <= max) return json;
   const original = JSON.parse(json) as unknown;
@@ -280,13 +287,13 @@ export function clipJson(value: unknown, max: number): string {
     for (let attempt = 0; attempt < 3 && room > 0; attempt++) {
       try {
         const { value: trimmed } = bound(cutStrings(value, strings), room);
-        const body = trimmed && typeof trimmed === "object" && !Array.isArray(trimmed) ? trimmed : { value: trimmed };
-        const out = JSON.stringify({ TRUNCATED: notice(trimmedArrays(original, trimmed)), ...body, truncated: true });
+        const { TRUNCATED: _, ...body } = (trimmed && typeof trimmed === "object" && !Array.isArray(trimmed) ? trimmed : { value: trimmed }) as Record<string, unknown>;
+        const out = JSON.stringify({ ...(withNotice ? { TRUNCATED: notice(trimmedArrays(original, trimmed)) } : {}), ...body, truncated: true });
         if (out.length <= max) return out;
         room -= out.length - max + 16;
       } catch { break; /* cut strings further */ }
     }
   }
   const head = `TRUNCATED: only the first characters of the result's JSON are shown, as a string. ${TRUNCATED_ADVICE}`;
-  return JSON.stringify({ TRUNCATED: head, preview: json.slice(0, Math.max(0, max - head.length - 64)), truncated: true }).slice(0, max);
+  return JSON.stringify({ ...(withNotice ? { TRUNCATED: head } : {}), preview: json.slice(0, Math.max(0, max - head.length - 64)), truncated: true }).slice(0, max);
 }

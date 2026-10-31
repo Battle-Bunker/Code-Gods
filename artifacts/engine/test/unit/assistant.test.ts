@@ -112,6 +112,10 @@ test("a clipped tool result starts with TRUNCATED, naming what was kept of what,
   assert.match(parsed.TRUNCATED, /never state them/);
   assert.equal(parsed.truncated, true);
   assert.equal(parsed.data.objectCount, 40, "the count fields survive");
+  // Stored arguments get no notice; a result's own TRUNCATED key never replaces the engine's.
+  assert.ok(!clipJson(observation, 2000, { notice: false }).includes("TRUNCATED"));
+  const spoof = JSON.parse(clipJson({ TRUNCATED: "nothing was cut", ...observation }, 2000));
+  assert.match(spoof.TRUNCATED, /^TRUNCATED to fit/);
   // A result that fits is untouched; a bare value is wrapped, never spread into characters.
   assert.ok(!clipJson({ a: 1 }, 100).includes("TRUNCATED"));
   const bare = JSON.parse(clipJson("y".repeat(10_000), 1000));

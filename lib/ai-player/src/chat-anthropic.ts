@@ -1,7 +1,7 @@
 /** The Anthropic Messages adapter of the assistant's ChatProvider (chat.ts): streaming text, tool use and adaptive thinking. */
 import Anthropic from "@anthropic-ai/sdk";
 import {
-  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop, mergeTurns, usdEstimator,
+  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop, mergeTurns,
   type ChatInput, type ChatMessage, type ChatProvider, type ChatResult, type ChatUsage, type Prices,
 } from "./chat.ts";
 
@@ -21,7 +21,6 @@ function toParams(messages: ChatMessage[], keepThinking: boolean): Anthropic.Mes
   })) as Anthropic.MessageParam[];
 }
 
-/** A 400 about replayed thinking blocks (a changed prefix or another model's signature): decided before any output. */
 /**
  * Prompt caching (5-minute entries): an explicit breakpoint on the system prompt caches the tools and the system
  * prompt (rendered before it), which every step and turn of a thread shares; top-level automatic caching puts a
@@ -32,6 +31,7 @@ const systemBlocks = (system: string): Anthropic.TextBlockParam[] => [{ type: "t
 const toolParams = (input: ChatInput): Anthropic.Tool[] =>
   input.tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Tool.InputSchema }));
 
+/** A 400 about replayed thinking blocks (a changed prefix or another model's signature): decided before any output. */
 const rejectsThinking = (error: unknown) => error instanceof Anthropic.BadRequestError && /signature/i.test(error.message) && /thinking/i.test(error.message);
 
 export function anthropicChatProvider(client: Pick<Anthropic, "messages">, config: Config): ChatProvider {
@@ -39,12 +39,11 @@ export function anthropicChatProvider(client: Pick<Anthropic, "messages">, confi
   const { model, ...prices } = config;
   return {
     prices,
-    estimateMaxUsd: usdEstimator(prices),
     async estimateInputTokens(input, signal) {
       try {
         const counted = await client.messages.countTokens({
           model, system: systemBlocks(input.system), messages: toParams(input.messages, true), tools: toolParams(input), ...THINKING,
-        }, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5000)]) : AbortSignal.timeout(5000), maxRetries: 0 });
+        }, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(3000)]) : AbortSignal.timeout(3000), maxRetries: 0 });
         if (Number.isSafeInteger(counted.input_tokens) && counted.input_tokens > 0) return { tokens: counted.input_tokens, counted: true };
       } catch { /* the estimate below */ }
       return { tokens: charsEstimate(input, CHARS_PER_TOKEN.anthropic), counted: false };
