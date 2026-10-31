@@ -48,6 +48,7 @@ import type * as engine_loop from "../engine/loop.js";
 import type * as engine_node from "../engine/node.js";
 import type * as engine_pricing from "../engine/pricing.js";
 import type * as engine_runtime from "../engine/runtime.js";
+import type * as engine_settingsDomain from "../engine/settingsDomain.js";
 import type * as engine_tick from "../engine/tick.js";
 import type * as game_commands from "../game/commands.js";
 import type * as game_lobby from "../game/lobby.js";
@@ -81,6 +82,8 @@ import type * as runtime_assets from "../runtime/assets.js";
 import type * as runtime_node from "../runtime/node.js";
 import type * as runtime_probe from "../runtime/probe.js";
 import type * as runtime_tables from "../runtime/tables.js";
+import type * as setups from "../setups.js";
+import type * as setups_node from "../setups/node.js";
 import type * as testing from "../testing.js";
 
 import type {
@@ -130,6 +133,7 @@ declare const fullApi: ApiFromModules<{
   "engine/node": typeof engine_node;
   "engine/pricing": typeof engine_pricing;
   "engine/runtime": typeof engine_runtime;
+  "engine/settingsDomain": typeof engine_settingsDomain;
   "engine/tick": typeof engine_tick;
   "game/commands": typeof game_commands;
   "game/lobby": typeof game_lobby;
@@ -163,6 +167,8 @@ declare const fullApi: ApiFromModules<{
   "runtime/node": typeof runtime_node;
   "runtime/probe": typeof runtime_probe;
   "runtime/tables": typeof runtime_tables;
+  setups: typeof setups;
+  "setups/node": typeof setups_node;
   testing: typeof testing;
 }>;
 

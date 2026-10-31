@@ -13,7 +13,7 @@ import { GAME_PRIMER } from "./policy.ts";
 export type AssistantPromptContext = { playerName: string; roomCode: string | null; permission: "read" | "act" | "owner" };
 
 /** Tools whose calls the player confirms on a card before they run (assistant/rules.ts needsConfirmation). */
-const CONFIRMED = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "summon_agent"]);
+const CONFIRMED = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "delete_setup", "summon_agent"]);
 const OWNER = new Set(["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"]);
 
 export function assistantSystemPrompt({ playerName, roomCode, permission }: AssistantPromptContext): string {

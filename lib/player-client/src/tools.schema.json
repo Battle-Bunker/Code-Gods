@@ -1494,14 +1494,17 @@
           "maximum": 9007199254740991
         },
         "settings": {
+          "description": "The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId.",
           "type": "object",
           "propertyNames": {
             "type": "string"
           },
           "additionalProperties": {}
         },
-        "preset": {
+        "setupId": {
+          "description": "A game setup's id (list_setups): the next game takes its complete settings. Not with settings.",
           "type": "string",
+          "minLength": 1,
           "maxLength": 128
         },
         "aiBudget": {
@@ -1905,6 +1908,180 @@
           ],
           "additionalProperties": false
         },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_setups": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "save_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "settings": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "summary": {
+          "description": "One plain sentence for the setup menu (default: generated from the settings).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "name",
+        "settings"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "delete_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "setupId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
         "nextCursor": {
           "description": "Pass back as the cursor argument for the next page; null when there is none.",
           "anyOf": [

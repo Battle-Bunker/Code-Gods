@@ -4,7 +4,7 @@
  * Settings and the game start need the calibration tables, so they are Node actions in owner.ts.
  */
 import { v } from "convex/values";
-import { presetSettings } from "@workspace/game-core";
+import { FIRST_STEPS_SEED_ID, seedSetupSettings } from "@workspace/game-core";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -13,7 +13,8 @@ import { endGame, resumeGame } from "./engine/loop";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
-import { presetOrigin } from "./lib/settingsOrigin";
+import { setupOrigin } from "./lib/settingsOrigin";
+import { firstSteps } from "./setups";
 import {
   displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
@@ -30,9 +31,6 @@ async function activeGame(ctx: MutationCtx, room: Doc<"rooms">) {
   return game && game.phase !== "ended" ? game : null;
 }
 
-/** The preset a new room starts on (docs/ui-redesign.md §1): a small, slowed-down board a newcomer can follow. */
-export const STARTING_PRESET = "grid-first-steps";
-
 /** The in-client assistant's allowance (tokens per human per game; 0 = off) and model, as the owner approves them. */
 function checkAssistant(assistantBudget: number | undefined, assistantModel: string | undefined) {
   if (assistantBudget !== undefined && (!Number.isSafeInteger(assistantBudget) || assistantBudget < 0 || assistantBudget > ASSISTANT_BUDGET_MAX)) {
@@ -42,8 +40,9 @@ function checkAssistant(assistantBudget: number | undefined, assistantModel: str
 }
 
 /**
- * Create a room (browser login only). The creator owns it and is its first member. It starts on the First steps
- * preset; the owner may turn the in-client assistant on in the same call (the creation dialog's consent checkbox).
+ * Create a room (browser login only). The creator owns it and is its first member. It starts on the seeded First steps
+ * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
+ * removed it); the owner may turn the in-client assistant on in the same call (the creation dialog's consent checkbox).
  */
 export const create = mutation({
   args: { assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
@@ -54,9 +53,11 @@ export const create = mutation({
     const guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "rooms", guid);
     const now = Date.now();
+    const first = await firstSteps(ctx);
     const roomId = await ctx.db.insert("rooms", {
       shortCode, guid, encoded, ownerId: viewer.subject, createdAt: now, revision: 0, seq: 0,
-      settings: presetSettings(STARTING_PRESET, "python"), settingsOrigin: presetOrigin(STARTING_PRESET),
+      settings: first ? first.settings : seedSetupSettings(FIRST_STEPS_SEED_ID),
+      settingsOrigin: first ? setupOrigin(first._id) : { kind: "custom", modified: false },
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
       ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
     });

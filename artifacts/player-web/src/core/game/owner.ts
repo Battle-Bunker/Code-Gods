@@ -27,10 +27,10 @@ export function useOwnerActions() {
       resume: () => done("Game resumed.")(resume({ roomId: room })),
       addAi: (templateId: string) => done("AI player seated.")(addAi({ roomId: room, templateId })),
       removeAi: (godId: string) => done("AI player removed.")(removeAi({ roomId: room, godId })),
-      preset: async (preset: string) => {
+      setup: async (setupId: string) => {
         try {
           const { revision } = await convex.query(api.rooms.get, { room: roomId });
-          await settings({ roomId, revision, preset });
+          await settings({ roomId, revision, setupId });
           notify("The next game's setup is saved.");
         } catch (error) { notifyError(error); }
       },

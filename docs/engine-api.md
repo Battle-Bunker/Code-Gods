@@ -229,8 +229,8 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `games.view` | query | player | Watch a game | The public view of a game: salience, standings, roster and winners. | — (The public game page's subscription; the human's private view is get_observation.) |
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
-| `manifest.get` | action | infrastructure | Show server info | Object types, presets, options, runtimes and whether AI players are funded. | `get_rules` |
-| `owner.settings` | action | owner | Choose the next game's setup | Applies a preset or edits settings for the next game; running games keep theirs. | `update_settings` |
+| `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
+| `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a saved setup or changes its settings; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
 | `owner.command` | action | owner | Run an owner action | Settings, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
 | `panels.list` | query | player | Show my panels | Your stored panels with version, author and whether each is on. | `list_panels` |
@@ -245,7 +245,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
-| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps preset with you as owner, and can turn the assistant on for its players. | — (A credential is bound to one existing room; rooms are created in the browser.) |
+| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, and can turn the assistant on for its players. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
 | `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state` |
 | `rooms.join` | mutation | player | Join this room | Takes a seat; joining mid-game makes you a spectator until the next game. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
@@ -258,6 +258,9 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.removeAi` | mutation | owner | Remove an AI player | Unseats an AI player between games. | `remove_ai` |
 | `rooms.endActiveGame` | mutation | owner | End the game now | Ends the running game for everyone; its final standings are recorded. | `end_game` |
 | `rooms.resume` | mutation | owner | Resume the game | Restarts a game stopped in recovery. | `resume_game` |
+| `setups.list` | query | player | Browse game setups | The ready-made setups every room can use, then the ones you saved. | `list_setups` |
+| `setups.save` | action | player | Save a game setup | Keeps these settings under a name you can pick for any of your rooms. | `save_setup` |
+| `setups.remove` | mutation | player | Delete a game setup | Removes one of your saved setups; rooms that use its settings keep them. | `delete_setup` |
 <!-- catalog:end -->
 
 ### In-client assistant (`assistant`)

@@ -22,6 +22,7 @@
  */
 import { z } from "zod/v4";
 import { SLUG } from "@workspace/engine/convex/panels/limits.ts";
+import { SETUP_NAME_MAX } from "@workspace/game-core";
 import { CATALOG, type CatalogEntry } from "./catalog.ts";
 import { PANEL_IDS } from "./panels.ts";
 import { placeSchema } from "./layout.ts";
@@ -174,8 +175,10 @@ export const OWNER_TOOLS = [
   def({ name: "get_ai_catalog", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
   def({ name: "update_settings", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
-    note: "Partial settings or a preset, and/or the AI token budget; send the room's current revision (get_room_state). Confirmed by the player first.",
-    input: obj({ requestId, revision: z.number().int().min(0), settings: z.record(z.string(), z.unknown()).optional(), preset: z.string().max(128).optional(),
+    note: "Give a setupId from list_setups, or settings (only the fields to change), and/or the AI token budget; send the room's current revision (get_room_state). Confirmed by the player first.",
+    input: obj({ requestId, revision: z.number().int().min(0),
+      settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId."),
+      setupId: id.optional().describe("A game setup's id (list_setups): the next game takes its complete settings. Not with settings."),
       aiBudget: z.number().int().min(0).max(1_000_000).optional() }), output: result(ownerData) }),
   def({ name: "start_game", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
     note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
@@ -187,6 +190,23 @@ export const OWNER_TOOLS = [
     note: "aiAgentId from get_ai_catalog. Confirmed by the player first.", input: obj({ requestId, aiAgentId: id }), output: result(ownerData) }),
   def({ name: "remove_ai", title: "Remove an AI seat", functions: ["rooms.removeAi", "owner.command"], permission: "owner", annotations: destructive,
     note: "deityId is the seat's member id from get_room_state. Confirmed by the player first.", input: obj({ requestId, deityId: id }), output: result(ownerData) }),
+] as const;
+
+/**
+ * Game setups (convex/setups.ts): named complete settings, the seeded defaults plus the human's own, across all their
+ * rooms. Saving one changes no room (update_settings with its setupId does), so it needs no confirmation card.
+ */
+const setupId = id.describe("A setup's id from list_setups.");
+export const SETUP_TOOLS = [
+  def({ name: "list_setups", title: "List game setups", functions: ["setups.list"], permission: "read", annotations: read,
+    input: obj({}), output: result(anyData) }),
+  def({ name: "save_setup", title: "Save a game setup", functions: ["setups.save"], permission: "act", annotations: acts,
+    note: "Pass complete settings (e.g. get_room_state's settings, changed); give setupId only to overwrite one of the human's own setups.",
+    input: obj({ name: z.string().trim().min(1).max(SETUP_NAME_MAX), settings: z.record(z.string(), z.unknown()),
+      setupId: setupId.optional(), summary: z.string().trim().min(1).max(160).optional().describe("One plain sentence for the setup menu (default: generated from the settings).") }),
+    output: result(anyData) }),
+  def({ name: "delete_setup", title: "Delete a game setup", functions: ["setups.remove"], permission: "act", annotations: destructive,
+    note: "Confirmed by the player first.", input: obj({ setupId }), output: result(anyData) }),
 ] as const;
 
 /** Stored panels (docs/panels.md "Stored panels"): the human's own UI panels, across all their rooms; every open client re-renders them live. */
@@ -238,7 +258,7 @@ export const LAYOUT_TOOLS = [
     input: obj({ paneId }), output: result(layoutData) }),
 ] as const;
 
-export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS] as const;
+export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS] as const;
 export const TOOLS: readonly ToolDefinition[] = GROUPS.flat();
 export type ToolName = (typeof GROUPS)[number][number]["name"];
 export const TOOL_NAMES: readonly ToolName[] = TOOLS.map(t => t.name as ToolName);

@@ -20,7 +20,7 @@ const calls: string[] = [];
 const rec = (name: string) => (...args: unknown[]) => { calls.push(`${name}${args.length ? ` ${JSON.stringify(args)}` : ""}`); return Promise.resolve(); };
 const actions: Actions = {
   submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), receipt: rec("receipt"), copyObservation: rec("copyObservation"),
-  owner: { start: rec("start"), resume: rec("resume"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), preset: rec("preset"),
+  owner: { start: rec("start"), resume: rec("resume"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
     aiCatalog: async () => [{ id: "sonnet", label: "Sonnet" }] },
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
   assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), threads: async () => [{ id: "t1", label: "Earlier" }], openThread: rec("openThread"),
@@ -36,7 +36,7 @@ const state = (over: Partial<State> = {}): State => ({
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, roomCode: "ABCD", gameCode: "WXYZ",
   panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: false }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
-  presets: [{ id: "grid-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
+  setups: [{ id: "setup-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
 });
 const ctx = (over: Partial<PaletteContext> = {}): PaletteContext => ({ role: "seated", admin: false, permission: "act", phase: "running", assistantOn: true, scope: { paneId: "p1" }, ...over });
 const find = (commands: Command[], id: string) => { const c = commands.find(x => x.id === id); assert.ok(c, `no command ${id}`); return c; };

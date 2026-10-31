@@ -6,8 +6,8 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, instantiationOf, netBits, presetSettings, softHinge, typeDefaults, validateSettings, type GameSettings, type ObjectValue,
-  defaultSettingsFor,
+  DEFAULT_SETTINGS, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, validateSettings,
+  type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
 import {
@@ -15,6 +15,7 @@ import {
   surprisal, tableFor, UNIFORM_PRIOR, type GodScore, type PriorRef, type UtilityDescriptor,
 } from "@workspace/game-utilities";
 import { fail } from "../lib/errors";
+import { SETTINGS_DOMAIN } from "./settingsDomain";
 
 // ------------------------------------------------------------------------------------------------
 // season salt
@@ -149,51 +150,38 @@ export function assertOffered(settings: GameSettings) {
   const unknown = settings.excludedFamilies.filter(id => !known.has(id));
   if (unknown.length) fail("BAD_REQUEST", `Unknown ${settings.objectType} utility families: ${unknown.join(", ")}`);
 }
-/**
- * When the owner switches instantiation, tuned fields the request left untouched and that were still at the
- * old instantiation's default follow to the new instantiation's defaults; customised values are kept.
- */
-export function retuneSettings(previous: GameSettings, next: GameSettings, sent: Record<string, unknown>): GameSettings {
-  if (instantiationOf(previous).key === instantiationOf(next).key) return next;
-  const oldDefaults = typeDefaults(previous.objectType, previous.typeArgs);
-  const newDefaults = typeDefaults(next.objectType, next.typeArgs);
-  const tuned = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<keyof GameSettings>;
-  const out = { ...next } as Record<string, unknown>;
-  for (const key of tuned) {
-    const untouched = !(key in sent) || JSON.stringify(sent[key]) === JSON.stringify(previous[key]);
-    const wasDefault = JSON.stringify(previous[key]) === JSON.stringify(oldDefaults[key] ?? DEFAULT_SETTINGS[key]);
-    if (untouched && wasDefault) out[key] = newDefaults[key] ?? DEFAULT_SETTINGS[key];
-  }
-  return out as unknown as GameSettings;
-}
-/**
- * Fields implied by a partial request: a new object type without typeArgs takes that type's default
- * arguments (the old type's arguments mean nothing to it), and a new language its grammar and complexity
- * function. Explicitly sent fields still win.
- */
-function derived(previous: GameSettings, sent: Record<string, unknown>): Partial<GameSettings> {
-  const objectType = typeof sent.objectType === "string" ? sent.objectType : previous.objectType;
-  const language = (sent.language as GameSettings["language"] | undefined) ?? previous.language;
-  const fresh = defaultSettingsFor(objectType, language);
-  return {
-    ...(objectType !== previous.objectType ? { typeArgs: fresh.typeArgs } : {}),
-    ...(language !== previous.language ? { grammarId: fresh.grammarId, complexityFunctionId: fresh.complexityFunctionId } : {}),
-  };
-}
-/** The next game's settings from an owner request: a preset (keeping the room's language) or explicit settings. */
-export function nextSettings(previous: GameSettings, input: { settings?: Record<string, unknown>; preset?: string }): GameSettings {
-  let settings: GameSettings;
-  try {
-    if (input.preset) settings = presetSettings(input.preset, (input.settings?.language as GameSettings["language"]) ?? previous.language);
-    else if (input.settings) settings = retuneSettings(previous, { ...previous, ...derived(previous, input.settings), ...input.settings } as GameSettings, input.settings);
-    else return fail("BAD_REQUEST", "Settings or a preset are required");
-    validateSettings(settings);
-  } catch (error) {
-    return fail("BAD_REQUEST", (error as Error).message);
-  }
+/** Settings a game can be played with: valid, offered, and within the server's resource limits. Throws BAD_REQUEST. */
+export function assertPlayable(settings: GameSettings): void {
+  try { validateSettings(settings); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertOffered(settings);
   if (settings.startingObjectCount > 1000 || settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
       settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) fail("BAD_REQUEST", "Settings exceed server resource limits");
+}
+
+/** A complete settings object (a game setup): exactly the GameSettings fields, playable. */
+export function assertCompleteSettings(settings: unknown): GameSettings {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return fail("BAD_REQUEST", "settings must be a settings object");
+  const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
+  const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
+  if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
+  if (missing.length) fail("BAD_REQUEST", `A setup has every setting; missing: ${missing.join(", ")}`);
+  assertPlayable(settings as GameSettings);
+  return settings as GameSettings;
+}
+
+/**
+ * The next game's settings from an owner request: a setup's complete settings, or a change to the room's settings
+ * applied through the settings model (only the game's own dependencies move; nothing is retuned).
+ */
+export function nextSettings(previous: GameSettings, input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
+  let settings: GameSettings;
+  if (input.setup) settings = input.setup;
+  else if (input.settings) {
+    try { settings = applySettingsChange(previous, input.settings as Partial<GameSettings>, SETTINGS_DOMAIN); } catch (error) {
+      return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);
+    }
+  } else return fail("BAD_REQUEST", "Settings or a setup are required");
+  assertPlayable(settings);
   return settings;
 }
 

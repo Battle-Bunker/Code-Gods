@@ -23,11 +23,11 @@ test("uuidv5 matches the RFC 9562 example; command ids depend only on (turn, cal
   assert.notEqual(commandIdFor("turn1t", "oolu_1", sha1), commandIdFor("turn1", "toolu_1", sha1), "the parts are delimited");
 });
 
-test("public chat, owner tools, pauses, destroys and panel deletion always ask; summons ask unless auto-approved within budget; layout tools never", () => {
-  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "get_room_state", "delete_panel", "pause_game", "destroy_agent"]) {
+test("public chat, owner tools, pauses, destroys and panel and setup deletion always ask; summons ask unless auto-approved within budget; layout tools never", () => {
+  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "get_room_state", "delete_panel", "delete_setup", "pause_game", "destroy_agent"]) {
     assert.equal(needsConfirmation(tool, {}, { autoApproveSummonBits: 1e9, validatedCost: 1 }), true, tool);
   }
-  for (const tool of ["get_observation", "whoami", "validate_agent", "set_ready", "save_panel", "rollback_panel", "list_panels", "wake_engine",
+  for (const tool of ["get_observation", "whoami", "validate_agent", "set_ready", "save_panel", "rollback_panel", "list_panels", "wake_engine", "list_setups", "save_setup",
     "get_layout", "open_panel", "set_panel_params", "open_panel", "move_pane", "close_pane"]) {
     assert.equal(needsConfirmation(tool, {}, {}), false, tool);
   }
