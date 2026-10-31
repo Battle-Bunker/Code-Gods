@@ -8,9 +8,9 @@
  * engine tick (about once a second) at most, so higher rates only help derived local clocks.
  */
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useQuery } from "convex/react";
+import { useSdkQuery } from "@sdk-transport";
 import type { FunctionReturnType } from "convex/server";
-import { api } from "@workspace/engine/convex/_generated/api";
+import type { api } from "@workspace/engine/convex/_generated/api";
 import type { Observation } from "@workspace/player-client";
 import type { GameSettings } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
@@ -36,7 +36,7 @@ type Live = { hz?: number };
 /** The raw v3 observation (what `pnpm player state` prints), throttled. Undefined while loading. */
 export function useObservation({ hz }: Live = {}): Observation | undefined {
   const { roomId } = useRoom();
-  const observation = useQuery(api.player.observation, { roomId }) as Observation | undefined;
+  const observation = useSdkQuery("player.observation", { roomId }, hz) as Observation | undefined;
   return useThrottled(observation, hz);
 }
 
@@ -93,7 +93,7 @@ export function useChat({ hz }: Live = {}): ChatMessage[] {
 /** The room: members, owner, settings for the next game, history pointer. */
 export function useRoomInfo(): RoomInfo | undefined {
   const { roomId } = useRoom();
-  return useQuery(api.rooms.get, { room: roomId });
+  return useSdkQuery("rooms.get", { room: roomId }, 1);
 }
 
 /** The mutator catalogue of this game (ids, names, summaries) and the prelude helpers by language. */
@@ -105,14 +105,14 @@ export function useMutators() {
 /** The latest `limit` (≤ 50) event batches of the current game, projected for you. */
 export function useEvents({ hz, limit = 20 }: Live & { limit?: number } = {}): GameEvent[] {
   const { roomId } = useRoom();
-  const window = useQuery(api.player.events, { roomId, limit });
+  const window = useSdkQuery("player.events", { roomId, limit }, hz);
   return useThrottled(window?.events, hz) ?? (EMPTY as GameEvent[]);
 }
 
 /** Your own descriptor and the game settings: the input of the local evaluator. Null when you are not seated. */
 export function useMyUtility(): MyUtility | null | undefined {
   const { roomId } = useRoom();
-  return useQuery(api.player.myUtility, { roomId });
+  return useSdkQuery("player.myUtility", { roomId }, 1);
 }
 
 /**
@@ -169,7 +169,7 @@ export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, Trajecto
     () => (gameId ? stores.get(gameId) : undefined),
   );
   const cursor = series?.cursor ?? -1;
-  const page = useQuery(api.player.trajectories, gameId ? { roomId, gameId, afterSeq: cursor, limit: 200 } : "skip");
+  const page = useSdkQuery("player.trajectories", gameId ? { roomId, gameId, afterSeq: cursor, limit: 200 } : "skip", 5);
   useEffect(() => {
     if (!gameId || !page || page.gameId !== gameId) return;
     const current = stores.get(gameId) ?? { gameId, cursor: -1, latest: -1, byObject: new Map(), version: 0 };

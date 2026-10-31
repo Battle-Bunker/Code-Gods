@@ -171,7 +171,33 @@ export const OWNER_TOOLS = [
 ] as const;
 
 /** Tool groups in listing order. Stored-panel tools join as one more group. */
-export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS] as const;
+/** Stored panels (docs/panels.md "Stored panels"): the human's own UI panels, across all their rooms; every open client re-renders them live. */
+const slug = z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/).describe("kebab-case panel id, like a file name in src/panels/");
+const placement = z.enum(["left", "right", "bottom"]);
+const size = z.enum(["sm", "md", "lg"]);
+export const PANEL_TOOLS = [
+  def({ name: "list_panels", title: "List stored panels", permission: "read", annotations: read,
+    description: "Your stored UI panels (metadata: slug, title, placement, size, current version, author, enabled).",
+    input: obj({}), output: result(anyData) }),
+  def({ name: "get_panel", title: "Read a stored panel", permission: "read", annotations: read,
+    description: "One stored panel's TSX source, compiled code and diagnostics (default: its current version; the last 20 are kept).",
+    input: obj({ slug, version: z.number().int().min(1).optional() }), output: result(anyData) }),
+  def({ name: "save_panel", title: "Save a stored panel", permission: "act", annotations: acts,
+    description: "Create or update a stored panel from TSX that imports only react, react/jsx-runtime and @sdk and exports `definePanel({...})` (docs/panels.md). It is compiled on save: a syntax error commits nothing and returns diagnostics with line and column. On success every open client of yours shows the new version at once, in a sandboxed frame; public chat, summons, destroys and pauses from a panel ask you to confirm in the client.",
+    input: obj({ slug, source: z.string().min(1).max(65536), title: z.string().max(80).optional(), placement: placement.optional(), size: size.optional() }),
+    output: result(anyData) }),
+  def({ name: "rollback_panel", title: "Roll back a stored panel", permission: "act", annotations: acts,
+    description: "Make an older version of a stored panel current again (recorded as a new version).",
+    input: obj({ slug, version: z.number().int().min(1) }), output: result(anyData) }),
+  def({ name: "place_panel", title: "Place a stored panel", permission: "act", annotations: acts,
+    description: "Change where a stored panel docks (left, right, bottom), its size, or its title.",
+    input: obj({ slug, placement: placement.optional(), size: size.optional(), title: z.string().max(80).optional() }), output: result(anyData) }),
+  def({ name: "delete_panel", title: "Delete a stored panel", permission: "act", annotations: destructive,
+    description: "Delete a stored panel and all its versions.",
+    input: obj({ slug }), output: result(anyData) }),
+] as const;
+
+export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, PANEL_TOOLS] as const;
 export const TOOLS: readonly ToolDefinition[] = GROUPS.flat();
 export type ToolName = (typeof GROUPS)[number][number]["name"];
 export const TOOL_NAMES: readonly ToolName[] = TOOLS.map(t => t.name as ToolName);

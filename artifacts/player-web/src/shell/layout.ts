@@ -1,6 +1,7 @@
 /**
- * Panel layout, persisted per browser in localStorage. A player's choice (region, order, size, hidden)
- * wins over a panel's manifest; "Reset layout" returns every panel to its manifest defaults.
+ * Panel layout. It follows the player across devices through panels.setLayout (layout-sync.ts); localStorage is
+ * the boot cache. A player's choice (region, order, size, hidden) wins over a panel's manifest; "Reset layout"
+ * returns every panel to its manifest defaults.
  */
 import { useSyncExternalStore } from "react";
 import type { PanelSize, Placement } from "./panel-types";
@@ -51,7 +52,14 @@ export const layoutStore = {
     set({ ...layout, regions: { ...layout.regions, [region]: { ...current, ...patch } } });
   },
   reset() { set(empty()); },
+  /** Adopt a layout from elsewhere (panels.layout, the player's other devices); ignored unless well-formed. */
+  replace(next: unknown) { if (isLayout(next)) set(next); },
 };
+
+export function isLayout(value: unknown): value is Layout {
+  const v = value as Layout | null;
+  return !!v && v.version === 1 && !!v.panels && typeof v.panels === "object" && !!v.regions && typeof v.regions === "object";
+}
 
 export function useLayout(): Layout {
   return useSyncExternalStore(layoutStore.subscribe, layoutStore.get, layoutStore.get);

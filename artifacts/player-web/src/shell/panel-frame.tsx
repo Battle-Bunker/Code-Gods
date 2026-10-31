@@ -54,11 +54,11 @@ export function usePanelModules(entries: readonly PanelEntry[], generation: numb
         const value = next(all[file]);
         return value === all[file] ? all : { ...all, [file]: value };
       });
-    const timers = entries.map(entry => {
+    const timers = entries.filter(entry => entry.load).map(entry => {
       const timer = setTimeout(() => {
         if (live) update(entry.file, s => !s || s.kind === "loading" ? { kind: "failed", message: "This panel did not finish loading within 10 s." } : s);
       }, 10_000);
-      entry.load().then(module => {
+      entry.load!().then(module => {
         if (live) update(entry.file, previous => previous?.kind === "ready" && previous.loaded.module === module ? previous : resolve(entry, module));
       }, async (error: unknown) => {
         const message = await describeLoadError(error);
@@ -76,8 +76,8 @@ export function usePanelModules(entries: readonly PanelEntry[], generation: numb
   return statuses;
 }
 
-type BoundaryProps = { children: ReactNode; resetKey: unknown; file: string };
-class PanelBoundary extends Component<BoundaryProps, { error: Error | null; key: unknown }> {
+type BoundaryProps = { children: ReactNode; resetKey: unknown; file: string; onError?: (error: Error) => void };
+export class PanelBoundary extends Component<BoundaryProps, { error: Error | null; key: unknown }> {
   state = { error: null as Error | null, key: this.props.resetKey };
   static getDerivedStateFromError(error: Error) { return { error }; }
   static getDerivedStateFromProps(props: BoundaryProps, state: { error: Error | null; key: unknown }) {
@@ -85,6 +85,7 @@ class PanelBoundary extends Component<BoundaryProps, { error: Error | null; key:
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.warn(`[panel ${this.props.file}]`, error, info.componentStack);
+    this.props.onError?.(error);
   }
   render() {
     if (this.state.error) {
@@ -100,7 +101,9 @@ export function PanelError({ file, title, message, onRetry }: { file: string; ti
     <div role="alert" data-testid={`panel-error-${file}`} className="text-[12px] leading-snug">
       <p className="font-semibold text-destructive">{title}</p>
       <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] opacity-80">{message}</pre>
-      <p className="mt-1 opacity-60">Edit <code>src/panels/{file}</code> and save; the frame updates by itself.</p>
+      <p className="mt-1 opacity-60">{file.startsWith("stored:")
+        ? <>Save a fixed version of stored panel <code>{file.slice(7)}</code> (<code>pnpm player panel push</code>, or ask your agent); every client updates by itself.</>
+        : <>Edit <code>src/panels/{file}</code> and save; the frame updates by itself.</>}</p>
       {onRetry && <button type="button" className="mt-2 underline" onClick={onRetry}>Retry</button>}
     </div>
   );

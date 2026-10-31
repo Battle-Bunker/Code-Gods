@@ -8,17 +8,19 @@
  * the same module, so only the edited panel remounts.
  */
 import { panelStore, type PanelEntry } from "./panel-store";
+import { SAFE_MODE } from "./safe-mode";
 
 const modules = import.meta.glob("../panels/*.tsx");
 
 const entries: PanelEntry[] = Object.entries(modules)
   .map(([path, load]) => {
     const file = path.slice("../panels/".length);
-    return { file, id: file.replace(/\.tsx$/, ""), load };
+    return { file, id: file.replace(/\.tsx$/, ""), origin: "file" as const, load };
   })
   .sort((a, b) => a.file.localeCompare(b.file));
 
-panelStore.publish(entries);
+// Safe mode (?panels=off) loads only the core console.
+panelStore.publish(SAFE_MODE ? [] : entries);
 
 // Literal `import.meta.hot.accept()`: Vite detects self-acceptance lexically.
 if (import.meta.hot) {

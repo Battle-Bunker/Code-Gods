@@ -4,12 +4,28 @@
  * subscribes with useSyncExternalStore.
  */
 export type PanelEntry = {
-  /** Path relative to src/panels, e.g. "my-bits.tsx". */
+  /** Path relative to src/panels, e.g. "my-bits.tsx", or "stored:<slug>" for a stored panel. */
   file: string;
-  /** Default id: the file name without extension. */
+  /** Default id: the file name without extension, or the stored panel's slug. */
   id: string;
-  /** Loads the module. Re-created on every registry update; an unchanged module resolves to the same module object. */
-  load: () => Promise<unknown>;
+  /** "file": src/panels/*.tsx, in-process with HMR. "stored": TSX stored in Convex, run in a sandboxed frame. */
+  origin: "file" | "stored";
+  /** File panels: loads the module. Re-created on every registry update; an unchanged module resolves to the same module object. */
+  load?: () => Promise<unknown>;
+  /** Stored panels: the current version and its metadata (panels.list). */
+  version?: number;
+  stored?: StoredPanelMeta;
+  /** A file panel that shares its id with a stored panel wins; this is the stored version it shadows. */
+  shadows?: number;
+};
+
+/** One row of panels.list. */
+export type StoredPanelMeta = {
+  /** The panel's Convex id: a removed and re-created slug gets a new one. */
+  id?: string;
+  slug: string; title: string; placement: "left" | "right" | "bottom"; size: "sm" | "md" | "lg";
+  currentVersion: number; enabled: boolean; lastForeignVersion: number;
+  updatedAt?: number; author?: { kind: string; label: string };
 };
 
 type State = {

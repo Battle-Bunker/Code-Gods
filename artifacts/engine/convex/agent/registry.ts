@@ -107,7 +107,18 @@ const owner = (action: "settings" | "start" | "resume" | "endGame" | "addAi" | "
     return { data: { requestId, result } };
   };
 
+/** Stored panels (convex/panels.ts): the human's own panels, whichever room the credential is bound to. */
+const PANEL_EXECUTORS = {
+  list_panels: async (ctx, { principal }) => ({ data: await ctx.runQuery(internal.panels.listAs, { principal }) }),
+  get_panel: async (ctx, { principal }, args) => ({ data: await ctx.runQuery(internal.panels.codeAs, { principal, ...args }) }),
+  save_panel: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.panels.saveAs, { principal, ...args }) }),
+  rollback_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.rollbackAs, { principal, ...args }) }),
+  place_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.placeAs, { principal, ...args }) }),
+  delete_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.removeAs, { principal, ...args }) }),
+} satisfies Pick<Executors, "list_panels" | "get_panel" | "save_panel" | "rollback_panel" | "place_panel" | "delete_panel">;
+
 export const EXECUTORS: Executors = {
+  ...PANEL_EXECUTORS,
   // ----- read -----
   whoami: async (_ctx, { who }) => ({ data: who }),
   get_rules: async (ctx, { principal, who }) => {

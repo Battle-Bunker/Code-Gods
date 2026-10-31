@@ -10,8 +10,9 @@
  * The calibration tables are large, so the scoring libraries load lazily, on first use.
  */
 import type { GameSettings, ObjectValue } from "@workspace/game-core";
-import type { UtilityDescriptor } from "@workspace/game-utilities";
+import type { CalibrationTable, UtilityDescriptor } from "@workspace/game-utilities";
 import type { ActOutcome, MutatorCallWire } from "@workspace/game-types";
+import { loadTables } from "@sdk-transport";
 
 /** Your score of one value: the ordinal, reward bits (surprisal), optional penalty bits, and net bits. */
 export type OwnScore = { ordinal: number | readonly number[]; rewardBits: number; penaltyBits?: number; netBits: number };
@@ -25,21 +26,20 @@ export type Evaluator = {
 
 const bits = (x: number) => (x === 0 ? 0 : x);
 
-/** Build an evaluator for a game's settings and your descriptor (loads the scoring libraries once). */
+/**
+ * Build an evaluator for a game's settings and your descriptor (loads the scoring libraries once). The
+ * calibration tables come from the transport: the shipped data in the player client, or, in a stored panel's
+ * sandboxed frame, from the host over the bridge, once per game.
+ */
 export async function createEvaluator(settings: GameSettings, descriptor: UtilityDescriptor): Promise<Evaluator> {
-  const [core, utilities, types] = await Promise.all([
-    import("@workspace/game-core"), import("@workspace/game-utilities"), import("@workspace/game-types"),
+  const [core, utilities, types, tables] = await Promise.all([
+    import("@workspace/game-core"), import("@workspace/game-utilities"), import("@workspace/game-types"), loadTables(settings, descriptor),
   ]);
   const inst = core.instantiationOf(settings);
-  const prior = settings.priorId === utilities.UNIFORM_PRIOR.id ? utilities.UNIFORM_PRIOR : undefined;
-  if (!prior) throw new Error(`Unknown prior ${settings.priorId}`);
-  const tableOf = (draw: { familyId: string; params: UtilityDescriptor["params"] }) => {
-    const table = utilities.tableFor(draw, inst, prior);
-    if (!table) throw new Error(`No calibration table for ${draw.familyId} in ${inst.key}`);
-    return table;
-  };
-  const reward = utilities.evaluator(descriptor, inst), rewardTable = tableOf(descriptor);
-  const penalty = descriptor.penalty ? { fn: utilities.evaluator(descriptor.penalty, inst), table: tableOf(descriptor.penalty) } : undefined;
+  const rewardTable = tables.reward as CalibrationTable;
+  const reward = utilities.evaluator(descriptor, inst);
+  const penalty = descriptor.penalty ? { fn: utilities.evaluator(descriptor.penalty, inst), table: tables.penalty as CalibrationTable } : undefined;
+  if (descriptor.penalty && !tables.penalty) throw new Error("No calibration table for the defence goal");
   const typeDef = types.objectType(inst.objectType);
   return {
     // Mirrors the engine's scoring (createUtilitiesAdapter.score in the engine): keep the two in step.

@@ -36,7 +36,7 @@ await new Promise((resolveReady, reject) => {
 
 let fixtures;
 if (process.argv.includes("--real-builds")) {
-  for (const site of Object.values(SITES)) uploadSite(site.component, buildSite(site, `http://127.0.0.1:${cloudPort}`));
+  for (const site of Object.values(SITES)) uploadSite(site.component, buildSite(site, `http://127.0.0.1:${cloudPort}`, `http://127.0.0.1:${sitePort}`));
 } else {
   fixtures = mkdtempSync(join(tmpdir(), "cg-static-"));
   for (const [name, site] of Object.entries(SITES)) {
