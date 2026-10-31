@@ -239,6 +239,20 @@ Tests that use the local backend: `pnpm --filter @workspace/engine test:game`,
 engine: `pnpm run typecheck`, `pnpm --filter @workspace/game-runtime test` (after
 `setup:python` and `build:python`), and the `lib/game-*`, `lib/object-views` and `lib/ai-player` tests.
 
+### Testing the assistant against a real provider locally
+
+The local deployment's assistant normally uses the mock (`AI_MOCK=1`). To try it against Anthropic while the AI
+seats stay mocked, put a Console API key in your shell as `CODE_GODS_ANTHROPIC_API_KEY` and run
+`pnpm --filter @workspace/engine assistant:live`: it copies the key into the **local** deployment as
+`ANTHROPIC_API_KEY` (through a private temp file, never printed) and sets `ASSISTANT_LIVE=1`, which takes effect
+without a restart. `assistant:status` reports the mode without the key, and `assistant:mock` removes both; every
+`dev` start also removes them, so the mock-scripted suites never spend money. The script refuses anything but the
+anonymous loopback deployment; the cloud deployments keep their own keys (`npx convex env set`, above).
+`pnpm --filter @workspace/engine test:assistant-live` then runs two real turns (about USD 0.10 with the cheapest
+catalogued Anthropic model; it skips while the assistant is mocked). After a tool result the Messages API has been
+seen to send the whole answer in one burst, so streamed text then appears all at once; that is the provider, not
+the engine.
+
 ## Verification boundary
 
 Tested locally, against the Convex local backend: the engine's functions and HTTP actions, full games

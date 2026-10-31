@@ -32,6 +32,14 @@ through its public API with real identities; mock nothing inside the engine. Bro
 that needs a browser: HMR, rendering, multi-app isolation. Never add an e2e check for something an engine test
 can catch.
 
+**The assistant against a real provider** (opt-in, costs money). The engine suites script the mock provider, so
+they never need a key. To check what only a real model shows (streaming, real tool-use blocks, usage within the
+reservation, history replay), run `pnpm --filter @workspace/engine assistant:live` (needs
+`CODE_GODS_ANTHROPIC_API_KEY` in the shell; AI seats stay mocked), then `pnpm --filter @workspace/engine
+test:assistant-live` (about USD 0.10; it skips while mocked), then `assistant:mock`. Restarting `dev` also returns
+the assistant to the mock. Never print the key; `assistant:status` reports the mode without it. Test fixes with the
+mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live runs short and few.
+
 ## Repo rules
 
 - **Disclosure is a contract.** Any new player-facing query or event field gets a disclosure assertion:
