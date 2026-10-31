@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts",
+    "build": "vite build --config vite.config.ts && vite build --config vite.frame.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "e2e": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/multi-client.ts"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "e2e": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/multi-client.ts",
+    "e2e:panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/stored-panels.ts"
   },
   "devDependencies": {
     "@radix-ui/react-accordion": "^1.2.4",
