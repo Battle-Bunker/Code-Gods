@@ -56,6 +56,9 @@ const receiptData = z.object({
 });
 const ownerData = z.object({ requestId: uuid, result: z.unknown() });
 
+/** What every tool returns (its MCP structuredContent). */
+export type ToolResult = { untrusted: true; notice: string; data: unknown; nextCursor?: number | null; truncated?: boolean };
+
 type Annotations = { readOnlyHint: boolean; destructiveHint: boolean };
 export interface ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.ZodType = z.ZodType> {
   name: string;

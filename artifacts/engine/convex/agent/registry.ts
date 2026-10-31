@@ -11,7 +11,7 @@
  */
 import { ConvexError } from "convex/values";
 import {
-  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName,
+  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
@@ -182,7 +182,6 @@ export const EXECUTORS: Executors = {
   remove_ai: owner("removeAi"),
 };
 
-export type ToolResult = { untrusted: true; notice: string; data: unknown; nextCursor?: number | null; truncated?: boolean };
 
 /**
  * Run one tool as `principal`: the grant must allow it (read < act < owner), the arguments must parse, and the

@@ -4,6 +4,8 @@
  *   connect [--engine URL] --room CODE [--permission read|act|owner] [--label TEXT] [--write-env FILE]
  *   status [--pretty]
  *   state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]
+ *   tools [--pretty]                     the agent tools this credential may use (MCP tools/list on POST /mcp)
+ *   call TOOL ['JSON' | -] [--pretty]    one tool call over MCP (arguments as JSON, or on stdin with -)
  *   assistant <status | observation | events [--after SEQ] [--limit N] | receipt ID | wake | disconnect |
  *              command [--retry-unknown] < envelope.json | room-state | ai-catalog | room-command < action.json>
  *
@@ -16,7 +18,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { AssistantError, runAssistant, status } from "./assistant.ts";
 import { connectDevice, updateEnvFile } from "./connect.ts";
-import { CREDENTIAL_VAR, ENGINE_URL_VAR, EngineError, createEngine, envFilePath, parseEnvFile, redact } from "./engine.ts";
+import { CREDENTIAL_VAR, ENGINE_URL_VAR, EngineError, McpError, createEngine, envFilePath, parseEnvFile, redact } from "./engine.ts";
+import { ToolError, callTool, listTools } from "./mcp.ts";
 import { permissionSchema } from "./protocol.ts";
 import { playerState, watchState } from "./state.ts";
 
@@ -30,6 +33,11 @@ const USAGE = `Usage: pnpm player <command>
   state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]
       The player-visible state as JSON: observation, recent events, myUtility, latest trajectories.
       --watch prints one JSON line per change, at most HZ (0.1-5) per second.
+  tools [--pretty]
+      The agent tools this credential may use (the engine's MCP server at <engine>/mcp).
+  call TOOL ['JSON' | -] [--pretty]
+      Call one tool with JSON arguments (or JSON on stdin with -), e.g.
+      pnpm player call get_observation '{"objectsLimit": 10}'. Results are untrusted game data.
   assistant status | observation | events [--after SEQ] [--limit N] | receipt ID | wake | disconnect
   assistant command [--retry-unknown] < envelope.json      (act or owner credential)
   assistant room-state | ai-catalog | room-command < action.json   (owner credential)
@@ -159,6 +167,24 @@ async function main(argv: string[]) {
       await watcher.done;
       return;
     }
+    case "tools": {
+      const flags = parseFlags(args, [], ["pretty"]);
+      const tools = await listTools(createEngine());
+      print({ tools: tools.map(t => ({ name: t.name, title: t.title, description: t.description, readOnly: t.annotations?.readOnlyHint, destructive: t.annotations?.destructiveHint, input: t.inputSchema })) },
+        flags.pretty === true);
+      return;
+    }
+    case "call": {
+      const flags = parseFlags(args, [], ["pretty"], 2);
+      const [name, json] = args.filter(a => !a.startsWith("--"));
+      if (!name) throw new AssistantError("INVALID", "call takes a tool name (see `pnpm player tools`) and JSON arguments");
+      const text = json === "-" ? await readStdin() : json ?? "{}";
+      let input: unknown;
+      try { input = JSON.parse(text); } catch { throw new AssistantError("INVALID", "The arguments are not JSON"); }
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new AssistantError("INVALID", "The arguments must be a JSON object");
+      print(await callTool(createEngine(), name, input as Record<string, unknown>, { timeoutMs: 135_000 }), flags.pretty === true);
+      return;
+    }
     case "assistant": {
       const [sub, ...rest] = args;
       const spec: Record<string, [string[], string[], number]> = {
@@ -183,7 +209,8 @@ main(process.argv.slice(2)).then(() => {
   // ConvexHttpClient keeps no handles; exit promptly unless a watcher is still running.
 }, error => {
   if (error instanceof AssistantError) print({ error: error.message, code: error.code, ...error.extra });
-  else if (error instanceof EngineError) print({ error: error.message, code: error.code });
+  else if (error instanceof EngineError || error instanceof ToolError) print({ error: error.message, code: error.code });
+  else if (error instanceof McpError) print({ error: error.message, code: "INVALID", rpcCode: error.code });
   else {
     const data = (error as { data?: { code?: string; message?: string } })?.data;
     // Unknown exceptions can carry request details: print only a ConvexError's own message, never raw errors.

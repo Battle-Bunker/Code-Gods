@@ -67,7 +67,7 @@ test("commandId rules: required for summon, destroy and pause; optional (generat
     assert.equal(tool(name).input.safeParse({ revision: 0, aiAgentId: "x", deityId: "y" }).success, false, `${name} needs a requestId`);
   }
   assert.equal(tool("summon_agent").input.safeParse({ source: "x", commandId: uuid, roomId: "other" }).success, false, "unknown keys are refused");
-  assert.equal(tool("summon_agent").input.parse({ source: "x", commandId: uuid }).waitMs, 90_000, "waitMs defaults to 90 s");
+  assert.equal((tool("summon_agent").input.parse({ source: "x", commandId: uuid }) as { waitMs: number }).waitMs, 90_000, "waitMs defaults to 90 s");
   assert.equal(tool("summon_agent").input.safeParse({ source: "x", commandId: uuid, waitMs: 10 * 60_000 }).success, false, "waitMs is bounded");
 });
 
