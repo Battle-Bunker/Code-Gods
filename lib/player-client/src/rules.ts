@@ -25,7 +25,7 @@ export function rulesText(s: Settings): string {
 ## Goal and scoring (information scoring, payoffs in bits²)
 Each player is a god with a private utility function that scores every object; bigger is better and only the order matters.
 Your score of an object becomes rarity bits: if only 1 random object in N is at least as good, that is log2(N) bits.
-Some gods also have a defence goal (penalty, bigger is worse) that takes bits away when an object is worse than usual (weight ${n(s, "penaltyWeight", 1)}).
+${s.defenceGoals ? `Every god also has a defence goal (penalty, bigger is worse) that takes bits away when an object is worse than usual (weight ${n(s, "penaltyWeight", 1)}).` : "No god has a defence goal in this game (defence goals are off)."}
 For each CURRENT object x: payoff_me(x) = net_me(x) * max(0, sum of every other god's net bits of x).
 Your total payoff is the sum over all current objects. You see only your own scores and the aggregate of your peers, never another god's.
 If, overall, the others do not care about an object, nobody scores from it.

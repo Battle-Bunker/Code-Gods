@@ -12,7 +12,7 @@ ${roomCode ? `Room: ${roomCode}` : "Room: (no longer available)"}${gameCode ? `\
 ## Goal and scoring (information scoring, payoffs in bits²)
 Each player is a god with a private utility function: it scores every object; bigger is better, and only the order matters.
 The server turns your score into ✨ rarity bits: if only 1 random object in N is at least as good, that is log2(N) bits.
-Some gods also have a defence goal (penalty(x), bigger is worse) that takes ⚠️ bits away only when an object is worse than usual (weight ${s.penaltyWeight ?? 1}; dealt with probability ${s.defenceRate ?? 0}).
+${s.defenceGoals ? `Every god also has a defence goal (penalty(x), bigger is worse) that takes ⚠️ bits away only when an object is worse than usual (weight ${s.penaltyWeight ?? 1}).` : "Defence goals are off in this game: no god has one."}
 Net bits n = ✨ − weight × (⚠️ − its average). For each CURRENT object x:
   payoff_me(x) = n_me(x) * max(0, sum(n_other(x) for every other god))
 My TOTAL PAYOFF is the SUM of payoff_me(x) over ALL current objects (not an average, not cumulative over time).

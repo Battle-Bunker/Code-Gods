@@ -154,7 +154,7 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.ok(names.includes("list_setups"), "a read grant may list the game setups");
   const someSettings = (await host.c.query(api.rooms.get, { room: roomId })).settings;
   for (const name of ["send_chat", "summon_agent", "validate_agent", "set_ready", "wake_engine", "start_game", "get_room_state", "open_panel", "set_panel_params", "move_pane", "close_pane",
-    "save_setup", "delete_setup", "update_settings"]) {
+    "save_setup", "duplicate_setup", "delete_setup", "update_settings"]) {
     assert.ok(!names.includes(name), `read grant lists ${name}`);
     const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : name === "save_setup" ? { name: "Never saved", settings: someSettings } : {});
     assert.ok(r.error || r.rpcError, `read grant ran ${name}: ${JSON.stringify(r)}`);
@@ -170,23 +170,35 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.equal((await modern(fakeOwner.token, "tools/list")).status, 401, "an owner grant of someone who does not own the room is not a principal");
   const owner = await credential(host, roomId, "owner");
   assert.ok((await listTools(owner.token)).includes("start_game"));
-  // Setups through the registry: an act grant saves and deletes the human's own; the owner puts the room on one by id.
+  // Setups through the registry: an act grant saves, duplicates and deletes the human's own; everyone lists every setup;
+  // the owner puts the room on any of them by id, and a change goes to the owner's own copy.
   const actorTools = await listTools(actor.token);
-  assert.ok(actorTools.includes("save_setup") && actorTools.includes("delete_setup") && !actorTools.includes("update_settings"));
+  assert.ok(actorTools.includes("save_setup") && actorTools.includes("duplicate_setup") && actorTools.includes("delete_setup") && !actorTools.includes("update_settings"));
   const saved = await call(actor.token, "save_setup", { name: "Ada over MCP", settings: { ...someSettings, planningSeconds: 120 } });
   assert.equal(saved.data?.mine, true, JSON.stringify(saved).slice(0, 300));
-  assert.ok((await call(reader.token, "list_setups", {})).data.some((s: any) => s.id === saved.data.id), "Ada's read grant lists her own setup");
-  assert.ok(!(await call(owner.token, "list_setups", {})).data.some((s: any) => s.id === saved.data.id), "the host never sees Ada's setup");
-  assert.equal((await call(owner.token, "delete_setup", { setupId: saved.data.id })).error?.code, "NOT_FOUND");
-  const classic = (await call(owner.token, "list_setups", {})).data.find((s: any) => s.seedId === "grid-classic");
+  assert.ok((await call(reader.token, "list_setups", { query: "you" })).data.setups.some((s: any) => s.id === saved.data.id), "Ada's read grant lists her own setup");
+  const seenByHost = (await call(owner.token, "list_setups", { query: "Ada over MCP" })).data.setups.find((s: any) => s.id === saved.data.id);
+  assert.deepEqual([seenByHost?.ownerName, seenByHost?.mine, seenByHost?.editable], [ada.name, false, false], "the host sees Ada's setup, as hers");
+  assert.equal((await call(owner.token, "delete_setup", { setupId: saved.data.id })).error?.code, "FORBIDDEN");
+  const firstPage = (await call(owner.token, "list_setups", { limit: 5 })).data;
+  assert.deepEqual([firstPage.setups.length, firstPage.total >= 6], [5, true], "a limit caps the rows; total counts every match");
+  assert.ok(!("settings" in firstPage.setups[0]), "rows carry no settings");
+  const classic = (await call(owner.token, "get_setup", { setupId: firstPage.setups.find((s: any) => s.seedId === "grid-classic").id })).data;
+  const copy = await call(actor.token, "duplicate_setup", { setupId: classic.id });
+  assert.deepEqual([copy.data?.name, copy.data?.mine, copy.data?.settings], ["Classic's copy", true, classic.settings], JSON.stringify(copy).slice(0, 300));
   const revision = (await host.c.query(api.rooms.get, { room: roomId })).revision;
   const applied = await call(owner.token, "update_settings", { requestId: randomUUID(), revision, setupId: classic.id });
   assert.ok(!applied.error, JSON.stringify(applied));
-  const room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.settingsOrigin], [classic.settings, { kind: "setup", id: classic.id, modified: false }]);
-  assert.equal((await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, setupId: saved.data.id })).error?.code, "NOT_FOUND",
-    "another human's setup cannot be applied");
+  let room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([room.settings, room.setup], [classic.settings, { id: classic.id, name: "Classic", deleted: false }]);
+  assert.ok(!(await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, setupId: saved.data.id })).error, "anyone's setup can be applied");
+  room = await host.c.query(api.rooms.get, { room: roomId });
+  const changed = await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, settings: { planningSeconds: 300 } });
+  assert.equal(changed.data?.result?.setup?.name, "Ada over MCP's copy", JSON.stringify(changed).slice(0, 400));
+  assert.match(changed.data.result.setup.note, /belongs to/);
+  assert.equal((await call(actor.token, "get_setup", { setupId: saved.data.id })).data.settings.planningSeconds, 120, "Ada's setup is untouched");
   assert.equal((await call(actor.token, "delete_setup", { setupId: saved.data.id })).data.name, "Ada over MCP");
+  await call(actor.token, "delete_setup", { setupId: copy.data.id });
   // Revocation and expiry take effect on the next call.
   await admin.mutation(internal.testing.patchCredential, { credentialId: actor.credentialId, patch: { revokedAt: Date.now() } });
   assert.equal((await modern(actor.token, "tools/list")).status, 401);
@@ -277,8 +289,8 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     ["get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }], ["get_my_utility", {}], ["get_chat", {}],
     ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }], ["list_setups", {}],
   ];
-  // Another god's own setup, named with a secret marker, must never reach Ada through the setup tools.
-  const hostSetup = await host.c.action(api.setups.save, { name: SECRET_HOST, settings: (await host.c.query(api.rooms.get, { room: roomId })).settings });
+  // Another god's setup is shared by design (setups are one public collection): Ada lists it, as the host's.
+  const hostSetup = await host.c.action(api.setups.save, { name: "Host's shared setup", settings: (await host.c.query(api.rooms.get, { room: roomId })).settings });
   for (const [name, args] of reads) {
     const result = await call(token, name, args);
     assert.ok(result && !result.error && !result.rpcError, `${name}: ${JSON.stringify(result).slice(0, 300)}`);
@@ -301,12 +313,13 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     await check(`mcp ${name}`, result);
   }
   await check("mcp open_panel", opened);
-  // The setup tools: the caller's own setups and the defaults; another god's setup (hostSetup) never appears.
+  // The setup tools: every setup, with no agent source or score of anyone's in them.
   const ownSetup = await call(token, "save_setup", { name: "Ada disclosure setup", settings: (await ada.c.query(api.rooms.get, { room: roomId })).settings });
   assert.ok(ownSetup.data?.id, JSON.stringify(ownSetup).slice(0, 300));
   await check("mcp save_setup", ownSetup);
-  const listed = await call(token, "list_setups", {});
-  assert.ok(!listed.data.some((s: any) => s.id === hostSetup.id));
+  const listed = await call(token, "list_setups", { query: "Host's shared setup" });
+  assert.equal(listed.data.setups.find((s: any) => s.id === hostSetup.id)?.ownerName, host.name);
+  await check("mcp get_setup", await call(token, "get_setup", { setupId: hostSetup.id }));
   await check("mcp list_setups (own setup saved)", listed);
   await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });

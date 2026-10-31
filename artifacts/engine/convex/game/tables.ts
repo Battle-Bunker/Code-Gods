@@ -11,8 +11,8 @@ import { v } from "convex/values";
 const kind = v.union(v.literal("human"), v.literal("ai"));
 const phase = v.union(v.literal("planning"), v.literal("running"), v.literal("paused"), v.literal("recovery"), v.literal("ended"));
 /**
- * Where settings came from: a game setup (and whether they still match it) or a custom configuration
- * (lib/settingsOrigin.ts). "preset" is only on rooms and games stored before setups replaced presets.
+ * LEGACY: where settings came from before every room ran a setup (setupId). Only rooms and games stored before the
+ * setups-v2 migration (convex/migrations.ts) carry it; the migration clears it, and nothing writes it.
  */
 export const settingsOriginV = v.object({ kind: v.union(v.literal("setup"), v.literal("custom"), v.literal("preset")), id: v.optional(v.string()), modified: v.boolean() });
 const wire = v.union(v.number(), v.string());
@@ -56,7 +56,13 @@ export const gameTables = {
     /** Settings revision for optimistic concurrency; `seq` counts every room change (observation revision). */
     revision: v.number(), seq: v.number(),
     settings: v.any(),
-    /** Absent on rooms created before origins were recorded (treated as custom). */
+    /**
+     * The game setup the room runs (convex/setups.ts): `settings` is a snapshot of its settings when it was applied, and
+     * `setupName` its name then (shown with "(deleted)" once the setup is gone). Absent only on rooms stored before the
+     * setups-v2 migration.
+     */
+    setupId: v.optional(v.id("gameSetups")), setupName: v.optional(v.string()),
+    /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     aiBudget: v.number(), aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
@@ -82,7 +88,9 @@ export const gameTables = {
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
-    /** The room's settings origin when the game started, so history can name the setup. */
+    /** The room's setup when the game started (its id and name then), so history can name it. */
+    setupId: v.optional(v.id("gameSetups")), setupName: v.optional(v.string()),
+    /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
@@ -159,10 +167,9 @@ export const gameTables = {
   }).index("by_template", ["templateId"]).index("by_deleted", ["deleted"]),
 
   /**
-   * The catalogue of game setups (convex/setups.ts): complete next-game settings with a name. `ownerId` null marks a
-   * seeded default (game-core SEED_SETUPS, editable by admins only); otherwise the human who saved it. Defaults are
-   * seeded once by `seedId`; edits are kept, and a removed default stays as a tombstone (`deleted`) so a re-seed never
-   * recreates it.
+   * The catalogue of game setups (convex/setups.ts): complete next-game settings with a name, one shared collection
+   * everyone sees. `ownerId` null marks a system setup (game-core SEED_SETUPS, kept equal to the code by `seedId`,
+   * editable and deletable by nobody); otherwise the human who created it, the only one who may change it.
    */
   gameSetups: defineTable({
     ownerId: v.union(v.string(), v.null()),
@@ -174,6 +181,7 @@ export const gameTables = {
     summary: v.string(),
     seedId: v.optional(v.string()),
     createdAt: v.number(), updatedAt: v.number(),
+    /** LEGACY: a tombstone an admin's removal of a seed left before setups-v2; the seed sync clears it. */
     deleted: v.optional(v.boolean()),
   }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"]),
 

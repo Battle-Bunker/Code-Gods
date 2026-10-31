@@ -175,10 +175,10 @@ export const OWNER_TOOLS = [
   def({ name: "get_ai_catalog", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
   def({ name: "update_settings", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
-    note: "Give a setupId from list_setups, or settings (only the fields to change), and/or the AI token budget; send the room's current revision (get_room_state). Confirmed by the player first.",
+    note: "Give a setupId from list_setups, or settings (only the fields to change: they edit the room's setup if the human owns it, else a new copy of theirs), and/or the AI token budget; send the room's current revision (get_room_state). Confirmed by the player first.",
     input: obj({ requestId, revision: z.number().int().min(0),
       settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId."),
-      setupId: id.optional().describe("A game setup's id (list_setups): the next game takes its complete settings. Not with settings."),
+      setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings."),
       aiBudget: z.number().int().min(0).max(1_000_000).optional() }), output: result(ownerData) }),
   def({ name: "start_game", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
     note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
@@ -193,18 +193,27 @@ export const OWNER_TOOLS = [
 ] as const;
 
 /**
- * Game setups (convex/setups.ts): named complete settings, the seeded defaults plus the human's own, across all their
- * rooms. Saving one changes no room (update_settings with its setupId does), so it needs no confirmation card.
+ * Game setups (convex/setups.ts): one shared collection of named complete settings, each owned by the human who made it
+ * or by the system. Saving or duplicating one changes no room (update_settings with its setupId does), so neither needs
+ * a confirmation card.
  */
 const setupId = id.describe("A setup's id from list_setups.");
 export const SETUP_TOOLS = [
   def({ name: "list_setups", title: "List game setups", functions: ["setups.list"], permission: "read", annotations: read,
-    input: obj({}), output: result(anyData) }),
+    note: "Rows without settings ({setups, total}); query narrows by name, owner or summary words; get_setup has one setup's settings.",
+    input: obj({ query: z.string().trim().max(100).optional().describe("Words that must all appear in the name, the owner's name or the summary."),
+      limit: z.number().int().min(1).max(200).optional().describe("At most this many rows (default 100); total says how many match.") }),
+    output: result(anyData) }),
+  def({ name: "get_setup", title: "Get a game setup", functions: ["setups.get"], permission: "read", annotations: read,
+    input: obj({ setupId }), output: result(anyData) }),
   def({ name: "save_setup", title: "Save a game setup", functions: ["setups.save"], permission: "act", annotations: acts,
-    note: "Pass complete settings (e.g. get_room_state's settings, changed); give setupId only to overwrite one of the human's own setups.",
+    note: "Pass complete settings (e.g. get_room_state's settings, changed); give setupId only to overwrite a setup the human owns (mine: true).",
     input: obj({ name: z.string().trim().min(1).max(SETUP_NAME_MAX), settings: z.record(z.string(), z.unknown()),
       setupId: setupId.optional(), summary: z.string().trim().min(1).max(160).optional().describe("One plain sentence for the setup menu (default: generated from the settings).") }),
     output: result(anyData) }),
+  def({ name: "duplicate_setup", title: "Duplicate a game setup", functions: ["setups.duplicate"], permission: "act", annotations: acts,
+    note: "Copies any setup as the human's own, named \"<name>'s copy\" unless a name is given; edit the copy with save_setup.",
+    input: obj({ setupId, name: z.string().trim().min(1).max(SETUP_NAME_MAX).optional() }), output: result(anyData) }),
   def({ name: "delete_setup", title: "Delete a game setup", functions: ["setups.remove"], permission: "act", annotations: destructive,
     note: "Confirmed by the player first.", input: obj({ setupId }), output: result(anyData) }),
 ] as const;

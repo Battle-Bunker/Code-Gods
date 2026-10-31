@@ -4,7 +4,7 @@
  * propagates from the action, so the owner check runs again inside each commit.
  */
 import { v } from "convex/values";
-import { validateSettings, type GameSettings } from "@workspace/game-core";
+import { sameSettings, validateSettings, type GameSettings } from "@workspace/game-core";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
@@ -14,7 +14,11 @@ import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { LEASE_MS } from "../lib/world";
-import { scoreV, settingsOriginV } from "./tables";
+import { roomSetupWrite, type RoomSetupChange } from "../setups";
+import { scoreV } from "./tables";
+
+/** How a settings commit changes the room's setup: run another one (`apply`), or edit the one it runs (`edit`). */
+const setupChangeV = v.union(v.object({ kind: v.literal("apply"), setupId: v.id("gameSetups") }), v.object({ kind: v.literal("edit") }));
 
 /** The room as its current owner sees it, for an owner action. */
 export const ownerContext = internalQuery({
@@ -41,24 +45,34 @@ export const receiptFor = internalQuery({
 });
 
 export const commitSettings = internalMutation({
-  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), settingsOrigin: v.optional(settingsOriginV), catalog: v.any(), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, args) => {
+  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), setup: v.optional(setupChangeV), catalog: v.any(), aiBudget: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<{ revision: number; setup?: RoomSetupChange }> => {
     const room = await requireRoom(ctx, args.roomId);
-    await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
+    const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
     if (args.revision !== room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
     if (args.aiBudget !== undefined && (!Number.isSafeInteger(args.aiBudget) || args.aiBudget < 0 || args.aiBudget > 1_000_000)) {
       fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
     }
-    validateSettings(args.settings as GameSettings);
+    const settings = args.settings as GameSettings;
+    validateSettings(settings);
+    // The room always runs a setup: applying one names it; an edit changes the room's own setup or a copy of it.
+    let setup: RoomSetupChange | undefined;
+    if (args.setup?.kind === "apply") {
+      const doc = await ctx.db.get(args.setup.setupId);
+      if (!doc || doc.deleted) fail("NOT_FOUND", "That setup was deleted meanwhile");
+      setup = { id: doc._id, name: doc.name, created: false, note: `The next game runs "${doc.name}"` };
+    } else if (args.setup?.kind === "edit" && !(room.setupId && sameSettings(settings, room.settings))) {
+      setup = await roomSetupWrite(ctx, room, viewer.subject, settings);
+    }
     await putCatalog(ctx, `room:${room._id}`, args.catalog, room.revision + 1);
     await ctx.db.patch(room._id, {
-      settings: args.settings, revision: room.revision + 1, seq: room.seq + 1,
-      ...(args.settingsOrigin ? { settingsOrigin: args.settingsOrigin } : {}),
+      settings, revision: room.revision + 1, seq: room.seq + 1,
+      ...(setup ? { setupId: setup.id, setupName: setup.name } : {}),
       ...(args.aiBudget !== undefined ? { aiBudget: args.aiBudget } : {}),
     });
-    return { revision: room.revision + 1 };
+    return { revision: room.revision + 1, ...(setup ? { setup } : {}) };
   },
 });
 
@@ -91,6 +105,7 @@ export const commitStart = internalMutation({
     if (members.map(m => m.godId).sort().join("\n") !== [...args.memberIds].sort().join("\n")) fail("CONFLICT", "Members changed while starting; try again");
     const byGod = new Map(members.map(m => [m.godId, m]));
     const settings = room.settings as GameSettings;
+    const setupId = room.setupId, setupName = (setupId ? (await ctx.db.get(setupId))?.name : undefined) ?? room.setupName;
     const now = Date.now(), guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "games", guid);
     const roster = args.deities.map(d => {
@@ -100,7 +115,7 @@ export const commitStart = internalMutation({
     const planningEndsAt = now + settings.planningSeconds * 1000;
     const gameId: Id<"games"> = await ctx.db.insert("games", {
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
-      settings, roster, ...(room.settingsOrigin ? { settingsOrigin: room.settingsOrigin } : {}),
+      settings, roster, ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
       endAtWorld: args.endAtWorld, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
       nextBatch: 0, agentCount: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },

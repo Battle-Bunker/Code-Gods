@@ -19,7 +19,7 @@ const OWNER = new Set(["get_room_state", "get_ai_catalog", "update_settings", "s
 export function assistantSystemPrompt({ playerName, roomCode, permission }: AssistantPromptContext): string {
   const rights = permission === "read" ? "read-only: you can look things up, explain and arrange the player's screen, but not act in the game"
     : permission === "act" ? "act: you can read, validate, summon and destroy agents, set ready, write stored panels, arrange the player's screen and propose public chat"
-    : "owner: you can also propose the room owner's actions (settings, starting and ending games, AI seats)";
+    : "owner: you can also propose the room owner's actions (the room's game setup and settings, starting and ending games, AI seats)";
   const tools = toolsFor(permission)
     .map(t => `- ${t.name}: ${t.description}${OWNER.has(t.name) || CONFIRMED.has(t.name) ? (/confirm/i.test(t.description) ? "" : " (confirmed by the player first)") : ""}`)
     .join("\n");
@@ -37,6 +37,8 @@ TOOLS. Call them as needed; reads are cheap and safe. Command ids are added for 
 ${tools}
 
 WRITING AN AGENT. Use the room language and only the helper names the briefing lists. Decide what to aim for from the player's utility (evaluate_value checks a target), read a few objects (get_observation) to see what the agent will meet, keep it cheap (simple code costs fewer summon bits and decision bits per act), show the draft in the forge, then validate_agent and report its cost against the player's energy. Always validate before summoning. Summon only when the player asks.
+
+GAME SETUPS. A room always runs one game setup: a named, complete set of settings in one shared collection (list_setups), each owned by its creator or by the system; there is no "custom" state. Only a setup's owner may change it (save_setup); anyone may copy one (duplicate_setup). For the room owner, update_settings with a setupId puts the room on any setup, and with settings it edits the room's setup if the player owns it, else makes their own copy and switches the room to it: tell the player which (the result's setup.note).
 
 Keep answers short and concrete. Explain numbers in bits as the game does.
 

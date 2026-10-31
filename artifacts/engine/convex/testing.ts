@@ -4,7 +4,6 @@
  * to check scoring parity and disclosure.
  */
 import { v } from "convex/values";
-import { SEED_SETUPS, seedSetupSettings } from "@workspace/game-core";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
@@ -100,16 +99,29 @@ export const patchRoom = internalMutation({
   },
 });
 
-/** Put every seeded game setup back as shipped (undeleted, unedited), so a test's admin edits do not outlive it. */
+/** Put the system setups back as shipped (the seed sync does exactly that). */
 export const resetSeedSetups = internalMutation({
   args: {},
-  handler: async ctx => {
+  handler: async ctx => { dev(); await seedSetups(ctx); },
+});
+
+/**
+ * Put a room, game or setup back into its pre-setups-v2 shape (raw `settings`; for rooms and games a legacy
+ * `settingsOrigin` and no setupId), so the migration test (test/game-migration.test.ts) has legacy documents to migrate.
+ */
+export const makeLegacy = internalMutation({
+  args: { roomId: v.optional(v.id("rooms")), gameId: v.optional(v.id("games")), setupId: v.optional(v.id("gameSetups")), settings: v.any(), settingsOrigin: v.optional(v.any()) },
+  handler: async (ctx, { roomId, gameId, setupId, settings, settingsOrigin }) => {
     dev();
-    await seedSetups(ctx);
-    for (const s of SEED_SETUPS) {
-      const rows = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).collect();
-      for (const row of rows) await ctx.db.patch(row._id, { name: s.name, summary: s.summary, settings: seedSetupSettings(s.seedId), deleted: undefined });
+    const legacy = { settings, settingsOrigin, setupId: undefined, setupName: undefined };
+    if (roomId) await ctx.db.patch(roomId, legacy);
+    const game = gameId ? await ctx.db.get(gameId) : null;
+    if (game) {
+      const summary = game.summary as Record<string, unknown> | undefined;
+      const { setup: _s, ...rest } = summary ?? {};
+      await ctx.db.patch(game._id, { ...legacy, ...(summary ? { summary: { ...rest, settings, settingsOrigin } } : {}) });
     }
+    if (setupId) await ctx.db.patch(setupId, { settings });
   },
 });
 

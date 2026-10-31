@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
 import { firstName } from "./next-step.ts";
+import { ownerLabel } from "./setup-words.ts";
 export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
@@ -20,7 +21,8 @@ export const UI_COMMANDS = {
   "ui.nav.game": { title: "Watch live game", tooltip: "The shared view of the running game: leaderboard, objects and chat.", group: "room", section: "goto", keywords: ["arena", "spectate", "live"] },
   "ui.nav.pastGame": { title: "Open a past game…", tooltip: "The final results of a finished game of this room.", group: "room", section: "goto", keywords: ["results", "history"] },
   "ui.nav.playerClient": { title: "Open player client", tooltip: "Opens the screen where you play: your goal, your agents and your assistant.", group: "play", section: "actions", keywords: ["play", "console", "client"] },
-  "ui.nav.newConfiguration": { title: "New game configuration…", tooltip: "Every setting of the next game on one page, each explained.", group: "owner", section: "actions", keywords: ["custom", "advanced", "settings", "configure"] },
+  "ui.nav.configure": { title: "Configure the room's setup", tooltip: "Every setting of the game setup this room runs, on one page, each explained.", group: "owner", section: "actions", keywords: ["advanced", "settings", "configure", "setup"] },
+  "ui.newSetup": { title: "New setup…", tooltip: "Makes your own copy of the room's current setup and opens it on the configuration page.", group: "owner", section: "actions", keywords: ["duplicate", "copy", "new", "configuration", "setup"] },
   "ui.nav.device": { title: "Approve a device code…", tooltip: "Review and approve the code a player app printed.", group: "account", section: "settings", keywords: ["device", "code", "connect", "cli"] },
   "ui.nav.admin": { title: "AI library", tooltip: "The AI players owners can seat, with their models and prompts.", group: "account", section: "settings", keywords: ["admin", "templates", "agents"] },
   "ui.copyInviteLink": { title: "Copy invite link", tooltip: "Copies this room's link; anyone who opens it can sign in and join.", group: "room", section: "actions", keywords: ["share", "invite", "link"] },
@@ -56,7 +58,7 @@ export interface CmdRoom {
 }
 export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
-export interface SetupLike { id: string; name: string; summary: string; seeded: boolean }
+export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
 
 export interface EngineScope {
   user: { id: string; name: string; isAdmin: boolean } | null;
@@ -64,9 +66,9 @@ export interface EngineScope {
   game?: CmdGame | null;
   /** manifest.aiFunding.configured; undefined while the manifest loads. */
   aiConfigured?: boolean;
-  /** The game setups the viewer can use (setups.list): the defaults, then their own. */
+  /** Every game setup (setups.list): the system's, then everyone's by name. */
   setups: readonly SetupLike[];
-  /** The setup the room's next-game settings are on, if any (settings-form currentSetup). */
+  /** The setup the room runs (room.setup.id). */
   currentSetup?: string;
   minPlayers: number;
   maxPlayers: number;
@@ -92,6 +94,8 @@ export interface EngineActions {
   removeAi(godId: string): Promise<unknown>;
   /** Put the next game on a setup at once (the app offers Undo). */
   applySetup(id: string): Promise<unknown>;
+  /** Copy a setup as the viewer's own and open the copy on the room's configuration page. */
+  duplicateSetup(id: string): Promise<unknown>;
   templates(): Promise<readonly Template[]>;
   adminTemplates(): Promise<readonly Template[]>;
   pastGames(): Promise<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
@@ -169,7 +173,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", lines: act.serverInfo() } },
     "owner.settings": { kind: "form", page: { kind: "pick", title: "Choose the next game's setup", empty: "No setups yet.",
       options: () => scope.setups.map((s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
-        detail: s.seeded ? s.summary : `Yours · ${s.summary}` })),
+        detail: `${ownerLabel(s)} · ${s.summary}`, keywords: [s.ownerName] })),
       onPick: id => act.applySetup(id) } },
     "owner.start": { kind: "submit", run: act.start },
     "rooms.create": { kind: "local", run: act.createRoom },
@@ -214,7 +218,9 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       options: async () => (await act.pastGames()).map(g => ({ id: g.shortCode, label: `Game ${g.shortCode}`, detail: g.winners.length ? `won by ${g.winners.map(w => w.name).join(", ")}` : "no winner recorded" })),
       onPick: code => act.navigate(`/games/${encodeURIComponent(code)}`) } }, inRoom),
     ui("ui.nav.playerClient", { kind: "local", run: () => roomCode && act.openTab(playerUrl(roomCode)) }, () => (!roomCode ? no("Open a room first.", { hidden: true }) : room && !me ? no("Join the room first.", { fix: "rooms.join" }) : ok)),
-    ui("ui.nav.newConfiguration", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
+    ui("ui.nav.configure", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
+    ui("ui.newSetup", { kind: "submit", run: () => act.duplicateSetup(scope.currentSetup!) },
+      () => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.") : !scope.currentSetup ? no("The room runs no setup yet.") : ok)),
     ui("ui.nav.device", { kind: "navigate", to: "/device" }, signedIn),
     ui("ui.nav.admin", { kind: "navigate", to: "/admin/agents" }, () => (user?.isAdmin ? ok : no("Only admins can do this.", { hidden: true }))),
     ui("ui.copyInviteLink", { kind: "local", run: () => roomCode && act.copy(`${act.origin}/rooms/${roomCode}`, "Invite link") }, () => (roomCode ? ok : no("Open a room first.", { hidden: true }))),
@@ -241,7 +247,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   // Default scores: what the empty-query view shows (everything else appears when typed).
   const scores: Record<string, number> = {
     "owner.start": 9, "rooms.resume": 9, "rooms.join": 9, "ui.nav.playerClient": 8, "ui.copyInviteLink": 7, "rooms.addAi": 6,
-    "owner.settings": 5, "ui.nav.newConfiguration": 4, "rooms.endActiveGame": 3, "rooms.create": 6,
+    "owner.settings": 5, "ui.nav.configure": 4, "ui.newSetup": 3, "rooms.endActiveGame": 3, "rooms.create": 6,
     "ui.nav.game": 6, "ui.nav.room": 5, "ui.nav.home": 4, "ui.nav.pastGame": 2, "rooms.history": 1,
   };
   return [...fromCatalog, ...uiCommands].map(c => (scores[c.id] ? { ...c, defaultScore: scores[c.id] } : c));

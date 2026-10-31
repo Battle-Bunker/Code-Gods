@@ -42,13 +42,16 @@ export function activeGameRef(game: Game | null) {
   };
 }
 
+/** The setup a game was started from, as named then (null for games started before setups-v2). */
+const gameSetup = (game: Game) => (game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null);
+
 /** Public result of an ended game (games.summary and the room's history). */
 export function gameRecord(game: Game, objects: readonly Obj[]) {
   const board = standings(game, objects);
   return {
     id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId,
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
-    settings: game.settings as GameSettings, settingsOrigin: game.settingsOrigin ?? null, roster: game.roster.map(rosterEntry), leaderboard: board,
+    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), leaderboard: board,
     winners: board.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
@@ -65,7 +68,7 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
     objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     recoveryReason: game.recoveryReason ?? null,
-    settings: game.settings as GameSettings, settingsOrigin: game.settingsOrigin ?? null, roster: game.roster.map(rosterEntry),
+    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry),
     objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
   };
@@ -74,14 +77,17 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
 type Chat = Doc<"chat">;
 const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
 
-export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string, catalog: unknown) {
+/** The setup a room runs: its id, its name (live, else as last applied) and whether it was deleted since. */
+export type RoomSetup = { id: string; name: string; deleted: boolean };
+
+export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string, catalog: unknown,
+  setup: RoomSetup | null) {
   const settings = room.settings as GameSettings;
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
     revision: room.revision, settings,
-    // Which game setup the next game was put on (only its id: a private setup stays its owner's), and whether the
-    // settings still equal it (null on rooms older than origins; "preset" on rooms stored before setups).
-    settingsOrigin: room.settingsOrigin ?? null,
+    // The game setup the room runs; `settings` is its snapshot from when it was applied (null only before setups-v2).
+    setup,
     members: members.map(m => ({
       id: m.godId, name: m.name, kind: m.kind, ready: m.ready, ...(m.status ? { status: m.status } : {}),
       // The seat's library agent is public by name, provider and model; its strategy prompt is not.

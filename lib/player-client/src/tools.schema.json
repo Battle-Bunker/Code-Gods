@@ -1502,7 +1502,7 @@
           "additionalProperties": {}
         },
         "setupId": {
-          "description": "A game setup's id (list_setups): the next game takes its complete settings. Not with settings.",
+          "description": "Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings.",
           "type": "string",
           "minLength": 1,
           "maxLength": 128
@@ -1938,7 +1938,74 @@
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
-      "properties": {},
+      "properties": {
+        "query": {
+          "description": "Words that must all appear in the name, the owner's name or the summary.",
+          "type": "string",
+          "maxLength": 100
+        },
+        "limit": {
+          "description": "At most this many rows (default 100); total says how many match.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "setupId"
+      ],
       "additionalProperties": false
     },
     "output": {
@@ -2012,6 +2079,66 @@
       "required": [
         "name",
         "settings"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "duplicate_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "setupId"
       ],
       "additionalProperties": false
     },

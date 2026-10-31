@@ -247,8 +247,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- owner -----
   "owner.settings": {
     kind: "action", audience: "owner",
-    human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a saved setup or changes its settings; running games keep theirs." },
-    ai: { description: "Owner: set the next game's settings and the AI token budget, sending the room's current revision (CONFLICT when stale). Either setupId (list_setups), whose complete settings are applied, or settings with the fields to change: a language change moves the grammar and summon price, an object type its default instantiation, and nothing else moves. Records settingsOrigin {kind: setup, id, modified}." },
+    human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a game setup, or changes the room's setup; running games keep theirs." },
+    ai: { description: "Owner: the next game's setup and AI token budget, with the room's current revision (CONFLICT when stale). setupId (list_setups, anyone's) applies that setup's settings. settings (only the fields to change; a language change moves the grammar and summon price, an object type its default instantiation) edits the room's setup in place if the human owns it, else creates their copy \"<name>'s copy\" and switches the room to it; the result's setup.note says which." },
     tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["setup", "configuration", "settings", "world"], surfaces: BOTH },
   },
   "owner.start": {
@@ -344,7 +344,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "rooms.create": {
     kind: "mutation", audience: "player",
     human: { title: "Create a room", tooltip: "Opens a new room on the First steps setup with you as owner, and can turn the assistant on for its players." },
-    ai: { description: "Create a room owned by the signed-in human (browser only). It starts on the seeded First steps setup (settingsOrigin {kind: setup, id, modified: false}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's First steps setup (setup {id, name}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: E },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },
@@ -425,21 +425,33 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- setups -----
   "setups.list": {
     kind: "query", audience: "player",
-    human: { title: "Browse game setups", tooltip: "The ready-made setups every room can use, then the ones you saved." },
-    ai: { description: "The game setups the human can use: the seeded defaults (seeded: true; only admins change them), then the human's own (mine: true), each with id, name, summary and complete settings. update_settings with a setupId puts the next game on one." },
-    tools: ["list_setups"], palette: null, why: "The Setup menu and Choose the next game's setup list them; there is nothing to run on its own.",
+    human: { title: "Browse game setups", tooltip: "Every game setup: the system's, then everyone's by name, each with its owner." },
+    ai: { description: "Every game setup (one shared collection): the system's (system: true, nobody may edit them), then everyone's by name, each with id, name, ownerName, mine, editable (= mine) and summary; get_setup has one's settings. update_settings with a setupId puts the next game on any of them; duplicate_setup copies one to edit." },
+    tools: ["list_setups"], palette: null, why: "The Setup combobox and Choose the next game's setup list them; there is nothing to run on its own.",
+  },
+  "setups.get": {
+    kind: "query", audience: "player",
+    human: { title: "Show a game setup", tooltip: "One setup's complete settings, whoever owns it." },
+    ai: { description: "One game setup by id (any: setups are shared) with its owner, whether it is the human's, and its complete settings." },
+    tools: ["get_setup"], palette: null, why: "The configuration page shows a setup; there is nothing to run on its own.",
   },
   "setups.save": {
     kind: "action", audience: "player",
-    human: { title: "Save a game setup", tooltip: "Keeps these settings under a name you can pick for any of your rooms." },
-    ai: { description: "Save complete, valid settings as a named setup (name ≤ 40 characters, unique among the human's own): a new one, or over one of the human's own (setupId; admins may also change a default). Changes no room. Returns the setup with its id." },
+    human: { title: "Save a game setup", tooltip: "Saves a setup you own under its name, or a new one of yours." },
+    ai: { description: "Save complete, valid settings as a named setup (name ≤ 40 characters, unique among the human's own): a new one, or over one the human owns (setupId; FORBIDDEN for the system's or another human's: duplicate it first). Changes no room. Returns the setup with its id." },
     tools: ["save_setup"], palette: null, why: "A setup is a whole configuration: it is saved from the configuration page, where the settings are edited.",
+  },
+  "setups.duplicate": {
+    kind: "mutation", audience: "player",
+    human: { title: "Duplicate a game setup", tooltip: "Makes your own copy of a setup, named \"<name>'s copy\", to edit." },
+    ai: { description: "Copy any setup (system, another human's or the human's own) as a new setup the human owns, named \"<name>'s copy\" (then \" 2\", \" 3\" if taken) unless a name is given. Changes no room. Returns the copy with its id, ready for save_setup." },
+    tools: ["duplicate_setup"], palette: null, why: "Every row of the Setup combobox has its Duplicate button, which opens the copy on the configuration page.",
   },
   "setups.remove": {
     kind: "mutation", audience: "player",
-    human: { title: "Delete a game setup", tooltip: "Removes one of your saved setups; rooms that use its settings keep them." },
-    ai: { description: "Delete one of the human's own setups by id (admins may delete a default, which is then never re-seeded). Rooms keep their settings." },
-    tools: ["delete_setup"], palette: null, why: "Each of your setups has its Delete next to it on the configuration page.",
+    human: { title: "Delete a game setup", tooltip: "Deletes one of your setups; rooms that run it keep its settings." },
+    ai: { description: "Delete one of the human's own setups by id (FORBIDDEN for the system's or another human's). Rooms that run it keep its settings and show it as deleted." },
+    tools: ["delete_setup"], palette: null, why: "Your setup's configuration page has its Delete in the review section.",
   },
 };
 

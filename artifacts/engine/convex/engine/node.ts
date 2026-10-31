@@ -12,7 +12,7 @@ import {
 import { objectType, type Rng } from "@workspace/game-types";
 import {
   card, context, divineLottery, evaluator, familiesFor, hasTable, offeredInstantiations, penaltyMeanBits, publicCatalog, selector,
-  surprisal, tableFor, UNIFORM_PRIOR, type GodScore, type PriorRef, type UtilityDescriptor,
+  shippedPriors, surprisal, tableFor, type GodScore, type PriorRef, type UtilityDescriptor,
 } from "@workspace/game-utilities";
 import { fail } from "../lib/errors";
 import { SETTINGS_DOMAIN } from "./settingsDomain";
@@ -70,7 +70,8 @@ export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 28147
 // scoring and dealing (calibration tables)
 // ------------------------------------------------------------------------------------------------
 
-export const PRIORS: Readonly<Record<string, PriorRef>> = Object.freeze({ [UNIFORM_PRIOR.id]: UNIFORM_PRIOR });
+/** The priors a room may measure rarity against: every one with shipped calibration tables (game-utilities). */
+export const PRIORS: Readonly<Record<string, PriorRef>> = Object.freeze(Object.fromEntries(shippedPriors().map(p => [p.id, p])));
 export function priorOf(priorId: string): PriorRef {
   return PRIORS[priorId] ?? fail("BAD_REQUEST", `Unknown prior ${priorId}: choose one of ${Object.keys(PRIORS).join(", ")}`);
 }
@@ -111,8 +112,8 @@ export function deal(settings: GameSettings, count: number): UtilityDescriptor[]
   validateSettings(settings);
   const inst = instantiationOf(settings);
   return selector(settings.utilitySelectorId ?? divineLottery.id).select(inst, count, cryptoRng, {
-    defenceRate: settings.defenceRate, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)),
-    exclude: settings.excludedFamilies, priorId: settings.priorId,
+    defenceGoals: settings.defenceGoals, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)),
+    exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
   });
 }
 /** A god's own kid card: plain-language incentives first, then source in the game's language, plus any defence goal. */
@@ -130,7 +131,9 @@ export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) 
 }
 /** The public catalog of families any god might draw, with availability, badges and locked reasons. */
 export function catalogFor(settings: GameSettings) {
-  return publicCatalog(instantiationOf(settings)).map(f => ({ ...f, excluded: settings.excludedFamilies.includes(f.id) }));
+  return publicCatalog(instantiationOf(settings)).map(f => ({
+    ...f, excluded: (f.role === "penalty" ? !settings.defenceGoals || settings.excludedDefenceFamilies.includes(f.id) : settings.excludedFamilies.includes(f.id)),
+  }));
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -139,20 +142,23 @@ export function catalogFor(settings: GameSettings) {
 
 const isOffered = (settings: GameSettings) => {
   const inst = instantiationOf(settings);
-  return offeredInstantiations(settings.objectType, { excludedFamilies: settings.excludedFamilies, prior: priorOf(settings.priorId) })
+  const excludedFamilies = [...settings.excludedFamilies, ...settings.excludedDefenceFamilies];
+  return offeredInstantiations(settings.objectType, { excludedFamilies, prior: priorOf(settings.priorId) })
     .some(offered => offered.key === inst.key);
 };
 /** Settings name an instantiation the engine offers (every dealable family calibrated) and known families. */
 export function assertOffered(settings: GameSettings) {
   priorOf(settings.priorId);
   if (!isOffered(settings)) fail("BAD_REQUEST", `${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
-  const known = new Set(familiesFor(settings.objectType).map(f => f.id));
-  const unknown = settings.excludedFamilies.filter(id => !known.has(id));
-  if (unknown.length) fail("BAD_REQUEST", `Unknown ${settings.objectType} utility families: ${unknown.join(", ")}`);
+  for (const [ids, role, words] of [[settings.excludedFamilies, "reward", "reward"], [settings.excludedDefenceFamilies, "penalty", "defence"]] as const) {
+    const known = new Set(familiesFor(settings.objectType, role).map(f => f.id));
+    const unknown = ids.filter(id => !known.has(id));
+    if (unknown.length) fail("BAD_REQUEST", `Unknown ${settings.objectType} ${words} families: ${unknown.join(", ")}`);
+  }
 }
 /** Settings a game can be played with: valid, offered, and within the server's resource limits. Throws BAD_REQUEST. */
 export function assertPlayable(settings: GameSettings): void {
-  try { validateSettings(settings); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
+  try { validateSettings(settings, SETTINGS_DOMAIN); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertOffered(settings);
   if (settings.startingObjectCount > 1000 || settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
       settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) fail("BAD_REQUEST", "Settings exceed server resource limits");
