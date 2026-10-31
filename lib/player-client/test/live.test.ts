@@ -98,34 +98,37 @@ test("status: engine, credential, room, permission, expiry and the current user"
 });
 
 test("panel: push, list and pull a stored panel with the device credential; diagnostics on a syntax error; read cannot push", async () => {
+  // The engine keeps panels across runs: a fresh slug per run starts at version 1.
+  const slug = `cli-${randomUUID().slice(0, 8)}`;
   const source = `import { definePanel } from "@sdk";\nexport default definePanel({ title: "From the CLI", Component() { return <p>cli</p>; } });\n`;
   writeFileSync(join(apps.bob.dir, "cli-panel.tsx"), source);
-  const push = await cli(["panel", "push", "cli-panel", "--file", "cli-panel.tsx"], { env: apps.bob.env });
+  const push = await cli(["panel", "push", slug, "--file", "cli-panel.tsx"], { env: apps.bob.env });
   assert.equal(push.status, 0, push.stdout + push.stderr);
-  assert.deepEqual([parse(push).ok, parse(push).slug, parse(push).version], [true, "cli-panel", 1]);
+  assert.deepEqual([parse(push).ok, parse(push).slug, parse(push).version], [true, slug, 1]);
 
   const list = await cli(["panel", "list"], { env: apps.bob.env });
   assert.equal(list.status, 0, list.stdout);
-  const listed = parse(list).panels.find((p: { slug: string }) => p.slug === "cli-panel");
+  const listed = parse(list).panels.find((p: { slug: string }) => p.slug === slug);
   assert.equal(listed.title, "From the CLI");
   assert.equal(listed.author.kind, "device");
 
-  const pull = await cli(["panel", "pull", "cli-panel", "--file", "pulled.tsx"], { env: apps.bob.env });
+  const pull = await cli(["panel", "pull", slug, "--file", "pulled.tsx"], { env: apps.bob.env });
   assert.equal(pull.status, 0, pull.stdout);
   assert.equal(readFileSync(join(apps.bob.dir, "pulled.tsx"), "utf8"), source);
-  const again = await cli(["panel", "pull", "cli-panel", "--file", "pulled.tsx"], { env: apps.bob.env });
+  const again = await cli(["panel", "pull", slug, "--file", "pulled.tsx"], { env: apps.bob.env });
   assert.equal(again.status, 1, "pull never overwrites without --force");
   assert.match(parse(again).error, /--force/);
 
   writeFileSync(join(apps.bob.dir, "broken.tsx"), `export default (\n`);
-  const broken = await cli(["panel", "push", "cli-panel", "--file", "broken.tsx"], { env: apps.bob.env });
+  const broken = await cli(["panel", "push", slug, "--file", "broken.tsx"], { env: apps.bob.env });
   assert.equal(broken.status, 1);
   assert.equal(parse(broken).ok, false);
   assert.equal(typeof parse(broken).diagnostics[0].line, "number");
 
-  const reader = await cli(["panel", "push", "cli-panel", "--file", join(apps.bob.dir, "cli-panel.tsx")], { env: apps.carol.env });
+  const reader = await cli(["panel", "push", slug, "--file", join(apps.bob.dir, "cli-panel.tsx")], { env: apps.carol.env });
   assert.equal(reader.status, 1);
   assert.equal(parse(reader).code, "FORBIDDEN");
+  await bob.client.mutation(api.panels.remove, { slug });
 });
 
 test("owner: room-command needs an owner credential; with one, start works", async () => {

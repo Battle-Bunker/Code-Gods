@@ -11,8 +11,10 @@
  *   a panel saved with panels.save appears without a reload (a window marker survives), with live data over the
  *   bridge; an update and a rollback change it live; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
- *   beacon server sees no request); a chat from a panel shows the host's confirmation with the exact payload and
- *   nothing is sent until confirmed (and nothing when cancelled); ?panels=off loads only the core.
+ *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
+ *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
+ *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
+ *   the engine; ?panels=off loads only the core; the page CSP reports nothing of its own and sign-in still works.
  */
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
@@ -286,6 +288,18 @@ await check("the hosted page runs under its CSP without violations of its own", 
   // Expected: the navigating panel's frame was refused by frame-src (checked above).
   const own = cspReports.filter(t => !t.includes(`Framing '${BEACON}/`));
   assert(own.length === 0, own.slice(0, 2).join(" | "));
+});
+
+await check("sign-in still works under the page CSP: the signed-out page offers it and the link reaches the provider", async () => {
+  const fresh = await browser.newContext();
+  const out = await fresh.newPage();
+  const reports: string[] = [];
+  out.on("console", m => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
+  await out.goto(`${SITE}/player/?room=${shortCode}`);
+  await out.waitForSelector("[data-testid=link-login]", { timeout: 60_000 });
+  await Promise.all([out.waitForURL(url => !url.href.startsWith(`${SITE}/player/`), { timeout: 30_000 }), out.click("[data-testid=link-login]")]);
+  assert(reports.length === 0, reports.slice(0, 2).join(" | "));
+  await fresh.close();
 });
 
 await check("no uncaught page errors in the host", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));

@@ -99,7 +99,7 @@ Each of these returns the caller's own projection only.
 
 ### Stored panels (`panels`)
 A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any caller of that human. Writes: browser sessions and `act`/`owner` credentials. Another human's slug is NOT_FOUND. Each function has an internal twin `<fn>As({principal: {credentialId}, …})` for the agent registry.
-- `panels.list()` query → `[{slug, title, placement, size, currentVersion, enabled, updatedAt, author{kind, label}, lastForeignVersion}]`
+- `panels.list()` query → `[{id, slug, title, placement, size, currentVersion, enabled, updatedAt, author{kind, label}, lastForeignVersion}]`
 - `panels.code({slug, version?})` query → `{slug, version, source, compiled, diagnostics, compilerVersion, sourceHash, author, createdAt}` (the last 20 versions are kept)
 - `panels.save({slug, source, title?, placement?, size?})` action → `{ok: true, slug, version, diagnostics: []}` or `{ok: false, slug, diagnostics[{line, column, code, message}]}` (nothing stored). Limits: source ≤ 64 KB, compiled ≤ 128 KB, 32 panels, 30 saves a minute.
 - `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`; `panels.place({slug, placement?, size?, title?})`
