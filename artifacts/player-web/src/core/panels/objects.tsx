@@ -10,7 +10,7 @@
  */
 import { useMemo, useState } from "react";
 import {
-  AnnotationLegend, ScoreBreakdown, SCORE_RAMP, annotationLegend, dimensionVar, mergeAnnotations, rampVar, relativeStrength, type Annotation,
+  AnnotationLegend, ScoreBreakdown, annotationLegend, dimensionVar, mergeAnnotations, rampVar, relativeStrength, type Annotation,
 } from "@workspace/object-views";
 import { ObjectGrid, ObjectView, formatBits, useAnnotations, useMyCard, useObjectContext, useObjects, type LiveObject } from "@/sdk";
 import { useNow } from "@/core/game/situation";
@@ -25,16 +25,17 @@ const FILTERS: Record<string, (o: LiveObject) => boolean> = {
   chips: o => o.peerCare > 0 && o.own.netBits <= 0,
 };
 const SORTS: Record<string, (o: LiveObject) => number> = { payoff: o => o.payoff, mine: o => o.own.netBits, othersCare: o => o.peerCare };
-export const PAYOFF_CAPTION = "width: your bits · height: what the others care · area: your payoff";
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
-const SIDE = 44, LABEL_W = 30, LABEL_H = 13;
+const SIDE = 44, LABEL_W = 36, LABEL_H = 13;
 const NO_MARKS: readonly Annotation[] = [];
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
 
 /** The payoff rectangle of one row, to scale (geometry in ./payoff-geometry.ts), its edges and labels in the dimensions' colours. */
 function PayoffRectangle({ o, scale, strength }: { o: LiveObject; scale: PayoffScale; strength: number }) {
   const g = payoffRect({ own: o.own.netBits, care: o.peerCare }, scale, SIDE);
-  const at = payoffLabels(g, SIDE, { gap: 3, below: 11, halfLabel: 10 });
+  const yoursText = formatBits(o.own.netBits), othersText = formatBits(o.peerCare);
+  // 10px monospace digits are about 6px wide: keep the bottom label's left end on the box.
+  const at = payoffLabels(g, SIDE, { gap: 3, below: 11, halfLabel: yoursText.length * 3 });
   const title = `your bits ${formatBits(o.own.netBits)} × others' care ${formatBits(o.peerCare)} = payoff ${formatBits(o.payoff)}`;
   const top = SIDE - g.height;
   return (
@@ -42,27 +43,33 @@ function PayoffRectangle({ o, scale, strength }: { o: LiveObject; scale: PayoffS
       role="img" aria-label={title} data-testid={`payoff-rect-${o.id}`} data-kind={g.kind} data-width={g.width.toFixed(2)} data-height={g.height.toFixed(2)}>
       <title>{title}</title>
       {g.kind === "gain" && <rect x={0} y={top} width={g.width} height={g.height} style={{ fill: rampVar(strength) }} data-testid="payoff-fill" />}
-      {g.kind === "loss" && <rect x={0.75} y={top + 0.75} width={Math.max(0, g.width - 1.5)} height={Math.max(0, g.height - 1.5)} fill="none"
-        stroke="hsl(var(--destructive))" strokeWidth={1.5} strokeDasharray="3 2" />}
+      {g.kind === "loss" && (g.height > 1.5
+        ? <rect x={0.75} y={top + 0.75} width={Math.max(0, g.width - 1.5)} height={g.height - 1.5} fill="none"
+          stroke="hsl(var(--destructive))" strokeWidth={1.5} strokeDasharray="3 2" data-testid="payoff-loss" />
+        // A loss nobody else cares about has no height: a dashed line just above the edge still says "loss".
+        : <line x1={0} x2={g.width} y1={SIDE - 4} y2={SIDE - 4} stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="3 2" data-testid="payoff-loss" />)}
       {/* The two dimensions' edges: the bottom (width: your bits) and the right (height: what the others care). */}
       {g.width > 0 && <line x1={0} x2={g.width} y1={SIDE - 1} y2={SIDE - 1} style={{ stroke: YOURS }} strokeWidth={2} />}
       {g.height > 0 && <line x1={Math.max(1, g.width - 1)} x2={Math.max(1, g.width - 1)} y1={top} y2={SIDE} style={{ stroke: OTHERS }} strokeWidth={2} />}
-      <text x={at.width.x} y={at.width.y} textAnchor="middle" className="font-mono text-[10px] tabular-nums" style={{ fill: YOURS }} data-testid="payoff-label-yours">{formatBits(o.own.netBits)}</text>
-      <text x={at.height.x} y={at.height.y} dominantBaseline="middle" className="font-mono text-[10px] tabular-nums" style={{ fill: OTHERS }} data-testid="payoff-label-others">{formatBits(o.peerCare)}</text>
+      <text x={at.width.x} y={at.width.y} textAnchor="middle" className="font-mono text-[10px] tabular-nums" style={{ fill: YOURS }} data-testid="payoff-label-yours">{yoursText}</text>
+      <text x={at.height.x} y={at.height.y} dominantBaseline="middle" className="font-mono text-[10px] tabular-nums" style={{ fill: OTHERS }} data-testid="payoff-label-others">{othersText}</text>
     </svg>
   );
 }
+
+/** The key's gradient: stops from the same mix the fills use (linear light), so its middle matches a half-strength fill. */
+const KEY_STOPS = [0, 0.25, 0.5, 0.75, 1].map(t => rampVar(t)).join(", ");
 
 /** The colour coding, taught once: the two dimensions' colours and the ramp. */
 function PayoffKey() {
   const swatch = (colour: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: colour }} />;
   return (
-    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" data-testid="text-payoff-caption" aria-label={PAYOFF_CAPTION}>
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" data-testid="text-payoff-caption">
       <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your bits</span></span></span>
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>what the others care</span></span></span>
       <span className="inline-flex items-center gap-1">
         <span aria-hidden className="inline-block h-2.5 w-6 align-middle"
-          style={{ background: `linear-gradient(to right, var(--cg-ramp-low, ${SCORE_RAMP.light.low}), var(--cg-ramp-high, ${SCORE_RAMP.light.high}))` }} />
+          style={{ background: `linear-gradient(to right, ${KEY_STOPS})` }} />
         area: your payoff, low → high
       </span>
     </p>

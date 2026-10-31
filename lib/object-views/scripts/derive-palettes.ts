@@ -3,10 +3,11 @@
  *
  *   node --experimental-strip-types lib/object-views/scripts/derive-palettes.ts
  *
- * For each set it searches OKLCH (lightness, chroma, hue within the window where the hue still reads as the colour's
- * name) for the shades that maximise the smallest pairwise separation, where a pair's separation is the lesser of its
- * CIEDE2000 (normal vision) and twice its OKLab ΔE×100 under protanopia and deuteranopia (Machado 2009), subject to
- * WCAG 4.5:1 against every surface of the scheme in both apps' index.css. Deterministic (seeded). It prints the
+ * For each set it searches OKLCH (lightness in the scheme's band, vivid chroma, hue within the window where it still
+ * reads as the colour's name) for the shades that maximise `objective`: the smallest pairwise CIEDE2000 (normal vision)
+ * PLUS the smallest pairwise OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (Machado 2009; tritanopia
+ * stands in for small-field tritanopia at digit size), subject to WCAG 4.6:1 against every surface of the scheme in
+ * both apps' index.css. Hill-climbing from seeded restarts: deterministic. It prints the
  * winners; copy them into DIGIT_SHADES (src/grid-display.ts) and both apps' --cg-ink-* tokens.
  */
 import { readFileSync } from "node:fs";

@@ -173,10 +173,15 @@ export const TEXT_SHADES: Shades = DIGIT_SHADES.rainbow6;
 export function textShadeToken(letter: string, set?: GridColourSet): string {
   return set && set !== "rainbow6" ? `--cg-ink-${set}-${letter}` : `--cg-ink-${letter}`;
 }
-/** CSS colour of a glyph: the theme's custom property, falling back to the light shade (or the text colour). */
+/**
+ * CSS colour of a glyph: the theme's custom property, falling back to the light shade. A letter outside its set (a
+ * non-strict grid) takes the unknown-set shade, as its tile does; a letter no set names, the text colour.
+ */
 export function textShadeVar(letter: string, set?: GridColourSet): string {
-  const light = (set ? DIGIT_SHADES[set] : TEXT_SHADES).light[letter];
-  return light ? `var(${textShadeToken(letter, set)}, ${light})` : "currentColor";
+  const light = set ? DIGIT_SHADES[set].light[letter] : undefined;
+  if (light) return `var(${textShadeToken(letter, set)}, ${light})`;
+  const any = TEXT_SHADES.light[letter];
+  return any ? `var(${textShadeToken(letter)}, ${any})` : "currentColor";
 }
 
 /** Glyph colour on a tile: a dark ink (4.5:1 or better on every tile fill, as on the dark surfaces). */

@@ -11,11 +11,10 @@ import { GRID_COLOUR_SETS } from "@workspace/game-types";
 import { DIMENSION_COLOURS, SCORE_RAMP, dimensionVar, rampHex, rampVar, relativeStrength } from "../src/dimensions.ts";
 import { DIGIT_SHADES } from "../src/grid-display.ts";
 import { contrastRatio, deltaEOk, oklchOf } from "../src/colour-science.ts";
+import { surfaces } from "../scripts/derive-palettes.ts";
 
-// The surfaces the dimension colours sit on (both apps' light :root and the engine UI's dark .dark; text-shades.test.ts
-// reads the same values from the CSS).
-const LIGHT = ["#f5f1eb", "#faf9f4", "#e8e2d9", "#f6f4ee", "#fcfbf8", "#ebe7e0"];
-const DARK = ["#11131d", "#171927", "#212331"];
+// The surfaces the dimension colours sit on, read from both apps' index.css (light :root, the engine UI's dark .dark).
+const { light: LIGHT, dark: DARK } = surfaces();
 
 for (const [scheme, surfaces] of [["light", LIGHT], ["dark", DARK]] as const) {
   test(`${scheme}: yours and others read as text on every surface (≥ 4.5:1)`, () => {

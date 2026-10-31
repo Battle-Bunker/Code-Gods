@@ -6,7 +6,7 @@ import {
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 import {
-  TONE_CUE, TONE_DECORATION, annotationBadges, annotationLegend, cellWeightMap, cueColour, legendText, regionEdges, textSegments,
+  TONE_DECORATION, annotationBadges, annotationLegend, cellWeightMap, cueColour, legendText, regionEdges, textSegments,
   underlinePx, type Annotation, type AnnotationTone, type BadgeAnnotation, type LegendEntry, type Mark, type RegionEdge,
 } from "./annotations.ts";
 
@@ -92,7 +92,8 @@ export function AnnotationBadges({ badges }: { badges: readonly BadgeAnnotation[
     <span className="inline-flex flex-wrap items-center gap-1 align-middle" data-testid="object-annotation-badges">
       {badges.map((b, i) => (
         <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap border px-1 font-sans text-[10px] leading-4"
-          style={{ borderColor: cueColour(0.5), borderStyle: TONE_DECORATION[b.tone] }} aria-label={`${TONE_CUE[b.tone]}: ${b.text}`}>
+          style={{ borderColor: cueColour(0.8), borderStyle: TONE_DECORATION[b.tone], borderWidth: 1.5 }} data-tone={b.tone}>
+          {b.tone !== "neutral" && <span className="sr-only">{b.tone === "good" ? "helps: " : "hurts: "}</span>}
           {b.text}
         </span>
       ))}

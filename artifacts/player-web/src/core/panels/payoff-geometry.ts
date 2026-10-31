@@ -3,8 +3,9 @@
  * width is your bits and whose height is the others' care on ONE linear scale for both axes, so equal values make a
  * square and the area is the payoff. One scale for every row shown: the largest value of either dimension (a loss
  * counts by its magnitude) sets the full side. Any non-zero dimension keeps at least MIN_PX so a tiny value stays
- * visible. A loss (negative own bits) is drawn at its magnitude and marked as a loss; an object nobody else cares
- * about is flat (no area: no payoff).
+ * visible; that floor is the one place the area overstates the payoff (a sliver reads as "a little", and its labels
+ * carry the exact values). A loss (negative own bits) is drawn at its magnitude and marked as a loss; an object
+ * nobody else cares about is flat (no area: no payoff).
  */
 
 export interface PayoffRow {

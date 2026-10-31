@@ -24,7 +24,8 @@ const linearSrgb = (c: number): number => {
   return x <= 0.0031308 ? 12.92 * x : 1.055 * x ** (1 / 2.4) - 0.055;
 };
 export const linearOf = (hex: string): Rgb => hexRgb(hex).map(srgbLinear) as Rgb;
-const hexOfLinear = (rgb: Rgb): string =>
+/** Linear-light sRGB (clamped) → #rrggbb. */
+export const hexOfLinear = (rgb: Rgb): string =>
   `#${rgb.map(c => Math.round(linearSrgb(c) * 255).toString(16).padStart(2, "0")).join("")}`;
 
 // --- WCAG 2.x ---------------------------------------------------------------------------------------------------

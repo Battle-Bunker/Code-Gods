@@ -173,5 +173,5 @@ test("a glyph's colour is its set's custom property with the light shade as fall
   assert.equal(textShadeVar("G", "rgb"), `var(--cg-ink-rgb-G, ${DIGIT_SHADES.rgb.light.G})`);
   assert.equal(textShadeVar("Y", "rgby"), `var(--cg-ink-rgby-Y, ${DIGIT_SHADES.rgby.light.Y})`);
   assert.equal(textShadeVar("?"), "currentColor");
-  assert.equal(textShadeVar("O", "rgb"), "currentColor", "a letter outside the set has no shade in it");
+  assert.equal(textShadeVar("O", "rgb"), `var(--cg-ink-O, ${DIGIT_SHADES.rainbow6.light.O})`, "a letter outside the set: the unknown-set shade, like its tile");
 });

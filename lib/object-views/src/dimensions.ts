@@ -15,7 +15,7 @@
  * Both apps' index.css carry them as --cg-yours, --cg-others, --cg-ramp-low and --cg-ramp-high (light under :root,
  * the engine UI's dark theme under .dark); keep them in step with DIMENSION_COLOURS.
  */
-import { linearOf } from "./colour-science.ts";
+import { hexOfLinear, linearOf, type Rgb } from "./colour-science.ts";
 import type { ShadeScheme } from "./grid-display.ts";
 
 export type Dimension = "yours" | "others";
@@ -44,9 +44,7 @@ export function relativeStrength(payoff: number, best: number): number {
 export function rampHex(t: number, scheme: ShadeScheme = "light"): string {
   const k = Math.min(1, Math.max(0, Number.isFinite(t) ? t : 0));
   const [a, b] = [linearOf(SCORE_RAMP[scheme].low), linearOf(SCORE_RAMP[scheme].high)];
-  const mix = a.map((x, i) => x + (b[i] - x) * k);
-  const enc = (c: number) => Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055));
-  return `#${mix.map(c => enc(c).toString(16).padStart(2, "0")).join("")}`;
+  return hexOfLinear(a.map((x, i) => x + (b[i] - x) * k) as Rgb);
 }
 /** The ramp's colour at strength t as CSS that follows the theme (the two tokens mixed in linear light). */
 export function rampVar(t: number): string {
