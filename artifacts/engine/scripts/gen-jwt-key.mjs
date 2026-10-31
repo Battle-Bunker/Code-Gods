@@ -7,8 +7,8 @@
  *   pnpm --filter @workspace/engine gen-jwt-key --set --prod   … on the production deployment
  *
  * Sets two Convex env vars that must always change together:
- *   CODE_GODS_JWT_PRIVATE_KEY  PKCS#8 PEM (secret; convex/auth/jwt.ts signs with it)
- *   CODE_GODS_JWT_JWKS         its public JWKS (convex/auth.config.ts inlines it as a data: URI)
+ *   PLAYER_JWT_PRIVATE_KEY  PKCS#8 PEM (secret; convex/auth/jwt.ts signs with it)
+ *   PLAYER_JWT_JWKS         its public JWKS (convex/auth.config.ts inlines it as a data: URI)
  * After --set, push the functions again (`npx convex deploy` / `npx convex dev`) so the auth config is
  * re-evaluated. Rotating the key invalidates outstanding 10-minute JWTs; clients simply fetch new ones.
  */
@@ -41,11 +41,11 @@ export function setConvexEnv(vars, { prod = false, cwd = resolve(dirname(fileURL
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const key = await generateJwtKey();
   if (process.argv.includes("--set")) {
-    setConvexEnv({ CODE_GODS_JWT_PRIVATE_KEY: key.privateKey, CODE_GODS_JWT_JWKS: key.jwks }, { prod: process.argv.includes("--prod") });
-    console.log("Set CODE_GODS_JWT_PRIVATE_KEY and CODE_GODS_JWT_JWKS. Push the functions again so auth.config.ts picks up the JWKS.");
+    setConvexEnv({ PLAYER_JWT_PRIVATE_KEY: key.privateKey, PLAYER_JWT_JWKS: key.jwks }, { prod: process.argv.includes("--prod") });
+    console.log("Set PLAYER_JWT_PRIVATE_KEY and PLAYER_JWT_JWKS. Push the functions again so auth.config.ts picks up the JWKS.");
   } else {
-    console.log("CODE_GODS_JWT_PRIVATE_KEY=");
+    console.log("PLAYER_JWT_PRIVATE_KEY=");
     console.log(key.privateKey);
-    console.log(`CODE_GODS_JWT_JWKS=${key.jwks}`);
+    console.log(`PLAYER_JWT_JWKS=${key.jwks}`);
   }
 }

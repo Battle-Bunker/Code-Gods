@@ -1,0 +1,119 @@
+# Deploys the engine (functions, Python runtime bundle, both static sites) to Convex.
+#   push to develop → GitHub Environment "development" → the dev deployment
+#   push to main    → GitHub Environment "production"  → the production deployment
+# Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
+# selects the deployment. Setup and recovery: PILOT.md, "Automatic deploys".
+name: Deploy
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref_name == 'develop' || github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    concurrency:
+      group: deploy-${{ github.ref_name == 'main' && 'production' || 'development' }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4   # version from package.json "packageManager"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # ---- gate: typecheck and the offline unit suites (no backend) ----
+      - run: pnpm run typecheck
+      - name: Unit tests
+        run: |
+          pnpm --filter @workspace/engine test:unit
+          for pkg in ai-player game-core game-types game-utilities object-views player-web code-gods; do pnpm --filter "@workspace/$pkg" test; done
+          pnpm run test:artifact
+
+      # ---- the pinned Python runtime bundle ----
+      - uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - run: pnpm --filter @workspace/game-runtime build:python
+      - run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
+
+      # ---- deploy (from here on the deploy key is in the environment) ----
+      - name: Check the deployment's env vars
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          test -n "$CONVEX_DEPLOY_KEY" || { echo "::error::Secret CONVEX_DEPLOY_KEY is not set in this GitHub Environment"; exit 1; }
+          names=$(npx convex env list --names-only)   # names only, never values
+          missing=""; forbidden=""
+          for n in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET PLAYER_JWT_PRIVATE_KEY PLAYER_JWT_JWKS SEASON_SALT ADMIN_EMAILS; do
+            if ! grep -qx "$n" <<<"$names"; then missing="$missing $n"; fi
+          done
+          for n in DEV TEST_FIXTURES AI_MOCK FAKE_OIDC_URL; do
+            if grep -qx "$n" <<<"$names"; then forbidden="$forbidden $n"; fi
+          done
+          stale=$(grep '^CODE_GODS_' <<<"$names" | tr '\n' ' ' || true)   # renamed without the prefix (PILOT.md)
+          [ -z "$stale" ] || { echo "::error::Old CODE_GODS_ env vars on the deployment: $stale(move each to its new name, then remove it)"; exit 1; }
+          [ -z "$forbidden" ] || { echo "::error::Test-only env vars set on a cloud deployment:$forbidden (remove them)"; exit 1; }
+          [ -z "$missing" ] || { echo "::error::Missing deployment env vars:$missing (see PILOT.md)"; exit 1; }
+
+      - name: Push functions
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy
+
+      - name: Better Auth JWKS (first deploy only)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          if npx convex env list --names-only | grep -qx BETTER_AUTH_JWKS; then echo "BETTER_AUTH_JWKS is set"; exit 0; fi
+          # The JWKS (compacted to one line) stays in a shell variable and goes to env set on stdin, never to the log;
+          # an empty or invalid result stops here, so a broken value is never stored.
+          jwks=$(npx convex run auth/betterAuth:rotateKeys \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.keys?.length)process.exit(1);process.stdout.write(JSON.stringify(j))})')
+          [ -n "$jwks" ] || { echo "::error::rotateKeys returned no keys"; exit 1; }
+          printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
+          npx convex deploy   # push again so auth.config.ts inlines the JWKS
+
+      - name: Upload the Python runtime bundle
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter @workspace/engine upload-runtime
+
+      - name: Build and upload the static sites
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter @workspace/engine deploy-static
+
+      - name: Smoke test
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          site=$(npx convex run --component engineSite lib:getUrls '{}' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).siteUrl.replace(/\/$/,"")))')
+          echo "site: $site"
+          curl -fsS "$site/api/health"; echo
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
+          [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
+          npx convex run runtime/probe:smoke

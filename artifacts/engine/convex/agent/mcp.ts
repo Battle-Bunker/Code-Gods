@@ -106,7 +106,7 @@ const modern = () => modernHandler ??= createMcpHandler(({ authInfo }) => {
 }, { responseMode: "json", legacy: "reject", maxRequestBodySize: MAX_MCP_BODY_BYTES });
 
 export const mcp = httpAction(async (ctx, request) => {
-  if (!isAllowedOrigin(request.headers.get("origin"), siteOrigin(), envList(process.env.CODE_GODS_MCP_ALLOWED_ORIGINS))) {
+  if (!isAllowedOrigin(request.headers.get("origin"), siteOrigin(), envList(process.env.MCP_ALLOWED_ORIGINS))) {
     return json({ jsonrpc: "2.0", id: null, error: { code: -32600, message: "Origin not allowed" } }, 403);
   }
   if (Number(request.headers.get("content-length") ?? 0) > MAX_MCP_BODY_BYTES) {

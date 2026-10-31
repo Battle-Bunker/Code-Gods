@@ -150,13 +150,13 @@ test("sign-in refuses a callback URL on another origin", async () => {
 });
 
 test("the fake provider does not exist once test fixtures are off", async () => {
-  deploymentEnv("CODE_GODS_TEST_FIXTURES", undefined);
+  deploymentEnv("TEST_FIXTURES", undefined);
   try {
     const response = await signInRequest("/api/auth/sign-in/oauth2", { providerId: "fake", callbackURL: "/" });
     assert.equal(response.status, 404, `fixtures off: the generic OAuth endpoint is not even mounted (${await response.clone().text()})`);
     const callback = await fetch(`${SITE}/api/auth/oauth2/callback/fake?code=x&state=y`, { redirect: "manual" });
     assert.equal(callback.status, 404, "nor its callback");
-  } finally { deploymentEnv("CODE_GODS_TEST_FIXTURES", "1"); }
+  } finally { deploymentEnv("TEST_FIXTURES", "1"); }
   await startLogin(); // and back on
 });
 

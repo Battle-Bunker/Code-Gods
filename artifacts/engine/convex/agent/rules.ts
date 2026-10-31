@@ -19,7 +19,7 @@ const isLoopbackHttp = (url: URL) => url.protocol === "http:" && LOOPBACK.has(ur
 /**
  * May a client register (DCR) or declare (CIMD) this redirect URI? Claude's callbacks, loopback http on any
  * port (native apps, Claude Code, the CLI: RFC 8252), or an exact URI the operator allowlisted
- * (CODE_GODS_OAUTH_REDIRECT_URIS). Never a fragment, credentials or another scheme.
+ * (OAUTH_REDIRECT_URIS). Never a fragment, credentials or another scheme.
  */
 export function redirectAllowedForRegistration(uri: string, extra: readonly string[]): boolean {
   if (typeof uri !== "string" || uri.length > 512) return false;

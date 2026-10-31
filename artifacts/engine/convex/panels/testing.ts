@@ -1,10 +1,10 @@
-/** Test-only fixtures for test/game-panels.test.ts; refused unless CODE_GODS_DEV or CODE_GODS_TEST_FIXTURES is set. */
+/** Test-only fixtures for test/game-panels.test.ts; refused unless DEV or TEST_FIXTURES is set. */
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { fail } from "../lib/errors";
 
 const dev = () => {
-  if (process.env.CODE_GODS_DEV !== "1" && process.env.CODE_GODS_TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need CODE_GODS_DEV=1 or CODE_GODS_TEST_FIXTURES=1");
+  if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
 };
 
 /** `count` minimal panels seeded-0 … for `subject` (bypasses compile and the rate limit). */

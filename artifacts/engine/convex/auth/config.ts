@@ -3,10 +3,10 @@
  *
  *   CONVEX_SITE_URL            built in: https://<dep>.convex.site. Better Auth's JWT issuer is this URL;
  *                              our player JWTs use `<it>/api/device` (identity.ts tokenKind tells them apart)
- *   CODE_GODS_SITE_URL         optional: the public site origin if it differs (custom domain); Better Auth's
+ *   SITE_URL                   optional: the public site origin if it differs (custom domain); Better Auth's
  *                              baseURL, redirects and trusted origin use it
- *   CODE_GODS_JWT_PRIVATE_KEY  RS256 PKCS#8 PEM for player JWTs (scripts/gen-jwt-key.mjs)
- *   CODE_GODS_JWT_JWKS         its public JWKS (same script); auth.config.ts inlines it as a data URI
+ *   PLAYER_JWT_PRIVATE_KEY     RS256 PKCS#8 PEM for player JWTs (scripts/gen-jwt-key.mjs)
+ *   PLAYER_JWT_JWKS            its public JWKS (same script); auth.config.ts inlines it as a data URI
  * Better Auth's own variables (GOOGLE_*, BETTER_AUTH_*) are listed in betterAuth.ts.
  */
 import { playerIssuerFor } from "./identity";
@@ -30,6 +30,6 @@ export const convexSiteUrl = () => trimSlash(required("CONVEX_SITE_URL"));
 /** The issuer of player JWTs (must equal auth.config.ts). */
 export const playerIssuer = () => playerIssuerFor(convexSiteUrl());
 /** The public origin browsers use (Better Auth baseURL, device verification links). Empty only before deployment. */
-export const siteUrl = () => trimSlash(process.env.CODE_GODS_SITE_URL || process.env.CONVEX_SITE_URL || "");
+export const siteUrl = () => trimSlash(process.env.SITE_URL || process.env.CONVEX_SITE_URL || "");
 export const siteOrigin = () => new URL(siteUrl()).origin;
-export const jwtPrivateKey = () => required("CODE_GODS_JWT_PRIVATE_KEY");
+export const jwtPrivateKey = () => required("PLAYER_JWT_PRIVATE_KEY");

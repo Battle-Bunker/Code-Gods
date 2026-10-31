@@ -1,6 +1,6 @@
 /**
  * The in-client assistant (convex/assistant.ts, convex/assistant/*; docs/surface-architecture.md §6) against the live
- * local backend with the scripted mock ChatProvider (CODE_GODS_AI_MOCK=1, set by `pnpm --filter @workspace/engine dev`).
+ * local backend with the scripted mock ChatProvider (AI_MOCK=1, set by `pnpm --filter @workspace/engine dev`).
  * A `/mock {json}` message scripts the model's steps (lib/ai-player chat-mock.ts).
  *
  * What would break: tools running outside the human's assistant credential, a second concurrent turn, cancellation

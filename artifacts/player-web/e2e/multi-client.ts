@@ -20,6 +20,7 @@
  *
  * Commit before running: the simulated apps are worktrees of HEAD.
  */
+import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -82,7 +83,7 @@ if (!(await up())) {
   const engine = background("node", ["scripts/dev.mjs", "--typecheck", "disable"], { cwd: ENGINE, log: "engine.log" });
   await until(() => engine.output().includes("[dev] READY"), "engine ready", 300_000);
 }
-execFileSync("npx", ["convex", "env", "set", "CODE_GODS_DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
+execFileSync("npx", ["convex", "env", "set", "DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
 const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
@@ -375,8 +376,10 @@ await check("the hosted player client (engine site, /player/) plays as the signe
   await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}/player/?room=${shortCode}`);
-  await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
-  assert(await page.textContent("[data-testid=text-self-label]") === "Carol Nguyen", "hosted identity");
+  // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
+  await page.waitForFunction(() => { const t = document.querySelector("[data-testid=text-self-label]")?.textContent; return !!t && t !== "—"; }, null, { timeout: 60_000 }).catch(() => {});
+  const label = await page.textContent("[data-testid=text-self-label]");
+  assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
   assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
   await context.close();
 });

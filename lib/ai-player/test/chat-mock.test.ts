@@ -1,5 +1,5 @@
 /**
- * The scripted mock ChatProvider (src/chat-mock.ts, selected by the engine only under CODE_GODS_AI_MOCK=1) and its
+ * The scripted mock ChatProvider (src/chat-mock.ts, selected by the engine only under AI_MOCK=1) and its
  * `/mock {json}` script parser; plus the shared game primer of AI seats and the in-client assistant.
  */
 import test from "node:test";

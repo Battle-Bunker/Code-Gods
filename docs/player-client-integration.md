@@ -202,7 +202,7 @@ chain (`artifacts/engine/convex/ai/turn.ts`, `ai/seats.ts`):
    across the deployment, 6 calls per minute per room);
 3. run `lib/ai-player`'s `AIController` with the provider (Anthropic or OpenAI, keys only in the
    deployment's env vars `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`; the offline `mock` provider only with
-   `CODE_GODS_AI_MOCK=1`);
+   `AI_MOCK=1`);
 4. submit the decided commands through the same envelope path as humans (`validate` before `summon`);
 5. reschedule: every 12 s, backing off up to 60 s after failures and stopping visibly after five.
 

@@ -1,5 +1,5 @@
 /**
- * AI seats with the mock provider (CODE_GODS_AI_MOCK=1 on the local deployment): the seat's chain plays
+ * AI seats with the mock provider (AI_MOCK=1 on the local deployment): the seat's chain plays
  * turns through the same command path, within the room's token budget and the $2-per-game ceiling, and a
  * seat whose budget cannot cover a call never calls the provider.
  */

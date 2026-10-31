@@ -28,9 +28,9 @@ sign-in helpers may never reach a production deployment.
 synthetic claims. Fixture tests alone cannot demonstrate a real browser approval.
 
 **How to apply:** The stand-in OIDC server (`scripts/fake-oidc.mjs`) is a Better Auth
-generic OAuth provider "fake" that exists only when `CODE_GODS_TEST_FIXTURES=1` or
-`CODE_GODS_DEV=1` AND `CODE_GODS_FAKE_OIDC_URL` are set, which only
+generic OAuth provider "fake" that exists only when `TEST_FIXTURES=1` or
+`DEV=1` AND `FAKE_OIDC_URL` are set, which only
 `pnpm --filter @workspace/engine dev` does on a local deployment; production sets none of them
-and offers Google alone. Admin needs a verified Google email on `CODE_GODS_ADMIN_EMAILS`
+and offers Google alone. Admin needs a verified Google email on `ADMIN_EMAILS`
 (the fake provider counts only under fixtures). Report the live-auth blocker honestly; do not
 extract cookies or weaken authentication to make a pilot pass.

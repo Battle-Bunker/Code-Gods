@@ -1,6 +1,6 @@
 /**
  * TEST FIXTURES ONLY (artifacts/engine/test/auth.test.ts). Every function refuses to run unless the
- * deployment env var CODE_GODS_TEST_FIXTURES=1 is set, which only scripts/dev.mjs does on the local
+ * deployment env var TEST_FIXTURES=1 is set, which only scripts/dev.mjs does on the local
  * backend. Production must never set it.
  */
 import { ConvexError, v } from "convex/values";
@@ -11,7 +11,7 @@ import { normalizeUserCode, sha256Hex } from "./crypto";
 import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
 
 function guard() {
-  if (process.env.CODE_GODS_TEST_FIXTURES !== "1") throw new ConvexError({ code: "NOT_FOUND", message: "Not available" });
+  if (process.env.TEST_FIXTURES !== "1") throw new ConvexError({ code: "NOT_FOUND", message: "Not available" });
 }
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
 

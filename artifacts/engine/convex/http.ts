@@ -29,7 +29,7 @@ http.route({
   method: "GET",
   handler: httpAction(async () => {
     // TODO(runtime): add `runtimes: ["python", "typescript"]` from convex/runtime once it lands (§12 smoke test).
-    const body = { ok: true, version: process.env.CODE_GODS_VERSION || VERSION };
+    const body = { ok: true, version: process.env.VERSION || VERSION };
     return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
   }),
 });
@@ -43,8 +43,8 @@ http.route({
   method: "GET",
   handler: httpAction(async () => {
     const body = {
-      convexUrl: process.env.CONVEX_CLOUD_URL, siteUrl: process.env.CODE_GODS_SITE_URL || process.env.CONVEX_SITE_URL,
-      version: process.env.CODE_GODS_VERSION || VERSION,
+      convexUrl: process.env.CONVEX_CLOUD_URL, siteUrl: process.env.SITE_URL || process.env.CONVEX_SITE_URL,
+      version: process.env.VERSION || VERSION,
     };
     return new Response(JSON.stringify(body), {
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },

@@ -47,7 +47,7 @@ function back(redirectUri: string, params: Record<string, string | null | undefi
   for (const [k, value] of Object.entries(params)) if (value !== null && value !== undefined) url.searchParams.set(k, value);
   return redirect(url.toString());
 }
-const extraRedirects = () => envList(process.env.CODE_GODS_OAUTH_REDIRECT_URIS);
+const extraRedirects = () => envList(process.env.OAUTH_REDIRECT_URIS);
 const guarded = (handler: (ctx: ActionCtx, request: Request) => Promise<Response>) => guardedAs("oauth route", () => json({ error: "server_error" }, 500), handler);
 /** JSON, or a form body (the token and revocation endpoints). */
 const readBody = (request: Request) => readCapped(request, MAX_BODY_BYTES, { form: true });

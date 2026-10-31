@@ -7,6 +7,7 @@
  * (or, with --real-builds, the real frontends' builds) to engineSite/playerSite, runs the tests and
  * stops everything it started.
  */
+import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

@@ -22,6 +22,7 @@
 - Product rules and history: `.agents/memory/*.md`.
 - Architecture: `docs/convex-migration-plan.md`.
 - API: `docs/engine-api.md`.
-- Pilot and deploy: `PILOT.md`.
+- Pilot and deploy: `PILOT.md`. A push to `develop` deploys the dev Convex deployment and a push to `main` deploys
+  production (`.github/workflows/deploy.yml`, PILOT.md "Automatic deploys").
 - Running locally (no Convex account needed): `pnpm --filter @workspace/engine dev`. It starts the official
   CLI's local Convex backend plus a stand-in OIDC provider, which Better Auth offers as the test-only provider "fake" beside Google.

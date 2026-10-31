@@ -2,7 +2,7 @@
 /**
  * Stand-in OIDC provider for LOCAL TESTS ONLY: Better Auth's generic OAuth provider "fake"
  * (convex/auth/betterAuth.ts), which exists only while the local deployment has test fixtures on and
- * CODE_GODS_FAKE_OIDC_URL pointing here (scripts/dev.mjs). Never bundled into the deployment (it lives
+ * FAKE_OIDC_URL pointing here (scripts/dev.mjs). Never bundled into the deployment (it lives
  * outside convex/). Production signs in with Google only.
  *
  *   node scripts/fake-oidc.mjs [--port 3399] [--client-id code-gods-local]

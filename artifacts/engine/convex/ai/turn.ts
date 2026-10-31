@@ -6,7 +6,7 @@ import { bindRuntime } from "../engine/runtime";
  * commands through the same envelope path as humans → reschedule (ai/seats.ts:afterTurn).
  *
  * Providers: Anthropic or OpenAI with the deployment's server-side keys (ANTHROPIC_API_KEY,
- * OPENAI_API_KEY), or — only when CODE_GODS_AI_MOCK=1 — a mock that plays sensibly without any network:
+ * OPENAI_API_KEY), or — only when AI_MOCK=1 — a mock that plays sensibly without any network:
  * it summons one simple valid agent for the room's object type and language and chats once.
  */
 import { v } from "convex/values";
