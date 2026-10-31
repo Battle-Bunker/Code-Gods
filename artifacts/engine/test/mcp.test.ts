@@ -284,8 +284,10 @@ async function connect(human: God, roomId: string, scope: string, redirect = "ht
   assert.equal(pending.clientName, "Test Connector");
   assert.equal(pending.redirectHost, "127.0.0.1");
   assert.ok(pending.rooms.some((r: any) => r.roomId === roomId));
-  await human.c.mutation(api.agent.connect.approve, { request, roomId, permission: pending.permission, ...(pending.permission === "owner" ? { ownerConsent: true } : {}) });
-  const complete = await fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}`, { redirect: "manual" });
+  // The /connect page generates the completion secret in the approving browser and passes it to /complete.
+  const completion = randomBytes(32).toString("base64url");
+  await human.c.mutation(api.agent.connect.approve, { request, roomId, permission: pending.permission, completion, ...(pending.permission === "owner" ? { ownerConsent: true } : {}) });
+  const complete = await fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}&completion=${encodeURIComponent(completion)}`, { redirect: "manual" });
   assert.equal(complete.status, 302);
   const back = new URL(complete.headers.get("location")!);
   assert.equal(back.origin + back.pathname, "http://127.0.0.1:51515/callback", "loopback redirect with the requested port");
@@ -367,6 +369,41 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   assert.ok((await listTools(ownerScope.tokens.access_token)).includes("start_game"));
 });
 
+test("OAuth: the code goes only to the browser that approved; whoever else holds the request key gets none", async () => {
+  const { ada, roomId } = await lobby();
+  // The attacker registers a client, starts an authorization with their own PKCE and reads the request key.
+  const redirect = "http://127.0.0.1:47001/cb";
+  const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Innocent Looking", redirect_uris: [redirect] }) })).json() as any;
+  const { verifier, challenge } = pkce();
+  const url = new URL(`${SITE}/oauth/authorize`);
+  for (const [k, v] of Object.entries({ response_type: "code", client_id: reg.client_id, redirect_uri: redirect, code_challenge: challenge,
+    code_challenge_method: "S256", scope: "act", resource: MCP })) url.searchParams.set(k, v);
+  const requestKey = async () => new URL((await fetch(url, { redirect: "manual" })).headers.get("location")!).searchParams.get("request")!;
+  const request = await requestKey();
+  const completeAs = (completion?: string) =>
+    fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}${completion ? `&completion=${encodeURIComponent(completion)}` : ""}`, { redirect: "manual" });
+  const codeOf = (response: Response) => { const location = response.headers.get("location"); return location ? new URL(location).searchParams.get("code") : null; };
+  // Before the decision, polling only bounces back to /connect.
+  assert.equal(codeOf(await completeAs()), null);
+  // The victim approves on /connect; their browser holds the completion secret.
+  const completion = randomBytes(32).toString("base64url");
+  await ada.c.mutation(api.agent.connect.approve, { request, roomId, permission: "act", completion });
+  // The attacker polls /complete without cookies: no secret, or a guessed one, never yields a code.
+  for (const guess of [undefined, randomBytes(32).toString("base64url"), "x".repeat(43)]) {
+    const response = await completeAs(guess);
+    assert.equal(codeOf(response), null, `no code without the approver's secret (${guess ?? "none"})`);
+  }
+  // Approval refuses a completion secret too short to be one.
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: await requestKey(), roomId, permission: "act", completion: "short" }));
+  // The approving browser still completes (the refused attempts consumed nothing), once, and the code redeems.
+  const code = codeOf(await completeAs(completion));
+  assert.ok(code, "the approving browser gets the code");
+  assert.equal(codeOf(await completeAs(completion)), null, "the code is released once");
+  const token = await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "authorization_code", code: code!, code_verifier: verifier, client_id: reg.client_id, redirect_uri: redirect }));
+  assert.equal(token.status, 200, await token.clone().text());
+});
+
 test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PKCE and a foreign resource", async () => {
   const { ada, roomId } = await lobby();
   const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
@@ -400,5 +437,5 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
   assert.equal(new URL(denied.headers.get("location")!).searchParams.get("error"), "access_denied");
   // Approval may lower the requested permission, never raise it.
   const again = new URL((await go({ scope: "read" })).headers.get("location")!).searchParams.get("request")!;
-  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: again, roomId, permission: "act" }), /lower/);
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: again, roomId, permission: "act", completion: "c".repeat(43) }), /lower/);
 });

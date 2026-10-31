@@ -56,12 +56,14 @@ export const createRequest = internalMutation({
 });
 
 /**
- * GET /oauth/authorize/complete: an approved request gets its one-time code (by hash); a denied one an
- * access_denied redirect. Anything else (unknown, pending, expired, already completed) is null.
+ * GET /oauth/authorize/complete: an approved request gets its one-time code (by hash), but only for the
+ * completion secret of the browser that approved it (agent/connect.ts); any other caller gets "wrong_browser"
+ * and consumes nothing. A denied request gets an access_denied redirect. Anything else (unknown, expired,
+ * already completed) is null.
  */
 export const issueCode = internalMutation({
-  args: { keyHash: v.string(), codeHash: v.string() },
-  handler: async (ctx, { keyHash, codeHash }) => {
+  args: { keyHash: v.string(), codeHash: v.string(), completionHash: v.union(v.string(), v.null()) },
+  handler: async (ctx, { keyHash, codeHash, completionHash }) => {
     const request = await ctx.db.query("oauthRequests").withIndex("by_key", q => q.eq("keyHash", keyHash)).unique();
     if (!request || request.expiresAt <= Date.now()) return null;
     const back = { redirectUri: request.redirectUri, state: request.state ?? null };
@@ -70,6 +72,7 @@ export const issueCode = internalMutation({
       return { ...back, outcome: "denied" as const };
     }
     if (request.status !== "approved") return request.status === "pending" ? { ...back, outcome: "pending" as const } : null;
+    if (!request.completionHash || !completionHash || !constantTimeEqual(request.completionHash, completionHash)) return { ...back, outcome: "wrong_browser" as const };
     await ctx.db.patch(request._id, { status: "issued", codeHash });
     return { ...back, outcome: "code" as const };
   },

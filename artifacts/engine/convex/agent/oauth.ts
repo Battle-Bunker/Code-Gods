@@ -7,7 +7,8 @@
  *   POST /api/oauth/register                          RFC 7591 dynamic client registration (public clients)
  *        (client ID metadata documents: an https client_id is fetched and cached instead)
  *   GET  /oauth/authorize                             validates, stores the request, sends the browser to /connect
- *   GET  /oauth/authorize/complete?request=…          after the human decided on /connect: code (or access_denied)
+ *   GET  /oauth/authorize/complete?request=…&completion=…  after the human decided on /connect: code (only with the
+ *                                                     approving browser's completion secret) or access_denied
  *   POST /api/oauth/token                             authorization_code (+ code_verifier) and refresh_token grants
  *   POST /api/oauth/revoke                            RFC 7009
  *
@@ -180,13 +181,18 @@ const authorize = guarded(async (ctx, request) => {
   return redirect(`${siteUrl()}/connect?request=${encodeURIComponent(key)}`);
 });
 
+/** `?request=KEY&completion=SECRET`: the code goes only to the approving browser, which alone knows SECRET (agent/connect.ts). */
 const complete = guarded(async (ctx, request) => {
-  const key = new URL(request.url).searchParams.get("request") ?? "";
+  const q = new URL(request.url).searchParams;
+  const key = q.get("request") ?? "", completion = q.get("completion");
   if (!bounded(key, 20, 128)) return page("missing request");
   const code = randomToken("", 32);
-  const issued = await ctx.runMutation(internal.agent.oauthStore.issueCode, { keyHash: await sha256Hex(key), codeHash: await sha256Hex(code) });
+  const issued = await ctx.runMutation(internal.agent.oauthStore.issueCode, {
+    keyHash: await sha256Hex(key), codeHash: await sha256Hex(code), completionHash: bounded(completion, 43, 128) ? await sha256Hex(completion) : null,
+  });
   if (!issued) return page("this connection request is invalid, expired or already completed. Start again from your client.");
   if (issued.outcome === "pending") return redirect(`${siteUrl()}/connect?request=${encodeURIComponent(key)}`);
+  if (issued.outcome === "wrong_browser") return page("this connection must be completed in the browser that approved it.", 403);
   if (issued.outcome === "denied") return back(issued.redirectUri, { error: "access_denied", error_description: "The human denied the request", state: issued.state, iss: siteUrl() });
   return back(issued.redirectUri, { code, state: issued.state, iss: siteUrl() });
 });

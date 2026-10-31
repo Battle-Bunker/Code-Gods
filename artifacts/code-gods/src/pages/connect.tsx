@@ -12,8 +12,15 @@ import { errMsg } from "@/lib/errors";
  * here with `?request=…`). Like /device, the human reviews who asks (a self-reported name), where the
  * browser will return (the redirect host), picks ONE of their rooms and a permission no stronger than the
  * client asked for; an owner grant needs the room's owner and explicit consent. After deciding, the
- * browser goes to /oauth/authorize/complete, which returns it to the client.
+ * browser goes to /oauth/authorize/complete with a one-time completion secret generated here (so only this browser
+ * can collect the code), which returns it to the client.
  */
+/** 32 random bytes, base64url. */
+function newCompletionSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
 export default function Connect() {
   const { isAuthenticated, isLoading, login } = useAuth();
   const request = new URLSearchParams(window.location.search).get("request") ?? "";
@@ -37,12 +44,14 @@ export default function Connect() {
   const room = d?.rooms.find(r => r.roomId === roomId);
   const chosen = permission ?? d?.permission ?? "read";
   const blocker = d ? connectBlocker({ status: d.status, expiresAt: d.expiresAt, now, roomId, permission: chosen, isRoomOwner: !!room?.isOwner, ownerConsent }) : null;
-  const finish = () => window.location.assign(`/oauth/authorize/complete?request=${encodeURIComponent(request)}`);
+  // The code is released only with this one-time secret, so only this browser can collect it (agent/connect.ts).
+  const [completion] = useState(newCompletionSecret);
+  const finish = () => window.location.assign(`/oauth/authorize/complete?request=${encodeURIComponent(request)}&completion=${encodeURIComponent(completion)}`);
   const decide = (action: "approve" | "deny") => {
     if (!d || pending || (action === "approve" && blocker)) return;
     setPending(true); setError(null);
     const call = action === "approve"
-      ? approve({ request, roomId, permission: chosen, ...(chosen === "owner" ? { ownerConsent: true } : {}) })
+      ? approve({ request, roomId, permission: chosen, completion, ...(chosen === "owner" ? { ownerConsent: true } : {}) })
       : deny({ request });
     call.then(finish, e => { setError(e); setPending(false); });
   };

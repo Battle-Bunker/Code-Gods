@@ -30,6 +30,8 @@ export const agentTables = {
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied"), v.literal("issued"), v.literal("redeemed")),
     subject: v.optional(v.string()), roomId: v.optional(v.string()), grantedPermission: v.optional(permission),
     codeHash: v.optional(v.string()), credentialId: v.optional(v.id("credentials")), expiresAt: v.number(),
+    /** sha256 of the completion secret the approving browser generated: /complete releases the code only with it. */
+    completionHash: v.optional(v.string()),
   }).index("by_key", ["keyHash"]).index("by_code", ["codeHash"]).index("by_expires", ["expiresAt"]),
 
   /** Refresh tokens already rotated out: presenting one again revokes its credential (OAuth 2.1 reuse detection). */

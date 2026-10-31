@@ -127,8 +127,8 @@ Public clients, PKCE S256, one room and one permission per connection (`credenti
 | `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: Claude's callback (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/…`), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `CODE_GODS_OAUTH_REDIRECT_URIS` |
 | client ID metadata documents | an `https://` `client_id` is fetched (no redirects, 5 s, 32 KiB, public hosts only) and cached for an hour |
 | `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act), resource=<site>/mcp` → 302 to the engine UI's `/connect?request=…` |
-| `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve`, `:deny`) |
-| `GET /oauth/authorize/complete?request=…` | → 302 to `redirect_uri?code&state&iss` (or `error=access_denied`) |
+| `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`) |
+| `GET /oauth/authorize/complete?request=…&completion=…` | → 302 to `redirect_uri?code&state&iss` (or `error=access_denied`). The code is released only with the approving browser's completion secret (403 otherwise), so holding the request key is not enough |
 | `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope}` |
 | `POST /api/oauth/revoke` | RFC 7009: a refresh or access token → the connection is revoked; always 200 |
 
