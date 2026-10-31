@@ -16,33 +16,34 @@ A player app configures only the **site URL**. `GET /api/config` returns
 
 ## Identity
 
-Every function authenticates with a 10-minute RS256 JWT minted by the deployment.
+Every function authenticates with a 10-minute RS256 JWT. There are two kinds, told apart by issuer:
 
-- **`browser` scope.** A human signed in on the site. The React client's `fetchAccessToken` is
-  `POST /api/auth/token`: same origin, with the `cg_session` cookie.
+- **`browser` scope.** A human signed in on the site with **Google**, through Better Auth served by the
+  deployment (`/api/auth/*`). The session is an HttpOnly cookie on the site origin (24 h), shared by the
+  engine UI at `/` and the hosted player client at `/player/`. Convex JWTs come from
+  `GET /api/auth/convex/token` (issuer `<site>`, audience `convex`). The human's god id is the Better
+  Auth user id; signing out ends the session at once, even for an unexpired JWT.
 - **`player` scope.** A player app or room assistant holding a room credential (`cgc_…`). It
   exchanges the credential with `POST /api/device/token {credential}` → `{token, expiresAt, roomId,
-  permission, credentialId, credentialExpiresAt}`, and should refresh about a minute before
-  `expiresAt`. A 401 means the credential was revoked or has expired: reconnect.
+  permission, credentialId, credentialExpiresAt}` (issuer `<site>/api/device`, audience `code-gods`), and
+  should refresh about a minute before `expiresAt`. A 401 means the credential was revoked or has
+  expired: reconnect.
 - **Permissions:** `read` < `act` < `owner`. An owner credential also needs the human to be the room's
   current owner. Errors are `ConvexError` with `data = {code, message}`; the codes are
   `UNAUTHENTICATED`, `FORBIDDEN`, `CONFLICT`, `INVALID`, `NOT_FOUND` and so on.
+- **Admins** have a verified Google email listed in `CODE_GODS_ADMIN_EMAILS`.
 
 ```ts
-// React, same origin as the site
+// React, same origin as the site (artifacts/code-gods/src/lib/convex.tsx)
+import { createAuthClient } from "better-auth/react";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
+
+const authClient = createAuthClient({ baseURL: location.origin, plugins: [convexClient()] });
 const convex = new ConvexReactClient(convexUrl);
-function useAuth() {
-  const [isLoading, setLoading] = useState(true), [user, setUser] = useState(null);
-  useEffect(() => { fetch("/api/auth/user").then(r => r.json()).then(b => { setUser(b.user); setLoading(false); }); }, []);
-  const fetchAccessToken = useCallback(async () => {
-    const r = await fetch("/api/auth/token", { method: "POST", credentials: "same-origin" });
-    return r.ok ? (await r.json()).token : null;
-  }, []);
-  return { isLoading, isAuthenticated: !!user, fetchAccessToken };
-}
-// <ConvexProviderWithAuth client={convex} useAuth={useAuth}>…
-// login:  location.href = `/api/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`
-// logout: POST /api/logout (same origin)
+// <ConvexBetterAuthProvider client={convex} authClient={authClient}>…   (the current human: auth/user:me)
+// sign in:  authClient.signIn.social({ provider: "google", callbackURL: location.pathname + location.search })
+// sign out: authClient.signOut()
 ```
 
 ## HTTP actions (`/api/*`)
@@ -51,15 +52,16 @@ function useAuth() {
 |---|---|
 | `GET /api/health` | `{ok, version}` |
 | `GET /api/config` | `{convexUrl, siteUrl, version}` (CORS `*`) |
-| `GET /api/.well-known/jwks.json` | the public JWKS |
-| `GET /api/login?returnTo=/path`, `GET /api/callback` | Replit OIDC login (code + PKCE); sets `cg_session` (24 h) |
-| `POST /api/auth/token` | `{token, expiresAt}`, or 401 `{token:null}`; `Origin` must equal the site origin exactly |
-| `GET /api/auth/user` | `{user: {id, name, isAdmin} \| null}` |
-| `GET\|POST /api/logout` | ends the session; redirects to `/` |
+| `GET /api/.well-known/jwks.json` | the public JWKS of player JWTs |
+| `/api/auth/*` | Better Auth: `POST /api/auth/sign-in/social {provider: "google", callbackURL}` → `{url}` (Google), `GET /api/auth/callback/google`, `POST /api/auth/sign-out`, `GET /api/auth/get-session`, `GET /api/auth/convex/token` → `{token}`, `GET /api/auth/convex/jwks`. Same origin only; callback URLs must be on the site |
 | `POST /api/device/request` | `{challenge (S256, 43 chars), room (id/guid/short code), permission?: read\|act\|owner (default act), label?}` → `{deviceId, deviceSecret, userCode "XXXX-XXXX", verificationUrl "<site>/device?code=…", roomId, roomCode, permission, label, expiresIn: 300, interval: 2}` |
 | `POST /api/device/poll` | `{deviceId, deviceSecret, verifier}` → 200 `{status:"approved", credential, credentialId, roomId, permission, expiresAt}` (once only), 202 pending, 429 slow_down, 403 denied/forbidden, 410 expired, 400 invalid |
 | `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above) |
 | `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}` |
+
+Local deployments only (`pnpm --filter @workspace/engine dev`): `POST /api/auth/sign-in/oauth2
+{providerId: "fake", callbackURL}` signs in through the stand-in OIDC server (`scripts/fake-oidc.mjs`); it
+exists only while `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` and `CODE_GODS_FAKE_OIDC_URL` are set.
 
 ## Convex functions
 

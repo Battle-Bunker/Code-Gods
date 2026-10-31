@@ -46,7 +46,7 @@ pnpm player connect [--engine URL] --room CODE [--permission read|act|owner] [--
 1. The CLI makes a PKCE S256 pair and calls `POST /api/device/request` with the room (short code, GUID
    or id), the permission (default `act`) and a self-reported label (default "player app").
 2. It prints the engine's `/device?code=…` URL and the comparison code. The human opens it in the
-   browser where they are signed in to the engine with Replit, checks the code, room, permission and
+   browser where they are signed in to the engine with Google, checks the code, room, permission and
    label, and approves. Requests expire after 5 minutes.
 3. The CLI polls `POST /api/device/poll` with the device secret and the verifier, and receives the
    credential exactly once. It prints `CODE_GODS_ENGINE_URL` and `CODE_GODS_CREDENTIAL` to stdout to be
@@ -107,7 +107,8 @@ the client signs in on the engine site instead.
 ### Hosted client (`/player/`)
 
 The engine serves the same player-web build at `https://<dep>.convex.site/player/`. There the human
-signs in on the site with Replit (a `browser`-scope JWT from `POST /api/auth/token`) and enters a room
+signs in on the site with Google (the same Better Auth session as the engine UI; `browser`-scope JWTs from
+`GET /api/auth/convex/token`) and enters a room
 code (or opens `/player/?room=CODE`). No credential is involved. This is the fallback for a player who
 does not duplicate the repository.
 
@@ -218,9 +219,10 @@ widen the command schema or reach a credential. Billing details: [`ai-player-bil
 | `node --experimental-transform-types --test test/unit.test.ts` (in `lib/player-client`) | nothing: protocol stripping and command bounds, configuration precedence and errors, redaction and env files, the same-origin check, the token middleware (no-store, cached JWT, `RECONNECT` on 401) |
 | `pnpm --filter @workspace/ai-player test` | nothing (mock providers) |
 
-The live tests sign in as the stand-in OIDC identities (alice, bob, carol) and cover the device flow
+The live tests sign in as the stand-in OIDC identities (alice, bob, carol; Better Auth's local-only provider
+"fake") and cover the device flow
 (`connect`, with and without `--write-env`), `status`, `state` and `--watch`, the assistant commands
 with read, act and owner credentials, receipt replay and uncertain retries, the token middleware against
 the engine, and `disconnect`.
-They run against the local Convex backend, not a real Replit sign-in or a cloud deployment
+They run against the local Convex backend, not a real Google sign-in or a cloud deployment
 (see `PILOT.md`, "Verification boundary").

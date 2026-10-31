@@ -98,7 +98,9 @@ async function signIn(browser: any, who: "alice" | "bob" | "carol" | "admin", vi
   await page.getByRole("link", { name: new RegExp(`\\(${who}\\)`) }).click();
   await page.waitForURL(`${SITE}/`);
   await page.getByTestId("button-logout").waitFor();
-  return { context, page, errors };
+  // The god id (member row ids) is the Better Auth user id.
+  const subject = await page.evaluate(async () => ((await (await fetch("/api/auth/get-session")).json()) as { user: { id: string } }).user.id);
+  return { context, page, errors, subject };
 }
 
 async function noHorizontalScroll(page: Page, label: string) {
@@ -176,7 +178,7 @@ try {
       const members = await a.locator('[data-testid^="row-member-"]').allInnerTexts();
       assert.ok(members.some(t => /Bob Okafor/.test(t)) && members.some(t => /Carol Nguyen/.test(t)), members.join(" | "));
       await b.getByTestId("button-ready").click();
-      await a.getByTestId("row-member-test-bob").getByText("ready").waitFor();
+      await a.getByTestId(`row-member-${bob.subject}`).getByText("ready").waitFor();
     });
 
     await check(`${name}: alice switches the next game to TypeScript / Int with 1 s planning; bob sees it live`, async () => {

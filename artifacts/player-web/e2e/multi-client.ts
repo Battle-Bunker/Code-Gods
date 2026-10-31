@@ -83,7 +83,7 @@ if (!(await up())) {
   await until(() => engine.output().includes("[dev] READY"), "engine ready", 300_000);
 }
 execFileSync("npx", ["convex", "env", "set", "CODE_GODS_DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
-const { browserJwt, client, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
+const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
 
@@ -290,7 +290,9 @@ await playGame("string", async () => {
   });
   await check("assistant observation discloses only bob's own scores and peer aggregates", async () => {
     const text = playerCli("bob", ["assistant", "observation"]);
-    for (const forbidden of ["test-alice", "test-carol"]) {
+    // God ids are Better Auth user ids: read alice's and carol's from their browser JWTs.
+    const subjectOf = async (p: Player) => decodeJwt(await browserJwt(sessionOf(p))).payload.sub as string;
+    for (const forbidden of [await subjectOf("alice"), await subjectOf("carol")]) {
       // Opponents appear only as leaderboard/chat identities, never with per-object scores.
       const objects = JSON.stringify((JSON.parse(text) as { observation?: { objects?: unknown[] }; objects?: unknown[] }).observation?.objects ?? (JSON.parse(text) as { objects?: unknown[] }).objects ?? []);
       assert(!objects.includes(forbidden), `objects mention ${forbidden}`);

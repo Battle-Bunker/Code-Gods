@@ -31,7 +31,7 @@ summon pricing, two energy accounts, the 2-bit floor and information scoring.
                    ┌──────────────────────── Convex deployment ─────────────────────────┐
  Engine UI  ───────┤ https://<dep>.convex.site/          static: artifacts/code-gods       │
  (browser)         │ https://<dep>.convex.site/player/   static: artifacts/player-web      │
-                   │ https://<dep>.convex.site/api/*     HTTP actions: OIDC login, device  │
+                   │ https://<dep>.convex.site/api/*     HTTP actions: sign-in, device     │
                    │                                     flow, JWKS, token exchange        │
  Player app #1 ────┤ wss://<dep>.convex.cloud            queries / mutations / actions     │
  (any dev env,     │   reactive queries (disclosure-filtered projections)                  │
@@ -55,8 +55,8 @@ artifacts/engine/            NEW. The Convex project (package @workspace/engine)
   convex/rooms.ts lobby.ts commands.ts chat.ts admin.ts history.ts   queries/mutations
   convex/engine/tick.ts      "use node" tick action (sandbox + scoring), commit.ts (mutation)
   convex/ai/*.ts             AI seat turns ("use node" for provider SDKs)
-  convex/auth/*.ts           OIDC login, sessions, device approval, credentials, JWT minting
-  scripts/                   dev runner, local OIDC stand-in, static upload, Python bundle upload
+  convex/auth/*.ts           Better Auth (Google), device approval, credentials, player JWTs
+  scripts/                   dev runner, local OIDC stand-in ("fake"), static upload, Python bundle upload
 lib/game-core, game-types, game-utilities, object-views    unchanged (pure TS)
 lib/game-runtime             sandboxes, in-process: QuickJS (TS) and CPython-WASI on Node (Python) (§4)
 lib/player-client            protocol types + Convex client SDK, room-assistant CLI, connect CLI
@@ -77,9 +77,7 @@ Every table has the indexes its queries need. No query does a full scan over gro
 
 | Table | Key fields | Notes |
 |---|---|---|
-| `users` | `subject` (Replit `sub`), `name` (full verified name), `email`, `emailVerified`, `issuer` | upserted at login |
-| `sessions` | `tokenHash`, `userId`, `expiresAt` | browser refresh sessions (HttpOnly cookie on the convex.site origin) |
-| `oidcFlows` | `keyHash`, `verifier`, `state`, `nonce`, `returnTo`, `expiresAt` | 10-minute login transactions |
+| `users` | `subject` (Better Auth user id = god id), `name` (full name from Google), `email`, `emailVerified`, `provider`, `googleSub` | kept by Better Auth triggers; Better Auth's own users, sessions and accounts live in its component (§5) |
 | `rooms` | `shortCode`, `ownerId`, `createdAt`, `revision`, `settings`, `aiBudget`, AI usage counters, `activeGameId` | the lobby; no name |
 | `members` | `roomId`, `userId \| aiSeat`, `name`, `kind`, `ready`, `aiAgent` | one doc per seat |
 | `games` | `roomId`, `shortCode`, `phase`, clocks (`worldSeconds`, `lastTick`, `endAtWorld`, `nextSpawn`, `planningEndsAt`, `pauseEndsAt`), `settings` snapshot, `roster`, `executionEpoch`, `tick` lease, `seasonCommitment`, `summary` (when ended) | `endAtWorld` is never projected |
@@ -234,27 +232,33 @@ compilation and startup outside the per-act budget.
   recorded in §11 rather than silently dropping Python. **Measured:** cold start, per-act warm cost,
   and memory, for both languages.
 
-## 5. Auth: Replit identity, Convex JWTs, device approval
+## 5. Auth: Google identity (Better Auth), Convex JWTs, device approval
 
-- **Issuer.** The deployment is its own OIDC-style issuer. `convex/auth.config.ts` declares a
-  `customJwt` provider with issuer `CONVEX_SITE_URL`, a JWKS URL `CONVEX_SITE_URL/api/.well-known/jwks.json`
-  and RS256. The signing key is the env var `CODE_GODS_JWT_PRIVATE_KEY` (PKCS#8 PEM). JWTs last 10
-  minutes and carry `sub` (user id) plus `scope` (`browser` | `player`), and for player tokens `room`,
-  `perm` and `cred` (the credential id, checked against revocation on every call).
-- **Browser login (engine UI and hosted player client, same origin).** `GET /api/login` →
-  Replit OIDC (`https://replit.com/oidc`, client id `REPLIT_OIDC_CLIENT_ID`, authorization code +
-  PKCE + nonce) → `GET /api/callback` verifies the ID token, upserts the user with the **full
-  verified name**, and sets an HttpOnly, Secure, SameSite=Lax session cookie. The React client's
-  `fetchAccessToken` calls `POST /api/auth/token` (cookie + same-origin check) to get a fresh JWT.
-  `/api/logout` deletes the session.
-- **Admins.** `CODE_GODS_ADMIN_EMAILS` (env var) is checked against the *verified* email claim
-  persisted at login, as before.
+Superseded for browser sign-in by `docs/surface-architecture.md` §2 and §7.1 (Wave 1A). Summary:
+
+- **Two issuers.** `convex/auth.config.ts` declares two `customJwt` providers, told apart by issuer
+  (`convex/auth/identity.ts` `tokenKind`; `convex/auth/access.ts` routes on it):
+  - Better Auth, issuer `CONVEX_SITE_URL`, audience `convex`, RS256, JWKS inlined from
+    `BETTER_AUTH_JWKS` (else `/api/auth/convex/jwks`). These are `browser`-scope tokens;
+  - player JWTs, issuer `CONVEX_SITE_URL/api/device`, audience `code-gods`, RS256, signed with
+    `CODE_GODS_JWT_PRIVATE_KEY` (JWKS `CODE_GODS_JWT_JWKS`, else `/api/.well-known/jwks.json`). They carry
+    `cred` (checked against revocation on every call), plus informational `room` and `perm`.
+  Both last 10 minutes.
+- **Browser sign-in (engine UI and hosted player client, same origin).** Google only, through Better Auth
+  (`@convex-dev/better-auth` component, `convex/auth/betterAuth.ts`, routes `/api/auth/*`). The session is
+  an HttpOnly, SameSite=Lax cookie on the site origin (24 h, `Secure` except on a loopback http site). The
+  React clients use `ConvexBetterAuthProvider`, which fetches Convex JWTs from `/api/auth/convex/token`.
+  Every browser call re-checks that the JWT's Better Auth session still exists, so sign-out is immediate.
+- **Identity.** The god id is the Better Auth user id. Component triggers keep our `users` row
+  `{subject, name, email, emailVerified, provider, googleSub}`; `name` is Google's given + family name.
+  Account linking is off: one Google account is one god.
+- **Admins.** A verified Google email on `CODE_GODS_ADMIN_EMAILS`.
 - **Device approval for player apps.** `player connect <engine-url> --room CODE` → `POST /api/device/request`
   (PKCE challenge, room, requested permission `read`|`act`|`owner`, self-reported label) → the CLI
   prints the verification URL and code → the human approves on `/device` in their signed-in
   browser. An owner grant needs the owner's extra consent and must come from the current room owner →
-  `POST /api/device/poll` returns the **credential** once. The human stores it in Replit Secrets as
-  `CODE_GODS_CREDENTIAL` (and `CODE_GODS_ENGINE_URL`).
+  `POST /api/device/poll` returns the **credential** once. The human stores it in the environment's secret
+  store as `CODE_GODS_CREDENTIAL` (and `CODE_GODS_ENGINE_URL`).
 - **Credential → JWT.** `POST /api/device/token` with the credential returns a 10-minute player JWT.
   In a player app the long-lived credential never reaches the browser: the Vite dev server (and
   the production preview server) exposes a same-origin `/__codegods/token` middleware that does the
@@ -263,17 +267,10 @@ compilation and startup outside the per-act budget.
 - **Revocation.** The engine's player page lists the human's credentials. Revoking sets `revokedAt`;
   every query and mutation checks `cred` (an indexed point read), so a revoked credential stops
   working at once, even before its JWT expires.
-- **Local tests.** A stand-in OIDC provider (`artifacts/engine/scripts/fake-oidc.mjs`: discovery,
-  JWKS, authorize with a test-only identity picker, token endpoint) is selected **only** by setting
-  the Convex env var `REPLIT_OIDC_ISSUER` on the *local* deployment. Production leaves it unset and
-  uses `https://replit.com/oidc`. The stand-in is never bundled into the deployment.
-- **Redirect URI (verified 2026-10-31).** Replit's OIDC refuses `https://<dep>.convex.site/api/callback`
-  (`invalid_redirect_uri`): it accepts any path on the client Repl's own domains and nothing else. So
-  the engine Repl serves a relay page (`artifacts/engine/relay/convex-callback.html`) that forwards
-  `code` and `state` unchanged to the Convex callback, and `REPLIT_OIDC_REDIRECT_URI` names the relay
-  for both the authorization request and the token exchange. It holds no secrets and no state; the
-  flow cookie (SameSite=Lax, sent on the top-level navigation), state, nonce and PKCE still bind the code
-  to the browser that started the login.
+- **Local tests.** The stand-in OIDC server (`artifacts/engine/scripts/fake-oidc.mjs`) is a Better Auth
+  generic OAuth provider `fake`, which exists **only** when `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV`
+  and `CODE_GODS_FAKE_OIDC_URL` are set on the *local* deployment (`scripts/dev.mjs`). Production sets
+  none of them; the stand-in is never bundled into the deployment.
 
 ## 6. Disclosure enforced in queries
 
@@ -306,7 +303,7 @@ app.use(staticHosting, { name: "playerSite" });   // default player client at /p
 // convex/http.ts: /api/* routes first, then registerStaticRoutes for /player/ and /
 ```
 
-The "app-owned root routing" mode keeps `/api/*` (OIDC callback, device flow, JWKS) at stable root
+The "app-owned root routing" mode keeps `/api/*` (Better Auth, device flow, JWKS) at stable root
 URLs. Uploads use the component's CLI (`upload --component engineSite|playerSite --dist …`), wrapped
 by `pnpm engine:deploy`. The player client is built with `base: "/player/"`. The same build serves
 the player-app dev mode (the `"devserver"` connection mode) with base `/`.
@@ -438,7 +435,8 @@ paused. The test provider `mock` is enabled only when the env var `CODE_GODS_AI_
 - **Backend:** the official CLI `npx convex dev` in local mode (verified in this container: the
   CLI downloads the `precompiled-*` local backend; queries, mutations, Node actions, HTTP actions and
   file storage all work). `artifacts/engine/scripts/dev.mjs` starts it with test env vars (season
-  salt, JWT key, `REPLIT_OIDC_ISSUER` → stand-in OIDC, `CODE_GODS_AI_MOCK=1`).
+  salt, JWT keys, Better Auth secret and JWKS, `CODE_GODS_FAKE_OIDC_URL` → stand-in OIDC as the test-only
+  provider "fake", `CODE_GODS_AI_MOCK=1`).
 - **Unit and integration (Vitest + `convex-test` where it fits; live local backend otherwise):**
   the ported game integration (Int, string, Grid lifecycles; uniqueness; energy and cooldown; the
   floor; scoring parity with game-core), lifecycle (lobby → start → pause → end → history), the
@@ -533,23 +531,28 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
 1. **Create the deployment:**
    `cd artifacts/engine && npx convex login && npx convex deploy`. Note the client URL
    (`https://<dep>.convex.cloud`) and the site URL (`https://<dep>.convex.site`).
-2. **Signing key:** `pnpm --filter @workspace/engine gen-jwt-key --set --prod`. This sets
-   `CODE_GODS_JWT_PRIVATE_KEY` and `CODE_GODS_JWT_JWKS`. Then run `npx convex deploy` again (in
-   `artifacts/engine`), so `auth.config.ts` inlines the JWKS.
+2. **Signing keys:**
+   - player JWTs: `pnpm --filter @workspace/engine gen-jwt-key --set --prod`. This sets
+     `CODE_GODS_JWT_PRIVATE_KEY` and `CODE_GODS_JWT_JWKS`;
+   - Better Auth: set `BETTER_AUTH_SECRET` (step 3) first, then
+     `npx convex run --prod auth/betterAuth:rotateKeys | npx convex env set --prod BETTER_AUTH_JWKS`.
+
+   Then run `npx convex deploy` again (in `artifacts/engine`), so `auth.config.ts` inlines both JWKS.
 3. **Other environment variables** (`npx convex env set --prod NAME`; the value is read from stdin):
    - `CODE_GODS_SEASON_SALT`: at least 16 random characters, secret for the season. Games refuse to
      start in production without it, and game records carry its sha256 commitment;
-   - `REPLIT_OIDC_CLIENT_ID`: the Replit OIDC client id (the engine Repl's `REPL_ID`, as before);
-   - `REPLIT_OIDC_REDIRECT_URI`: the login relay's URL on the engine Repl (step 4);
-   - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist of verified emails;
+   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: the Google OAuth client (step 4);
+   - `BETTER_AUTH_SECRET`: 32+ random bytes (e.g. `openssl rand -base64 32`). It also encrypts the
+     Better Auth signing key, so changing it needs a new `BETTER_AUTH_JWKS`;
+   - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist of verified Google emails;
    - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`: the AI seats' provider keys;
    - optionally, `CODE_GODS_SITE_URL` for a custom domain, and `CODE_GODS_VERSION`.
 
-   **Never** set `REPLIT_OIDC_ISSUER`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV`
-   in production. They exist only for local tests.
-4. **Replit login relay (§5):** publish `artifacts/engine/relay/convex-callback.html` on the engine Repl
-   (its `ENGINE_SITE` set to `https://<dep>.convex.site`), set `REPLIT_OIDC_REDIRECT_URI` to its URL,
-   then verify one real login.
+   **Never** set `CODE_GODS_FAKE_OIDC_URL`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or
+   `CODE_GODS_DEV` in production. They exist only for local tests.
+4. **Google OAuth client:** see `PILOT.md` ("Google sign-in"): a Web application client with the redirect
+   URI `https://<dep>.convex.site/api/auth/callback/google`, the authorized domain `<dep>.convex.site`, and
+   a published consent screen. Then verify one real sign-in.
 5. **Runtime and static sites:**
    - `pnpm --filter @workspace/game-runtime setup:python` (once: the pinned CPython download);
    - `pnpm --filter @workspace/game-runtime build:python`;
@@ -557,7 +560,7 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
    - `pnpm --filter @workspace/engine deploy-static --prod` (builds and uploads the engine UI at `/` and
      the player client at `/player/`).
 6. **Smoke test:**
-   - `/` loads and a real Replit login works;
+   - `/` loads and a real Google sign-in works;
    - `/api/health` and `/api/config` answer;
    - `npx convex run --prod runtime/probe:smoke` runs one act per language (in `artifacts/engine`);
    - create a room, connect one player app (`pnpm player connect --room CODE`), and play the "First
@@ -573,7 +576,7 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
 | Python on V8 is slower than Wasmtime and has no fuel | Measure. Use the step budget as the deterministic bound, plus a worker watchdog. Pyodide as an alternative. Document the ceiling |
 | Node action cold start (QuickJS, TS compiler, CPython bundle download) | Warm module-scope caches. The tick loop keeps instances warm. Measure cold start |
 | OCC conflicts between commit and commands discard windows | Windows are short. Commands touch agents and deities, not objects. Count discards |
-| Replit OIDC redirect URI on convex.site | Verify at connection time. Fallback relay page (§5) |
+| Google sign-in on convex.site | Redirect URI and authorized domain configured in Google Cloud (PILOT.md); verify one real sign-in after deploying |
 | Event log growth | One doc per tick. Older ended games keep only the summary plus a compacted trajectory (follow-up) |
 | Self-reported assistant labels | Unchanged: the label is not a verified identity |
 | The player app's dev URL is public | The token endpoint requires a session opened by the launch link, which only the dev server's console prints. Same-origin and Host checks remain a second layer |
