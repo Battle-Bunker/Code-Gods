@@ -45,8 +45,8 @@ jobs:
             lib/*/tsconfig.tsbuildinfo
             lib/*/dist
             artifacts/*/tsconfig.tsbuildinfo
-          key: tsbuild-${{ github.sha }}
-          restore-keys: tsbuild-
+          key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
+          restore-keys: tsbuild2-
       - run: pnpm run typecheck
       - run: pnpm run test:offline
       - uses: actions/cache@v4
@@ -90,8 +90,8 @@ jobs:
             lib/*/tsconfig.tsbuildinfo
             lib/*/dist
             artifacts/*/tsconfig.tsbuildinfo
-          key: tsbuild-${{ github.sha }}
-          restore-keys: tsbuild-
+          key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
+          restore-keys: tsbuild2-
       - if: github.ref_name == 'main'
         run: pnpm run typecheck
       - if: github.ref_name == 'main'
