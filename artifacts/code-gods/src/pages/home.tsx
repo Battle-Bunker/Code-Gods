@@ -33,9 +33,9 @@ function Landing() {
           </p>
           <div className="mt-10 flex flex-wrap items-center gap-4">
             <button onClick={login} className="group inline-flex items-center gap-3 bg-foreground text-background px-6 py-3.5 text-base" data-testid="button-login">
-              Log in to enter the pantheon <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              Sign in with Google to enter the pantheon <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <span className="label-mono">Have a room link? Log in, then open it.</span>
+            <span className="label-mono">Have a room link? Sign in, then open it.</span>
           </div>
         </div>
         <div className="relative hidden md:flex items-center justify-center rise" style={{ animationDelay: ".15s" }}>

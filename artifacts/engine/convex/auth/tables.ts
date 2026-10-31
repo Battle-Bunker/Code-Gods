@@ -4,22 +4,20 @@ import { v } from "convex/values";
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
 
 /**
- * Identity, sessions, device approval and scoped player credentials (owned by convex/auth).
- * Secrets are never stored: only sha256 hashes of session tokens, flow keys, device secrets, user
- * codes and credentials. `subject` is the Replit `sub` (= god id in game tables).
+ * Identity, device approval and scoped player credentials (owned by convex/auth). Better Auth keeps its own
+ * users, sessions and accounts in its component (betterAuth.ts); `users` mirrors what the game needs.
+ * Secrets are never stored: only sha256 hashes of device secrets, user codes and credentials.
  */
 export const authTables = {
+  /**
+   * One row per Better Auth user, written by its triggers. `subject` is the Better Auth user id (= god id in
+   * game tables); `provider` the provider that vouched for the email ("google", or "fake" in local tests);
+   * `googleSub` Google's stable `sub`, for audit.
+   */
   users: defineTable({
     subject: v.string(), name: v.string(), email: v.optional(v.string()), emailVerified: v.boolean(),
-    issuer: v.string(), updatedAt: v.number(),
+    provider: v.optional(v.string()), googleSub: v.optional(v.string()), updatedAt: v.number(),
   }).index("by_subject", ["subject"]),
-  /** Browser sessions (HttpOnly cookie on the site origin), exchanged for 10-minute browser JWTs. */
-  sessions: defineTable({ tokenHash: v.string(), subject: v.string(), expiresAt: v.number() })
-    .index("by_token", ["tokenHash"]).index("by_subject", ["subject"]).index("by_expires", ["expiresAt"]),
-  /** 10-minute OIDC login transactions, keyed by the hash of the flow cookie. */
-  oidcFlows: defineTable({
-    keyHash: v.string(), verifier: v.string(), state: v.string(), nonce: v.string(), returnTo: v.string(), expiresAt: v.number(),
-  }).index("by_key", ["keyHash"]).index("by_expires", ["expiresAt"]),
   /** Device approval requests (5 minutes). The doc id is the public deviceId. */
   devices: defineTable({
     deviceSecretHash: v.string(), userCodeHash: v.string(), challenge: v.string(), roomId: v.string(),

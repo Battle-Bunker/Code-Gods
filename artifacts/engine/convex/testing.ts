@@ -4,6 +4,7 @@
  * to check scoring parity and disclosure.
  */
 import { v } from "convex/values";
+import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
@@ -18,11 +19,16 @@ export const seedUser = internalMutation({
   handler: async (ctx, args) => {
     dev();
     const existing = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", args.subject)).unique();
-    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, issuer: "test", updatedAt: Date.now() };
+    const now = Date.now();
+    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: "test", updatedAt: now };
     if (existing) await ctx.db.replace(existing._id, doc);
     else await ctx.db.insert("users", doc);
-    // Browser JWTs name a session (`sid`) that access.ts checks: return one for impersonated browser calls.
-    return ctx.db.insert("sessions", { tokenHash: crypto.randomUUID(), subject: args.subject, expiresAt: Date.now() + 24 * 3600_000 });
+    // Browser JWTs name a Better Auth session (`sessionId`) that access.ts checks: return one for impersonated
+    // browser calls (test/game-helpers.ts clientFor).
+    const session = await ctx.runMutation(components.betterAuth.adapter.create, {
+      input: { model: "session", data: { token: crypto.randomUUID(), userId: args.subject, expiresAt: now + 24 * 3600_000, createdAt: now, updatedAt: now } },
+    }) as { _id: string };
+    return session._id;
   },
 });
 

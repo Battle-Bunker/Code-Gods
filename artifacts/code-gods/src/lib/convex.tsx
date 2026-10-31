@@ -2,15 +2,19 @@
  * Convex client and browser session (docs/engine-api.md, "React, same origin as the site").
  *
  * - The Convex client URL is VITE_CONVEX_URL when the build set it (static deploys), else `GET /api/config`.
- * - The signed-in human comes from `GET /api/auth/user` (cookie `cg_session`); Convex calls carry a
- *   10-minute browser JWT from `POST /api/auth/token`, refreshed by the Convex client.
+ * - Sign-in is Google through Better Auth on this same origin (`/api/auth/*`): an HttpOnly session cookie,
+ *   exchanged by the Convex client for 10-minute JWTs at `/api/auth/convex/token`. The signed-in human
+ *   is the `auth/user:me` query.
  * - Real user input (pointer/keyboard) calls `activity.touch` at most once a minute, which keeps the
  *   engine out of idle parking and resumes parked games. Nothing else pings: no polling, no heartbeats.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, useQueries } from "convex/react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { ConvexReactClient, useConvexAuth, useMutation, useQueries } from "convex/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
+import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 import { api } from "@/lib/convex-api";
 
 export { api };
@@ -29,6 +33,9 @@ type Session = {
 const SessionContext = createContext<Session | null>(null);
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/** Better Auth on this origin (the engine site, or the dev server's /api proxy to it). */
+export const authClient = createAuthClient({ baseURL: window.location.origin, plugins: [convexClient()] });
+
 /** The Convex client URL: build-time VITE_CONVEX_URL, else the site's /api/config. */
 export async function loadConvexUrl(): Promise<string> {
   const fromBuild = import.meta.env.VITE_CONVEX_URL as string | undefined;
@@ -40,33 +47,20 @@ export async function loadConvexUrl(): Promise<string> {
   return body.convexUrl;
 }
 
+/** The signed-in human: Better Auth's session (via Convex auth) plus `auth/user:me`. */
 function useBrowserSession(): Session {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [nonce, setNonce] = useState(0);
-  useEffect(() => {
-    let live = true;
-    setLoading(true);
-    fetch("/api/auth/user", { credentials: "same-origin", cache: "no-store" })
-      .then(async r => {
-        if (!r.ok) throw new Error(`Sign-in check failed (${r.status})`);
-        return ((await r.json()) as { user: AuthUser | null }).user ?? null;
-      })
-      .then(u => { if (live) { setUser(u); setError(null); } })
-      .catch(e => { if (live) setError(e instanceof Error ? e : new Error(String(e))); })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
-  }, [nonce]);
+  const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
+  const me = useLive(api.auth.user.me, isAuthenticated ? {} : "skip");
   const login = useCallback(() => {
     const returnTo = window.location.pathname + window.location.search || "/";
-    window.location.href = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+    void authClient.signIn.social({ provider: "google", callbackURL: returnTo });
   }, []);
   const logout = useCallback(() => {
-    void fetch("/api/logout", { method: "POST", credentials: "same-origin" })
-      .finally(() => { window.location.href = base || "/"; });
+    void authClient.signOut().finally(() => { window.location.href = base || "/"; });
   }, []);
-  return { user, isLoading, error, refetch: () => setNonce(n => n + 1), login, logout };
+  const data = me.data;
+  const user = useMemo(() => (data && data.scope === "browser" ? { id: data.subject, name: data.name, isAdmin: data.isAdmin } : null), [data]);
+  return { user, isLoading: authLoading || me.isLoading, error: me.error, refetch: () => window.location.reload(), login, logout };
 }
 
 export function useSession(): Session {
@@ -75,20 +69,8 @@ export function useSession(): Session {
   return session;
 }
 
-/** The Convex `useAuth` adapter: the browser session plus a cached JWT from /api/auth/token. */
-function useConvexAuthAdapter() {
-  const { user, isLoading } = useSession();
-  const cached = useRef<{ token: string; expiresAt: number } | null>(null);
-  const fetchAccessToken = useCallback(async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
-    const c = cached.current;
-    if (!forceRefreshToken && c && c.expiresAt - Date.now() > 60_000) return c.token;
-    const r = await fetch("/api/auth/token", { method: "POST", credentials: "same-origin", cache: "no-store" });
-    if (!r.ok) { cached.current = null; return null; }
-    const body = (await r.json()) as { token: string | null; expiresAt?: number };
-    cached.current = body.token ? { token: body.token, expiresAt: body.expiresAt ?? Date.now() + 5 * 60_000 } : null;
-    return body.token ?? null;
-  }, []);
-  return useMemo(() => ({ isLoading, isAuthenticated: !!user, fetchAccessToken }), [isLoading, user, fetchAccessToken]);
+function SessionProvider({ children }: { children: ReactNode }) {
+  return <SessionContext.Provider value={useBrowserSession()}>{children}</SessionContext.Provider>;
 }
 
 /** Touch `activity` on trusted pointer/keyboard input, at most once a minute. */
@@ -111,14 +93,15 @@ function ActivityPing() {
 }
 
 export function EngineProvider({ client, children }: { client: ConvexReactClient; children: ReactNode }) {
-  const session = useBrowserSession();
   return (
-    <SessionContext.Provider value={session}>
-      <ConvexProviderWithAuth client={client} useAuth={useConvexAuthAdapter}>
+    // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
+    // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.
+    <ConvexBetterAuthProvider client={client} authClient={authClient as unknown as AuthClient}>
+      <SessionProvider>
         <ActivityPing />
         {children}
-      </ConvexProviderWithAuth>
-    </SessionContext.Provider>
+      </SessionProvider>
+    </ConvexBetterAuthProvider>
   );
 }
 

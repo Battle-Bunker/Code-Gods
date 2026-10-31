@@ -4,7 +4,7 @@
  * backend. Production must never set it.
  */
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireRoomPermission, requireViewer } from "./access";
 import { normalizeUserCode, sha256Hex } from "./crypto";
 import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
@@ -46,6 +46,17 @@ export const setRoomOwner = internalMutation({
   handler: async (ctx, { roomId, ownerId }) => {
     guard();
     await ctx.db.patch(roomId, { ownerId });
+  },
+});
+
+/** Our `users` row for a god id, as the Better Auth triggers wrote it. */
+export const userRow = internalQuery({
+  args: { subject: v.string() },
+  handler: async (ctx, { subject }) => {
+    guard();
+    const row = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", subject)).unique();
+    if (!row) return null;
+    return { subject: row.subject, name: row.name, email: row.email, emailVerified: row.emailVerified, provider: row.provider };
   },
 });
 

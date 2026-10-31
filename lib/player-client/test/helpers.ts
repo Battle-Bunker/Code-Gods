@@ -1,6 +1,6 @@
 /**
  * Helpers for the live tests (run by scripts/test.mjs against a local engine; CG_TEST_SITE_URL is its site URL).
- * Browser users sign in through the engine's real login flow against the stand-in OIDC provider
+ * Browser users sign in through the engine's real Better Auth flow against the stand-in OIDC provider ("fake")
  * (identities alice, bob, carol), with a small cookie jar, exactly as a browser would.
  */
 import { spawn } from "node:child_process";
@@ -32,26 +32,34 @@ function cookies(response: Response): Record<string, string> {
 
 export interface Browser { identity: string; session: string; jwt: string; name: string; subject: string; client: ConvexHttpClient }
 
-/** Signs `identity` in through /api/login → stand-in OIDC → /api/callback, then gets a browser JWT from /api/auth/token. */
+/**
+ * Signs `identity` in through Better Auth's test-only provider "fake" (POST /api/auth/sign-in/oauth2 → stand-in
+ * OIDC → /api/auth/oauth2/callback/fake), then gets a Convex JWT from /api/auth/convex/token.
+ * `session` is the cookie header a browser would send.
+ */
 export async function signIn(identity: "alice" | "bob" | "carol"): Promise<Browser> {
   const jar: Record<string, string> = {};
-  const header = () => ({ cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ") });
-  const start = await fetch(`${SITE}/api/login?returnTo=%2F`, manual);
-  Object.assign(jar, cookies(start));
-  const authorize = new URL(start.headers.get("location")!);
+  const take = (response: Response) => { for (const [k, v] of Object.entries(cookies(response))) { if (v) jar[k] = v; else delete jar[k]; } };
+  const header = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
+  const start = await fetch(`${SITE}/api/auth/sign-in/oauth2`, {
+    method: "POST", headers: { "content-type": "application/json", origin: SITE }, body: JSON.stringify({ providerId: "fake", callbackURL: "/" }),
+  });
+  if (start.status !== 200) throw new Error(`sign-in/oauth2: ${start.status} ${await start.text()}`);
+  take(start);
+  const authorize = new URL((await start.json() as { url: string }).url);
   authorize.searchParams.set("login_hint", identity);
   const picked = await fetch(authorize, manual);
   if (picked.status !== 302) throw new Error(`authorize: ${picked.status}`);
-  const back = await fetch(picked.headers.get("location")!, { ...manual, headers: header() });
-  Object.assign(jar, cookies(back));
-  if (!jar.cg_session) throw new Error(`login failed: ${back.status}`);
-  const tokenResponse = await fetch(`${SITE}/api/auth/token`, { method: "POST", headers: { ...header(), origin: SITE } });
-  if (tokenResponse.status !== 200) throw new Error(`auth/token: ${tokenResponse.status}`);
+  const back = await fetch(picked.headers.get("location")!, { ...manual, headers: { cookie: header() } });
+  take(back);
+  if (!jar["better-auth.session_token"]) throw new Error(`sign-in failed: ${back.status} ${back.headers.get("location")}`);
+  const tokenResponse = await fetch(`${SITE}/api/auth/convex/token`, { headers: { cookie: header() } });
+  if (tokenResponse.status !== 200) throw new Error(`convex/token: ${tokenResponse.status}`);
   const { token } = await tokenResponse.json() as { token: string };
   const client = new ConvexHttpClient(await convexUrl());
   client.setAuth(token);
   const me = await client.query(api.auth.user.me, {});
-  return { identity, session: jar.cg_session, jwt: token, name: me!.name, subject: me!.subject, client };
+  return { identity, session: header(), jwt: token, name: me!.name, subject: me!.subject, client };
 }
 
 export interface Run { status: number | null; stdout: string; stderr: string; json: any }

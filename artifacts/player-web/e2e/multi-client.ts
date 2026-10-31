@@ -5,7 +5,7 @@
  *
  * What it simulates:
  *   - The engine: the local Convex backend from `pnpm --filter @workspace/engine dev` (started here if
- *     it is not already running), with the stand-in Replit OIDC provider and the mock AI provider.
+ *     it is not already running), with the stand-in OIDC provider (Better Auth's test-only "fake") and the mock AI provider.
  *   - Three players (alice, bob, carol) who each run their own copy of the repository as a player app: three
  *     git worktrees of HEAD, each with its own install, panels directory, credential (obtained through
  *     the real device flow) and Vite dev server on its own port.
@@ -369,7 +369,8 @@ await check("the engine serves both frontends (static hosting with SPA fallback)
 });
 await check("the hosted player client (engine site, /player/) plays as the signed-in human", async () => {
   const context = await browser.newContext();
-  await context.addCookies([{ name: "cg_session", value: sessionOf("carol"), url: SITE }]);
+  // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
+  await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}/player/?room=${shortCode}`);
   await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });

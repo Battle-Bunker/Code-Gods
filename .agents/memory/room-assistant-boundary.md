@@ -21,13 +21,16 @@ explicit consent, and read/act grants never inherit owner powers; a stronger gra
 `connect`, never an upgrade. Labels are self-reported: never imply the credential proves
 which model or chat made a command. Never print, paste or commit the credential.
 
-Synthetic browser login helpers may not override this project's fixed production Replit
-OIDC issuer.
+Humans sign in with Google only (Better Auth served by the Convex deployment). Synthetic
+sign-in helpers may never reach a production deployment.
 
-**Why:** A browser pilot reached the real Replit sign-in screen despite setting
+**Why:** An earlier browser pilot reached the real provider's sign-in screen despite setting
 synthetic claims. Fixture tests alone cannot demonstrate a real browser approval.
 
-**How to apply:** The stand-in OIDC provider is selected only by `REPLIT_OIDC_ISSUER`, a
-local-test-only Convex env var set by `pnpm --filter @workspace/engine dev`; production
-leaves it unset and uses `https://replit.com/oidc`. Report the live-auth blocker honestly;
-do not extract cookies or weaken authentication to make a pilot pass.
+**How to apply:** The stand-in OIDC server (`scripts/fake-oidc.mjs`) is a Better Auth
+generic OAuth provider "fake" that exists only when `CODE_GODS_TEST_FIXTURES=1` or
+`CODE_GODS_DEV=1` AND `CODE_GODS_FAKE_OIDC_URL` are set, which only
+`pnpm --filter @workspace/engine dev` does on a local deployment; production sets none of them
+and offers Google alone. Admin needs a verified Google email on `CODE_GODS_ADMIN_EMAILS`
+(the fake provider counts only under fixtures). Report the live-auth blocker honestly; do not
+extract cookies or weaken authentication to make a pilot pass.

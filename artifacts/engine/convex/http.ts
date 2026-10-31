@@ -1,7 +1,8 @@
 /**
  * Every HTTP URL of the deployment (https://<dep>.convex.site):
  *
- *   /api/*        exact routes: login, device flow, JWKS, health (convex/auth/routes.ts); any other
+ *   /api/auth/*   Better Auth: Google sign-in, session cookie, sign-out, Convex JWTs (convex/auth/betterAuth.ts)
+ *   /api/*        exact routes: device flow, player JWKS, config, health (convex/auth/routes.ts); any other
  *                 /api/ path is a JSON 404 (a longer prefix than "/", so it beats the SPA fallback)
  *   /player/*     default player client (static-hosting instance `playerSite`, built with base /player/)
  *   /*            engine UI (static-hosting instance `engineSite`, built with base /)
@@ -14,6 +15,7 @@ import { registerStaticRoutes } from "@convex-dev/static-hosting";
 import { components } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { registerAuthRoutes } from "./auth/routes";
+import { authComponent, createAuth } from "./auth/betterAuth";
 
 const http = httpRouter();
 
@@ -46,6 +48,8 @@ http.route({
   }),
 });
 
+// Same origin as both SPAs, so no CORS. Registers /api/auth/* and /.well-known/openid-configuration.
+authComponent.registerRoutes(http, createAuth);
 registerAuthRoutes(http);
 registerStaticRoutes(http, components.playerSite, { pathPrefix: "/player/" });
 registerStaticRoutes(http, components.engineSite);

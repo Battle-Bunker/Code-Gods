@@ -5,13 +5,16 @@
  *               room credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local)
  *               and answers GET /__codegods/token with a 10-minute player JWT; the browser never sees the
  *               credential. The room is the credential's room.
- *  "hosted"   : the default client served by the engine at /player/. The human signs in on that site;
- *               POST /api/auth/token turns the session cookie into a JWT. The room comes from ?room=.
+ *  "hosted"   : the default client served by the engine at /player/. The human signs in with Google through
+ *               Better Auth on that site (the same session cookie as the engine UI at /), which the Convex
+ *               client turns into JWTs at /api/auth/convex/token. The room comes from ?room=.
  *
  * The Convex client is kept on globalThis, so hot updates of any module (core included) never open a
  * second connection or drop subscriptions.
  */
 import { ConvexReactClient } from "convex/react";
+import { convexClient as betterAuthConvex } from "@convex-dev/better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 
 export type Mode = "devserver" | "hosted";
 export type Connection = {
@@ -57,11 +60,20 @@ export function convexClient(url: string): ConvexReactClient {
   return g.__cgConvex ??= new ConvexReactClient(url);
 }
 
-/** A fresh JWT for the Convex client's fetchAccessToken (null = not signed in). */
-export async function fetchAccessToken(mode: Mode): Promise<string | null> {
-  if (mode === "devserver") return (await fetchAppToken())?.token ?? null;
-  const response = await fetch("/api/auth/token", { method: "POST", credentials: "same-origin", cache: "no-store" });
-  return response.ok ? ((await response.json()) as { token: string | null }).token : null;
+/** Dev-server mode: a fresh player JWT for the Convex client's fetchAccessToken (null = refused). */
+export async function fetchAppAccessToken(): Promise<string | null> {
+  return (await fetchAppToken())?.token ?? null;
 }
 
-export const loginUrl = () => `/api/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`;
+const makeAuthClient = () => createAuthClient({ baseURL: location.origin, plugins: [betterAuthConvex()] });
+type AuthClient = ReturnType<typeof makeAuthClient>;
+/** Hosted mode: Better Auth on the engine site (same origin, or the dev server's /api proxy to it). */
+export function authClient(): AuthClient {
+  const k = g as Global & { __cgAuth?: AuthClient };
+  return k.__cgAuth ??= makeAuthClient();
+}
+
+/** Hosted mode: start Google sign-in, coming back to this page. */
+export function signIn(): void {
+  void authClient().signIn.social({ provider: "google", callbackURL: location.pathname + location.search });
+}

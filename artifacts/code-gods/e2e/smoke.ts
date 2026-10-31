@@ -1,8 +1,8 @@
 /**
  * Playwright smoke test of the engine UI (artifacts/code-gods) against the LIVE local engine: the Convex
- * local backend from `pnpm --filter @workspace/engine dev`, its stand-in OIDC provider and the mock AI
+ * local backend from `pnpm --filter @workspace/engine dev`, its stand-in OIDC provider ("fake") and the mock AI
  * provider (CODE_GODS_AI_MOCK=1). The UI is built with the engine's Convex URL and uploaded to the
- * engine's static hosting, so the browser talks to the real site origin: cookie login, browser JWTs,
+ * engine's static hosting, so the browser talks to the real site origin: Better Auth session cookie, Convex JWTs,
  * reactive queries, mutations, actions and the device flow, exactly as deployed.
  *
  *   pnpm --filter @workspace/engine dev                       (or let this script start it, see below)
@@ -78,13 +78,23 @@ async function check(name: string, fn: () => Promise<void>) {
   console.log(`ok - ${name}`);
 }
 
-/** A signed-in browser context: /api/login → the stand-in OIDC identity picker → the session cookie. */
+/**
+ * A signed-in browser context. The UI's button goes to Google, which a local deployment cannot use, so the
+ * page starts Better Auth's test-only provider "fake" itself (same origin, as the button would), then the
+ * stand-in OIDC identity picker → /api/auth/oauth2/callback/fake → the session cookie → back to "/".
+ */
 async function signIn(browser: any, who: "alice" | "bob" | "carol" | "admin", viewport: { width: number; height: number }) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e: Error) => errors.push(`${who}: ${e.message}`));
-  await page.goto(`${SITE}/api/login?returnTo=/`);
+  await page.goto(`${SITE}/`);
+  await page.getByTestId("button-login").waitFor();
+  const url = await page.evaluate(async () => {
+    const r = await fetch("/api/auth/sign-in/oauth2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerId: "fake", callbackURL: "/" }) });
+    return ((await r.json()) as { url: string }).url;
+  });
+  await page.goto(url);
   await page.getByRole("link", { name: new RegExp(`\\(${who}\\)`) }).click();
   await page.waitForURL(`${SITE}/`);
   await page.getByTestId("button-logout").waitFor();
@@ -308,6 +318,28 @@ try {
     await alice.page.goto(`${SITE}/admin/agents`);
     await alice.page.getByText("Admins only").waitFor();
     for (const who of [admin, alice]) { assert.deepEqual(who.errors, []); await who.context.close(); }
+  });
+
+  await check("sign-in goes to Google; sign-out returns to the landing page", async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const page = await context.newPage();
+    // Never leave the machine: answer Google's authorization endpoint locally and record the request.
+    await context.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
+    await page.goto(`${SITE}/`);
+    const google = page.waitForRequest(/^https:\/\/accounts\.google\.com\//);
+    await page.getByTestId("button-login").click();
+    const url = new URL((await google).url());
+    assert.equal(url.searchParams.get("redirect_uri"), `${SITE}/api/auth/callback/google`);
+    assert.equal(url.searchParams.get("prompt"), "select_account");
+    await context.close();
+
+    const carol = await signIn(browser, "carol", { width: 1280, height: 900 });
+    await carol.page.getByTestId("button-logout").click();
+    await carol.page.getByTestId("button-login").waitFor();
+    await carol.page.reload();
+    await carol.page.getByTestId("button-login").waitFor();
+    assert.deepEqual(carol.errors, []);
+    await carol.context.close();
   });
 } catch (e) {
   failed = true;

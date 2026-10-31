@@ -52,7 +52,7 @@ export default function Device() {
         <h1 className="font-display text-5xl mt-2">Review a client’s access.</h1>
         <p className="text-muted-foreground mt-4">A player app or room assistant is requesting access to one room as you. Continue only if you started this request and the code below matches the one your client printed.</p>
         {isLoading ? null : !isAuthenticated ? (
-          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-device">Log in to approve</button>
+          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-device">Sign in with Google to approve</button>
         ) : result ? (
           <div className="mt-8 border border-primary bg-primary/5 p-5 flex gap-3 items-start" data-testid={`status-${result}`}>
             <Check className="h-5 w-5 text-primary mt-0.5" />

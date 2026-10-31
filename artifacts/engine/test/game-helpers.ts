@@ -1,7 +1,7 @@
 /**
  * Helpers for the engine's integration tests against the LIVE local backend (npx convex dev on 3210).
  * Identities are impersonated with the deployment admin key (ConvexHttpClient.setAdminAuth with an
- * acting-as identity carrying `subject` and `scope`, which convex/auth/access.ts reads); `users` rows
+ * acting-as identity carrying `subject` and the issuer of the token kind, which convex/auth/access.ts reads); `users` rows
  * and player credentials are seeded with test-only internal mutations (convex/testing.ts).
  */
 import { after } from "node:test";
@@ -31,10 +31,16 @@ after(async () => { await admin.mutation(internal.testing.endGames, {}); });
 
 export type God = { subject: string; name: string; sid: string; c: ConvexHttpClient };
 
-/** A client acting as `subject` with the given scope (and player credential id). */
+/** The deployment's site URL: Better Auth's JWT issuer; player JWTs use `<site>/api/device` (convex/auth/identity.ts). */
+export const SITE_ = process.env.CG_TEST_SITE_URL ?? `http://127.0.0.1:${config.ports?.site ?? 3211}`;
+
+/**
+ * A client acting as `subject` with the given scope: the issuer of a Better Auth browser JWT (plus `sessionId`)
+ * or of a player JWT (plus `cred`), which is how access.ts tells them apart.
+ */
 export function clientFor(subject: string, scope: "browser" | "player" = "browser", extra: Record<string, unknown> = {}) {
   const c = new ConvexHttpClient(URL_);
-  adminAuth(c, { subject, issuer: "https://test.local", scope, ...extra });
+  adminAuth(c, { subject, issuer: scope === "browser" ? SITE_ : `${SITE_}/api/device`, ...extra });
   return c;
 }
 
@@ -44,7 +50,7 @@ export async function gods(...names: string[]): Promise<God[]> {
   for (const name of names) {
     const subject = `test|${randomUUID()}`;
     const sid = await admin.mutation(internal.testing.seedUser, { subject, name, email: `${subject.slice(5, 13)}@test.local`, emailVerified: true });
-    out.push({ subject, name, sid, c: clientFor(subject, "browser", { sid }) });
+    out.push({ subject, name, sid, c: clientFor(subject, "browser", { sessionId: sid }) });
   }
   return out;
 }
