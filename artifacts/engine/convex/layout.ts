@@ -19,6 +19,7 @@ import {
   DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, panelPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetPanelParams,
   placeSchema, setPanePanel, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
+import { canonicalJson } from "@workspace/game-utilities";
 import { PANEL_IDS, isPanelId, panelCatalog, parsePanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import type { Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
@@ -163,9 +164,21 @@ async function change(ctx: MutationCtx, p: Principal, apply: (layout: DockLayout
   return { paneId: next.paneId, layout: next.layout, summary: pane ? paneCaption(pane) : "closed", reused: next.reused ?? false };
 }
 
+/**
+ * A pane already on screen asked for again with a place: it goes to that place (a duplicate of it would show the same
+ * thing twice). When the place is next to the pane itself it just comes to the front.
+ */
+function placeExisting(layout: DockLayout, id: string, place: Place) {
+  const moved = place.relativeTo === id ? layout : movePane(layout, id, place);
+  return { layout: activatePane(moved, id), paneId: id, reused: true };
+}
+
 /** A built-in panel the assistant chose, with its parameters: reuse, switch or open (see openPanelAs). */
 function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string, unknown>, place: Place | undefined) {
-  if (!place) {
+  if (place) {
+    const same = panelPanesOf(layout).find(pane => pane.panelId === panelId && canonicalJson(pane.params) === canonicalJson(params));
+    if (same) return placeExisting(layout, same.id, place);
+  } else {
     const panels = panelPanesOf(layout);
     const open = panels.find(pane => pane.panelId === panelId);
     if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
@@ -182,9 +195,10 @@ function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string
  * Built-in, with parameters the assistant chose. Without `place`, no pane is added: an open pane of that panel is
  * reused (its parameters replaced, its tab activated); else a built-in panel nobody chose (setBy default) or one the
  * assistant set earlier is switched to it (the player's own choices are never overridden); only when every built-in
- * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`.
+ * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`; even then a pane
+ * already showing that panel with the same parameters is moved there instead of duplicated.
  *
- * Stored: without `place`, an open pane of that panel is activated; else it opens in a new pane.
+ * Stored: an open pane of that panel is activated (and moved to `place` when given); else it opens in a new pane.
  */
 export const openPanelAs = internalMutation({
   args: { principal, panelId: v.optional(v.string()), slug: v.optional(v.string()), params: v.optional(v.any()), place: placeV },
@@ -203,8 +217,8 @@ export const openPanelAs = internalMutation({
     if (!panel) fail("NOT_FOUND", `No stored panel "${storedSlug.slice(0, 60)}"`);
     if (!panel.enabled) fail("CONFLICT", `Panel "${storedSlug}" is turned off (panels.setEnabled)`);
     return change(ctx, p, layout => {
-      const open = place ? undefined : panesOf(layout).find(pane => pane.kind === "stored-panel" && pane.slug === storedSlug);
-      if (open) return { layout: activatePane(layout, open.id), paneId: open.id, reused: true };
+      const open = panesOf(layout).find(pane => pane.kind === "stored-panel" && pane.slug === storedSlug);
+      if (open) return place ? placeExisting(layout, open.id, place) : { layout: activatePane(layout, open.id), paneId: open.id, reused: true };
       return openPane(layout, { id: "", kind: "stored-panel", slug: storedSlug }, place);
     });
   },

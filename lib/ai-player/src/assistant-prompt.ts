@@ -7,14 +7,15 @@
  *   - assistantBriefing: the player's own situation (utility, energy, phase, the room language's helpers, the room's
  *     rules, and the panes on their screen), fetched once at the start of each turn and put in front of their message.
  */
-import { toolsFor } from "@workspace/player-client/tools";
+import { OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { GAME_PRIMER } from "./policy.ts";
 
 export type AssistantPromptContext = { playerName: string; roomCode: string | null; permission: "read" | "act" | "owner" };
 
 /** Tools whose calls the player confirms on a card before they run (assistant/rules.ts needsConfirmation). */
 const CONFIRMED = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "delete_setup", "summon_agent"]);
-const OWNER = new Set(["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"]);
+/** The owner's actions, confirmed like the engine's (assistant/rules.ts): not the owner's reads. */
+const OWNER = new Set<string>(OWNER_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
 
 export function assistantSystemPrompt({ playerName, roomCode, permission }: AssistantPromptContext): string {
   const rights = permission === "read" ? "read-only: you can look things up, explain and arrange the player's screen, but not act in the game"
@@ -32,10 +33,11 @@ WRITING FOR THE PLAYER. The conversation shows your text exactly as written, wit
 BRIEFING. Each of the player's messages starts with a <briefing> block the engine fetched when the message was sent: their utility (name, summary and source, and any defence goal), energy, phase, live agents, the room language's mutators and read helpers, the panes on their screen, and the room's rules. Use it instead of re-reading the same things; call tools for anything newer or more detailed (objects, scores, chat, receipts).
 
 THE PLAYER'S SCREEN. The player's client is a dock of panes: panels (built-in views with parameters, and the player's own stored panels) and this conversation. The briefing's PANELS block lists the panes and the built-in panel catalogue; get_layout has the parameter schemas. The player picks a pane's panel from a menu but cannot set its parameters: you do, with open_panel {panelId, params} and set_panel_params; open_panel {slug} shows a stored panel. Open or re-parameterise a panel when the answer is something a panel shows better than words (an object's breakdown or a ranking → objects with highlight; a trend → bits-over-time or race; a draft agent → forge with source; a move to test → what-if). "The chat", "this chat" or "you" in a request about the screen means this conversation's pane (move_pane moves it; it cannot be closed); the public chat is the public-chat panel. At most one layout change per answer unless the player asks for an arrangement. Never move or close a pane the player arranged (setBy: human) unless asked; prefer explaining over opening when a visible pane already shows it. After a change, one line on what to look at. Panes are the player's: add, move or close them only when asked.
+To rearrange panes already on screen use move_pane; open_panel with place adds a new pane. Report exactly what changed: never say you moved a pane when you opened one.
 
 NEXT STEPS. A newcomer's question is a request for the next concrete step: name it, offer to do it, do it when asked. Lobby: explain that their secret goal comes with the game, suggest set_ready, point at rules. Planning: read their utility, choose a target with evaluate_value, draft an agent into the forge (open_panel {panelId: forge, params: {source}}), validate_agent, report its cost against their energy; summon only when asked. Running: watch bits-over-time and feed, destroy agents that lose bits, negotiate in public chat (send_chat, confirmed). Paused: say why and what to do before it resumes. Ended: results, then what would have scored better.
 
-TOOLS. Call them as needed; reads are cheap and safe. Command ids are added for you; never invent them. Public chat, summons, destroys, pauses, panel deletions and owner actions are shown to the player for confirmation before they run; if the player denies one, accept it and do not retry it. Layout changes run at once (at most two per step).
+TOOLS. Call them as needed; reads are cheap and safe. Command ids are added for you; never invent them. Public chat, summons, destroys, pauses, panel deletions and owner actions are shown to the player on a confirmation card before they run: when the player has asked for one, call the tool at once instead of asking "shall I?" in text (the card is the confirmation); if the player denies one, accept it and do not retry it. Ids you pass (agentId, paneId, deityId, aiAgentId) come from what a tool returned; never reuse a command id as an agent id. Layout changes run at once (at most two per step).
 ${tools}
 
 WRITING AN AGENT. Use the room language and only the helper names the briefing lists. Decide what to aim for from the player's utility (evaluate_value checks a target), read a few objects (get_observation) to see what the agent will meet, keep it cheap (simple code costs fewer summon bits and decision bits per act), show the draft in the forge, then validate_agent and report its cost against the player's energy. Always validate before summoning. Summon only when the player asks.
@@ -50,7 +52,7 @@ ${GAME_PRIMER}`;
 // ---------------------------------------------------------------------------------------------
 
 /** Briefing limits (characters): it rides on every model step of a turn. */
-export const BRIEFING_LIMITS = { total: 12_000, rules: 4_000, source: 1_500, helpers: 3_500, helper: 160, panels: 1_500 } as const;
+export const BRIEFING_LIMITS = { total: 12_000, rules: 4_000, source: 1_500, helpers: 3_500, helper: 160, panels: 2_500 } as const;
 
 type Json = Record<string, unknown>;
 const rec = (v: unknown): Json => v && typeof v === "object" && !Array.isArray(v) ? v as Json : {};
@@ -104,7 +106,7 @@ function panelLines(layout: Json): string[] {
   walk(dock.root);
   const paneLine = (id: string): string | undefined => {
     const pane = rec(panes[id]);
-    if (pane.kind === "assistant") return `[${id}] this conversation`;
+    if (pane.kind === "assistant") return `[${id}] this conversation (the chat with you; move_pane moves it)`;
     if (pane.kind === "stored-panel") return `[${id}] stored panel ${str(pane.slug) ?? ""}`;
     if (pane.kind === "file-panel") return `[${id}] file panel ${str(pane.fileId) ?? ""}`;
     if (pane.kind !== "panel") return undefined;
@@ -114,7 +116,11 @@ function panelLines(layout: Json): string[] {
   };
   const panels = Array.isArray(layout.panels) ? layout.panels.map(rec) : [];
   const panelLine = (l: Json) => {
-    const props = Object.keys(rec(rec(l.paramsSchema).properties));
+    // Each parameter with its allowed values when it has a short enum (a guessed value is refused).
+    const props = Object.entries(rec(rec(l.paramsSchema).properties)).map(([name, schema]) => {
+      const values = rec(schema).enum;
+      return Array.isArray(values) && values.length <= 6 && values.every(v => typeof v === "string") ? `${name}(${values.join("|")})` : name;
+    });
     return `  ${str(l.id)} — ${str(l.title)}: params ${props.join(", ") || "none"}; phases ${Array.isArray(l.phases) ? l.phases.join("/") : "?"}`;
   };
   const lines = ["PANELS. The player's panes:", ...order.map(paneLine).filter((l): l is string => !!l), "Built-in panels (open_panel {panelId}; get_layout has the schemas):", ...panels.map(panelLine)];
