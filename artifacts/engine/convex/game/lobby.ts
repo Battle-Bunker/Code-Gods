@@ -12,16 +12,16 @@ import { touchActivity } from "../activity";
 import { nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
-import { membersOf, requireOwner, requireRoom, shortCodeFor } from "../lib/rooms";
+import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { LEASE_MS } from "../lib/world";
 import { scoreV } from "./tables";
 
 /** The room as its current owner sees it, for an owner action. */
 export const ownerContext = internalQuery({
-  args: { room: v.string() },
-  handler: async (ctx, { room: ref }) => {
+  args: { room: v.string(), principal: v.optional(principalV) },
+  handler: async (ctx, { room: ref, principal }) => {
     const room = await requireRoom(ctx, ref);
-    const { viewer } = await requireOwner(ctx, room);
+    const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, principal), room);
     const members = await membersOf(ctx, room._id);
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     return {
@@ -41,10 +41,10 @@ export const receiptFor = internalQuery({
 });
 
 export const commitSettings = internalMutation({
-  args: { roomId: v.id("rooms"), revision: v.number(), settings: v.any(), catalog: v.any(), aiBudget: v.optional(v.number()) },
+  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), catalog: v.any(), aiBudget: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
-    await requireOwner(ctx, room);
+    await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
     if (args.revision !== room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
@@ -75,14 +75,14 @@ const wire = v.union(v.number(), v.string());
 /** Launch: insert the game, its deities and starting objects; snapshot settings and roster; schedule the loop. */
 export const commitStart = internalMutation({
   args: {
-    roomId: v.id("rooms"), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
+    roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
     seasonCommitment: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
     objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number() })),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
-    const { viewer } = await requireOwner(ctx, room);
+    const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
     if (room.revision !== args.revision) fail("CONFLICT", "Settings changed while starting; try again");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");

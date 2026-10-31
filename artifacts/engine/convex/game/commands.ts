@@ -13,7 +13,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { appendEvents } from "../engine/loop";
 import { fail, messageOf } from "../lib/errors";
-import { memberOf, requireMember, requireRoom } from "../lib/rooms";
+import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -21,14 +21,17 @@ const CHAT_INTERVAL_MS = 1000;
 export const envelopeHash = (envelope: Envelope) => sha256(JSON.stringify(envelope));
 const receiptKey = (commandId: string) => `client:${commandId}`;
 
-/** The acting god: the authenticated human (with `act`), or an AI seat (engine-internal callers only). */
-async function actorFor(ctx: QueryCtx | MutationCtx, room: Doc<"rooms">, asAi: string | undefined) {
+/**
+ * The acting god: the authenticated human (with `act`), the human behind a principal (agent tools,
+ * scheduled commands), or an AI seat (engine-internal callers only).
+ */
+async function actorFor(ctx: QueryCtx | MutationCtx, room: Doc<"rooms">, asAi: string | undefined, principal: Principal | undefined) {
   if (asAi !== undefined) {
     const member = await memberOf(ctx, room._id, asAi);
     if (!member || member.kind !== "ai") fail("FORBIDDEN", "Unknown AI seat");
     return member;
   }
-  return (await requireMember(ctx, room, "act")).member;
+  return (await requireMemberAs(ctx, await viewerOf(ctx, principal), room, "act")).member;
 }
 export async function findReceipt(ctx: QueryCtx | MutationCtx, roomId: Id<"rooms">, actorId: string, commandId: string) {
   return ctx.db.query("receipts").withIndex("by_key", q => q.eq("roomId", roomId).eq("actorId", actorId).eq("requestId", receiptKey(commandId))).unique();
@@ -36,10 +39,10 @@ export async function findReceipt(ctx: QueryCtx | MutationCtx, roomId: Id<"rooms
 
 /** What the Node action needs before examining an agent; also answers repeats from the stored receipt. */
 export const prepare = internalQuery({
-  args: { roomId: v.string(), asAi: v.optional(v.string()), envelope: v.any() },
+  args: { roomId: v.string(), asAi: v.optional(v.string()), principal: v.optional(principalV), envelope: v.any() },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
-    const member = await actorFor(ctx, room, args.asAi);
+    const member = await actorFor(ctx, room, args.asAi, args.principal);
     const envelope = envelopeSchema.parse(args.envelope);
     const prior = await findReceipt(ctx, room._id, member.godId, envelope.commandId);
     const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
@@ -66,10 +69,10 @@ const examinedV = v.object({
 });
 
 export const apply = internalMutation({
-  args: { roomId: v.id("rooms"), asAi: v.optional(v.string()), envelope: v.any(), examined: v.optional(examinedV) },
+  args: { roomId: v.id("rooms"), asAi: v.optional(v.string()), principal: v.optional(principalV), envelope: v.any(), examined: v.optional(examinedV) },
   handler: async (ctx, args): Promise<CommandResult> => {
     const room = await requireRoom(ctx, args.roomId);
-    const member = await actorFor(ctx, room, args.asAi);
+    const member = await actorFor(ctx, room, args.asAi, args.principal);
     const envelope = envelopeSchema.parse(args.envelope);
     const hash = envelopeHash(envelope);
     const prior = await findReceipt(ctx, room._id, member.godId, envelope.commandId);

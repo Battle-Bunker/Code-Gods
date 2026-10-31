@@ -16,19 +16,22 @@
     "test:unit": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },
   "dependencies": {
+    "@convex-dev/static-hosting": "0.2.1",
+    "@modelcontextprotocol/server": "2.4.0",
+    "@workspace/ai-player": "workspace:*",
     "@workspace/game-core": "workspace:*",
+    "@workspace/game-runtime": "workspace:*",
     "@workspace/game-types": "workspace:*",
     "@workspace/game-utilities": "workspace:*",
-    "@workspace/game-runtime": "workspace:*",
     "@workspace/player-client": "workspace:*",
-    "@workspace/ai-player": "workspace:*",
-    "@convex-dev/static-hosting": "0.2.1",
     "convex": "1.48.0",
     "jose": "6.2.13",
     "quickjs-emscripten": "0.31.0",
     "typescript": "5.9.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/node": "catalog:"
   }
 }

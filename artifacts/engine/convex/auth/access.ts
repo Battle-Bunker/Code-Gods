@@ -14,6 +14,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { oidcIssuer } from "./config";
+import { credentialKind, credentialProblem, type CredentialKind } from "./principal";
 
 export type Permission = "read" | "act" | "owner";
 export type Viewer = {
@@ -30,6 +31,8 @@ export type Viewer = {
   label?: string;
   /** Verified-email admin (browser scope only). */
   isAdmin: boolean;
+  /** Player scope from viewerForCredential: who holds the credential (device flow, MCP OAuth, in-client assistant). */
+  credentialKind?: CredentialKind;
 };
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -91,4 +94,36 @@ export function requireRoomPermission(viewer: Viewer, roomId: string, need: Perm
   if (RANK[viewer.permission ?? "read"] < RANK[need]) {
     throw new ConvexError({ code: "FORBIDDEN", message: need === "act" ? "Read-only authorization cannot submit commands" : "This needs an owner grant approved by the room owner" });
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Principals (docs/surface-architecture.md §3): a credential id → the same Viewer a player JWT gives
+// ---------------------------------------------------------------------------------------------
+
+export { credentialKind, credentialProblem, type CredentialKind };
+
+/**
+ * The Viewer of a principal `{credentialId}` (tool executions, scheduled commands), after the same checks
+ * as a player JWT plus `credentialProblem`. Null when unknown or unusable.
+ */
+export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentialId: string): Promise<Viewer | null> {
+  const id = ctx.db.normalizeId("credentials", credentialId);
+  const credential = id ? await ctx.db.get(id) : null;
+  if (!credential) return null;
+  const roomId = ctx.db.normalizeId("rooms", credential.roomId);
+  const room = roomId ? await ctx.db.get(roomId) : null;
+  if (credentialProblem(credential, room, Date.now())) return null;
+  const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();
+  if (!user) return null;
+  return {
+    subject: user.subject, name: user.name, scope: "player", roomId: credential.roomId, permission: credential.permission,
+    credentialId: credential._id, label: credential.label, isAdmin: false, credentialKind: credentialKind(credential),
+  };
+}
+
+/** viewerForCredential, or ConvexError {code: "UNAUTHENTICATED"}. */
+export async function requireViewerFor(ctx: QueryCtx | MutationCtx, principal: { credentialId: string }): Promise<Viewer> {
+  const viewer = await viewerForCredential(ctx, principal.credentialId);
+  if (!viewer) throw new ConvexError({ code: "UNAUTHENTICATED", message: "This connection was revoked or has expired; reconnect" });
+  return viewer;
 }

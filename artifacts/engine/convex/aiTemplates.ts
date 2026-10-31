@@ -5,10 +5,11 @@
  * (the verified-email allowlist). Members see only the public catalog (no prompts).
  */
 import { v } from "convex/values";
-import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireViewer } from "./auth/access";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, PROMPT_MAX, findModel, mockEnabled, providerConfigured } from "./lib/aiModels";
 import { fail } from "./lib/errors";
+import { principalV, viewerOf } from "./lib/rooms";
 
 const SEEDS = [{
   templateId: "sonnet-strategist", name: "Sonnet Strategist", provider: "anthropic" as const, model: DEFAULT_AGENT_MODEL,
@@ -43,14 +44,12 @@ const view = (t: { templateId: string; name: string; provider: string; model: st
 });
 
 /** Public catalog for owners adding AI seats (the assistant's `ai-catalog`): no prompts. */
-export const catalog = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireViewer(ctx);
-    const rows = await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).take(500);
-    return { agents: rows.sort((a, b) => a.createdAt - b.createdAt).map(t => ({ id: t.templateId, name: t.name, provider: t.provider, model: t.model })) };
-  },
-});
+async function catalogOf(ctx: QueryCtx) {
+  const rows = await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).take(500);
+  return { agents: rows.sort((a, b) => a.createdAt - b.createdAt).map(t => ({ id: t.templateId, name: t.name, provider: t.provider, model: t.model })) };
+}
+export const catalog = query({ args: {}, handler: async (ctx) => { await requireViewer(ctx); return catalogOf(ctx); } });
+export const catalogAs = internalQuery({ args: { principal: principalV }, handler: async (ctx, { principal }) => { await viewerOf(ctx, principal); return catalogOf(ctx); } });
 
 export const adminList = query({
   args: {},

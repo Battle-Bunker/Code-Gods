@@ -9,6 +9,8 @@
  */
 
 import type * as activity from "../activity.js";
+import type * as agent_bound from "../agent/bound.js";
+import type * as agent_rules from "../agent/rules.js";
 import type * as ai_seats from "../ai/seats.js";
 import type * as ai_turn from "../ai/turn.js";
 import type * as aiTemplates from "../aiTemplates.js";
@@ -19,6 +21,7 @@ import type * as auth_crypto from "../auth/crypto.js";
 import type * as auth_device from "../auth/device.js";
 import type * as auth_jwt from "../auth/jwt.js";
 import type * as auth_oidc from "../auth/oidc.js";
+import type * as auth_principal from "../auth/principal.js";
 import type * as auth_profileName from "../auth/profileName.js";
 import type * as auth_rooms from "../auth/rooms.js";
 import type * as auth_routes from "../auth/routes.js";
@@ -64,6 +67,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
+  "agent/bound": typeof agent_bound;
+  "agent/rules": typeof agent_rules;
   "ai/seats": typeof ai_seats;
   "ai/turn": typeof ai_turn;
   aiTemplates: typeof aiTemplates;
@@ -74,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "auth/device": typeof auth_device;
   "auth/jwt": typeof auth_jwt;
   "auth/oidc": typeof auth_oidc;
+  "auth/principal": typeof auth_principal;
   "auth/profileName": typeof auth_profileName;
   "auth/rooms": typeof auth_rooms;
   "auth/routes": typeof auth_routes;
