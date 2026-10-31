@@ -3,9 +3,13 @@
  * payoff on them over the game). In the lobby it shows the room's last finished game; the assistant may pick an
  * older one.
  */
+import { dimensionVar } from "@workspace/object-views";
 import { LineChart, Obj, Table, useGame, useLeaderboard, useObjects, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
 import { PanelEmpty, Section, fmt, ordinal, referObject, useObjectRanks, type PanelProps } from "./kit";
+
+/** Your bits × the others' care, in the dimension colours every panel uses. */
+const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
 
 type Row = { id: string; name: string; isAI: boolean; total: number; rank: number };
 
@@ -53,7 +57,11 @@ export default function Results({ params, phase }: PanelProps<"results">) {
             {[...best, ...worst].map(o => (
               <li key={o.id} className="flex items-center gap-2">
                 <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
-                <Obj value={o.value} /><span className={`tabular-nums ${o.payoff < 0 ? "text-destructive" : ""}`}>payoff {fmt(o.payoff)}</span>
+                <Obj value={o.value} />
+                <span className="tabular-nums" data-testid={`text-result-payoff-${o.id}`}>
+                  <span style={{ color: YOURS }}>{fmt(o.own.netBits)}</span> × <span style={{ color: OTHERS }}>{fmt(o.peerCare)}</span> ={" "}
+                  <span className={o.payoff < 0 ? "text-destructive" : ""}>payoff {fmt(o.payoff)}</span>
+                </span>
               </li>
             ))}
           </ul>

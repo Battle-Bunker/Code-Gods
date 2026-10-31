@@ -112,10 +112,14 @@ export function BarList({ items, format = fmtBits, max = 20 }: {
   );
 }
 
-/** A labelled scatter plot; points may carry a label shown on hover and a highlight flag. */
-export function ScatterPlot({ points, width = 280, height = 200, xLabel, yLabel, format = fmtBits, onSelect }: {
+/**
+ * A labelled scatter plot; points may carry a label shown on hover and a highlight flag. `xColour` / `yColour` colour an
+ * axis label (e.g. the "yours" and "others" dimension colours, `dimensionVar` in @workspace/object-views).
+ */
+export function ScatterPlot({ points, width = 280, height = 200, xLabel, yLabel, xColour = MUTED, yColour = MUTED, format = fmtBits, onSelect }: {
   points: readonly { x: number; y: number; label?: string; key?: string; highlight?: boolean }[];
-  width?: number; height?: number; xLabel?: string; yLabel?: string; format?: (v: number) => string; onSelect?: (key: string) => void;
+  width?: number; height?: number; xLabel?: string; yLabel?: string; xColour?: string; yColour?: string; format?: (v: number) => string;
+  onSelect?: (key: string) => void;
 }) {
   const m = { l: 40, r: 8, t: 8, b: 24 };
   const [x0, x1] = extent([...points.map(p => p.x), 0], 0.08), [y0, y1] = extent([...points.map(p => p.y), 0], 0.08);
@@ -126,8 +130,8 @@ export function ScatterPlot({ points, width = 280, height = 200, xLabel, yLabel,
       <line x1={m.l} x2={width - m.r} y1={y(0)} y2={y(0)} stroke={GRID} />
       {[x0, x1].map(v => <text key={`x${v}`} x={x(v)} y={height - 10} textAnchor="middle" fontSize={9} fill={MUTED}>{format(v)}</text>)}
       {[y0, y1].map(v => <text key={`y${v}`} x={m.l - 4} y={y(v)} textAnchor="end" dominantBaseline="middle" fontSize={9} fill={MUTED}>{format(v)}</text>)}
-      {xLabel && <text x={width - m.r} y={height - 1} textAnchor="end" fontSize={9} fill={MUTED}>{xLabel} →</text>}
-      {yLabel && <text x={2} y={m.t + 6} fontSize={9} fill={MUTED}>↑ {yLabel}</text>}
+      {xLabel && <text x={width - m.r} y={height - 1} textAnchor="end" fontSize={9} style={{ fill: xColour }}>{xLabel} →</text>}
+      {yLabel && <text x={2} y={m.t + 6} fontSize={9} style={{ fill: yColour }}>↑ {yLabel}</text>}
       {points.map((p, i) => (
         <g key={p.key ?? i} onClick={p.key && onSelect ? () => onSelect(p.key!) : undefined} className={onSelect ? "cursor-pointer" : undefined}>
           {p.highlight
@@ -198,20 +202,25 @@ export function Timeline({ lanes, from, to, width = 320, laneHeight = 14, now }:
   );
 }
 
-/** A compact sortable-looking table (sorting is the caller's job: pass rows in order). */
+/**
+ * A compact sortable-looking table (sorting is the caller's job: pass rows in order). A column's `colour` colours its
+ * header and cells (e.g. the "yours" and "others" dimension colours).
+ */
 export function Table<Row>({ rows, columns, rowKey, max = 50, onRowClick }: {
-  rows: readonly Row[]; columns: readonly { header: string; cell: (row: Row) => ReactNode; align?: "left" | "right" }[];
+  rows: readonly Row[]; columns: readonly { header: string; cell: (row: Row) => ReactNode; align?: "left" | "right"; colour?: string }[];
   rowKey: (row: Row, index: number) => string; max?: number; onRowClick?: (row: Row) => void;
 }) {
   return (
     <table className="w-full border-collapse text-[11px]">
       <thead>
-        <tr>{columns.map(c => <th key={c.header} className={`border-b border-[hsl(var(--border))] px-1 py-0.5 font-semibold ${c.align === "right" ? "text-right" : "text-left"}`}>{c.header}</th>)}</tr>
+        <tr>{columns.map(c => <th key={c.header} className={`border-b border-[hsl(var(--border))] px-1 py-0.5 font-semibold ${c.align === "right" ? "text-right" : "text-left"}`}
+          style={c.colour ? { color: c.colour } : undefined}>{c.header}</th>)}</tr>
       </thead>
       <tbody>
         {rows.slice(0, max).map((row, i) => (
           <tr key={rowKey(row, i)} onClick={onRowClick ? () => onRowClick(row) : undefined} className={onRowClick ? "cursor-pointer hover:bg-[hsl(var(--muted))]" : undefined}>
-            {columns.map(c => <td key={c.header} className={`px-1 py-0.5 ${c.align === "right" ? "text-right tabular-nums" : ""}`}>{c.cell(row)}</td>)}
+            {columns.map(c => <td key={c.header} className={`px-1 py-0.5 ${c.align === "right" ? "text-right tabular-nums" : ""}`}
+              style={c.colour ? { color: c.colour } : undefined}>{c.cell(row)}</td>)}
           </tr>
         ))}
       </tbody>

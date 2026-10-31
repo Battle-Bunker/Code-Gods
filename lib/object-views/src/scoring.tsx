@@ -3,7 +3,11 @@
  * object, and the scoring explainer. Disclosure: peers appear only as one aggregate (their summed net
  * bits and the floored peer care), never individually.
  */
+import { dimensionVar } from "./dimensions.ts";
 import { formatBits, penaltyLine, penaltyPercent, rarityText } from "./rarity.ts";
+
+/** Your bits and the others' care wear their dimension colours (dimensions.ts) wherever they appear. */
+const YOURS = { color: dimensionVar("yours") }, OTHERS = { color: dimensionVar("others") };
 
 export function Rarity({ bits, noun = "object", compact = false, className = "" }: { bits: number; noun?: string; compact?: boolean; className?: string }) {
   const r = rarityText(bits, noun);
@@ -11,13 +15,13 @@ export function Rarity({ bits, noun = "object", compact = false, className = "" 
   if (compact) {
     return (
       <span className={`whitespace-nowrap ${className}`} title={title} data-testid="rarity">
-        <span aria-label={`${r.sparkles} sparkle bits`}>✨ {r.sparkles}</span> · {r.oneIn}
+        <span aria-label={`${r.sparkles} sparkle bits`}>✨ <span style={YOURS} data-dimension="yours">{r.sparkles}</span></span> · {r.oneIn}
       </span>
     );
   }
   return (
     <div className={`space-y-0.5 ${className}`} data-testid="rarity">
-      <p className="text-sm font-medium">{r.everyday ? r.oneIn[0].toUpperCase() + r.oneIn.slice(1) : <>🌟 {r.oneIn}</>} <span className="font-mono" aria-label={`${r.sparkles} sparkle bits`}>✨ {r.sparkles}</span></p>
+      <p className="text-sm font-medium">{r.everyday ? r.oneIn[0].toUpperCase() + r.oneIn.slice(1) : <>🌟 {r.oneIn}</>} <span className="font-mono" aria-label={`${r.sparkles} sparkle bits`}>✨ <span style={YOURS} data-dimension="yours">{r.sparkles}</span></span></p>
       <p className="text-xs text-muted-foreground">{r.sentence} {r.everyday ? "" : `That is ${r.rarerThan}.`}</p>
     </div>
   );
@@ -71,10 +75,11 @@ export function ScoreBreakdown({ score, noun = "object", comparative, compact = 
       <Rarity bits={own.rewardBits} noun={noun} />
       {own.penaltyBits !== undefined && comparative && <p><PenaltyWarning bits={own.penaltyBits} comparative={comparative} noun={noun} /></p>}
       <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 font-mono text-xs">
-        <dt className="text-muted-foreground">your net bits</dt><dd className="text-right tabular-nums" data-testid="score-own">{num(own.netBits)}</dd>
-        <dt className="text-muted-foreground">everyone else, together</dt><dd className="text-right tabular-nums" data-testid="score-peers">{num(peerNetBits)}</dd>
-        <dt className="text-muted-foreground">peer care (never below 0)</dt><dd className="text-right tabular-nums">{num(peerCare)}</dd>
-        <dt className="font-semibold">points</dt><dd className="text-right tabular-nums font-semibold" data-testid="score-payoff">{num(own.netBits)} × {num(peerCare)} = {num(payoff)}</dd>
+        <dt style={YOURS}>your net bits</dt><dd className="text-right tabular-nums" style={YOURS} data-testid="score-own">{num(own.netBits)}</dd>
+        <dt style={OTHERS}>everyone else, together</dt><dd className="text-right tabular-nums" style={OTHERS} data-testid="score-peers">{num(peerNetBits)}</dd>
+        <dt style={OTHERS}>peer care (never below 0)</dt><dd className="text-right tabular-nums" style={OTHERS}>{num(peerCare)}</dd>
+        <dt className="font-semibold">points</dt>
+        <dd className="text-right tabular-nums font-semibold" data-testid="score-payoff"><span style={YOURS}>{num(own.netBits)}</span> × <span style={OTHERS}>{num(peerCare)}</span> = {num(payoff)}</dd>
       </dl>
       {nobody && <p className="text-xs text-muted-foreground">The others don't care about this {noun} (together), so nobody scores from it.</p>}
     </div>

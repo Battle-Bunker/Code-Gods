@@ -5,10 +5,13 @@
  */
 import { useMemo } from "react";
 import type { MutatorCallWire } from "@workspace/game-types";
+import { dimensionVar } from "@workspace/object-views";
 import { Obj, fmtBits, useEvaluator, useObjects, type Evaluator, type LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
 import { PanelEmpty, Section, TextButton, type PanelProps } from "./kit";
 
+/** Your bits wear the "yours" dimension colour, as in every panel. */
+const YOURS = { color: dimensionVar("yours") };
 type Calls = NonNullable<PanelProps<"what-if">["params"]>["calls"];
 /** The panel's calls are already the engine's wire form: [mutatorId, {named arguments}]. */
 const toWire = (calls: Calls): MutatorCallWire[] => calls.map(([id, args]) => [id, args] as MutatorCallWire);
@@ -27,7 +30,7 @@ function Result({ label, target, outcome }: { label: string; target: LiveObject;
   const delta = outcome.after - outcome.before;
   return (
     <div className="space-y-1">
-      <p className="text-sm">{label}: your net bits {fmtBits(outcome.before)} → <b>{fmtBits(outcome.after)}</b> (<span className={delta >= 0 ? "text-[hsl(var(--accent))]" : "text-destructive"}>{delta >= 0 ? "+" : ""}{fmtBits(delta)}</span>), the act costs {fmtBits(outcome.cost)} bits.</p>
+      <p className="text-sm">{label}: <span style={YOURS}>your net bits {fmtBits(outcome.before)} → <b>{fmtBits(outcome.after)}</b></span> (<span className={delta >= 0 ? "text-[hsl(var(--accent))]" : "text-destructive"}>{delta >= 0 ? "+" : ""}{fmtBits(delta)}</span>), the act costs {fmtBits(outcome.cost)} bits.</p>
       <div className="flex items-center gap-3"><Obj value={target.value} /> <span aria-hidden>→</span> <Obj value={outcome.value} /></div>
     </div>
   );
@@ -55,7 +58,7 @@ export default function WhatIf({ params }: PanelProps<"what-if">) {
     <div className="space-y-4" data-testid="panel-what-if">
       <Result label={`${params.calls.map(c => c[0]).join(", ")}`} target={target} outcome={main} />
       {alt && params.compare && <Section title="Compared with"><Result label={params.compare.map(c => c[0]).join(", ")} target={target} outcome={alt} /></Section>}
-      {raw !== undefined && <p className="text-sm">The value your assistant asked about scores {typeof raw === "number" ? `${fmtBits(raw)} bits` : `nothing: ${raw}`} for you.</p>}
+      {raw !== undefined && <p className="text-sm">The value your assistant asked about scores {typeof raw === "number" ? <span style={YOURS}>{fmtBits(raw)} bits</span> : `nothing: ${raw}`} for you.</p>}
       <p className="text-xs text-muted-foreground">Only your own score can be computed: how the others would value the result is unknowable.</p>
     </div>
   );

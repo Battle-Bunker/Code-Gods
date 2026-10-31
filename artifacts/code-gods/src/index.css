@@ -74,14 +74,22 @@
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
 
-  /* Grid digits: one text colour per colour letter (lib/object-views TEXT_SHADES.light; tested for contrast on these
+  /* Grid digits: one text colour per colour letter, per colour set (lib/object-views DIGIT_SHADES.light: rainbow6 as
+     --cg-ink-<letter>, the others as --cg-ink-<set>-<letter>; tested for contrast on these
      surfaces and for distinguishability). */
-  --cg-ink-R: #c4102c;
-  --cg-ink-O: #9c4c00;
-  --cg-ink-Y: #725f00;
-  --cg-ink-G: #147137;
-  --cg-ink-B: #1d5bbd;
-  --cg-ink-V: #8e2ca8;
+  --cg-ink-R: #c20d39;
+  --cg-ink-O: #773a0e;
+  --cg-ink-Y: #695f01;
+  --cg-ink-G: #1d7242;
+  --cg-ink-B: #0555e7;
+  --cg-ink-V: #aa01bc;
+  --cg-ink-rgb-R: #b73305; --cg-ink-rgb-G: #247148; --cg-ink-rgb-B: #2900df;
+  --cg-ink-rgby-R: #900f21; --cg-ink-rgby-Y: #7c5a03; --cg-ink-rgby-G: #086f4e; --cg-ink-rgby-B: #1707f9;
+  /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.light). */
+  --cg-yours: #0b6aa0;
+  --cg-others: #b52d6e;
+  --cg-ramp-low: #e2c5a0;
+  --cg-ramp-high: #9a6005;
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
@@ -233,14 +241,21 @@
   --button-outline: rgba(255, 255, 255, 0.1);
   --badge-outline: rgba(255, 255, 255, 0.05);
 
-  /* Grid digits on the dark page (lib/object-views TEXT_SHADES.dark). Not keyed to prefers-color-scheme: the page
+  /* Grid digits on the dark page (lib/object-views DIGIT_SHADES.dark). Not keyed to prefers-color-scheme: the page
      itself does not follow the OS, so dark shades there would put light text on the light page. */
-  --cg-ink-R: #ff6f7d;
-  --cg-ink-O: #ff9b47;
-  --cg-ink-Y: #ecd43f;
-  --cg-ink-G: #52d273;
-  --cg-ink-B: #6ea8ff;
-  --cg-ink-V: #d68cfa;
+  --cg-ink-R: #fb4d63;
+  --cg-ink-O: #fe8c1a;
+  --cg-ink-Y: #ecdc1e;
+  --cg-ink-G: #31f9a9;
+  --cg-ink-B: #5cbefe;
+  --cg-ink-V: #cb56f9;
+  --cg-ink-rgb-R: #fb5422; --cg-ink-rgb-G: #a9fb25; --cg-ink-rgb-B: #129fe7;
+  --cg-ink-rgby-R: #f35868; --cg-ink-rgby-Y: #edae12; --cg-ink-rgby-G: #29fcb7; --cg-ink-rgby-B: #1c91fa;
+  /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.dark). */
+  --cg-yours: #25afd2;
+  --cg-others: #de6d9b;
+  --cg-ramp-low: #614826;
+  --cg-ramp-high: #e9aa4e;
 
   --opaque-button-border-intensity: 9; /* In terms of percentages */
 

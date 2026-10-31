@@ -4,6 +4,7 @@
  * The assistant may highlight a quadrant: bargaining chips, conflicts or shared interests.
  */
 import { useMemo } from "react";
+import { dimensionVar } from "@workspace/object-views";
 import { BarList, Obj, ScatterPlot, Table, fmtBits, useEvents, useObjects, type LiveObject } from "@/sdk";
 import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
@@ -13,6 +14,7 @@ const IN: Record<Quadrant, (mine: number, others: number) => boolean> = {
   conflict: (mine, others) => (mine > 0 && others < 0) || (mine < 0 && others > 0),
   shared: (mine, others) => mine > 0 && others > 0,
 };
+const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
 const LABEL: Record<Quadrant, string> = { chips: "Others care, you don't: bargaining chips", conflict: "Opposed interests", shared: "You both care" };
 
 export default function OthersCare({ params }: PanelProps<"others-care">) {
@@ -42,7 +44,7 @@ export default function OthersCare({ params }: PanelProps<"others-care">) {
       <div className="space-y-3">
         {caption}
         {moves.length === 0 ? <p className="text-sm text-muted-foreground">No changes in the last {params.window} ticks.</p> : (
-          <ScatterPlot width={320} height={200} xLabel="Δ your bits" yLabel="Δ others' bits"
+          <ScatterPlot width={320} height={200} xLabel="Δ your bits" yLabel="Δ others' bits" xColour={YOURS} yColour={OTHERS}
             points={moves.map((m, i) => ({ key: `${m.objectId}-${i}`, x: m.dMine, y: m.dPeers, highlight: quadrant ? IN[quadrant](m.dMine, m.dPeers) : m.mine }))} />
         )}
         <BarList format={v => String(v)} items={(["shared", "conflict", "chips"] as const).map(q => ({ key: q, label: LABEL[q], value: count(q) }))} />
@@ -55,7 +57,7 @@ export default function OthersCare({ params }: PanelProps<"others-care">) {
   return (
     <div className="space-y-3" data-testid="panel-others-care">
       {caption}
-      <ScatterPlot width={320} height={200} xLabel="your bits" yLabel="others' bits" onSelect={id => referObject(ranks.get(id))}
+      <ScatterPlot width={320} height={200} xLabel="your bits" yLabel="others' bits" xColour={YOURS} yColour={OTHERS} onSelect={id => referObject(ranks.get(id))}
         points={objects.map(o => ({ key: o.id, x: o.own.netBits, y: o.peerNetBits, highlight: inQuadrant(o), label: `#${ranks.get(o.id)}: yours ${fmtBits(o.own.netBits)}, others ${fmtBits(o.peerNetBits)}` }))} />
       <BarList format={v => String(v)} items={(["shared", "conflict", "chips"] as const).map(q => ({ key: q, label: LABEL[q], value: objects.filter(o => IN[q](o.own.netBits, o.peerNetBits)).length }))} />
       {quadrant && (
@@ -63,8 +65,8 @@ export default function OthersCare({ params }: PanelProps<"others-care">) {
           <Table rows={listed} rowKey={o => o.id} max={8} onRowClick={o => referObject(ranks.get(o.id))} columns={[
             { header: "#", cell: o => ranks.get(o.id) },
             { header: "object", cell: o => <Obj value={o.value} /> },
-            { header: "others", cell: o => fmtBits(o.peerNetBits), align: "right" },
-            { header: "yours", cell: o => fmtBits(o.own.netBits), align: "right" },
+            { header: "others", cell: o => fmtBits(o.peerNetBits), align: "right", colour: OTHERS },
+            { header: "yours", cell: o => fmtBits(o.own.netBits), align: "right", colour: YOURS },
           ]} />
         </Section>
       )}

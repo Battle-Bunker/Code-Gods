@@ -4,8 +4,11 @@
  */
 import {
   COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs,
-  parseGridForDisplay, type GridTypeArgs,
+  parseGridForDisplay, type GridColourSet, type GridTypeArgs,
 } from "@workspace/game-types";
+import { hexRgb } from "./colour-science.ts";
+
+export { contrastRatio, deltaE76, hexRgb, labHue, labOf, relativeLuminance } from "./colour-science.ts";
 import type { GridSettings, ObjectValue } from "./registry.ts";
 
 export interface GridCellModel {
@@ -19,11 +22,14 @@ export interface GridCellModel {
   colourName: string;
   /** e.g. "ten of hearts, blue". */
   name: string;
+  /** Tile fill: the set's display shade for this colour (TILE_FILLS), with `ink` the glyph colour on it. */
   css: string;
   ink: string;
 }
 
 export interface GridModel {
+  /** The colour set when the settings are known (picks the set's display shades), else undefined. */
+  colours?: GridColourSet;
   size: number;
   rows: GridCellModel[][];
   /** The value exactly as received (the canonical wire string). */
@@ -56,6 +62,7 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
   let strict = false;
   if (args) { try { decodeGrid(value as string, args); strict = true; } catch { strict = false; } }
   const palette = args ? COLOUR_COMPONENTS[args.colours] : undefined;
+  const set = args?.colours;
   const rows = cells.map(row => row.map(({ code, letter }): GridCellModel => {
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
@@ -64,10 +71,10 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
     return {
       code, letter, glyph: glyphForCode(code), compactGlyph: compactGlyph(code),
       symbolName: sName, colourName, name: `${sName}, ${colourName}`,
-      css: idx >= 0 ? palette!.css[idx] : base.css, ink: idx >= 0 ? palette!.ink[idx] : base.ink,
+      ...tileColours(letter, set, base),
     };
   }));
-  return { size: rows.length, rows, canonical: value as string, strict };
+  return { size: rows.length, rows, canonical: value as string, strict, ...(set ? { colours: set } : {}) };
 }
 
 /**
@@ -126,21 +133,66 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
   });
 }
 
-/**
- * Text colours of the digits renderer, per colour letter, for light and for dark pages. Each reads at 4.5:1 or
- * better on both apps' page, card, popover and muted surfaces of its scheme, and the six of a scheme are at
- * least ΔE76 25 and 25° of hue apart (test/text-shades.test.ts). Yellow on a light page is a dark gold. Both
- * apps' index.css carry them as `--cg-ink-<letter>`; keep the three in step.
- */
-export const TEXT_SHADES: Readonly<{ light: Readonly<Record<string, string>>; dark: Readonly<Record<string, string>> }> = Object.freeze({
-  light: Object.freeze({ R: "#c4102c", O: "#9c4c00", Y: "#725f00", G: "#147137", B: "#1d5bbd", V: "#8e2ca8" }),
-  dark: Object.freeze({ R: "#ff6f7d", O: "#ff9b47", Y: "#ecd43f", G: "#52d273", B: "#6ea8ff", V: "#d68cfa" }),
+// ---------------------------------------------------------------------------------------------
+// Display shades. Each colour SET has its own shades, derived together (scripts/derive-palettes.ts) so the set's
+// colours are as far apart as text can make them: the smallest pairwise CIEDE2000 plus the smallest OKLab ΔE×100
+// under protanopia, deuteranopia and tritanopia (small-field tritanopia stands in for digit-size text, where a blue
+// and a green of one lightness collapse) is maximised, with every shade at 4.5:1 or better on both apps' page, card,
+// popover and muted surfaces of its scheme, inside the hue window where it still reads as its name (no set needed a
+// rename), vivid (OKLCH C ≥ 0.1) and in a lightness band that keeps it a colour. test/text-shades.test.ts holds the
+// floors. Both apps' index.css carry them as `--cg-ink-<set>-<letter>` (and rainbow6's, which covers every letter, as
+// `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
+
+export type ShadeScheme = "light" | "dark";
+
+/** OKLCH hue windows (degrees) inside which each colour still reads as its name; the shades stay inside them. */
+export const NAME_HUES: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
+  red: [18, 38], orange: [45, 68], yellow: [82, 108], green: [130, 165], blue: [240, 272], violet: [295, 330],
+});
+type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
+
+export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
+  rgb: Object.freeze({
+    light: Object.freeze({ R: "#b73305", G: "#247148", B: "#2900df" }),
+    dark: Object.freeze({ R: "#fb5422", G: "#a9fb25", B: "#129fe7" }),
+  }),
+  rgby: Object.freeze({
+    light: Object.freeze({ R: "#900f21", Y: "#7c5a03", G: "#086f4e", B: "#1707f9" }),
+    dark: Object.freeze({ R: "#f35868", Y: "#edae12", G: "#29fcb7", B: "#1c91fa" }),
+  }),
+  rainbow6: Object.freeze({
+    light: Object.freeze({ R: "#c20d39", O: "#773a0e", Y: "#695f01", G: "#1d7242", B: "#0555e7", V: "#aa01bc" }),
+    dark: Object.freeze({ R: "#fb4d63", O: "#fe8c1a", Y: "#ecdc1e", G: "#31f9a9", B: "#5cbefe", V: "#cb56f9" }),
+  }),
 });
 
-/** CSS colour of a glyph: the theme's custom property, falling back to the light shade (or the text colour). */
-export function textShadeVar(letter: string): string {
-  const light = TEXT_SHADES.light[letter];
-  return light ? `var(--cg-ink-${letter}, ${light})` : "currentColor";
+/** The shades for a grid whose colour set is unknown: rainbow6's, which name every colour letter. */
+export const TEXT_SHADES: Shades = DIGIT_SHADES.rainbow6;
+
+/** The CSS custom property carrying a letter's shade in a set (rainbow6 and unknown sets use the plain one). */
+export function textShadeToken(letter: string, set?: GridColourSet): string {
+  return set && set !== "rainbow6" ? `--cg-ink-${set}-${letter}` : `--cg-ink-${letter}`;
+}
+/**
+ * CSS colour of a glyph: the theme's custom property, falling back to the light shade. A letter outside its set (a
+ * non-strict grid) takes the unknown-set shade, as its tile does; a letter no set names, the text colour.
+ */
+export function textShadeVar(letter: string, set?: GridColourSet): string {
+  const light = set ? DIGIT_SHADES[set].light[letter] : undefined;
+  if (light) return `var(${textShadeToken(letter, set)}, ${light})`;
+  const any = TEXT_SHADES.light[letter];
+  return any ? `var(${textShadeToken(letter)}, ${any})` : "currentColor";
+}
+
+/** Glyph colour on a tile: a dark ink (4.5:1 or better on every tile fill, as on the dark surfaces). */
+export const TILE_INK = "#11131d";
+/**
+ * The tiles renderer's fills: the same sets, at their dark-scheme (bright) shades, so a tile reads as the colour its
+ * digit is drawn in and a dark glyph sits on every one. Letters outside the set fall back to the wire table.
+ */
+function tileColours(letter: string, set: GridColourSet | undefined, base: { css: string; ink: string }): { css: string; ink: string } {
+  const fill = (set ? DIGIT_SHADES[set] : TEXT_SHADES).dark[letter];
+  return fill ? { css: fill, ink: TILE_INK } : { css: base.css, ink: base.ink };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -172,48 +224,6 @@ export function patternStyle(letter: string, ink: string, period = 5): { backgro
     case "cross": return { backgroundImage: `${line(45)}, ${line(-45)}` };
     default: return { backgroundImage: "none" };
   }
-}
-
-// WCAG 2.x relative luminance and contrast ratio.
-export function hexRgb(hex: string): [number, number, number] {
-  const h = hex.replace("#", "");
-  const full = h.length === 3 ? h.split("").map(x => x + x).join("") : h;
-  return [0, 2, 4].map(i => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
-}
-export function relativeLuminance(hex: string): number {
-  const [r, g, b] = hexRgb(hex).map(v => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-// CIE L*a*b* (D65) and the CIE76 colour difference, for keeping the text shades apart.
-function srgbLinear(v: number): number {
-  const s = v / 255;
-  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-export function labOf(hex: string): [number, number, number] {
-  const [r, g, b] = hexRgb(hex).map(srgbLinear);
-  const x = (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047;
-  const y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b;
-  const z = (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883;
-  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
-  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
-}
-/** Euclidean distance in Lab: about 2.3 is just noticeable; 25 or more reads as a different colour. */
-export function deltaE76(a: string, b: string): number {
-  const [p, q] = [labOf(a), labOf(b)];
-  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
-}
-/** Hue angle in degrees (0–360) in Lab's a*b* plane. */
-export function labHue(hex: string): number {
-  const [, a, b] = labOf(hex);
-  return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
 }
 
 // ---------------------------------------------------------------------------------------------
