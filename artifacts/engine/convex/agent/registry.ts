@@ -110,6 +110,13 @@ const owner = (action: "settings" | "start" | "resume" | "endGame" | "addAi" | "
     return { data: { requestId, result } };
   };
 
+/** Game setups (convex/setups.ts): the seeded defaults and the human's own, whichever room the credential is bound to. */
+const SETUP_EXECUTORS = {
+  list_setups: async (ctx, { principal }) => ({ data: await ctx.runQuery(internal.setups.listAs, { principal }) }),
+  save_setup: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.setups.saveAs, { principal, ...args }) }),
+  delete_setup: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.setups.removeAs, { principal, ...args }) }),
+} satisfies Pick<Executors, "list_setups" | "save_setup" | "delete_setup">;
+
 /** Stored panels (convex/panels.ts): the human's own panels, whichever room the credential is bound to. */
 const PANEL_EXECUTORS = {
   list_panels: async (ctx, { principal }) => ({ data: await ctx.runQuery(internal.panels.listAs, { principal }) }),
@@ -138,6 +145,7 @@ const LAYOUT_EXECUTORS = {
 } satisfies Pick<Executors, "get_layout" | "open_panel" | "set_panel_params" | "move_pane" | "close_pane">;
 
 export const EXECUTORS: Executors = {
+  ...SETUP_EXECUTORS,
   ...PANEL_EXECUTORS,
   ...LAYOUT_EXECUTORS,
   // ----- read -----

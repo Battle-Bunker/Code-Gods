@@ -10,17 +10,18 @@ import { EXCLUDED, STEP_IDS, allCatalogEnginePaths, codeCommands, engineCommands
 const nothing = async () => undefined;
 const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
-  resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applyPreset: nothing, templates: async () => [], adminTemplates: async () => [],
+  resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, templates: async () => [], adminTemplates: async () => [],
   pastGames: async () => [], credentials: async () => [], revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
   setGridRenderer: id => { gridCalls.push(id); },
 };
 const gridCalls: string[] = [];
+const applied: string[] = [];
 const ada = { id: "ada", name: "Ada Lovelace", isAdmin: false };
 const room = (members: string[], activeGame: NonNullable<EngineScope["room"]>["activeGame"] = null): NonNullable<EngineScope["room"]> => ({
   id: "r1", shortCode: "K7QX", ownerId: "ada", ownerName: "Ada Lovelace", aiBudget: 0, assistantBudget: 0, activeGame,
   members: members.map(id => ({ id, name: id, kind: id.startsWith("ai:") ? "ai" : "human", ready: false })),
 });
-const scope = (s: Partial<EngineScope>): EngineScope => ({ user: ada, presets: [], minPlayers: 3, maxPlayers: 8, aiConfigured: true, ...s });
+const scope = (s: Partial<EngineScope>): EngineScope => ({ user: ada, setups: [], minPlayers: 3, maxPlayers: 8, aiConfigured: true, ...s });
 const find = (s: EngineScope, id: string) => engineCommands(s, act).find(c => c.id === id)!;
 const avail = (s: EngineScope, id: string) => find(s, id).available(paletteContextFor(s));
 
@@ -85,4 +86,15 @@ test("grids switch between coloured digits and tiles for this viewer, anywhere, 
   assert.equal(toDigits.human.title, "Show grids as coloured digits");
   for (const p of [toTiles, toDigits.performer]) { assert.equal(p.kind, "local"); if (p.kind === "local") p.run(); }
   assert.deepEqual(gridCalls, ["tiles", "digits"]);
+});
+
+test("Choose the next game's setup lists the setups, marks the current one and applies a pick", async () => {
+  const setups = [{ id: "s1", name: "First steps", summary: "A small board", seeded: true }, { id: "s2", name: "My big one", summary: "Grid 7×7", seeded: false }];
+  const c = find(scope({ room: room(["ada"]), setups, currentSetup: "s2" }), "owner.settings");
+  assert.equal(c.performer.kind, "form");
+  if (c.performer.kind !== "form" || c.performer.page.kind !== "pick") return;
+  const options = await c.performer.page.options();
+  assert.deepEqual(options.map(o => [o.id, o.label, o.detail]), [["s1", "First steps", "A small board"], ["s2", "My big one (current)", "Yours · Grid 7×7"]]);
+  await c.performer.page.onPick("s1");
+  assert.deepEqual(applied, ["s1"]);
 });

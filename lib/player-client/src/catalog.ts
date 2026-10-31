@@ -240,16 +240,16 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- manifest -----
   "manifest.get": {
     kind: "action", audience: "infrastructure",
-    human: { title: "Show server info", tooltip: "Object types, presets, options, runtimes and whether AI players are funded." },
-    ai: { description: "The deployment's manifest: object types with instantiations, settings presets, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it." },
-    tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "presets"], surfaces: E },
+    human: { title: "Show server info", tooltip: "Object types, offered instantiations, options, runtimes and whether AI players are funded." },
+    ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it; list_setups lists the game setups." },
+    tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: E },
   },
   // ----- owner -----
   "owner.settings": {
     kind: "action", audience: "owner",
-    human: { title: "Choose the next game's setup", tooltip: "Applies a preset or edits settings for the next game; running games keep theirs." },
-    ai: { description: "Owner: edit the next game's settings (a partial settings object, retuned to its instantiation, or a preset id) and the AI token budget, sending the room's current revision (CONFLICT when stale). Records settingsOrigin: a preset keeps its id with modified: false; explicit settings mark the preset modified when they differ from it." },
-    tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["preset", "configuration", "settings", "world"], surfaces: BOTH },
+    human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a saved setup or changes its settings; running games keep theirs." },
+    ai: { description: "Owner: set the next game's settings and the AI token budget, sending the room's current revision (CONFLICT when stale). Either setupId (list_setups), whose complete settings are applied, or settings with the fields to change: a language change moves the grammar and summon price, an object type its default instantiation, and nothing else moves. Records settingsOrigin {kind: setup, id, modified}." },
+    tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["setup", "configuration", "settings", "world"], surfaces: BOTH },
   },
   "owner.start": {
     kind: "action", audience: "owner",
@@ -343,8 +343,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- rooms -----
   "rooms.create": {
     kind: "mutation", audience: "player",
-    human: { title: "Create a room", tooltip: "Opens a new room on the First steps preset with you as owner, and can turn the assistant on for its players." },
-    ai: { description: "Create a room owned by the signed-in human (browser only). It starts on the grid-first-steps preset (settingsOrigin {kind: preset, id, modified: false}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
+    human: { title: "Create a room", tooltip: "Opens a new room on the First steps setup with you as owner, and can turn the assistant on for its players." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It starts on the seeded First steps setup (settingsOrigin {kind: setup, id, modified: false}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: E },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },
@@ -421,6 +421,25 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     human: { title: "Resume the game", tooltip: "Restarts a game stopped in recovery." },
     ai: { description: "Owner: resume a game stopped in recovery (e.g. after the safety stop or idle parking)." },
     tools: ["resume_game"], palette: { label: "Resume the game", group: "owner", keywords: ["recovery", "unpause", "resume"], surfaces: BOTH },
+  },
+  // ----- setups -----
+  "setups.list": {
+    kind: "query", audience: "player",
+    human: { title: "Browse game setups", tooltip: "The ready-made setups every room can use, then the ones you saved." },
+    ai: { description: "The game setups the human can use: the seeded defaults (seeded: true; only admins change them), then the human's own (mine: true), each with id, name, summary and complete settings. update_settings with a setupId puts the next game on one." },
+    tools: ["list_setups"], palette: null, why: "The Setup menu and Choose the next game's setup list them; there is nothing to run on its own.",
+  },
+  "setups.save": {
+    kind: "action", audience: "player",
+    human: { title: "Save a game setup", tooltip: "Keeps these settings under a name you can pick for any of your rooms." },
+    ai: { description: "Save complete, valid settings as a named setup (name ≤ 40 characters, unique among the human's own): a new one, or over one of the human's own (setupId; admins may also change a default). Changes no room. Returns the setup with its id." },
+    tools: ["save_setup"], palette: null, why: "A setup is a whole configuration: it is saved from the configuration page, where the settings are edited.",
+  },
+  "setups.remove": {
+    kind: "mutation", audience: "player",
+    human: { title: "Delete a game setup", tooltip: "Removes one of your saved setups; rooms that use its settings keep them." },
+    ai: { description: "Delete one of the human's own setups by id (admins may delete a default, which is then never re-seeded). Rooms keep their settings." },
+    tools: ["delete_setup"], palette: null, why: "Each of your setups has its Delete next to it on the configuration page.",
   },
 };
 

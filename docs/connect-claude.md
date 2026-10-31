@@ -43,9 +43,9 @@ the page. Setup, the capabilities to declare, limits and how Claude should custo
 
 - **read:** `whoami`, `get_rules`, `get_observation`, `get_events`, `get_trajectories`, `list_games`,
   `get_game_history`, `get_my_utility`, `evaluate_value` (your own utility only), `get_chat`, `get_receipt`,
-  `list_panels`, `get_panel`, `get_layout` (the panes of your player client and the panel catalogue);
+  `list_setups` (the game setups you can use), `list_panels`, `get_panel`, `get_layout` (the panes of your player client and the panel catalogue);
 - **act:** also `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat` (public!),
-  `pause_game`, `wake_engine`, your stored panels (`save_panel`, `rollback_panel`, `delete_panel`) and your
+  `pause_game`, `wake_engine`, your game setups (`save_setup`, `delete_setup`), your stored panels (`save_panel`, `rollback_panel`, `delete_panel`) and your
   screen (`open_panel` for a built-in or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: every open player client of
   yours follows at once);
 - **owner:** also `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`,

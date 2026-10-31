@@ -104,7 +104,7 @@ Smoke test: `/` loads and a real Google sign-in works (the account chooser appea
 in with your full name); `/api/health` answers;
 `npx convex run --prod runtime/probe:smoke` (in `artifacts/engine`) runs one act per language; the
 AI library shows which providers are configured. Then create a room, connect one player app and play
-the "First steps" preset.
+the "First steps" setup.
 
 The admin check reads `ADMIN_EMAILS` on every call: no new sign-in is needed after changing it.
 Open **AI library** to create or edit named agent templates. The seeded Sonnet Strategist uses
@@ -176,7 +176,7 @@ a modified client can do no more than its human could, and never sees opponents'
 
 ## First smoke game
 
-Start with three humans, or two humans and one AI. Use the "First steps" preset (Grid 4×4) or Int, a
+Start with three humans, or two humans and one AI. Use the "First steps" setup (Grid 4×4) or Int, a
 short planning phase and the default world rates. A valid first summon is an agent that returns
 mutator calls. Int, Python:
 

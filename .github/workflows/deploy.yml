@@ -153,6 +153,12 @@ jobs:
           printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS
 
+      - name: Seed the game setups (once; admins' edits and removals are kept)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run setups:ensureSeeded
+
       - name: Upload the Python runtime bundle
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

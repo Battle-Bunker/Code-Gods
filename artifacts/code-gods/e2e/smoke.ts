@@ -18,14 +18,14 @@
  * Scenario, at desktop and phone widths: alice, bob and carol sign in (three browser contexts). Alice
  * creates a room and turns the assistant on in the creation dialog; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
- * join; alice configures the next game on /rooms/:code/configure (TypeScript / Int, 1 s planning) and bob
- * reads it under Details; alice adds a mock AI player, which asks for the AI budget in the same step, and
- * changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player app and
- * shows owner commands dimmed to members; alice starts the game and every viewer is taken to the game page,
- * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup select
- * applies a preset. Then the device page approves an `act` request made through POST /api/device/request
- * (the credential appears under Connected apps and is revoked), and an owner request needs the consent
- * checkbox. Needs Playwright with Chromium available to `require("playwright")`.
+ * join; alice configures the next game on /rooms/:code/configure (Int / TypeScript, 1 s planning, also saved as
+ * her own setup) and bob reads it under Details; alice adds a mock AI player, which asks for the AI budget in the
+ * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
+ * app and shows owner commands dimmed to members; alice starts the game and every viewer is taken to the game page,
+ * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup select puts
+ * the room on First steps at once, with Undo. Then the device page approves an `act` request made through POST
+ * /api/device/request (the credential appears under Connected apps and is revoked), and an owner request needs the
+ * consent checkbox. Needs Playwright with Chromium available to `require("playwright")`.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import assert from "node:assert/strict";
@@ -218,12 +218,34 @@ try {
       await a.getByTestId("link-new-configuration").click();
       await a.getByTestId("page-configure").waitFor();
       await a.waitForURL(new RegExp(`/rooms/${code}/configure$`));
-      await a.getByTestId("select-language").selectOption("typescript");
+      assert.equal(await a.getByTestId("section-start").count(), 0, "no Start from section");
       // On a freshly started engine the first manifest.get boots both sandboxes (seconds).
-      await a.getByTestId("type-Int").click({ timeout: 120_000 });
+      await a.getByTestId("choice-objectType-Int").click({ timeout: 120_000 });
+      // The shape offers exactly the server's Int instantiations; the language moves its grammar, shown as a fact.
+      assert.match(await a.getByTestId("select-typeArgs").innerText(), /Whole numbers/);
+      await a.getByTestId("select-language").selectOption("typescript");
+      await a.getByTestId("fact-grammarId").filter({ hasText: /TypeScript agent/ }).waitFor();
       await a.getByTestId("button-exact-planningSeconds").click();
       await a.getByTestId("input-planningSeconds").fill("1");
-      await a.getByTestId("list-diff").filter({ hasText: /Planning/ }).waitFor();
+      await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
+      // Setups outlive a run on the same deployment: delete the ones earlier runs saved, or the room's settings would
+      // equal one of them and be named instead of "Custom".
+      await a.getByTestId("block-save-as-setup").locator("summary").click();
+      for (;;) {
+        const stale = a.getByTestId("list-your-setups").locator('[data-testid^="row-setup-"]').filter({ hasText: /E2E quick ints/ }).first();
+        if (!(await stale.count())) break;
+        const remove = stale.locator('[data-testid^="button-delete-setup-"]');
+        await remove.click(); await remove.click();   // arm, then delete
+        await stale.waitFor({ state: "detached", timeout: 15_000 });
+      }
+      await a.getByTestId("block-save-as-setup").locator("summary").click();
+      assert.equal(await a.getByTestId("text-summary-setup").innerText(), "Custom");
+      // Save as a setup: it changes no room and is listed under Your setups.
+      await a.getByTestId("block-save-as-setup").locator("summary").click();
+      await a.getByTestId("input-setup-name").fill(`E2E quick ints ${name}`);
+      await a.getByTestId("button-save-setup").click();
+      await a.getByTestId("list-your-setups").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
+      await a.getByTestId("text-summary-setup").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
       await a.getByTestId("button-save-settings").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
       await expand(b, "details-next-game");
@@ -231,8 +253,13 @@ try {
       await listed.filter({ hasText: "typescript" }).waitFor();
       assert.match(await listed.innerText(), /Whole numbers/);
       // Alice's page re-subscribes after coming back from /configure: wait for the saved revision to reach it.
-      await a.waitForFunction(() => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === "__custom", null, { timeout: 15_000 })
-        .catch(async () => { throw new Error(`no preset matches: expected Current (custom), got ${await a.getByTestId("select-setup").inputValue()}`); });
+      // The room's settings now equal the setup alice just saved, so the Setup select names it.
+      await a.waitForFunction((label: string) => {
+        const select = document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null;
+        return select?.selectedOptions[0]?.textContent === label;
+      }, `E2E quick ints ${name}`, { timeout: 15_000 })
+        .catch(async () => { throw new Error(`expected the Setup select on alice's own setup, got ${await a.getByTestId("select-setup").inputValue()}`); });
+      await a.getByTestId("text-next-game-summary").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
       // Non-owners read the same configuration page.
       await b.goto(`${SITE}/rooms/${code}/configure`);
       await b.getByTestId("page-configure").waitFor();
@@ -316,14 +343,21 @@ try {
       await shot(a, `game-${name}-ended`);
     });
 
-    await check(`${name}: the room's past games show the ended game; the Setup select applies a preset`, async () => {
+    await check(`${name}: the room's past games show the ended game; the Setup select applies a setup at once, with Undo`, async () => {
       await a.getByTestId("button-back-to-room").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
       await expand(a, "section-past-games");
       await a.getByTestId(`link-game-${gameCode}`).waitFor();
       assert.match(await a.locator('[data-testid^="text-game-winners-"]').first().innerText(), /\w/);
-      await a.getByTestId("select-setup").selectOption("grid-first-steps");
-      await a.waitForFunction(() => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === "grid-first-steps", undefined, { timeout: 30_000 });
+      const select = a.getByTestId("select-setup");
+      const before = await select.inputValue();
+      const firstSteps = await select.locator("option", { hasText: /^First steps:/ }).getAttribute("value");
+      assert.ok(firstSteps && firstSteps !== before);
+      await select.selectOption(firstSteps);
+      await a.waitForFunction((v: string) => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === v, firstSteps, { timeout: 30_000 });
+      await a.getByTestId("text-next-game-summary").filter({ hasText: /^First steps:/ }).waitFor();
+      await a.getByTestId("button-undo-setup").click();
+      await a.waitForFunction((v: string) => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === v, before, { timeout: 30_000 });
     });
 
     await check(`${name}: the device page approves an act request; the credential is listed under Connected apps and revoked`, async () => {

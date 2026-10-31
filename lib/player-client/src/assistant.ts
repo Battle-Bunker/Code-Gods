@@ -134,7 +134,7 @@ const refusal = (error: unknown, extra: Record<string, unknown> = {}) =>
 const OWNER_TOOL = { settings: "update_settings", start: "start_game", resume: "resume_game", endGame: "end_game", addAi: "add_ai", removeAi: "remove_ai" } as const;
 function ownerArgs(a: OwnerAction): Record<string, unknown> {
   const pick = (keys: (keyof OwnerAction)[]) => Object.fromEntries(keys.filter(k => a[k] !== undefined).map(k => [k, a[k]]));
-  return a.action === "settings" ? pick(["requestId", "revision", "settings", "preset", "aiBudget"])
+  return a.action === "settings" ? pick(["requestId", "revision", "settings", "setupId", "aiBudget"])
     : a.action === "addAi" ? pick(["requestId", "aiAgentId"]) : a.action === "removeAi" ? pick(["requestId", "deityId"]) : pick(["requestId"]);
 }
 

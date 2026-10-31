@@ -151,11 +151,15 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   const names = await listTools(reader.token);
   assert.ok(names.includes("get_observation") && names.includes("get_receipt"));
   assert.ok(names.includes("get_layout"), "a read grant may look at the player's screen");
-  for (const name of ["send_chat", "summon_agent", "validate_agent", "set_ready", "wake_engine", "start_game", "get_room_state", "open_panel", "set_panel_params", "move_pane", "close_pane"]) {
+  assert.ok(names.includes("list_setups"), "a read grant may list the game setups");
+  const someSettings = (await host.c.query(api.rooms.get, { room: roomId })).settings;
+  for (const name of ["send_chat", "summon_agent", "validate_agent", "set_ready", "wake_engine", "start_game", "get_room_state", "open_panel", "set_panel_params", "move_pane", "close_pane",
+    "save_setup", "delete_setup", "update_settings"]) {
     assert.ok(!names.includes(name), `read grant lists ${name}`);
-    const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : {});
+    const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : name === "save_setup" ? { name: "Never saved", settings: someSettings } : {});
     assert.ok(r.error || r.rpcError, `read grant ran ${name}: ${JSON.stringify(r)}`);
   }
+  assert.ok(!(await host.c.query(api.setups.list, {})).some((s: any) => s.name === "Never saved") && !(await ada.c.query(api.setups.list, {})).some((s: any) => s.name === "Never saved"));
   const chat = await host.c.query(api.rooms.chatHistory, { roomId });
   assert.ok(!chat.some((m: any) => m.text === "should never post"));
   const actor = await credential(ada, roomId, "act");
@@ -166,6 +170,23 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.equal((await modern(fakeOwner.token, "tools/list")).status, 401, "an owner grant of someone who does not own the room is not a principal");
   const owner = await credential(host, roomId, "owner");
   assert.ok((await listTools(owner.token)).includes("start_game"));
+  // Setups through the registry: an act grant saves and deletes the human's own; the owner puts the room on one by id.
+  const actorTools = await listTools(actor.token);
+  assert.ok(actorTools.includes("save_setup") && actorTools.includes("delete_setup") && !actorTools.includes("update_settings"));
+  const saved = await call(actor.token, "save_setup", { name: "Ada over MCP", settings: { ...someSettings, planningSeconds: 120 } });
+  assert.equal(saved.data?.mine, true, JSON.stringify(saved).slice(0, 300));
+  assert.ok((await call(reader.token, "list_setups", {})).data.some((s: any) => s.id === saved.data.id), "Ada's read grant lists her own setup");
+  assert.ok(!(await call(owner.token, "list_setups", {})).data.some((s: any) => s.id === saved.data.id), "the host never sees Ada's setup");
+  assert.equal((await call(owner.token, "delete_setup", { setupId: saved.data.id })).error?.code, "NOT_FOUND");
+  const classic = (await call(owner.token, "list_setups", {})).data.find((s: any) => s.seedId === "grid-classic");
+  const revision = (await host.c.query(api.rooms.get, { room: roomId })).revision;
+  const applied = await call(owner.token, "update_settings", { requestId: randomUUID(), revision, setupId: classic.id });
+  assert.ok(!applied.error, JSON.stringify(applied));
+  const room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([room.settings, room.settingsOrigin], [classic.settings, { kind: "setup", id: classic.id, modified: false }]);
+  assert.equal((await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, setupId: saved.data.id })).error?.code, "NOT_FOUND",
+    "another human's setup cannot be applied");
+  assert.equal((await call(actor.token, "delete_setup", { setupId: saved.data.id })).data.name, "Ada over MCP");
   // Revocation and expiry take effect on the next call.
   await admin.mutation(internal.testing.patchCredential, { credentialId: actor.credentialId, patch: { revokedAt: Date.now() } });
   assert.equal((await modern(actor.token, "tools/list")).status, 401);
@@ -254,8 +275,10 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     ["whoami", {}], ["get_rules", {}], ["get_observation", {}], ["get_observation", { objectsLimit: 3, objectsCursor: 3 }], ["get_events", {}],
     ["get_events", { after: -1, limit: 50 }], ["get_trajectories", { afterSeq: -1, limit: 200 }], ["list_games", {}],
     ["get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }], ["get_my_utility", {}], ["get_chat", {}],
-    ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }],
+    ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }], ["list_setups", {}],
   ];
+  // Another god's own setup, named with a secret marker, must never reach Ada through the setup tools.
+  const hostSetup = await host.c.action(api.setups.save, { name: SECRET_HOST, settings: (await host.c.query(api.rooms.get, { room: roomId })).settings });
   for (const [name, args] of reads) {
     const result = await call(token, name, args);
     assert.ok(result && !result.error && !result.rpcError, `${name}: ${JSON.stringify(result).slice(0, 300)}`);
@@ -278,6 +301,15 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     await check(`mcp ${name}`, result);
   }
   await check("mcp open_panel", opened);
+  // The setup tools: the caller's own setups and the defaults; another god's setup (hostSetup) never appears.
+  const ownSetup = await call(token, "save_setup", { name: "Ada disclosure setup", settings: (await ada.c.query(api.rooms.get, { room: roomId })).settings });
+  assert.ok(ownSetup.data?.id, JSON.stringify(ownSetup).slice(0, 300));
+  await check("mcp save_setup", ownSetup);
+  const listed = await call(token, "list_setups", {});
+  assert.ok(!listed.data.some((s: any) => s.id === hostSetup.id));
+  await check("mcp list_setups (own setup saved)", listed);
+  await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
+  await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);

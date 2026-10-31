@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SETTINGS_PRESETS, presetSettings, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
 } from "../src/settings.ts";
 
 const settings = (patch: Partial<GameSettings>): GameSettings => ({ ...DEFAULT_SETTINGS, ...patch });
@@ -147,7 +147,11 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(grid.perActFloorBits, 2);
   assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
   assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
-  for (const p of SETTINGS_PRESETS) validateSettings(presetSettings(p.id));
-  assert.equal(presetSettings("grid-first-steps").interactionRateHz, 25);
+  for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
+  assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
+  assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
+  assert.throws(() => seedSetupSettings("nope"), /Unknown seed setup/);
   assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));
 });

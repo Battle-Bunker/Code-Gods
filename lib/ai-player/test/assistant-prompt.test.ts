@@ -30,7 +30,7 @@ test("the system prompt documents every tool the grant offers, with guidance, an
 test("tool lines come from the catalogue; confirmed tools say so; the screen and next-step sections are present", () => {
   const text = prompt("owner");
   assert.ok(toolLine(text, "get_observation")!.includes(CATALOG["player.observation"].ai.description), "one source for the model's tool text");
-  for (const name of ["send_chat", "destroy_agent", "pause_game", "delete_panel", "summon_agent", "start_game", "end_game"]) {
+  for (const name of ["send_chat", "destroy_agent", "pause_game", "delete_panel", "delete_setup", "summon_agent", "start_game", "end_game"]) {
     assert.match(toolLine(text, name)!, /confirm/i, `${name} is marked as confirmed`);
   }
   assert.doesNotMatch(toolLine(text, "open_panel")!, /confirmed by the player/, "layout tools run at once");

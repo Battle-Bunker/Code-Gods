@@ -4,23 +4,26 @@
  * to check scoring parity and disclosure.
  */
 import { v } from "convex/values";
+import { SEED_SETUPS, seedSetupSettings } from "@workspace/game-core";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { fail } from "./lib/errors";
+import { seed as seedSetups } from "./setups";
 
 const dev = () => {
   if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
 };
 
 export const seedUser = internalMutation({
-  args: { subject: v.string(), name: v.string(), email: v.optional(v.string()), emailVerified: v.optional(v.boolean()) },
+  args: { subject: v.string(), name: v.string(), email: v.optional(v.string()), emailVerified: v.optional(v.boolean()), provider: v.optional(v.literal("fake")) },
   handler: async (ctx, args) => {
     dev();
     const existing = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", args.subject)).unique();
     const now = Date.now();
-    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: "test", updatedAt: now };
+    // provider "fake" with a verified ADMIN_EMAILS address makes an admin (auth/identity.ts isAdminUser; dev.mjs allows admin@example.test).
+    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: args.provider ?? "test", updatedAt: now };
     if (existing) await ctx.db.replace(existing._id, doc);
     else await ctx.db.insert("users", doc);
     // Browser JWTs name a Better Auth session (`sessionId`) that access.ts checks: return one for impersonated
@@ -94,6 +97,19 @@ export const patchRoom = internalMutation({
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "no room");
     await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}), ...(aiBudget !== undefined ? { aiBudget } : {}) });
+  },
+});
+
+/** Put every seeded game setup back as shipped (undeleted, unedited), so a test's admin edits do not outlive it. */
+export const resetSeedSetups = internalMutation({
+  args: {},
+  handler: async ctx => {
+    dev();
+    await seedSetups(ctx);
+    for (const s of SEED_SETUPS) {
+      const rows = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).collect();
+      for (const row of rows) await ctx.db.patch(row._id, { name: s.name, summary: s.summary, settings: seedSetupSettings(s.seedId), deleted: undefined });
+    }
   },
 });
 
