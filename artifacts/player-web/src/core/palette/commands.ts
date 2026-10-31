@@ -13,6 +13,7 @@ import { CATALOG, type CatalogEntry, type PublicFunctionPath } from "@workspace/
 import { LENSES, LENS_IDS, type LensId, type Phase } from "@workspace/player-client/lenses";
 import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
+import type { GridRendererId } from "@workspace/object-views";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -40,6 +41,8 @@ export type PaletteState = {
   safeMode: boolean;
   presets: readonly PickOption[];
   aiSeats: readonly PickOption[];
+  /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
+  gridRenderer: GridRendererId;
 };
 
 export type PaletteActions = {
@@ -73,6 +76,8 @@ export type PaletteActions = {
     forgeEdit(): void;
   };
   links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
+  /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
+  objects: { setGridRenderer(id: GridRendererId): void };
   notify(text: string): void;
 };
 
@@ -221,6 +226,11 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     ui("ui.layout.side-by-side", "Layout: Side by side", "Lenses on the left, your assistant on the right.", "view", local(() => a.dock.preset("side-by-side")), { keywords: ["preset"] }),
     ui("ui.layout.two-lenses", "Layout: Two lenses", "Two lenses stacked on the left, your assistant on the right.", "view", local(() => a.dock.preset("two-lenses")), { keywords: ["preset"] }),
     ui("ui.layout.reset", "Reset layout", "Back to one lens on top and your assistant below.", "view", local(() => a.dock.reset()), { keywords: ["default", "layout"] }),
+    s.gridRenderer === "tiles"
+      ? ui("ui.objects.renderer", "Show grids as coloured digits", "Draws every grid as rows of coloured digits: compact and quick to scan. Remembered in this browser.", "view",
+        local(() => a.objects.setGridRenderer("digits")), { keywords: ["grid", "digits", "numbers", "compact", "display", "colour"] })
+      : ui("ui.objects.renderer", "Show grids as tiles", "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", "view",
+        local(() => a.objects.setGridRenderer("tiles")), { keywords: ["grid", "tiles", "board", "display", "pattern", "colour"] }),
   ];
 
   const assistantRows: Command[] = [

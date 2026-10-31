@@ -8,6 +8,7 @@ import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { SETTINGS_PRESETS } from "@workspace/game-core";
+import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { lensPanesOf, paneCaption } from "@workspace/player-client/layout";
 import { LENSES } from "@workspace/player-client/lenses";
 import type { Command, PaletteContext } from "@workspace/ui-kit";
@@ -46,6 +47,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const setEnabled = useMutation(api.panels.setEnabled);
   const removePanel = useMutation(api.panels.remove);
   const rollback = useMutation(api.panels.rollback);
+  const gridRenderer = useGridRenderer();
 
   const state = useMemo((): PaletteState => {
     const lensCount = lensPanesOf(dock.layout).length;
@@ -65,8 +67,9 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       filePanels: panels.fileIds ?? [],
       presets: SETTINGS_PRESETS.map(p => ({ id: p.id, label: p.label, detail: p.kid })),
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
+      gridRenderer,
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),
@@ -116,6 +119,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
         location.assign(`${location.pathname}${params.size ? `?${params}` : ""}`);
       },
     },
+    objects: { setGridRenderer: id => { setObjectRenderer("Grid", id); } },
     notify,
   }), [game, wake, join, s.obs, permission, roomId, room, convex, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
 

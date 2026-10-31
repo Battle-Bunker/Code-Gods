@@ -45,6 +45,7 @@ Where they disagree, this document decides. It supersedes the panel-dock parts o
 | Which preset is active | `rooms.settingsOrigin {kind: preset \| custom, id?, modified}` set by `owner.settings`, copied into the game snapshot. | onboarding §3.4 |
 | Wording | "player" in functional copy, "god" kept in flavour copy and the glossary. "Declare ready" leaves the primary path (it gates nothing). Revision numbers and protocol versions leave the UI. | palette §5, onboarding §1.3 |
 | Invite links | Stay on the room page (`/rooms/CODE`); the room page's primary action for a member is "Open player client". | this document |
+| Object renderers | An object type may register several named renderers with a default; each viewer's choice per type is remembered in their browser and switched from the palette (`ui.objects.renderer`) or the grid detail view. Grids default to coloured digits (`--cg-ink-*` text shades, tested for 4.5:1 contrast and ΔE ≥ 25), with tiles as the alternative. | this document |
 | Deferred | saved configurations, per-user coaching flags and zero-token coaching messages beyond the empty states and chips, `players` hints on presets, Int/string presets, "Present on a big screen". | this document |
 
 ## 2. Contracts (fixed before parallel work)
