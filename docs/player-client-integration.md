@@ -94,7 +94,7 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
   `devServerHosts(process.env, port).allowedHosts` (Vite's own host check stays open): `localhost`,
   `127.0.0.1` and `::1`; the hosts in `CODE_GODS_ALLOWED_HOSTS` (comma-separated, a leading `.` matches
   subdomains); the host of `CODE_GODS_PUBLIC_ORIGIN`; and a detected dev container's host: on Replit
-  (`REPLIT_DEV_DOMAIN`) `.replit.dev` and `.repl.co`, in GitHub Codespaces (`CODESPACE_NAME`,
+  (`REPLIT_DEV_DOMAIN`) that domain plus `.replit.dev` and `.repl.co`, in GitHub Codespaces (`CODESPACE_NAME`,
   `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`) `<name>-<port>.<domain>`, in Gitpod
   (`GITPOD_WORKSPACE_URL`) `<port>-<workspace host>`. The launch link's origin is
   `CODE_GODS_PUBLIC_ORIGIN`, else the detected container's URL, else `http://localhost:<port>`;
