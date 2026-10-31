@@ -1,10 +1,12 @@
 /**
- * Pure UI state of the assistant drawer (src/core/assistant/state.ts): the timeline built from a thread's messages and
+ * Pure UI state of the assistant pane (src/core/chat/state.ts): the timeline built from a thread's messages and
  * tool calls, the optimistic user message, the confirmation-card state machine, the allowance meter and chip labels.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { allowanceMeter, buildTimeline, cardReducer, chipView, initialCard, prettyArgs, withPending, type CallRow, type MessageRow } from "../src/core/assistant/state.ts";
+import {
+  allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps, type CallRow, type MessageRow,
+} from "../src/core/chat/state.ts";
 
 const msg = (seq: number, role: "user" | "assistant", text: string, over: Partial<MessageRow> = {}): MessageRow =>
   ({ _id: `m${seq}`, turnId: "t1", seq, role, text, status: "done", ...over });
@@ -63,4 +65,45 @@ test("chips: a label, a tone per status, and pretty arguments", () => {
   assert.equal(chipView(call(0, "m", "validate_agent", "running")).tone, "busy");
   assert.equal(prettyArgs('{"text":"hi","commandId":"x"}'), '{\n  "text": "hi",\n  "commandId": "x"\n}');
   assert.equal(prettyArgs("not json"), "not json");
+});
+
+test("step lines: one line per model step in human verbs, present tense while running, the asking and declined calls named", () => {
+  const timeline = buildTimeline(
+    [msg(1, "user", "write me an agent"), msg(2, "assistant", "", { _id: "m2" }), msg(3, "assistant", "Done", { _id: "m3" })],
+    [call(0, "m2", "get_observation", "ok"), call(1, "m2", "validate_agent", "ok"), call(2, "m2", "open_lens", "ok", { argsJson: '{"lensId":"forge"}' }),
+      call(0, "m3", "send_chat", "denied")],
+  );
+  const items = withSteps(timeline);
+  assert.deepEqual(items.map(i => i.kind), ["user", "step", "assistant", "step"], "each step's calls fold into one line, after its text");
+  const [first, second] = items.filter(i => i.kind === "step");
+  assert.deepEqual(stepView(first.calls), { text: "looked at the game · tested agent code · showed Agent code", tone: "ok", open: false });
+  assert.deepEqual(stepView(second.calls), { text: "you declined: post to everyone", tone: "muted", open: false });
+  assert.deepEqual(stepView([call(0, "m", "validate_agent", "running")]), { text: "testing agent code…", tone: "busy", open: false });
+  assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).text, "waiting for you: summon an agent");
+  assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).tone, "ask");
+  const failed = stepView([call(0, "m", "get_observation", "ok"), call(1, "m", "summon_agent", "error")]);
+  assert.deepEqual(failed, { text: "looked at the game · couldn't summon an agent", tone: "error", open: true }, "an error stays open");
+});
+
+test("step lines truncate past three verbs and never repeat one", () => {
+  const calls = ["get_observation", "get_observation", "get_chat", "get_events", "get_rules", "list_games"].map((tool, i) => call(i, "m", tool, "ok"));
+  assert.equal(stepView(calls).text, "looked at the game · read the public chat · read the event log · +2");
+  assert.equal(stepView([call(0, "m", "brand_new_tool", "ok")]).text, "ran brand new tool", "an unknown tool still reads as a verb");
+});
+
+test("confirmation cards lead with a plain sentence", () => {
+  assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: '{"text":"Let\'s leave the blue grids alone"}' })),
+    "Post to everyone: \"Let's leave the blue grids alone\"");
+  assert.equal(confirmSentence(call(0, "m", "summon_agent", "awaiting_confirmation"), { energy: 412 }), "Summon this agent: it pays from your 412 bits of energy");
+  assert.equal(confirmSentence(call(0, "m", "pause_game", "awaiting_confirmation"), { pauseSeconds: 180 }), "Use your one pause: it stops the world for everyone for 180 s");
+  assert.match(confirmSentence(call(0, "m", "destroy_agent", "awaiting_confirmation", { argsJson: '{"agentId":"abc"}' })), /^Destroy your agent abc/);
+  assert.equal(confirmSentence(call(0, "m", "end_game", "awaiting_confirmation")), "End the game now for everyone");
+  assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: "not json" })), "Post to everyone: \"\"");
+});
+
+test("the allowance note is silent below 80 % and speaks after", () => {
+  assert.equal(allowanceNote(500, 1000), null);
+  assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant allowance left");
+  assert.match(allowanceNote(1000, 1000)!, /^Allowance used up/);
+  assert.equal(allowanceNote(0, 0), null, "off is said elsewhere");
 });
