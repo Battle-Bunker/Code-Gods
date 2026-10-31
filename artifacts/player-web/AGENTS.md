@@ -7,7 +7,7 @@ local checkout, GitHub Codespaces, Gitpod or Replit.
 - **Connect once:**
   1. Set `CODE_GODS_ENGINE_URL` to the engine site, in your environment's secret store (e.g. Replit
      Secrets or Codespaces secrets) or in a gitignored `.env.local` where you run pnpm
-     (`pnpm player connect --write-env` writes both values there).
+     (`pnpm player connect --write-env .env.local` writes both values there).
   2. Run `pnpm -s player connect --room CODE`.
   3. The human approves the code on the engine's `/device` page.
   4. Save the printed `CODE_GODS_CREDENTIAL` the same way and restart the dev server.

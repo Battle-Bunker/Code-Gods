@@ -441,24 +441,27 @@ export interface DevServerHosts { allowedHosts: string[]; publicOrigin: string }
  * else the detected container's URL for this port, else `http://localhost:<port>`.
  */
 export function devServerHosts(env: Record<string, string | undefined>, port: number): DevServerHosts {
+  const urlFrom = (name: string) => {
+    try { return new URL(env[name]!); } catch { throw new Error(`${name} must be a full URL such as https://host.example (got "${env[name]}")`); }
+  };
   const hosts = ["localhost", "127.0.0.1", "::1",
     ...(env.CODE_GODS_ALLOWED_HOSTS ?? "").split(",").map(h => h.trim().toLowerCase()).filter(Boolean)];
   let detected: string | undefined;
   if (env.REPLIT_DEV_DOMAIN) {
-    hosts.push(".replit.dev", ".repl.co");
+    hosts.push(env.REPLIT_DEV_DOMAIN.toLowerCase(), ".replit.dev", ".repl.co");
     detected = `https://${env.REPLIT_DEV_DOMAIN}`;
   } else if (env.CODESPACE_NAME && env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN) {
     const host = `${env.CODESPACE_NAME}-${port}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`;
     hosts.push(host);
     detected = `https://${host}`;
   } else if (env.GITPOD_WORKSPACE_URL) {
-    const host = `${port}-${new URL(env.GITPOD_WORKSPACE_URL).hostname}`;
+    const host = `${port}-${urlFrom("GITPOD_WORKSPACE_URL").hostname}`;
     hosts.push(host);
     detected = `https://${host}`;
   }
   let publicOrigin = detected ?? `http://localhost:${port}`;
   if (env.CODE_GODS_PUBLIC_ORIGIN) {
-    const url = new URL(env.CODE_GODS_PUBLIC_ORIGIN);
+    const url = urlFrom("CODE_GODS_PUBLIC_ORIGIN");
     publicOrigin = url.origin;
     hosts.push(url.hostname.replace(/^\[|\]$/g, ""));
   }

@@ -16,12 +16,12 @@ if (!Number.isInteger(port) || port <= 0) {
 const basePath = process.env.BASE_PATH || (isBuild ? "/player/" : "/");
 
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
-// Hosts this dev server answers for (DNS-rebinding guard, for Vite and the token endpoint) and the origin of
-// its launch link: loopback, CODE_GODS_ALLOWED_HOSTS, CODE_GODS_PUBLIC_ORIGIN and a detected dev container
-// (Replit, GitHub Codespaces, Gitpod). See devServerHosts in lib/player-client/src/engine.ts.
-const { allowedHosts, publicOrigin } = devServerHosts(process.env, port);
-
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
+  // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
+  // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
+  // loopback, CODE_GODS_ALLOWED_HOSTS, CODE_GODS_PUBLIC_ORIGIN and a detected dev container (Replit, GitHub
+  // Codespaces, Gitpod). See devServerHosts in lib/player-client/src/engine.ts.
+  const { allowedHosts, publicOrigin } = devServerHosts(process.env, port);
   const handler = tokenHandler({ allowedHosts });
   server.middlewares.use(handler);
   server.httpServer?.once("listening", () => console.log(`\n  Code Gods: open your player app with its launch link (keep it private):\n  ${handler.launchUrl(publicOrigin)}\n`));
@@ -73,7 +73,7 @@ export default defineConfig({
     port,
     strictPort: true,
     host: '0.0.0.0',
-    allowedHosts,
+    allowedHosts: true,
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
     // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211
@@ -85,6 +85,6 @@ export default defineConfig({
   preview: {
     port,
     host: '0.0.0.0',
-    allowedHosts,
+    allowedHosts: true,
   },
 });

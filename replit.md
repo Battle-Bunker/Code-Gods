@@ -9,6 +9,7 @@ Convex deployment.
   the human approve the code on the engine's `/device` page, store the printed `CODE_GODS_CREDENTIAL`
   as a Secret and restart the workflow. Never ask for the credential in chat or extract browser cookies.
 - Then open the app with the private launch link the workflow prints.
+- After pulling changes, run `pnpm install` before restarting the workflow.
 
 Read next:
 

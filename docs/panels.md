@@ -85,7 +85,7 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useEvaluator()` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
-| `useRoom()` | `{roomId, permission, mode}` |
+| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/player/`) |
 
 `TrajectoryPoint` is `{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}`.
 

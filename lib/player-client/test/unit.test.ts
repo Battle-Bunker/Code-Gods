@@ -83,9 +83,10 @@ test("dev-server hosts: loopback only by default; dev containers and explicit se
   // No dev container: nothing but loopback is trusted, and the launch link is local.
   assert.deepEqual(devServerHosts({}, 22772), { allowedHosts: loopback, publicOrigin: "http://localhost:22772" });
   assert.equal(devServerHosts({}, 22772).allowedHosts.includes(".replit.dev"), false, "Replit hosts only inside Replit");
-  // Replit: its dev domain is the origin; its preview hosts are allowed.
+  // Replit: its dev domain is the origin and allowed exactly (even off the usual suffixes); its preview hosts are allowed.
   assert.deepEqual(devServerHosts({ REPLIT_DEV_DOMAIN: "abc-1.picard.replit.dev" }, 22772),
-    { allowedHosts: [...loopback, ".replit.dev", ".repl.co"], publicOrigin: "https://abc-1.picard.replit.dev" });
+    { allowedHosts: [...loopback, "abc-1.picard.replit.dev", ".replit.dev", ".repl.co"], publicOrigin: "https://abc-1.picard.replit.dev" });
+  assert.ok(devServerHosts({ REPLIT_DEV_DOMAIN: "abc.custom.example" }, 22772).allowedHosts.includes("abc.custom.example"));
   // GitHub Codespaces: the forwarded host for this port, exactly.
   assert.deepEqual(devServerHosts({ CODESPACE_NAME: "fuzzy-train", GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: "app.github.dev" }, 5173),
     { allowedHosts: [...loopback, "fuzzy-train-5173.app.github.dev"], publicOrigin: "https://fuzzy-train-5173.app.github.dev" });
@@ -94,7 +95,10 @@ test("dev-server hosts: loopback only by default; dev containers and explicit se
     { allowedHosts: [...loopback, "5173-me-repo-x1.ws-eu110.gitpod.io"], publicOrigin: "https://5173-me-repo-x1.ws-eu110.gitpod.io" });
   // Explicit settings win for the origin, and its host is allowed along with CODE_GODS_ALLOWED_HOSTS.
   assert.deepEqual(devServerHosts({ CODE_GODS_PUBLIC_ORIGIN: "https://play.example.org/", CODE_GODS_ALLOWED_HOSTS: " .tunnel.example , box.lan,", REPLIT_DEV_DOMAIN: "abc.replit.dev" }, 22772),
-    { allowedHosts: [...loopback, ".tunnel.example", "box.lan", ".replit.dev", ".repl.co", "play.example.org"], publicOrigin: "https://play.example.org" });
+    { allowedHosts: [...loopback, ".tunnel.example", "box.lan", "abc.replit.dev", ".replit.dev", ".repl.co", "play.example.org"], publicOrigin: "https://play.example.org" });
+  // A malformed URL names the variable instead of a bare "Invalid URL".
+  assert.throws(() => devServerHosts({ CODE_GODS_PUBLIC_ORIGIN: "play.example.org" }, 22772), /CODE_GODS_PUBLIC_ORIGIN/);
+  assert.throws(() => devServerHosts({ GITPOD_WORKSPACE_URL: "not a url" }, 22772), /GITPOD_WORKSPACE_URL/);
 });
 
 /** A fake engine site for the token middleware: config + credential exchange (counted). */
