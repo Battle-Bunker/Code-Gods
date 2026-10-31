@@ -24,6 +24,15 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 6. Game configuration is not shown by default: game setups in a simple menu, and "create a new configuration" opens a
    separate page that asks every question clearly and explains what each means.
 7. Highest goal: a first-time visitor feels little overwhelm and knows the next thing to do.
+8. (2026-10-31, after testing on Convex Dev; overrides anything below that contradicts it.) Game setups are one
+   autocomplete collection with search; every setup has a name (the first field of the form) and an owner, the
+   defaults being owned by the system so nobody can edit them; there is no generic "Custom" and no separate section
+   for the defaults. Every entry has Edit (greyed out for those who do not own it) and Duplicate, which opens the
+   configuration page on the copy named "<name>'s copy". The board has distinct controls for each dimension (size,
+   symbols, colours), not one dropdown of shapes. Every parameter a game needs under the hood is a control
+   (grammar, utility selector, complexity function, object selection, prior…), never a read-only assertion.
+   Defence goals are not a per-player probability (a handicap): they are a switch with a checklist of allowed
+   defence goals, and when on, everyone gets one from that set.
 
 ## 1. Decisions
 
@@ -44,10 +53,10 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 | Palette | One shared component in a new `lib/ui-kit` (`CommandPalette`, `PaletteTrigger`, `Term` glossary). Rows = catalogue entries with a `palette` spec + client-only `ui.*` commands of the same human shape, each with a performer: navigate, form, submit, hand-off, local. Trigger: search field + ☰ at the top right; Cmd/Ctrl+K everywhere; `/` and `?` only when no input has focus. | palette §2 |
 | Confirmations in the palette | none / inline (press Enter again) / summary / modal, derived from `destructiveHint` and cost. The assistant's cards stay as they are, plus `destroy_agent` now also asks. | palette §2.6 |
 | Engine UI | Stays AI-free (shared display and owner panel). Every page: one status sentence from `nextStep()`, one filled primary action, at most four sections, the rest behind Details or in the palette. Owner and creation date stay prominent wherever rooms are listed; rooms have no names. | palette §3, architecture §6 |
-| Game setups and configuration | Game setups are a seeded catalogue of complete settings (`gameSetups`, `convex/setups.ts`): the defaults First steps, Classic, Low income, Big board and Master (game-core `SEED_SETUPS`, seeded once, admin-editable) plus each human's own. The room page shows one **Setup** select (Defaults, Your setups, "Custom" when the room matches none, divider, "New configuration…"); a pick applies at once with Undo. The page `/rooms/:code/configure` edits the room's next-game settings directly: a long form with a stepper and a sticky summary, asking every `GameSettings` field grouped World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with meaning and consequence from `SETTINGS_DOCS`, and "Save as a setup…". (2026-10-31: the former "Start from" presets, their partial patches and the retuning toward tuned type defaults were removed.) | onboarding §3–4, palette §3.3, owner |
+| Game setups and configuration | Game setups are ONE shared collection of complete, named, owned settings (`gameSetups`, `convex/setups.ts`): the system's First steps, Classic, Low income, Big board and Master (game-core `SEED_SETUPS`, owned by the system, kept equal to the code at every deploy, editable by nobody) and every human's own, visible to everyone. The room page shows one **Setup** combobox (cmdk, as the palette): typing filters by name, owner and summary; each row shows its name, owner ("System", "You", or the owner's name) and summary, with **Edit** (unavailable, with the reason, unless it is yours) and **Duplicate**; picking a row applies it at once with Undo; "New setup" duplicates the room's current one. There is no "Custom" and no "Defaults" group. The page `/rooms/:code/configure?setup=<id>` edits ONE setup (the room's when no id is given): its name first, then every `GameSettings` field as a real control (`SETTINGS_DOCS[k].control`) grouped World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with meaning and consequence from `SETTINGS_DOCS`; the board is one control per type argument, an uncalibrated combination disabled with the reason; defence goals are a switch with a checklist of the allowed ones (on: every player gets one). Anyone but the owner reads it with every control disabled and one action, "Duplicate and edit". Save writes the setup and puts the room's next game on it; Delete is in the review section. | onboarding §3–4, palette §3.3, owner (directive 8) |
 | Settings changes | Every change goes through game-core `applySettingsChange` (the page per control, the engine per `owner.settings`): a language sets its grammar and summon price, an object type its default offered instantiation, type arguments must be offered, excluded families that no longer exist are dropped (an excluded id must be a family of the type; one the board cannot deal is dropped), option fields must be choices of the language and type; everything else is free within `validateSettings`. Nothing else moves. | owner (2026-10-31) |
 | Room creation | New rooms start on the seeded First steps setup. Creating a room asks the owner, once, to turn on the assistant with a pre-filled allowance and a consent checkbox ("Not now" keeps it off). Adding the first AI player asks for the AI budget in the same step. | onboarding §0 |
-| Which setup is active | `rooms.settingsOrigin {kind: setup \| custom, id?, modified}` set by `owner.settings`, copied into the game snapshot; the UI names a setup while the room's settings equal it. | onboarding §3.4 |
+| Which setup is active | `rooms.setupId` (+ `setupName`): a room always runs a setup, and its `settings` are that setup's at the time they were applied. `owner.settings({setupId})` applies any setup; `owner.settings({settings})` edits the room's setup if the owner owns it, else creates their "<name>'s copy" and switches the room to it. A deleted setup's rooms keep their snapshot and show it as "(deleted)". Games snapshot `setupId`/`setupName`. | owner (directive 8) |
 | Wording | "player" in functional copy, "god" kept in flavour copy and the glossary. "Declare ready" leaves the primary path (it gates nothing). Revision numbers and protocol versions leave the UI. | palette §5, onboarding §1.3 |
 | Invite links | Stay on the room page (`/rooms/CODE`); the room page's primary action for a member is "Open player client". | this document |
 | Object renderers | An object type may register several named renderers with a default; each viewer's choice per type is remembered in their browser and switched from the palette (`ui.objects.renderer`) or the grid detail view. Grids default to coloured digits (`--cg-ink-*` text shades, tested for 4.5:1 contrast and ΔE ≥ 25), with tiles as the alternative. | this document |
@@ -146,8 +155,8 @@ dockLayouts: defineTable({ subject: v.string(), roomId: v.id("rooms"), layout: v
   (the assistant opens or closes panes instead). Convex refuses a validator its documents fail, so `panelLayouts`
   is dropped from the schema only after the dev deployment's table is cleared (a gated test-fixture mutation);
   production has no rows.
-- `rooms.create` starts from the seeded First steps game setup; `rooms.settingsOrigin` is set by
-  `owner.settings` and copied into the game snapshot.
+- `rooms.create` runs the system's First steps game setup; `rooms.setupId` is set by `owner.settings` and copied
+  into the game snapshot (directive 8; it replaced `settingsOrigin`, migrated by `migrations/node:setupsV2`).
 - `assistant/rules.ts`: `destroy_agent` joins `ALWAYS_CONFIRM`; two layout tools per step; `argsLimit("open_panel")`
   and `("set_panel_params")` = 20 000.
 - `lib/ai-player/src/assistant-prompt.ts`: tool list from the catalogue; new sections THE PLAYER'S SCREEN and NEXT
@@ -189,7 +198,10 @@ Kept verbatim (the e2e suites use them): `input-source`, `button-validate`, `but
 `panel-player-apps`, `text-game-status`, `panel-final-results`, `text-world-t`, `text-game-code`, `text-end-reason`,
 and every `text-device-*`/`button-approve-device`/`status-approved`/`checkbox-device-owner-consent`/`text-connect-command`.
 New: `dock`, `pane-<id>`, `tab-<id>`, `menu-panel`, `button-add-pane`, `button-palette`, `dialog-palette`,
-`assistant-pane`, `select-setup`, `link-new-configuration`, `page-configure`.
+`assistant-pane`, `select-setup` (the Setup combobox trigger), `input-setup-search`, `row-setup-*`, `button-edit-setup-*`,
+`button-duplicate-setup-*`, `button-new-setup`, `text-current-setup`, `link-configure`, `page-configure`, `input-setup-name`,
+`choice-arg-<param>-<value>`, `switch-defenceGoals`, `check-defence-*`, `select-<field>`, `button-duplicate-and-edit`,
+`button-delete-setup`.
 
 ## 3. The panels
 
@@ -230,5 +242,7 @@ Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite �
 - With the assistant off, parameterised views are unreachable by design (the dropdown picks panels; only the
   assistant sets parameters). Every panel has useful defaults.
 - "player" replaces "god/deity" in functional copy; flavour copy keeps the pantheon.
-- Deferred: saved custom configurations (and whether owners may name them), coaching messages beyond the empty
-  states, a presentation mode for the game page.
+- Deferred: coaching messages beyond the empty states, a presentation mode for the game page.
+- Calibration coverage constrains the board controls: only shipped calibration tables make a size × symbols ×
+  colours combination playable, so most combinations are disabled (with the reason). Shipping more tables
+  (`pnpm --filter @workspace/game-utilities calibrate`) widens the choice without any UI change.

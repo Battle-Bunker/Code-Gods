@@ -175,7 +175,7 @@ export const OWNER_TOOLS = [
   def({ name: "get_ai_catalog", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
   def({ name: "update_settings", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
-    note: "Give a setupId from list_setups, or settings (only the fields to change: they edit the room's setup if the human owns it, else a new copy of theirs), and/or the AI token budget; send the room's current revision (get_room_state). Confirmed by the player first.",
+    note: "Give a setupId (list_setups) or settings (only the fields to change), and/or the AI budget, with the room's current revision (get_room_state). Confirmed by the player first.",
     input: obj({ requestId, revision: z.number().int().min(0),
       settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId."),
       setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings."),

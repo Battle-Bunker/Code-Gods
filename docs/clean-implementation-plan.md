@@ -108,7 +108,8 @@ For god i with draw (family, params): s⁺_i(x) = surprisal of the reward ordina
 table (strictly increasing, uncapped extrapolation); with a defence goal, h_i(x) = softhinge(penalty
 surprisal) and n_i = s⁺_i − w(h_i − E_μh_i) (w = `penaltyWeight`, default 1); else n_i = s⁺_i.
 payoff_i(x) = n_i(x) · max(0, Σ_{j≠i} n_j(x)). Total payoff = Σ over live objects. Defence goals are
-dealt with probability `defenceRate` (default 0: opt-in, as in grid-lab).
+opt-in (`defenceGoals`, default off, as in grid-lab) and, when on, every god is dealt one from the allowed defence
+families (`excludedDefenceFamilies` lists the rest); a per-god probability (the former `defenceRate`) was a handicap.
 
 ### 4.5 Calibration tables
 Format (`CalibrationTable`): `{ key, family, canonicalParams, instance, shape, levels: [[ordinal, bits]…],
