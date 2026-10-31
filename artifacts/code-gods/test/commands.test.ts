@@ -107,5 +107,6 @@ test("New setup duplicates the room's current setup (no generic Custom: every ne
   assert.equal(c.performer.kind, "submit");
   if (c.performer.kind === "submit") await c.performer.run();
   assert.deepEqual(duplicated, ["s2"]);
-  assert.deepEqual(avail(scope({ room: room(["ada"]) }), "ui.newSetup"), { ok: false, reason: "The room runs no setup yet." });
+  assert.deepEqual(avail(scope({ room: room(["ada"]) }), "ui.newSetup"),
+    { ok: false, reason: "The room's setup was deleted: open Configure the room's setup to keep its settings as yours.", fix: "ui.nav.configure" });
 });

@@ -12,7 +12,7 @@ import {
   SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldError, fieldsOf, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/lib/settings-form.ts";
-import { editBlocker, ownerLabel, searchSetups } from "../src/lib/setup-words.ts";
+import { editBlocker, freeName, ownerLabel, searchSetups } from "../src/lib/setup-words.ts";
 
 const GRID5 = { size: 5, symbols: "base10", colours: "rgby" };
 const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
@@ -115,6 +115,10 @@ test("the setup combobox: search by name, owner or summary; whose it is; why Edi
   assert.deepEqual(searchSetups(setups, "7×7 cards").map(s => s.id), ["3"], "every word, from the summary too");
   assert.deepEqual(setups.map(ownerLabel), ["System", "You", "Bo Diddley"]);
   assert.deepEqual(setups.map(editBlocker), ["System setups cannot be edited: duplicate it", null, "Only Bo Diddley can edit this setup"]);
+  // A copy's name, as the engine makes it: "<name>'s copy", then " 2"…, shortened to 40 characters.
+  assert.equal(freeName("Classic", "'s copy", []), "Classic's copy");
+  assert.equal(freeName("Classic", "'s copy", ["classic's COPY", "Classic's copy 2"]), "Classic's copy 3");
+  assert.equal(freeName("L".repeat(40), "'s copy", []), `${"L".repeat(33)}'s copy`);
 });
 
 test("penalty weight and the defence checklist hide while defence goals are off; stepped choices keep the current value; summary lines", () => {

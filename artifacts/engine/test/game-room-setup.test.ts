@@ -116,3 +116,29 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   assert.equal(record.shortCode, game.shortCode);
   assert.deepEqual(record.setup, { id: fromDeleted.setup.id, name: "Ada's board's copy 2" });
 });
+
+test("a change edits the owner's setup as it is now, not the room's older snapshot of it; a room edit is never blocked by the setup cap", { timeout: 120_000 }, async () => {
+  const [host] = await gods("Snapshot Owner");
+  await touch(host);
+  const a = await roomWith([host]), b = await roomWith([host]);
+  const revision = async (roomId: string) => (await host.c.query(api.rooms.get, { room: roomId })).revision;
+  const mine = await host.c.action(api.setups.save, { name: "Shared board", settings: seedSetupSettings("grid-classic") });
+  for (const roomId of [a.roomId, b.roomId]) await host.c.action(api.owner.settings, { roomId, revision: await revision(roomId), setupId: mine.id });
+  // Edited elsewhere (here: saved directly); room A's snapshot still has the old energy.
+  await host.c.action(api.setups.save, { setupId: mine.id, name: "Shared board", settings: { ...seedSetupSettings("grid-classic"), startingEnergy: 400 } });
+  assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 100);
+  const changed = await host.c.action(api.owner.settings, { roomId: a.roomId, revision: await revision(a.roomId), settings: { planningSeconds: 120 } });
+  assert.deepEqual([changed.setup.id, changed.setup.created], [mine.id, false]);
+  const stored = (await host.c.query(api.setups.get, { setupId: mine.id })).settings;
+  assert.deepEqual([stored.startingEnergy, stored.planningSeconds], [400, 120], "the other edit survives");
+  assert.deepEqual((await host.c.query(api.rooms.get, { room: a.roomId })).settings, stored);
+
+  // At the cap of own setups, explicit saves and copies are refused, but changing a room on a system setup still works.
+  const own = (await host.c.query(api.setups.list, {})).filter((s: any) => s.mine).length;
+  const classic = await setupId(host.c, "grid-classic");
+  for (let i = own; i < 50; i++) await host.c.mutation(api.setups.duplicate, { setupId: classic });
+  assert.equal(await errorCode(host.c.mutation(api.setups.duplicate, { setupId: classic })), "BAD_REQUEST", "the cap");
+  await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), setupId: classic });
+  const copied = await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), settings: { planningSeconds: 30 } });
+  assert.equal(copied.setup.created, true, "the room's change is kept as the owner's copy even past the cap");
+});

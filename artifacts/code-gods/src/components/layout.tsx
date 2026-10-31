@@ -130,7 +130,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
-    currentSetup: room?.setup?.id,
+    currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer,
   };

@@ -49,7 +49,9 @@ export async function seed(ctx: MutationCtx) {
   const now = Date.now();
   for (const s of SEED_SETUPS) {
     const settings = seedSetupSettings(s.seedId);
-    const existing = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).first();
+    const [existing, ...extra] = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).collect();
+    // One row per seed: a duplicate (two first-ever seedings racing) would be a system setup nobody could fix.
+    for (const row of extra) await ctx.db.delete(row._id);
     if (!existing) {
       await ctx.db.insert("gameSetups", { ownerId: null, name: s.name, settings, summary: s.summary, seedId: s.seedId, createdAt: now, updatedAt: now });
     } else if (existing.ownerId !== null || existing.name !== s.name || existing.summary !== s.summary || existing.deleted || !sameSettings(existing.settings, settings)) {
@@ -99,8 +101,8 @@ async function listImpl(ctx: Ctx, viewer: Viewer): Promise<SetupRow[]> {
   const others = (await ctx.db.query("gameSetups").order("desc").take(LIST_CAP + fixed.length))
     .filter(d => d.ownerId !== null && d.ownerId !== viewer.subject).slice(0, Math.max(0, LIST_CAP - fixed.length));
   const rows = [...fixed, ...others].filter(d => !d.deleted);
-  const names = new Map<string | null, string>();
-  for (const d of rows) if (!names.has(d.ownerId)) names.set(d.ownerId, await ownerNameOf(ctx, d.ownerId));
+  const owners = [...new Set(rows.map(d => d.ownerId))];
+  const names = new Map(await Promise.all(owners.map(async o => [o, await ownerNameOf(ctx, o)] as const)));
   const system = rows.filter(d => d.ownerId === null).sort((a, b) => seedOrder(a) - seedOrder(b) || a.createdAt - b.createdAt);
   const owned = rows.filter(d => d.ownerId !== null)
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.createdAt - b.createdAt);
@@ -130,6 +132,19 @@ export const get = query({ args: { setupId: v.string() }, handler: async (ctx, {
 export const getAs = internalQuery({
   args: { principal: principalV, setupId: v.string() },
   handler: async (ctx, { principal, setupId }): Promise<SetupView> => getImpl(ctx, await viewerOf(ctx, principal), setupId),
+});
+
+/**
+ * owner.settings({settings}): the settings a change starts from. The room's setup as it is now when its owner owns it
+ * (so a change never reverts edits made to that setup since it was applied), with its `updatedAt` for the commit's
+ * check; else null (the change starts from the room's snapshot and becomes a copy).
+ */
+export const ownedBase = internalQuery({
+  args: { setupId: v.optional(v.id("gameSetups")), ownerId: v.string() },
+  handler: async (ctx, { setupId, ownerId }): Promise<{ settings: GameSettings; updatedAt: number } | null> => {
+    const doc = setupId ? await ctx.db.get(setupId) : null;
+    return doc && !doc.deleted && doc.ownerId === ownerId ? { settings: doc.settings as GameSettings, updatedAt: doc.updatedAt } : null;
+  },
 });
 
 /** owner.settings({setupId}): the setup's complete settings. */
@@ -186,10 +201,12 @@ export function setupSummary(s: GameSettings): string {
   return `${world} · ${s.language === "python" ? "Python" : "TypeScript"} · ${s.startingObjectCount} objects · ${s.interactionRateHz} acts/s`;
 }
 
-/** Insert a new setup of `ownerId`'s (the cap applies); `name` must already be free among theirs. */
-async function insertOwn(ctx: MutationCtx, ownerId: string, name: string, settings: GameSettings, summary: string): Promise<Doc<"gameSetups">> {
-  const own = await ownSetups(ctx, ownerId);
-  if (own.length >= MAX_OWN_SETUPS) fail("BAD_REQUEST", `At most ${MAX_OWN_SETUPS} setups each; delete one first`);
+/**
+ * Insert a new setup of `ownerId`'s; `name` must already be free among theirs. The cap applies to setups a human
+ * makes on purpose (save, duplicate), not to the copy a room's change needs (that would block changing the room).
+ */
+async function insertOwn(ctx: MutationCtx, ownerId: string, name: string, settings: GameSettings, summary: string, capped = true): Promise<Doc<"gameSetups">> {
+  if (capped && (await ownSetups(ctx, ownerId)).length >= MAX_OWN_SETUPS) fail("BAD_REQUEST", `At most ${MAX_OWN_SETUPS} setups each; delete one first`);
   const now = Date.now();
   const doc = { ownerId, name, settings, summary, createdAt: now, updatedAt: now };
   const id = await ctx.db.insert("gameSetups", doc);
@@ -290,17 +307,19 @@ export type RoomSetupChange = { id: Id<"gameSetups">; name: string; created: boo
  * own it; otherwise (the system's, someone else's, deleted, or none) as a new setup of theirs named "<name>'s copy"
  * (a legacy room without one: "Room <code>'s setup"), which the room then runs.
  */
-export async function roomSetupWrite(ctx: MutationCtx, room: Doc<"rooms">, ownerId: string, settings: GameSettings): Promise<RoomSetupChange> {
+export async function roomSetupWrite(ctx: MutationCtx, room: Doc<"rooms">, ownerId: string, settings: GameSettings, baseUpdatedAt?: number): Promise<RoomSetupChange> {
   const current = room.setupId ? await ctx.db.get(room.setupId) : null;
   const live = current && !current.deleted ? current : null;
   if (live && live.ownerId === ownerId) {
+    // The change was computed from this setup's settings at `baseUpdatedAt` (ownedBase): saved since, it would revert that save.
+    if (baseUpdatedAt !== undefined && live.updatedAt !== baseUpdatedAt) fail("CONFLICT", `"${live.name}" was changed meanwhile; try again`);
     await ctx.db.patch(live._id, { settings, summary: setupSummary(settings), updatedAt: Date.now() });
     return { id: live._id, name: live.name, created: false, note: `Saved the change to your setup "${live.name}"` };
   }
   const taken = await takenNames(ctx, ownerId);
   const sourceName = live?.name ?? room.setupName;
   const name = sourceName ? copyName(sourceName, taken) : freeName(`Room ${room.shortCode}`, "'s setup", taken);
-  const doc = await insertOwn(ctx, ownerId, name, settings, setupSummary(settings));
+  const doc = await insertOwn(ctx, ownerId, name, settings, setupSummary(settings), false);
   const why = !sourceName ? "the room had no setup" : !live ? `"${sourceName}" was deleted`
     : live.ownerId === null ? `"${sourceName}" is a system setup` : `"${sourceName}" belongs to ${await ownerNameOf(ctx, live.ownerId)}`;
   return { id: doc._id, name, created: true, note: `Created your setup "${name}" with the change, because ${why}; the room now runs it` };

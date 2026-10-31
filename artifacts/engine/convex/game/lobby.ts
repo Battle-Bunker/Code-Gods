@@ -18,7 +18,9 @@ import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 
 /** How a settings commit changes the room's setup: run another one (`apply`), or edit the one it runs (`edit`). */
-const setupChangeV = v.union(v.object({ kind: v.literal("apply"), setupId: v.id("gameSetups") }), v.object({ kind: v.literal("edit") }));
+const setupChangeV = v.union(v.object({ kind: v.literal("apply"), setupId: v.id("gameSetups") }),
+  /** `baseUpdatedAt`: the owner's setup the change started from (setups.ownedBase), checked unchanged. */
+  v.object({ kind: v.literal("edit"), baseUpdatedAt: v.optional(v.number()) }));
 
 /** The room as its current owner sees it, for an owner action. */
 export const ownerContext = internalQuery({
@@ -64,7 +66,7 @@ export const commitSettings = internalMutation({
       if (!doc || doc.deleted) fail("NOT_FOUND", "That setup was deleted meanwhile");
       setup = { id: doc._id, name: doc.name, created: false, note: `The next game runs "${doc.name}"` };
     } else if (args.setup?.kind === "edit" && !(room.setupId && sameSettings(settings, room.settings))) {
-      setup = await roomSetupWrite(ctx, room, viewer.subject, settings);
+      setup = await roomSetupWrite(ctx, room, viewer.subject, settings, args.setup.baseUpdatedAt);
     }
     await putCatalog(ctx, `room:${room._id}`, args.catalog, room.revision + 1);
     await ctx.db.patch(room._id, {

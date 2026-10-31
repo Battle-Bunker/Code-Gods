@@ -68,7 +68,7 @@ export interface EngineScope {
   aiConfigured?: boolean;
   /** Every game setup (setups.list): the system's, then everyone's by name. */
   setups: readonly SetupLike[];
-  /** The setup the room runs (room.setup.id). */
+  /** The setup the room runs (room.setup.id), unless it was deleted. */
   currentSetup?: string;
   minPlayers: number;
   maxPlayers: number;
@@ -220,7 +220,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.nav.playerClient", { kind: "local", run: () => roomCode && act.openTab(playerUrl(roomCode)) }, () => (!roomCode ? no("Open a room first.", { hidden: true }) : room && !me ? no("Join the room first.", { fix: "rooms.join" }) : ok)),
     ui("ui.nav.configure", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
     ui("ui.newSetup", { kind: "submit", run: () => act.duplicateSetup(scope.currentSetup!) },
-      () => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.") : !scope.currentSetup ? no("The room runs no setup yet.") : ok)),
+      () => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.") : !scope.currentSetup ? no("The room's setup was deleted: open Configure the room's setup to keep its settings as yours.", { fix: "ui.nav.configure" }) : ok)),
     ui("ui.nav.device", { kind: "navigate", to: "/device" }, signedIn),
     ui("ui.nav.admin", { kind: "navigate", to: "/admin/agents" }, () => (user?.isAdmin ? ok : no("Only admins can do this.", { hidden: true }))),
     ui("ui.copyInviteLink", { kind: "local", run: () => roomCode && act.copy(`${act.origin}/rooms/${roomCode}`, "Invite link") }, () => (roomCode ? ok : no("Open a room first.", { hidden: true }))),

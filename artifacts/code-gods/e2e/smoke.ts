@@ -412,6 +412,16 @@ try {
       await a.getByTestId("button-delete-setup").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
       await current.filter({ hasText: `${copyName} (deleted)` }).waitFor({ timeout: 15_000 });
+      // New setup on a deleted setup keeps the room's settings as alice's own setup (then deleted again: no leftovers).
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("button-new-setup").click();
+      await a.getByTestId("panel-deleted-setup").waitFor();
+      await a.getByTestId("button-keep-deleted-setup").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}/configure\\?setup=`));
+      assert.match(await a.getByTestId("input-setup-name").inputValue(), /'s copy/);
+      await a.getByTestId("button-delete-setup").click();
+      await a.getByTestId("button-delete-setup").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}$`));
     });
 
     await check(`${name}: the device page approves an act request; the credential is listed under Connected apps and revoked`, async () => {

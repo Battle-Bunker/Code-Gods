@@ -21,3 +21,18 @@ export function searchSetups<S extends Pick<SetupRow, "name" | "summary" | "owne
     return words.every(w => text.includes(w));
   });
 }
+
+/** The longest setup name (game-core SETUP_NAME_MAX; repeated so this module stays dependency-free). */
+const NAME_MAX = 40;
+/**
+ * The first name of the form `<stem><tail>`, then `<stem><tail> 2`, ` 3`…, not in `taken` (case-insensitive), the stem
+ * shortened to fit 40 characters: the engine's rule for copies (convex/setups.ts freeName), for a copy the page saves.
+ */
+export function freeName(stem: string, tail: string, taken: readonly string[]): string {
+  const used = new Set(taken.map(t => t.toLowerCase()));
+  for (let n = 1; ; n++) {
+    const suffix = `${tail}${n > 1 ? ` ${n}` : ""}`;
+    const candidate = `${stem.slice(0, NAME_MAX - suffix.length).trimEnd()}${suffix}`;
+    if (!used.has(candidate.toLowerCase())) return candidate;
+  }
+}

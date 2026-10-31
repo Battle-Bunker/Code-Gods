@@ -40,7 +40,7 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
   if (args.revision !== context.room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
   if (args.settings && args.setupId) fail("BAD_REQUEST", "Send settings or a setupId, not both");
   const previous = context.room.settings as GameSettings;
-  const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit" }): Promise<SettingsResult> =>
+  const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> =>
     ctx.runMutation(internal.game.lobby.commitSettings, {
       roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
       ...(setup ? { setup } : {}),
@@ -49,7 +49,12 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
     const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId });
     return commit(nextSettings(previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
   }
-  if (args.settings) return commit(nextSettings(previous, { settings: args.settings }), { kind: "edit" });
+  if (args.settings) {
+    // The owner's own setup is changed as it is now (it may have been saved since the room took its snapshot).
+    const owned: { settings: GameSettings; updatedAt: number } | null =
+      await ctx.runQuery(internal.setups.ownedBase, { setupId: context.room.setupId, ownerId: context.ownerId });
+    return commit(nextSettings(owned?.settings ?? previous, { settings: args.settings }), { kind: "edit", ...(owned ? { baseUpdatedAt: owned.updatedAt } : {}) });
+  }
   return commit(previous);
 }
 

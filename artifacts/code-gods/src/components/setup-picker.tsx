@@ -32,10 +32,15 @@ export function SetupPicker({ room }: { room: RoomState }) {
   const frozen = room.activeGame;
   const configure = (id: string) => `/rooms/${room.shortCode}/configure?setup=${encodeURIComponent(id)}`;
   const duplicate = (id: string) => { setOpen(false); runner.run("Duplicate the setup", () => act.duplicateSetup(id)); };
+  // Picking the current setup again re-applies it: the room takes the setup's settings as they are now.
   const pick = (s: Setup) => {
-    if (frozen || s.id === room.setup?.id) { setOpen(false); return; }
     setOpen(false);
+    if (frozen) return;
     runner.run("Choose the next game's setup", () => act.applySetup(s.id));
+  };
+  const newSetup = () => {
+    if (!room.setup) return;
+    if (room.setup.deleted) { setOpen(false); navigate(`/rooms/${room.shortCode}/configure`); } else duplicate(room.setup.id);
   };
 
   return (
@@ -90,7 +95,7 @@ export function SetupPicker({ room }: { room: RoomState }) {
           </Cmdk.List>
           <div className="border-t p-2 space-y-1">
             <Tip k="ui.newSetup">
-              <button type="button" disabled={!room.setup} data-testid="button-new-setup" onClick={() => room.setup && duplicate(room.setup.id)}
+              <button type="button" disabled={!room.setup} data-testid="button-new-setup" onClick={newSetup}
                 className="inline-flex items-center gap-1.5 px-2 py-1 text-sm hover:bg-muted disabled:opacity-50"><Plus className="h-4 w-4" />New setup</button>
             </Tip>
             <p className="px-2 text-xs text-muted-foreground">Duplicate and New setup make your own copy at once and open it; if you do not need it, delete it from its page.</p>

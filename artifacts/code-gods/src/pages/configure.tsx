@@ -33,21 +33,22 @@ import { Page, usePage } from "@/components/layout";
 import { Action } from "@/components/action";
 import { ErrorLine } from "@/components/page-parts";
 import { costLine } from "@/components/sheets";
-import { settingsSummary } from "@/components/game-panels";
+import { SettingsList, settingsSummary } from "@/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt } from "@/lib/errors";
 import {
   BUDGET_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
   same, settingsDomain, shelfEntries, stepChoices, type OfferedTypes, type Settings, type SettingsKey,
 } from "@/lib/settings-form";
-import { ownerLabel } from "@/lib/setup-words";
+import { freeName, ownerLabel } from "@/lib/setup-words";
 
 type Budgets = { aiBudget: number; assistantBudget: number; assistantModel: string };
 type Base = { settings: Settings; name: string; updatedAt: number };
 type Stored = { base: Base; draft: Settings; name: string; budgets: Budgets };
-const draftKey = (setupId: string) => `code-gods:setup-draft:${setupId}`;
-const loadDraft = (setupId: string): Stored | null => { try { const raw = window.localStorage.getItem(draftKey(setupId)); return raw ? JSON.parse(raw) as Stored : null; } catch { return null; } };
-const saveDraft = (setupId: string, s: Stored | null) => { try { if (s) window.localStorage.setItem(draftKey(setupId), JSON.stringify(s)); else window.localStorage.removeItem(draftKey(setupId)); } catch { /* a convenience */ } };
+/** A draft belongs to one setup as edited from one room (the budgets in it are that room's). */
+const draftKey = (key: string) => `code-gods:setup-draft:${key}`;
+const loadDraft = (key: string): Stored | null => { try { const raw = window.localStorage.getItem(draftKey(key)); return raw ? JSON.parse(raw) as Stored : null; } catch { return null; } };
+const saveDraft = (key: string, s: Stored | null) => { try { if (s) window.localStorage.setItem(draftKey(key), JSON.stringify(s)); else window.localStorage.removeItem(draftKey(key)); } catch { /* a convenience */ } };
 const budgetsOf = (room: RoomState): Budgets => ({ aiBudget: room.aiBudget, assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel });
 const tidyName = (raw: string) => raw.trim().replace(/\s+/g, " ");
 const PRIOR_LABELS: Record<string, string> = { uniform: "Uniformly random objects (the spawn prior)" };
@@ -69,6 +70,7 @@ export default function Configure() {
         {authLoading ? null : !isAuthenticated ? <p className="mx-auto max-w-lg px-4 py-20">Sign in to see this room's settings.</p>
         : q.isLoading || (setupId && sq.isLoading) ? <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-96" /></div>
         : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} /></div>
+        : !requested && room.setup?.deleted ? <DeletedSetup room={room} roomOwner={room.ownerId === user?.id} />
         : !setupId || !sq.data ? <div className="mx-auto max-w-lg px-4 py-20 space-y-3"><ErrorLine message={sq.error ? errMsg(sq.error) : "This room runs no game setup yet."} />
             <Link href={`/rooms/${room.shortCode}`} className="underline underline-offset-4">Back to room {room.shortCode}</Link></div>
         : <ConfigureForm key={sq.data.id} room={room} setup={sq.data} roomOwner={room.ownerId === user?.id} />}
@@ -86,9 +88,11 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   const applyToRoom = useAction(api.owner.settings);
   const approve = useMutation(api.rooms.approveAiBudget);
   const editable = setup.editable;
-  const budgetsEditable = editable && roomOwner;
+  // The budgets are the room's: its owner sets them here whoever owns the setup.
+  const budgetsEditable = roomOwner;
+  const key = `${room.id}:${setup.id}`;
   const fresh: Base = { settings: setup.settings, name: setup.name, updatedAt: setup.updatedAt };
-  const stored = useMemo(() => (editable ? loadDraft(setup.id) : null), [setup.id, editable]);
+  const stored = useMemo(() => (editable || roomOwner ? loadDraft(key) : null), [key, editable, roomOwner]);
   const [base, setBase] = useState<Base>(() => stored?.base ?? fresh);
   const [draft, setDraft] = useState<Settings>(() => stored?.draft ?? setup.settings);
   const [name, setName] = useState(() => stored?.name ?? setup.name);
@@ -117,7 +121,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   }, [room.aiBudget, room.assistantBudget, room.assistantModel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the draft across reloads; clear it once nothing differs.
-  useEffect(() => { if (editable) saveDraft(setup.id, dirty ? { base, draft, name, budgets } : null); }, [editable, setup.id, base, draft, name, budgets, dirty]);
+  useEffect(() => { if (editable || roomOwner) saveDraft(key, dirty ? { base, draft, name, budgets } : null); }, [editable, roomOwner, key, base, draft, name, budgets, dirty]);
 
   // The setup saved elsewhere (another tab, the assistant): an untouched draft follows it; an edited one is kept whole
   // (saving puts it in its place) and the owner may load theirs instead.
@@ -149,7 +153,10 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   const running = room.activeGame;
   const budgetFrozen = !!running && dirtyBudgets && budgets.aiBudget !== room.aiBudget;
   const willApply = roomOwner && !running;
-  const saveBlocker = !editable ? null : invalid ? "Fix the settings marked in red first."
+  const saveBlocker = !editable && !budgetsEditable ? null : !editable ? (budgetFrozen ? `The AI players' budget can change after game ${running!.shortCode} ends.`
+      : dirtyBudgets && (budgetErrors.aiBudget || budgetErrors.assistantBudget) ? "Fix the budgets marked in red first."
+      : dirtyBudgets && !consent ? "Tick the approval for the new spending first." : !dirtyBudgets ? "Nothing has changed yet." : null)
+    : invalid ? "Fix the settings marked in red first."
     : budgetFrozen ? `The AI players' budget can change after game ${running!.shortCode} ends.`
     : dirtyBudgets && !consent ? "Tick the approval for the new spending first."
     : !dirty && (!willApply || roomOnIt) ? "Nothing has changed yet." : null;
@@ -158,6 +165,12 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
     if (saveBlocker || saving) return;
     setSaving(true); setSaveError(null);
     try {
+      if (!editable) {
+        await approve({ roomId: room.id, aiBudget: budgets.aiBudget, assistantBudget: budgets.assistantBudget, assistantModel: budgets.assistantModel });
+        saveDraft(key, null);
+        toast({ title: "Saved the room's budgets" });
+        return;
+      }
       if (dirtySettings || dirtyName) await saveSetup({ setupId: setup.id, name: trimmed, settings: draft });
       let applied = false;
       if (willApply && !roomOnIt) {
@@ -165,7 +178,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
         applied = true;
       }
       if (dirtyBudgets) await approve({ roomId: room.id, aiBudget: budgets.aiBudget, assistantBudget: budgets.assistantBudget, assistantModel: budgets.assistantModel });
-      saveDraft(setup.id, null);
+      saveDraft(key, null);
       toast({ title: `Saved ${trimmed}`, description: applied || roomOnIt ? `Room ${room.shortCode}'s next game runs it.`
         : running && roomOwner ? `Game ${running.shortCode} is running: pick it for the next game when it ends.` : "It changes no room until its owner picks it." });
       navigate(`/rooms/${room.shortCode}`);
@@ -253,7 +266,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
               </div>
               {errors._form && <ErrorLine message={errors._form} />}
               {currentType && !offered && <ErrorLine message={`${formatValue("typeArgs", draft.typeArgs)} has no calibration tables on this server: choose a calibrated shape.`} />}
-              {editable && dirtyBudgets && (
+              {budgetsEditable && dirtyBudgets && (
                 <label className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="block-consent">
                   <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-config-consent" />
                   I approve AI players using up to {fmt(budgets.aiBudget)} tokens per game and each player's assistant up to {fmt(budgets.assistantBudget)} tokens per game in this room, billed to the server owner's provider accounts.
@@ -267,10 +280,13 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
                   <Link href={`/rooms/${room.shortCode}`} className="text-sm underline underline-offset-4">Cancel</Link>
                 </div>
                 {saveError && <ErrorLine message={saveError} />}
-                <DeleteSetup setup={setup} onDeleted={() => { saveDraft(setup.id, null); navigate(`/rooms/${room.shortCode}`); }} remove={() => removeSetup({ setupId: setup.id })}
+                <DeleteSetup setup={setup} onDeleted={() => { saveDraft(key, null); navigate(`/rooms/${room.shortCode}`); }} remove={() => removeSetup({ setupId: setup.id })}
                   usedHere={room.setup?.id === setup.id} />
               </>) : (<>
                 <Action k="setups.duplicate" label="Duplicate and edit" tone="primary" onClick={duplicateAndEdit} testId="button-duplicate-and-edit-review" />
+                {budgetsEditable && dirtyBudgets && (
+                  <Action k="rooms.approveAiBudget" label={saving ? "Saving…" : "Save the room's budgets"} onClick={() => void save()} unavailable={saveBlocker} pending={saving} testId="button-save-budgets" showReason />
+                )}
                 {saveError && <ErrorLine message={saveError} />}
               </>)}
             </div>
@@ -293,6 +309,39 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The room's setup was deleted: the room keeps its settings (a snapshot), shown here; its owner can keep them as a new
+ * setup of theirs ("<name>'s copy"), which the room then runs and which opens here for editing.
+ */
+function DeletedSetup({ room, roomOwner }: { room: RoomState; roomOwner: boolean }) {
+  const { setups } = usePage();
+  const [, navigate] = useLocation();
+  const save = useAction(api.setups.save);
+  const apply = useAction(api.owner.settings);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const name = room.setup!.name;
+  const keep = async () => {
+    setPending(true); setError(null);
+    try {
+      const mine = (setups ?? []).filter(s => s.mine).map(s => s.name);
+      const copy = await save({ name: freeName(name, "'s copy", mine), settings: room.settings });
+      if (!room.activeGame) await apply({ roomId: room.id, revision: room.revision, setupId: copy.id });
+      navigate(`/rooms/${room.shortCode}/configure?setup=${encodeURIComponent(copy.id)}`);
+    } catch (e) { setError(errMsg(e)); } finally { setPending(false); }
+  };
+  return (
+    <div className="mx-auto max-w-[900px] px-4 md:px-6 py-8 space-y-4" data-testid="panel-deleted-setup">
+      <h1 className="font-display text-4xl leading-none">{name} (deleted)</h1>
+      <p className="text-sm text-muted-foreground">The setup room {room.shortCode} runs was deleted. The room keeps its settings for the next game; they are listed here.</p>
+      {roomOwner && <Action k="setups.save" label={pending ? "Saving…" : "Keep these settings as my setup"} tone="primary" onClick={() => void keep()} pending={pending} testId="button-keep-deleted-setup" />}
+      {error && <ErrorLine message={error} />}
+      <div className="border bg-card p-4"><SettingsList settings={room.settings} instance={room.objectInstance} /></div>
+      <Link href={`/rooms/${room.shortCode}`} className="text-sm underline underline-offset-4">Back to room {room.shortCode}</Link>
     </div>
   );
 }
