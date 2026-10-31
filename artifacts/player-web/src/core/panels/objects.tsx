@@ -27,7 +27,8 @@ const NO_MARKS: readonly Annotation[] = [];
 /** The payoff rectangle of one row (geometry in ./payoff-geometry.ts). */
 function PayoffRectangle({ o, scale }: { o: LiveObject; scale: PayoffScale }) {
   const g = payoffRect({ own: o.own.netBits, care: o.peerCare }, scale, BOX);
-  const w = Math.max(g.width, g.kind === "none" ? 0 : 1);
+  // At least a pixel wide; a widened loss still ends at the axis.
+  const w = Math.max(g.width, g.kind === "none" ? 0 : 1), x = g.kind === "loss" ? g.axis - w : g.x;
   const title = `your bits ${formatBits(o.own.netBits)} × others' care ${formatBits(o.peerCare)} = payoff ${formatBits(o.payoff)}`;
   return (
     <svg width={BOX.width + 2} height={BOX.height + 2} viewBox={`-1 -1 ${BOX.width + 2} ${BOX.height + 2}`} className="shrink-0 overflow-visible"
@@ -35,11 +36,11 @@ function PayoffRectangle({ o, scale }: { o: LiveObject; scale: PayoffScale }) {
       <title>{title}</title>
       <line x1={0} x2={BOX.width} y1={BOX.height} y2={BOX.height} stroke="hsl(var(--card-border, var(--border)))" strokeWidth={1} />
       {scale.maxLoss > 0 && <line x1={g.axis} x2={g.axis} y1={0} y2={BOX.height} stroke="hsl(var(--muted-foreground) / 0.5)" strokeWidth={1} />}
-      {g.kind === "gain" && <rect x={g.x} y={g.y} width={w} height={g.height} fill="hsl(var(--accent) / 0.55)" stroke="hsl(var(--accent))" strokeWidth={1} />}
+      {g.kind === "gain" && <rect x={x} y={g.y} width={w} height={g.height} fill="hsl(var(--accent) / 0.55)" stroke="hsl(var(--accent))" strokeWidth={1} />}
       {g.kind === "loss" && (g.height > 0
-        ? <rect x={g.x} y={g.y} width={w} height={g.height} fill="none" stroke="hsl(var(--destructive))" strokeWidth={1.5} strokeDasharray="3 2" />
-        : <line x1={g.x} x2={g.x + w} y1={BOX.height - 1} y2={BOX.height - 1} stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="3 2" />)}
-      {g.kind === "flat" && <line x1={g.x} x2={g.x + w} y1={BOX.height - 1} y2={BOX.height - 1} stroke="hsl(var(--accent))" strokeWidth={2} />}
+        ? <rect x={x} y={g.y} width={w} height={g.height} fill="none" stroke="hsl(var(--destructive))" strokeWidth={1.5} strokeDasharray="3 2" />
+        : <line x1={x} x2={x + w} y1={BOX.height - 1} y2={BOX.height - 1} stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="3 2" />)}
+      {g.kind === "flat" && <line x1={x} x2={x + w} y1={BOX.height - 1} y2={BOX.height - 1} stroke="hsl(var(--accent))" strokeWidth={2} />}
     </svg>
   );
 }

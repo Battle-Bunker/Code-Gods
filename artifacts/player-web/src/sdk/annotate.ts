@@ -6,10 +6,13 @@
  * changed to a few alternatives and see what each position does to your net bits. A position whose change can lower
  * the score supports it (weight: the largest drop); one no change lowers but some change raises holds it back
  * (weight: the largest rise); weights are normalised to the strongest position. It needs only `score(value)`, the
- * local evaluator of your own utility, so it works for every family, defence goal included.
+ * local evaluator of your own utility, so it works for every family, defence goal included. A bespoke annotator
+ * explains the utility alone, so with a defence goal the cells that feed the goal are added from a sensitivity analysis
+ * of the penalty bits.
  *
  * Bounds: at most MAX_ALTERNATIVES (6) alternatives per position and MAX_SCORINGS (300) scorings per object (a 7×7 grid
- * is 49 × 6 = 294); longer strings get fewer alternatives per character.
+ * is 49 × 6 = 294); longer strings get fewer alternatives per character, and past 300 positions an even sample of them.
+ * The work is cut into jobs of one position each (≤ 6 scorings), so an idle slice can stop between any two.
  */
 import {
   COLOUR_COMPONENTS, SYMBOL_COMPONENTS, decodeGrid, encodeGrid, gridArgs, type Instantiation, type ObjectValue,
@@ -22,6 +25,7 @@ export const MAX_SCORINGS = 300;
 export const MIN_SHOWN_WEIGHT = 0.08;
 export const SUPPORTS = "supports your score";
 export const HOLDS_BACK = "holds your score back";
+export const FEEDS_DEFENCE = "feeds your defence goal";
 
 /** The positions of a value the generic annotation varies, and the values with one position changed. */
 export interface Alternatives {
@@ -33,7 +37,7 @@ export interface Alternatives {
   variants(i: number): ObjectValue[];
 }
 
-/** `k` indices spread evenly round a cycle of `n`, starting after `current` (near and far changes alike). */
+/** Up to `k` indices spread evenly round a cycle of `n`, other than `current` (near and far changes alike). */
 function spread(current: number, n: number, k: number): number[] {
   const out: number[] = [];
   for (let j = 1; j <= k && out.length < n - 1; j++) {
@@ -42,22 +46,24 @@ function spread(current: number, n: number, k: number): number[] {
   }
   return out;
 }
+const interleave = <T,>(a: readonly T[], b: readonly T[]): T[] =>
+  Array.from({ length: Math.max(a.length, b.length) }, (_, i) => [a[i], b[i]]).flat().filter((x): x is T => x !== undefined);
 
 function gridAlternatives(value: ObjectValue, inst: Instantiation): Alternatives | null {
   if (typeof value !== "string") return null;
   try {
     const args = gridArgs(inst), g = decodeGrid(value, args), N = g.size;
     const C = COLOUR_COMPONENTS[args.colours].count, S = SYMBOL_COMPONENTS[args.symbols].count;
+    // Half the alternatives change the colour and half the symbol (every other colour when there are few), each spread
+    // over its set, interleaved so a smaller budget still tries both.
+    const colourSlots = Math.min(C - 1, Math.max(Math.ceil(MAX_ALTERNATIVES / 2), MAX_ALTERNATIVES - (S - 1)));
+    const symbolSlots = Math.min(S - 1, MAX_ALTERNATIVES - colourSlots);
     return {
       kind: "grid", size: N, count: N * N,
       variants(i) {
-        // Every other colour first (colour rules are the commonest), then symbols spread over the set.
-        const colours = Array.from({ length: C - 1 }, (_, j) => (g.col[i] + 1 + j) % C).slice(0, MAX_ALTERNATIVES);
-        const symbols = spread(g.sym[i], S, MAX_ALTERNATIVES - colours.length);
-        const out: ObjectValue[] = [];
-        for (const k of colours) { const col = g.col.slice(); col[i] = k; out.push(encodeGrid({ size: N, sym: g.sym, col }, args)); }
-        for (const s of symbols) { const sym = g.sym.slice(); sym[i] = s; out.push(encodeGrid({ size: N, sym, col: g.col }, args)); }
-        return out;
+        const colours = spread(g.col[i], C, colourSlots).map(k => { const col = g.col.slice(); col[i] = k; return encodeGrid({ size: N, sym: g.sym, col }, args); });
+        const symbols = spread(g.sym[i], S, symbolSlots).map(s => { const sym = g.sym.slice(); sym[i] = s; return encodeGrid({ size: N, sym, col: g.col }, args); });
+        return interleave(colours, symbols).slice(0, MAX_ALTERNATIVES);
       },
     };
   } catch {
@@ -109,35 +115,60 @@ export function alternativesFor(value: ObjectValue, inst: Instantiation): Altern
   return null;
 }
 
-/**
- * The generic annotation: what each position of `value` does to `score` (your net bits). Good marks for positions that
- * support the score, bad for those holding it back; empty when the score is flat, the value unreadable or the scorer
- * throws on the value itself.
- */
-export function sensitivity(value: ObjectValue, score: (value: ObjectValue) => number, alternatives: Alternatives | null): Annotation[] {
-  if (!alternatives || alternatives.count === 0) return [];
-  let base: number;
-  try { base = score(value); } catch { return []; }
-  if (!Number.isFinite(base)) return [];
-  const per = Math.min(MAX_ALTERNATIVES, Math.max(1, Math.floor(MAX_SCORINGS / alternatives.count)));
-  const contribution: number[] = [];
-  for (let i = 0; i < alternatives.count; i++) {
-    let low = Infinity, high = -Infinity;
-    for (const v of alternatives.variants(i).slice(0, per)) {
-      let s: number;
-      try { s = score(v); } catch { continue; }
-      if (!Number.isFinite(s)) continue;
-      low = Math.min(low, s);
-      high = Math.max(high, s);
-    }
-    const drop = base - low, rise = high - base;
-    contribution.push(drop > 1e-9 ? drop : rise > 1e-9 ? -rise : 0);
-  }
-  const strongest = Math.max(0, ...contribution.map(Math.abs));
+// ------------------------------------------------------------------------------------------------
+// jobs: annotation work cut into small steps
+// ------------------------------------------------------------------------------------------------
+
+/** Work done a step at a time: `step()` does one small piece and returns true once `result()` is ready. */
+export interface Job<T> {
+  step(): boolean;
+  result(): T;
+}
+const done = <T,>(value: T): Job<T> => ({ step: () => true, result: () => value });
+const finish = <T,>(job: Job<T>): T => { while (!job.step()) { /* next position */ } return job.result(); };
+
+/** The generic annotation as a job: the value's own score, then one position per step. */
+export function sensitivityJob(value: ObjectValue, score: (value: ObjectValue) => number, alternatives: Alternatives | null): Job<Annotation[]> {
+  if (!alternatives || alternatives.count === 0) return done([]);
+  // Past MAX_SCORINGS positions, an even sample of them, one scoring each.
+  const stride = Math.ceil(alternatives.count / MAX_SCORINGS);
+  const positions = Array.from({ length: Math.ceil(alternatives.count / stride) }, (_, k) => k * stride);
+  const per = Math.min(MAX_ALTERNATIVES, Math.max(1, Math.floor(MAX_SCORINGS / positions.length)));
+  const contribution = new Map<number, number>();
+  let base: number | null = null, next = -1, out: Annotation[] = [];
+  const close = () => { out = marksOf(contribution, alternatives); return true; };
+  return {
+    result: () => out,
+    step() {
+      if (next === -1) {
+        try { base = score(value); } catch { base = null; }
+        next = 0;
+        return base === null || !Number.isFinite(base) ? true : false;
+      }
+      if (base === null || next >= positions.length) return true;
+      const i = positions[next++];
+      let low = Infinity, high = -Infinity;
+      for (const v of alternatives.variants(i).slice(0, per)) {
+        let s: number;
+        try { s = score(v); } catch { continue; }
+        if (!Number.isFinite(s)) continue;
+        low = Math.min(low, s);
+        high = Math.max(high, s);
+      }
+      const drop = base - low, rise = high - base;
+      contribution.set(i, drop > 1e-9 ? drop : rise > 1e-9 ? -rise : 0);
+      return next >= positions.length ? close() : false;
+    },
+  };
+}
+
+function marksOf(contribution: ReadonlyMap<number, number>, alternatives: Alternatives): Annotation[] {
+  const strongest = Math.max(0, ...[...contribution.values()].map(Math.abs));
   if (strongest === 0) return [];
-  const marked = contribution
-    .map((c, i) => ({ i, tone: c > 0 ? ("good" as const) : ("bad" as const), weight: Math.round((Math.abs(c) / strongest) * 100) / 100 }))
-    .filter(m => m.weight >= MIN_SHOWN_WEIGHT);
+  const marked = [...contribution]
+    .map(([i, c]) => ({ i, tone: c > 0 ? ("good" as const) : ("bad" as const), weight: Math.round((Math.abs(c) / strongest) * 100) / 100 }))
+    .filter(m => m.weight >= MIN_SHOWN_WEIGHT)
+    .sort((a, b) => a.i - b.i);
   const out: Annotation[] = [];
   for (const tone of ["good", "bad"] as const) {
     const these = marked.filter(m => m.tone === tone);
@@ -155,21 +186,53 @@ export function sensitivity(value: ObjectValue, score: (value: ObjectValue) => n
   return out;
 }
 
-/** One object's annotation of your utility: the family's own annotator when it has one, else the generic one, else none. */
-export function annotateValue(value: ObjectValue, opts: {
-  descriptor: UtilityDescriptor; inst: Instantiation; annotator?: Annotator; score?: (value: ObjectValue) => number;
-}): Annotation[] {
-  if (opts.annotator) return opts.annotator(value, opts.descriptor, opts.inst);
-  if (opts.score) return sensitivity(value, opts.score, alternativesFor(value, opts.inst));
-  return [];
+/**
+ * The generic annotation: what each position of `value` does to `score` (your net bits). Good marks for positions that
+ * support the score, bad for those holding it back; empty when the score is flat, the value unreadable or the scorer
+ * throws on the value itself.
+ */
+export function sensitivity(value: ObjectValue, score: (value: ObjectValue) => number, alternatives: Alternatives | null): Annotation[] {
+  return finish(sensitivityJob(value, score, alternatives));
+}
+
+export interface AnnotateOptions {
+  descriptor: UtilityDescriptor;
+  inst: Instantiation;
+  /** The family's bespoke annotator, when it has one. */
+  annotator?: Annotator;
+  /** Your net bits of a value (the local evaluator). */
+  score?: (value: ObjectValue) => number;
+  /** Your defence goal's penalty bits of a value (bigger is worse), when you have one. */
+  penalty?: (value: ObjectValue) => number;
+}
+
+/**
+ * One object's annotation of your utility as a job: the family's own annotator when it has one (plus, with a defence
+ * goal, the positions that feed it), else the generic sensitivity analysis of your net bits, else nothing.
+ */
+export function annotateJob(value: ObjectValue, opts: AnnotateOptions): Job<Annotation[]> {
+  if (!opts.annotator) return opts.score ? sensitivityJob(value, opts.score, alternativesFor(value, opts.inst)) : done([]);
+  const own = opts.annotator(value, opts.descriptor, opts.inst);
+  if (!opts.descriptor.penalty || !opts.penalty) return done(own);
+  const penalty = opts.penalty;
+  const defence = sensitivityJob(value, v => -penalty(v), alternativesFor(value, opts.inst));
+  return {
+    step: () => defence.step(),
+    result: () => [...own, ...defence.result().filter(a => a.tone === "bad").map(a => ({ ...a, label: FEEDS_DEFENCE }))],
+  };
+}
+
+/** One object's annotation, computed at once (annotateJob run to the end). */
+export function annotateValue(value: ObjectValue, opts: AnnotateOptions): Annotation[] {
+  return finish(annotateJob(value, opts));
 }
 
 // ------------------------------------------------------------------------------------------------
 // caching and idle-time scheduling
 // ------------------------------------------------------------------------------------------------
 
-/** The cache key of one value's annotation in one game (a player has one utility per game). */
-export const annotationKey = (gameId: string, value: ObjectValue) => `${gameId}:${value}`;
+/** The cache key of one value's annotation; `scope` names the game and whose utility (e.g. `${gameId}:${godId}`). */
+export const annotationKey = (scope: string, value: ObjectValue) => `${scope}:${value}`;
 
 /** A small least-recently-used cache of annotations. */
 export class AnnotationCache {
@@ -206,19 +269,19 @@ export const browserIdle: IdleScheduler = run => {
 };
 
 /**
- * Work through `items` in idle time, never during the call itself: each idle slice does at least one item and keeps
- * going while the slice has more than `minRemainingMs` left, then calls `onBatch` (to re-render once per slice).
- * Returns a cancel function that stops further slices.
+ * Run `steps` in idle time, never during the call itself: each step is called until it returns true (done), then the
+ * next. An idle slice runs at least one step and keeps going while it has more than `minRemainingMs` left, then calls
+ * `onBatch` (to re-render once per slice). Returns a cancel function that stops further slices.
  */
-export function runWhenIdle<T>(items: readonly T[], work: (item: T) => void, opts: { schedule?: IdleScheduler; onBatch?: () => void; minRemainingMs?: number } = {}): () => void {
+export function runWhenIdle(steps: readonly (() => boolean)[], opts: { schedule?: IdleScheduler; onBatch?: () => void; minRemainingMs?: number } = {}): () => void {
   const schedule = opts.schedule ?? browserIdle, min = opts.minRemainingMs ?? 2;
   let next = 0, cancelled = false, cancel: () => void = () => {};
   const slice = (deadline: IdleDeadline) => {
     if (cancelled) return;
-    do { work(items[next++]); } while (next < items.length && deadline.timeRemaining() > min);
+    do { if (steps[next]()) next++; } while (next < steps.length && deadline.timeRemaining() > min);
     opts.onBatch?.();
-    if (next < items.length && !cancelled) cancel = schedule(slice);
+    if (next < steps.length && !cancelled) cancel = schedule(slice);
   };
-  if (items.length) cancel = schedule(slice);
+  if (steps.length) cancel = schedule(slice);
   return () => { cancelled = true; cancel(); };
 }

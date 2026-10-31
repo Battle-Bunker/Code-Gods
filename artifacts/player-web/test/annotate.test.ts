@@ -8,8 +8,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
-  AnnotationCache, MAX_ALTERNATIVES, MAX_SCORINGS, alternativesFor, annotateValue, annotationKey, runWhenIdle, sensitivity,
-  type IdleScheduler,
+  AnnotationCache, FEEDS_DEFENCE, MAX_ALTERNATIVES, MAX_SCORINGS, alternativesFor, annotateJob, annotateValue, annotationKey, runWhenIdle,
+  sensitivity, sensitivityJob, type IdleScheduler,
 } from "../src/sdk/annotate.ts";
 
 const grid3 = instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" });
@@ -62,6 +62,10 @@ test("bounds: at most 6 alternatives per cell, so a 7×7 grid costs at most 294 
   let scorings = 0;
   sensitivity(value, v => { scorings++; return String(v).length; }, alts);
   assert.ok(scorings <= 1 + 49 * MAX_ALTERNATIVES, `${scorings} scorings`);
+  // Colours and symbols both get tried, even on a six-colour board with 52 symbols.
+  const first = alts.variants(0);
+  assert.ok(first.some(v => cell(v, 0, 0).slice(0, 2) === cell(value, 0, 0).slice(0, 2)), "a colour change");
+  assert.ok(first.some(v => cell(v, 0, 0).slice(-1) === cell(value, 0, 0).slice(-1)), "a symbol change");
   // A long string spreads the same budget thinner.
   const str = instantiate("string", { maxLength: 128 });
   scorings = 0;
@@ -92,6 +96,41 @@ test("string: character positions as spans", () => {
   ]);
 });
 
+test("past 300 positions, an even sample of them is scored, one alternative each", () => {
+  let scorings = 0;
+  const many = { kind: "chars" as const, count: 1000, variants: (i: number) => [`v${i}a`, `v${i}b`] };
+  const marks = sensitivity("x", v => { scorings++; return v === "x" ? 1 : String(v) === "v500a" ? 0 : 1; }, many);
+  assert.equal(scorings, 1 + 250, "a stride of 4: 250 positions, one alternative each");
+  assert.ok(scorings <= 1 + MAX_SCORINGS);
+  assert.deepEqual(marks, [{ kind: "spans", tone: "good", label: "supports your score", spans: [{ start: 500, end: 501, weight: 1 }] }]);
+});
+
+test("a job does one position per step (≤ 6 scorings), so idle slices can stop between positions", () => {
+  const value = "0R,0R,0G/0G,0G,0G/0G,0G,0B";
+  let scorings = 0;
+  const job = sensitivityJob(value, v => { scorings++; return red(v, 0, 0) ? 1 : 0; }, alternativesFor(value, grid3));
+  assert.equal(job.step(), false);
+  assert.equal(scorings, 1, "the first step scores the value itself");
+  let steps = 0;
+  for (let before = scorings; !job.step(); before = scorings) { steps++; assert.ok(scorings - before <= MAX_ALTERNATIVES); }
+  assert.equal(steps + 1, 9, "one step per cell");
+  assert.deepEqual(job.result(), [{ kind: "cells", tone: "good", label: "supports your score", cells: [{ r: 0, c: 0, weight: 1 }] }]);
+});
+
+test("with a defence goal, a family's own annotation gains the cells that feed the goal", () => {
+  const value = "0R,0R,0G/0G,0G,0G/0G,0G,0B";
+  const descriptor = { familyId: "kingdom", params: { C: 0 }, penalty: { familyId: "hate_colour", params: { X: 2 } } };
+  const bespoke = [{ kind: "region" as const, tone: "good" as const, label: "biggest red patch (2)", cells: [{ r: 0, c: 0 }, { r: 0, c: 1 }] }];
+  // Penalty: the number of blue cells. The blue corner feeds it; nothing else does.
+  const penalty = (v: unknown) => String(v).split(/[,/]/).filter(c => c.endsWith("B")).length;
+  assert.deepEqual(annotateValue(value, { descriptor, inst: grid3, annotator: () => bespoke, penalty }), [
+    ...bespoke, { kind: "cells", tone: "bad", label: FEEDS_DEFENCE, cells: [{ r: 2, c: 2, weight: 1 }] },
+  ]);
+  // Without a penalty scorer (the evaluator not loaded yet), the family's own marks alone.
+  assert.deepEqual(annotateValue(value, { descriptor, inst: grid3, annotator: () => bespoke }), bespoke);
+  assert.equal(annotateJob(value, { descriptor: { familyId: "kingdom", params: { C: 0 } }, inst: grid3, annotator: () => bespoke }).step(), true, "no defence goal: done at once");
+});
+
 test("annotateValue prefers the family's own annotator, else the generic one, else nothing", () => {
   const value = "0R,0R,0G/0G,0G,0G/0G,0G,0B";
   const descriptor = { familyId: "kingdom", params: { C: 0 } };
@@ -115,12 +154,13 @@ test("the cache keys by game and value, refreshes on read and evicts the least r
   assert.equal(cache.size, 2);
 });
 
-test("runWhenIdle works through items in idle slices, at least one per slice, reports each batch, and stops when cancelled", () => {
+test("runWhenIdle works through steps in idle slices, at least one per slice, reports each batch, and stops when cancelled", () => {
   const queue: ((d: { timeRemaining(): number }) => void)[] = [];
   const schedule: IdleScheduler = run => { queue.push(run); return () => { queue.splice(queue.indexOf(run), 1); }; };
   const done: number[] = [];
   let batches = 0;
-  runWhenIdle([1, 2, 3, 4, 5], n => done.push(n), { schedule, onBatch: () => batches++ });
+  const once = (n: number) => () => { done.push(n); return true; };
+  runWhenIdle([1, 2, 3, 4, 5].map(once), { schedule, onBatch: () => batches++ });
   assert.deepEqual(done, [], "nothing runs during the call (never blocks a render)");
   let budget = 2;
   queue.shift()!({ timeRemaining: () => (budget-- > 0 ? 10 : 0) });
@@ -128,10 +168,16 @@ test("runWhenIdle works through items in idle slices, at least one per slice, re
   queue.shift()!({ timeRemaining: () => 0 });
   assert.deepEqual(done, [1, 2, 3, 4], "a slice with no time left still does one item");
   assert.equal(batches, 2);
-  const cancel = runWhenIdle([9], n => done.push(n), { schedule });
+  const cancel = runWhenIdle([once(9)], { schedule });
   cancel();
   assert.equal(queue.length, 1, "the cancelled run left nothing scheduled; the first run still has item 5");
   queue.shift()!({ timeRemaining: () => 10 });
   assert.deepEqual(done, [1, 2, 3, 4, 5]);
   assert.equal(queue.length, 0);
+  // A step that is not done yet is called again before the next one.
+  let calls = 0;
+  runWhenIdle([() => ++calls >= 3, once(6)], { schedule });
+  queue.shift()!({ timeRemaining: () => 10 });
+  assert.equal(calls, 3);
+  assert.deepEqual(done.at(-1), 6);
 });

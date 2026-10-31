@@ -197,17 +197,19 @@ tooltip, and under the objects panel's caption (`AnnotationLegend`, `annotationL
 ```tsx
 const { ctx } = useObjectContext();
 const objects = useObjects({ hz: 1 }).slice(0, 12);
-const marks = useAnnotations(objects, { utility: "mine" });       // computed in idle time, cached per game and value
+const marks = useAnnotations(objects, { utility: "mine" });       // computed in idle time, cached per game, player and value
 return <>{objects.map(o => <ObjectView key={o.id} value={o.value} {...ctx} annotations={marks.get(o.id)} />)}</>;
 ```
 
 `useAnnotations` uses the family's own annotator when it has one, else a generic **sensitivity analysis**
 (`src/sdk/annotate.ts`): it re-scores the value with each cell (Int: digit; string: character) changed to up to six
-alternatives (other colours first, then symbols spread over the set), at most 300 scorings per object, through your
-local evaluator. A position whose change can lower your net bits supports your score (weight: the largest drop); one
-that no change lowers but some change raises holds it back (weight: the largest rise); weights are relative to the
-strongest position. Pass only the objects you show: annotations are computed lazily, in idle time, never during a render.
-Only your own utility can be annotated: the client has no one else's.
+alternatives (half other colours, half other symbols, each spread over its set), at most 300 scorings per object,
+through your local evaluator. A position whose change can lower your net bits supports your score (weight: the largest
+drop); one that no change lowers but some change raises holds it back (weight: the largest rise); weights are relative
+to the strongest position. With a defence goal, a family's own marks gain the cells that feed the goal ("feeds your
+defence goal", from the same analysis of the penalty bits). Pass only the objects you show: annotations are computed
+lazily, one position per idle step, never during a render. Only your own utility can be annotated: the client has no
+one else's.
 
 **A family's own annotator.** Where a family's idea has a clearer picture than per-cell sensitivity (the patch it measures,
 the stripe it counts, the cells that touch), register an annotator beside the families in
