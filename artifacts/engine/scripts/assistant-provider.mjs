@@ -3,7 +3,9 @@
  * Switch the LOCAL deployment's in-client assistant between the mock and a real Anthropic provider.
  *
  *   pnpm --filter @workspace/engine assistant:live     copy CODE_GODS_ANTHROPIC_API_KEY into the local deployment
- *                                                      as ANTHROPIC_API_KEY and set ASSISTANT_LIVE=1
+ *                                                      as ANTHROPIC_API_KEY and set ASSISTANT_LIVE=1; also copies
+ *                                                      CODE_GODS_OPENAI_API_KEY (or OPENAI_API_KEY) as OPENAI_API_KEY
+ *                                                      when one is set, for rooms on an OpenAI model
  *   pnpm --filter @workspace/engine assistant:mock     remove both (the standard local state)
  *   pnpm --filter @workspace/engine assistant:status   report the mode; never prints a key
  *
@@ -51,12 +53,14 @@ if (mode === "live") {
   const key = process.env.CODE_GODS_ANTHROPIC_API_KEY?.trim();
   if (!key) die("CODE_GODS_ANTHROPIC_API_KEY is not set in this shell");
   if (!/^[A-Za-z0-9_-]+$/.test(key)) die("CODE_GODS_ANTHROPIC_API_KEY does not look like an API key (unexpected characters)");
+  const openai = (process.env.CODE_GODS_OPENAI_API_KEY || process.env.OPENAI_API_KEY)?.trim();
+  if (openai && !/^[A-Za-z0-9_-]+$/.test(openai)) die("the OpenAI API key does not look like an API key (unexpected characters)");
   const old = process.umask(0o077);
   const dir = mkdtempSync(join(tmpdir(), "cg-assistant-"));
   let status;
   try {
     const file = join(dir, "assistant.env");
-    writeFileSync(file, `ANTHROPIC_API_KEY='${key}'\nASSISTANT_LIVE='1'\n`, { mode: 0o600 });
+    writeFileSync(file, `ANTHROPIC_API_KEY='${key}'\nASSISTANT_LIVE='1'\n${openai ? `OPENAI_API_KEY='${openai}'\n` : ""}`, { mode: 0o600 });
     status = convex(["env", "set", "--force", "--from-file", file], { stdio: ["ignore", "ignore", "inherit"] }).status;
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -66,8 +70,9 @@ if (mode === "live") {
 } else if (mode === "mock") {
   remove("ASSISTANT_LIVE");
   remove("ANTHROPIC_API_KEY");
+  remove("OPENAI_API_KEY");
 }
 
-const live = current("ASSISTANT_LIVE") === "1", aiMock = current("AI_MOCK") === "1", keySet = !!current("ANTHROPIC_API_KEY");
-const effective = aiMock && !live ? "mock" : keySet ? "live (anthropic)" : "live, but no ANTHROPIC_API_KEY: turns fail as not set up";
-console.log(`[assistant] ${effective} — AI_MOCK=${aiMock ? "1" : "unset"} ASSISTANT_LIVE=${live ? "1" : "unset"} ANTHROPIC_API_KEY=${keySet ? "set" : "unset"}`);
+const live = current("ASSISTANT_LIVE") === "1", aiMock = current("AI_MOCK") === "1", keySet = !!current("ANTHROPIC_API_KEY"), openaiSet = !!current("OPENAI_API_KEY");
+const effective = aiMock && !live ? "mock" : keySet ? `live (anthropic${openaiSet ? ", openai" : ""})` : "live, but no ANTHROPIC_API_KEY: turns fail as not set up";
+console.log(`[assistant] ${effective} — AI_MOCK=${aiMock ? "1" : "unset"} ASSISTANT_LIVE=${live ? "1" : "unset"} ANTHROPIC_API_KEY=${keySet ? "set" : "unset"} OPENAI_API_KEY=${openaiSet ? "set" : "unset"}`);

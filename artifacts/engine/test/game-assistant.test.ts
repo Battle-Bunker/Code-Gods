@@ -149,6 +149,15 @@ test("cancel during a streaming delay: the turn is cancelled and runs no further
   assert.deepEqual(after.calls, [], "no tool call ran");
   assert.ok(!finalText(after).includes("never"));
   assert.equal(after.thread.activeTurnId, undefined);
+  // The cancelled step is billed from what was known (the mock reports its input usage when it opens, as Anthropic
+  // does, and the characters it streamed), not its whole reservation; the allowance keeps exactly that.
+  const cancelled = after.messages.find((m: any) => m.role === "assistant");
+  assert.equal(cancelled.usageEstimated, true);
+  assert.ok(cancelled.inputTokens > 0 && cancelled.outputTokens > 0, JSON.stringify(cancelled));
+  assert.ok(cancelled.outputTokens <= Math.ceil(6 / 2.5) + 8, `at most the six streamed characters' tokens: ${cancelled.outputTokens}`);
+  assert.equal(cancelled.billedTokens, cancelled.inputTokens + cancelled.outputTokens, "uncached input + output");
+  assert.ok(cancelled.billedTokens < cancelled.reservedTokens, `${cancelled.billedTokens} < ${cancelled.reservedTokens}`);
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, cancelled.billedTokens);
   const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "back" }]) });
   assert.equal((await until(ann, next, DONE, "a new turn")).turn.status, "done");
 });
@@ -252,6 +261,17 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   // After trustworthy usage the room's assistant USD keeps only the actual cost, not the worst-case reservation.
   const counters = await admin.query(internal.testing.rawAssistantPool, { roomId });
   assert.ok(counters.roomUsd > 0 && counters.roomUsd < measured.turn.usage.reservedUsd, `room USD ${counters.roomUsd} < reserved ${measured.turn.usage.reservedUsd}`);
+  // Cache reads count at their price relative to input (the mock's are 0.1x) in the allowance; settled exactly.
+  const cachedTurn = await ann.c.mutation(api.assistant.send, { roomId, threadId: probe.threadId, text: mock([{ text: "cached", cache: { read: 0.8, write: 0.1 } }]) });
+  const cached = await until(ann, cachedTurn, DONE, "the cached turn");
+  const step = cached.messages.find((m: any) => m.role === "assistant");
+  assert.ok(step.cacheReadTokens > 0 && step.cacheWriteTokens > 0, JSON.stringify(step));
+  const uncached = step.inputTokens - step.cacheReadTokens - step.cacheWriteTokens;
+  assert.equal(step.billedTokens, uncached + Math.ceil(step.cacheReadTokens * 0.1) + Math.ceil(step.cacheWriteTokens * 1.25) + step.outputTokens);
+  assert.ok(step.billedTokens < step.inputTokens, "cheaper than uncached");
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed + step.billedTokens);
+  // The reservation was made from an input estimate no smaller than the actual input.
+  assert.ok(step.inputEstimate >= step.inputTokens, `${step.inputEstimate} >= ${step.inputTokens}`);
   // An allowance that covers one step but not two.
   await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: firstStep + 1000 });
   const sent = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "never" }]) });
@@ -262,7 +282,7 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   assert.match(t.turn.error.message, /^Your assistant allowance for this game is too low for another step: [\d,]+ of [\d,]+ tokens used \([\d,]+ left\), and the next step may need up to [\d,]+\. The room owner can raise it\.$/);
   assert.deepEqual(t.calls.map((c: any) => c.status), ["ok"], "the first step ran");
   assert.ok(!finalText(t).includes("never"));
-  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed, "Ann's allowance is untouched");
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed + step.billedTokens, "Ann's allowance is untouched");
   const cydTurn = await cyd.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "fine" }]) });
   assert.equal((await until(cyd, cydTurn, DONE, "Cyd's turn")).turn.status, "done", "other players keep their allowance");
   const { room } = await admin.query(internal.testing.rawRoom, { roomId });
@@ -270,6 +290,13 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   const status = await bob.c.query(api.assistant.status, { roomId });
   assert.equal(status.enabled, true);
   assert.ok(status.allowance.used <= status.allowance.limit);
+  // Bob's unanswered message is not silent context for his next turn: the model sees it marked as unanswered.
+  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  const next = await bob.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
+  const n = await until(bob, next, DONE, "Bob's next turn");
+  assert.equal(n.turn.status, "done");
+  const earlier: string[] = JSON.parse(finalText(n)).earlier;
+  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because the player's assistant allowance ran out\./);
 });
 
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {

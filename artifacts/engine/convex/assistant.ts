@@ -106,7 +106,7 @@ export const send = mutation({
     const turnId = await ctx.db.insert("assistantTurns", {
       threadId, roomId: room._id, subject: viewer.subject, ...(room.activeGameId ? { gameId: room.activeGameId } : {}), credentialId,
       status: "running", gen: 0, step: 0, maxSteps: LIMITS.maxSteps, deadline: now + LIMITS.turnMs,
-      usage: { inputTokens: 0, outputTokens: 0, reservedTokens: 0, reservedUsd: 0 }, tools: [], createdAt: now, updatedAt: now,
+      usage: { inputTokens: 0, outputTokens: 0, reservedTokens: 0, reservedUsd: 0, billedTokens: 0 }, tools: [], createdAt: now, updatedAt: now,
     });
     const last = await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId!)).order("desc").first();
     await ctx.db.insert("assistantMessages", { threadId, turnId, seq: (last?.seq ?? 0) + 1, role: "user", text, status: "done", createdAt: now, updatedAt: now });
@@ -225,7 +225,9 @@ export const thread = query({
       })),
       messages: messages.map(m => ({
         _id: m._id, turnId: m.turnId, seq: m.seq, role: m.role, text: m.text, status: m.status,
-        reservedTokens: m.reservedTokens ?? null, inputTokens: m.inputTokens ?? null, outputTokens: m.outputTokens ?? null, createdAt: m.createdAt,
+        reservedTokens: m.reservedTokens ?? null, inputTokens: m.inputTokens ?? null, outputTokens: m.outputTokens ?? null,
+        cacheReadTokens: m.cacheReadTokens ?? null, cacheWriteTokens: m.cacheWriteTokens ?? null, billedTokens: m.billedTokens ?? null,
+        inputEstimate: m.inputEstimate ?? null, usageEstimated: m.usageEstimated ?? false, createdAt: m.createdAt,
       })),
       toolCalls: toolCalls.map(c => ({
         _id: c._id, turnId: c.turnId, messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status,

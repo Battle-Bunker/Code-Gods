@@ -30,7 +30,7 @@
  *   FAKE_OIDC_URL   → the fake OIDC server (enables Better Auth's provider "fake" with fixtures on)
  *   ADMIN_EMAILS    admin@example.test (the fake "admin") and unverified@example.test (never verified)
  *   SEASON_SALT, AI_MOCK=1, TEST_FIXTURES=1 (enables convex/auth/testing.ts)
- * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY (scripts/assistant-provider.mjs; the assistant starts mocked)
+ * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY, OPENAI_API_KEY (scripts/assistant-provider.mjs; the assistant starts mocked)
  */
 import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { spawnSync, spawn } from "node:child_process";
@@ -90,7 +90,7 @@ setEnv(vars);
 console.log(`[dev] env: ${Object.keys(vars).join(", ")}`);
 // Back to the mock assistant on every start (scripts/assistant-provider.mjs `live` sets these), so the
 // mock-scripted suites (test/game-assistant.test.ts) never reach a real provider and spend money by accident.
-for (const name of ["ASSISTANT_LIVE", "ANTHROPIC_API_KEY"]) {
+for (const name of ["ASSISTANT_LIVE", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]) {
   if (current(name) && convex(["env", "remove", name], { stdio: ["ignore", "ignore", "inherit"] }).status !== 0) {
     console.error(`[dev] removing ${name} failed`); process.exit(1);
   }

@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LIMITS, buildHistory, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
+import { LIMITS, UNANSWERED_NOTES, buildHistory, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
 
 const think = (signature: string) => ({ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature } });
 const user = (id: string, turnId: string, text: string): HistoryRow => ({ id, turnId, role: "user", text });
@@ -67,4 +67,30 @@ test("rows without stored blocks are rebuilt from text and calls; a tool use wit
     { role: "assistant", content: [{ type: "tool_use", id: "toolu_9", name: "whoami", input: {} }] },
     { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_9", content: '{"error":{"code":"NOT_RUN","message":"This call did not run."}}', isError: true }] },
   ]);
+});
+
+test("an earlier turn that ended without its answer closes with an engine note; a finished one and the current turn get none", () => {
+  const rows = [
+    user("u1", "A", "what is my utility?"),
+    user("u2", "B", "and my energy?"), step("m2", "B", [{ type: "text", text: "Let me check." }, { type: "tool_use", id: "toolu_1", name: "get_observation", input: {} }]),
+    user("u3", "C", "thanks"), step("m3", "C", [{ type: "text", text: "You are welcome." }]),
+    user("u4", "D", "now?"),
+  ];
+  const calls = [call("m2", "toolu_1", "get_observation", {})];
+  const history = buildHistory(rows, calls, { turnId: "D", briefing: "<briefing/>", endings: { A: "budget_exhausted", B: "cancelled", C: "done", D: "running" } });
+  const notes = history.flatMap(m => m.role === "user" && typeof m.content !== "string" ? m.content.flatMap(b => b.type === "text" && b.text.startsWith("Engine note") ? [b.text] : []) : []);
+  assert.deepEqual(notes, [UNANSWERED_NOTES.budget_exhausted, UNANSWERED_NOTES.cancelled], "A's and B's notes, in order; none for C or D");
+  assert.match(UNANSWERED_NOTES.budget_exhausted!, /allowance ran out[\s\S]*UNANSWERED/);
+  // The note follows the turn it closes: A's question, then its note, before B's question.
+  assert.deepEqual(history.slice(0, 2), [
+    { role: "user", content: "what is my utility?" },
+    { role: "user", content: [{ type: "text", text: UNANSWERED_NOTES.budget_exhausted }] },
+  ]);
+  // A "done" turn that hit the step limit, and a deadline failure, are named as such.
+  assert.equal(turnEnding("done", "STEP_LIMIT"), "step_limit");
+  assert.equal(turnEnding("failed", "DEADLINE"), "deadline");
+  assert.equal(turnEnding("done"), "done");
+  assert.match(UNANSWERED_NOTES.step_limit!, /step limit/);
+  // Without endings (older callers) nothing changes.
+  assert.ok(!JSON.stringify(buildHistory(rows, calls, { turnId: "D" })).includes("Engine note"));
 });

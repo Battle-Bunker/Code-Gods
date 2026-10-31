@@ -295,14 +295,20 @@ NOT_FOUND).
   the same turn, run without a card (0 = always ask).
 - `assistant.status({roomId})` query → `{enabled, allowance{limit, used, epoch}, model{id, label, provider}|null,
   credential{credentialId, permission, expiresAt}|null, activeTurn{turnId, threadId, status}|null, isOwner, maxPermission,
-  autoApproveSummonBits}`.
+  autoApproveSummonBits}`. `allowance.used` counts billed tokens: input-price equivalents, so a prompt-cache read counts
+  its price relative to input (0.1 at Anthropic, 0.25 at OpenAI), an Anthropic cache write 1.25, uncached input and
+  output 1 (`lib/ai-player` `usageCost`). A step reserves its worst case (estimated input at its dearest price plus the
+  output ceiling) and settles to what it cost; a cancelled step is billed from what was known (its reported input and
+  the streamed output), never its whole reservation.
 - `assistant.threads({roomId})` query → `[{_id, title, createdAt, updatedAt, activeTurnId}]` (the caller's, newest first).
 - `assistant.thread({threadId})` query → `{thread, turns[{_id, status: running|awaiting_confirmation|cancelling|done|failed|cancelled|budget_exhausted,
-  step, maxSteps, deadline, usage{inputTokens, outputTokens, reservedTokens, reservedUsd}, tools, credentialId, error|null, …}],
-  messages[{_id, turnId, seq, role, text, status: streaming|done|error|cancelled, reservedTokens, inputTokens, outputTokens}],
+  step, maxSteps, deadline, usage{inputTokens, outputTokens, reservedTokens, reservedUsd, billedTokens}, tools, credentialId, error|null, …}],
+  messages[{_id, turnId, seq, role, text, status: streaming|done|error|cancelled, reservedTokens, inputTokens, outputTokens,
+  cacheReadTokens, cacheWriteTokens, billedTokens, inputEstimate, usageEstimated}],
   toolCalls[{_id, turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied,
   summary, resultJson, commandId, confirmDeadline}]}`. `argsJson` is the exact payload the call runs with; `resultJson` is
-  the registry result the model saw (`{untrusted: true, …}` or `{error}`), at most 8 KB.
+  the registry result the model saw (`{untrusted: true, …}` or `{error}`), at most 8 KB; a clipped one starts with a
+  `TRUNCATED` field naming what was cut ("data.objects shows 11 of 60 items") and ends with `truncated: true`.
 
 Internal: `assistant/step:run({turnId, gen})` (one Node action per model step), `assistant/store:*` (the turn loop's
 mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", …})`.
