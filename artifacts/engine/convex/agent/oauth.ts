@@ -20,6 +20,7 @@ import type { HttpRouter } from "convex/server";
 import { jwtVerify, createLocalJWKSet } from "jose";
 import { internal } from "../_generated/api";
 import { httpAction, type ActionCtx } from "../_generated/server";
+import { bounded, guarded as guardedAs, json as jsonResponse, printable, readBody as readCapped } from "../lib/http";
 import { PLAYER_JWT_AUDIENCE, playerIssuer, siteUrl } from "../auth/config";
 import { pkceChallenge, randomToken, sha256Hex } from "../auth/crypto";
 import { jwks, mintPlayerJwt } from "../auth/jwt";
@@ -34,8 +35,7 @@ const CIMD_TIMEOUT_MS = 5000;
 const SCOPES = ["read", "act", "owner"];
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type, mcp-protocol-version", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
-const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Pragma: "no-cache", ...cors, ...headers } });
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => jsonResponse(body, status, { Pragma: "no-cache", ...cors, ...headers });
 const oauthError = (error: string, description: string, status = 400) => json({ error, error_description: description }, status);
 /** An error shown to the human instead of redirecting (unknown client or redirect URI: never redirect there). */
 const page = (message: string, status = 400) => new Response(`Code Gods could not start this connection: ${message}`, {
@@ -48,25 +48,28 @@ function back(redirectUri: string, params: Record<string, string | null | undefi
   return redirect(url.toString());
 }
 const extraRedirects = () => envList(process.env.CODE_GODS_OAUTH_REDIRECT_URIS);
-const bounded = (value: unknown, min: number, max: number): value is string => typeof value === "string" && value.length >= min && value.length <= max;
-const printable = (value: string) => !/[\u0000-\u001f\u007f]/.test(value);
+const guarded = (handler: (ctx: ActionCtx, request: Request) => Promise<Response>) => guardedAs("oauth route", () => json({ error: "server_error" }, 500), handler);
+/** JSON, or a form body (the token and revocation endpoints). */
+const readBody = (request: Request) => readCapped(request, MAX_BODY_BYTES, { form: true });
 
-function guarded(handler: (ctx: ActionCtx, request: Request) => Promise<Response>) {
-  return httpAction(async (ctx, request) => {
-    try { return await handler(ctx, request); } catch (error) {
-      console.error("oauth route failed", new URL(request.url).pathname, error instanceof Error ? error.message : "unknown");
-      return json({ error: "server_error" }, 500);
-    }
-  });
-}
-async function readBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return null;
-  const text = await request.text();
-  if (text.length > MAX_BODY_BYTES) return null;
-  if ((request.headers.get("content-type") ?? "").includes("application/json")) {
-    try { const value = JSON.parse(text || "{}"); return value && typeof value === "object" && !Array.isArray(value) ? value : null; } catch { return null; }
+type ClientMetadata = { clientName: string; redirectUris: string[] };
+/**
+ * The client metadata DCR and client ID metadata documents share: 1-10 acceptable redirect URIs, a public client
+ * (token_endpoint_auth_method none) and a printable, self-reported name (else `fallbackName`).
+ */
+function validateClientMetadata(doc: Record<string, unknown>, fallbackName: string): ClientMetadata | { error: string; description: string } {
+  const uris = doc.redirect_uris;
+  if (!Array.isArray(uris) || !uris.length || uris.length > 10 || !uris.every(u => typeof u === "string")) {
+    return { error: "invalid_redirect_uri", description: "redirect_uris: 1-10 URIs required" };
   }
-  return Object.fromEntries(new URLSearchParams(text));
+  if (!uris.every(u => redirectAllowedForRegistration(u, extraRedirects()))) {
+    return { error: "invalid_redirect_uri", description: "Only Claude's connector callback and loopback (http://127.0.0.1:<port>/…, http://localhost:<port>/…) redirect URIs are accepted" };
+  }
+  if ((doc.token_endpoint_auth_method ?? "none") !== "none") {
+    return { error: "invalid_client_metadata", description: "Only public clients (token_endpoint_auth_method none) are supported" };
+  }
+  const name = typeof doc.client_name === "string" && doc.client_name.trim() && printable(doc.client_name) ? doc.client_name.trim().slice(0, 120) : fallbackName;
+  return { clientName: name, redirectUris: uris };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -94,18 +97,11 @@ const metadata = (body: () => unknown) => guarded(async () => json(body(), 200, 
 // ---------------------------------------------------------------------------------------------
 
 const register = guarded(async (ctx, request) => {
-  const body = await readBody(request);
+  const body = await readCapped(request, MAX_BODY_BYTES);
   if (!body) return oauthError("invalid_client_metadata", "JSON body required (max 16 KiB)");
-  const uris = body.redirect_uris;
-  if (!Array.isArray(uris) || !uris.length || uris.length > 10 || !uris.every(u => typeof u === "string")) {
-    return oauthError("invalid_redirect_uri", "redirect_uris: 1-10 URIs required");
-  }
-  if (!uris.every(u => redirectAllowedForRegistration(u, extraRedirects()))) {
-    return oauthError("invalid_redirect_uri", "Only Claude's connector callback and loopback (http://127.0.0.1:<port>/…, http://localhost:<port>/…) redirect URIs are accepted");
-  }
-  const method = body.token_endpoint_auth_method ?? "none";
-  if (method !== "none") return oauthError("invalid_client_metadata", "Only public clients (token_endpoint_auth_method none) are supported");
-  const name = typeof body.client_name === "string" && body.client_name.trim() && printable(body.client_name) ? body.client_name.trim().slice(0, 120) : "Unnamed MCP client";
+  const metadata = validateClientMetadata(body, "Unnamed MCP client");
+  if ("error" in metadata) return oauthError(metadata.error, metadata.description);
+  const { clientName: name, redirectUris: uris } = metadata;
   const clientId = randomToken("cgo_", 24);
   const registered = await ctx.runMutation(internal.agent.oauthStore.registerClient, { clientId, clientName: name, redirectUris: uris });
   if (!registered.ok) {
@@ -123,7 +119,7 @@ const register = guarded(async (ctx, request) => {
  * loopback or link-local address or an internal name (cimdUrlProblem), no redirects, a 5 s timeout and a
  * 32 KiB cap. Hostnames are resolved by the platform's fetch, which this code cannot pin.
  */
-async function fetchCimd(clientId: string): Promise<{ clientName: string; redirectUris: string[] } | string> {
+async function fetchCimd(clientId: string): Promise<ClientMetadata | string> {
   const problem = cimdUrlProblem(clientId);
   if (problem) return problem;
   let response: Response;
@@ -136,17 +132,12 @@ async function fetchCimd(clientId: string): Promise<{ clientName: string; redire
   if (text.length > CIMD_MAX_BYTES) return "client metadata too large";
   let doc: Record<string, unknown>;
   try { doc = JSON.parse(text); } catch { return "client metadata is not JSON"; }
-  if (!doc || typeof doc !== "object" || doc.client_id !== clientId) return "client metadata must name the same client_id";
-  const uris = doc.redirect_uris;
-  if (!Array.isArray(uris) || !uris.length || uris.length > 10 || !uris.every(u => typeof u === "string" && redirectAllowedForRegistration(u, extraRedirects()))) {
-    return "client metadata redirect_uris are not acceptable";
-  }
-  if ((doc.token_endpoint_auth_method ?? "none") !== "none") return "only public clients are supported";
-  const name = typeof doc.client_name === "string" && doc.client_name.trim() && printable(doc.client_name) ? doc.client_name.trim().slice(0, 120) : new URL(clientId).hostname;
-  return { clientName: name, redirectUris: uris as string[] };
+  if (!doc || typeof doc !== "object" || Array.isArray(doc) || doc.client_id !== clientId) return "client metadata must name the same client_id";
+  const metadata = validateClientMetadata(doc, new URL(clientId).hostname);
+  return "error" in metadata ? `client metadata: ${metadata.description}` : metadata;
 }
 
-async function clientFor(ctx: ActionCtx, clientId: string): Promise<{ clientName: string; redirectUris: string[] } | string> {
+async function clientFor(ctx: ActionCtx, clientId: string): Promise<ClientMetadata | string> {
   if (!bounded(clientId, 1, 512)) return "client_id required";
   const cached = await ctx.runQuery(internal.agent.oauthStore.getClient, { clientId });
   if (cached && (cached.kind === "dcr" || Date.now() - (cached.fetchedAt ?? 0) < CIMD_CACHE_MS)) return cached;
