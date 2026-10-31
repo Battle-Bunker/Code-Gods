@@ -10,6 +10,11 @@ export {
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
 export { INT_FAMILIES } from "./families/int.ts";
 export { STRING_FAMILIES } from "./families/string.ts";
+export type {
+  Annotation, AnnotationKind, AnnotationTone, AnnotatedCell, AnnotatedSpan, BadgeAnnotation, CellsAnnotation, DigitsAnnotation,
+  RegionAnnotation, SpansAnnotation,
+} from "./annotations.ts";
+export { ANNOTATORS, annotatorFor, type Annotator, type FamilyId } from "./families/annotators.ts";
 export {
   tableFor, hasTable, surprisal, penaltyMeanBits, offeredInstantiations, UNIFORM_PRIOR, priorKey,
   type CalibrationTable, type PriorRef,

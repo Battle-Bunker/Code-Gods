@@ -1,5 +1,6 @@
 export * from "./registry.ts";
 export * from "./grid-display.ts";
+export * from "./annotations.ts";
 export * from "./views.tsx";
 export * from "./rarity.ts";
 export * from "./catalog.ts";

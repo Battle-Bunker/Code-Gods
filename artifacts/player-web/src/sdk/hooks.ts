@@ -117,21 +117,22 @@ export function useMyUtility(): MyUtility | null | undefined {
 
 /**
  * Your utility function, runnable in the browser: `score(value)` and `apply(value, calls)`. Undefined
- * while the scoring libraries load or when you are not seated in the current game.
+ * while the scoring libraries load or when you are not seated in the current game. `enabled: false`
+ * keeps the scoring libraries and calibration tables from loading until a caller needs them.
  */
-export function useEvaluator(): Evaluator | undefined {
+export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Evaluator | undefined {
   const mine = useMyUtility();
   const [evaluator, setEvaluator] = useState<{ key: string; value: Evaluator }>();
   const key = mine ? `${mine.gameId}:${mine.godId}` : "";
   useEffect(() => {
-    if (!mine || evaluator?.key === key) return;
+    if (!enabled || !mine || evaluator?.key === key) return;
     let live = true;
     void createEvaluator(mine.settings as GameSettings, mine.utility as UtilityDescriptor)
       .then(value => { if (live) setEvaluator({ key, value }); })
       .catch(error => console.warn("[sdk] evaluator unavailable:", error));
     return () => { live = false; };
-  }, [key, mine, evaluator?.key]);
-  return mine && evaluator?.key === key ? evaluator.value : undefined;
+  }, [enabled, key, mine, evaluator?.key]);
+  return enabled && mine && evaluator?.key === key ? evaluator.value : undefined;
 }
 
 // ------------------------------------------------------------------------------------------------

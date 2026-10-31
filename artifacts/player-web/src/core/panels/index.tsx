@@ -25,8 +25,11 @@ export const PANEL_VIEWS = {
   agents: Agents, feed: Feed, "what-if": WhatIf, "public-chat": PublicChat, forge: Forge, results: Results, rules: Rules,
 } satisfies { [K in PanelId]: PanelView<K> };
 
-/** Panels that are useful outside their data phases too (the editor in the lobby, results of the last game). */
-const ALWAYS_RENDER: ReadonlySet<PanelId> = new Set(["overview", "public-chat", "rules", "results", "forge", "what-if"]);
+/**
+ * Panels that are useful outside their data phases too (the editor in the lobby, results of the last game, the default
+ * objects panel, whose empty state says what will appear and offers the next step).
+ */
+const ALWAYS_RENDER: ReadonlySet<PanelId> = new Set(["overview", "objects", "public-chat", "rules", "results", "forge", "what-if"]);
 
 class PanelViewBoundary extends Component<{ children: ReactNode; panelId: PanelId }, { error: Error | null }> {
   state = { error: null as Error | null };

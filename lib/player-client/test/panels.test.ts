@@ -33,7 +33,7 @@ test("every parameter is optional with a default, except what-if's objectId and 
   assert.ok(ok.ok && ok.params.compare === undefined);
   const bad = parsePanelParams("objects", { limit: 1000, sortBy: "nope" });
   assert.ok(!bad.ok && bad.issues.some(i => i.startsWith("limit")) && bad.issues.some(i => i.startsWith("sortBy")));
-  assert.deepEqual(parsePanelParams("objects", { limit: 5 }), { ok: true, params: { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" } }, "partial params fill the rest with defaults");
+  assert.deepEqual(parsePanelParams("objects", { limit: 5 }), { ok: true, params: { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "mine" } }, "partial params fill the rest with defaults");
   assert.equal(parsePanelParams("forge", { source: "x".repeat(16385) }).ok, false, "a draft is bounded like an agent source");
   assert.equal(parsePanelParams("objects", { highlight: Array.from({ length: 9 }, (_, i) => `o${i}`) }).ok, false, "≤ 8 highlighted objects");
 });
@@ -41,6 +41,8 @@ test("every parameter is optional with a default, except what-if's objectId and 
 test("summaries read as pane captions", () => {
   assert.equal(panelSummary("objects", {}), "Top 12 by payoff");
   assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "Top 5 by payoff · only ones others care about · grid");
+  assert.equal(panelSummary("objects", { annotate: "none" }), "Top 12 by payoff · no marks");
+  assert.equal(parsePanelParams("objects", { annotate: "theirs" }).ok, false, "only your own utility can be annotated");
   assert.equal(panelSummary("race", {}), "Everyone · total payoff · last 300 s");
   assert.equal(panelSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(panelSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");
@@ -49,8 +51,8 @@ test("summaries read as pane captions", () => {
   assert.equal(panelSummary("overview", {}), "Situation, standing, next step");
 });
 
-test("the default panel is overview everywhere except after the game ends; ids are checked", () => {
-  for (const phase of ["lobby", "planning", "running", "paused"] as const) assert.equal(defaultPanelFor(phase), "overview");
+test("the default panel is the objects ranked by payoff everywhere except after the game ends; ids are checked", () => {
+  for (const phase of ["lobby", "planning", "running", "paused"] as const) assert.equal(defaultPanelFor(phase), "objects");
   assert.equal(defaultPanelFor("ended"), "results");
   assert.equal(isPanelId("objects"), true);
   assert.equal(isPanelId("stored"), false);

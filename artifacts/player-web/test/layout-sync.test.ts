@@ -113,7 +113,7 @@ test("sameLayout ignores sub-pixel size drift but not structure, panels or a rea
   assert.ok(!sameLayout(base, resized));
   assert.ok(!sameLayout(base, sideBySide));
   assert.ok(!sameLayout(base, setPanePanel(base, "p1", "race", "human")));
-  assert.ok(!sameLayout(base, setPaneParams(base, "p1", { focus: "goal" }, "assistant")));
+  assert.ok(!sameLayout(base, setPaneParams(base, "p1", { limit: 5 }, "assistant")));
 });
 
 test("history: an assistant change can be undone (‹) and reset (↺); a human change or a first view cannot", () => {
@@ -124,11 +124,11 @@ test("history: an assistant change can be undone (‹) and reset (↺); a human 
   assert.ok(canUndo(h, assisted.panes.p1));
   const undone = back(h, "p1");
   assert.ok(undone);
-  assert.deepEqual(undone.view, { panelId: "overview", params: { focus: "auto" }, setBy: "default" });
+  assert.deepEqual(undone.view, { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "default" });
   assert.ok(!canUndo(undone.history, assisted.panes.p1), "one step of history");
   const human = setPanePanel(base, "p1", "race", "human");
   assert.ok(!canUndo(observe(emptyHistory, base, human), human.panes.p1), "the player's own choices have no ‹");
-  assert.deepEqual(resetView(assisted.panes.p1), { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "human" });
+  assert.deepEqual(resetView(assisted.panes.p1), { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "human" });
 });
 
 test("history: the dropdown restores the parameters last used for a panel in that pane", () => {
@@ -136,7 +136,7 @@ test("history: the dropdown restores the parameters last used for a panel in tha
   let h = observe(observe(emptyHistory, null, base), base, assisted);
   const away = setPanePanel(assisted, "p1", "race", "human");
   h = observe(h, assisted, away);
-  assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" });
+  assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "mine" });
   assert.equal(lastParams(h, "p1", "feed"), undefined);
   assert.equal(lastParams(h, "p9", "objects"), undefined);
 });
@@ -147,7 +147,7 @@ test("showing a panel reuses its open pane, adds one otherwise, and at four pane
   assert.equal(again.layout.panes.p3?.kind === "panel" && again.layout.panes.p3.panelId, "race");
   assert.equal(Object.keys(again.layout.panes).length, 3, "no second race pane");
   let layout = base;
-  for (const id of ["race", "feed", "objects"] as const) layout = parseLayout(showPanel(layout, id).layout, ctx).layout;
+  for (const id of ["race", "feed", "agents"] as const) layout = parseLayout(showPanel(layout, id).layout, ctx).layout;
   assert.equal(panelPanesOf(layout).length, 4);
   const full = showPanel(layout, "public-chat", undefined, "p3");
   assert.ok(full.replaced);
