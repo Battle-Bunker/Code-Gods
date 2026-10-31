@@ -129,8 +129,8 @@ export function modelTools(permission: "read" | "act" | "owner"): ModelTool[] {
 export function argsLimit(tool: string): number {
   if (tool === "save_panel") return 70_000;
   if (tool === "validate_agent" || tool === "summon_agent") return 20_000;
-  // A forge draft (open_lens forge {source}) is an agent source too.
-  if (tool === "open_lens" || tool === "set_lens_params") return 20_000;
+  // A forge draft (open_panel forge {source}) is an agent source too.
+  if (tool === "open_panel" || tool === "set_panel_params") return 20_000;
   return LIMITS.argsChars;
 }
 

@@ -3,7 +3,7 @@
  * one step line per model step, the confirmation-card state machine and its plain sentence, the allowance meter and
  * tool-chip views. Unit-tested in test/assistant-state.test.ts.
  */
-import { LENSES, isLensId } from "@workspace/player-client/lenses";
+import { PANELS, isPanelId } from "@workspace/player-client/panels";
 import type { ToolName } from "@workspace/player-client/tools";
 
 export type MessageRow = { _id: string; turnId: string; seq: number; role: "user" | "assistant"; text: string; status: "streaming" | "done" | "error" | "cancelled" };
@@ -134,9 +134,8 @@ export const STEP_VERBS = {
   rollback_panel: ["rolled back a panel", "rolling back a panel", "roll back a panel"],
   delete_panel: ["deleted a panel", "deleting a panel", "delete a panel"],
   get_layout: ["looked at your screen", "looking at your screen", "look at your screen"],
-  open_lens: ["showed a view", "showing a view", "show a view"],
-  set_lens_params: ["adjusted a view", "adjusting a view", "adjust a view"],
-  open_panel: ["opened a panel", "opening a panel", "open a panel"],
+  open_panel: ["showed a panel", "showing a panel", "show a panel"],
+  set_panel_params: ["adjusted a panel", "adjusting a panel", "adjust a panel"],
   move_pane: ["moved a pane", "moving a pane", "move a pane"],
   close_pane: ["closed a pane", "closing a pane", "close a pane"],
 } as const satisfies Record<ToolName, readonly [string, string, string]>;
@@ -145,9 +144,9 @@ function argsOf(call: CallRow): Record<string, unknown> {
   try { const value = JSON.parse(call.argsJson) as unknown; return value && typeof value === "object" ? value as Record<string, unknown> : {}; } catch { return {}; }
 }
 function verbs(call: CallRow): readonly [string, string, string] {
-  if (call.tool === "open_lens") {
-    const lensId = argsOf(call).lensId;
-    if (isLensId(lensId)) { const title = LENSES[lensId].title; return [`showed ${title}`, `showing ${title}`, `show ${title}`]; }
+  if (call.tool === "open_panel") {
+    const panelId = argsOf(call).panelId;
+    if (isPanelId(panelId)) { const title = PANELS[panelId].title; return [`showed ${title}`, `showing ${title}`, `show ${title}`]; }
   }
   const known = (STEP_VERBS as Record<string, readonly [string, string, string]>)[call.tool];
   if (known) return known;

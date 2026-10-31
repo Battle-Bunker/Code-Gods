@@ -14,7 +14,7 @@ import {
   DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
-import { defaultLensParams, lensCatalog } from "@workspace/player-client/lenses";
+import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
@@ -127,16 +127,15 @@ type PanelMeta = { slug: string; title: string; enabled: boolean; placement: str
 const LAYOUT_EXECUTORS = {
   get_layout: async (ctx, { principal }) => {
     const current: CurrentLayout = await ctx.runQuery(internal.layout.currentAs, { principal });
-    const panels: PanelMeta[] = await ctx.runQuery(internal.panels.listAs, { principal });
-    const lenses = lensCatalog().map(entry => ({ ...entry, defaults: defaultLensParams(entry.id) }));
-    return { data: { ...current, lenses, storedPanels: panels.filter(p => p.enabled).map(p => ({ slug: p.slug, title: p.title, placement: p.placement, size: p.size })) } };
+    const stored: PanelMeta[] = await ctx.runQuery(internal.panels.listAs, { principal });
+    const panels = panelCatalog().map(entry => ({ ...entry, defaults: defaultPanelParams(entry.id) }));
+    return { data: { ...current, panels, storedPanels: stored.filter(p => p.enabled).map(p => ({ slug: p.slug, title: p.title, placement: p.placement, size: p.size })) } };
   },
-  open_lens: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.openLensAs, { principal, ...args }) satisfies LayoutChange }),
-  set_lens_params: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.setLensParamsAs, { principal, ...args }) satisfies LayoutChange }),
   open_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.openPanelAs, { principal, ...args }) satisfies LayoutChange }),
+  set_panel_params: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.setPanelParamsAs, { principal, ...args }) satisfies LayoutChange }),
   move_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.movePaneAs, { principal, ...args }) satisfies LayoutChange }),
   close_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.closePaneAs, { principal, ...args }) satisfies LayoutChange }),
-} satisfies Pick<Executors, "get_layout" | "open_lens" | "set_lens_params" | "open_panel" | "move_pane" | "close_pane">;
+} satisfies Pick<Executors, "get_layout" | "open_panel" | "set_panel_params" | "move_pane" | "close_pane">;
 
 export const EXECUTORS: Executors = {
   ...PANEL_EXECUTORS,

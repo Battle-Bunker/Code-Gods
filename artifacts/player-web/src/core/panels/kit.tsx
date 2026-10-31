@@ -1,23 +1,23 @@
 /**
- * What every lens renderer shares: its props, the empty state that names the next step, quiet section headings,
+ * What every panel renderer shares: its props, the empty state that names the next step, quiet section headings,
  * big numbers, and the object reference a click puts into the assistant's composer. One `--card` surface per pane:
  * nothing here draws a frame of its own.
  */
 import { useMemo, type ReactNode } from "react";
-import { LENSES, type LensId, type LensParams, type Phase } from "@workspace/player-client/lenses";
+import { PANELS, type PanelId, type PanelParams, type Phase } from "@workspace/player-client/panels";
 import type { LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
 
-export type LensProps<K extends LensId> = {
+export type PanelProps<K extends PanelId> = {
   paneId: string;
-  /** Parsed with the lens's schema (invalid → defaults); null only for what-if, which has no defaults. */
-  params: K extends "what-if" ? LensParams<K> | null : LensParams<K>;
+  /** Parsed with the panel's schema (invalid → defaults); null only for what-if, which has no defaults. */
+  params: K extends "what-if" ? PanelParams<K> | null : PanelParams<K>;
   phase: Phase;
 };
-export type LensView<K extends LensId> = (props: LensProps<K>) => ReactNode;
+export type PanelView<K extends PanelId> = (props: PanelProps<K>) => ReactNode;
 
-/** A lens's empty state: one plain sentence, optionally the one action that fixes it. */
-export function LensEmpty({ children, action, testId }: { children: ReactNode; action?: ReactNode; testId?: string }) {
+/** A panel's empty state: one plain sentence, optionally the one action that fixes it. */
+export function PanelEmpty({ children, action, testId }: { children: ReactNode; action?: ReactNode; testId?: string }) {
   return (
     <div className="flex h-full min-h-24 flex-col items-start justify-center gap-3 text-sm text-muted-foreground" data-testid={testId}>
       <p className="max-w-[60ch]">{children}</p>
@@ -26,7 +26,7 @@ export function LensEmpty({ children, action, testId }: { children: ReactNode; a
   );
 }
 
-/** A quiet heading inside a lens (not a card). */
+/** A quiet heading inside a panel (not a card). */
 export function Section({ title, children, aside }: { title: string; children: ReactNode; aside?: ReactNode }) {
   return (
     <section className="space-y-2">
@@ -45,7 +45,7 @@ export function BigNumber({ label, value, testId, tone }: { label: string; value
   );
 }
 
-/** A small text button (secondary actions inside a lens). */
+/** A small text button (secondary actions inside a panel). */
 export function TextButton({ children, onClick, disabled, testId, tone, title }: { children: ReactNode; onClick: () => void; disabled?: boolean; testId?: string; tone?: "danger"; title?: string }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} data-testid={testId} title={title}
@@ -55,7 +55,7 @@ export function TextButton({ children, onClick, disabled, testId, tone, title }:
   );
 }
 
-/** The one primary action of a lens (the next step, Send, Summon): --primary is reserved for it. */
+/** The one primary action of a panel (the next step, Send, Summon): --primary is reserved for it. */
 export function PrimaryButton({ children, onClick, disabled, testId, type = "button" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; testId?: string; type?: "button" | "submit" }) {
   return (
     <button type={type} onClick={onClick} disabled={disabled} data-testid={testId}
@@ -73,7 +73,7 @@ export function GhostButton({ children, onClick, disabled, testId, type = "butto
   );
 }
 
-/** "#3" for every object: its rank by payoff, the same number in every lens and in the chat. */
+/** "#3" for every object: its rank by payoff, the same number in every panel and in the chat. */
 export function useObjectRanks(objects: readonly LiveObject[]) {
   return useMemo(() => new Map([...objects].sort((a, b) => b.payoff - a.payoff).map((o, i) => [o.id, i + 1])), [objects]);
 }
@@ -81,12 +81,12 @@ export function useObjectRanks(objects: readonly LiveObject[]) {
 export const referObject = (rank: number | undefined) => { if (rank) composer.fill(`object #${rank}`); };
 
 const PHASE_WORD: Record<Phase, string> = { lobby: "in the lobby", planning: "during planning", running: "while the world runs", paused: "while it is paused", ended: "after the game" };
-/** Where a lens has data, in words ("while the world runs, while it is paused"). */
-export const phasesText = (lensId: LensId) => LENSES[lensId].phases.map(p => PHASE_WORD[p]).join(", ").replace(/, ([^,]*)$/, " or $1");
+/** Where a panel has data, in words ("while the world runs, while it is paused"). */
+export const phasesText = (panelId: PanelId) => PANELS[panelId].phases.map(p => PHASE_WORD[p]).join(", ").replace(/, ([^,]*)$/, " or $1");
 
-/** A lens opened outside its phases: say when it fills, and the next step now. */
-export function outOfPhase(lensId: LensId, phase: Phase): string {
-  const when = `${LENSES[lensId].title} shows data ${phasesText(lensId)}.`;
+/** A panel opened outside its phases: say when it fills, and the next step now. */
+export function outOfPhase(panelId: PanelId, phase: Phase): string {
+  const when = `${PANELS[panelId].title} shows data ${phasesText(panelId)}.`;
   const next: Record<Phase, string> = {
     lobby: "The game hasn't started: the owner starts it from the room.",
     planning: "Planning is on: write your first agent before the world starts.",

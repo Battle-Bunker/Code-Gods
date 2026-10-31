@@ -17,23 +17,23 @@ local checkout, GitHub Codespaces, Gitpod or Replit.
   hosts, `CODE_GODS_ALLOWED_HOSTS`).
 - **The screen:** a header (who, the phase, the command palette: Cmd/Ctrl+K) over a dock of panes
   (`src/dock/`, dockview on desktop, a stacked layout with the assistant as a bottom sheet on phones). By
-  default one built-in **lens** (`src/lenses/<id>.tsx`, metadata in `lib/player-client/src/lenses.ts`) on top
-  and the player's **assistant** below. The player picks a pane's lens from its header menu; only the assistant
-  sets a lens's parameters. The arrangement is stored per human per room (`layout.current` / `layout.set`) and
+  default one built-in **panel** (`src/core/panels/<id>.tsx`, metadata in `lib/player-client/src/panels.ts`) on top
+  and the player's **assistant** below. The player picks a pane's panel from its header menu; only the assistant
+  sets a panel's parameters. The arrangement is stored per human per room (`layout.current` / `layout.set`) and
   follows the player to every open client.
-- **Custom views and tools the player asks for:** first check whether a built-in lens shows it (the assistant
+- **Custom views and tools the player asks for:** first check whether a built-in panel shows it (the assistant
   can set its parameters). Otherwise write a panel, one file in `src/panels/`. Read
   [`docs/panels.md`](../../docs/panels.md) first: the SDK (`@sdk`), rules, performance limits and
   examples. A new file opens as a pane by itself, live; errors stay inside that pane. Closed panes come back
-  from the lens menu ("Your panels") or the palette ("Open file panel: …").
+  from the panel menu ("Your panels") or the palette ("Open file panel: …").
 - **Panels that follow the player everywhere:** store the same TSX in the engine with
   `pnpm -s player panel push <slug>` (it saves `src/panels/<slug>.tsx`; `--file PATH` for another file). Every
   open client of the player, hosted or dev server, updates live. Read the "Stored panels" section of
   [`docs/panels.md`](../../docs/panels.md): only `react` and `@sdk` imports, the limits, and the confirmation
   the player sees for chat, summon, destroy and pause. Fix any `diagnostics` the push prints and push again.
   Before pushing, the "sandbox" button in a file panel's header shows how it runs as a stored panel. A stored
-  panel shows once it is opened as a pane (the assistant's `open_panel`, the lens menu or the palette).
-- **Do not edit** `src/core/` (the protected header, assistant and game commands), `src/dock/`, `src/lenses/`,
+  panel shows once it is opened as a pane (the assistant's `open_panel`, the panel menu or the palette).
+- **Do not edit** `src/core/` (the protected header, assistant, game commands and built-in panels), `src/dock/`,
   `src/shell/`, `src/sdk/` or `src/frame/` to add a feature.
 - **See the live game as JSON** while writing code: `pnpm -s player state --pretty`.
 - **Acting for the player** in the room (summon, chat, owner actions): see

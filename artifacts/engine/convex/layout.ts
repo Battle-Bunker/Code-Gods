@@ -2,24 +2,24 @@
  * The player client's dock layout (docs/ui-redesign.md §2.3–2.4): one row per human per room in `dockLayouts`.
  *
  *   current({roomId})                       read   the room's layout, or the human's most recent one from another room
- *                                                  with lens parameters reset, or DEFAULT_LAYOUT(phase)
+ *                                                  with panel parameters reset, or DEFAULT_LAYOUT(phase)
  *   set({roomId, layout, ifUpdatedAt?})     write  a whole layout (a drag, the dropdown, the palette); CONFLICT when
  *                                                  `ifUpdatedAt` is stale, RATE_LIMITED past 12 writes a minute
  *
  * Internal twins `currentAs`/`setAs` take `principal: {credentialId}`; the layout tools' executors use the operation
- * twins below (openLensAs, setLensParamsAs, openPanelAs, movePaneAs, closePaneAs), each one read-modify-write in a
+ * twins below (openPanelAs, setPanelParamsAs, movePaneAs, closePaneAs), each one read-modify-write in a
  * single mutation, so an assistant's change lands on the latest layout and never on a stale client copy. Every
  * operation is the pure function of lib/player-client/src/layout.ts the client also uses; validation never reads game
- * tables (the layout is view state), and lens parameters are checked against the lens catalogue's schemas.
+ * tables (the layout is view state), and built-in panels' parameters are checked against the panel catalogue's schemas.
  */
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, lensPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetLensParams,
-  placeSchema, setPaneLens, setPaneParams, type DockLayout, type Pane, type Place,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, panelPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetPanelParams,
+  placeSchema, setPanePanel, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
-import { LENS_IDS, isLensId, lensCatalog, parseLensParams, type LensId, type Phase } from "@workspace/player-client/lenses";
+import { PANEL_IDS, isPanelId, panelCatalog, parsePanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import type { Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { requireMemberAs, requireRoom } from "./lib/rooms";
@@ -36,7 +36,7 @@ export type LayoutChange = { paneId: string; layout: DockLayout; summary: string
 
 const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value) ?? "").length;
 
-/** The lens phase of a room: the active game's (recovery counts as paused), `ended` after the last game, else lobby. */
+/** The phase of a room as the panels see it: the active game's (recovery counts as paused), `ended` after the last game, else lobby. */
 export async function phaseOf(ctx: Ctx, room: Doc<"rooms">): Promise<Phase> {
   const gameId = room.activeGameId ?? room.currentGameId;
   const game = gameId ? await ctx.db.get(gameId) : null;
@@ -69,9 +69,9 @@ async function currentImpl(ctx: Ctx, viewer: Viewer, room: Doc<"rooms">): Promis
   const row = await rowOf(ctx, viewer.subject, room._id);
   if (row) {
     const parsed = parseLayout(row.layout, { phase, storedSlugs: slugs });
-    // A new game since the row was written: lens parameters named the previous game's objects, so they reset.
+    // A new game since the row was written: panel parameters named the previous game's objects, so they reset.
     const newGame = !!row.gameId && !!room.activeGameId && row.gameId !== room.activeGameId;
-    return { ...parsed, layout: newGame ? resetLensParams(parsed.layout) : parsed.layout, source: "room", phase, updatedAt: row.updatedAt, setBy: row.setBy };
+    return { ...parsed, layout: newGame ? resetPanelParams(parsed.layout) : parsed.layout, source: "room", phase, updatedAt: row.updatedAt, setBy: row.setBy };
   }
   const carried = await ctx.db.query("dockLayouts").withIndex("by_subject_updated", q => q.eq("subject", viewer.subject)).order("desc").first();
   if (carried) {
@@ -113,7 +113,7 @@ async function setImpl(ctx: MutationCtx, viewer: Viewer, room: Doc<"rooms">, arg
   const updatedAt = await writeLayout(ctx, viewer, room, layout, row);
   return { layout, warnings, updatedAt };
 }
-/** Store a whole layout (drags, the lens dropdown, the palette). `ifUpdatedAt` makes it compare-and-set. */
+/** Store a whole layout (drags, the panel dropdown, the palette). `ifUpdatedAt` makes it compare-and-set. */
 export const set = mutation({
   args: setArgs,
   handler: async (ctx, { roomId, ...args }) => { const viewer = await resolveViewer(ctx); return setImpl(ctx, viewer, await memberIn(ctx, viewer, roomId), args); },
@@ -138,16 +138,16 @@ function parsePlace(raw: unknown): Place | undefined {
   if (!parsed.success) fail("BAD_REQUEST", `Invalid place: ${parsed.error.issues.map(i => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ")}`);
   return parsed.data;
 }
-function requireLensId(raw: string): LensId {
-  if (!isLensId(raw)) fail("BAD_REQUEST", `Unknown lens "${raw.slice(0, 40)}"; the lenses are ${LENS_IDS.join(", ")}`);
+function requirePanelId(raw: string): PanelId {
+  if (!isPanelId(raw)) fail("BAD_REQUEST", `Unknown panel "${raw.slice(0, 40)}"; the panels are ${PANEL_IDS.join(", ")}`);
   return raw;
 }
-/** Lens parameters parsed against the lens, or BAD_REQUEST carrying the lens's JSON Schema so the model can correct itself. */
-function requireParams(lensId: LensId, raw: unknown): Record<string, unknown> {
-  const parsed = parseLensParams(lensId, raw);
+/** Panel parameters parsed against the panel, or BAD_REQUEST carrying the panel's JSON Schema so the model can correct itself. */
+function requireParams(panelId: PanelId, raw: unknown): Record<string, unknown> {
+  const parsed = parsePanelParams(panelId, raw);
   if (parsed.ok) return parsed.params;
-  const schema = lensCatalog().find(l => l.id === lensId)?.paramsSchema;
-  return fail("BAD_REQUEST", `Invalid ${lensId} parameters: ${parsed.issues.join("; ")}. Schema: ${JSON.stringify(schema)}`.slice(0, 4000));
+  const schema = panelCatalog().find(l => l.id === panelId)?.paramsSchema;
+  return fail("BAD_REQUEST", `Invalid ${panelId} parameters: ${parsed.issues.join("; ")}. Schema: ${JSON.stringify(schema)}`.slice(0, 4000));
 }
 
 /** Load, apply a pure operation, write, and describe the change for the chat chip. */
@@ -163,57 +163,61 @@ async function change(ctx: MutationCtx, p: Principal, apply: (layout: DockLayout
   return { paneId: next.paneId, layout: next.layout, summary: pane ? paneCaption(pane) : "closed", reused: next.reused ?? false };
 }
 
+/** A built-in panel the assistant chose, with its parameters: reuse, switch or open (see openPanelAs). */
+function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string, unknown>, place: Place | undefined) {
+  if (!place) {
+    const panels = panelPanesOf(layout);
+    const open = panels.find(pane => pane.panelId === panelId);
+    if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
+    const target = panels.find(pane => pane.setBy === "default") ?? panels.filter(pane => pane.setBy === "assistant").at(-1);
+    if (target) return { layout: activatePane(setPanePanel(layout, target.id, panelId, "assistant", params), target.id), paneId: target.id, reused: false };
+  }
+  const pane: Pane = { id: "", kind: "panel", panelId, params, setBy: "assistant" };
+  return openPane(layout, pane, place);
+}
+
 /**
- * Show a lens with parameters the assistant chose. Without `place`, no pane is added: an open pane of that lens is
- * reused (its parameters replaced, its tab activated); else a lens pane nobody chose (setBy default) or one the
- * assistant set earlier is switched to the lens (the player's own choices are never overridden); only when every
- * lens pane is the player's does a new pane open. The assistant adds panes only when asked, with `place`.
+ * Show a panel (the open_panel tool): exactly one of `panelId` (built-in) and `slug` (one of the human's stored panels).
+ *
+ * Built-in, with parameters the assistant chose. Without `place`, no pane is added: an open pane of that panel is
+ * reused (its parameters replaced, its tab activated); else a built-in panel nobody chose (setBy default) or one the
+ * assistant set earlier is switched to it (the player's own choices are never overridden); only when every built-in
+ * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`.
+ *
+ * Stored: without `place`, an open pane of that panel is activated; else it opens in a new pane.
  */
-export const openLensAs = internalMutation({
-  args: { principal, lensId: v.string(), params: v.optional(v.any()), place: placeV },
-  handler: async (ctx, { principal: p, lensId: rawLens, params: rawParams, place: rawPlace }): Promise<LayoutChange> => {
-    const lensId = requireLensId(rawLens);
-    const params = requireParams(lensId, rawParams);
+export const openPanelAs = internalMutation({
+  args: { principal, panelId: v.optional(v.string()), slug: v.optional(v.string()), params: v.optional(v.any()), place: placeV },
+  handler: async (ctx, { principal: p, panelId: rawPanel, slug, params: rawParams, place: rawPlace }): Promise<LayoutChange> => {
+    if ((rawPanel === undefined) === (slug === undefined)) fail("BAD_REQUEST", "Give exactly one of panelId (a built-in panel) and slug (a stored panel)");
     const place = parsePlace(rawPlace);
+    if (rawPanel !== undefined) {
+      const panelId = requirePanelId(rawPanel);
+      const params = requireParams(panelId, rawParams);
+      return change(ctx, p, layout => showBuiltIn(layout, panelId, params, place));
+    }
+    const storedSlug = slug!;
+    if (rawParams !== undefined) fail("BAD_REQUEST", "A stored panel takes no params; they are for built-in panels");
+    const viewer = await resolveViewer(ctx, p);
+    const panel = await ctx.db.query("panels").withIndex("by_subject_slug", q => q.eq("subject", viewer.subject).eq("slug", storedSlug)).unique();
+    if (!panel) fail("NOT_FOUND", `No stored panel "${storedSlug.slice(0, 60)}"`);
+    if (!panel.enabled) fail("CONFLICT", `Panel "${storedSlug}" is turned off (panels.setEnabled)`);
     return change(ctx, p, layout => {
-      if (!place) {
-        const lenses = lensPanesOf(layout);
-        const open = lenses.find(pane => pane.lensId === lensId);
-        if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
-        const target = lenses.find(pane => pane.setBy === "default") ?? lenses.filter(pane => pane.setBy === "assistant").at(-1);
-        if (target) return { layout: activatePane(setPaneLens(layout, target.id, lensId, "assistant", params), target.id), paneId: target.id, reused: false };
-      }
-      const pane: Pane = { id: "", kind: "lens", lensId, params, setBy: "assistant" };
-      return openPane(layout, pane, place);
+      const open = place ? undefined : panesOf(layout).find(pane => pane.kind === "stored-panel" && pane.slug === storedSlug);
+      if (open) return { layout: activatePane(layout, open.id), paneId: open.id, reused: true };
+      return openPane(layout, { id: "", kind: "stored-panel", slug: storedSlug }, place);
     });
   },
 });
 
-export const setLensParamsAs = internalMutation({
+export const setPanelParamsAs = internalMutation({
   args: { principal, paneId: v.string(), params: v.any() },
   handler: async (ctx, { principal: p, paneId, params }): Promise<LayoutChange> => change(ctx, p, layout => {
     const pane = layout.panes[paneId];
     if (!pane) throw new LayoutError("NOT_FOUND", `No pane ${paneId}`);
-    if (pane.kind !== "lens") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} shows ${paneCaption(pane)}, not a lens`);
-    return { layout: activatePane(setPaneParams(layout, paneId, requireParams(pane.lensId, params), "assistant"), paneId), paneId };
+    if (pane.kind !== "panel") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} shows ${paneCaption(pane)}, not a built-in panel`);
+    return { layout: activatePane(setPaneParams(layout, paneId, requireParams(pane.panelId, params), "assistant"), paneId), paneId };
   }),
-});
-
-/** Show one of the human's stored panels in a pane; without `place`, an open pane of that panel is activated instead. */
-export const openPanelAs = internalMutation({
-  args: { principal, slug: v.string(), place: placeV },
-  handler: async (ctx, { principal: p, slug, place: rawPlace }): Promise<LayoutChange> => {
-    const place = parsePlace(rawPlace);
-    const viewer = await resolveViewer(ctx, p);
-    const panel = await ctx.db.query("panels").withIndex("by_subject_slug", q => q.eq("subject", viewer.subject).eq("slug", slug)).unique();
-    if (!panel) fail("NOT_FOUND", `No stored panel "${slug.slice(0, 60)}"`);
-    if (!panel.enabled) fail("CONFLICT", `Panel "${slug}" is turned off (panels.setEnabled)`);
-    return change(ctx, p, layout => {
-      const open = place ? undefined : panesOf(layout).find(pane => pane.kind === "stored-panel" && pane.slug === slug);
-      if (open) return { layout: activatePane(layout, open.id), paneId: open.id, reused: true };
-      return openPane(layout, { id: "", kind: "stored-panel", slug }, place);
-    });
-  },
 });
 
 export const movePaneAs = internalMutation({

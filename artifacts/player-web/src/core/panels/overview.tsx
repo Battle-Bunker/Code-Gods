@@ -10,9 +10,9 @@ import { useOwnerActions } from "@/core/game/owner";
 import { useNow, useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
 import { nextStep } from "./next-step";
-import { BigNumber, PrimaryButton, clock, fmt, ordinal, type LensProps } from "./kit";
+import { BigNumber, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
 
-export default function Overview({ paneId, params, phase }: LensProps<"overview">) {
+export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
   const s = useSituation();
   const objects = useObjects({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
@@ -23,7 +23,7 @@ export default function Overview({ paneId, params, phase }: LensProps<"overview"
   const step = nextStep({ phase, seated: s.seated, isOwner: s.isOwner, members: s.members, agents: agents.length });
   const go = () => {
     const action = step.action;
-    if (action.kind === "lens") dock.show(action.lensId);
+    if (action.kind === "panel") dock.show(action.panelId);
     else if (action.kind === "forge") dock.forgeEdit();
     else if (action.kind === "start") void owner.start();
     else paletteStore.open(paneId, step.label);
@@ -51,7 +51,7 @@ export default function Overview({ paneId, params, phase }: LensProps<"overview"
     : standing.rank ? `You're ${ordinal(standing.rank)} of ${standing.of}, with ${fmt(standing.total)} bits of payoff.` : "Nobody has scored yet.";
 
   return (
-    <div className="space-y-6" data-testid="lens-overview">
+    <div className="space-y-6" data-testid="panel-overview">
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>{situation}</p>
         <p>{middle}</p>
@@ -70,7 +70,7 @@ export default function Overview({ paneId, params, phase }: LensProps<"overview"
 function Lobby({ next, onNext }: { next: ReturnType<typeof nextStep>; onNext: () => void }) {
   const { room, obs } = useSituation();
   return (
-    <div className="space-y-6" data-testid="lens-overview">
+    <div className="space-y-6" data-testid="panel-overview">
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>You're in the lobby of room {room?.shortCode ?? obs?.roomShortCode ?? "…"}{room ? `, run by ${room.ownerName}` : ""}.</p>
         <p>When the owner starts the game, everyone gets a secret goal, then a short planning time to write a first agent before the world runs.</p>

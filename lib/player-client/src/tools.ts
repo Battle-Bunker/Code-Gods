@@ -23,7 +23,7 @@
 import { z } from "zod/v4";
 import { SLUG } from "@workspace/engine/convex/panels/limits.ts";
 import { CATALOG, type CatalogEntry } from "./catalog.ts";
-import { LENS_IDS } from "./lenses.ts";
+import { PANEL_IDS } from "./panels.ts";
 import { placeSchema } from "./layout.ts";
 import { VERSION, type Envelope, type Permission } from "./protocol.ts";
 
@@ -191,7 +191,7 @@ export const OWNER_TOOLS = [
 
 /** Stored panels (docs/panels.md "Stored panels"): the human's own UI panels, across all their rooms; every open client re-renders them live. */
 const slug = z.string().regex(SLUG).describe("kebab-case panel id, like a file name in src/panels/");
-const placement = z.enum(["left", "right", "bottom"]).describe("Add-pane hint: where the panel prefers to open relative to the lenses.");
+const placement = z.enum(["left", "right", "bottom"]).describe("Add-pane hint: where the panel prefers to open relative to the built-in panels.");
 const size = z.enum(["sm", "md", "lg"]);
 export const PANEL_TOOLS = [
   def({ name: "list_panels", title: "List stored panels", functions: ["panels.list"], permission: "read", annotations: read,
@@ -209,34 +209,32 @@ export const PANEL_TOOLS = [
 ] as const;
 
 /**
- * The dock layout (docs/ui-redesign.md §2.3–2.4): the panes the player sees. Lenses are chosen by the player from a
- * menu; their PARAMETERS are set only through these tools. No confirmation card: view changes touch no game state
- * and are reversible; a chip in the chat names every change. At most two layout tools run per assistant step.
+ * The dock layout (docs/ui-redesign.md §2.3–2.4): the panes the player sees. A pane's built-in panel is chosen by the
+ * player from a menu; its PARAMETERS are set only through these tools. No confirmation card: view changes touch no game
+ * state and are reversible; a chip in the chat names every change. At most two layout tools run per assistant step.
  */
 const paneId = z.string().min(1).max(64).describe("A pane id from get_layout (e.g. p1).");
-const lensId = z.enum(LENS_IDS).describe("A built-in lens id (get_layout lists them with their parameter schemas).");
-const lensParams = z.record(z.string(), z.unknown()).optional()
-  .describe("The lens's parameters (its JSON Schema is in get_layout; every field is optional with a default except what-if's objectId and calls). Invalid parameters are refused with the schema.");
-const place = placeSchema.optional().describe("Where the pane goes: next to another pane (relativeTo, default: the last lens pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same lens or panel.");
+const panelId = z.enum(PANEL_IDS).describe("A built-in panel id (get_layout lists them with their parameter schemas). Give this or slug, not both.");
+const storedSlug = slug.describe("One of the player's stored panels (list_panels). Give this or panelId, not both.");
+const panelParams = z.record(z.string(), z.unknown()).optional()
+  .describe("A built-in panel's parameters (its JSON Schema is in get_layout; every field is optional with a default except what-if's objectId and calls). Invalid parameters are refused with the schema. Not for stored panels.");
+const place = placeSchema.optional().describe("Where the pane goes: next to another pane (relativeTo, default: the last built-in panel's pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same panel.");
 const layoutData = z.object({ paneId: z.string(), layout: z.unknown(), summary: z.string(), reused: z.boolean() });
 export const LAYOUT_TOOLS = [
   def({ name: "get_layout", title: "Dock layout", functions: ["layout.current"], permission: "read", annotations: read,
-    note: "Also the lens catalogue (id, title, blurb, phases, parameter JSON Schema, defaults) and the player's stored panels.",
+    note: "Also the built-in panel catalogue (`panels`: id, title, blurb, phases, parameter JSON Schema, defaults) and the player's stored panels (`storedPanels`).",
     input: obj({}), output: result(anyData) }),
-  def({ name: "open_lens", title: "Show a lens", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Show a lens with parameters you choose. Without `place` no pane is added: an open pane of that lens is reused (parameters replaced, tab activated), else a lens pane the player did not choose is switched to it; a new pane opens only when every lens pane is the player's. Give `place` only when the player asks for another pane; at most four lens panes are open at once (a fifth is refused: change a pane's lens instead). Say in one line what you showed and what to look at.",
-    input: obj({ lensId, params: lensParams, place }), output: result(layoutData) }),
-  def({ name: "set_lens_params", title: "Set a lens's parameters", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Replace one lens pane's parameters (the pane keeps its lens and place).",
+  def({ name: "open_panel", title: "Show a panel", functions: ["layout.set"], permission: "act", annotations: acts,
+    about: "Show a panel: a built-in one (panelId) with parameters you choose, or one of the player's stored panels (slug); give exactly one. Without `place` no pane is added: an open pane of that panel is reused (built-in: parameters replaced), else a built-in panel the player did not choose is switched to it; a new pane opens only when every built-in panel on screen is the player's (or for a stored panel not open yet). Give `place` only when the player asks for another pane; at most four built-in panels are open at once (a fifth is refused: change one instead). Say in one line what you showed and what to look at.",
+    input: obj({ panelId: panelId.optional(), slug: storedSlug.optional(), params: panelParams, place }), output: result(layoutData) }),
+  def({ name: "set_panel_params", title: "Set a panel's parameters", functions: ["layout.set"], permission: "act", annotations: acts,
+    about: "Replace the parameters of the built-in panel in one pane (the pane keeps its panel and place).",
     input: obj({ paneId, params: z.record(z.string(), z.unknown()).describe("The complete parameters; omitted fields take their defaults.") }), output: result(layoutData) }),
-  def({ name: "open_panel", title: "Show a stored panel", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Show one of the player's stored panels (list_panels) in a pane; without `place`, an open pane of that panel is activated.",
-    input: obj({ slug, place }), output: result(layoutData) }),
   def({ name: "move_pane", title: "Move a pane", functions: ["layout.set"], permission: "act", annotations: acts,
     about: "Move a pane next to another or into its tab group. Only when the player asks for an arrangement; never to illustrate an answer.",
-    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last lens pane) and a direction, or 'tab'.") }), output: result(layoutData) }),
+    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction, or 'tab'.") }), output: result(layoutData) }),
   def({ name: "close_pane", title: "Close a pane", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Close a pane the player asked to close. The assistant pane and the last lens pane cannot be closed (CONFLICT).",
+    about: "Close a pane the player asked to close. The assistant pane and the last built-in panel cannot be closed (CONFLICT).",
     input: obj({ paneId }), output: result(layoutData) }),
 ] as const;
 

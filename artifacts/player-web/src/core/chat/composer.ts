@@ -1,6 +1,6 @@
 /**
  * The assistant composer's shared state: what is typed (so the palette's hand-offs, "Ask about this view" and an
- * object clicked in a lens can pre-fill it, never send it), focus and collapse requests, the chosen conversation, the
+ * object clicked in a panel can pre-fill it, never send it), focus and collapse requests, the chosen conversation, the
  * permission the next message asks for, and the status word the pane header shows.
  */
 import { useSyncExternalStore } from "react";

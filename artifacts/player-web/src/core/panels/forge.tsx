@@ -9,12 +9,12 @@ import { Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
-import { GhostButton, PrimaryButton, TextButton, type LensProps } from "./kit";
+import { GhostButton, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 
-export default function Forge({ params }: LensProps<"forge">) {
+export default function Forge({ params }: PanelProps<"forge">) {
   const obs = useObservation({ hz: 2 });
   const { agents } = useMyAgents({ hz: 1 });
   const state = useRunner();
@@ -27,7 +27,7 @@ export default function Forge({ params }: LensProps<"forge">) {
   if (!editing) {
     const lang = live?.language ?? params.language ?? obs?.language ?? "python";
     return (
-      <div className="space-y-3" data-testid="lens-forge">
+      <div className="space-y-3" data-testid="panel-forge">
         <p className="text-sm text-muted-foreground">{live ? "The code of one of your live agents." : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
@@ -59,7 +59,7 @@ function Editor({ language, assistantDraft, showHelpers }: { language: Lang; ass
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
   return (
-    <div className="space-y-3" data-testid="lens-forge">
+    <div className="space-y-3" data-testid="panel-forge">
       <div className="flex flex-wrap items-center gap-2">
         {(["python", "typescript"] as const).map(l => (
           <button key={l} type="button" data-testid={`button-lang-${l}`} onClick={() => runner.setDraft({ language: l })} aria-pressed={language === l}

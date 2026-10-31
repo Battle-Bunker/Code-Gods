@@ -1,4 +1,4 @@
-/** The room's finished games (rooms.history: public results, newest first), for the results lens. */
+/** The room's finished games (rooms.history: public results, newest first), for the results panel. */
 import { useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useRoom } from "@/sdk";

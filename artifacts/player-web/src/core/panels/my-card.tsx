@@ -1,14 +1,14 @@
 /** Your secret goal: the utility card in plain words, how scoring works, and live objects that score best (or worst) for you. */
 import { HowScoringWorks, ScoreBreakdown, UtilityCardView } from "@workspace/object-views";
 import { Obj, useMyCard, useObjectContext, useObjects } from "@/sdk";
-import { LensEmpty, Section, referObject, useObjectRanks, type LensProps } from "./kit";
+import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
-export default function MyCard({ params }: LensProps<"my-card">) {
+export default function MyCard({ params }: PanelProps<"my-card">) {
   const card = useMyCard();
   const objects = useObjects({ hz: 1 });
   const ranks = useObjectRanks(objects);
   const { noun } = useObjectContext();
-  if (!card) return <LensEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</LensEmpty>;
+  if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   const examples = [...objects].sort((a, b) => (params.exampleSort === "best" ? b.own.netBits - a.own.netBits : a.own.netBits - b.own.netBits)).slice(0, params.examples);
   return (
     <div className="space-y-5" data-testid="panel-utility">

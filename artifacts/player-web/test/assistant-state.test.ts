@@ -70,7 +70,7 @@ test("chips: a label, a tone per status, and pretty arguments", () => {
 test("step lines: one line per model step in human verbs, present tense while running, the asking and declined calls named", () => {
   const timeline = buildTimeline(
     [msg(1, "user", "write me an agent"), msg(2, "assistant", "", { _id: "m2" }), msg(3, "assistant", "Done", { _id: "m3" })],
-    [call(0, "m2", "get_observation", "ok"), call(1, "m2", "validate_agent", "ok"), call(2, "m2", "open_lens", "ok", { argsJson: '{"lensId":"forge"}' }),
+    [call(0, "m2", "get_observation", "ok"), call(1, "m2", "validate_agent", "ok"), call(2, "m2", "open_panel", "ok", { argsJson: '{"panelId":"forge"}' }),
       call(0, "m3", "send_chat", "denied")],
   );
   const items = withSteps(timeline);

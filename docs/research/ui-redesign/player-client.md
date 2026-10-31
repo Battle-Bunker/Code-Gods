@@ -1,5 +1,7 @@
 # Player client: lens panes and the assistant, in an IDE-style dock
 
+> Terminology: "lens" in this historical document means what the code and the UI now call a built-in **panel** (`docs/ui-redesign.md`).
+
 Mandate: the composition of the player client (`artifacts/player-web`). It replaces the three-column
 `core/console.tsx`, the fixed-region panel `shell/dock.tsx` and the side drawer `core/assistant/drawer.tsx` with
 **one dock of panes**. By default there are two panes: an analytics **lens** in the top half and the **assistant**

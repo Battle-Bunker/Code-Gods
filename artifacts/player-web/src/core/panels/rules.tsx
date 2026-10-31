@@ -6,7 +6,7 @@ import { HowScoringWorks } from "@workspace/object-views";
 import { rulesText } from "@workspace/player-client/rules";
 import { Term } from "@workspace/ui-kit";
 import { useObjectContext, useRoomInfo } from "@/sdk";
-import { Section, type LensProps } from "./kit";
+import { Section, type PanelProps } from "./kit";
 
 function Primer({ world }: { world: string }) {
   return (
@@ -20,7 +20,7 @@ function Primer({ world }: { world: string }) {
   );
 }
 
-export default function Rules({ params }: LensProps<"rules">) {
+export default function Rules({ params }: PanelProps<"rules">) {
   const room = useRoomInfo();
   const { noun } = useObjectContext();
   const settings = (room?.settings ?? {}) as Record<string, unknown>;
@@ -33,7 +33,7 @@ export default function Rules({ params }: LensProps<"rules">) {
     ["Pause length", settings.pauseSeconds !== undefined ? `${settings.pauseSeconds} s` : undefined], ["Game half-life", settings.halfLifeSeconds !== undefined ? `${settings.halfLifeSeconds} world s` : undefined],
   ];
   return (
-    <div className="space-y-6" data-testid="lens-rules">
+    <div className="space-y-6" data-testid="panel-rules">
       {(all || params.section === "primer") && <Primer world={world} />}
       {(all || params.section === "scoring") && <HowScoringWorks noun={noun} open={params.section === "scoring"} />}
       {(all || params.section === "settings") && (

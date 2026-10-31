@@ -1,11 +1,11 @@
 /**
- * The one path for the player's own game commands, shared by every lens and the palette: the same authorised
+ * The one path for the player's own game commands, shared by every panel and the palette: the same authorised
  * `commands.submit` the assistant's tools use (through the SDK's useActions). One command at a time; the engine's
  * receipt becomes a notice; a transport failure leaves the outcome UNKNOWN and keeps the envelope, so the banner
  * under the header retries exactly the same command (a summon is never paid twice).
  *
  * The forge's draft (source, language, edit mode, last validation) lives here too, so the palette's "Write agent
- * code…" and the agents lens's "Edit a copy" reach the same editor. State survives hot updates of the lenses.
+ * code…" and the agents panel's "Edit a copy" reach the same editor. State survives hot updates of the panels.
  */
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
@@ -34,7 +34,7 @@ export const runner = {
   get: () => state,
   setDraft(draft: Partial<RunnerState["draft"]>) { set({ draft: { ...state.draft, ...draft } }); },
   setEditing(editing: boolean) { set({ editing }); },
-  /** Load code into the editor (the agents lens's "Edit a copy", the assistant's draft) and open edit mode. */
+  /** Load code into the editor (the agents panel's "Edit a copy", the assistant's draft) and open edit mode. */
   edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true }); },
   dismissUnknown() { set({ unknown: null }); },
   clearNotice() { set({ notice: null }); },

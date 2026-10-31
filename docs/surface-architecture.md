@@ -78,7 +78,7 @@ A credential is always bound to one human (`subject`), one room and one permissi
 | Act | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game`, `wake_engine` |
 | Owner | `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
 | Panels | `list_panels`, `get_panel` (read); `save_panel`, `delete_panel`, `rollback_panel` (act) |
-| Layout (docs/ui-redesign.md §2.4) | `get_layout` (read); `open_lens`, `set_lens_params`, `open_panel`, `move_pane`, `close_pane` (act) |
+| Layout (docs/ui-redesign.md §2.4) | `get_layout` (read); `open_panel`, `set_panel_params`, `move_pane`, `close_pane` (act) |
 
 - Command tools build the v3 envelope. `commandId` is required for summon, destroy and pause; owner tools carry a `requestId`.
 - Summon and validate take `waitMs` (default 90 s). Past it they return `{status: "pending", commandId}`, and `get_receipt` completes the call.
@@ -138,7 +138,7 @@ Type-checking against `sdk.d.ts` is phase 2.
 ## 6. In-client assistant (Wave 2A, built)
 
 > The assistant now lives in a pane of the dock, not a drawer, and arranges the player's screen through the layout tools;
-> the system prompt and briefing gained THE PLAYER'S SCREEN, NEXT STEPS and a LENSES block (`docs/ui-redesign.md` §2.4).
+> the system prompt and briefing gained THE PLAYER'S SCREEN, NEXT STEPS and a PANELS block (`docs/ui-redesign.md` §2.4).
 
 A model served by Convex that answers one human in the player client's **Assistant** drawer and acts for them
 through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.

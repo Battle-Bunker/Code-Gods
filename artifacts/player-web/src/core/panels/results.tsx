@@ -5,11 +5,11 @@
  */
 import { LineChart, Obj, Table, useGame, useLeaderboard, useObjects, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
-import { LensEmpty, Section, fmt, ordinal, referObject, useObjectRanks, type LensProps } from "./kit";
+import { PanelEmpty, Section, fmt, ordinal, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 type Row = { id: string; name: string; isAI: boolean; total: number; rank: number };
 
-export default function Results({ params, phase }: LensProps<"results">) {
+export default function Results({ params, phase }: PanelProps<"results">) {
   const game = useGame({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const past = usePastGames();
@@ -24,8 +24,8 @@ export default function Results({ params, phase }: LensProps<"results">) {
     ? [...board].sort((a, b) => b.totalPayoff - a.totalPayoff).map((r, i) => ({ id: r.godId, name: r.label, isAI: r.isAI, total: r.totalPayoff, rank: i + 1 }))
     : (record?.leaderboard ?? []).map(r => ({ id: r.deityId, name: r.name, isAI: r.kind === "ai", total: r.totalPayoff, rank: r.rank }));
   if (!rows.length) {
-    if (params.gameId && past && !record) return <LensEmpty>That game isn't in this room's history.</LensEmpty>;
-    return <LensEmpty>No finished game yet. Results appear here when a game ends.</LensEmpty>;
+    if (params.gameId && past && !record) return <PanelEmpty>That game isn't in this room's history.</PanelEmpty>;
+    return <PanelEmpty>No finished game yet. Results appear here when a game ends.</PanelEmpty>;
   }
   const mine = rows.find(r => r.id === me);
   const sorted = [...objects].sort((a, b) => b.payoff - a.payoff);
@@ -34,7 +34,7 @@ export default function Results({ params, phase }: LensProps<"results">) {
     ? `You finished ${ordinal(mine.rank)} of ${rows.length} with ${fmt(mine.total)} bits of payoff.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
-    <div className="space-y-5" data-testid="lens-results">
+    <div className="space-y-5" data-testid="panel-results">
       <p className="text-base">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
       {params.section !== "mine" && (
         <Section title="Final standings">

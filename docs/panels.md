@@ -8,6 +8,12 @@ second, with live data. You don't reload, and you don't lose your place.
 
 This page is written for the coding agent. Read all of it before writing a panel.
 
+Two kinds of panel share the dock. **Built-in panels** (the overview, objects by payoff, the race, the forge and
+the rest: `src/core/panels/`, metadata in `lib/player-client/src/panels.ts`) ship with the client; a player picks
+one from a pane's menu and only the assistant sets its parameters. **Your panels** are the ones written for you:
+file panels (`src/panels/*.tsx`, in a dev server) and stored panels (saved in the engine, in every client of
+yours). This page is about your panels; check first whether a built-in panel already shows what you want.
+
 ## How it works
 
 - The client runs as a Vite dev server with hot module replacement
@@ -22,9 +28,9 @@ This page is written for the coding agent. Read all of it before writing a panel
 
   Save a fix and the frame recovers by itself. A broken panel never breaks the game console or the
   other panels.
-- **Layout.** The client is a dock of panes (`docs/ui-redesign.md`): built-in lenses, your assistant, and
-  your panels. A panel opens as a pane from the add-pane menu, the command palette or your assistant
-  (`open_panel`); you drag panes anywhere, split and tab them. The arrangement follows you across devices
+- **Layout.** The client is a dock of panes (`docs/ui-redesign.md`): built-in panels, your assistant, and
+  your panels. Your panel opens as a pane from a built-in panel's menu ("Your panels"), the command palette or
+  your assistant (`open_panel {slug}` for a stored panel); you drag panes anywhere, split and tab them. The arrangement follows you across devices
   and rooms (`layout.current`/`layout.set`). A panel's manifest `placement` and `size` are only hints for
   where a new pane opens.
 - **The core console** (`src/core/`) is the protected game UI: the forge, agents, utility card,
@@ -270,8 +276,8 @@ file panel's header runs it in a frame exactly as a stored panel would: use it b
 for example to remove a panel that misbehaves (`pnpm player panel list`, then `panels.remove` or
 `panels.setEnabled`).
 
-**Layout.** A stored panel is a pane like a lens: open it from the add-pane menu, the palette or your
-assistant (`open_panel`), drag it anywhere, tab it with other panes. The arrangement follows you across
+**Layout.** A stored panel is a pane like a built-in panel: open it from the add-pane menu, the palette or your
+assistant (`open_panel {slug}`), drag it anywhere, tab it with other panes. The arrangement follows you across
 devices and rooms (`layout.current`/`layout.set`); `panels.setEnabled` hides a panel everywhere without
 deleting it.
 

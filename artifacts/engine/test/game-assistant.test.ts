@@ -290,12 +290,12 @@ test("disclosure: threads are their human's only; stored tool results pass the d
   assert.equal(await errorCode(bob.c.mutation(api.assistant.cancel, { turnId: sent.turnId })), "NOT_FOUND");
 });
 
-test("the assistant arranges the player's screen: open_lens changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
+test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
-    { tools: [{ name: "open_lens", input: { lensId: "objects", params: { limit: 4, filter: "chips" } } }] },
+    { tools: [{ name: "open_panel", input: { panelId: "objects", params: { limit: 4, filter: "chips" } } }] },
     { tools: [
-      { name: "open_lens", input: { lensId: "race", place: { relativeTo: "p1", direction: "below" } } },
+      { name: "open_panel", input: { panelId: "race", place: { relativeTo: "p1", direction: "below" } } },
       { name: "get_layout" },
       { name: "move_pane", input: { paneId: "p2", place: { relativeTo: "p1", direction: "right" } } },
       { name: "close_pane", input: { paneId: "p1" } },
@@ -304,15 +304,15 @@ test("the assistant arranges the player's screen: open_lens changes the layout r
   ]) });
   const t = await until(ann, sent, DONE, "the turn finishes");
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
-  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["open_lens", "ok"], ["open_lens", "ok"], ["get_layout", "ok"], ["move_pane", "ok"], ["close_pane", "error"]]);
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["open_panel", "ok"], ["open_panel", "ok"], ["get_layout", "ok"], ["move_pane", "ok"], ["close_pane", "error"]]);
   assert.equal(t.calls[0].summary, "Showed Top 4 by payoff · only ones others care about", "the chip names the change; no confirmation card");
   assert.match(t.calls[4].resultJson, /At most 2 layout changes/, "get_layout is a read; the third change is refused before it runs");
   const layout = await ann.c.query(api.layout.current, { roomId });
   assert.equal(layout.source, "room");
   assert.equal(layout.setBy?.kind, "assistant");
-  const lenses = Object.values(layout.layout.panes).filter((p: any) => p.kind === "lens") as any[];
-  assert.deepEqual(lenses.map(p => [p.lensId, p.setBy]).sort(), [["objects", "assistant"], ["race", "assistant"]]);
-  assert.equal(lenses.find(p => p.lensId === "objects").params.limit, 4);
+  const panels = Object.values(layout.layout.panes).filter((p: any) => p.kind === "panel") as any[];
+  assert.deepEqual(panels.map(p => [p.panelId, p.setBy]).sort(), [["objects", "assistant"], ["race", "assistant"]]);
+  assert.equal(panels.find(p => p.panelId === "objects").params.limit, 4);
   const assistantPane = (Object.values(layout.layout.panes) as any[]).find(p => p.kind === "assistant");
   const parentOf = (node: any, id: string): any => node.type === "tabs" ? (node.panes.includes(id) ? node : null)
     : node.children.map((c: any) => parentOf(c, id)).find(Boolean) && (node.children.some((c: any) => c.type === "tabs" && c.panes.includes(id)) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean));

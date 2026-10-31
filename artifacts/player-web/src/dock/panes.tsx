@@ -1,11 +1,12 @@
 /**
- * A pane's body, by kind, shared by the desktop dock (dockview components) and the phone's stacked renderer: a lens
- * through LensHost, the assistant pane, or a panel (a stored panel in its sandboxed frame, a file panel in-process).
+ * A pane's body, by kind, shared by the desktop dock (dockview components) and the phone's stacked renderer: a
+ * built-in panel through PanelHost, the assistant pane, or one of the player's own panels (a stored panel in its
+ * sandboxed frame, a file panel in-process).
  * Pointer and focus inside a pane make it the focused pane (the palette's "this pane").
  */
 import type { ReactNode } from "react";
 import { AssistantPane } from "@/core/chat/pane";
-import { LensHost } from "@/lenses";
+import { PanelHost } from "@/core/panels";
 import { PanelPaneBody, entryFor, usePanels } from "./panels";
 import { useDock, useDockStore } from "./store";
 
@@ -25,8 +26,8 @@ export function PaneBody({ paneId }: { paneId: string }) {
   const pane = layout.panes[paneId];
   if (!pane) return null;
   switch (pane.kind) {
-    case "lens":
-      return <Frame paneId={paneId} className="overflow-auto p-4"><div key={pane.lensId} className="rise h-full"><LensHost paneId={paneId} lensId={pane.lensId} params={pane.params} phase={phase} /></div></Frame>;
+    case "panel":
+      return <Frame paneId={paneId} className="overflow-auto p-4"><div key={pane.panelId} className="rise h-full"><PanelHost paneId={paneId} panelId={pane.panelId} params={pane.params} phase={phase} /></div></Frame>;
     case "assistant":
       return <Frame paneId={paneId}><AssistantPane paneId={paneId} /></Frame>;
     case "stored-panel":

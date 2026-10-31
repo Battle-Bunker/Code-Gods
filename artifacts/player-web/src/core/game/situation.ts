@@ -3,7 +3,7 @@
  * and the palette's gating read (seated, owner, members, agents, ready, pause used). A clock for countdowns.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { Phase } from "@workspace/player-client/lenses";
+import type { Phase } from "@workspace/player-client/panels";
 import { useObservation, useRoomInfo } from "@/sdk";
 
 export function useSituation() {

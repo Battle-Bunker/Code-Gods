@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { TransformationView } from "@workspace/object-views";
 import { Table, fmtBits, useEvents, useMutators, useObjectContext, useObjects, useObservation, type GameEvent } from "@/sdk";
-import { LensEmpty, Section, referObject, useObjectRanks, type LensProps } from "./kit";
+import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 type Change = {
   key: string; objectId: string; agentId?: string; before: unknown; after: unknown; mine: boolean;
@@ -15,7 +15,7 @@ type Change = {
 type Transformed = Extract<GameEvent, { type: "object.transformed" }>;
 const costOf = (cost: unknown) => (typeof cost === "number" ? cost : typeof cost === "object" && cost ? (cost as { total?: number }).total : undefined);
 
-export default function Feed({ params }: LensProps<"feed">) {
+export default function Feed({ params }: PanelProps<"feed">) {
   const obs = useObservation({ hz: 1 });
   const events = useEvents({ hz: 1, limit: 50 });
   const objects = useObjects({ hz: 1 });
@@ -50,7 +50,7 @@ export default function Feed({ params }: LensProps<"feed">) {
   const filtered = changes.filter(c => (!params.objectId || c.objectId === params.objectId) && (params.minImpact <= 0 || c.dMine === undefined || Math.abs(c.dMine) >= params.minImpact))
     .slice(0, params.limit);
 
-  if (!filtered.length) return <LensEmpty>{params.who === "mine" ? "Your agents haven't changed anything yet." : "No changes yet: they appear once agents act in a running world."}</LensEmpty>;
+  if (!filtered.length) return <PanelEmpty>{params.who === "mine" ? "Your agents haven't changed anything yet." : "No changes yet: they appear once agents act in a running world."}</PanelEmpty>;
 
   if (params.groupBy === "mutator") {
     const stats = new Map<string, { id: string; name: string; acts: number; cost: number; dMine: number }>(mutators.map(m => [m.id, { id: m.id, name: `${m.emoji} ${m.name}`, acts: 0, cost: 0, dMine: 0 }]));

@@ -4,7 +4,7 @@
  * off, it runs a palette command (core/palette/commands.ts ids) and says so in command form. Pure; tested in
  * test/suggestions.test.ts.
  */
-import type { Phase } from "@workspace/player-client/lenses";
+import type { Phase } from "@workspace/player-client/panels";
 
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
@@ -14,29 +14,29 @@ export type SuggestionContext = {
 /** One chip in both forms: the question for the assistant, and the command that answers it without one. */
 type Chip = { ask: string; prompt?: string; off: string; command: string };
 const chip = (ask: string, off: string, command: string, prompt?: string): Chip => ({ ask, off, command, prompt });
-const lens = (id: string) => `ui.lens.add.${id}`;
+const panel = (id: string) => `ui.panel.add.${id}`;
 
-const RULES = chip("How does this game work?", "How to play", lens("rules"));
+const RULES = chip("How does this game work?", "How to play", panel("rules"));
 const CHIPS: Record<Phase, Chip[]> = {
-  lobby: [RULES, chip("Who's in the room?", "Who's here", lens("overview")), chip("I'm ready", "Mark me ready", "ui.ready", "I'm ready for the next game.")],
-  planning: [chip("Explain my goal simply", "Show my secret goal", lens("my-card")), chip("Write me a first agent", "Open the agent editor", "ui.forge.edit"),
-    chip("What should my agent do?", "How to play", lens("rules"))],
-  running: [chip("What should I do next?", "Where am I", lens("overview")), chip("Which objects matter to me?", "Objects by payoff", lens("objects")),
-    chip("What do the others want?", "What others care about", lens("others-care"))],
-  paused: [chip("What changed?", "What just changed", lens("feed")), chip("Draft a public proposal", "Public chat", lens("public-chat")),
-    chip("Should I change my agents?", "My agents", lens("agents"))],
-  ended: [chip("Why did I finish there?", "How the game went", lens("results")), chip("What would have worked better?", "My points over time", lens("bits-over-time")),
-    chip("Show the results", "Leaderboard race", lens("race"))],
+  lobby: [RULES, chip("Who's in the room?", "Who's here", panel("overview")), chip("I'm ready", "Mark me ready", "ui.ready", "I'm ready for the next game.")],
+  planning: [chip("Explain my goal simply", "Show my secret goal", panel("my-card")), chip("Write me a first agent", "Open the agent editor", "ui.forge.edit"),
+    chip("What should my agent do?", "How to play", panel("rules"))],
+  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects by payoff", panel("objects")),
+    chip("What do the others want?", "What others care about", panel("others-care"))],
+  paused: [chip("What changed?", "What just changed", panel("feed")), chip("Draft a public proposal", "Public chat", panel("public-chat")),
+    chip("Should I change my agents?", "My agents", panel("agents"))],
+  ended: [chip("Why did I finish there?", "How the game went", panel("results")), chip("What would have worked better?", "My points over time", panel("bits-over-time")),
+    chip("Show the results", "Leaderboard race", panel("race"))],
 };
-const SPECTATOR = [chip("What's happening?", "Where am I", lens("overview")), chip("Who's winning?", "Leaderboard race", lens("race")),
-  chip("How do I join the next game?", "How to play", lens("rules"))];
+const SPECTATOR = [chip("What's happening?", "Where am I", panel("overview")), chip("Who's winning?", "Leaderboard race", panel("race")),
+  chip("How do I join the next game?", "How to play", panel("rules"))];
 
 function chipsFor(ctx: SuggestionContext): Chip[] {
   const live = ctx.phase === "planning" || ctx.phase === "running" || ctx.phase === "paused";
   if (live && !ctx.seated) return SPECTATOR;
   let chips = CHIPS[ctx.phase];
   if (ctx.phase === "lobby" && ctx.ready) chips = chips.filter(c => c.command !== "ui.ready");
-  if (ctx.phase === "planning" && ctx.agents > 0) chips = chips.map((c, i) => (i === 1 ? chip("Is my agent any good?", "My agents", lens("agents")) : c));
+  if (ctx.phase === "planning" && ctx.agents > 0) chips = chips.map((c, i) => (i === 1 ? chip("Is my agent any good?", "My agents", panel("agents")) : c));
   if (ctx.phase === "running" && ctx.agents === 0) chips = [chip("Write me an agent", "Open the agent editor", "ui.forge.edit"), ...chips.slice(1)];
   return chips;
 }
@@ -60,7 +60,7 @@ const COPY: Record<Phase, { greeting: string; body: string }> = {
 /** The empty state of the assistant pane: a greeting and one paragraph (under 40 words). */
 export function emptyStateFor(phase: Phase, assistantOn: boolean): { greeting: string; body: string } {
   if (!assistantOn) {
-    return { greeting: "Your assistant is off in this room.", body: "The room owner turns it on in the room's AI budget. Everything works without it: pick a view above, or search every command." };
+    return { greeting: "Your assistant is off in this room.", body: "The room owner turns it on in the room's AI budget. Everything works without it: pick a panel above, or search every command." };
   }
   return COPY[phase];
 }

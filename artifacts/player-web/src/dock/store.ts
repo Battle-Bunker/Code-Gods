@@ -2,7 +2,7 @@
  * The dock's state for one room: the layout this client shows, kept in step with the engine's `dockLayouts` row by
  * the pure decisions of layout-sync.ts (server layouts between gestures, pushes with ifUpdatedAt, CONFLICT adopts the
  * server). Everything that comes in (the server, the boot cache, dockview after a drag, a menu) goes through
- * parseLayout. The first lens pane follows the phase while nobody chose its lens (effectiveLayout); per-pane history
+ * parseLayout. The first built-in panel follows the phase while nobody chose its panel (effectiveLayout); per-pane history
  * feeds the header's ‹ and ↺. localStorage is a boot cache only.
  *
  * The desktop dock attaches its dockview api for the operations only dockview can do (maximise, sizes).
@@ -10,7 +10,7 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
-import type { Phase } from "@workspace/player-client/lenses";
+import type { Phase } from "@workspace/player-client/panels";
 import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
@@ -138,15 +138,15 @@ export class DockStore {
   undo(paneId: string) {
     const step = back(this.history, paneId);
     const pane = this.pane(paneId);
-    if (!step || pane?.kind !== "lens") return;
+    if (!step || pane?.kind !== "panel") return;
     this.edit(layout => ({ ...layout, panes: { ...layout.panes, [paneId]: { ...pane, ...step.view } } }));
     this.history = { stacks: step.history.stacks, last: this.history.last };
     this.emit();
   }
-  /** ↺: the pane's lens at its defaults. */
+  /** ↺: the pane's panel at its defaults. */
   reset(paneId: string) {
     const pane = this.pane(paneId);
-    if (pane?.kind !== "lens") return;
+    if (pane?.kind !== "panel") return;
     this.edit(layout => ({ ...layout, panes: { ...layout.panes, [paneId]: { ...pane, ...resetView(pane) } } }));
   }
 

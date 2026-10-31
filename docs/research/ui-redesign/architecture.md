@@ -1,5 +1,7 @@
 # The agent-centred player client: architecture
 
+> Terminology: "lens" in this historical document means what the code and the UI now call a built-in **panel** (`docs/ui-redesign.md`).
+
 Status: design proposal, 2026-10-31 (revised the same day for two further directives: one typed catalogue of every public Convex function, and IDE-style docking). Scope: how the in-client assistant becomes the centre of the player client; the catalogue that makes every affordance documented for humans and the AI; lenses and the dock layout as data the AI can drive through registry tools; safety; the engine UI; the work plan and the integration review. Sibling documents cover the lens catalogue and composition (a), progressive disclosure and the palette (b), onboarding and the configuration page (c), and the docking UI itself. This one fixes the contracts they share and settles the collisions with the adopted architecture (`docs/surface-architecture.md`).
 
 ## 0. Where the directives collide with the architecture, and the resolutions

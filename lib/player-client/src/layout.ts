@@ -5,14 +5,14 @@
  * the same pure operations the client uses, so a tool call and a drag never disagree about the shape.
  *
  * Sizes are weights (they sum to 100 in every split), never pixels. Exactly one `assistant` pane, never closable;
- * 1–4 lens panes; stored panels and (in dev containers) file panels are panes too.
+ * 1–4 built-in panels; stored panels and (in dev containers) file panels are panes too.
  */
 import { z } from "zod/v4";
-import { defaultLensFor, defaultLensParams, isLensId, lensSummary, parseLensParams, type LensId, type Phase } from "./lenses.ts";
+import { defaultPanelFor, defaultPanelParams, isPanelId, panelSummary, parsePanelParams, type PanelId, type Phase } from "./panels.ts";
 
 export type SetBy = "default" | "human" | "assistant";
 export type Pane =
-  | { id: string; kind: "lens"; lensId: LensId; params: Record<string, unknown>; setBy: SetBy }
+  | { id: string; kind: "panel"; panelId: PanelId; params: Record<string, unknown>; setBy: SetBy }
   | { id: string; kind: "assistant" }
   | { id: string; kind: "stored-panel"; slug: string }
   | { id: string; kind: "file-panel"; fileId: string };
@@ -23,7 +23,7 @@ export type Node =
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
 export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" | "tab" };
 
-export const LAYOUT_LIMITS = { panes: 12, lensPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
+export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
 
 /** A refused operation; the engine maps `code` to its ConvexError codes. */
 export class LayoutError extends Error {
@@ -39,8 +39,8 @@ const paneId = z.string().min(1).max(64);
 const setBySchema = z.enum(["default", "human", "assistant"]);
 export const placeSchema = z.strictObject({ relativeTo: paneId.optional(), direction: z.enum(["left", "right", "above", "below", "tab"]) });
 const paneSchema = z.discriminatedUnion("kind", [
-  // lensId, params and setBy are repaired by parseLayout, not refused here.
-  z.object({ id: paneId, kind: z.literal("lens"), lensId: z.unknown(), params: z.unknown().optional(), setBy: z.unknown().optional() }),
+  // panelId, params and setBy are repaired by parseLayout, not refused here.
+  z.object({ id: paneId, kind: z.literal("panel"), panelId: z.unknown(), params: z.unknown().optional(), setBy: z.unknown().optional() }),
   z.object({ id: paneId, kind: z.literal("assistant") }),
   z.object({ id: paneId, kind: z.literal("stored-panel"), slug: z.string().min(1).max(64) }),
   z.object({ id: paneId, kind: z.literal("file-panel"), fileId: z.string().min(1).max(128) }),
@@ -60,7 +60,7 @@ export function paneOrder(root: Node): string[] {
   return root.type === "tabs" ? [...root.panes] : root.children.flatMap(paneOrder);
 }
 export const panesOf = (layout: DockLayout): Pane[] => paneOrder(layout.root).map(id => layout.panes[id]).filter((p): p is Pane => !!p);
-export const lensPanesOf = (layout: DockLayout) => panesOf(layout).filter((p): p is Extract<Pane, { kind: "lens" }> => p.kind === "lens");
+export const panelPanesOf = (layout: DockLayout) => panesOf(layout).filter((p): p is Extract<Pane, { kind: "panel" }> => p.kind === "panel");
 export const assistantPaneOf = (layout: DockLayout) => panesOf(layout).find(p => p.kind === "assistant");
 
 function depthOf(node: Node): number {
@@ -71,28 +71,28 @@ function contains(node: Node, id: string): boolean {
 }
 
 /**
- * Is the assistant beside the lenses ("row": left or right) or above/below them ("column")? Decided at the first
- * split, from the root, where the assistant's branch parts from a branch holding a lens pane. "column" when the
- * assistant shares a tab group with lenses or there is no assistant.
+ * Is the assistant beside the panels ("row": left or right) or above/below them ("column")? Decided at the first
+ * split, from the root, where the assistant's branch parts from a branch holding a built-in panel. "column" when the
+ * assistant shares a tab group with panels or there is no assistant.
  */
 export function assistantSide(layout: DockLayout): Direction {
   const assistant = assistantPaneOf(layout);
   if (!assistant) return "column";
-  const lensIds = new Set(lensPanesOf(layout).map(p => p.id));
+  const panelIds = new Set(panelPanesOf(layout).map(p => p.id));
   let node = layout.root;
   while (node.type === "split") {
     const branch = node.children.find(c => contains(c, assistant.id));
     if (!branch) return "column";
-    if (node.children.some(c => c !== branch && paneOrder(c).some(id => lensIds.has(id)))) return node.direction;
+    if (node.children.some(c => c !== branch && paneOrder(c).some(id => panelIds.has(id)))) return node.direction;
     node = branch;
   }
   return "column";
 }
 
-/** The pane caption: a lens's summary, or what the other kinds are. */
+/** The pane caption: a panel's summary, or what the other kinds are. */
 export function paneCaption(pane: Pane): string {
   switch (pane.kind) {
-    case "lens": return lensSummary(pane.lensId, pane.params);
+    case "panel": return panelSummary(pane.panelId, pane.params);
     case "assistant": return "Your assistant (private)";
     case "stored-panel": return `Stored panel ${pane.slug}`;
     case "file-panel": return `File panel ${pane.fileId}`;
@@ -150,15 +150,15 @@ function normaliseLayout(layout: DockLayout): DockLayout {
 // Defaults and presets
 // ---------------------------------------------------------------------------------------------
 
-const lensPane = (id: string, lensId: LensId, setBy: SetBy = "default"): Pane => ({ id, kind: "lens", lensId, params: defaultLensParams(lensId) ?? {}, setBy });
+const panelPane = (id: string, panelId: PanelId, setBy: SetBy = "default"): Pane => ({ id, kind: "panel", panelId, params: defaultPanelParams(panelId) ?? {}, setBy });
 const tabs = (...panes: string[]): Node => ({ type: "tabs", panes, active: panes[0] });
 const split = (direction: Direction, sizes: number[], children: Node[]): Node => ({ type: "split", direction, sizes, children });
 
-/** One lens (the phase's default) on top, the assistant below, 50/50. */
+/** One panel (the phase's default) on top, the assistant below, 50/50. */
 export const DEFAULT_LAYOUT = (phase: Phase): DockLayout => ({
   version: 1,
   root: split("column", [50, 50], [tabs("p1"), tabs("p2")]),
-  panes: { p1: lensPane("p1", defaultLensFor(phase)), p2: { id: "p2", kind: "assistant" } },
+  panes: { p1: panelPane("p1", defaultPanelFor(phase)), p2: { id: "p2", kind: "assistant" } },
 });
 
 /** A fresh pane id: p<n> past every number in use. */
@@ -169,43 +169,43 @@ export function nextPaneId(layout: DockLayout, prefix = "p"): string {
   return `${prefix}${n}`;
 }
 
-/** The panes of a layout regrouped: `groups` of lens panes (each a tab group) plus the other panes as one tab group each. */
-function regroup(current: DockLayout, build: (lensGroups: Node[], others: Node[], assistant: Node) => Node, lensGroups: (lenses: string[]) => string[][]): DockLayout {
+/** The panes of a layout regrouped: `groups` of built-in panels' panes (each a tab group) plus the other panes as one tab group each. */
+function regroup(current: DockLayout, build: (panelGroups: Node[], others: Node[], assistant: Node) => Node, panelGroups: (panels: string[]) => string[][]): DockLayout {
   const assistant = assistantPaneOf(current);
   let panes = { ...current.panes };
   let assistantId = assistant?.id;
   if (!assistantId) { assistantId = nextPaneId({ ...current, panes }); panes = { ...panes, [assistantId]: { id: assistantId, kind: "assistant" } }; }
-  const lenses = lensPanesOf(current).map(p => p.id);
+  const panels = panelPanesOf(current).map(p => p.id);
   const others = panesOf(current).filter(p => p.kind === "stored-panel" || p.kind === "file-panel").map(p => tabs(p.id));
-  const groups = lensGroups(lenses).filter(g => g.length).map(g => tabs(...g));
+  const groups = panelGroups(panels).filter(g => g.length).map(g => tabs(...g));
   return normaliseLayout({ version: 1, root: build(groups, others, tabs(assistantId)), panes });
 }
-/** Layout presets the palette and the assistant apply to the current layout; lens panes are kept, never dropped. */
-export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-lenses", (current: DockLayout) => DockLayout> = {
-  /** Every lens as tabs in one group on top, the assistant below (the default shape). */
+/** Layout presets the palette and the assistant apply to the current layout; built-in panels are kept, never dropped. */
+export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-panels", (current: DockLayout) => DockLayout> = {
+  /** Every panel as tabs in one group on top, the assistant below (the default shape). */
   stacked: current => {
-    const out = regroup(current, (groups, others, assistant) => split("column", [50, 50], [split("row", [], [...groups, ...others]), assistant]), lenses => [lenses]);
-    return ensureLens(out);
+    const out = regroup(current, (groups, others, assistant) => split("column", [50, 50], [split("row", [], [...groups, ...others]), assistant]), panels => [panels]);
+    return ensurePanel(out);
   },
-  /** Lenses left (62 %), the assistant right. */
-  "side-by-side": current => ensureLens(regroup(current, (groups, others, assistant) => split("row", [62, 38], [split("column", [], [...groups, ...others]), assistant]), lenses => [lenses])),
-  /** Two lens groups stacked on the left, the assistant right; a second lens is opened when there is only one. */
-  "two-lenses": current => {
-    let layout = ensureLens(current);
-    if (lensPanesOf(layout).length < 2) {
-      const first = lensPanesOf(layout)[0];
-      layout = openPane(layout, lensPane("", first.lensId === "objects" ? "race" : "objects"), { relativeTo: first.id, direction: "below" }).layout;
+  /** Panels left (62 %), the assistant right. */
+  "side-by-side": current => ensurePanel(regroup(current, (groups, others, assistant) => split("row", [62, 38], [split("column", [], [...groups, ...others]), assistant]), panels => [panels])),
+  /** Two panel groups stacked on the left, the assistant right; a second panel is opened when there is only one. */
+  "two-panels": current => {
+    let layout = ensurePanel(current);
+    if (panelPanesOf(layout).length < 2) {
+      const first = panelPanesOf(layout)[0];
+      layout = openPane(layout, panelPane("", first.panelId === "objects" ? "race" : "objects"), { relativeTo: first.id, direction: "below" }).layout;
     }
     return regroup(layout, (groups, others, assistant) => split("row", [62, 38], [split("column", [50, 50], [...groups, ...others]), assistant]),
-      lenses => [[lenses[0]], lenses.slice(1)]);
+      panels => [[panels[0]], panels.slice(1)]);
   },
 };
 
-/** A layout with at least one lens pane (the default lens above everything else when none is left). */
-function ensureLens(layout: DockLayout, phase: Phase = "running"): DockLayout {
-  if (lensPanesOf(layout).length) return layout;
+/** A layout with at least one built-in panel (the default panel above everything else when none is left). */
+function ensurePanel(layout: DockLayout, phase: Phase = "running"): DockLayout {
+  if (panelPanesOf(layout).length) return layout;
   const id = nextPaneId(layout);
-  return normaliseLayout({ version: 1, root: split("column", [50, 50], [tabs(id), layout.root]), panes: { ...layout.panes, [id]: lensPane(id, defaultLensFor(phase)) } });
+  return normaliseLayout({ version: 1, root: split("column", [50, 50], [tabs(id), layout.root]), panes: { ...layout.panes, [id]: panelPane(id, defaultPanelFor(phase)) } });
 }
 /** A layout with exactly one assistant pane (added below everything else when missing). */
 function ensureAssistant(layout: DockLayout): DockLayout {
@@ -221,9 +221,9 @@ function ensureAssistant(layout: DockLayout): DockLayout {
 export type ParseContext = { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] };
 
 /**
- * A stored or submitted layout made safe to render: unknown lenses become the phase's default lens, invalid lens
+ * A stored or submitted layout made safe to render: unknown panels become the phase's default panel, invalid panel
  * parameters their defaults, unknown stored panels and files are dropped, duplicate assistants and pane ids are
- * removed, the tree is normalised and bounded, and a missing assistant or lens pane is added. Anything structurally
+ * removed, the tree is normalised and bounded, and a missing assistant or built-in panel is added. Anything structurally
  * wrong (or too large or too deep) yields DEFAULT_LAYOUT(phase). Every repair is named in `warnings`.
  */
 export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayout; warnings: string[] } {
@@ -237,7 +237,7 @@ export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayo
   if (depthOf(parsed.data.root) > LAYOUT_LIMITS.depth) return reset(`deeper than ${LAYOUT_LIMITS.depth} levels`);
 
   const panes: Record<string, Pane> = {};
-  let assistantSeen = false, lensCount = 0;
+  let assistantSeen = false, panelCount = 0;
   for (const id of paneOrder(parsed.data.root)) {
     const pane = parsed.data.panes[id];
     if (!pane) { warnings.push(`pane ${id}: not defined, removed`); continue; }
@@ -249,29 +249,29 @@ export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayo
         assistantSeen = true;
         panes[id] = { id, kind: "assistant" };
         break;
-      case "lens": {
-        if (lensCount >= LAYOUT_LIMITS.lensPanes) { warnings.push(`pane ${id}: more than ${LAYOUT_LIMITS.lensPanes} lens panes, removed`); continue; }
-        lensCount++;
-        let lensId: LensId, params: Record<string, unknown>;
+      case "panel": {
+        if (panelCount >= LAYOUT_LIMITS.panelPanes) { warnings.push(`pane ${id}: more than ${LAYOUT_LIMITS.panelPanes} built-in panels, removed`); continue; }
+        panelCount++;
+        let panelId: PanelId, params: Record<string, unknown>;
         let setBy: SetBy = "default";
         if (pane.setBy !== undefined) {
           if (setBySchema.safeParse(pane.setBy).success) setBy = pane.setBy as SetBy;
           else warnings.push(`pane ${id}: unknown setBy, default used`);
         }
-        if (!isLensId(pane.lensId)) {
-          warnings.push(`pane ${id}: unknown lens "${String(pane.lensId).slice(0, 40)}", showing ${defaultLensFor(ctx.phase)}`);
-          lensId = defaultLensFor(ctx.phase); params = defaultLensParams(lensId) ?? {}; setBy = "default";
+        if (!isPanelId(pane.panelId)) {
+          warnings.push(`pane ${id}: unknown panel "${String(pane.panelId).slice(0, 40)}", showing ${defaultPanelFor(ctx.phase)}`);
+          panelId = defaultPanelFor(ctx.phase); params = defaultPanelParams(panelId) ?? {}; setBy = "default";
         } else {
-          lensId = pane.lensId;
-          const result = parseLensParams(lensId, pane.params);
+          panelId = pane.panelId;
+          const result = parsePanelParams(panelId, pane.params);
           if (result.ok) params = result.params;
           else {
-            const defaults = defaultLensParams(lensId);
-            if (defaults) { params = defaults; warnings.push(`pane ${id}: invalid ${lensId} parameters (${result.issues.join("; ")}), defaults used`); }
-            else { warnings.push(`pane ${id}: ${lensId} needs its parameters (${result.issues.join("; ")}), showing ${defaultLensFor(ctx.phase)}`); lensId = defaultLensFor(ctx.phase); params = defaultLensParams(lensId) ?? {}; setBy = "default"; }
+            const defaults = defaultPanelParams(panelId);
+            if (defaults) { params = defaults; warnings.push(`pane ${id}: invalid ${panelId} parameters (${result.issues.join("; ")}), defaults used`); }
+            else { warnings.push(`pane ${id}: ${panelId} needs its parameters (${result.issues.join("; ")}), showing ${defaultPanelFor(ctx.phase)}`); panelId = defaultPanelFor(ctx.phase); params = defaultPanelParams(panelId) ?? {}; setBy = "default"; }
           }
         }
-        panes[id] = { id, kind: "lens", lensId, params, setBy };
+        panes[id] = { id, kind: "panel", panelId, params, setBy };
         break;
       }
       case "stored-panel":
@@ -289,7 +289,7 @@ export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayo
 
   let layout = normaliseLayout({ version: 1, root: parsed.data.root, panes });
   if (!assistantPaneOf(layout)) { warnings.push("no assistant pane, added below"); layout = ensureAssistant(layout); }
-  if (!lensPanesOf(layout).length) { warnings.push(`no lens pane, ${defaultLensFor(ctx.phase)} added above`); layout = ensureLens(layout, ctx.phase); }
+  if (!panelPanesOf(layout).length) { warnings.push(`no built-in panel, ${defaultPanelFor(ctx.phase)} added above`); layout = ensurePanel(layout, ctx.phase); }
   return { layout: followPhase(layout, ctx.phase), warnings };
 }
 
@@ -330,8 +330,8 @@ function removeNode(node: Node, id: string): Node {
 
 /** Where a new pane goes when the caller gives no place (docs/ui-redesign.md §2.3). */
 function defaultPlace(layout: DockLayout, pane: Pane): Place {
-  const lenses = lensPanesOf(layout);
-  const last = lenses.at(-1);
+  const panels = panelPanesOf(layout);
+  const last = panels.at(-1);
   if (!last) {
     const assistant = assistantPaneOf(layout) ?? panesOf(layout).at(-1);
     return assistant ? { relativeTo: assistant.id, direction: "above" } : { direction: "tab" };
@@ -340,7 +340,7 @@ function defaultPlace(layout: DockLayout, pane: Pane): Place {
 }
 
 /**
- * Add a pane. A fifth lens pane, a second assistant or a 13th pane is refused (CONFLICT). `pane.id` is replaced by a
+ * Add a pane. A fifth built-in panel, a second assistant or a 13th pane is refused (CONFLICT). `pane.id` is replaced by a
  * fresh id when empty or taken. Returns the new pane's id.
  */
 export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string } {
@@ -349,9 +349,9 @@ export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layou
   const want = place ?? defaultPlace(layout, pane);
   if (want.relativeTo !== undefined) requirePane(layout, want.relativeTo);
   const direction = want.direction;
-  // parseLayout drops lens panes past the limit, so a fifth one is refused here rather than silently lost later.
-  if (pane.kind === "lens" && lensPanesOf(layout).length >= LAYOUT_LIMITS.lensPanes) {
-    throw new LayoutError("CONFLICT", `At most ${LAYOUT_LIMITS.lensPanes} lens panes; change a pane's lens (set_lens_params or the lens menu) or close one first`);
+  // parseLayout drops built-in panels past the limit, so a fifth one is refused here rather than silently lost later.
+  if (pane.kind === "panel" && panelPanesOf(layout).length >= LAYOUT_LIMITS.panelPanes) {
+    throw new LayoutError("CONFLICT", `At most ${LAYOUT_LIMITS.panelPanes} panels; change one (set_panel_params or the panel menu) or close one first`);
   }
   const id = pane.id && !layout.panes[pane.id] ? pane.id : nextPaneId(layout);
   const fresh: Pane = { ...pane, id } as Pane;
@@ -375,80 +375,80 @@ export function movePane(layout: DockLayout, paneId: string, place: Place): Dock
   return normaliseLayout({ version: 1, root, panes: layout.panes });
 }
 
-/** Close a pane; the assistant and the last lens pane stay. */
+/** Close a pane; the assistant and the last built-in panel stay. */
 export function closePane(layout: DockLayout, paneId: string): DockLayout {
   const pane = requirePane(layout, paneId);
   if (pane.kind === "assistant") throw new LayoutError("CONFLICT", "The assistant pane cannot be closed");
-  if (pane.kind === "lens" && lensPanesOf(layout).length <= 1) throw new LayoutError("CONFLICT", "The last lens pane cannot be closed; change its lens instead");
+  if (pane.kind === "panel" && panelPanesOf(layout).length <= 1) throw new LayoutError("CONFLICT", "The last panel cannot be closed; change it instead");
   const { [paneId]: _closed, ...panes } = layout.panes;
   return normaliseLayout({ version: 1, root: removeNode(layout.root, paneId), panes });
 }
 
-/** Set a lens pane's parameters (validated against its lens; the output has every default filled in). */
+/** Set the parameters of a pane's built-in panel (validated against it; the output has every default filled in). */
 export function setPaneParams(layout: DockLayout, paneId: string, params: Record<string, unknown>, setBy: SetBy): DockLayout {
   const pane = requirePane(layout, paneId);
-  if (pane.kind !== "lens") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} is not a lens`);
-  const parsed = parseLensParams(pane.lensId, params);
-  if (!parsed.ok) throw new LayoutError("BAD_REQUEST", `Invalid ${pane.lensId} parameters: ${parsed.issues.join("; ")}`);
+  if (pane.kind !== "panel") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} does not show a built-in panel`);
+  const parsed = parsePanelParams(pane.panelId, params);
+  if (!parsed.ok) throw new LayoutError("BAD_REQUEST", `Invalid ${pane.panelId} parameters: ${parsed.issues.join("; ")}`);
   return { ...layout, panes: { ...layout.panes, [paneId]: { ...pane, params: parsed.params, setBy } } };
 }
 
-/** Change a lens pane's lens (the human's dropdown): the lens's defaults, with the given setBy. */
-export function setPaneLens(layout: DockLayout, paneId: string, lensId: LensId, setBy: SetBy, params?: Record<string, unknown>): DockLayout {
+/** Change the built-in panel a pane shows (the human's dropdown): the panel's defaults, with the given setBy. */
+export function setPanePanel(layout: DockLayout, paneId: string, panelId: PanelId, setBy: SetBy, params?: Record<string, unknown>): DockLayout {
   const pane = requirePane(layout, paneId);
-  if (pane.kind !== "lens") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} is not a lens`);
-  const parsed = parseLensParams(lensId, params);
-  if (!parsed.ok) throw new LayoutError("BAD_REQUEST", `Invalid ${lensId} parameters: ${parsed.issues.join("; ")}`);
-  return { ...layout, panes: { ...layout.panes, [paneId]: { id: paneId, kind: "lens", lensId, params: parsed.params, setBy } } };
+  if (pane.kind !== "panel") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} does not show a built-in panel`);
+  const parsed = parsePanelParams(panelId, params);
+  if (!parsed.ok) throw new LayoutError("BAD_REQUEST", `Invalid ${panelId} parameters: ${parsed.issues.join("; ")}`);
+  return { ...layout, panes: { ...layout.panes, [paneId]: { id: paneId, kind: "panel", panelId, params: parsed.params, setBy } } };
 }
 
 /**
- * The layout a human carries into another room: the same arrangement, the same lenses and who chose them, with every
- * lens's parameters reset (they name one game's objects); stored panels stay (they belong to the human across rooms).
- * A pane nobody ever chose keeps following the phase in the new room; a chosen one keeps its lens. A lens that needs
+ * The layout a human carries into another room: the same arrangement, the same panels and who chose them, with every
+ * panel's parameters reset (they name one game's objects); stored panels stay (they belong to the human across rooms).
+ * A pane nobody ever chose keeps following the phase in the new room; a chosen one keeps its panel. A panel that needs
  * parameters (what-if) becomes the overview.
  */
 export function carryLayout(layout: DockLayout): DockLayout {
-  return resetLensParams(layout);
+  return resetPanelParams(layout);
 }
 
-/** A lens whose parameters can be reset to defaults keeps its lens; one that needs parameters (what-if) becomes the overview. */
-const survivesReset = (lensId: LensId): LensId => (defaultLensParams(lensId) ? lensId : "overview");
+/** A panel whose parameters can be reset to defaults keeps its panel; one that needs parameters (what-if) becomes the overview. */
+const survivesReset = (panelId: PanelId): PanelId => (defaultPanelParams(panelId) ? panelId : "overview");
 
 /**
- * The same layout when a new game starts in the room: every lens keeps its lens and who chose it, but its parameters
- * go back to the defaults (they named the previous game's objects); a lens that cannot show anything without
+ * The same layout when a new game starts in the room: every panel keeps its panel and who chose it, but its parameters
+ * go back to the defaults (they named the previous game's objects); a panel that cannot show anything without
  * parameters becomes the overview.
  */
-export function resetLensParams(layout: DockLayout): DockLayout {
+export function resetPanelParams(layout: DockLayout): DockLayout {
   const panes = Object.fromEntries(Object.entries(layout.panes).map(([id, pane]) => {
-    if (pane.kind !== "lens") return [id, pane];
-    const lensId = survivesReset(pane.lensId);
-    return [id, { ...pane, lensId, params: defaultLensParams(lensId) ?? {} }];
+    if (pane.kind !== "panel") return [id, pane];
+    const panelId = survivesReset(pane.panelId);
+    return [id, { ...pane, panelId, params: defaultPanelParams(panelId) ?? {} }];
   }));
   return { ...layout, panes };
 }
 
 /**
- * The first lens pane follows the phase's default lens while nobody (neither the player nor the assistant) chose its
- * lens (`setBy: "default"`); every other pane is left alone. Part of parseLayout, so the engine's view and the client's
+ * The first built-in panel follows the phase's default panel while nobody (neither the player nor the assistant) chose its
+ * panel (`setBy: "default"`); every other pane is left alone. Part of parseLayout, so the engine's view and the client's
  * agree.
  */
 export function followPhase(layout: DockLayout, phase: Phase): DockLayout {
-  const first = lensPanesOf(layout)[0];
-  const lensId = defaultLensFor(phase);
-  if (!first || first.setBy !== "default" || first.lensId === lensId) return layout;
-  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, lensId, params: defaultLensParams(lensId) ?? {} } } };
+  const first = panelPanesOf(layout)[0];
+  const panelId = defaultPanelFor(phase);
+  if (!first || first.setBy !== "default" || first.panelId === panelId) return layout;
+  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, panelId, params: defaultPanelParams(panelId) ?? {} } } };
 }
 
 /** One line per pane for the assistant's briefing: "[p1] objects — Top 12 by payoff (set by you)". */
 export function describeLayout(layout: DockLayout): string[] {
   const side = assistantSide(layout) === "row" ? "beside" : "below";
   return panesOf(layout).map(pane => {
-    if (pane.kind === "assistant") return `[${pane.id}] this conversation (${side} the lenses)`;
-    if (pane.kind !== "lens") return `[${pane.id}] ${paneCaption(pane)}`;
+    if (pane.kind === "assistant") return `[${pane.id}] this conversation (${side} the panels)`;
+    if (pane.kind !== "panel") return `[${pane.id}] ${paneCaption(pane)}`;
     const by = pane.setBy === "assistant" ? "set by you" : pane.setBy === "human" ? "chosen by the player" : "default";
-    return `[${pane.id}] ${pane.lensId} — ${paneCaption(pane)} (${by})`;
+    return `[${pane.id}] ${pane.panelId} — ${paneCaption(pane)} (${by})`;
   });
 }
 

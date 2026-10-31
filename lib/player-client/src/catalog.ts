@@ -227,15 +227,15 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "layout.current": {
     kind: "query", audience: "player",
     human: { title: "Show the dock layout", tooltip: "The panes you see in this room, as every open client of yours renders them." },
-    ai: { description: "The human's dock layout for the room: panes (lenses with parameters, the assistant, stored panels), their arrangement, who set each lens, and repair warnings. get_layout returns it with the lens catalogue." },
+    ai: { description: "The human's dock layout for the room: panes (built-in panels with parameters, stored panels, the assistant), their arrangement, who set each built-in panel, and repair warnings. get_layout returns it with the built-in panel catalogue." },
     tools: ["get_layout"], palette: null, why: "The dock's own subscription; the assistant reads it with get_layout.",
   },
   "layout.set": {
     kind: "mutation", audience: "player",
     human: { title: "Arrange the dock", tooltip: "Moves, resizes, adds or closes panes; every open client of yours follows." },
-    ai: { description: "Store the human's whole dock layout for the room (drags, the lens menu, presets), compare-and-set with ifUpdatedAt, at most 12 writes a minute. Assistants use the pane operations open_lens, set_lens_params, open_panel, move_pane and close_pane instead." },
-    tools: ["open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"],
-    palette: { label: "Arrange the dock…", group: "view", keywords: ["layout", "pane", "lens", "dock", "move", "split", "reset"], surfaces: P },
+    ai: { description: "Store the human's whole dock layout for the room (drags, the panel menu, presets), compare-and-set with ifUpdatedAt, at most 12 writes a minute. Assistants use the pane operations open_panel, set_panel_params, move_pane and close_pane instead." },
+    tools: ["open_panel", "set_panel_params", "move_pane", "close_pane"],
+    palette: { label: "Arrange the dock…", group: "view", keywords: ["layout", "pane", "panel", "dock", "move", "split", "reset"], surfaces: P },
   },
   // ----- manifest -----
   "manifest.get": {
