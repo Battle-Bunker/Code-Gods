@@ -433,7 +433,21 @@ try {
     const page = await context.newPage();
     // Never leave the machine: answer Google's authorization endpoint locally and record the request.
     await context.route(/^https:\/\/accounts\.google\.com\//, (route: any) => route.fulfill({ status: 200, contentType: "text/html", body: "google" }));
+    // Nothing may register a beforeunload guard: the Convex client's "changes may not be saved" prompt used to
+    // fire when the sign-in redirect left the page while the manifest action was still in flight.
+    await context.addInitScript(() => {
+      const w = window as unknown as { __beforeunloadListeners: number };
+      w.__beforeunloadListeners = 0;
+      const add = window.addEventListener.bind(window);
+      window.addEventListener = ((type: string, ...rest: unknown[]) => {
+        if (type === "beforeunload") w.__beforeunloadListeners += 1;
+        return (add as (...a: unknown[]) => void)(type, ...rest);
+      }) as typeof window.addEventListener;
+    });
     await page.goto(`${SITE}/`);
+    await page.getByTestId("button-login").waitFor();
+    // The Convex client registers its guard when it is constructed, so the count is final once the page is up.
+    assert.equal(await page.evaluate(() => (window as unknown as { __beforeunloadListeners: number }).__beforeunloadListeners), 0, "a beforeunload guard was registered; leaving for Google would prompt \"Leave site?\"");
     const google = page.waitForRequest(/^https:\/\/accounts\.google\.com\//);
     await page.getByTestId("button-login").click();
     const url = new URL((await google).url());

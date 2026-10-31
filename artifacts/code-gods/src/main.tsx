@@ -18,7 +18,9 @@ loadConvexUrl().then(
   (url) => {
     root.render(
       <ErrorBoundary>
-        <App client={new ConvexReactClient(url)} />
+        {/* No "changes may not be saved" prompt: it fired on the sign-in redirect whenever an action (the manifest
+            load) was still in flight, and the configure page keeps its own draft in localStorage. */}
+        <App client={new ConvexReactClient(url, { unsavedChangesWarning: false })} />
       </ErrorBoundary>,
     );
   },
