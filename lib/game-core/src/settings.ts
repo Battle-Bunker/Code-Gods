@@ -327,3 +327,189 @@ export function defaultSettingsFor(
     grammarId: `${language}-agent-v1` as GrammarId, complexityFunctionId: COMPLEXITY_FOR[language],
   };
 }
+
+// ------------------------------------------------------------------------------------------------
+// field documentation (docs/research/ui-redesign/onboarding-and-config.md §4.3, §4.6)
+// ------------------------------------------------------------------------------------------------
+
+/** The configuration page's sections, in order (the Players & AI section documents room budgets, not settings). */
+export type SettingsSection = "world" | "goals" | "agents" | "energy" | "population" | "time" | "players";
+
+/**
+ * One field's documentation, read by every surface: the configuration page, the read-only view, the assistant's
+ * explanation and tool descriptions. `meaning` and `consequence` are each one neutral sentence with no reference to
+ * layout or controls. `suggested` are the stepped choices (every default and preset value is among them); `tier`
+ * says whether a newcomer is asked ("ask"), the field sits under "More" ("more") or is a fixed fact ("fixed").
+ */
+export interface FieldDoc {
+  readonly question: string;
+  readonly meaning: string;
+  readonly consequence: string;
+  readonly unit?: string;
+  readonly section: SettingsSection;
+  readonly tier: "ask" | "more" | "fixed";
+  readonly suggested?: readonly number[] | readonly string[];
+  /** Hidden while every listed field has the listed value (it has no effect then). */
+  readonly hiddenWhen?: Partial<Record<keyof GameSettings, unknown>>;
+  /** Fields whose change moves this one (e.g. the grammar follows the language). */
+  readonly dependsOn?: readonly (keyof GameSettings)[];
+}
+
+/** Every GameSettings field, documented once; a field without docs (or a stale key) fails the typecheck. */
+export const SETTINGS_DOCS = {
+  objectType: {
+    question: "What are the objects in the world?", section: "world", tier: "ask", suggested: ["Grid", "Int", "string"],
+    meaning: "The kind of thing every player scores and every agent changes: a grid of coloured symbols, a whole number or a piece of text.",
+    consequence: "Grids give the richest and most visual rules, while numbers and text give terser, more abstract games.",
+  },
+  typeArgs: {
+    question: "What shape does each object have?", section: "world", tier: "ask", dependsOn: ["objectType"],
+    meaning: "The arguments of the object type, such as a board's size, symbols and colours, or a range of numbers.",
+    consequence: "They decide which rules can be dealt and how hard each object is to read at a glance.",
+  },
+  language: {
+    question: "Which language do agents use?", section: "world", tier: "ask", suggested: ["python", "typescript"],
+    meaning: "Every player writes agents in this programming language.",
+    consequence: "Changing it changes how agents are written and how their summon price is counted.",
+  },
+  grammarId: {
+    question: "What shape must an agent's code have?", section: "world", tier: "fixed", dependsOn: ["language"],
+    meaning: "The shape an agent's code must have: a function agent(obj) that returns a list of moves.",
+    consequence: "It follows the language and has no other effect.",
+  },
+  complexityFunctionId: {
+    question: "How is an agent's summon price measured?", section: "world", tier: "fixed", dependsOn: ["language"],
+    meaning: "The way an agent's summon price is measured: the description bits of its source code.",
+    consequence: "It follows the language, and shorter programs always cost less.",
+  },
+  utilitySelectorId: {
+    question: "How are secret goals dealt?", section: "goals", tier: "ask", suggested: ["fair-aligned", "divine-lottery"],
+    meaning: "How secret goals are dealt: the Aligned Lottery deals rules that tend to want the same objects, and the Divine Lottery draws each rule at random.",
+    consequence: "The Divine Lottery produces more clashing goals, which makes negotiation harder and outcomes less fair.",
+  },
+  excludedFamilies: {
+    question: "Which rules are never dealt?", section: "goals", tier: "more", dependsOn: ["objectType", "typeArgs"],
+    meaning: "Families of rules that are never dealt in this game.",
+    consequence: "Excluding more families makes goals more predictable, and restoring the weak families lowers fairness.",
+  },
+  defenceRate: {
+    question: "How likely is a player to also get something to defend?", section: "goals", tier: "ask", suggested: [0, 0.25, 0.5, 1],
+    meaning: "The probability that each player is also dealt a defence goal, which costs points when objects are unusually bad for it.",
+    consequence: "Raising it adds conflict, because objects can lose points as well as gain them.",
+  },
+  penaltyWeight: {
+    question: "How much does a defence bit weigh against a reward bit?", section: "goals", tier: "more", suggested: [0.5, 1, 2],
+    hiddenWhen: { defenceRate: 0 },
+    meaning: "How much one defence-goal bit counts against one reward bit.",
+    consequence: "Raising it makes defending matter more than building, and it has no effect when no defence goals are dealt.",
+  },
+  priorId: {
+    question: "What is rarity measured against?", section: "goals", tier: "fixed",
+    meaning: "The reference against which rarity is measured: uniformly random objects.",
+    consequence: "Only one reference exists today, so it has no effect.",
+  },
+  maxAgentsPerGod: {
+    question: "How many agents may each player keep?", section: "agents", tier: "ask", suggested: [5, 20, 50, 200],
+    meaning: "The most agents each player may have in the world at once.",
+    consequence: "Lowering it makes each agent count more and rewards careful code over swarms.",
+  },
+  commitClause: {
+    question: "May agents make their moves conditional?", section: "agents", tier: "more",
+    meaning: "Whether agents may wrap moves in only_if_better, so that the moves apply only if they raise their owner's payoff on that object.",
+    consequence: "Offering it makes agents safer and accidents rarer, at about 3.6 extra summon bits for each agent that uses it.",
+  },
+  stepBudget: {
+    question: "How much may an agent compute per act?", section: "agents", tier: "more", unit: "steps", suggested: [100_000, 500_000, 2_000_000],
+    meaning: "The fixed number of computation steps an agent may use per act, so the same agent and input always fit or never do.",
+    consequence: "Lowering it allows only simple agents, and raising it allows cleverer agents at the cost of a slower world.",
+  },
+  interactionComputeMs: {
+    question: "What is the CPU safety limit per act?", section: "agents", tier: "more", unit: "ms",
+    meaning: "A CPU-time safety limit per act behind the step budget, excluding compilation and startup.",
+    consequence: "It rarely binds, so changing it seldom matters.",
+  },
+  startingEnergy: {
+    question: "How much energy does each player start with?", section: "energy", tier: "ask", unit: "bits", suggested: [50, 100, 200, 400],
+    meaning: "The energy, in bits, each player holds for summoning agents when planning begins.",
+    consequence: "Raising it allows bigger or more first agents and a faster start.",
+  },
+  energyPerSecond: {
+    question: "How fast does a player's energy refill?", section: "energy", tier: "ask", unit: "bits/s", suggested: [0.5, 1, 2, 4],
+    meaning: "The bits each player's energy gains per real-time second, including planning and pauses.",
+    consequence: "Raising it allows more summons and a busier world.",
+  },
+  agentEnergyPerSecond: {
+    question: "How fast do agents charge?", section: "energy", tier: "ask", unit: "bits/s", suggested: [2, 8, 16, 32, 64],
+    meaning: "The bits each agent's own energy gains per second of world time, used to pay for its acts.",
+    consequence: "Raising it makes agents act more often, so objects change faster.",
+  },
+  agentBatteryActs: {
+    question: "How many acts can an agent save up?", section: "energy", tier: "more", unit: "acts", suggested: [1, 2, 4, 8],
+    meaning: "How many expected acts' worth of energy an agent can store before its income stops.",
+    consequence: "Raising it lets agents act in bursts after quiet spells.",
+  },
+  perActFloorBits: {
+    question: "What is the minimum price of an attempted act?", section: "energy", tier: "more", unit: "bits", suggested: [0, 1, 2, 4],
+    meaning: "The minimum bits charged for every attempted act, whether or not it succeeds.",
+    consequence: "Raising it makes failed and wasteful moves costlier, which favours precise code.",
+  },
+  startingObjectCount: {
+    question: "How many objects does the world start with?", section: "population", tier: "ask", suggested: [10, 40, 80, 160],
+    meaning: "How many objects the world holds when it starts running.",
+    consequence: "Raising it spreads scores across more objects, and each object changes less often.",
+  },
+  spawnRateHz: {
+    question: "How often does a new object appear?", section: "population", tier: "ask", unit: "per s", suggested: [0, 0.1, 0.5, 1],
+    meaning: "How many new random objects appear per second of world time.",
+    consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
+  },
+  spawnFunctionId: {
+    question: "How are new objects drawn?", section: "population", tier: "fixed",
+    meaning: "How new objects are drawn: uniformly at random.",
+    consequence: "Only one option exists today, so it has no effect.",
+  },
+  objectSelection: {
+    question: "Which object does an act target?", section: "population", tier: "more", suggested: ["uniform", "shelter"],
+    meaning: "How an act's target object is chosen: uniformly, or with shelter, where objects many players care about are hit a little less often.",
+    consequence: "Shelter protects objects many players care about, so agreements last longer.",
+  },
+  planningSeconds: {
+    question: "How long is planning before the world starts?", section: "time", tier: "ask", unit: "s", suggested: [30, 60, 120, 300],
+    meaning: "How long the world stays frozen at the start while players read their goals, summon agents and talk.",
+    consequence: "Lengthening it helps beginners and delays the action.",
+  },
+  halfLifeSeconds: {
+    question: "Roughly how long should games last?", section: "time", tier: "ask", unit: "s", suggested: [120, 300, 600, 1200],
+    meaning: "The world time within which half of games end, the end itself being a hidden random moment.",
+    consequence: "Lengthening it gives more time to negotiate and makes games longer on average.",
+  },
+  interactionRateHz: {
+    question: "How fast does the world move?", section: "time", tier: "ask", unit: "acts/s", suggested: [25, 100, 300, 1000],
+    meaning: "The maximum number of acts per second across all agents.",
+    consequence: "Lowering it makes each score easier to follow, and raising it makes the world busier and harder to read.",
+  },
+  pauseSeconds: {
+    question: "How long is each player's one pause?", section: "time", tier: "more", unit: "s", suggested: [60, 180, 300],
+    meaning: "How long the world stops when a player uses their one pause per game.",
+    consequence: "Lengthening it gives more time to negotiate during a pause.",
+  },
+} as const satisfies Record<keyof GameSettings, FieldDoc>;
+
+/** The room budgets the configuration page also asks about (room state, not GameSettings; set by approveAiBudget). */
+export const ROOM_BUDGET_DOCS = {
+  aiBudget: {
+    question: "How many tokens may AI players use per game?", section: "players", tier: "ask", unit: "tokens", suggested: [0, 100_000, 300_000, 1_000_000],
+    meaning: "The total tokens all AI players together may use in one game, billed to the server owner.",
+    consequence: "Too low a budget makes AI players stop acting mid-game, and dollar caps of $2 per game and $5 per day still apply.",
+  },
+  assistantBudget: {
+    question: "How many assistant tokens does each human get per game?", section: "players", tier: "ask", unit: "tokens", suggested: [0, 50_000, 200_000, 1_000_000],
+    meaning: "The tokens each human's in-client assistant may use per game, billed to the server owner, where zero turns the assistant off.",
+    consequence: "Raising it lets players rely on the assistant for more of the game.",
+  },
+  assistantModel: {
+    question: "Which model powers the assistants?", section: "players", tier: "ask",
+    meaning: "The AI model that powers every player's assistant in the room.",
+    consequence: "Larger models give better help at a higher cost per token.",
+  },
+} as const satisfies Record<"aiBudget" | "assistantBudget" | "assistantModel", FieldDoc>;

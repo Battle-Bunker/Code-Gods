@@ -8,8 +8,12 @@ import { INT_MUTATORS } from "./mutators.ts";
 export const INT32_MIN = -2147483648, INT32_MAX = 2147483647;
 
 const PARAMS: readonly ParamSchema[] = Object.freeze([
-  { kind: "int", id: "min", label: "Smallest", min: INT32_MIN, max: INT32_MAX, presets: [INT32_MIN, 0] },
-  { kind: "int", id: "max", label: "Biggest", min: INT32_MIN, max: INT32_MAX, presets: [INT32_MAX, 9999] },
+  { kind: "int", id: "min", label: "Smallest", min: INT32_MIN, max: INT32_MAX, presets: [INT32_MIN, 0],
+    question: "What is the smallest number?", meaning: "Every object is a whole number no smaller than this.",
+    consequence: "A narrower range makes collisions with existing values, which always fail, more common." },
+  { kind: "int", id: "max", label: "Biggest", min: INT32_MIN, max: INT32_MAX, presets: [INT32_MAX, 9999],
+    question: "What is the biggest number?", meaning: "Every object is a whole number no bigger than this.",
+    consequence: "A narrower range makes collisions with existing values, which always fail, more common." },
 ]);
 
 /** The settings presets: full signed 32-bit (default) and 0..9999. */
