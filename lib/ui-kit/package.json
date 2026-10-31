@@ -4,14 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./core": "./src/core.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@workspace/player-client": "workspace:*"
+    "@radix-ui/react-alert-dialog": "^1.1.7",
+    "@radix-ui/react-dialog": "^1.1.7",
+    "@radix-ui/react-popover": "^1.1.7",
+    "@workspace/player-client": "workspace:*",
+    "cmdk": "^1.1.1"
   },
   "peerDependencies": {
     "react": ">=18"
