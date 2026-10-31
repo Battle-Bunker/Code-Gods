@@ -5,7 +5,7 @@
  */
 import { useMemo } from "react";
 import { BarList, Obj, ScatterPlot, Table, fmtBits, useEvents, useObjects, type LiveObject } from "@/sdk";
-import { LensEmpty, Section, referObject, useObjectRanks, type LensProps } from "./kit";
+import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 type Quadrant = "chips" | "conflict" | "shared";
 const IN: Record<Quadrant, (mine: number, others: number) => boolean> = {
@@ -15,7 +15,7 @@ const IN: Record<Quadrant, (mine: number, others: number) => boolean> = {
 };
 const LABEL: Record<Quadrant, string> = { chips: "Others care, you don't: bargaining chips", conflict: "Opposed interests", shared: "You both care" };
 
-export default function OthersCare({ params }: LensProps<"others-care">) {
+export default function OthersCare({ params }: PanelProps<"others-care">) {
   const objects = useObjects({ hz: 1 });
   const ranks = useObjectRanks(objects);
   const events = useEvents({ hz: 1, limit: params.window });
@@ -33,7 +33,7 @@ export default function OthersCare({ params }: LensProps<"others-care">) {
     return out;
   }, [events]);
 
-  if (!objects.length) return <LensEmpty>No objects yet: the others' interests show once the world runs.</LensEmpty>;
+  if (!objects.length) return <PanelEmpty>No objects yet: the others' interests show once the world runs.</PanelEmpty>;
   const caption = <p className="text-xs text-muted-foreground">Inferred from totals, not anyone's actual goal.</p>;
   if (params.mode === "movements") {
     const theirs = moves.filter(m => !m.mine);

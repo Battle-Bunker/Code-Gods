@@ -9,14 +9,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
 import { CATALOG } from "../src/catalog.ts";
-import { LENS_IDS } from "../src/lenses.ts";
+import { PANEL_IDS } from "../src/panels.ts";
 import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
   "evaluate_value", "get_chat", "get_receipt", "list_panels", "get_panel", "get_layout"];
 const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine",
-  "save_panel", "rollback_panel", "delete_panel", "open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"];
+  "save_panel", "rollback_panel", "delete_panel", "open_panel", "set_panel_params", "move_pane", "close_pane"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
 const uuid = "6a1f8b7e-3c2d-4e5f-8a9b-0c1d2e3f4a5b";
 
@@ -49,17 +49,19 @@ test("descriptions come from the catalogue unless a tool wraps a shared function
   for (const t of TOOLS) assert.ok(t.title.length >= 3 && t.title.length <= 60, `${t.name} has a short title`);
 });
 
-test("layout tools: the lens enum is the only lens schema in the snapshot; places are validated; ids are bounded", () => {
-  const open = tool("open_lens");
-  assert.deepEqual((toolJsonSchemas().open_lens.input as { properties: { lensId: { enum: string[] } } }).properties.lensId.enum, [...LENS_IDS]);
-  assert.equal(open.input.safeParse({ lensId: "objects" }).success, true, "params are optional");
-  assert.equal(open.input.safeParse({ lensId: "stored" }).success, false, "stored panels have their own tool");
-  assert.equal(open.input.safeParse({ lensId: "objects", place: { direction: "sideways" } }).success, false);
-  assert.equal(open.input.safeParse({ lensId: "objects", place: { relativeTo: "p1", direction: "tab" } }).success, true);
+test("layout tools: open_panel takes a built-in panel id from the enum or a stored panel's slug; places are validated; ids are bounded", () => {
+  const open = tool("open_panel");
+  assert.deepEqual((toolJsonSchemas().open_panel.input as { properties: { panelId: { enum: string[] } } }).properties.panelId.enum, [...PANEL_IDS]);
+  assert.equal(open.input.safeParse({ panelId: "objects" }).success, true, "params are optional");
+  assert.equal(open.input.safeParse({ panelId: "stored" }).success, false, "a built-in panel id comes from the enum");
+  assert.equal(open.input.safeParse({ slug: "my-panel" }).success, true, "a stored panel by slug");
+  assert.equal(open.input.safeParse({ slug: "Not A Slug" }).success, false, "slugs are kebab-case");
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { direction: "sideways" } }).success, false);
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { relativeTo: "p1", direction: "tab" } }).success, true);
   assert.equal(tool("move_pane").input.safeParse({ paneId: "p2" }).success, false, "a move needs a place");
-  assert.equal(tool("set_lens_params").input.safeParse({ paneId: "p1" }).success, false, "params are required here");
+  assert.equal(tool("set_panel_params").input.safeParse({ paneId: "p1" }).success, false, "params are required here");
   assert.equal(tool("close_pane").input.safeParse({ paneId: "" }).success, false);
-  for (const name of ["get_layout", "open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"]) assert.ok(tool(name).functions.includes(name === "get_layout" ? "layout.current" : "layout.set"), name);
+  for (const name of ["get_layout", "open_panel", "set_panel_params", "move_pane", "close_pane"]) assert.ok(tool(name).functions.includes(name === "get_layout" ? "layout.current" : "layout.set"), name);
 });
 
 test("permission matrix: a grant lists exactly the tools at or below it", () => {

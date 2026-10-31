@@ -5,14 +5,18 @@ Status: adopted 2026-10-31. This is the integrated design; the four research doc
 Where they disagree, this document decides. It supersedes the panel-dock parts of `docs/surface-architecture.md`
 §5 and §6 and the "Layout" parts of `docs/panels.md`.
 
+Terminology: the things a player adds to their workspace are **panels**. The 13 built-in ones (§3) were called
+"lenses" while this was designed, and still are in the research documents; a player's own TSX panels are **stored
+panels** (`docs/panels.md`), "Your panels" in menus.
+
 ## 0. The owner's directives
 
 1. The whole site is cluttered. Centre the interface on the AI assistant, which reaches every capability the player
    has through its tools, plus tools that show parameterisable analytics.
-2. The player client is an IDE-style dock of movable, resizable panes. Default: one analytics **lens** in the top
-   half, the assistant chat in the bottom half. Dragging the assistant to the right, adding a second lens (from the
+2. The player client is an IDE-style dock of movable, resizable panes. Default: one analytics **panel** in the top
+   half, the assistant chat in the bottom half. Dragging the assistant to the right, adding a second panel (from the
    palette or by asking the assistant) and dragging it under the first must be easy.
-3. A pane's lens is chosen from a dropdown; a lens's **parameters are set only by the assistant**.
+3. A pane's panel is chosen from a dropdown; a panel's **parameters are set only by the assistant**.
 4. A **command palette** (a search field with a menu button at the top right, and a keyboard shortcut) gives humans
    the same repertoire as the assistant's tools, for everything that does not fit the lean primary screen.
 5. **Every public Convex function** is enumerated once, with a documentation annotation for humans (tooltips) and
@@ -26,15 +30,15 @@ Where they disagree, this document decides. It supersedes the panel-dock parts o
 | Topic | Decision | Source |
 |---|---|---|
 | Dock library | `dockview-react` 8.x (MIT, React 19, JSON layouts, `addPanel` relative to a pane). Not loaded under 768 px: a stacked renderer draws the same layout with the assistant as a bottom sheet. `react-resizable-panels` is removed. | player-client §1.1 |
-| Layout state | A library-independent tree (`DockLayout`, below) in a new table `dockLayouts` per (human, room). The arrangement follows the human to a new room; lens parameters do not (they name one game's objects). | architecture §2.2–2.3 |
-| Panes | `lens` (built-in), `assistant` (exactly one, never closable), `stored-panel` (the human's stored panel in its sandboxed frame), `file-panel` (dev containers). | architecture §3 |
-| Layout tools | `get_layout` (read), `open_lens`, `set_lens_params`, `open_panel`, `move_pane`, `close_pane` (act). No confirmation card: view changes touch no game state and are reversible; a chip in the chat names every change. `place_panel` is removed; `placement`/`size` on panels become add-pane hints only. | architecture §2.4, player-client §6 |
-| Anti-flap | `open_lens` without `place` reuses an open pane of that lens, else switches a lens pane the player did not choose (`setBy` default, then the assistant's own latest) and opens a new pane only when `place` is given or every lens pane is the player's; at most two layout tools per model step; 12 layout writes a minute per human per room; the assistant never moves or closes a pane the player arranged unless asked. | architecture §2.4, player-client §2.2 |
-| Lenses | 13 built-in lenses (§3). Parameters: primitives, enums, short id lists; `forge.source` is the only code. | player-client §2, architecture §2.1 |
-| Default lens | `overview` in lobby, planning, running and paused; `results` when the game ends. A pane's lens auto-follows the phase only while its `setBy` is `default` (neither the human nor the assistant chose it). A new game resets lens parameters. | this document |
-| The forge | A lens (`forge`) with an in-place edit mode: the assistant drafts code into it (`open_lens forge {source}`), the human may type or paste. Validate and Summon live in it, with the console's test ids. | architecture §0, player-client §3 |
-| Public chat vs. assistant | Separate inputs. The assistant pane is "Your assistant (private)"; the `public-chat` lens has the only public input ("Say to everyone…"). A palette hand-off always targets the assistant and never sends by itself. | palette §6, onboarding §6 |
-| Assistant off (allowance 0) | The client is complete without it: lenses at defaults, every action in the palette and in the lenses that need it. The assistant pane shows the welcome, chips in command form and one sentence on how the owner turns it on. | architecture §4.3 |
+| Layout state | A library-independent tree (`DockLayout`, below) in a new table `dockLayouts` per (human, room). The arrangement follows the human to a new room; panel parameters do not (they name one game's objects). | architecture §2.2–2.3 |
+| Panes | `panel` (built-in), `assistant` (exactly one, never closable), `stored-panel` (the human's stored panel in its sandboxed frame), `file-panel` (dev containers). | architecture §3 |
+| Layout tools | `get_layout` (read), `open_panel` (a built-in panel by `panelId` or a stored panel by `slug`, exactly one), `set_panel_params`, `move_pane`, `close_pane` (act). No confirmation card: view changes touch no game state and are reversible; a chip in the chat names every change. `place_panel` is removed; `placement`/`size` on panels become add-pane hints only. | architecture §2.4, player-client §6 |
+| Anti-flap | `open_panel` without `place` reuses an open pane of that panel, else switches a built-in panel the player did not choose (`setBy` default, then the assistant's own latest) and opens a new pane only when `place` is given or every built-in panel is the player's; at most two layout tools per model step; 12 layout writes a minute per human per room; the assistant never moves or closes a pane the player arranged unless asked. | architecture §2.4, player-client §2.2 |
+| Panels | 13 built-in panels (§3). Parameters: primitives, enums, short id lists; `forge.source` is the only code. | player-client §2, architecture §2.1 |
+| Default panel | `overview` in lobby, planning, running and paused; `results` when the game ends. A pane's panel auto-follows the phase only while its `setBy` is `default` (neither the human nor the assistant chose it). A new game resets panel parameters. | this document |
+| The forge | A panel (`forge`) with an in-place edit mode: the assistant drafts code into it (`open_panel {panelId: forge, params: {source}}`), the human may type or paste. Validate and Summon live in it, with the console's test ids. | architecture §0, player-client §3 |
+| Public chat vs. assistant | Separate inputs. The assistant pane is "Your assistant (private)"; the `public-chat` panel has the only public input ("Say to everyone…"). A palette hand-off always targets the assistant and never sends by itself. | palette §6, onboarding §6 |
+| Assistant off (allowance 0) | The client is complete without it: panels at defaults, every action in the palette and in the panels that need it. The assistant pane shows the welcome, chips in command form and one sentence on how the owner turns it on. | architecture §4.3 |
 | Catalogue | `lib/player-client/src/catalog.ts`: `CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from `typeof api`. Tool descriptions, the assistant's tool guide, palette rows and tooltips in both apps read from it. `TOOL_GUIDE` is deleted. | architecture §1 |
 | Settings documentation | `SETTINGS_DOCS` beside `GameSettings` in `lib/game-core` (`satisfies Record<keyof GameSettings, FieldDoc>`), type-argument docs on `ParamSchema` in `lib/game-types`, room budget docs in the engine; served by `manifest.get` and `get_rules`. | onboarding §4.6 |
 | Palette | One shared component in a new `lib/ui-kit` (`CommandPalette`, `PaletteTrigger`, `Term` glossary). Rows = catalogue entries with a `palette` spec + client-only `ui.*` commands of the same human shape, each with a performer: navigate, form, submit, hand-off, local. Trigger: search field + ☰ at the top right; Cmd/Ctrl+K everywhere; `/` and `?` only when no input has focus. | palette §2 |
@@ -76,29 +80,29 @@ or a `why`, and a palette spec or a `why`; tools and entries agree in both direc
 length limits; unique titles; and `Object.keys(CATALOG)` equals the public functions found by a regex walk of the
 committed `_generated/api.d.ts` (the fallback against a silent type widening).
 
-### 2.2 Lenses (`lib/player-client/src/lenses.ts`, export `@workspace/player-client/lenses`)
+### 2.2 Panels (`lib/player-client/src/panels.ts`, export `@workspace/player-client/panels`)
 
 ```ts
 export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
-export interface LensDefinition<P extends z.ZodObject = z.ZodObject> {
-  id: LensId; title: string; blurb: string;      // blurb: one sentence for a newcomer
+export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
+  id: PanelId; title: string; blurb: string;      // blurb: one sentence for a newcomer
   phases: readonly Phase[];                      // where it has data; elsewhere its empty state names the next step
   params: P;                                     // strict; every field optional with a default, except what-if's objectId/calls
   summary: (params: z.output<P>) => string;      // "Top 12 · only ones others care about" (the pane caption, the chat chip)
 }
-export const LENS_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
-export const LENSES: { readonly [K in LensId]: LensDefinition };
-export const defaultLensFor = (phase: Phase): LensId => phase === "ended" ? "results" : "overview";
+export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
+export const PANELS: { readonly [K in PanelId]: PanelDefinition };
+export const defaultPanelFor = (phase: Phase): PanelId => phase === "ended" ? "results" : "overview";
 ```
 
-Renderers: `artifacts/player-web/src/lenses/<id>.tsx`, indexed as `LENS_VIEWS satisfies Record<LensId, LensView>`.
+Renderers: `artifacts/player-web/src/core/panels/<id>.tsx` (not `src/panels/`, which holds file panels), indexed as `PANEL_VIEWS satisfies Record<PanelId, PanelView>`.
 
 ### 2.3 The layout (`lib/player-client/src/layout.ts`, export `@workspace/player-client/layout`)
 
 ```ts
 export type SetBy = "default" | "human" | "assistant";
 export type Pane =
-  | { id: string; kind: "lens"; lensId: LensId; params: Record<string, unknown>; setBy: SetBy }
+  | { id: string; kind: "panel"; panelId: PanelId; params: Record<string, unknown>; setBy: SetBy }
   | { id: string; kind: "assistant" }
   | { id: string; kind: "stored-panel"; slug: string }
   | { id: string; kind: "file-panel"; fileId: string };
@@ -107,14 +111,14 @@ export type Node =
   | { type: "tabs"; panes: string[]; active: string };
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
 export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" | "tab" };
-export const LAYOUT_LIMITS = { panes: 12, lensPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
-export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column split 50/50: p1 lens (defaultLensFor), p2 assistant
+export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
+export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column split 50/50: p1 panel (defaultPanelFor), p2 assistant
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws
-export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent lens when the assistant is left/right, else to its right; a 5th lens pane is refused (CONFLICT)
+export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent panel when the assistant is left/right, else to its right; a 5th built-in panel is refused (CONFLICT)
 export function movePane(layout: DockLayout, paneId: string, place: Place): DockLayout;
-export function closePane(layout: DockLayout, paneId: string): DockLayout;                 // refuses the assistant and the last lens
+export function closePane(layout: DockLayout, paneId: string): DockLayout;                 // refuses the assistant and the last panel
 export function setPaneParams(layout: DockLayout, paneId: string, params: Record<string, unknown>, setBy: SetBy): DockLayout;
-export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-lenses", (current: DockLayout) => DockLayout>;
+export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-panels", (current: DockLayout) => DockLayout>;
 ```
 
 The player client owns one adapter (`src/dock/adapter.ts`: `toDockview`, `fromDockview`) with round-trip tests.
@@ -129,8 +133,8 @@ dockLayouts: defineTable({ subject: v.string(), roomId: v.id("rooms"), layout: v
 ```
 
 - `layout.current({roomId})` (requireMember read): the room's row, or the human's most recent row from another room
-  with lens parameters reset (the lenses and who chose them stay; a never-chosen first pane follows the new room's
-  phase), or `DEFAULT_LAYOUT(phase)`. A new game in the room also resets lens parameters. Internal twin `currentAs`.
+  with panel parameters reset (the panels and who chose them stay; a never-chosen first pane follows the new room's
+  phase), or `DEFAULT_LAYOUT(phase)`. A new game in the room also resets panel parameters. Internal twin `currentAs`.
 - `layout.set({roomId, layout, ifUpdatedAt?})` (requireMember read): `parseLayout`, rate limit (`RATE_LIMITED`),
   `CONFLICT` when `ifUpdatedAt` is stale. Internal twin `setAs`. Executors read-modify-write in one mutation each.
 - `panelLayouts`, `panels.layout`, `panels.setLayout`, `panels.place`, their internal twins and the registry tool
@@ -141,10 +145,10 @@ dockLayouts: defineTable({ subject: v.string(), roomId: v.id("rooms"), layout: v
   production has no rows.
 - `rooms.create` starts from `presetSettings("grid-first-steps", "python")`; `rooms.settingsOrigin` is set by
   `owner.settings` and copied into the game snapshot.
-- `assistant/rules.ts`: `destroy_agent` joins `ALWAYS_CONFIRM`; two layout tools per step; `argsLimit("open_lens")`
-  and `("set_lens_params")` = 20 000.
+- `assistant/rules.ts`: `destroy_agent` joins `ALWAYS_CONFIRM`; two layout tools per step; `argsLimit("open_panel")`
+  and `("set_panel_params")` = 20 000.
 - `lib/ai-player/src/assistant-prompt.ts`: tool list from the catalogue; new sections THE PLAYER'S SCREEN and NEXT
-  STEPS (architecture §4.1); the briefing gains a LENSES block (≤ 1 500 chars).
+  STEPS (architecture §4.1); the briefing gains a PANELS block (≤ 1 500 chars).
 
 ### 2.5 The palette (`lib/ui-kit`, export `@workspace/ui-kit`)
 
@@ -181,10 +185,10 @@ Kept verbatim (the e2e suites use them): `input-source`, `button-validate`, `but
 `link-player`, `link-admin-agents`, `link-game-*`, `row-member-*`, `row-credential-*`, `button-revoke-*`,
 `panel-player-apps`, `text-game-status`, `panel-final-results`, `text-world-t`, `text-game-code`, `text-end-reason`,
 and every `text-device-*`/`button-approve-device`/`status-approved`/`checkbox-device-owner-consent`/`text-connect-command`.
-New: `dock`, `pane-<id>`, `tab-<id>`, `menu-lens`, `button-add-pane`, `button-palette`, `dialog-palette`,
+New: `dock`, `pane-<id>`, `tab-<id>`, `menu-panel`, `button-add-pane`, `button-palette`, `dialog-palette`,
 `assistant-pane`, `select-setup`, `link-new-configuration`, `page-configure`.
 
-## 3. The lenses
+## 3. The panels
 
 | id | Title | For a newcomer | Parameters (assistant only) | Phases |
 |---|---|---|---|---|
@@ -209,9 +213,9 @@ onboarding §2 (the glossary lives in `lib/ui-kit/src/glossary.ts` and feeds the
 
 | WP | Scope (exclusive files) | Tests |
 |---|---|---|
-| 0 contracts | `lib/player-client/src/{catalog,lenses,layout}.ts` + exports; `tools.ts` (+6 tools, −`place_panel`, `functions`, derived descriptions) + `tools.schema.json`; `convex/layout/tables.ts`, `schema.ts`, `convex/layout.ts` (functions), `agent/registry.ts` executors, `assistant/rules.ts`, `assistant-prompt.ts` (tool list from the catalogue); `panels.*` removals; `lib/ui-kit` package skeleton with the §2.5 API; `code-gods/package.json` dependencies | `lib/player-client/test/{catalog,lenses,layout,tools}.test.ts`, `lib/ai-player` prompt test, engine `test:unit`, root typecheck |
-| 1 engine | `convex/layout.ts` behaviour, `rooms.create` preset, `settingsOrigin`, `SETTINGS_DOCS` + `ParamSchema` docs + budget docs + manifest, briefing LENSES, prompt sections, `docs/engine-api.md`, `docs/panels.md`, `docs/room-assistant.md` | `test/game-layout.test.ts` (new), `game-assistant`, `mcp`, `game-disclosure`, game-core tests |
-| 2 player client | `artifacts/player-web/src/{core,dock,lenses}/**`, `index.css`, `package.json` (dockview), deletions of `console.tsx`, `shell/dock.tsx`, `shell/layout*.ts`, `core/assistant/drawer.tsx`; palette command list; e2e updates | `test/{adapter,layout-sync,suggestions,palette-commands,assistant-state}.test.ts`; e2e `multi-client.ts` and `stored-panels.ts` updated |
+| 0 contracts | `lib/player-client/src/{catalog,panels,layout}.ts` + exports; `tools.ts` (+5 tools, −`place_panel`, `functions`, derived descriptions) + `tools.schema.json`; `convex/layout/tables.ts`, `schema.ts`, `convex/layout.ts` (functions), `agent/registry.ts` executors, `assistant/rules.ts`, `assistant-prompt.ts` (tool list from the catalogue); `panels.*` removals; `lib/ui-kit` package skeleton with the §2.5 API; `code-gods/package.json` dependencies | `lib/player-client/test/{catalog,panels,layout,tools}.test.ts`, `lib/ai-player` prompt test, engine `test:unit`, root typecheck |
+| 1 engine | `convex/layout.ts` behaviour, `rooms.create` preset, `settingsOrigin`, `SETTINGS_DOCS` + `ParamSchema` docs + budget docs + manifest, briefing PANELS, prompt sections, `docs/engine-api.md`, `docs/panels.md`, `docs/room-assistant.md` | `test/game-layout.test.ts` (new), `game-assistant`, `mcp`, `game-disclosure`, game-core tests |
+| 2 player client | `artifacts/player-web/src/{core,dock}/**` (built-in panels in `src/core/panels/`), `index.css`, `package.json` (dockview), deletions of `console.tsx`, `shell/dock.tsx`, `shell/layout*.ts`, `core/assistant/drawer.tsx`; palette command list; e2e updates | `test/{adapter,layout-sync,suggestions,palette-commands,assistant-state}.test.ts`; e2e `multi-client.ts` and `stored-panels.ts` updated |
 | 3 ui-kit + engine UI | `lib/ui-kit/**` (palette, glossary, Term), `artifacts/code-gods/**` (shell, pages, config page, presets menu, room-creation dialog, palette wiring, tooltips), `code-gods/e2e/smoke.ts` | `lib/ui-kit/test/*`, `code-gods/test/*` (nextStep, settings form rules), e2e smoke updated |
 
 Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite → code review → one PR into `develop`.
@@ -220,8 +224,8 @@ Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite �
 
 - Defaults used: assistant allowance 200 000 tokens per human per game and AI budget 300 000 tokens per game in the
   room-creation and add-AI prompts. Both are placeholders to tune.
-- With the assistant off, parameterised views are unreachable by design (the dropdown picks lenses; only the
-  assistant sets parameters). Every lens has useful defaults.
+- With the assistant off, parameterised views are unreachable by design (the dropdown picks panels; only the
+  assistant sets parameters). Every panel has useful defaults.
 - "player" replaces "god/deity" in functional copy; flavour copy keeps the pantheon.
 - Deferred: saved custom configurations (and whether owners may name them), coaching messages beyond the empty
   states, a presentation mode for the game page.

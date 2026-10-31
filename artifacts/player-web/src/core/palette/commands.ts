@@ -1,7 +1,7 @@
 /**
  * The player client's command palette list (docs/ui-redesign.md §2.5): one command per catalogue entry offered on the
- * player surface (commandsFromCatalog), bound to the same paths the lenses use, plus the client's own `ui.*` commands
- * (dock, lenses, assistant, links, glossary). Pure over a state snapshot and the actions the app wires
+ * player surface (commandsFromCatalog), bound to the same paths the panels use, plus the client's own `ui.*` commands
+ * (dock, panels, assistant, links, glossary). Pure over a state snapshot and the actions the app wires
  * (core/palette/use-commands.ts); tested in test/palette-commands.test.ts.
  *
  * Gating mirrors the old console's disabled buttons: no game command before the observation, with a read-only
@@ -10,7 +10,7 @@
  * Hand-offs pre-fill the assistant's composer and never send; with the assistant off they are unavailable.
  */
 import { CATALOG, type CatalogEntry, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { LENSES, LENS_IDS, type LensId, type Phase } from "@workspace/player-client/lenses";
+import { PANELS, PANEL_IDS, type PanelId, type Phase } from "@workspace/player-client/panels";
 import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
@@ -61,15 +61,15 @@ export type PaletteActions = {
     newThread(): void; setPermission(permission: "read" | "act" | "owner"): void; focus(): void; handoff(draft: string): void;
   };
   dock: {
-    /** Show a lens: activate an open pane of it, else add one by the placement rule. */
-    show(lensId: LensId): void;
-    change(paneId: string, lensId: LensId): void;
+    /** Show a panel: activate an open pane of it, else add one by the placement rule. */
+    show(panelId: PanelId): void;
+    change(paneId: string, panelId: PanelId): void;
     close(paneId: string): void;
     dockAssistant(side: "left" | "right" | "bottom"): void;
-    preset(name: "stacked" | "side-by-side" | "two-lenses"): void;
+    preset(name: "stacked" | "side-by-side" | "two-panels"): void;
     reset(): void;
     maximise(paneId: string): void;
-    /** Show the forge lens in edit mode. */
+    /** Show the forge panel in edit mode. */
     forgeEdit(): void;
   };
   links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
@@ -134,8 +134,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "commands.submit": { performer: pick("Send a game command", gameOptions, runGameOption), available: () => gameplay(s) },
     "layout.set": {
       performer: pick("Arrange the dock", [
-        { id: "stacked", label: "Stacked: lenses on top, assistant below" }, { id: "side-by-side", label: "Side by side: assistant on the right" },
-        { id: "two-lenses", label: "Two lenses and the assistant" }, { id: "reset", label: "Reset layout" },
+        { id: "stacked", label: "Stacked: panels on top, assistant below" }, { id: "side-by-side", label: "Side by side: assistant on the right" },
+        { id: "two-panels", label: "Two panels and the assistant" }, { id: "reset", label: "Reset layout" },
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
     "owner.settings": { performer: pick("Next game's setup", () => s.presets, id => a.owner.preset(id)), available: () => betweenGames(s) },
@@ -193,34 +193,34 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     ({ id, human: { title, tooltip }, group, performer, available: () => OK, ...extra });
   const always = (check: () => Availability) => ({ available: () => check() });
 
-  const lensRows = LENS_IDS.map(id => id === "what-if"
-    ? ui(`ui.lens.add.${id}`, `Add lens: ${LENSES[id].title}`, `${LENSES[id].blurb} Your assistant sets it up: it needs an object and a move.`, "view",
-      { kind: "handoff", draft: "Show me in the What if… view what this move would do: ", tool: "open_lens" }, { keywords: [id, "lens", "view"], ...always(() => assistantOn(s)) })
-    : ui(`ui.lens.add.${id}`, `Add lens: ${LENSES[id].title}`, LENSES[id].blurb, "view", local(() => a.dock.show(id)), { keywords: [id, "lens", "view", "show"] }));
+  const builtInRows = PANEL_IDS.map(id => id === "what-if"
+    ? ui(`ui.panel.add.${id}`, `Add panel: ${PANELS[id].title}`, `${PANELS[id].blurb} Your assistant sets it up: it needs an object and a move.`, "view",
+      { kind: "handoff", draft: "Show me in the What if… view what this move would do: ", tool: "open_panel" }, { keywords: [id, "panel", "view"], ...always(() => assistantOn(s)) })
+    : ui(`ui.panel.add.${id}`, `Add panel: ${PANELS[id].title}`, PANELS[id].blurb, "view", local(() => a.dock.show(id)), { keywords: [id, "panel", "view", "show"] }));
 
   const paneRows: Command[] = [
-    ui("ui.pane.change", "Change lens of this pane…", "Pick what this pane shows; your assistant sets its details.", "view",
-      pick("Show in this pane", LENS_IDS.filter(id => id !== "what-if").map(id => ({ id, label: LENSES[id].title, detail: LENSES[id].blurb })),
-        id => { if (s.scopePaneId) a.dock.change(s.scopePaneId, id as LensId); }),
-      { keywords: ["lens", "dropdown", "view"], available: ctx => (scope(ctx)?.kind === "lens" ? OK : no("Open the palette from a lens pane.", undefined, true)) }),
+    ui("ui.pane.change", "Change this panel…", "Pick what this pane shows; your assistant sets its details.", "view",
+      pick("Show in this pane", PANEL_IDS.filter(id => id !== "what-if").map(id => ({ id, label: PANELS[id].title, detail: PANELS[id].blurb })),
+        id => { if (s.scopePaneId) a.dock.change(s.scopePaneId, id as PanelId); }),
+      { keywords: ["panel", "dropdown", "view"], available: ctx => (scope(ctx)?.kind === "panel" ? OK : no("Open the palette from a built-in panel's pane.", undefined, true)) }),
     ui("ui.pane.close", "Close pane", "Removes this pane; add it again from the palette.", "view", local(() => { if (s.scopePaneId) a.dock.close(s.scopePaneId); }), {
       keywords: ["remove", "hide"],
       available: ctx => {
         const pane = scope(ctx);
         if (!pane) return no("Open the palette from a pane.", undefined, true);
         if (pane.kind === "assistant") return no("The assistant pane stays; drag it smaller instead.");
-        return pane.closable ? OK : no("The last lens pane stays; change its lens instead.");
+        return pane.closable ? OK : no("The last panel stays; change it instead.");
       },
     }),
     ui("ui.pane.maximise", "Maximise or restore this pane", "Gives this pane the whole dock, or puts it back.", "view", local(() => { if (s.scopePaneId) a.dock.maximise(s.scopePaneId); }),
       { keywords: ["zoom", "full screen", "maximize"], available: ctx => (scope(ctx) ? OK : no("Open the palette from a pane.", undefined, true)) }),
-    ui("ui.assistant.right", "Move assistant right", "Your assistant beside the lenses, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"] }),
-    ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the lenses.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"] }),
-    ui("ui.assistant.left", "Move assistant left", "Your assistant beside the lenses, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"] }),
-    ui("ui.layout.stacked", "Layout: Stacked", "Lenses on top, your assistant below.", "view", local(() => a.dock.preset("stacked")), { keywords: ["preset", "default"] }),
-    ui("ui.layout.side-by-side", "Layout: Side by side", "Lenses on the left, your assistant on the right.", "view", local(() => a.dock.preset("side-by-side")), { keywords: ["preset"] }),
-    ui("ui.layout.two-lenses", "Layout: Two lenses", "Two lenses stacked on the left, your assistant on the right.", "view", local(() => a.dock.preset("two-lenses")), { keywords: ["preset"] }),
-    ui("ui.layout.reset", "Reset layout", "Back to one lens on top and your assistant below.", "view", local(() => a.dock.reset()), { keywords: ["default", "layout"] }),
+    ui("ui.assistant.right", "Move assistant right", "Your assistant beside the panels, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"] }),
+    ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the panels.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"] }),
+    ui("ui.assistant.left", "Move assistant left", "Your assistant beside the panels, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"] }),
+    ui("ui.layout.stacked", "Layout: Stacked", "Panels on top, your assistant below.", "view", local(() => a.dock.preset("stacked")), { keywords: ["preset", "default"] }),
+    ui("ui.layout.side-by-side", "Layout: Side by side", "Panels on the left, your assistant on the right.", "view", local(() => a.dock.preset("side-by-side")), { keywords: ["preset"] }),
+    ui("ui.layout.two-panels", "Layout: Two panels", "Two panels stacked on the left, your assistant on the right.", "view", local(() => a.dock.preset("two-panels")), { keywords: ["preset"] }),
+    ui("ui.layout.reset", "Reset layout", "Back to one panel on top and your assistant below.", "view", local(() => a.dock.reset()), { keywords: ["default", "layout"] }),
   ];
 
   const assistantRows: Command[] = [
@@ -261,7 +261,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       { keywords: ["room", "lobby", "members"], ...always(() => (s.roomCode ? OK : no("Waiting for the room."))) }),
     ui("ui.game.open", "Open game page", "The public view of this game, for a big screen.", "room", { kind: "navigate", to: () => a.links.gamePage() ?? a.links.roomPage() },
       { keywords: ["game", "public", "spectate"], ...always(() => (s.gameCode ? OK : no("No game yet."))) }),
-    ui("ui.safe-mode", s.safeMode ? "Leave safe mode" : "Safe mode: panels off", s.safeMode ? "Loads your panels again." : "Reloads with built-in lenses and your assistant only.", "help",
+    ui("ui.safe-mode", s.safeMode ? "Leave safe mode" : "Safe mode: your panels off", s.safeMode ? "Loads your panels again." : "Reloads with built-in panels and your assistant only.", "help",
       local(() => a.links.safeMode(!s.safeMode)), { keywords: ["panels", "broken", "safe"] }),
     ui("ui.glossary", "Explain a term…", "What a word in this game means.", "help",
       pick("Explain a term", GLOSSARY_IDS.map(id => ({ id, label: GLOSSARY[id].term, detail: GLOSSARY[id].gloss })), id => {
@@ -271,12 +271,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       }), { keywords: ["glossary", "help", "what is", "meaning"] }),
   ];
 
-  const panelRows: Command[] = [
-    ...s.storedPanels.filter(p => p.enabled).map(p => ui(`ui.panel.${p.slug}`, `Open panel: ${p.title}`, "One of your stored panels, in a pane.", "view",
+  const ownPanelRows: Command[] = [
+    ...s.storedPanels.filter(p => p.enabled).map(p => ui(`ui.stored-panel.${p.slug}`, `Open your panel: ${p.title}`, "One of your stored panels, in a pane.", "view",
       local(() => a.panels.open(p.slug)), { keywords: ["panel", p.slug] })),
     ...s.filePanels.map(id => ui(`ui.file.${id}`, `Open file panel: ${id}`, `src/panels/${id}.tsx in a pane, live as you edit.`, "view",
       local(() => a.panels.openFile(id)), { keywords: ["panel", "file", id] })),
   ];
 
-  return [...fromCatalog, ...lensRows, ...paneRows, ...assistantRows, ...gameRows, ...linkRows, ...panelRows];
+  return [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...linkRows, ...ownPanelRows];
 }

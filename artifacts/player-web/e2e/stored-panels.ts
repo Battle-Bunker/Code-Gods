@@ -8,7 +8,7 @@
  * first (CG_E2E_SKIP_DEPLOY=1 skips that). Playwright must be resolvable (e.g. NODE_PATH to a global install).
  *
  * What it checks (each line printed as ok / FAIL):
- *   a panel saved with panels.save and opened as a pane from the lens menu appears without a reload (a window marker
+ *   a panel saved with panels.save and opened as a pane from the panel menu appears without a reload (a window marker
  *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
  *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
  *   change it live; moving the pane does not restart its frame; a render-throwing version stays inside its frame; a panel
@@ -17,7 +17,7 @@
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
  *   the engine; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
- *   built-in lenses and the assistant; the page CSP reports nothing of its own and sign-in still works.
+ *   built-in panels and the assistant; the page CSP reports nothing of its own and sign-in still works.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
@@ -134,11 +134,11 @@ async function frameShows(slug: string, testId: string, expected: RegExp) {
   }
 }
 
-await check("a panel saved with panels.save and opened from the lens menu appears without a reload, with live data over the bridge", async () => {
+await check("a panel saved with panels.save and opened from the panel menu appears without a reload, with live data over the bridge", async () => {
   assert(await save("e2e-live", live("v1"), { open: false }) === 1, "first version");
-  // "Your panels" in a lens pane's menu opens it as a pane of its own.
-  await page.locator("[data-testid=menu-lens]").first().click();
-  await page.click("[data-testid=menu-lens-panel-e2e-live]", { timeout: 15_000 });
+  // "Your panels" in a built-in panel's menu opens it as a pane of its own.
+  await page.locator("[data-testid=menu-panel]").first().click();
+  await page.click("[data-testid=menu-stored-panel-e2e-live]", { timeout: 15_000 });
   await frameShows("e2e-live", "sp-text", /^v1 with data$/);
   assert(await page.textContent("[data-testid=badge-stored-e2e-live]") === "stored v1", "version badge");
   assert(await page.getAttribute('[data-testid="panel-frame-stored:e2e-live"] iframe', "sandbox") === "allow-scripts", "sandbox attribute");
@@ -352,7 +352,7 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
   await phoneContext.close();
 });
 
-await check("?panels=off loads only the built-in lenses and the assistant", async () => {
+await check("?panels=off loads only the built-in panels and the assistant", async () => {
   const safe = await context.newPage();
   await safe.goto(`${SITE}/player/?room=${shortCode}&panels=off`);
   await safe.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
@@ -360,7 +360,7 @@ await check("?panels=off loads only the built-in lenses and the assistant", asyn
   await safe.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   await sleep(1500);
   assert(await safe.locator("[data-panel-origin]").count() === 0, "panels rendered in safe mode");
-  assert(await safe.locator("[data-testid=dock] [data-testid=menu-lens]").count() >= 1, "no lens in safe mode");
+  assert(await safe.locator("[data-testid=dock] [data-testid=menu-panel]").count() >= 1, "no panel in safe mode");
   await safe.close();
 });
 

@@ -1,20 +1,20 @@
 /**
  * The dock's sync decisions (src/dock/layout-sync.ts), pure: when a server layout is applied (between gestures,
  * never during a drag or over an unpushed local change), what is pushed and with which `ifUpdatedAt`, and that a
- * CONFLICT adopts the server's version. Plus the lens-1 phase rule, the layout comparison the dock uses to avoid
+ * CONFLICT adopts the server's version. Plus the panel-1 phase rule, the layout comparison the dock uses to avoid
  * re-applying its own state, and the per-pane history behind the pane header's ‹ and ↺.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, assistantSide, lensPanesOf, movePane, openPane, parseLayout, setPaneLens, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import {
   effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
-import { dockAssistant, showLens } from "../src/dock/operations.ts";
+import { dockAssistant, showPanel } from "../src/dock/operations.ts";
 
 const base = DEFAULT_LAYOUT("running");
-const withRace = openPane(base, { id: "", kind: "lens", lensId: "race", params: {}, setBy: "human" }).layout;
+const withRace = openPane(base, { id: "", kind: "panel", panelId: "race", params: {}, setBy: "human" }).layout;
 const sideBySide = movePane(base, "p2", { relativeTo: "p1", direction: "right" });
 const run = (state: SyncState, ...events: Parameters<typeof syncReducer>[1][]) => events.reduce(syncReducer, state);
 const loaded = (layout = base, updatedAt = 100) => run(initialSync(DEFAULT_LAYOUT("running")), { type: "server", layout, updatedAt });
@@ -93,48 +93,48 @@ test("a read-only sync (safe mode) applies server layouts and never pushes", () 
   assert.equal(pushPlan(s), null);
 });
 
-test("lens 1 follows the phase only while nobody chose its lens", () => {
+test("panel 1 follows the phase only while nobody chose its panel", () => {
   const ended = effectiveLayout(base, "ended");
-  assert.equal(ended.panes.p1.kind === "lens" && ended.panes.p1.lensId, "results");
-  assert.equal(effectiveLayout(base, "running"), base, "unchanged when it already shows the phase's lens");
-  const chosen = setPaneLens(base, "p1", "race", "human");
+  assert.equal(ended.panes.p1.kind === "panel" && ended.panes.p1.panelId, "results");
+  assert.equal(effectiveLayout(base, "running"), base, "unchanged when it already shows the phase's panel");
+  const chosen = setPanePanel(base, "p1", "race", "human");
   assert.equal(effectiveLayout(chosen, "ended"), chosen);
-  const assisted = setPaneLens(base, "p1", "objects", "assistant");
+  const assisted = setPanePanel(base, "p1", "objects", "assistant");
   assert.equal(effectiveLayout(assisted, "ended"), assisted);
-  const second = setPaneLens(openPane(chosen, { id: "", kind: "lens", lensId: "overview", params: {}, setBy: "default" }).layout, "p1", "race", "human");
+  const second = setPanePanel(openPane(chosen, { id: "", kind: "panel", panelId: "overview", params: {}, setBy: "default" }).layout, "p1", "race", "human");
   const p3 = effectiveLayout(second, "ended").panes.p3;
-  assert.equal(p3.kind === "lens" && p3.lensId, "overview", "only the first lens pane follows");
+  assert.equal(p3.kind === "panel" && p3.panelId, "overview", "only the first built-in panel follows");
 });
 
-test("sameLayout ignores sub-pixel size drift but not structure, lenses or a real resize", () => {
+test("sameLayout ignores sub-pixel size drift but not structure, panels or a real resize", () => {
   const nudged: DockLayout = { ...base, root: { ...base.root, sizes: [50.4, 49.6] } as DockLayout["root"] };
   assert.ok(sameLayout(base, nudged));
   const resized: DockLayout = { ...base, root: { ...base.root, sizes: [60, 40] } as DockLayout["root"] };
   assert.ok(!sameLayout(base, resized));
   assert.ok(!sameLayout(base, sideBySide));
-  assert.ok(!sameLayout(base, setPaneLens(base, "p1", "race", "human")));
+  assert.ok(!sameLayout(base, setPanePanel(base, "p1", "race", "human")));
   assert.ok(!sameLayout(base, setPaneParams(base, "p1", { focus: "goal" }, "assistant")));
 });
 
 test("history: an assistant change can be undone (‹) and reset (↺); a human change or a first view cannot", () => {
-  const assisted = setPaneParams(setPaneLens(base, "p1", "objects", "assistant"), "p1", { filter: "contested" }, "assistant");
+  const assisted = setPaneParams(setPanePanel(base, "p1", "objects", "assistant"), "p1", { filter: "contested" }, "assistant");
   let h = observe(emptyHistory, null, base);
   assert.ok(!canUndo(h, base.panes.p1));
   h = observe(h, base, assisted);
   assert.ok(canUndo(h, assisted.panes.p1));
   const undone = back(h, "p1");
   assert.ok(undone);
-  assert.deepEqual(undone.view, { lensId: "overview", params: { focus: "auto" }, setBy: "default" });
+  assert.deepEqual(undone.view, { panelId: "overview", params: { focus: "auto" }, setBy: "default" });
   assert.ok(!canUndo(undone.history, assisted.panes.p1), "one step of history");
-  const human = setPaneLens(base, "p1", "race", "human");
+  const human = setPanePanel(base, "p1", "race", "human");
   assert.ok(!canUndo(observe(emptyHistory, base, human), human.panes.p1), "the player's own choices have no ‹");
-  assert.deepEqual(resetView(assisted.panes.p1), { lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "human" });
+  assert.deepEqual(resetView(assisted.panes.p1), { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "human" });
 });
 
-test("history: the dropdown restores the parameters last used for a lens in that pane", () => {
-  const assisted = setPaneParams(setPaneLens(base, "p1", "objects", "assistant"), "p1", { limit: 5 }, "assistant");
+test("history: the dropdown restores the parameters last used for a panel in that pane", () => {
+  const assisted = setPaneParams(setPanePanel(base, "p1", "objects", "assistant"), "p1", { limit: 5 }, "assistant");
   let h = observe(observe(emptyHistory, null, base), base, assisted);
-  const away = setPaneLens(assisted, "p1", "race", "human");
+  const away = setPanePanel(assisted, "p1", "race", "human");
   h = observe(h, assisted, away);
   assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" });
   assert.equal(lastParams(h, "p1", "feed"), undefined);
@@ -142,28 +142,28 @@ test("history: the dropdown restores the parameters last used for a lens in that
 });
 
 const ctx = { phase: "running" as const, storedSlugs: [] };
-test("showing a lens reuses its open pane, adds one otherwise, and at four lenses the focused pane shows it instead", () => {
-  const again = showLens(withRace, "race");
-  assert.equal(again.layout.panes.p3?.kind === "lens" && again.layout.panes.p3.lensId, "race");
+test("showing a panel reuses its open pane, adds one otherwise, and at four panels the focused pane shows it instead", () => {
+  const again = showPanel(withRace, "race");
+  assert.equal(again.layout.panes.p3?.kind === "panel" && again.layout.panes.p3.panelId, "race");
   assert.equal(Object.keys(again.layout.panes).length, 3, "no second race pane");
   let layout = base;
-  for (const id of ["race", "feed", "objects"] as const) layout = parseLayout(showLens(layout, id).layout, ctx).layout;
-  assert.equal(lensPanesOf(layout).length, 4);
-  const full = showLens(layout, "public-chat", undefined, "p3");
+  for (const id of ["race", "feed", "objects"] as const) layout = parseLayout(showPanel(layout, id).layout, ctx).layout;
+  assert.equal(panelPanesOf(layout).length, 4);
+  const full = showPanel(layout, "public-chat", undefined, "p3");
   assert.ok(full.replaced);
   assert.equal(full.paneId, "p3");
   const parsed = parseLayout(full.layout, ctx).layout;
-  assert.equal(lensPanesOf(parsed).length, 4, "nothing parseLayout would drop");
-  assert.ok(lensPanesOf(parsed).some(p => p.lensId === "public-chat"));
-  assert.throws(() => showLens(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
+  assert.equal(panelPanesOf(parsed).length, 4, "nothing parseLayout would drop");
+  assert.ok(panelPanesOf(parsed).some(p => p.panelId === "public-chat"));
+  assert.throws(() => showPanel(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
 });
 
-test("moving the assistant to a side stacks the lenses beside it; to the bottom puts them side by side", () => {
+test("moving the assistant to a side stacks the panels beside it; to the bottom puts them side by side", () => {
   const twoInARow = parseLayout(withRace, ctx).layout;
   const right = parseLayout(dockAssistant(twoInARow, "right"), ctx).layout;
   assert.equal(assistantSide(right), "row");
   assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
-    ["row", ["column", "p2"]], "lenses in a column, the assistant on the right");
+    ["row", ["column", "p2"]], "panels in a column, the assistant on the right");
   const bottom = parseLayout(dockAssistant(right, "bottom"), ctx).layout;
   assert.equal(assistantSide(bottom), "column");
   assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],

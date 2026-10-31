@@ -1,5 +1,7 @@
 # Palette and pages: progressive disclosure for Code Gods
 
+> Terminology: "lens" in this historical document means what the code and the UI now call a built-in **panel** (`docs/ui-redesign.md`).
+
 Mandate (d): the research on progressive disclosure, the command palette, and the cleanup of every engine UI page
 (`artifacts/code-gods`: `/`, `/rooms/:id`, `/games/:code`, `/device`, `/connect`, `/admin/agents`). The player client's
 primary screen and its lenses belong to (a), onboarding and the configuration page to (b), and the agent-centred

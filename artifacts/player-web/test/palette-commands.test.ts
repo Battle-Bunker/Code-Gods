@@ -1,14 +1,14 @@
 /**
  * The player client's command palette list (src/core/palette/commands.ts): the human repertoire must cover every
  * catalogue entry offered on the player surface (docs/ui-redesign.md §2.5), add the dock and help commands, run the
- * same paths the lenses use, and refuse exactly what the old console's buttons refused (read-only, an outcome still
+ * same paths the panels use, and refuse exactly what the old console's buttons refused (read-only, an outcome still
  * unknown, nothing to destroy, the pause used or not running, owner powers).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { register } from "node:module";
 import { paletteEntries } from "@workspace/player-client/catalog";
-import { LENS_IDS } from "@workspace/player-client/lenses";
+import { PANEL_IDS } from "@workspace/player-client/panels";
 import type { Command, PaletteContext } from "@workspace/ui-kit";
 
 register("./support/ui-kit-hook.mjs", import.meta.url);
@@ -33,7 +33,7 @@ const actions: Actions = {
 const state = (over: Partial<State> = {}): State => ({
   phase: "running", hasObservation: true, permission: "act", isOwner: false, seated: true, ready: false, pauseUsed: false,
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, roomCode: "ABCD", gameCode: "WXYZ",
-  panes: [{ id: "p1", kind: "lens", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: false }],
+  panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: false }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
   presets: [{ id: "grid-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], ...over,
 });
@@ -56,27 +56,27 @@ test("every catalogue entry offered on the player surface has its command, title
   for (const c of commands) assert.ok(c.human.title && c.human.tooltip, `${c.id} has a title and a tooltip`);
 });
 
-test("the dock commands: add any lens, change this pane's lens, close it, move the assistant, the presets, reset, focus, maximise", () => {
+test("the dock commands: add any panel, change this pane's panel, close it, move the assistant, the presets, reset, focus, maximise", () => {
   const commands = playerCommands(state(), actions);
-  for (const id of LENS_IDS) assert.ok(commands.some(c => c.id === `ui.lens.add.${id}`), id);
+  for (const id of PANEL_IDS) assert.ok(commands.some(c => c.id === `ui.panel.add.${id}`), id);
   for (const id of ["ui.pane.change", "ui.pane.close", "ui.assistant.right", "ui.assistant.bottom", "ui.assistant.left", "ui.layout.stacked", "ui.layout.side-by-side",
-    "ui.layout.two-lenses", "ui.layout.reset", "ui.assistant.focus", "ui.pane.maximise", "ui.assistant.new", "ui.assistant.settings", "ui.room.copy-link",
+    "ui.layout.two-panels", "ui.layout.reset", "ui.assistant.focus", "ui.pane.maximise", "ui.assistant.new", "ui.assistant.settings", "ui.room.copy-link",
     "ui.room.open", "ui.game.open", "ui.safe-mode", "ui.glossary", "ui.forge.edit"]) find(commands, id);
   assert.equal(find(commands, "ui.assistant.focus").shortcut, "Ctrl+`");
-  assert.equal(find(commands, "ui.lens.add.race").human.title, "Add lens: Leaderboard race");
+  assert.equal(find(commands, "ui.panel.add.race").human.title, "Add panel: Leaderboard race");
 });
 
 test("dock commands act on the pane the palette was opened for", async () => {
   calls.length = 0;
-  const commands = playerCommands(state({ scopePaneId: "p3", panes: [...state().panes, { id: "p3", kind: "lens", label: "Leaderboard race", closable: true }] }), actions);
+  const commands = playerCommands(state({ scopePaneId: "p3", panes: [...state().panes, { id: "p3", kind: "panel", label: "Leaderboard race", closable: true }] }), actions);
   assert.ok(ok(commands, "ui.pane.close", ctx({ scope: { paneId: "p3" } })));
   await perform(find(commands, "ui.pane.close"));
   await perform(find(commands, "ui.pane.change"));
-  await perform(find(commands, "ui.lens.add.feed"));
+  await perform(find(commands, "ui.panel.add.feed"));
   await perform(find(commands, "ui.assistant.right"));
   assert.deepEqual(calls, ['close ["p3"]', 'change ["p3","overview"]', 'show ["feed"]', 'dockAssistant ["right"]']);
   const single = playerCommands(state(), actions);
-  assert.match(reason(single, "ui.pane.close"), /last lens/, "the last lens pane stays");
+  assert.match(reason(single, "ui.pane.close"), /last panel/, "the last built-in panel stays");
   assert.match(reason(single, "ui.pane.close", ctx({ scope: { paneId: "p2" } })), /assistant/);
 });
 
@@ -137,7 +137,7 @@ test("pick pages: stored panels open as panes, a glossary term is explained, con
   const commands = playerCommands(state(), actions);
   await perform(find(commands, "panels.list"));
   await perform(find(commands, "assistant.threads"));
-  await perform(find(commands, "ui.panel.race-plus"));
+  await perform(find(commands, "ui.stored-panel.race-plus"));
   assert.deepEqual(calls, ['openPanel ["race-plus"]', 'openThread ["t1"]', 'openPanel ["race-plus"]']);
   const glossary = find(commands, "ui.glossary").performer;
   assert.equal(glossary.kind, "form");

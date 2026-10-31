@@ -14,7 +14,7 @@ import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } fro
 import { useMutation, useQuery } from "convex/react";
 import { ArrowDown, ChevronDown, ChevronRight, Send, Square } from "lucide-react";
 import { api } from "@workspace/engine/convex/_generated/api";
-import type { Phase } from "@workspace/player-client/lenses";
+import type { Phase } from "@workspace/player-client/panels";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";

@@ -113,9 +113,9 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `add_ai`, `remove_ai` | owner | `requestId, aiAgentId` / `requestId, deityId` |
 | `list_panels`, `get_panel` | read | → `panels.list`; `slug, version?` → `panels.code` |
 | `save_panel`, `rollback_panel`, `delete_panel` | act | `slug, source, title?, placement?, size?` → `panels.save`; `slug, version` → `panels.rollback`; `slug` → `panels.remove` |
-| `get_layout` | read | → `layout.current` plus the lens catalogue (`lenses[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's stored panels |
-| `open_lens` | act | `lensId, params?, place?` → `{paneId, layout, summary, reused}`; without `place` no pane is added: an open pane of that lens is reused (`reused: true`), else a lens pane the player did not choose (`setBy` default or assistant) is switched to it; a new pane opens only with `place` or when every lens pane is the player's |
-| `set_lens_params`, `open_panel`, `move_pane`, `close_pane` | act | `paneId, params` / `slug, place?` / `paneId, place` / `paneId` → `{paneId, layout, summary, reused}`; the assistant pane and the last lens pane cannot be closed (CONFLICT) |
+| `get_layout` | read | → `layout.current` plus the built-in panel catalogue (`panels[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's enabled stored panels (`storedPanels[{slug, title, placement, size}]`) |
+| `open_panel` | act | exactly one of `panelId` (a built-in panel, with `params?`) and `slug` (a stored panel), `place?` → `{paneId, layout, summary, reused}` (both or neither: BAD_REQUEST). Built-in, without `place` no pane is added: an open pane of that panel is reused (`reused: true`), else a built-in panel the player did not choose (`setBy` default or assistant) is switched to it; a new pane opens only with `place` or when every built-in panel is the player's; at most 4 (CONFLICT). Stored, without `place` an open pane of it is activated, else it opens in a new pane |
+| `set_panel_params`, `move_pane`, `close_pane` | act | `paneId, params` / `paneId, place` / `paneId` → `{paneId, layout, summary, reused}`; the assistant pane and the last built-in panel cannot be closed (CONFLICT) |
 
 Command tools build a v3 envelope (the current game's id and language unless given) and answer
 `{status: "received", commandId, receipt}` with the engine's `CommandResult`. Resending the identical call
@@ -189,9 +189,9 @@ A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any ca
 - `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`
 
 ### Dock layout (`layout`)
-The player client's panes (`docs/ui-redesign.md` §2.3–2.4): one row per human per room, a library-independent tree of split groups and tab groups (`lib/player-client/src/layout.ts`), validated by `parseLayout` (never throws: unknown lenses become the phase's default lens, invalid lens parameters their defaults, unknown stored panels are dropped, a missing assistant or lens pane is added). Internal twins `currentAs`/`setAs` and the pane operations `openLensAs`, `setLensParamsAs`, `openPanelAs`, `movePaneAs`, `closePaneAs` (one read-modify-write mutation each) serve the layout tools.
-- `layout.current({roomId})` query (member, read) → `{layout, warnings, source: "room" | "carried" | "default", phase, updatedAt|null, setBy{kind, label}|null}`. `carried`: the human's most recent layout from another room with every lens's parameters reset and `setBy: "default"` (the arrangement follows you; parameters name one game's objects).
-- `layout.set({roomId, layout, ifUpdatedAt?})` mutation (member, read) → `{layout, warnings, updatedAt}`: the whole layout (drags, the lens menu, presets), ≤ 32 KB, at most 12 writes a minute per human per room (RATE_LIMITED), CONFLICT when `ifUpdatedAt` is stale.
+The player client's panes (`docs/ui-redesign.md` §2.3–2.4): one row per human per room, a library-independent tree of split groups and tab groups (`lib/player-client/src/layout.ts`), validated by `parseLayout` (never throws: unknown built-in panels become the phase's default panel, invalid panel parameters their defaults, unknown stored panels are dropped, a missing assistant or built-in panel is added). Internal twins `currentAs`/`setAs` and the pane operations `openPanelAs`, `setPanelParamsAs`, `movePaneAs`, `closePaneAs` (one read-modify-write mutation each) serve the layout tools.
+- `layout.current({roomId})` query (member, read) → `{layout, warnings, source: "room" | "carried" | "default", phase, updatedAt|null, setBy{kind, label}|null}`. `carried`: the human's most recent layout from another room with every built-in panel's parameters reset and `setBy: "default"` (the arrangement follows you; parameters name one game's objects).
+- `layout.set({roomId, layout, ifUpdatedAt?})` mutation (member, read) → `{layout, warnings, updatedAt}`: the whole layout (drags, the panel menu, presets), ≤ 32 KB, at most 12 writes a minute per human per room (RATE_LIMITED), CONFLICT when `ifUpdatedAt` is stale.
 
 ## Public function catalogue
 
@@ -228,7 +228,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |
 | `games.view` | query | player | Watch a game | The public view of a game: salience, standings, roster and winners. | — (The public game page's subscription; the human's private view is get_observation.) |
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout` |
-| `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_lens`, `set_lens_params`, `open_panel`, `move_pane`, `close_pane` |
+| `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
 | `manifest.get` | action | infrastructure | Show server info | Object types, presets, options, runtimes and whether AI players are funded. | `get_rules` |
 | `owner.settings` | action | owner | Choose the next game's setup | Applies a preset or edits settings for the next game; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |

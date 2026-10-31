@@ -1,38 +1,38 @@
 /**
- * The dock operations a human performs (lens menu, ⋯ menu, palette) as pure functions over the layout, built on the
+ * The dock operations a human performs (panel menu, ⋯ menu, palette) as pure functions over the layout, built on the
  * shared operations of lib/player-client/src/layout.ts. The store parses every result with parseLayout.
  */
-import { LENSES, defaultLensParams, type LensId, type Phase } from "@workspace/player-client/lenses";
+import { PANELS, defaultPanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import {
-  LAYOUT_LIMITS, activatePane, assistantPaneOf, assistantSide, lensPanesOf, openPane, panesOf, setPaneLens, type DockLayout, type Node, type Pane, type Place,
+  LAYOUT_LIMITS, activatePane, assistantPaneOf, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
 } from "@workspace/player-client/layout";
 
 /**
- * Show a lens: activate an open pane of it (one pane per lens, like the assistant's open_lens), else add one. With
- * the most lens panes already open (parseLayout keeps four), the focused lens pane (else the last) shows it instead.
+ * Show a panel: activate an open pane of it (one pane per panel, like the assistant's open_panel), else add one. With
+ * the most built-in panels already open (parseLayout keeps four), the focused one (else the last) shows it instead.
  */
-export function showLens(layout: DockLayout, lensId: LensId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
-  const lenses = lensPanesOf(layout);
-  const open = lenses.find(p => p.lensId === lensId);
+export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
+  const panels = panelPanesOf(layout);
+  const open = panels.find(p => p.panelId === panelId);
   if (open) return { layout: activatePane(layout, open.id), paneId: open.id };
-  const values = params ?? defaultLensParams(lensId);
-  if (!values) throw new Error(`${LENSES[lensId].title} needs your assistant to set it up`);
-  if (lenses.length >= LAYOUT_LIMITS.lensPanes) {
-    const target = lenses.find(p => p.id === focused) ?? lenses[lenses.length - 1];
-    return { layout: activatePane(setPaneLens(layout, target.id, lensId, "human", values), target.id), paneId: target.id, replaced: true };
+  const values = params ?? defaultPanelParams(panelId);
+  if (!values) throw new Error(`${PANELS[panelId].title} needs your assistant to set it up`);
+  if (panels.length >= LAYOUT_LIMITS.panelPanes) {
+    const target = panels.find(p => p.id === focused) ?? panels[panels.length - 1];
+    return { layout: activatePane(setPanePanel(layout, target.id, panelId, "human", values), target.id), paneId: target.id, replaced: true };
   }
-  return openPane(layout, { id: "", kind: "lens", lensId, params: values, setBy: "human" });
+  return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" });
 }
 
-/** The lens menu: change a pane's lens (parameters as last used there, else defaults), chosen by the human. */
-export function changeLens(layout: DockLayout, paneId: string, lensId: LensId, params?: Record<string, unknown>): DockLayout {
-  return setPaneLens(layout, paneId, lensId, "human", params ?? defaultLensParams(lensId) ?? undefined);
+/** The panel menu: change a pane's panel (parameters as last used there, else defaults), chosen by the human. */
+export function changePanel(layout: DockLayout, paneId: string, panelId: PanelId, params?: Record<string, unknown>): DockLayout {
+  return setPanePanel(layout, paneId, panelId, "human", params ?? defaultPanelParams(panelId) ?? undefined);
 }
 
-/** Lenses to suggest for a new pane, most useful first for the phase. */
-export function lensOrder(phase: Phase): LensId[] {
-  const live: LensId[] = ["objects", "race", "agents", "feed", "bits-over-time", "others-care", "public-chat", "forge", "my-card", "overview", "rules", "results"];
-  const byPhase: Record<Phase, LensId[]> = {
+/** Panels to suggest for a new pane, most useful first for the phase. */
+export function panelOrder(phase: Phase): PanelId[] {
+  const live: PanelId[] = ["objects", "race", "agents", "feed", "bits-over-time", "others-care", "public-chat", "forge", "my-card", "overview", "rules", "results"];
+  const byPhase: Record<Phase, PanelId[]> = {
     lobby: ["overview", "rules", "public-chat", "results", "forge", "my-card"],
     planning: ["my-card", "forge", "overview", "rules", "public-chat", "agents"],
     running: live, paused: ["feed", "public-chat", ...live],
@@ -41,18 +41,18 @@ export function lensOrder(phase: Phase): LensId[] {
   return [...new Set(byPhase[phase])];
 }
 
-/** "Add lens below / to the right" from a pane's ⋯ menu: the first useful lens not shown yet, next to that pane. */
-export function addLensNextTo(layout: DockLayout, paneId: string, phase: Phase): { layout: DockLayout; paneId: string } {
-  // openPane refuses a fifth lens pane itself, with the one message every surface shows.
-  const open = new Set(lensPanesOf(layout).map(p => p.lensId));
-  const lensId = lensOrder(phase).find(id => !open.has(id)) ?? "overview";
+/** "Add panel below / to the right" from a pane's ⋯ menu: the first useful panel not shown yet, next to that pane. */
+export function addPanelNextTo(layout: DockLayout, paneId: string, phase: Phase): { layout: DockLayout; paneId: string } {
+  // openPane refuses a fifth built-in panel itself, with the one message every surface shows.
+  const open = new Set(panelPanesOf(layout).map(p => p.panelId));
+  const panelId = panelOrder(phase).find(id => !open.has(id)) ?? "overview";
   const direction: Place["direction"] = assistantSide(layout) === "row" ? "below" : "right";
-  return openPane(layout, { id: "", kind: "lens", lensId, params: defaultLensParams(lensId) ?? {}, setBy: "human" }, { relativeTo: paneId, direction });
+  return openPane(layout, { id: "", kind: "panel", panelId, params: defaultPanelParams(panelId) ?? {}, setBy: "human" }, { relativeTo: paneId, direction });
 }
-export const addLensLabel = (layout: DockLayout) => (assistantSide(layout) === "row" ? "Add lens below" : "Add lens to the right");
+export const addPanelLabel = (layout: DockLayout) => (assistantSide(layout) === "row" ? "Add panel below" : "Add panel to the right");
 
 /** Open a stored or file panel: activate its pane, else add one. */
-export function showPanel(layout: DockLayout, pane: Extract<Pane, { kind: "stored-panel" | "file-panel" }>): { layout: DockLayout; paneId: string } {
+export function showOwnPanel(layout: DockLayout, pane: Extract<Pane, { kind: "stored-panel" | "file-panel" }>): { layout: DockLayout; paneId: string } {
   const open = panesOf(layout).find(p => (p.kind === "stored-panel" && pane.kind === "stored-panel" && p.slug === pane.slug)
     || (p.kind === "file-panel" && pane.kind === "file-panel" && p.fileId === pane.fileId));
   if (open) return { layout: activatePane(layout, open.id), paneId: open.id };
@@ -72,7 +72,7 @@ function prune(node: Node): Node | null {
 }
 /**
  * Move the assistant to an edge of the whole dock (parse the result). The rest keeps its arrangement, except that its
- * outermost split turns to run along the assistant: lenses stack beside a side assistant and sit side by side above
+ * outermost split turns to run along the assistant: panels stack beside a side assistant and sit side by side above
  * a bottom one (otherwise every pane would join one long row or column).
  */
 export function dockAssistant(layout: DockLayout, side: "left" | "right" | "bottom"): DockLayout {

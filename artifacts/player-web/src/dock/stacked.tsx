@@ -1,7 +1,7 @@
 /**
- * The phone renderer (under 768 px): the same synced layout without dockview. Lens and panel panes in reading order,
+ * The phone renderer (under 768 px): the same synced layout without dockview. Every panel's pane in reading order,
  * stacked and scrolled (tabs become stacked panes), each at least 280 px; the assistant is always a bottom sheet
- * (peek / half / full), wherever it sits on desktop. No drag, no gutters: phones read the synced layout, and the lens
+ * (peek / half / full), wherever it sits on desktop. No drag, no gutters: phones read the synced layout, and the panel
  * menu still works.
  */
 import { useEffect, useRef, useState } from "react";
@@ -35,7 +35,7 @@ export default function StackedDock() {
     <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: HEIGHT.peek }} data-testid="dock-stacked">
       <div className="divide-y divide-[hsl(var(--card-border))]">
         {panes.map(pane => (
-          <section key={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "lens" ? pane.lensId : pane.kind}>
+          <section key={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "panel" ? pane.panelId : pane.kind}>
             <div className="border-b border-[hsl(var(--card-border))]"><PaneHeader paneId={pane.id} desktop={false} /></div>
             <div className="min-h-0 flex-1"><PaneBody paneId={pane.id} /></div>
           </section>

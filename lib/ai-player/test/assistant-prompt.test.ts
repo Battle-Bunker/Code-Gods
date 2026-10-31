@@ -33,13 +33,13 @@ test("tool lines come from the catalogue; confirmed tools say so; the screen and
   for (const name of ["send_chat", "destroy_agent", "pause_game", "delete_panel", "summon_agent", "start_game", "end_game"]) {
     assert.match(toolLine(text, name)!, /confirm/i, `${name} is marked as confirmed`);
   }
-  assert.doesNotMatch(toolLine(text, "open_lens")!, /confirmed by the player/, "layout tools run at once");
+  assert.doesNotMatch(toolLine(text, "open_panel")!, /confirmed by the player/, "layout tools run at once");
   assert.match(text, /THE PLAYER'S SCREEN\./);
   assert.match(text, /cannot set its parameters: you do/);
   assert.match(text, /At most one layout change per answer/);
   assert.match(text, /NEXT STEPS\./);
   assert.match(text, /Always validate before summoning/);
-  assert.ok(toolLine(prompt("read"), "get_layout") && !toolLine(prompt("read"), "open_lens"), "a read grant sees the layout but cannot change it");
+  assert.ok(toolLine(prompt("read"), "get_layout") && !toolLine(prompt("read"), "open_panel"), "a read grant sees the layout but cannot change it");
 });
 
 const observation = {
@@ -72,25 +72,25 @@ test("the briefing puts the player's utility, energy, phase and room-language he
 
 const layout = {
   layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1", "p3"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
-    panes: { p1: { id: "p1", kind: "lens", lensId: "objects", params: { limit: 5 }, setBy: "assistant" }, p3: { id: "p3", kind: "stored-panel", slug: "mine" }, p2: { id: "p2", kind: "assistant" } } },
-  lenses: [{ id: "objects", title: "Objects by payoff", phases: ["running"], paramsSchema: { properties: { sortBy: {}, limit: {} } } }, { id: "race", title: "Leaderboard race", phases: ["running", "ended"], paramsSchema: { properties: { show: {} } } }],
+    panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 5 }, setBy: "assistant" }, p3: { id: "p3", kind: "stored-panel", slug: "mine" }, p2: { id: "p2", kind: "assistant" } } },
+  panels: [{ id: "objects", title: "Objects by payoff", phases: ["running"], paramsSchema: { properties: { sortBy: {}, limit: {} } } }, { id: "race", title: "Leaderboard race", phases: ["running", "ended"], paramsSchema: { properties: { show: {} } } }],
   storedPanels: [{ slug: "mine", title: "Mine" }],
 };
 
-test("the briefing's LENSES block names the panes, who set them, the catalogue and the stored panels, within its budget", () => {
+test("the briefing's PANELS block names the panes, who set them, the catalogue and the stored panels, within its budget", () => {
   const text = assistantBriefing({ rules: { rules: "# r" }, observation, layout });
-  const block = text.slice(text.indexOf("LENSES."), text.indexOf("Room rules:"));
+  const block = text.slice(text.indexOf("PANELS."), text.indexOf("Room rules:"));
   assert.ok(block.includes('[p1] objects {"limit":5} (set by you)'), block);
   assert.ok(block.includes("[p3] stored panel mine") && block.includes("[p2] this conversation"));
   assert.ok(block.includes("objects — Objects by payoff: params sortBy, limit; phases running"));
   assert.ok(block.includes("race — Leaderboard race: params show; phases running/ended"));
-  assert.ok(block.includes("Stored panels (open_panel): mine"));
-  assert.equal(assistantBriefing({ rules: { rules: "# r" }, observation }).includes("LENSES."), false, "no block when the layout could not be read");
-  const many = { ...layout, lenses: Array.from({ length: 200 }, (_, i) => ({ id: `l${i}`, title: "t".repeat(40), phases: ["running"], paramsSchema: { properties: { a: {}, b: {} } } })) };
+  assert.ok(block.includes("Stored panels (open_panel {slug}): mine"));
+  assert.equal(assistantBriefing({ rules: { rules: "# r" }, observation }).includes("PANELS."), false, "no block when the layout could not be read");
+  const many = { ...layout, panels: Array.from({ length: 200 }, (_, i) => ({ id: `l${i}`, title: "t".repeat(40), phases: ["running"], paramsSchema: { properties: { a: {}, b: {} } } })) };
   const long = assistantBriefing({ rules: { rules: "# r" }, observation, layout: many });
-  const longBlock = long.slice(long.indexOf("LENSES."), long.indexOf("Room rules:"));
-  assert.ok(longBlock.length <= BRIEFING_LIMITS.lenses + 40 && longBlock.includes("get_layout has the rest"));
-  assert.doesNotThrow(() => assistantBriefing({ rules: {}, observation, layout: { layout: "nope", lenses: "nope" } }));
+  const longBlock = long.slice(long.indexOf("PANELS."), long.indexOf("Room rules:"));
+  assert.ok(longBlock.length <= BRIEFING_LIMITS.panels + 40 && longBlock.includes("get_layout has the rest"));
+  assert.doesNotThrow(() => assistantBriefing({ rules: {}, observation, layout: { layout: "nope", panels: "nope" } }));
 });
 
 test("the briefing is bounded and survives a lobby (no game) or unexpected shapes", () => {

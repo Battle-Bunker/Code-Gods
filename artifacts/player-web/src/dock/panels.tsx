@@ -84,7 +84,7 @@ export const panelTitle = (entry: PanelEntry | undefined, statuses: Panels["stat
   return entry?.stored?.title ?? (status?.kind === "ready" ? status.loaded.definition.title : undefined) ?? fallback;
 };
 
-/** A panel pane's body: the sandboxed frame of a stored panel, a file panel in-process (or sandboxed). */
+/** The body of your panel's pane: the sandboxed frame of a stored panel, a file panel in-process (or sandboxed). */
 export function PanelPaneBody({ entry, missing }: { entry: PanelEntry | undefined; missing: string }) {
   const { statuses, buildErrors, generation } = usePanels();
   const isSandboxed = useSandboxed().has(entry?.id ?? "");

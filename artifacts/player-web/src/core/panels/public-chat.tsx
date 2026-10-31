@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Globe, Send } from "lucide-react";
 import { useChat, useGame } from "@/sdk";
 import { useGameCommands, useRunner } from "@/core/game/runner";
-import { LensEmpty, type LensProps } from "./kit";
+import { PanelEmpty, type PanelProps } from "./kit";
 
 function marked(text: string, terms: readonly string[]): ReactNode {
   const words = terms.filter(Boolean).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
@@ -15,7 +15,7 @@ function marked(text: string, terms: readonly string[]): ReactNode {
   return text.split(new RegExp(`(${words.join("|")})`, "gi")).map((part, i) => (i % 2 ? <mark key={i} className="bg-[hsl(var(--chart-4)/0.35)] text-inherit">{part}</mark> : part));
 }
 
-export default function PublicChat({ params }: LensProps<"public-chat">) {
+export default function PublicChat({ params }: PanelProps<"public-chat">) {
   const chat = useChat({ hz: 2 });
   const game = useGame({ hz: 1 });
   const commands = useGameCommands();
@@ -37,7 +37,7 @@ export default function PublicChat({ params }: LensProps<"public-chat">) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
       <ul ref={list} className="min-h-16 flex-1 space-y-2 overflow-auto" aria-live="polite">
-        {shown.length === 0 ? <li><LensEmpty>{chat.length ? "Nothing matches this view." : "Silence so far. Say what you want: deals start with a sentence."}</LensEmpty></li> : shown.map(c => (
+        {shown.length === 0 ? <li><PanelEmpty>{chat.length ? "Nothing matches this view." : "Silence so far. Say what you want: deals start with a sentence."}</PanelEmpty></li> : shown.map(c => (
           <li key={c.id} data-testid={`row-chat-${c.id}`} className={`text-sm ${mentionsMe(c.text) && c.godId !== me?.godId ? "border-l-2 border-[hsl(var(--chart-4))] pl-2" : ""}`}>
             <span className={`font-semibold ${c.godId === me?.godId ? "text-primary" : ""}`}>{c.godId === me?.godId ? "You" : c.label}</span>
             {c.isAI && <span className="label ml-1.5">AI</span>}

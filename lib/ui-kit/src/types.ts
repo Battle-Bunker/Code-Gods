@@ -2,7 +2,7 @@
  * The shared command palette's vocabulary (docs/ui-redesign.md §2.5). A Command is one catalogue entry (or a
  * client-only `ui.*` action of the same human shape) plus a performer: what happens when it runs. Pure types.
  */
-import type { Phase } from "@workspace/player-client/lenses";
+import type { Phase } from "@workspace/player-client/panels";
 import type { PaletteGroup } from "@workspace/player-client/catalog";
 import type { ToolName } from "@workspace/player-client/tools";
 

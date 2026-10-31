@@ -1,5 +1,7 @@
 # Onboarding and game configuration
 
+> Terminology: "lens" in this historical document means what the code and the UI now call a built-in **panel** (`docs/ui-redesign.md`).
+
 Mandate: the first-time player's journey (what to do next in every state) and the separate game-configuration
 page. Grounded in `lib/game-core/src/settings.ts`, `artifacts/engine/convex/{manifest,owner,rooms}.ts`,
 `artifacts/code-gods/src/{pages,components}`, `artifacts/player-web/src/core/{app,console}.tsx` and

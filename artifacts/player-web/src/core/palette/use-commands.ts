@@ -8,8 +8,8 @@ import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { SETTINGS_PRESETS } from "@workspace/game-core";
-import { lensPanesOf, paneCaption } from "@workspace/player-client/layout";
-import { LENSES } from "@workspace/player-client/lenses";
+import { panelPanesOf, paneCaption } from "@workspace/player-client/layout";
+import { PANELS } from "@workspace/player-client/panels";
 import type { Command, PaletteContext } from "@workspace/ui-kit";
 import { useRoom } from "@/sdk";
 import { useDock } from "@/dock/store";
@@ -48,11 +48,11 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const rollback = useMutation(api.panels.rollback);
 
   const state = useMemo((): PaletteState => {
-    const lensCount = lensPanesOf(dock.layout).length;
+    const panelCount = panelPanesOf(dock.layout).length;
     const panes = Object.values(dock.layout.panes).map(pane => ({
       id: pane.id, kind: pane.kind,
-      label: pane.kind === "lens" ? LENSES[pane.lensId].title : paneCaption(pane),
-      closable: pane.kind !== "assistant" && (pane.kind !== "lens" || lensCount > 1),
+      label: pane.kind === "panel" ? PANELS[pane.panelId].title : paneCaption(pane),
+      closable: pane.kind !== "assistant" && (pane.kind !== "panel" || panelCount > 1),
     }));
     const obs = s.obs;
     return {

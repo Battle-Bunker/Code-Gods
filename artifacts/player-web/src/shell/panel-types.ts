@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-/** A hint for where a new pane of this panel opens beside the lenses; the player and the assistant arrange panes freely. */
+/** A hint for where a new pane of this panel opens beside the built-in panels; the player and the assistant arrange panes freely. */
 export type Placement = "left" | "right" | "bottom";
 export type PanelSize = "sm" | "md" | "lg";
 

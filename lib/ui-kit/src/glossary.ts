@@ -19,8 +19,8 @@ export const GLOSSARY = {
   "agent-energy": { term: "Agent energy", gloss: "Each agent's own battery; it charges in world time and pays for every move it tries." },
   pause: { term: "Pause", gloss: "Each god may stop the world once per game (3 minutes by default) to negotiate." },
   palette: { term: "Command palette", gloss: "The search box (Ctrl/Cmd+K) that runs every command you have: the same repertoire your assistant has." },
-  lens: { term: "Lens", gloss: "A built-in view of the game in a pane; you pick which, your assistant sets its parameters." },
-  pane: { term: "Pane", gloss: "One tile of your screen: a lens, a stored panel or your assistant; drag it anywhere." },
+  panel: { term: "Panel", gloss: "A view of the game in a pane: a built-in one you pick (your assistant sets its parameters) or one of your own." },
+  pane: { term: "Pane", gloss: "One tile of your screen: a panel or your assistant; drag it anywhere." },
 } as const satisfies Record<string, { term: string; gloss: string }>;
 
 export type GlossaryId = keyof typeof GLOSSARY;

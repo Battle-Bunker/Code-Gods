@@ -7,10 +7,10 @@ import { useMemo } from "react";
 import type { MutatorCallWire } from "@workspace/game-types";
 import { Obj, fmtBits, useEvaluator, useObjects, type Evaluator, type LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
-import { LensEmpty, Section, TextButton, type LensProps } from "./kit";
+import { PanelEmpty, Section, TextButton, type PanelProps } from "./kit";
 
-type Calls = NonNullable<LensProps<"what-if">["params"]>["calls"];
-/** The lens's calls are already the engine's wire form: [mutatorId, {named arguments}]. */
+type Calls = NonNullable<PanelProps<"what-if">["params"]>["calls"];
+/** The panel's calls are already the engine's wire form: [mutatorId, {named arguments}]. */
 const toWire = (calls: Calls): MutatorCallWire[] => calls.map(([id, args]) => [id, args] as MutatorCallWire);
 
 type Outcome = { error: string; cost?: number } | { value: LiveObject["value"]; cost: number; before: number; after: number };
@@ -33,7 +33,7 @@ function Result({ label, target, outcome }: { label: string; target: LiveObject;
   );
 }
 
-export default function WhatIf({ params }: LensProps<"what-if">) {
+export default function WhatIf({ params }: PanelProps<"what-if">) {
   const objects = useObjects({ hz: 0.5 });
   const evaluator = useEvaluator();
   const target = objects.find(o => o.id === params?.objectId);
@@ -45,14 +45,14 @@ export default function WhatIf({ params }: LensProps<"what-if">) {
   }, [evaluator, params?.value]);
 
   if (!params) {
-    return <LensEmpty action={<TextButton onClick={() => composer.fill("Show me in the What if… view what this move would do: ")}>Ask your assistant to set one up</TextButton>}>
+    return <PanelEmpty action={<TextButton onClick={() => composer.fill("Show me in the What if… view what this move would do: ")}>Ask your assistant to set one up</TextButton>}>
       A what-if needs an object and a move. Your assistant sets them: say which object and what you'd like to try.
-    </LensEmpty>;
+    </PanelEmpty>;
   }
-  if (!target) return <LensEmpty>That object is no longer in the world. Ask your assistant for a new what-if.</LensEmpty>;
-  if (!evaluator || !main) return <LensEmpty>Loading your utility function…</LensEmpty>;
+  if (!target) return <PanelEmpty>That object is no longer in the world. Ask your assistant for a new what-if.</PanelEmpty>;
+  if (!evaluator || !main) return <PanelEmpty>Loading your utility function…</PanelEmpty>;
   return (
-    <div className="space-y-4" data-testid="lens-what-if">
+    <div className="space-y-4" data-testid="panel-what-if">
       <Result label={`${params.calls.map(c => c[0]).join(", ")}`} target={target} outcome={main} />
       {alt && params.compare && <Section title="Compared with"><Result label={params.compare.map(c => c[0]).join(", ")} target={target} outcome={alt} /></Section>}
       {raw !== undefined && <p className="text-sm">The value your assistant asked about scores {typeof raw === "number" ? `${fmtBits(raw)} bits` : `nothing: ${raw}`} for you.</p>}

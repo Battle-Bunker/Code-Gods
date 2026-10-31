@@ -1,6 +1,6 @@
 /**
  * The player client's root: find the engine, authenticate, pick the room, then render the player's screen: the
- * header and the dock of panes (lenses, the assistant, panels) in dock/shell.tsx.
+ * header and the dock of panes (built-in panels, the assistant, your own panels) in dock/shell.tsx.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";

@@ -4,13 +4,13 @@
  *
  *   - A server layout (from `layout.current`: this device's own writes, another device, the assistant's tools) is
  *     applied at once, except during a drag or over a local edit not yet pushed: then it is queued.
- *   - A local edit (a drag, the lens menu, the palette) is shown at once and pushed with `ifUpdatedAt` = the server
+ *   - A local edit (a drag, the panel menu, the palette) is shown at once and pushed with `ifUpdatedAt` = the server
  *     version it was based on: ~800 ms after a gesture ends, sooner for a discrete action. One push at a time.
  *   - CONFLICT (the row moved in the meantime) adopts the server's version; another failure keeps the edit and retries.
  *   - Nothing is pushed before the first server layout arrives, or ever in a read-only (safe-mode) dock.
  */
-import { defaultLensFor, defaultLensParams, type Phase } from "@workspace/player-client/lenses";
-import { lensPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
+import { defaultPanelFor, defaultPanelParams, type Phase } from "@workspace/player-client/panels";
+import { panelPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -87,14 +87,14 @@ export function pushPlan(state: SyncState): { layout: DockLayout; ifUpdatedAt: n
 }
 
 /**
- * The layout as shown in a phase: the first lens pane follows the phase's default lens while nobody (human or
- * assistant) chose its lens. The same object when nothing changes.
+ * The layout as shown in a phase: the first built-in panel follows the phase's default while nobody (human or
+ * assistant) chose its panel. The same object when nothing changes.
  */
 export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
-  const first = lensPanesOf(layout)[0];
-  const lensId = defaultLensFor(phase);
-  if (!first || first.setBy !== "default" || first.lensId === lensId) return layout;
-  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, lensId, params: defaultLensParams(lensId) ?? {} } } };
+  const first = panelPanesOf(layout)[0];
+  const panelId = defaultPanelFor(phase);
+  if (!first || first.setBy !== "default" || first.panelId === panelId) return layout;
+  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, panelId, params: defaultPanelParams(panelId) ?? {} } } };
 }
 
 /** A stable JSON text (sorted keys), for comparing panes. */

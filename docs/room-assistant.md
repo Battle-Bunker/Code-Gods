@@ -103,9 +103,9 @@ The tools cover everything the human can do in their client, in four groups: rea
 `get_rules`, `get_my_utility`, `evaluate_value`, `get_events`, `get_trajectories`, `get_chat`, `list_games`,
 `get_game_history`, `get_receipt`, `whoami`), acts (`validate_agent`, `summon_agent`, `destroy_agent`,
 `set_ready`, `send_chat`, `pause_game`, `wake_engine`), the human's stored panels (`list_panels`, `get_panel`,
-`save_panel`, `rollback_panel`, `delete_panel`) and their screen (`get_layout`, then `open_lens`,
-`set_lens_params`, `open_panel`, `move_pane`, `close_pane`: the player client is a dock of lenses whose
-parameters only an assistant sets; `docs/ui-redesign.md`). Owner grants add `get_room_state`,
+`save_panel`, `rollback_panel`, `delete_panel`) and their screen (`get_layout`, then `open_panel` for a built-in
+or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: the player client is a dock of panels whose
+built-in panels' parameters only an assistant sets; `docs/ui-redesign.md`). Owner grants add `get_room_state`,
 `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai`. Each
 tool's text comes from the function catalogue (`docs/engine-api.md` "Public function catalogue").
 

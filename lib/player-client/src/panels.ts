@@ -1,11 +1,12 @@
 /**
- * The built-in analytics lenses of the player client (docs/ui-redesign.md §2.2 and §3): pure metadata shared by the
- * engine (the layout tools validate parameters with these schemas) and the client (which renders each lens in
- * artifacts/player-web/src/lenses/<id>.tsx). No React, no Convex here.
+ * The built-in analytics panels of the player client (docs/ui-redesign.md §2.2 and §3): pure metadata shared by the
+ * engine (the layout tools validate parameters with these schemas) and the client (which renders each panel in
+ * artifacts/player-web/src/core/panels/<id>.tsx). No React, no Convex here. A player's own TSX panels are stored
+ * panels (docs/panels.md), not listed here.
  *
- * A pane's lens is chosen by the human from a menu; a lens's PARAMETERS are set only by the assistant, through the
- * layout tools, so every parameter is optional with a default (the lens is useful with the assistant off), except
- * what-if's `objectId` and `calls`, which the lens cannot show anything without.
+ * A pane's panel is chosen by the human from a menu; a panel's PARAMETERS are set only by the assistant, through the
+ * layout tools, so every parameter is optional with a default (the panel is useful with the assistant off), except
+ * what-if's `objectId` and `calls`, which the panel cannot show anything without.
  */
 import { z } from "zod/v4";
 
@@ -13,15 +14,15 @@ export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
 const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"];
 const LIVE: readonly Phase[] = ["running", "paused"];
 
-export const LENS_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
-export type LensId = (typeof LENS_IDS)[number];
+export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
+export type PanelId = (typeof PANEL_IDS)[number];
 
-export interface LensDefinition<P extends z.ZodObject = z.ZodObject> {
-  id: LensId;
+export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
+  id: PanelId;
   title: string;
   /** One sentence for a newcomer. */
   blurb: string;
-  /** Where the lens has data; elsewhere its empty state names the next step. */
+  /** Where the panel has data; elsewhere its empty state names the next step. */
   phases: readonly Phase[];
   /** Strict; every field optional with a default, except what-if's objectId and calls. */
   params: P;
@@ -36,12 +37,12 @@ const seconds = (min: number, max: number, dflt: number) => z.number().int().min
 const call = z.tuple([z.string().min(1).max(64), z.record(z.string(), z.unknown())]);
 const calls = z.array(call).min(1).max(16);
 
-const def = <P extends z.ZodObject>(d: LensDefinition<P>) => d;
+const def = <P extends z.ZodObject>(d: PanelDefinition<P>) => d;
 const bool = (dflt: boolean) => z.boolean().default(dflt);
 const when = (flag: boolean, text: string) => (flag ? [text] : []);
 const line = (parts: readonly string[]) => parts.filter(Boolean).join(" · ");
 
-export const LENSES = {
+export const PANELS = {
   overview: def({
     id: "overview", title: "Where am I", blurb: "What's happening, how you're doing, and the one thing to do next.", phases: ALL,
     params: z.strictObject({ focus: z.enum(["auto", "goal", "agents", "standing"]).default("auto") }),
@@ -123,42 +124,42 @@ export const LENSES = {
     params: z.strictObject({ section: z.enum(["all", "primer", "scoring", "settings"]).default("all") }),
     summary: p => (p.section === "all" ? "Everything" : { primer: "The 90-second explanation", scoring: "How scoring works", settings: "This room's settings" }[p.section]),
   }),
-} satisfies { readonly [K in LensId]: LensDefinition };
+} satisfies { readonly [K in PanelId]: PanelDefinition };
 
-export type LensParams<K extends LensId> = z.output<(typeof LENSES)[K]["params"]>;
+export type PanelParams<K extends PanelId> = z.output<(typeof PANELS)[K]["params"]>;
 
-export const isLensId = (value: unknown): value is LensId => typeof value === "string" && (LENS_IDS as readonly string[]).includes(value);
-export const lens = (id: LensId): LensDefinition => LENSES[id] as LensDefinition;
+export const isPanelId = (value: unknown): value is PanelId => typeof value === "string" && (PANEL_IDS as readonly string[]).includes(value);
+export const panel = (id: PanelId): PanelDefinition => PANELS[id] as PanelDefinition;
 
-/** The lens a pane shows until a human or the assistant chooses one: overview, or results once the game has ended. */
-export const defaultLensFor = (phase: Phase): LensId => (phase === "ended" ? "results" : "overview");
+/** The panel a pane shows until a human or the assistant chooses one: overview, or results once the game has ended. */
+export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "overview");
 
 /**
- * Parse a lens's parameters: the defaults when none are given; the parsed output (defaults filled) when valid; else
+ * Parse a panel's parameters: the defaults when none are given; the parsed output (defaults filled) when valid; else
  * `null` and the issues, so a tool can answer BAD_REQUEST and a reader can fall back to the defaults.
  */
-export function parseLensParams(id: LensId, params: unknown): { ok: true; params: Record<string, unknown> } | { ok: false; issues: string[] } {
-  const parsed = lens(id).params.safeParse(params ?? {});
+export function parsePanelParams(id: PanelId, params: unknown): { ok: true; params: Record<string, unknown> } | { ok: false; issues: string[] } {
+  const parsed = panel(id).params.safeParse(params ?? {});
   if (parsed.success) return { ok: true, params: parsed.data as Record<string, unknown> };
   return { ok: false, issues: parsed.error.issues.slice(0, 5).map(i => `${i.path.join(".") || "(root)"}: ${i.message}`) };
 }
 
-/** The lens's defaults, or null for a lens that has required parameters (what-if). */
-export function defaultLensParams(id: LensId): Record<string, unknown> | null {
-  const parsed = lens(id).params.safeParse({});
+/** The panel's defaults, or null for a panel that has required parameters (what-if). */
+export function defaultPanelParams(id: PanelId): Record<string, unknown> | null {
+  const parsed = panel(id).params.safeParse({});
   return parsed.success ? (parsed.data as Record<string, unknown>) : null;
 }
 
-/** The pane caption for a lens and (valid) parameters; falls back to the title when the parameters do not parse. */
-export function lensSummary(id: LensId, params: unknown): string {
-  const parsed = parseLensParams(id, params);
-  return parsed.ok ? (lens(id).summary as (p: unknown) => string)(parsed.params) : lens(id).title;
+/** The pane caption for a panel and (valid) parameters; falls back to the title when the parameters do not parse. */
+export function panelSummary(id: PanelId, params: unknown): string {
+  const parsed = parsePanelParams(id, params);
+  return parsed.ok ? (panel(id).summary as (p: unknown) => string)(parsed.params) : panel(id).title;
 }
 
-/** The catalogue as the layout tools and the briefing describe it: metadata plus each lens's JSON Schema. */
-export function lensCatalog(): { id: LensId; title: string; blurb: string; phases: readonly Phase[]; paramsSchema: Record<string, unknown> }[] {
-  return LENS_IDS.map(id => {
-    const { $schema: _, ...paramsSchema } = z.toJSONSchema(lens(id).params, { io: "input" }) as Record<string, unknown>;
-    return { id, title: lens(id).title, blurb: lens(id).blurb, phases: lens(id).phases, paramsSchema };
+/** The catalogue as the layout tools and the briefing describe it: metadata plus each panel's JSON Schema. */
+export function panelCatalog(): { id: PanelId; title: string; blurb: string; phases: readonly Phase[]; paramsSchema: Record<string, unknown> }[] {
+  return PANEL_IDS.map(id => {
+    const { $schema: _, ...paramsSchema } = z.toJSONSchema(panel(id).params, { io: "input" }) as Record<string, unknown>;
+    return { id, title: panel(id).title, blurb: panel(id).blurb, phases: panel(id).phases, paramsSchema };
   });
 }

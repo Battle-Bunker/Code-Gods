@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { ScoreBreakdown } from "@workspace/object-views";
 import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useObjects, type LiveObject } from "@/sdk";
-import { LensEmpty, TextButton, referObject, useObjectRanks, type LensProps } from "./kit";
+import { PanelEmpty, TextButton, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 const FILTERS: Record<string, (o: LiveObject) => boolean> = {
   all: () => true,
@@ -16,7 +16,7 @@ const FILTERS: Record<string, (o: LiveObject) => boolean> = {
 };
 const SORTS: Record<string, (o: LiveObject) => number> = { payoff: o => o.payoff, mine: o => o.own.netBits, othersCare: o => o.peerCare };
 
-export default function Objects({ params }: LensProps<"objects">) {
+export default function Objects({ params }: PanelProps<"objects">) {
   const objects = useObjects({ hz: 1 });
   const card = useMyCard();
   const { ctx, noun } = useObjectContext();
@@ -29,8 +29,8 @@ export default function Objects({ params }: LensProps<"objects">) {
   const highlight = new Set(params.highlight);
   const sum = (f: (o: LiveObject) => number) => objects.reduce((s, o) => s + f(o), 0);
 
-  if (!objects.length) return <LensEmpty>The world holds no {noun}s yet. They spawn once the world starts running.</LensEmpty>;
-  if (!shown.length) return <LensEmpty>No {noun} matches this view right now ({objects.length} in the world).</LensEmpty>;
+  if (!objects.length) return <PanelEmpty>The world holds no {noun}s yet. They spawn once the world starts running.</PanelEmpty>;
+  if (!shown.length) return <PanelEmpty>No {noun} matches this view right now ({objects.length} in the world).</PanelEmpty>;
   if (params.layout === "grid") {
     return <ObjectGrid objects={shown} max={params.limit} badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />;
   }

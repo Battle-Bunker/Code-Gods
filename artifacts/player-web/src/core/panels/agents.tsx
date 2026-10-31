@@ -8,12 +8,12 @@ import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-
 import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands, useRunner } from "@/core/game/runner";
-import { LensEmpty, TextButton, type LensProps } from "./kit";
+import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 
 type Sample = { at: number; energy: number; eligible: boolean };
 const history = new Map<string, Sample[]>();
 
-export default function Agents({ params, phase }: LensProps<"agents">) {
+export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
   const dock = useDockActions();
@@ -36,9 +36,9 @@ export default function Agents({ params, phase }: LensProps<"agents">) {
   const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
   const canAct = commands.canAct && !unknown && (phase === "running" || phase === "paused" || phase === "planning");
   if (!all.length) {
-    return <LensEmpty action={phase === "planning" || phase === "running" ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
+    return <PanelEmpty action={phase === "planning" || phase === "running" ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
       No agents summoned yet. An agent is a small program that changes objects your way when the world picks it.
-    </LensEmpty>;
+    </PanelEmpty>;
   }
   const lanes = agents.map((a, i) => {
     const samples = (history.get(a.id) ?? []).filter(s => s.at >= world - params.window);

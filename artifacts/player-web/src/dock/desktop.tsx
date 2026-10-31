@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type DockviewTheme, type IDockviewPanelHeaderProps, type IDockviewPanelProps } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 import { DEFAULT_LAYOUT, paneCaption, type DockLayout, type Pane } from "@workspace/player-client/layout";
-import { LENSES } from "@workspace/player-client/lenses";
+import { PANELS } from "@workspace/player-client/panels";
 import { fromDockview, toDockview } from "./adapter";
 import { PaneHeader } from "./headers";
 import { PaneBody } from "./panes";
@@ -20,10 +20,10 @@ import { useDock, useDockStore } from "./store";
 
 const Body = (props: IDockviewPanelProps) => <PaneBody paneId={props.api.id} />;
 const Tab = (props: IDockviewPanelHeaderProps) => <PaneHeader paneId={props.api.id} desktop />;
-const components = { lens: Body, assistant: Body, "stored-panel": Body, "file-panel": Body };
-const tabComponents = { lens: Tab, assistant: Tab, "stored-panel": Tab, "file-panel": Tab };
+const components = { panel: Body, assistant: Body, "stored-panel": Body, "file-panel": Body };
+const tabComponents = { panel: Tab, assistant: Tab, "stored-panel": Tab, "file-panel": Tab };
 const theme: DockviewTheme = { name: "code-gods", className: "dockview-theme-cg", colorScheme: "light", gap: 0, dndOverlayMounting: "absolute", dndPanelOverlay: "group", dndTabIndicator: "line" };
-const titleOf = (pane: Pane) => (pane.kind === "lens" ? LENSES[pane.lensId].title : paneCaption(pane));
+const titleOf = (pane: Pane) => (pane.kind === "panel" ? PANELS[pane.panelId].title : paneCaption(pane));
 
 export default function DesktopDock() {
   const store = useDockStore();
