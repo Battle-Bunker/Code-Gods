@@ -29,7 +29,7 @@ The engine UI (`/`) stays the common room display and owner control panel. Sign-
 
 ## 2. Identity (Wave 1A)
 
-- **Google is the only sign-in.** The choice between Better Auth served by Convex and Convex Auth is recorded in §7.1.
+- **Google is the only sign-in,** through Better Auth served by Convex (§7.1).
 - **Identity key.** A human's god id is a stable key derived from the auth library's user record, which is tied to Google's `sub`.
 - **Display name.** Google's given and family names give the full name.
 - **Admins.** The admin rule is an allowlist of verified Google emails (`CODE_GODS_ADMIN_EMAILS`).
@@ -165,7 +165,13 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 ## 7. Decisions
 
-1. **Auth library:** _to be filled in by Wave 1A once chosen (Better Auth component vs Convex Auth)._
+1. **Auth library: Better Auth served by Convex** (`@convex-dev/better-auth` 0.12.x with `better-auth` 1.6.x, exact pins). Convex Auth is still beta, has a v1→v2 migration ahead, and keeps tokens in localStorage.
+   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin. Both SPAs share it with no cross-domain plugin, and get Convex JWTs from `/api/auth/convex/token`.
+   - **Identity:** the god id is the Better Auth user id. A `users` row is kept by component triggers and stores the Google `sub` for audit.
+   - **Player JWTs:** they move to their own issuer, `<site>/api/device`, so the two token kinds are told apart by issuer.
+   - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `CODE_GODS_TEST_FIXTURES`.
+   - **MCP OAuth:** our own small endpoints (§4), not Better Auth's MCP plugin.
+   - **Browser sessions:** 24 h.
 2. **Pilot data:** none exists beyond local tests, so there is no migration (clean break).
 3. **Stored panels:** sandboxed iframes; compile-time syntax checks only in phase 1; scoped to the human; `act` credentials may write.
 4. **MCP:** stateless JSON. OAuth with DCR and CIMD, plus raw `cgc_` bearer tokens. One room per connection. `evaluate_value` covers the caller's own utility only. The CLI becomes an MCP client.
