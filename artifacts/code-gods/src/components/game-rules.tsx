@@ -1,7 +1,6 @@
 import type { InstanceInfo, Settings } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
-import { Copy } from "lucide-react";
 
+/** The room's or game's rules as text for any AI assistant (the palette's "Copy game rules for an AI"). */
 export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: string | null, instance?: InstanceInfo) {
   const agent = s.language === "python" ? "def agent(grid):" : "function agent(grid) { ... }";
   const t = instance ? `${instance.label} (${instance.key}, wire format ${instance.codec.format})` : `${s.objectType} ${JSON.stringify(s.typeArgs)}`;
@@ -48,32 +47,4 @@ The room owner configures settings between games and starts each game; every gam
 Use the authorized player client/API (protocol code-gods.player.v3) for observations, validation, summoning, destroying agents, ready status, pause and public chat. A copied rules sheet is not authentication.
 Check fresh world state and energy before acting. Optimize the SUM across the current world, not one object.
 `;
-}
-
-export function GameRules({ settings, instance, roomCode, gameCode, note }: { settings: Settings; instance?: InstanceInfo; roomCode?: string | null; gameCode?: string | null; note: string }) {
-  const { toast } = useToast();
-  const text = rulesFor(settings, roomCode, gameCode, instance);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast({ title: "Game rules copied", description: "Paste into your AI assistant." });
-    } catch {
-      toast({ title: "Could not copy automatically", description: "Select the rules below and copy them manually.", variant: "destructive" });
-    }
-  }
-  return (
-    <section className="border bg-card" aria-label="Game rules">
-      <div className="p-4 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="font-display text-xl">Game rules for your AI</h2>
-          <p className="text-xs text-muted-foreground">{note}</p>
-        </div>
-        <button onClick={copy} className="border px-3 py-2 text-sm inline-flex items-center gap-2 hover:bg-muted shrink-0" data-testid="button-copy-rules"><Copy className="h-4 w-4" />Copy rules</button>
-      </div>
-      <details className="border-t p-4">
-        <summary className="cursor-pointer text-sm">Read or select the full rules</summary>
-        <textarea readOnly value={text} aria-label="Copyable game rules" className="mt-3 w-full h-80 border bg-background p-3 font-mono text-xs resize-y" onFocus={event => event.currentTarget.select()} />
-      </details>
-    </section>
-  );
 }

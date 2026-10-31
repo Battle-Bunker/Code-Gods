@@ -1,9 +1,11 @@
 /**
  * Stored panels: a human's custom UI panels as TSX in Convex (docs/panels.md "Stored panels").
  *
- *   list, code, layout                         read (any caller of that human, read credentials included)
- *   save, rollback, setEnabled, remove,        write (browser sessions and act/owner credentials)
- *   place, setLayout
+ *   list, code                                 read (any caller of that human, read credentials included)
+ *   save, rollback, setEnabled, remove         write (browser sessions and act/owner credentials)
+ *
+ * Where a panel shows is the dock layout's business (convex/layout.ts): `placement` and `size` are kept as the
+ * add-pane hints a panel's manifest gives.
  *
  * Every function has an internal twin `<fn>As` taking `principal: {credentialId}` for the agent registry. Panels
  * belong to the caller's human across rooms; another human's panels are never visible or addressable (NOT_FOUND).
@@ -73,9 +75,6 @@ async function codeImpl(ctx: Ctx, viewer: Viewer, { slug, version }: { slug: str
     compilerVersion: row.compilerVersion, sourceHash: row.sourceHash, author: row.author, createdAt: row.createdAt,
   };
 }
-async function layoutImpl(ctx: Ctx, viewer: Viewer) {
-  return (await ctx.db.query("panelLayouts").withIndex("by_subject", q => q.eq("subject", viewer.subject)).unique())?.layout ?? null;
-}
 
 /** Metadata of the caller's panels (no code). */
 export const list = query({ args: {}, handler: async ctx => listImpl(ctx, await resolveViewer(ctx)) });
@@ -83,9 +82,6 @@ export const listAs = internalQuery({ args: { principal }, handler: async (ctx, 
 /** One version's source and compiled code (default: the current version). */
 export const code = query({ args: codeArgs, handler: async (ctx, a) => codeImpl(ctx, await resolveViewer(ctx), a) });
 export const codeAs = internalQuery({ args: { principal, ...codeArgs }, handler: async (ctx, { principal: p, ...a }) => codeImpl(ctx, await resolveViewer(ctx, p), a) });
-/** The caller's dock layout, or null when none is stored yet. */
-export const layout = query({ args: {}, handler: async ctx => layoutImpl(ctx, await resolveViewer(ctx)) });
-export const layoutAs = internalQuery({ args: { principal }, handler: async (ctx, a) => layoutImpl(ctx, await resolveViewer(ctx, a.principal)) });
 
 // ------------------------------------------------------------------------------------------------
 // save: precheck → compile (Node) → commit
@@ -223,28 +219,3 @@ async function removeImpl(ctx: MutationCtx, viewer: Viewer, { slug }: { slug: st
 /** Delete a panel and all its versions. */
 export const remove = mutation({ args: removeArgs, handler: async (ctx, a) => removeImpl(ctx, await writer(ctx, undefined), a) });
 export const removeAs = internalMutation({ args: { principal, ...removeArgs }, handler: async (ctx, { principal: p, ...a }) => removeImpl(ctx, await writer(ctx, p), a) });
-
-const placeArgs = { slug: v.string(), placement: v.optional(placement), size: v.optional(size), title: v.optional(v.string()) };
-async function placeImpl(ctx: MutationCtx, viewer: Viewer, { slug, placement: where, size: howBig, title }: { slug: string; placement?: Doc<"panels">["placement"]; size?: Doc<"panels">["size"]; title?: string }) {
-  const panel = await requirePanel(ctx, viewer.subject, slug);
-  await ctx.db.patch(panel._id, {
-    ...(where ? { placement: where } : {}), ...(howBig ? { size: howBig } : {}), ...(title ? { title: title.slice(0, 80) } : {}), updatedAt: Date.now(),
-  });
-  return null;
-}
-/** Set a panel's default region, size or title (a player's own layout still wins). */
-export const place = mutation({ args: placeArgs, handler: async (ctx, a) => placeImpl(ctx, await writer(ctx, undefined), a) });
-export const placeAs = internalMutation({ args: { principal, ...placeArgs }, handler: async (ctx, { principal: p, ...a }) => placeImpl(ctx, await writer(ctx, p), a) });
-
-const layoutArgs = { layout: v.any() };
-async function setLayoutImpl(ctx: MutationCtx, viewer: Viewer, { layout: value }: { layout: unknown }) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail("BAD_REQUEST", "A layout is an object");
-  if (bytes(JSON.stringify(value)) > LIMITS.layoutBytes) fail("BAD_REQUEST", `A layout is at most ${kb(LIMITS.layoutBytes)}`);
-  const doc = await ctx.db.query("panelLayouts").withIndex("by_subject", q => q.eq("subject", viewer.subject)).unique();
-  if (doc) await ctx.db.patch(doc._id, { layout: value, updatedAt: Date.now() });
-  else await ctx.db.insert("panelLayouts", { subject: viewer.subject, layout: value, updatedAt: Date.now() });
-  return null;
-}
-/** Store the dock layout (the client debounces; localStorage is its boot cache). */
-export const setLayout = mutation({ args: layoutArgs, handler: async (ctx, a) => setLayoutImpl(ctx, await writer(ctx, undefined), a) });
-export const setLayoutAs = internalMutation({ args: { principal, ...layoutArgs }, handler: async (ctx, { principal: p, ...a }) => setLayoutImpl(ctx, await writer(ctx, p), a) });

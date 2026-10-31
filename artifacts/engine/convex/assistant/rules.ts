@@ -2,7 +2,7 @@
  * Pure rules of the in-client assistant (docs/surface-architecture.md §6), shared by the turn loop and the unit
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
-import { OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
+import { LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
 import type { ChatAssistantBlock, ChatMessage, ChatToolResult } from "@workspace/ai-player";
 import { bound } from "../agent/bound.ts";
 
@@ -12,8 +12,8 @@ export const LIMITS = {
   turnMs: 10 * 60_000,
   /** A confirmation card waits this long before the call counts as denied. */
   confirmMs: 2 * 60_000,
-  /** Stored sizes (bytes of UTF-16 text; Convex documents stay small). */
-  textChars: 16 * 1024,
+  /** Stored sizes (bytes of UTF-16 text; Convex documents stay small). A message holds a whole model context echo. */
+  textChars: 32 * 1024,
   argsChars: 8 * 1024,
   resultChars: 8 * 1024,
   userTextChars: 4000,
@@ -24,8 +24,9 @@ export const LIMITS = {
   maxOutputTokens: 8192,
   /** A step's stored model blocks (assistantMessages.contentJson; at most 3 bytes a character keeps the document under 1 MiB); larger ones are replayed without thinking. */
   contentChars: 200_000,
-  /** Tool calls run per model step; more are answered with an error. */
+  /** Tool calls run per model step, and layout (dock) tools among them; more are answered with an error. */
   callsPerStep: 16,
+  layoutCallsPerStep: 2,
   waitMs: 60_000,
   /** Model context: the thread's history is cut (oldest first) to this many characters. */
   historyChars: 60_000,
@@ -37,12 +38,16 @@ export const ACTIVE: readonly TurnStatus[] = ["running", "awaiting_confirmation"
 export const isActive = (status: TurnStatus) => ACTIVE.includes(status);
 
 const OWNER = new Set<string>(OWNER_TOOLS.map(t => t.name));
-const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "delete_panel"]);
+const LAYOUT = new Set<string>(LAYOUT_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
+const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel"]);
+/** A layout tool that changes the player's screen (get_layout only reads it). */
+export const isLayoutChange = (tool: string) => LAYOUT.has(tool);
 
 /**
- * Does this call wait for the player's confirmation card? Public chat, pauses, panel deletion and every owner tool
- * always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and this turn already
- * validated the same source at a cost of at most N.
+ * Does this call wait for the player's confirmation card? Public chat, pauses, destroying an agent, panel deletion
+ * and every owner tool always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and
+ * this turn already validated the same source at a cost of at most N. Layout (dock) tools never do: a view change
+ * touches no game state and is reversible; the chat chip names it.
  */
 export function needsConfirmation(tool: string, _args: Record<string, unknown>, ctx: { autoApproveSummonBits?: number; validatedCost?: number }): boolean {
   if (OWNER.has(tool) || ALWAYS_CONFIRM.has(tool)) return true;
@@ -76,6 +81,18 @@ export const commandIdFor = (turnId: string, callId: string, sha1: (bytes: Uint8
   uuidv5(`${turnId.length}:${turnId}:${callId}`, COMMAND_NAMESPACE, sha1);
 
 /** The arguments a call runs with: the derived id in place of any the model gave; summon/validate waits capped. */
+/**
+ * Why the n-th call of a step (after `prior` calls) may not run: more than callsPerStep calls, or a third layout
+ * tool in one step (the anti-flap rule). Null when it may.
+ */
+export function callLimitProblem(tool: string, prior: readonly string[]): string | null {
+  if (prior.length >= LIMITS.callsPerStep) return `At most ${LIMITS.callsPerStep} tool calls run per step; repeat this one in the next step`;
+  if (LAYOUT.has(tool) && prior.filter(t => LAYOUT.has(t)).length >= LIMITS.layoutCallsPerStep) {
+    return `At most ${LIMITS.layoutCallsPerStep} layout changes per step: the player's screen should settle before you change it again`;
+  }
+  return null;
+}
+
 export function prepareArgs(tool: string, args: Record<string, unknown>, id: string): Record<string, unknown> {
   if (isCommandTool(tool)) {
     const out: Record<string, unknown> = { ...args, commandId: id };
@@ -112,12 +129,14 @@ export function modelTools(permission: "read" | "act" | "owner"): ModelTool[] {
 export function argsLimit(tool: string): number {
   if (tool === "save_panel") return 70_000;
   if (tool === "validate_agent" || tool === "summon_agent") return 20_000;
+  // A forge draft (open_lens forge {source}) is an agent source too.
+  if (tool === "open_lens" || tool === "set_lens_params") return 20_000;
   return LIMITS.argsChars;
 }
 
 /** A tool result's one-line activity-chip summary (shown to the thread's human only; never logged). */
 export function summarize(tool: string, result: { data: unknown }): string {
-  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string };
+  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string; summary?: string; reused?: boolean; paneId?: string };
   const line = (text: string) => text.length > 200 ? `${text.slice(0, 199)}…` : text;
   if (isCommandTool(tool)) {
     if (data.status === "received") return line(`${data.receipt?.accepted ? "Accepted" : "Rejected"}: ${data.receipt?.message ?? ""}`.trim());
@@ -126,6 +145,11 @@ export function summarize(tool: string, result: { data: unknown }): string {
   }
   if (tool === "save_panel") {
     return data.ok ? `Saved version ${data.version}` : `Not saved: ${data.diagnostics?.length ?? 0} diagnostic${data.diagnostics?.length === 1 ? "" : "s"}`;
+  }
+  if (LAYOUT.has(tool)) {
+    if (tool === "close_pane") return line(`Closed pane ${data.paneId ?? ""}`.trim());
+    if (tool === "move_pane") return line(`Moved ${data.summary ?? "a pane"}`);
+    return line(`${data.reused ? "Updated" : "Showed"} ${data.summary ?? "a pane"}`);
   }
   if (OWNER.has(tool) && data.requestId) return "Done";
   if (findTool(tool)?.annotations.readOnlyHint) return "Read";

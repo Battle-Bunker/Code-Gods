@@ -1,6 +1,6 @@
 /**
- * The player client's root: find the engine, authenticate, pick the room, then render the protected
- * core console inside the panel dock.
+ * The player client's root: find the engine, authenticate, pick the room, then render the player's screen: the
+ * header and the dock of panes (lenses, the assistant, panels) in dock/shell.tsx.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
@@ -9,10 +9,8 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { authClient, connection, convexClient, fetchAppAccessToken, signIn, type Connection } from "./connection";
 import { RoomProvider } from "@/sdk/context";
-import { Dock } from "@/shell/dock";
-import Console from "./console";
+import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "./core-boundary";
-import { AssistantToggle } from "./assistant/drawer";
 import { roomLookup } from "./room-lookup";
 
 export function App() {
@@ -98,14 +96,9 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
   const room = useMemo(() => ({ roomId, permission, mode }), [roomId, permission, mode]);
   return (
     <RoomProvider room={room}>
-      <Dock>
-        <CoreBoundary>
-          <Console header={<>
-            <span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
-            <AssistantToggle />
-          </>} />
-        </CoreBoundary>
-      </Dock>
+      <CoreBoundary>
+        <PlayerShell />
+      </CoreBoundary>
     </RoomProvider>
   );
 }

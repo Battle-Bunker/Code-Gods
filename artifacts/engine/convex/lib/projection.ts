@@ -48,7 +48,7 @@ export function gameRecord(game: Game, objects: readonly Obj[]) {
   return {
     id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId,
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
-    settings: game.settings as GameSettings, roster: game.roster.map(rosterEntry), leaderboard: board,
+    settings: game.settings as GameSettings, settingsOrigin: game.settingsOrigin ?? null, roster: game.roster.map(rosterEntry), leaderboard: board,
     winners: board.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
@@ -65,7 +65,7 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
     objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     recoveryReason: game.recoveryReason ?? null,
-    settings: game.settings as GameSettings, roster: game.roster.map(rosterEntry),
+    settings: game.settings as GameSettings, settingsOrigin: game.settingsOrigin ?? null, roster: game.roster.map(rosterEntry),
     objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
   };
@@ -79,6 +79,8 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
     revision: room.revision, settings,
+    // Which preset the next game is on, and whether the owner changed it since (null on rooms older than presets).
+    settingsOrigin: room.settingsOrigin ?? null,
     members: members.map(m => ({
       id: m.godId, name: m.name, kind: m.kind, ready: m.ready, ...(m.status ? { status: m.status } : {}),
       // The seat's library agent is public by name, provider and model; its strategy prompt is not.

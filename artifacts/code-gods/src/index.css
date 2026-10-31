@@ -3,6 +3,7 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 @source "../../../lib/object-views/src";
+@source "../../../lib/ui-kit/src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -441,6 +442,8 @@ body::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:
 @keyframes rise { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform:none;} }
 .rise { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes orbit { to { transform: rotate(360deg); } }
-.orbit { animation: orbit 40s linear infinite; }
+/* The sigil turns once on load; the live dot is the only thing that keeps moving (calm periphery). */
+.orbit-once { animation: orbit 2.4s cubic-bezier(.2,.8,.2,1) 1; }
+@media (prefers-reduced-motion: reduce) { .orbit-once, .rise, .pulse-dot { animation: none; } }
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
 .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }

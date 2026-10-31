@@ -14,6 +14,7 @@ import {
   DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
+import { defaultLensParams, lensCatalog } from "@workspace/player-client/lenses";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
@@ -22,6 +23,7 @@ import { fail } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
 import type { eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
+import type { CurrentLayout, LayoutChange } from "../layout";
 import { bound } from "./bound";
 import { pollDelay } from "./rules";
 import type { Who } from "./store";
@@ -114,12 +116,31 @@ const PANEL_EXECUTORS = {
   get_panel: async (ctx, { principal }, args) => ({ data: await ctx.runQuery(internal.panels.codeAs, { principal, ...args }) }),
   save_panel: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.panels.saveAs, { principal, ...args }) }),
   rollback_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.rollbackAs, { principal, ...args }) }),
-  place_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.placeAs, { principal, ...args }) }),
   delete_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.removeAs, { principal, ...args }) }),
-} satisfies Pick<Executors, "list_panels" | "get_panel" | "save_panel" | "rollback_panel" | "place_panel" | "delete_panel">;
+} satisfies Pick<Executors, "list_panels" | "get_panel" | "save_panel" | "rollback_panel" | "delete_panel">;
+
+/**
+ * The dock layout (convex/layout.ts): the panes the player sees. Each operation is one read-modify-write mutation on
+ * the human's row for the credential's room, so an assistant's change lands on the latest layout.
+ */
+type PanelMeta = { slug: string; title: string; enabled: boolean; placement: string; size: string };
+const LAYOUT_EXECUTORS = {
+  get_layout: async (ctx, { principal }) => {
+    const current: CurrentLayout = await ctx.runQuery(internal.layout.currentAs, { principal });
+    const panels: PanelMeta[] = await ctx.runQuery(internal.panels.listAs, { principal });
+    const lenses = lensCatalog().map(entry => ({ ...entry, defaults: defaultLensParams(entry.id) }));
+    return { data: { ...current, lenses, storedPanels: panels.filter(p => p.enabled).map(p => ({ slug: p.slug, title: p.title, placement: p.placement, size: p.size })) } };
+  },
+  open_lens: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.openLensAs, { principal, ...args }) satisfies LayoutChange }),
+  set_lens_params: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.setLensParamsAs, { principal, ...args }) satisfies LayoutChange }),
+  open_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.openPanelAs, { principal, ...args }) satisfies LayoutChange }),
+  move_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.movePaneAs, { principal, ...args }) satisfies LayoutChange }),
+  close_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.closePaneAs, { principal, ...args }) satisfies LayoutChange }),
+} satisfies Pick<Executors, "get_layout" | "open_lens" | "set_lens_params" | "open_panel" | "move_pane" | "close_pane">;
 
 export const EXECUTORS: Executors = {
   ...PANEL_EXECUTORS,
+  ...LAYOUT_EXECUTORS,
   // ----- read -----
   whoami: async (_ctx, { who }) => ({ data: who }),
   get_rules: async (ctx, { principal, who }) => {

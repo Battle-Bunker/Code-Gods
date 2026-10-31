@@ -67,7 +67,9 @@ exists only while `TEST_FIXTURES` or `DEV` and `FAKE_OIDC_URL` are set.
 
 Every assistant surface (Claude, Claude Code, Replit Agent, the CLI and the in-client assistant) uses
 one tool registry: definitions in `lib/player-client/src/tools.ts` (zod; JSON Schema committed as
-`tools.schema.json`), executors in `artifacts/engine/convex/agent/registry.ts`. A tool runs inside Convex
+`tools.schema.json`), executors in `artifacts/engine/convex/agent/registry.ts`. A tool names the public
+functions it reaches and takes its description from their catalogue entries (`lib/player-client/src/catalog.ts`,
+the "Public function catalogue" below), so humans and models read one text. A tool runs inside Convex
 as the human behind the credential, in the credential's one room, through the same projections and
 commands as the human's own client. How to connect Claude: `docs/connect-claude.md`.
 
@@ -109,6 +111,11 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `update_settings` | owner | `requestId, revision, settings?, preset?, aiBudget?` |
 | `start_game`, `resume_game`, `end_game` | owner | `requestId` (start is idempotent per requestId) |
 | `add_ai`, `remove_ai` | owner | `requestId, aiAgentId` / `requestId, deityId` |
+| `list_panels`, `get_panel` | read | → `panels.list`; `slug, version?` → `panels.code` |
+| `save_panel`, `rollback_panel`, `delete_panel` | act | `slug, source, title?, placement?, size?` → `panels.save`; `slug, version` → `panels.rollback`; `slug` → `panels.remove` |
+| `get_layout` | read | → `layout.current` plus the lens catalogue (`lenses[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's stored panels |
+| `open_lens` | act | `lensId, params?, place?` → `{paneId, layout, summary, reused}`; without `place` no pane is added: an open pane of that lens is reused (`reused: true`), else a lens pane the player did not choose (`setBy` default or assistant) is switched to it; a new pane opens only with `place` or when every lens pane is the player's |
+| `set_lens_params`, `open_panel`, `move_pane`, `close_pane` | act | `paneId, params` / `slug, place?` / `paneId, place` / `paneId` → `{paneId, layout, summary, reused}`; the assistant pane and the last lens pane cannot be closed (CONFLICT) |
 
 Command tools build a v3 envelope (the current game's id and language unless given) and answer
 `{status: "received", commandId, receipt}` with the engine's `CommandResult`. Resending the identical call
@@ -149,17 +156,18 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 - `auth/credentials:revoke({credentialId})` mutation; takes effect on the next call
 
 ### Rooms (`rooms`)
-- `create()` mutation (browser) → `{roomId, shortCode, guid}`
-- `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode}]`
-- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, serverTime}`
+- `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room starts on the `grid-first-steps` preset (`settingsOrigin {kind: "preset", id, modified: false}`); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
+- `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode, settingsOrigin|null}]`
+- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, settingsOrigin|null, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, serverTime}`.
+  `settingsOrigin` is `{kind: "preset" | "custom", id?, modified}`: which preset the next game is on and whether the owner changed it since (null on rooms older than presets).
 - `join({room})`, `leave({roomId})`, `setReady({roomId, ready})` mutations
 - `chatHistory({roomId, before?})` query
-- `history({room})` query → ended games, newest first: `{id, guid, shortCode, roomId, startedAt, endedAt, endReason, settings, roster, leaderboard, winners, worldSeconds, objectCount, scoring, seasonCommitment}`
+- `history({room})` query → ended games, newest first: `{id, guid, shortCode, roomId, startedAt, endedAt, endReason, settings, settingsOrigin|null, roster, leaderboard, winners, worldSeconds, objectCount, scoring, seasonCommitment}`
 - Owner-only mutations: `approveAiBudget({roomId, aiBudget, assistantBudget?, assistantModel?})` → `{aiBudget, assistantBudget, assistantModel}` (the seats' budget is frozen during games; the assistant allowance per human per game, 0 = off, and its catalog model may change any time), `addAi({roomId, templateId})` → `{godId}`, `removeAi({roomId, godId})`, `endActiveGame({roomId})`, `resume({roomId})`
 
 ### Owner actions (`owner`)
 Browser owner, or an `owner` credential held by the current owner.
-- `settings({roomId, revision, settings?, preset?, aiBudget?})` → `{revision}`: merges partial settings and retunes them to the instantiation
+- `settings({roomId, revision, settings?, preset?, aiBudget?})` → `{revision}`: merges partial settings and retunes them to the instantiation. It records `settingsOrigin`: a `preset` gives `{kind: "preset", id, modified: false}`; explicit `settings` keep the room's preset and set `modified` to whether they differ from what it produces (custom when the room has no usable preset)
 - `start({roomId, requestId?})` → `{gameId, shortCode, guid}`, idempotent per `requestId`
 - `command({roomId, action: settings|start|resume|endGame|addAi|removeAi, requestId?, revision?, settings?, preset?, aiBudget?, aiAgentId?, deityId?})`: the room assistant's `room-command`
 
@@ -174,12 +182,83 @@ Each of these returns the caller's own projection only.
 - `receipts.get({roomId, commandId})` query → `CommandResult | null`
 
 ### Stored panels (`panels`)
-A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any caller of that human. Writes: browser sessions and `act`/`owner` credentials. Another human's slug is NOT_FOUND. Each function has an internal twin `<fn>As({principal: {credentialId}, …})` for the agent registry.
+A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any caller of that human. Writes: browser sessions and `act`/`owner` credentials. Another human's slug is NOT_FOUND. Each function has an internal twin `<fn>As({principal: {credentialId}, …})` for the agent registry. Where a panel shows is the dock layout's business (`layout`, below): `placement` and `size` are the add-pane hints a panel's manifest gives.
 - `panels.list()` query → `[{id, slug, title, placement, size, currentVersion, enabled, updatedAt, author{kind, label}, lastForeignVersion}]`
 - `panels.code({slug, version?})` query → `{slug, version, source, compiled, diagnostics, compilerVersion, sourceHash, author, createdAt}` (the last 20 versions are kept)
 - `panels.save({slug, source, title?, placement?, size?})` action → `{ok: true, slug, version, diagnostics: []}` or `{ok: false, slug, diagnostics[{line, column, code, message}]}` (nothing stored). Limits: source ≤ 64 KB, compiled ≤ 128 KB, 32 panels, 30 saves a minute.
-- `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`; `panels.place({slug, placement?, size?, title?})`
-- `panels.layout()` query → the dock layout or null; `panels.setLayout({layout})` (≤ 16 KB)
+- `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`
+
+### Dock layout (`layout`)
+The player client's panes (`docs/ui-redesign.md` §2.3–2.4): one row per human per room, a library-independent tree of split groups and tab groups (`lib/player-client/src/layout.ts`), validated by `parseLayout` (never throws: unknown lenses become the phase's default lens, invalid lens parameters their defaults, unknown stored panels are dropped, a missing assistant or lens pane is added). Internal twins `currentAs`/`setAs` and the pane operations `openLensAs`, `setLensParamsAs`, `openPanelAs`, `movePaneAs`, `closePaneAs` (one read-modify-write mutation each) serve the layout tools.
+- `layout.current({roomId})` query (member, read) → `{layout, warnings, source: "room" | "carried" | "default", phase, updatedAt|null, setBy{kind, label}|null}`. `carried`: the human's most recent layout from another room with every lens's parameters reset and `setBy: "default"` (the arrangement follows you; parameters name one game's objects).
+- `layout.set({roomId, layout, ifUpdatedAt?})` mutation (member, read) → `{layout, warnings, updatedAt}`: the whole layout (drags, the lens menu, presets), ≤ 32 KB, at most 12 writes a minute per human per room (RATE_LIMITED), CONFLICT when `ifUpdatedAt` is stale.
+
+## Public function catalogue
+
+Every public function above has an entry in `lib/player-client/src/catalog.ts` (`CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from the generated `api` type, so a new function fails the typecheck until documented). The entry gives humans a title and tooltip (buttons, menus, the command palette), models a description (the registry's tool text), the tools that reach it, and a `why` when a player affordance has none. This table is generated from it.
+
+<!-- catalog:begin (generated by `pnpm --filter @workspace/player-client gen:catalog`; do not edit by hand) -->
+| Function | Kind | Audience | Title | What it does | Assistant tools |
+|---|---|---|---|---|---|
+| `activity.touch` | mutation | player | Wake the game | Counts as human activity and resumes a game parked after 30 idle minutes. | `wake_engine` |
+| `activity.status` | query | infrastructure | Show activity status | When a human was last active and whether games are parked. | — (A live subscription a page renders; there is nothing to run.) |
+| `agent.connect.pending` | query | infrastructure | Review a connection request | Shows which app wants to connect, with which rights, before you approve it. | — (Reached only from an OAuth redirect; approvals keep their consent page.) |
+| `agent.connect.approve` | mutation | infrastructure | Approve the connection | Lets this app act as you in one room with the rights shown. | — (Consent is given on the /connect page only.) |
+| `agent.connect.deny` | mutation | infrastructure | Deny the connection | Sends the app away without any access. | — (Consent is given on the /connect page only.) |
+| `aiTemplates.catalog` | query | owner | Browse AI players | The AI players an owner can seat, with their provider and model. | `get_ai_catalog` |
+| `aiTemplates.adminList` | query | admin | Open the AI library | Every AI player template with its prompt, for admins. | — (Admin page data; the palette navigates to the library instead.) |
+| `aiTemplates.create` | mutation | admin | Add an AI player template | Creates a named AI player with a provider, model and prompt (admins only). | — |
+| `aiTemplates.update` | mutation | admin | Edit an AI player template | Changes a template's name, model or prompt; send its current revision. | — |
+| `aiTemplates.remove` | mutation | admin | Delete an AI player template | Removes a template from the library; seated copies keep playing. | — |
+| `assistant.send` | mutation | player | Ask the assistant | Sends your message; the assistant answers and acts as you with the rights you chose. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.cancel` | mutation | player | Stop the assistant | Stops the current answer; a card waiting for you is cancelled at once. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.confirm` | mutation | player | Decide a confirmation | Approves or denies an action the assistant asked permission for. | — (Decided on the confirmation card in the assistant pane, never elsewhere.) |
+| `assistant.setPrefs` | mutation | player | Set assistant preferences | Lets summons the assistant validated run without a card up to this many bits (0 asks every time). | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.status` | query | player | Show assistant status | Whether the assistant is on, its allowance, model, credential and active turn. | — (A live subscription a page renders; there is nothing to run.) |
+| `assistant.threads` | query | player | Switch conversation | Your assistant conversations in this room, newest first. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.thread` | query | player | Show a conversation | One conversation's messages, tool calls and confirmation cards. | — (A live subscription a page renders; there is nothing to run.) |
+| `auth.credentials.list` | query | infrastructure | Show connected apps | Every app, connector and assistant acting as you, with its room, rights and expiry. | — |
+| `auth.credentials.revoke` | mutation | infrastructure | Revoke a connected app | Cuts that app's access on its next call; you can reconnect it later. | — |
+| `auth.device.pending` | query | infrastructure | Review a device code | Shows what a player app asks for before you approve its code. | — (The /device page's data; approval keeps its consent page.) |
+| `auth.device.approve` | mutation | infrastructure | Approve a device code | Gives the player app a credential for the room and rights shown. | — (Consent is given on the /device page only.) |
+| `auth.device.deny` | mutation | infrastructure | Deny a device code | Refuses the player app; it gets nothing. | — (Consent is given on the /device page only.) |
+| `auth.testing.probe` | query | test | Probe authentication | A test-only check of the signed-in identity on local deployments. | — (Test only.) |
+| `auth.user.me` | query | infrastructure | Show who I am | Your name, god id and, for a player app, its room and rights. | `whoami` |
+| `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game` |
+| `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |
+| `games.view` | query | player | Watch a game | The public view of a game: salience, standings, roster and winners. | — (The public game page's subscription; the human's private view is get_observation.) |
+| `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout` |
+| `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_lens`, `set_lens_params`, `open_panel`, `move_pane`, `close_pane` |
+| `manifest.get` | action | infrastructure | Show server info | Object types, presets, options, runtimes and whether AI players are funded. | `get_rules` |
+| `owner.settings` | action | owner | Choose the next game's setup | Applies a preset or edits settings for the next game; running games keep theirs. | `update_settings` |
+| `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
+| `owner.command` | action | owner | Run an owner action | Settings, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
+| `panels.list` | query | player | Show my panels | Your stored panels with version, author and whether each is on. | `list_panels` |
+| `panels.code` | query | player | View a panel's source | The TSX, compiled code and diagnostics of one panel version. | `get_panel` |
+| `panels.save` | action | player | Make a panel | Saves TSX as a panel you can open as a pane; a syntax error saves nothing. | `save_panel` |
+| `panels.rollback` | mutation | player | Roll back a panel | Makes an older version current again, as a new version. | `rollback_panel` |
+| `panels.setEnabled` | mutation | player | Turn a panel on or off | Hides a panel in every client without deleting it, or shows it again. | — (The assistant opens and closes panes with open_panel and close_pane; hiding a panel for good is the human's choice.) |
+| `panels.remove` | mutation | player | Delete a panel | Deletes a panel and all its versions; this cannot be undone. | `delete_panel` |
+| `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation` |
+| `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
+| `player.history` | query | player | Replay a past game's log | The event log of any game of this room, finished ones included. | `get_game_history` |
+| `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
+| `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
+| `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
+| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps preset with you as owner, and can turn the assistant on for its players. | — (A credential is bound to one existing room; rooms are created in the browser.) |
+| `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
+| `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state` |
+| `rooms.join` | mutation | player | Join this room | Takes a seat; joining mid-game makes you a spectator until the next game. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
+| `rooms.leave` | mutation | player | Leave this room | Gives up your seat; you can join again later. | — (Leaving would revoke the very credential the assistant acts through.) |
+| `rooms.setReady` | mutation | player | Mark me ready | Tells the room you are ready for the next game; it gates nothing. | `set_ready` |
+| `rooms.chatHistory` | query | player | Show older chat | Earlier public messages than the ones on screen. | `get_chat` |
+| `rooms.history` | query | player | Show past games | Finished games of this room with their standings and winners. | `list_games` |
+| `rooms.approveAiBudget` | mutation | owner | Set AI spending | Approves the AI players' token budget and the assistant allowance per player per game. | `update_settings` |
+| `rooms.addAi` | mutation | owner | Add an AI player | Seats an AI player from the library between games; it spends the room's AI budget. | `add_ai` |
+| `rooms.removeAi` | mutation | owner | Remove an AI player | Unseats an AI player between games. | `remove_ai` |
+| `rooms.endActiveGame` | mutation | owner | End the game now | Ends the running game for everyone; its final standings are recorded. | `end_game` |
+| `rooms.resume` | mutation | owner | Resume the game | Restarts a game stopped in recovery. | `resume_game` |
+<!-- catalog:end -->
 
 ### In-client assistant (`assistant`)
 The assistant drawer of the player client (`docs/surface-architecture.md` §6). Callers: browser sessions and player

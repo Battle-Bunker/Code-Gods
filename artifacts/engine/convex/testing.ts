@@ -52,6 +52,17 @@ export const patchCredential = internalMutation({
   },
 });
 
+/** Empty the retired `panelLayouts` table so a follow-up can drop it from the schema (docs/ui-redesign.md §2.4). */
+export const clearPanelLayouts = internalMutation({
+  args: {},
+  handler: async ctx => {
+    dev();
+    let cleared = 0;
+    for (const row of await ctx.db.query("panelLayouts").take(1000)) { await ctx.db.delete(row._id); cleared++; }
+    return { cleared };
+  },
+});
+
 export const setActivity = internalMutation({
   args: { at: v.number() },
   handler: async (ctx, { at }) => {

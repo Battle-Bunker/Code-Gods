@@ -22,10 +22,11 @@ This page is written for the coding agent. Read all of it before writing a panel
 
   Save a fix and the frame recovers by itself. A broken panel never breaks the game console or the
   other panels.
-- **Layout.** Panels dock left, right or bottom of the core console. The player can move them (drag
-  the header, or use ◧ ◨ ⬓), resize them (sm, md, lg), hide them, or switch a region to tabs. Their
-  layout follows you across devices (stored in the engine; this browser keeps a copy). A panel's manifest
-  only sets its defaults.
+- **Layout.** The client is a dock of panes (`docs/ui-redesign.md`): built-in lenses, your assistant, and
+  your panels. A panel opens as a pane from the add-pane menu, the command palette or your assistant
+  (`open_panel`); you drag panes anywhere, split and tab them. The arrangement follows you across devices
+  and rooms (`layout.current`/`layout.set`). A panel's manifest `placement` and `size` are only hints for
+  where a new pane opens.
 - **The core console** (`src/core/`) is the protected game UI: the forge, agents, utility card,
   objects, chat and leaderboard. **Never edit `src/core/`, `src/shell/` or `src/sdk/` to add a
   feature;** write a panel. Panels import only from `@sdk` (and React).
@@ -38,8 +39,8 @@ import { definePanel, useObjects, ObjectGrid, fmtBits } from "@sdk";
 
 export default definePanel({
   title: "Salient to others, not me",   // shown in the frame header
-  placement: "right",                   // "left" | "right" | "bottom" (default "right")
-  size: "md",                           // "sm" | "md" | "lg" (default "md")
+  placement: "right",                   // add-pane hint: "left" | "right" | "bottom" (default "right")
+  size: "md",                           // add-pane hint: "sm" | "md" | "lg" (default "md")
   Component() {
     const objects = useObjects({ hz: 2 });
     const chips = objects.filter(o => o.peerCare > 2 && o.own.netBits <= 0);
@@ -213,9 +214,9 @@ your agents can write one; the file workflow above keeps working beside it.
 | CLI (device credential) | `pnpm -s player panel push my-view` saves `artifacts/player-web/src/panels/my-view.tsx` (or `--file PATH`) |
 | | `pnpm -s player panel pull my-view [--version N] [--file PATH] [--force]` writes a stored version to a file |
 | | `pnpm -s player panel list` shows your stored panels with version, author and placement |
-| Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`, `panels.place`, `panels.layout`, `panels.setLayout` |
-| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`): MCP clients, the CLI and the in-client assistant |
-| In-client assistant | ask it in the player client's **Assistant** drawer ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), shows the save as an activity chip, and asks you before `delete_panel` |
+| Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`; showing one in a pane is `layout.set` (docs/engine-api.md "Dock layout") |
+| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`), and `open_panel {slug, place?}` shows a panel in a pane: MCP clients, the CLI and the in-client assistant |
+| In-client assistant | ask it in the player client's assistant pane ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), opens it with `open_panel`, shows both as activity chips, and asks you before `delete_panel` |
 
 - **The slug** is the panel's id: kebab-case, like a file name (`my-view`). Saving an existing slug makes a
   new version.
@@ -224,7 +225,7 @@ your agents can write one; the file workflow above keeps working beside it.
 - **Styling:** Tailwind classes that appear somewhere in the player app's sources work, as do the
   `hsl(var(--…))` tokens and the `label`/`panel` classes; use `style={{…}}` for anything else.
 - **Manifest:** `title`, `placement` and `size` are read from a literal `definePanel({...})`; the save call
-  can override them.
+  can override them. `placement` and `size` only hint where and how big a new pane opens.
 
 **Diagnostics.** `save` compiles at once (TypeScript, syntax only; type-checking is a later phase). A syntax
 error or a refused import returns `{ok: false, diagnostics: [{line, column, code, message}]}` and stores
@@ -259,8 +260,10 @@ file panel's header runs it in a frame exactly as a stored panel would: use it b
 for example to remove a panel that misbehaves (`pnpm player panel list`, then `panels.remove` or
 `panels.setEnabled`).
 
-**Layout.** Where you put panels (region, order, size, hidden, tabs) follows you across devices
-(`panels.setLayout`); this browser's copy is only the boot cache.
+**Layout.** A stored panel is a pane like a lens: open it from the add-pane menu, the palette or your
+assistant (`open_panel`), drag it anywhere, tab it with other panes. The arrangement follows you across
+devices and rooms (`layout.current`/`layout.set`); `panels.setEnabled` hides a panel everywhere without
+deleting it.
 
 ## Isolation and trust
 

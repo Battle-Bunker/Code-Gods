@@ -17,6 +17,7 @@ import { assertOffered, catalogFor, deal, nextSettings, openUniform, scoresOf, s
 import { bindRuntime, languageAvailable } from "./engine/runtime";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
+import { nextSettingsOrigin, type SettingsOrigin } from "./lib/settingsOrigin";
 import { salienceOf } from "./lib/world";
 import { MAX_GODS } from "./rooms";
 
@@ -35,9 +36,11 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<{ rev
   const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
   if (context.activeGame) fail("CONFLICT", "Settings and seats are frozen during games");
   if (args.revision !== context.room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
-  const settings = args.settings || args.preset ? nextSettings(context.room.settings as GameSettings, args) : context.room.settings as GameSettings;
+  const changed = !!(args.settings || args.preset);
+  const settings = changed ? nextSettings(context.room.settings as GameSettings, args) : context.room.settings as GameSettings;
+  const settingsOrigin = changed ? nextSettingsOrigin(context.room.settingsOrigin as SettingsOrigin | undefined, args, settings) : undefined;
   return ctx.runMutation(internal.game.lobby.commitSettings, {
-    roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
+    roomId: context.room._id, principal: args.principal, revision: args.revision, settings, settingsOrigin, catalog: catalogFor(settings), aiBudget: args.aiBudget,
   });
 }
 

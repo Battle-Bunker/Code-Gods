@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
-  LIMITS, argsLimit, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, uuidv5,
+  LIMITS, argsLimit, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, uuidv5,
 } from "../../convex/assistant/rules.ts";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
@@ -23,11 +23,12 @@ test("uuidv5 matches the RFC 9562 example; command ids depend only on (turn, cal
   assert.notEqual(commandIdFor("turn1t", "oolu_1", sha1), commandIdFor("turn1", "toolu_1", sha1), "the parts are delimited");
 });
 
-test("public chat, owner tools, pauses and panel deletion always ask; summons ask unless auto-approved within budget", () => {
-  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "get_room_state", "delete_panel", "pause_game"]) {
+test("public chat, owner tools, pauses, destroys and panel deletion always ask; summons ask unless auto-approved within budget; layout tools never", () => {
+  for (const tool of ["send_chat", "start_game", "update_settings", "end_game", "add_ai", "get_room_state", "delete_panel", "pause_game", "destroy_agent"]) {
     assert.equal(needsConfirmation(tool, {}, { autoApproveSummonBits: 1e9, validatedCost: 1 }), true, tool);
   }
-  for (const tool of ["get_observation", "whoami", "validate_agent", "destroy_agent", "set_ready", "save_panel", "rollback_panel", "place_panel", "list_panels", "wake_engine"]) {
+  for (const tool of ["get_observation", "whoami", "validate_agent", "set_ready", "save_panel", "rollback_panel", "list_panels", "wake_engine",
+    "get_layout", "open_lens", "set_lens_params", "open_panel", "move_pane", "close_pane"]) {
     assert.equal(needsConfirmation(tool, {}, {}), false, tool);
   }
   assert.equal(needsConfirmation("summon_agent", {}, {}), true, "no auto-approval set");
@@ -62,6 +63,15 @@ test("command ids and request ids come from the engine, overriding the model's; 
   assert.deepEqual(prepareArgs("get_observation", { objectsLimit: 5, commandId: "x" }, id), { objectsLimit: 5, commandId: "x" }, "non-command tools are left alone (the schema rejects extras)");
 });
 
+test("a step runs at most 16 calls and at most 2 layout changes", () => {
+  assert.equal(callLimitProblem("get_observation", []), null);
+  assert.equal(callLimitProblem("open_lens", ["get_observation", "open_lens"]), null, "a second layout change is fine");
+  assert.match(callLimitProblem("set_lens_params", ["open_lens", "get_observation", "move_pane"])!, /At most 2 layout changes/);
+  assert.equal(callLimitProblem("get_layout", ["open_lens", "move_pane"]), null, "reading the layout is not a change");
+  assert.equal(callLimitProblem("get_observation", ["open_lens", "move_pane"]), null);
+  assert.match(callLimitProblem("get_observation", Array.from({ length: LIMITS.callsPerStep }, () => "whoami"))!, /At most 16 tool calls/);
+});
+
 test("clipJson keeps stored tool data within its limit as valid JSON", () => {
   assert.equal(clipJson({ a: 1 }, 100), '{"a":1}');
   const big = { untrusted: true, data: { objects: Array.from({ length: 500 }, (_, i) => ({ id: `o${i}`, value: i })) } };
@@ -86,4 +96,9 @@ test("activity-chip summaries say what happened; argument limits fit panels and 
   assert.equal(summarize("start_game", wrap({ requestId: "r", result: { gameId: "g" } })), "Done");
   assert.ok(summarize("summon_agent", wrap({ status: "received", commandId: "c", receipt: { accepted: true, message: "y".repeat(500) } })).length <= 200);
   assert.ok(argsLimit("save_panel") > 65536 && argsLimit("summon_agent") > 16384 && argsLimit("send_chat") === LIMITS.argsChars);
+  assert.ok(argsLimit("open_lens") > 16384 && argsLimit("set_lens_params") > 16384, "a forge draft fits");
+  assert.equal(summarize("open_lens", wrap({ paneId: "p3", summary: "Top 5 by payoff", reused: false })), "Showed Top 5 by payoff");
+  assert.equal(summarize("open_lens", wrap({ paneId: "p1", summary: "Top 5 by payoff", reused: true })), "Updated Top 5 by payoff");
+  assert.equal(summarize("close_pane", wrap({ paneId: "p3", summary: "closed", reused: false })), "Closed pane p3");
+  assert.equal(summarize("get_layout", wrap({ layout: {} })), "Read");
 });

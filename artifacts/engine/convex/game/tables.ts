@@ -10,6 +10,8 @@ import { v } from "convex/values";
  */
 const kind = v.union(v.literal("human"), v.literal("ai"));
 const phase = v.union(v.literal("planning"), v.literal("running"), v.literal("paused"), v.literal("recovery"), v.literal("ended"));
+/** Where settings came from: a preset (and whether they still match it) or a custom configuration (lib/settingsOrigin.ts). */
+export const settingsOriginV = v.object({ kind: v.union(v.literal("preset"), v.literal("custom")), id: v.optional(v.string()), modified: v.boolean() });
 const wire = v.union(v.number(), v.string());
 const ordinal = v.union(v.number(), v.array(v.number()));
 /** One god's private score of one object (game-utilities GodScore plus the god id). */
@@ -51,6 +53,8 @@ export const gameTables = {
     /** Settings revision for optimistic concurrency; `seq` counts every room change (observation revision). */
     revision: v.number(), seq: v.number(),
     settings: v.any(),
+    /** Absent on rooms created before presets were recorded (treated as custom). */
+    settingsOrigin: v.optional(settingsOriginV),
     aiBudget: v.number(), aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
     /**
@@ -75,6 +79,8 @@ export const gameTables = {
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
+    /** The room's settings origin when the game started, so history can name the preset. */
+    settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */

@@ -2055,6 +2055,7 @@
           "maxLength": 80
         },
         "placement": {
+          "description": "Add-pane hint: where the panel prefers to open relative to the lenses.",
           "type": "string",
           "enum": [
             "left",
@@ -2175,7 +2176,7 @@
       "additionalProperties": false
     }
   },
-  "place_panel": {
+  "delete_panel": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -2184,26 +2185,6 @@
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
-        },
-        "placement": {
-          "type": "string",
-          "enum": [
-            "left",
-            "right",
-            "bottom"
-          ]
-        },
-        "size": {
-          "type": "string",
-          "enum": [
-            "sm",
-            "md",
-            "lg"
-          ]
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 80
         }
       },
       "required": [
@@ -2249,7 +2230,259 @@
       "additionalProperties": false
     }
   },
-  "delete_panel": {
+  "get_layout": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "open_lens": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "lensId": {
+          "description": "A built-in lens id (get_layout lists them with their parameter schemas).",
+          "type": "string",
+          "enum": [
+            "overview",
+            "my-card",
+            "objects",
+            "others-care",
+            "bits-over-time",
+            "race",
+            "agents",
+            "feed",
+            "what-if",
+            "public-chat",
+            "forge",
+            "results",
+            "rules"
+          ]
+        },
+        "params": {
+          "description": "The lens's parameters (its JSON Schema is in get_layout; every field is optional with a default except what-if's objectId and calls). Invalid parameters are refused with the schema.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "place": {
+          "description": "Where the pane goes: next to another pane (relativeTo, default: the last lens pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same lens or panel.",
+          "type": "object",
+          "properties": {
+            "relativeTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "above",
+                "below",
+                "tab"
+              ]
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "lensId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "set_lens_params": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "params": {
+          "description": "The complete parameters; omitted fields take their defaults.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "paneId",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "open_panel": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -2258,6 +2491,31 @@
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
+        },
+        "place": {
+          "description": "Where the pane goes: next to another pane (relativeTo, default: the last lens pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same lens or panel.",
+          "type": "object",
+          "properties": {
+            "relativeTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "above",
+                "below",
+                "tab"
+              ]
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -2276,7 +2534,206 @@
         "notice": {
           "type": "string"
         },
-        "data": {},
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "move_pane": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "place": {
+          "description": "Where the pane goes: relativeTo another pane id (default: the last lens pane) and a direction, or 'tab'.",
+          "type": "object",
+          "properties": {
+            "relativeTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "above",
+                "below",
+                "tab"
+              ]
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "paneId",
+        "place"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "close_pane": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "paneId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
         "nextCursor": {
           "description": "Pass back as the cursor argument for the next page; null when there is none.",
           "anyOf": [

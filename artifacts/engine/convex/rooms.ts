@@ -4,7 +4,7 @@
  * Settings and the game start need the calibration tables, so they are Node actions in owner.ts.
  */
 import { v } from "convex/values";
-import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
+import { presetSettings } from "@workspace/game-core";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -13,6 +13,7 @@ import { endGame, resumeGame } from "./engine/loop";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
+import { presetOrigin } from "./lib/settingsOrigin";
 import {
   displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
@@ -29,19 +30,35 @@ async function activeGame(ctx: MutationCtx, room: Doc<"rooms">) {
   return game && game.phase !== "ended" ? game : null;
 }
 
-/** Create a room (browser login only). The creator owns it and is its first member. */
+/** The preset a new room starts on (docs/ui-redesign.md §1): a small, slowed-down board a newcomer can follow. */
+export const STARTING_PRESET = "grid-first-steps";
+
+/** The in-client assistant's allowance (tokens per human per game; 0 = off) and model, as the owner approves them. */
+function checkAssistant(assistantBudget: number | undefined, assistantModel: string | undefined) {
+  if (assistantBudget !== undefined && (!Number.isSafeInteger(assistantBudget) || assistantBudget < 0 || assistantBudget > ASSISTANT_BUDGET_MAX)) {
+    fail("BAD_REQUEST", `The assistant allowance is a whole number of tokens from 0 to ${ASSISTANT_BUDGET_MAX.toLocaleString("en")}`);
+  }
+  if (assistantModel !== undefined && !AI_MODEL_CATALOG.some(m => m.id === assistantModel)) fail("BAD_REQUEST", "Unknown assistant model");
+}
+
+/**
+ * Create a room (browser login only). The creator owns it and is its first member. It starts on the First steps
+ * preset; the owner may turn the in-client assistant on in the same call (the creation dialog's consent checkbox).
+ */
 export const create = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
+  handler: async (ctx, { assistantBudget, assistantModel }) => {
     const viewer = await requireViewer(ctx);
     if (viewer.scope !== "browser") fail("FORBIDDEN", "Browser login required to create a room");
+    checkAssistant(assistantBudget, assistantModel);
     const guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "rooms", guid);
     const now = Date.now();
     const roomId = await ctx.db.insert("rooms", {
       shortCode, guid, encoded, ownerId: viewer.subject, createdAt: now, revision: 0, seq: 0,
-      settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
+      settings: presetSettings(STARTING_PRESET, "python"), settingsOrigin: presetOrigin(STARTING_PRESET),
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
+      ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
     });
     await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: now });
     await ctx.scheduler.runAfter(0, internal.owner.fillCatalog, { roomId });
@@ -66,6 +83,7 @@ export const list = query({
         id: r._id, guid: r.guid, shortCode: r.shortCode, ownerId: r.ownerId, ownerName: await displayName(ctx, r.ownerId), createdAt: r.createdAt,
         memberCount: (await membersOf(ctx, r._id)).length,
         phase: live ? live.phase : "lobby", activeGameShortCode: live?.shortCode ?? null,
+        settingsOrigin: r.settingsOrigin ?? null,
       };
     }));
     return rows.sort((a, b) => b.createdAt - a.createdAt);
@@ -192,10 +210,7 @@ export const approveAiBudget = mutation({
     const room = await requireRoom(ctx, roomId);
     await requireOwner(ctx, room);
     if (!Number.isSafeInteger(aiBudget) || aiBudget < 0 || aiBudget > 1_000_000) fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
-    if (assistantBudget !== undefined && (!Number.isSafeInteger(assistantBudget) || assistantBudget < 0 || assistantBudget > ASSISTANT_BUDGET_MAX)) {
-      fail("BAD_REQUEST", `The assistant allowance is a whole number of tokens from 0 to ${ASSISTANT_BUDGET_MAX.toLocaleString("en")}`);
-    }
-    if (assistantModel !== undefined && !AI_MODEL_CATALOG.some(m => m.id === assistantModel)) fail("BAD_REQUEST", "Unknown assistant model");
+    checkAssistant(assistantBudget, assistantModel);
     if (aiBudget !== room.aiBudget && await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     await bump(ctx, room, { aiBudget, ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}) });
     return { aiBudget, assistantBudget: assistantBudget ?? room.assistantBudget ?? 0, assistantModel: assistantModel ?? room.assistantModel ?? DEFAULT_AGENT_MODEL };
