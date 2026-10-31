@@ -6,12 +6,14 @@
  * - the settings model's domain from the manifest (`settingsDomain`): every control changes the draft through
  *   game-core's `applySettingsChange`, exactly as the engine applies a change, so the only dependencies are the
  *   game's own (a language moves its grammar and summon price, a world its default instantiation and the families
- *   that no longer exist); penalty weight hides while no defence goals are dealt;
- * - the family shelf of an instantiation; which game setup the settings are on;
+ *   that no longer exist); penalty weight and the defence checklist hide while defence goals are off;
+ * - one control per type argument (`argChoices`): every value of each argument, the ones that would make the
+ *   current combination uncalibrated disabled with the reason, never hidden and never moving another argument;
+ * - the family shelves of an instantiation (reward rules and defence goals);
  * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
-import { SETTINGS_DOCS, sameSettings, validateSettings, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
-import { instantiate, type TypeArgs } from "@workspace/game-types";
+import { SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
 import { familiesFor, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
@@ -19,7 +21,7 @@ export type SettingsKey = keyof GameSettings;
 
 export const SECTIONS: readonly { id: SettingsSection | "review"; title: string; intro: string }[] = [
   { id: "world", title: "World", intro: "What the objects are and which language agents are written in." },
-  { id: "goals", title: "Goals", intro: "How secret goals are dealt and whether players also defend something." },
+  { id: "goals", title: "Goals", intro: "How secret goals are dealt, and whether every player also defends something." },
   { id: "agents", title: "Agents", intro: "How many agents each player may keep and how much they may compute." },
   { id: "energy", title: "Energy", intro: "How players and their agents earn and spend bits." },
   { id: "population", title: "Population", intro: "How many objects there are and how new ones arrive." },
@@ -28,9 +30,9 @@ export const SECTIONS: readonly { id: SettingsSection | "review"; title: string;
   { id: "review", title: "Review", intro: "What changes for the next game, as players will see it." },
 ];
 
-/** The fields of a section in display order (asked first, then "More", then fixed facts). */
+/** The fields of a section in display order (asked first, then "More"). */
 export function fieldsOf(section: SettingsSection): SettingsKey[] {
-  const tier = { ask: 0, more: 1, fixed: 2 } as const;
+  const tier = { ask: 0, more: 1 } as const;
   return (Object.keys(SETTINGS_DOCS) as SettingsKey[]).filter(k => SETTINGS_DOCS[k].section === section)
     .sort((a, b) => tier[SETTINGS_DOCS[a].tier] - tier[SETTINGS_DOCS[b].tier]);
 }
@@ -42,7 +44,8 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", perActFloorBits: "Minimum act price", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
   energyPerSecond: "Energy refill", agentEnergyPerSecond: "Agent charging", agentBatteryActs: "Agent battery", maxAgentsPerGod: "Agents per player",
-  penaltyWeight: "Defence weight", defenceRate: "Defence goals", excludedFamilies: "Rules never dealt", priorId: "Rarity reference",
+  penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
+  priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting",
 };
 
@@ -64,7 +67,6 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   agentBatteryActs: { min: 1, unit: "acts" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { min: 0, unit: "" },
-  defenceRate: { min: 0, max: 1, unit: "" },
 };
 export const BUDGET_LIMITS = { aiBudget: { min: 0, max: 1_000_000, int: true, unit: "tokens" }, assistantBudget: { min: 0, max: 2_000_000, int: true, unit: "tokens" } } as const;
 
@@ -84,20 +86,23 @@ export function limitError(limit: Limit | undefined, value: unknown): string | n
 }
 export const fieldError = (key: SettingsKey, value: unknown) => limitError(LIMITS[key], value);
 
-/** Every field error of a draft, plus `_form` for anything else validateSettings refuses (e.g. an unknown option). */
-export function draftErrors(s: Settings): Partial<Record<SettingsKey | "_form", string>> {
+/**
+ * Every field error of a draft, plus `_form` for anything else validateSettings refuses (e.g. an unknown option, or
+ * defence goals on with none allowed, which needs the families of the `domain`).
+ */
+export function draftErrors(s: Settings, domain?: SettingsDomain): Partial<Record<SettingsKey | "_form", string>> {
   const out: Partial<Record<SettingsKey | "_form", string>> = {};
   for (const key of Object.keys(LIMITS) as SettingsKey[]) {
     const e = fieldError(key, s[key]);
     if (e) out[key] = e;
   }
   if (!Object.keys(out).length) {
-    try { validateSettings(s); } catch (e) { out._form = e instanceof Error ? e.message : String(e); }
+    try { validateSettings(s, domain); } catch (e) { out._form = e instanceof Error ? e.message : String(e); }
   }
   return out;
 }
 
-/** Fields with no effect in these settings (penalty weight while defence goals are off). */
+/** Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off). */
 export function isHidden(key: SettingsKey, s: Settings): boolean {
   const when = (SETTINGS_DOCS[key] as FieldDoc).hiddenWhen;
   return !!when && Object.entries(when).every(([k, v]) => s[k as SettingsKey] === v);
@@ -117,17 +122,18 @@ export function stepChoices(key: SettingsKey, current: unknown): (number | strin
 export const same = sameSettings;
 
 const catalogs = new Map<string, CatalogEntry[]>();
-/** The utility families that exist (can be dealt) in an instantiation, from the shipped catalogue; [] for bad args. */
-function existingFamilies(objectType: string, typeArgs: TypeArgs): CatalogEntry[] {
+const utilityRole = (role: FamilyRole) => (role === "defence" ? "penalty" : "reward");
+/** The utility families of one role that exist (can be dealt) in an instantiation, from the shipped catalogue; [] for bad args. */
+function existingFamilies(objectType: string, typeArgs: TypeArgs, role: FamilyRole): CatalogEntry[] {
   let key: string;
   try { key = instantiate(objectType, typeArgs).key; } catch { return []; }
   let entries = catalogs.get(key);
   if (!entries) catalogs.set(key, entries = publicCatalog(instantiate(objectType, typeArgs)).filter(e => e.available));
-  return entries;
+  return entries.filter(e => e.role === utilityRole(role));
 }
 
-/** The manifest's object types, as far as the settings model needs them. */
-export interface OfferedTypes { id: string; offered: readonly { args: TypeArgs }[] }
+/** The manifest's object types, as far as the settings model and the argument controls need them. */
+export interface OfferedTypes { id: string; params?: readonly ParamSchema[]; defaults?: TypeArgs; offered: readonly { args: TypeArgs }[] }
 /**
  * The settings model's domain on this page: the instantiations the manifest offers (the engine applies a change with
  * the same list) and the families that exist in each, from the shipped catalogue.
@@ -135,33 +141,61 @@ export interface OfferedTypes { id: string; offered: readonly { args: TypeArgs }
 export function settingsDomain(types: readonly OfferedTypes[]): SettingsDomain {
   return {
     offered: objectType => types.find(t => t.id === objectType)?.offered.map(o => o.args) ?? [],
-    families: (objectType, typeArgs) => existingFamilies(objectType, typeArgs).map(e => e.id),
-    typeFamilies: objectType => familiesFor(objectType).map(f => f.id),
+    families: (objectType, typeArgs, role) => existingFamilies(objectType, typeArgs, role).map(e => e.id),
+    typeFamilies: (objectType, role) => familiesFor(objectType, utilityRole(role)).map(f => f.id),
   };
 }
 
-/** The family shelf of an instantiation: the families that exist there, each marked excluded as the draft says. */
-export function shelfEntries(objectType: string, typeArgs: TypeArgs, excluded: readonly string[]): (CatalogEntry & { excluded: boolean })[] {
+/** A family shelf of an instantiation: the families of one role that exist there, each marked excluded as the draft says. */
+export function shelfEntries(objectType: string, typeArgs: TypeArgs, excluded: readonly string[], role: FamilyRole = "reward"): (CatalogEntry & { excluded: boolean })[] {
   const out = new Set(excluded);
-  return existingFamilies(objectType, typeArgs).map(e => ({ ...e, excluded: out.has(e.id) }));
+  return existingFamilies(objectType, typeArgs, role).map(e => ({ ...e, excluded: out.has(e.id) }));
 }
 
-export type OriginLike = { kind: string; id?: string; modified: boolean } | null | undefined;
+/** Why defence goals cannot be switched on in this world (it has no defence families), or null. */
+export function defenceBlocker(s: Pick<Settings, "objectType" | "typeArgs">): string | null {
+  return existingFamilies(s.objectType, s.typeArgs, "defence").length ? null : "This world has no defence goals to deal.";
+}
+
+const argKey = (objectType: string, args: TypeArgs) => { try { return instantiate(objectType, args).key; } catch { return null; } };
+const shapeLabel = (objectType: string, args: TypeArgs) => { try { return instanceInfo(instantiate(objectType, args)).label; } catch { return `${objectType} ${Object.values(args).join(" · ")}`; } };
+
+/** One value of one type argument: its label, and whether picking it (the other arguments unchanged) is calibrated. */
+export interface ArgChoice { value: number | string; label: string; enabled: boolean; reason?: string }
 /**
- * The game setup these settings are on: the setup the room's origin names while the settings still equal it, else
- * the first setup with exactly these settings (two setups may be equal), else undefined (custom settings).
+ * The controls of a type's arguments (Grid: size, symbols, colours; Int: smallest, biggest; string: longest), one per
+ * parameter of the manifest's `params`. Each lists the parameter's values that some offered instantiation uses (a
+ * component's options, an integer's presets: so the retired 3×3 is not a size), plus the current value. A value is
+ * enabled when the combination with the other arguments as they are is offered; otherwise it is disabled with the
+ * reason, never hidden, and picking a value never changes another argument.
  */
-export function currentSetup<S extends { id: string; settings: unknown }>(settings: Settings, origin: OriginLike, setups: readonly S[]): S | undefined {
-  const named = origin?.kind === "setup" ? setups.find(s => s.id === origin.id && same(s.settings, settings)) : undefined;
-  return named ?? setups.find(s => same(s.settings, settings));
+export function argChoices(type: OfferedTypes, args: TypeArgs): { param: ParamSchema; current: number | string; choices: ArgChoice[] }[] {
+  const full = { ...(type.defaults ?? {}), ...args };
+  const offered = new Set(type.offered.map(o => argKey(type.id, o.args)));
+  return (type.params ?? []).map(param => {
+    const used = new Set(type.offered.map(o => ({ ...(type.defaults ?? {}), ...o.args })[param.id]));
+    const all: { value: number | string; label: string }[] = param.kind === "component"
+      ? param.options.map(o => ({ value: o.id, label: o.label }))
+      : (param.presets ?? []).map(v => ({ value: v, label: param.id === "size" ? `${v}×${v}` : v.toLocaleString("en-US") }));
+    const current = full[param.id] as number | string;
+    const values = all.filter(v => used.has(v.value) || v.value === current);
+    if (!values.some(v => v.value === current)) values.push({ value: current, label: String(current) });
+    const choices = values.map(({ value, label }) => {
+      const next = { ...full, [param.id]: value };
+      const enabled = offered.has(argKey(type.id, next));
+      return enabled ? { value, label, enabled } : { value, label, enabled, reason: `No calibration tables for ${shapeLabel(type.id, next)} yet` };
+    });
+    return { param, current, choices };
+  });
 }
 
 /** A value in plain words: "25 acts/s", "4 × base10 × rgb", "11 rules", "offered". */
 export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "typeArgs" && v && typeof v === "object") return Object.values(v).join(" · ");
   if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
+  if (key === "excludedDefenceFamilies" && Array.isArray(v)) return v.length ? `${v.length} defence goal${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
-  if (key === "defenceRate" && typeof v === "number") return v === 0 ? "off" : `${Math.round(v * 100)}% of players`;
+  if (key === "defenceGoals") return v ? "every player" : "off";
   if ((key === "language" || key === "utilitySelectorId" || key === "objectSelection") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
@@ -178,12 +212,11 @@ const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${
 /** A stepped choice's label: "Slow (25/s)", "2 min", "50%", "500,000 steps". */
 export function choiceLabel(key: SettingsKey, v: number | string | boolean): string {
   const named = NAMED[key]?.[String(v)];
-  if (typeof v === "boolean") return v ? "Offered" : "Off";
+  if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : v ? "Offered" : "Off";
   if (key === "interactionRateHz" && typeof v === "number") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
   if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
   if (named) return named;
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
-  if (key === "defenceRate" && typeof v === "number") return v === 0 ? "Never" : v === 1 ? "Always" : `${Math.round(v * 100)}%`;
   if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
   return typeof v === "number" ? n(v) : v;
 }

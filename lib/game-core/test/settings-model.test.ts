@@ -22,17 +22,23 @@ const FAMILIES: Record<string, string[]> = {
   "Grid(5,base10,rgby)": ["stripes", "corners", "ladders"],
   "Grid(7,cards,rainbow6)": ["stripes", "suits"],
 };
+/** Defence (penalty) families per instantiation: the excluded-defence list is checked against these, rewards against FAMILIES. */
+const DEFENCE: Record<string, string[]> = {
+  "Grid(4,base10,rgb)": ["hate_red", "hate_rows"],
+  "Grid(5,base10,rgby)": ["hate_red", "hate_rows", "hate_yellow"],
+  "Grid(7,cards,rainbow6)": ["hate_red"],
+};
 const key = (objectType: string, args: Record<string, unknown>) => `${objectType}(${Object.values(args).join(",")})`;
 const domain: SettingsDomain = {
   offered: t => ({ Int: [INT_WIDE, INT_SMALL], string: [{ maxLength: 128 }], Grid: [GRID4, GRID5, GRID7] } as Record<string, object[]>)[t] as never ?? [],
-  families: (t, args) => FAMILIES[key(t, args)] ?? [],
-  typeFamilies: t => [...new Set(Object.entries(FAMILIES).filter(([k]) => k.startsWith(`${t}(`)).flatMap(([, ids]) => ids))],
+  families: (t, args, role) => (role === "defence" ? DEFENCE : FAMILIES)[key(t, args)] ?? [],
+  typeFamilies: (t, role) => [...new Set(Object.entries(role === "defence" ? DEFENCE : FAMILIES).filter(([k]) => k.startsWith(`${t}(`)).flatMap(([, ids]) => ids))],
 };
 
 /** A Python Int room with some fields away from their defaults, so "nothing else moves" is visible. */
 const start: GameSettings = {
   ...DEFAULT_SETTINGS, typeArgs: INT_WIDE, excludedFamilies: ["digits"], utilitySelectorId: "divine-lottery",
-  planningSeconds: 30, startingObjectCount: 12, agentEnergyPerSecond: 3, defenceRate: 0, penaltyWeight: 2, commitClause: true,
+  planningSeconds: 30, startingObjectCount: 12, agentEnergyPerSecond: 3, defenceGoals: false, penaltyWeight: 2, commitClause: true,
 };
 
 test("a language change sets the grammar and the summon price to the new language's only choices, and nothing else", () => {
@@ -82,10 +88,25 @@ test("excluded families are families of the object type; the list keeps only tho
   assert.deepEqual(applySettingsChange(start, { excludedFamilies: [] }, domain), { ...start, excludedFamilies: [] });
   assert.deepEqual(applySettingsChange(start, { excludedFamilies: ["parity", "small"] }, domain), { ...start, excludedFamilies: ["parity"] },
     "small is an Int family this board cannot deal: excluding it means nothing");
-  assert.throws(() => applySettingsChange(start, { excludedFamilies: ["vowels"] }, domain), /Not utility families of Int: vowels/, "a string family");
+  assert.throws(() => applySettingsChange(start, { excludedFamilies: ["vowels"] }, domain), /Not reward families of Int: vowels/, "a string family");
   // A list saved before this rule (an entry the board cannot deal) can still be edited; the meaningless entry goes.
   const legacy = { ...start, excludedFamilies: ["digits", "small"] };
   assert.deepEqual(applySettingsChange(legacy, { excludedFamilies: ["digits", "small", "parity"] }, domain), { ...start, excludedFamilies: ["digits", "parity"] });
+});
+
+test("excluded defence families are the type's defence families, kept only where the instantiation has them; rewards and defences never mix", () => {
+  const grid5: GameSettings = { ...start, objectType: "Grid", typeArgs: GRID5, excludedFamilies: [], defenceGoals: true };
+  assert.deepEqual(applySettingsChange(grid5, { excludedDefenceFamilies: ["hate_yellow", "hate_rows"] }, domain),
+    { ...grid5, excludedDefenceFamilies: ["hate_yellow", "hate_rows"] });
+  assert.throws(() => applySettingsChange(grid5, { excludedDefenceFamilies: ["stripes"] }, domain),
+    (e: unknown) => e instanceof SettingsChangeError && e.field === "excludedDefenceFamilies" && /Not defence families of Grid: stripes/.test(e.message));
+  assert.throws(() => applySettingsChange(grid5, { excludedFamilies: ["hate_red"] }, domain), /Not reward families of Grid: hate_red/);
+  // A board without one of them drops it, exactly as for reward families; the switch is untouched.
+  const excluded = applySettingsChange(grid5, { excludedDefenceFamilies: ["hate_yellow", "hate_rows"] }, domain);
+  assert.deepEqual(applySettingsChange(excluded, { typeArgs: GRID7 }, domain), { ...grid5, typeArgs: GRID7, excludedDefenceFamilies: [] });
+  assert.deepEqual(applySettingsChange(excluded, { typeArgs: GRID4 }, domain), { ...grid5, typeArgs: GRID4, excludedDefenceFamilies: ["hate_rows"] });
+  assert.deepEqual(applySettingsChange(excluded, { objectType: "Int" }, domain),
+    { ...grid5, objectType: "Int", typeArgs: INT_WIDE, excludedDefenceFamilies: [] });
 });
 
 test("the room's settings sent back with one field edited: the stale dependent fields follow the edit", () => {
@@ -99,14 +120,14 @@ test("every numeric field, the commit clause and act targeting are free: only th
   for (const [field, value] of [
     ["planningSeconds", 300], ["halfLifeSeconds", 1200], ["startingObjectCount", 0], ["spawnRateHz", 0.75], ["interactionRateHz", 7],
     ["interactionComputeMs", 5], ["stepBudget", 100_000], ["perActFloorBits", 0], ["pauseSeconds", 60], ["startingEnergy", 400],
-    ["energyPerSecond", 4], ["agentEnergyPerSecond", 64], ["agentBatteryActs", 8], ["maxAgentsPerGod", 5], ["defenceRate", 0.25],
-    ["penaltyWeight", 0.5], ["commitClause", false], ["objectSelection", "shelter"], ["startingEnergy", -1],
+    ["energyPerSecond", 4], ["agentEnergyPerSecond", 64], ["agentBatteryActs", 8], ["maxAgentsPerGod", 5], ["defenceGoals", true],
+    ["penaltyWeight", 0.5], ["commitClause", false], ["objectSelection", "shelter"], ["startingEnergy", -1], ["priorId", "uniform"],
   ] as [keyof GameSettings, unknown][]) {
     assert.deepEqual(applySettingsChange(start, { [field]: value }, domain), { ...start, [field]: value }, `${field} = ${String(value)}`);
   }
   // Defence goals switched off leave the penalty weight alone (it is hidden, not reset).
-  const on = applySettingsChange(start, { defenceRate: 0.5, penaltyWeight: 3 }, domain);
-  assert.equal(applySettingsChange(on, { defenceRate: 0 }, domain).penaltyWeight, 3);
+  const on = applySettingsChange(start, { defenceGoals: true, penaltyWeight: 3 }, domain);
+  assert.equal(applySettingsChange(on, { defenceGoals: false }, domain).penaltyWeight, 3);
 });
 
 test("a whole settings object is a change of the fields that differ: re-applying a result reproduces it", () => {

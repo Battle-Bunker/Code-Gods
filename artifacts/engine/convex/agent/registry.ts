@@ -110,12 +110,22 @@ const owner = (action: "settings" | "start" | "resume" | "endGame" | "addAi" | "
     return { data: { requestId, result } };
   };
 
-/** Game setups (convex/setups.ts): the seeded defaults and the human's own, whichever room the credential is bound to. */
+/** Game setups (convex/setups.ts): one shared, owned collection, whichever room the credential is bound to. */
 const SETUP_EXECUTORS = {
-  list_setups: async (ctx, { principal }) => ({ data: await ctx.runQuery(internal.setups.listAs, { principal }) }),
+  list_setups: async (ctx, { principal }, { query, limit }) => {
+    const rows: { name: string; ownerName: string; summary: string; system: boolean; mine: boolean }[] = await ctx.runQuery(internal.setups.listAs, { principal });
+    const words = (query ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+    const found = rows.filter(r => {
+      const text = `${r.name} ${r.ownerName} ${r.system ? "system" : ""} ${r.mine ? "you mine" : ""} ${r.summary}`.toLowerCase();
+      return words.every(w => text.includes(w));
+    });
+    return { data: { setups: found.slice(0, limit ?? 100), total: found.length } };
+  },
+  get_setup: async (ctx, { principal }, args) => ({ data: await ctx.runQuery(internal.setups.getAs, { principal, ...args }) }),
   save_setup: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.setups.saveAs, { principal, ...args }) }),
+  duplicate_setup: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.setups.duplicateAs, { principal, ...args }) }),
   delete_setup: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.setups.removeAs, { principal, ...args }) }),
-} satisfies Pick<Executors, "list_setups" | "save_setup" | "delete_setup">;
+} satisfies Pick<Executors, "list_setups" | "get_setup" | "save_setup" | "duplicate_setup" | "delete_setup">;
 
 /** Stored panels (convex/panels.ts): the human's own panels, whichever room the credential is bound to. */
 const PANEL_EXECUTORS = {

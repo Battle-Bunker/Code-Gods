@@ -153,11 +153,17 @@ jobs:
           printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS
 
-      - name: Seed the game setups (once; admins' edits and removals are kept)
+      - name: Sync the system game setups with the code (idempotent)
         working-directory: artifacts/engine
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run setups:ensureSeeded
+
+      - name: Migrate stored settings and room setups to setups-v2 (idempotent; convex/migrations.ts)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run migrations/node:setupsV2
 
       - name: Upload the Python runtime bundle
         env:

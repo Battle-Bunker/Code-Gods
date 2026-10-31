@@ -15,7 +15,7 @@ table of its draw, so `7` and `7000` mean nothing until compared with random spa
 | `UtilityDescriptor` | persisted, server-private | `{ familyId, params, penalty? }`, plain JSON. |
 | `UtilityCard` | `card(descriptor, ctx)`, sent to its owner only | Name, emoji, summary, shape and both sources (plus the defence goal's). |
 | Host evaluator | `evaluator(draw, inst)` | The TypeScript card compiled once with the instantiation's JS prelude: `wire → ordinal`, shape-checked. The calibration pipeline uses the same evaluator. |
-| Selector | `src/selectors.ts` | **Divine Lottery**: a uniform family among those available in the instantiation (`resolve` of its constraints), then its sampler; a defence goal with probability `defenceRate`; only draws with tables (`hasTable`). |
+| Selector | `src/selectors.ts` | **Divine Lottery**: a uniform family among those available in the instantiation (`resolve` of its constraints), then its sampler; with `defenceGoals` on, every god also gets exactly one defence goal from the penalty families minus `excludeDefence` (none when off); only draws with tables (`hasTable`). |
 
 ## Single source of truth and parity
 

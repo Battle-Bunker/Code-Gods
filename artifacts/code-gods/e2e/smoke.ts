@@ -18,12 +18,15 @@
  * Scenario, at desktop and phone widths: alice, bob and carol sign in (three browser contexts). Alice
  * creates a room and turns the assistant on in the creation dialog; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
- * join; alice configures the next game on /rooms/:code/configure (Int / TypeScript, 1 s planning, also saved as
- * her own setup) and bob reads it under Details; alice adds a mock AI player, which asks for the AI budget in the
+ * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
+ * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
+ * three controls with uncalibrated values disabled and explained; defence goals switched on with one unticked; goal
+ * dealing, prior, act targeting, then Int / TypeScript with its grammar and summon price, 1 s planning), saves it for
+ * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player, which asks for the AI budget in the
  * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game and every viewer is taken to the game page,
- * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup select puts
- * the room on First steps at once, with Undo. Then the device page approves an `act` request made through POST
+ * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
+ * the room on First steps at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
  * /api/device/request (the credential appears under Connected apps and is revoked), and an owner request needs the
  * consent checkbox. Needs Playwright with Chromium available to `require("playwright")`.
  */
@@ -214,56 +217,101 @@ try {
       await a.getByTestId("button-start").waitFor();   // three players: Start is the owner's one primary now
     });
 
-    await check(`${name}: alice configures the next game (TypeScript / Int, 1 s planning) on its own page; bob sees it live`, async () => {
-      await a.getByTestId("link-new-configuration").click();
+    let copyId = "", copyName = "";
+    await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
+      await a.getByTestId("text-current-setup").filter({ hasText: /^First steps$/ }).waitFor();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("popover-setups").waitFor();
+      await a.getByTestId("input-setup-search").fill("classic");
+      const classic = a.locator('[data-testid^="row-setup-"]', { hasText: /^Classic · System/ });
+      await classic.waitFor();
+      assert.ok(!(await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps/ }).count()), "the search filters by name");
+      const edit = classic.locator('[data-testid^="button-edit-setup-"]');
+      assert.equal(await edit.getAttribute("aria-disabled"), "true", "nobody edits a system setup");
+      await edit.hover();
+      await a.getByRole("tooltip").filter({ hasText: "System setups cannot be edited: duplicate it" }).first().waitFor();
+      await a.getByTestId("input-setup-search").fill("system");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps \(current\) · System/ }).waitFor();
+      await shot(a, `setups-combobox-${name}`, false);
+      // Duplicate the room's current setup: the copy is alice's own, and the configuration page opens on it.
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps/ }).locator('[data-testid^="button-duplicate-setup-"]').click();
+      await a.waitForURL(new RegExp(`/rooms/${code}/configure\\?setup=`));
+      copyId = new URL(a.url()).searchParams.get("setup")!;
       await a.getByTestId("page-configure").waitFor();
-      await a.waitForURL(new RegExp(`/rooms/${code}/configure$`));
-      assert.equal(await a.getByTestId("section-start").count(), 0, "no Start from section");
-      // On a freshly started engine the first manifest.get boots both sandboxes (seconds).
-      await a.getByTestId("choice-objectType-Int").click({ timeout: 120_000 });
-      // The shape offers exactly the server's Int instantiations; the language moves its grammar, shown as a fact.
-      assert.match(await a.getByTestId("select-typeArgs").innerText(), /Whole numbers/);
+      copyName = await a.getByTestId("input-setup-name").inputValue();
+      assert.match(copyName, /^First steps's copy( \d+)?$/);
+    });
+
+    await check(`${name}: alice edits her copy: name first, three board controls, defence goals for everyone, every engine choice; bob sees it live`, async () => {
+      // The name is the form's first field, above the World section.
+      const nameBox = await a.getByTestId("field-name").boundingBox(), worldBox = await a.getByTestId("section-world").boundingBox();
+      assert.ok(nameBox && worldBox && nameBox.y < worldBox.y, "the name comes first");
+      assert.equal(await a.getByTestId("select-typeArgs").count(), 0, "no combined shape dropdown");
+      // First steps is Grid(4,base10,rgb): 5×5 keeps digits and three colours (calibrated); 6×6 has no tables for them.
+      await a.getByTestId("choice-arg-size-5").waitFor({ timeout: 120_000 });   // a fresh engine boots both sandboxes on the first manifest.get
+      assert.equal(await a.getByTestId("choice-arg-size-5").isDisabled(), false);
+      const six = a.getByTestId("choice-arg-size-6");
+      assert.equal(await six.isDisabled(), true, "uncalibrated: disabled, not hidden");
+      assert.match(await six.getAttribute("data-disabled-reason") ?? "", /^No calibration tables for Grid 6×6 · Digits 0–9 · Red, green, blue yet$/);
+      await a.getByTestId("reasons-size").filter({ hasText: /6×6: No calibration tables/ }).waitFor();
+      for (const id of ["choice-arg-symbols-cards", "choice-arg-colours-rgby"]) await a.getByTestId(id).waitFor();
+      await a.getByTestId("choice-arg-size-5").click();
+      assert.equal(await a.getByTestId("choice-arg-size-5").getAttribute("aria-checked"), "true");
+      assert.equal(await a.getByTestId("choice-arg-symbols-base10").getAttribute("aria-checked"), "true", "the other arguments did not move");
+      await shot(a, `configure-top-${name}`, false);
+      await noHorizontalScroll(a, `${name} configure`);
+      // Goals: the selector, defence goals as a switch with a checklist of the allowed ones, the prior.
+      await a.getByTestId("choice-utilitySelectorId-divine-lottery").click();
+      assert.equal(await a.getByTestId("checklist-defence").count(), 0, "the checklist belongs to the switch");
+      await a.getByTestId("switch-defenceGoals").click();
+      const allowed = a.getByTestId("text-defence-allowed");
+      await allowed.waitFor();
+      const [, total] = (await allowed.innerText()).match(/^(\d+) of (\d+)$/)!.map(Number);
+      await a.locator('[data-testid^="check-defence-"]').first().uncheck();
+      assert.equal(await allowed.innerText(), `${total - 1} of ${total}`);
+      await expand(a, "more-goals");
+      await a.getByTestId("field-penaltyWeight").waitFor();
+      assert.equal(await a.getByTestId("select-priorId").isDisabled(), false);
+      assert.ok((await a.getByTestId("select-priorId").locator("option").allInnerTexts()).some(t => /Uniformly random/.test(t)));
+      await a.getByTestId("section-goals").screenshot({ path: path.join(shots, `configure-goals-${name}.png`) });
+      await expand(a, "more-population");
+      await a.getByTestId("choice-objectSelection-shelter").click();
+      assert.equal(await a.getByTestId("select-spawnFunctionId").isDisabled(), false);
+      await expand(a, "more-agents");
+      await a.getByTestId("switch-commitClause").click();
+      // Int / TypeScript: Int's own arguments; the language moves its grammar and summon price, both real selects.
+      await a.getByTestId("choice-objectType-Int").click();
+      await a.getByTestId("arg-min").waitFor();
+      await a.getByTestId("arg-max").waitFor();
+      // Int has no defence goals: nothing switches them off behind alice's back; the field says so, and she does.
+      await a.getByTestId("error-defenceGoals").filter({ hasText: /no defence goals to deal/ }).waitFor();
+      await a.getByTestId("switch-defenceGoals").click();
+      await a.getByTestId("reason-defenceGoals").waitFor();
+      assert.equal(await a.getByTestId("switch-defenceGoals").isDisabled(), true);
       await a.getByTestId("select-language").selectOption("typescript");
-      await a.getByTestId("fact-grammarId").filter({ hasText: /TypeScript agent/ }).waitFor();
+      await expand(a, "more-world");
+      assert.equal(await a.getByTestId("select-grammarId").inputValue(), "typescript-agent-v1");
+      assert.equal(await a.getByTestId("select-complexityFunctionId").inputValue(), "ts-ast-bits-v1-uniform");
+      assert.equal(await a.getByTestId("select-grammarId").isDisabled(), false);
       await a.getByTestId("button-exact-planningSeconds").click();
       await a.getByTestId("input-planningSeconds").fill("1");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
-      // Setups outlive a run on the same deployment: delete the ones earlier runs saved, or the room's settings would
-      // equal one of them and be named instead of "Custom".
-      await a.getByTestId("block-save-as-setup").locator("summary").click();
-      for (;;) {
-        const stale = a.getByTestId("list-your-setups").locator('[data-testid^="row-setup-"]').filter({ hasText: /E2E quick ints/ }).first();
-        if (!(await stale.count())) break;
-        const remove = stale.locator('[data-testid^="button-delete-setup-"]');
-        await remove.click(); await remove.click();   // arm, then delete
-        await stale.waitFor({ state: "detached", timeout: 15_000 });
-      }
-      await a.getByTestId("block-save-as-setup").locator("summary").click();
-      assert.equal(await a.getByTestId("text-summary-setup").innerText(), "Custom");
-      // Save as a setup: it changes no room and is listed under Your setups.
-      await a.getByTestId("block-save-as-setup").locator("summary").click();
-      await a.getByTestId("input-setup-name").fill(`E2E quick ints ${name}`);
-      await a.getByTestId("button-save-setup").click();
-      await a.getByTestId("list-your-setups").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
-      await a.getByTestId("text-summary-setup").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
       await a.getByTestId("button-save-settings").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
+      await a.getByTestId("text-current-setup").filter({ hasText: copyName }).waitFor({ timeout: 15_000 });
       await expand(b, "details-next-game");
       const listed = b.getByTestId("list-settings");
       await listed.filter({ hasText: "typescript" }).waitFor();
       assert.match(await listed.innerText(), /Whole numbers/);
-      // Alice's page re-subscribes after coming back from /configure: wait for the saved revision to reach it.
-      // The room's settings now equal the setup alice just saved, so the Setup select names it.
-      await a.waitForFunction((label: string) => {
-        const select = document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null;
-        return select?.selectedOptions[0]?.textContent === label;
-      }, `E2E quick ints ${name}`, { timeout: 15_000 })
-        .catch(async () => { throw new Error(`expected the Setup select on alice's own setup, got ${await a.getByTestId("select-setup").inputValue()}`); });
-      await a.getByTestId("text-next-game-summary").filter({ hasText: `E2E quick ints ${name}` }).waitFor();
-      // Non-owners read the same configuration page.
+      await b.getByTestId("text-setup").filter({ hasText: copyName }).waitFor();
+      // Anyone else reads the same page, every control disabled, with "Duplicate and edit" as the one action.
       await b.goto(`${SITE}/rooms/${code}/configure`);
       await b.getByTestId("page-configure").waitFor();
-      assert.equal(await b.getByTestId("button-save-settings").count(), 0, "read-only for members");
+      assert.equal(await b.getByTestId("input-setup-name").inputValue(), copyName);
+      assert.equal(await b.getByTestId("input-setup-name").isDisabled(), true);
+      assert.equal(await b.getByTestId("button-save-settings").count(), 0, "read-only for anyone but its owner");
+      await b.getByTestId("button-duplicate-and-edit").waitFor();
+      assert.match(await b.getByTestId("text-setup-owner").innerText(), /Alice Liddell's setup: only Alice Liddell can edit it/);
       await b.goto(`${SITE}/rooms/${code}`);
       await b.getByTestId("text-room-code").waitFor();
     });
@@ -343,21 +391,37 @@ try {
       await shot(a, `game-${name}-ended`);
     });
 
-    await check(`${name}: the room's past games show the ended game; the Setup select applies a setup at once, with Undo`, async () => {
+    await check(`${name}: the room's past games show the ended game; the Setup combobox applies a setup at once, with Undo`, async () => {
       await a.getByTestId("button-back-to-room").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
       await expand(a, "section-past-games");
       await a.getByTestId(`link-game-${gameCode}`).waitFor();
       assert.match(await a.locator('[data-testid^="text-game-winners-"]').first().innerText(), /\w/);
-      const select = a.getByTestId("select-setup");
-      const before = await select.inputValue();
-      const firstSteps = await select.locator("option", { hasText: /^First steps:/ }).getAttribute("value");
-      assert.ok(firstSteps && firstSteps !== before);
-      await select.selectOption(firstSteps);
-      await a.waitForFunction((v: string) => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === v, firstSteps, { timeout: 30_000 });
+      const current = a.getByTestId("text-current-setup");
+      await current.filter({ hasText: copyName }).waitFor();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("first steps");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
+      await current.filter({ hasText: /^First steps$/ }).waitFor({ timeout: 30_000 });
       await a.getByTestId("text-next-game-summary").filter({ hasText: /^First steps:/ }).waitFor();
       await a.getByTestId("button-undo-setup").click();
-      await a.waitForFunction((v: string) => (document.querySelector('[data-testid="select-setup"]') as HTMLSelectElement | null)?.value === v, before, { timeout: 30_000 });
+      await current.filter({ hasText: copyName }).waitFor({ timeout: 30_000 });
+      // Leave no setups behind on the shared deployment: alice deletes her copy; the room keeps its settings.
+      await a.goto(`${SITE}/rooms/${code}/configure?setup=${encodeURIComponent(copyId)}`);
+      await a.getByTestId("button-delete-setup").click();
+      await a.getByTestId("button-delete-setup").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}$`));
+      await current.filter({ hasText: `${copyName} (deleted)` }).waitFor({ timeout: 15_000 });
+      // New setup on a deleted setup keeps the room's settings as alice's own setup (then deleted again: no leftovers).
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("button-new-setup").click();
+      await a.getByTestId("panel-deleted-setup").waitFor();
+      await a.getByTestId("button-keep-deleted-setup").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}/configure\\?setup=`));
+      assert.match(await a.getByTestId("input-setup-name").inputValue(), /'s copy/);
+      await a.getByTestId("button-delete-setup").click();
+      await a.getByTestId("button-delete-setup").click();
+      await a.waitForURL(new RegExp(`/rooms/${code}$`));
     });
 
     await check(`${name}: the device page approves an act request; the credential is listed under Connected apps and revoked`, async () => {

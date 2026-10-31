@@ -17,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope } from "@/lib/commands";
 import { errMsg, rid } from "@/lib/errors";
-import { currentSetup } from "@/lib/settings-form";
 import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/lib/types";
 import { rulesFor } from "@/components/game-rules";
 import { Tip } from "@/components/action";
@@ -109,6 +108,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const removeAi = useMutation(api.rooms.removeAi);
   const approve = useMutation(api.rooms.approveAiBudget);
   const saveSettings = useAction(api.owner.settings);
+  const duplicate = useMutation(api.setups.duplicate);
   const revoke = useMutation(api.auth.credentials.revoke);
   const gridRenderer = useGridRenderer();
 
@@ -130,7 +130,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
-    currentSetup: room && setups ? currentSetup(room.settings, room.settingsOrigin, setups)?.id : undefined,
+    currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer,
   };
@@ -156,16 +156,22 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     },
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
     applySetup: async id => {
-      const r = need(room), previous = r.settings;
-      // Undo puts back the setup the room was on (so it is named again), or its custom settings.
-      const was = currentSetup(previous, r.settingsOrigin, setups ?? []);
+      const r = need(room);
+      // Undo puts the room back on the setup it ran (unless that setup was deleted since).
+      const was = r.setup && !r.setup.deleted ? r.setup.id : null;
       const saved = await saveSettings({ roomId: r.id, revision: r.revision, setupId: id });
       const name = setups?.find(s => s.id === id)?.name ?? "the chosen setup";
-      toast({ title: `Next game: ${name}`, action: (
+      toast({ title: `Next game: ${name}`, action: was && was !== id ? (
         <ToastAction altText="Undo" data-testid="button-undo-setup" onClick={() => {
-          saveSettings({ roomId: r.id, revision: saved.revision, ...(was ? { setupId: was.id } : { settings: previous }) }).catch(e => fail("Undo", e));
+          saveSettings({ roomId: r.id, revision: saved.revision, setupId: was }).catch(e => fail("Undo", e));
         }}>Undo</ToastAction>
-      ) });
+      ) : undefined });
+    },
+    duplicateSetup: async id => {
+      const code = room?.shortCode ?? game?.roomShortCode;
+      const copy = await duplicate({ setupId: id });
+      toast({ title: `Created ${copy.name}`, description: "Your own copy: edit it and save, or delete it from its page if you do not need it." });
+      if (code) navigate(`/rooms/${code}/configure?setup=${encodeURIComponent(copy.id)}`);
     },
     templates: async () => (await convex.query(api.aiTemplates.catalog, {})).agents,
     adminTemplates: async () => (await convex.query(api.aiTemplates.adminList, {})).agents.map(a => ({ id: a.id, name: a.name, provider: a.provider, model: a.model })),
@@ -177,7 +183,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     serverInfo: () => manifest ? [
       `Players per game: ${manifest.minimumPlayers} to ${manifest.maximumPlayers}; AI players count.`,
       `Agent languages: ${manifest.runtimes.join(", ") || "none available right now"}.`,
-      `Ready-made setups: ${(setups ?? []).filter(s => s.seeded).map(s => s.name).join(", ") || "none"}.`,
+      `System setups: ${(setups ?? []).filter(s => s.system).map(s => s.name).join(", ") || "none"}.`,
       manifest.aiFunding.configured ? `AI players and assistants: available${manifest.aiFunding.mock ? " (development: scripted, nothing billed)" : ""}.` : "AI players and assistants: not set up on this server.",
     ] : ["Loading server info…"],
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],

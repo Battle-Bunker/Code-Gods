@@ -4,7 +4,6 @@
  * Settings and the game start need the calibration tables, so they are Node actions in owner.ts.
  */
 import { v } from "convex/values";
-import { FIRST_STEPS_SEED_ID, seedSetupSettings } from "@workspace/game-core";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -13,7 +12,6 @@ import { endGame, resumeGame } from "./engine/loop";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { publicRoom } from "./lib/projection";
-import { setupOrigin } from "./lib/settingsOrigin";
 import { firstSteps } from "./setups";
 import {
   displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
@@ -56,8 +54,7 @@ export const create = mutation({
     const first = await firstSteps(ctx);
     const roomId = await ctx.db.insert("rooms", {
       shortCode, guid, encoded, ownerId: viewer.subject, createdAt: now, revision: 0, seq: 0,
-      settings: first ? first.settings : seedSetupSettings(FIRST_STEPS_SEED_ID),
-      settingsOrigin: first ? setupOrigin(first._id) : { kind: "custom", modified: false },
+      settings: first.settings, setupId: first._id, setupName: first.name,
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
       ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
     });
@@ -84,7 +81,7 @@ export const list = query({
         id: r._id, guid: r.guid, shortCode: r.shortCode, ownerId: r.ownerId, ownerName: await displayName(ctx, r.ownerId), createdAt: r.createdAt,
         memberCount: (await membersOf(ctx, r._id)).length,
         phase: live ? live.phase : "lobby", activeGameShortCode: live?.shortCode ?? null,
-        settingsOrigin: r.settingsOrigin ?? null,
+        setupName: r.setupName ?? null,
       };
     }));
     return rows.sort((a, b) => b.createdAt - a.createdAt);
@@ -98,7 +95,9 @@ export async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { ro
   const [members, chat] = await Promise.all([membersOf(ctx, room._id), recentChat(ctx, room._id)]);
   const game = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
   const owner = members.find(m => m.godId === room.ownerId)?.name ?? await displayName(ctx, room.ownerId);
-  return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`)), serverTime: Date.now() };
+  const setupDoc = room.setupId ? await ctx.db.get(room.setupId) : null;
+  const setup = room.setupId ? { id: room.setupId, name: setupDoc?.name ?? room.setupName ?? "", deleted: !setupDoc || !!setupDoc.deleted } : null;
+  return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`), setup), serverTime: Date.now() };
 }
 export const get = query({ args: { room: v.string() }, handler: async (ctx, args) => roomFor(ctx, await requireViewer(ctx), args) });
 /** Internal twin of `get` for a principal; `requireOwner` makes it the owner-only room state of the agent registry. */

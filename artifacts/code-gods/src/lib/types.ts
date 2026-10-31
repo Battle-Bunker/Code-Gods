@@ -22,8 +22,9 @@ export type DeviceRequest = NonNullable<FunctionReturnType<typeof api.auth.devic
 export type AdminAgents = FunctionReturnType<typeof api.aiTemplates.adminList>;
 export type AiAgent = AdminAgents["agents"][number];
 export type AiModel = AdminAgents["models"][number];
-/** A game setup: a seeded default or one of the viewer's own (setups.list). */
+/** A row of the shared setup collection (setups.list): no settings; `SetupFull` (setups.get) has them. */
 export type Setup = FunctionReturnType<typeof api.setups.list>[number];
+export type SetupFull = FunctionReturnType<typeof api.setups.get>;
 
 /** The engine stores the public catalog untyped (`catalogs.catalog`); entries follow object-views' shape. */
 export type UtilityFamily = CatalogEntry & { available?: boolean };
@@ -39,6 +40,8 @@ export type SettingsOptions = typeof SETTINGS_OPTIONS;
 export interface Manifest {
   protocolVersion: number; playerProtocol: string; minimumPlayers: number; maximumPlayers: number;
   defaults: Settings; runtimes: string[]; options: SettingsOptions; objectTypes: ObjectTypeInfo[];
+  /** The rarity priors with shipped calibration tables (ids; game-utilities shippedPriors). */
+  priors?: string[];
   aiFunding: { provider: string; model: string; billing: string; mock: boolean; configured: boolean; live: boolean;
     /** The vetted model catalog (ids, labels, whether this deployment has the provider key). */
     models?: { id: string; label: string; provider: string; configured: boolean; inputUsdPerMillion?: number; outputUsdPerMillion?: number }[]; assistantBudgetMax?: number };

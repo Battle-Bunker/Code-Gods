@@ -1,5 +1,7 @@
 # Onboarding and game configuration
 
+> Superseded in part (2026-10-31, docs/ui-redesign.md directive 8): `defenceRate` is now `defenceGoals` (a switch: everyone or no one) with a checklist of allowed defence goals; game setups are one shared, owned collection with no "Custom"; every field is a control (no fixed facts); the board shape is one control per type argument.
+
 > Terminology: "lens" in this historical document means what the code and the UI now call a built-in **panel** (`docs/ui-redesign.md`).
 
 Mandate: the first-time player's journey (what to do next in every state) and the separate game-configuration

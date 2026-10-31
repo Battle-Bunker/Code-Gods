@@ -1,6 +1,6 @@
 /**
  * The room page (palette-and-pages.md §3.3): the room's code, owner and creation date; one status sentence and one
- * filled button from nextStep; then Players, Public chat, Next game (the Setup select and "New configuration →")
+ * filled button from nextStep; then Players, Public chat, Next game (the Setup combobox and "See all settings →")
  * and Past games, collapsed. Everything else is in the palette.
  */
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +20,7 @@ import { Chat, SettingsList, UtilityFamilies, settingsSummary } from "@/componen
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { nextStep } from "@/lib/next-step";
-import { currentSetup } from "@/lib/settings-form";
+import { SetupPicker, setupTitle } from "@/components/setup-picker";
 import { errMsg, fmt } from "@/lib/errors";
 import { fmtWhen, isoWhen } from "@/lib/time";
 import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
@@ -70,54 +70,29 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
   );
 }
 
-const SETUP_NEW = "__new", SETUP_CUSTOM = "__custom";
-
 function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
-  const { act, manifest, setups, openSheet } = usePage();
-  const [, navigate] = useLocation();
-  const runner = useRun();
-  const all = setups ?? [];
-  const defaults = all.filter(s => s.seeded), mine = all.filter(s => !s.seeded);
-  // The setup the room is on: the one its origin names while the settings still equal it, else any equal setup.
-  const current = setups ? currentSetup(room.settings, room.settingsOrigin, setups) : undefined;
+  const { manifest, setups, openSheet } = usePage();
+  const current = setups?.find(s => s.id === room.setup?.id);
   const frozen = room.activeGame;
   const configure = `/rooms/${room.shortCode}/configure`;
   const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);
-  const value = current?.id ?? SETUP_CUSTOM;
   return (
     <Section title="Next game" testId="section-next-game">
       <div className="p-4 space-y-3">
         {isOwner ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <label className="flex items-center gap-2 text-sm min-w-0">
+            <div className="flex w-full sm:w-auto items-center gap-2 text-sm min-w-0">
               <span>Setup</span>
-              <select value={value} disabled={!!frozen || runner.pending || !setups} data-testid="select-setup"
-                onChange={e => {
-                  const v = e.target.value;
-                  if (v === SETUP_NEW) navigate(configure);
-                  else if (v !== SETUP_CUSTOM) runner.run("Choose the next game's setup", () => act.applySetup(v));
-                }}
-                className="min-w-0 max-w-[22rem] border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-50">
-                {!setups && <option value={value}>Loading…</option>}
-                {defaults.length > 0 && <optgroup label="Defaults">
-                  {defaults.map(s => <option key={s.id} value={s.id}>{s.name}: {s.summary}</option>)}
-                </optgroup>}
-                {mine.length > 0 && <optgroup label="Your setups">
-                  {mine.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </optgroup>}
-                {setups && !current && <option value={SETUP_CUSTOM}>Custom</option>}
-                <option disabled value="">──────────</option>
-                <option value={SETUP_NEW}>New configuration…</option>
-              </select>
-            </label>
-            <Action k="ui.nav.newConfiguration" label="New configuration →" tone="link" href={configure} testId="link-new-configuration" />
+              <SetupPicker room={room} />
+            </div>
+            <Action k="ui.nav.configure" label="See all settings →" tone="link" href={configure} testId="link-configure" />
           </div>
         ) : (
-          <p className="text-sm">This room plays: <span className="font-medium" data-testid="text-setup">{current?.name ?? "a custom setup"}</span>
-            {" · "}<Action k="ui.nav.newConfiguration" label="See all settings →" tone="link" href={configure} testId="link-new-configuration" /></p>
+          <p className="text-sm">This room plays: <span className="font-medium" data-testid="text-setup">{setupTitle(room)}</span>
+            {" · "}<Action k="ui.nav.configure" label="See all settings →" tone="link" href={configure} testId="link-configure" /></p>
         )}
         {frozen && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Changes apply after game {frozen.shortCode} ends.</p>}
-        <p className="text-sm text-muted-foreground" data-testid="text-next-game-summary">{current ? `${current.name}: ${current.summary}. ` : "Custom. "}{settingsSummary(room.settings, room.objectInstance)}</p>
+        <p className="text-sm text-muted-foreground" data-testid="text-next-game-summary">{current ? `${current.name}: ${current.summary}. ` : ""}{settingsSummary(room.settings, room.objectInstance)}</p>
         <details className="text-sm" data-testid="details-next-game">
           <summary className="cursor-pointer select-none">Details</summary>
           <div className="mt-3 space-y-4">

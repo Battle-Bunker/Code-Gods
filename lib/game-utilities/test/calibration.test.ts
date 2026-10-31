@@ -315,3 +315,12 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   assert.equal(tableFor("digit-devotee", { d: 7 }, inst, prior), undefined);
   assert.throws(() => mixtureTable(uniform, { ...pool, wires: [-5] }, inst));
 });
+
+test("shipped priors: uniform first, then every prior the manifest has tables for", async () => {
+  const { shippedPriors, UNIFORM_PRIOR, calibrationManifest } = await import("../src/calibration.ts");
+  const priors = shippedPriors();
+  assert.deepEqual(priors[0], UNIFORM_PRIOR);
+  const listed = new Set(Object.values(calibrationManifest().instances).flatMap(e => Object.keys(e.priors ?? {})));
+  assert.deepEqual(priors.slice(1).map(p => `${p.id}@${p.version}`).sort(), [...listed].sort(), "no prior with tables is left out");
+  assert.equal(new Set(priors.map(p => p.id)).size, priors.length, "one entry per prior id");
+});

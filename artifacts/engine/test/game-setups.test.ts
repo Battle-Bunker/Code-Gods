@@ -1,97 +1,118 @@
 /**
- * The catalogue of game setups (convex/setups.ts) against the live local backend. What would break: defaults seeded
- * twice or recreated after an admin removed one, an admin's edit lost on re-seeding, one human seeing or changing
- * another's setup, a read-only credential saving, an incomplete or unplayable setup stored, a room applied a setup it
- * may not see, or a new room not starting on First steps.
+ * The shared catalogue of game setups (convex/setups.ts) against the live local backend. What would break: a system
+ * setup edited or deleted by anyone (admins included) or drifting from the code, a setup hidden from other humans (they
+ * are shared), a human changing or deleting another's, a copy named wrongly or colliding with one of the duplicator's
+ * names, a read-only credential writing, an incomplete or unplayable setup stored, or a new room not running First steps.
  */
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { SEED_SETUPS, seedSetupSettings } from "@workspace/game-core";
+import { SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
 import { admin, api, clientFor, gods, internal, playerClient, roomWith, touch, type God } from "./game-helpers.ts";
 
-async function errorCode(promise: Promise<unknown>): Promise<string> {
-  try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
-  return "no error";
-}
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string; message?: string } }).data ?? { message: (error as Error).message }; }
   return { code: "no error" };
 }
+const errorCode = async (promise: Promise<unknown>) => (await errorOf(promise)).code ?? "untyped";
 /** An admin: a verified ADMIN_EMAILS address on the test-only "fake" provider (scripts/dev.mjs). */
 async function adminGod(name: string): Promise<God> {
   const subject = `test|${randomUUID()}`;
   const sid = await admin.mutation(internal.testing.seedUser, { subject, name, email: "admin@example.test", emailVerified: true, provider: "fake" });
   return { subject, name, sid, c: clientFor(subject, "browser", { sessionId: sid }) };
 }
-type Setup = { id: string; name: string; summary: string; settings: Record<string, unknown>; seeded: boolean; seedId?: string; mine: boolean; editable: boolean };
-const list = (g: God): Promise<Setup[]> => g.c.query(api.setups.list, {});
+type Setup = { id: string; name: string; summary: string; settings: Record<string, unknown>; system: boolean; seedId?: string; ownerName: string; mine: boolean; editable: boolean };
+/** The list rows carry no settings (the catalogue is shared and may be long); `get` has them. */
+const list = (g: God): Promise<Omit<Setup, "settings">[]> => g.c.query(api.setups.list, {});
+const get = (g: God, setupId: string): Promise<Setup> => g.c.query(api.setups.get, { setupId });
 const classic = () => seedSetupSettings("grid-classic");
 
 before(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
 after(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
 
-test("the defaults are seeded once, in the shipped order, and every human sees the same ones", async () => {
+test("system setups: seeded once in the shipped order, owned by the system, and kept equal to the code", async () => {
   await admin.mutation(internal.setups.ensureSeeded, {});
   await admin.mutation(internal.setups.ensureSeeded, {});
-  const [ann, bob] = await gods("Seed Ann", "Seed Bob");
-  const rows = await list(ann);
-  const defaults = rows.filter(r => r.seeded);
-  assert.deepEqual(defaults.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order");
-  assert.deepEqual(defaults.map(d => d.name), ["First steps", "Classic", "Low income", "Big board", "Master"]);
-  for (const d of defaults) {
-    assert.deepEqual(d.settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
-    assert.equal(d.summary, SEED_SETUPS.find(s => s.seedId === d.seedId)!.summary);
-    assert.deepEqual([d.mine, d.editable], [false, false], "a default is nobody's and only admins change it");
+  const [ann] = await gods("Seed Ann");
+  const system = (await list(ann)).filter(r => r.system);
+  assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
+  assert.deepEqual(system.map(d => d.name), ["First steps", "Classic", "Low income", "Big board", "Master"]);
+  for (const d of system) {
+    assert.ok(!("settings" in d), "a list row has no settings");
+    assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
+    assert.deepEqual([d.ownerName, d.mine, d.editable], ["System", false, false]);
   }
-  assert.deepEqual((await list(bob)).map(r => r.id), defaults.map(d => d.id), "a human with no setups sees just the defaults");
+  // A stored seed that drifted (an admin edit from before setups were immutable, or older settings) is put back.
+  const big = system.find(d => d.seedId === "grid-big")!;
+  await admin.mutation(internal.testing.makeLegacy, { setupId: big.id as never, settings: { ...seedSetupSettings("grid-big"), planningSeconds: 999 } });
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  assert.deepEqual((await get(ann, big.id)).settings, seedSetupSettings("grid-big"));
 });
 
-test("own setups: save, list, overwrite and remove; another human can neither see nor touch them; read credentials only read", { timeout: 60_000 }, async () => {
+test("nobody edits or deletes a system setup, admins and owner credentials included: they duplicate it", { timeout: 60_000 }, async () => {
+  const root = await adminGod("Setup Admin");
+  const master = (await list(root)).find(r => r.seedId === "grid-master")!;
+  assert.equal(master.editable, false, "not even for an admin");
+  const edit = await errorOf(root.c.action(api.setups.save, { setupId: master.id, name: "Master", settings: seedSetupSettings("grid-master") }));
+  assert.deepEqual([edit.code, edit.message], ["FORBIDDEN", "System setups cannot be edited: duplicate it"]);
+  assert.equal(await errorCode(root.c.mutation(api.setups.remove, { setupId: master.id })), "FORBIDDEN");
+  const { roomId } = await roomWith([root]);
+  const app = await playerClient(root, roomId, "owner");
+  assert.equal(await errorCode(app.action(api.setups.save, { setupId: master.id, name: "Master", settings: seedSetupSettings("grid-master") })), "FORBIDDEN");
+  assert.deepEqual((await get(root, master.id)).settings, seedSetupSettings("grid-master"), "unchanged");
+});
+
+test("everyone sees every setup with its owner; only the owner changes or deletes it; read credentials only read", { timeout: 60_000 }, async () => {
   const [ann, bob] = await gods("Owner Ann", "Other Bob");
   const quick = { ...classic(), planningSeconds: 30 };
   const saved: Setup = await ann.c.action(api.setups.save, { name: "  Quick   classic ", settings: quick });
-  assert.deepEqual([saved.name, saved.mine, saved.editable, saved.seeded], ["Quick classic", true, true, false], "the name is trimmed");
+  assert.deepEqual([saved.name, saved.ownerName, saved.mine, saved.editable, saved.system], ["Quick classic", "Owner Ann", true, true, false], "the name is trimmed");
   assert.match(saved.summary, /Grid 5×5/);
+  const seenByBob = (await list(bob)).find(r => r.id === saved.id);
+  assert.deepEqual([seenByBob?.ownerName, seenByBob?.mine, seenByBob?.editable], ["Owner Ann", false, false], "shared, but not Bob's");
+  assert.deepEqual((await get(bob, saved.id)).settings, quick, "and its settings");
+  assert.equal(await errorCode(bob.c.query(api.setups.get, { setupId: "nope" })), "NOT_FOUND");
   const annRows = await list(ann);
-  assert.deepEqual(annRows.at(-1), { ...saved, updatedAt: (annRows.at(-1) as any).updatedAt }, "own setups come after the defaults");
-  assert.deepEqual(annRows.at(-1)!.settings, quick);
-  assert.ok(!(await list(bob)).some(r => r.id === saved.id), "Bob never sees Ann's setup");
+  assert.ok(annRows.findIndex(r => r.id === saved.id) >= SEED_SETUPS.length, "after the system's");
 
-  // Another human: NOT_FOUND, whether saving over it, deleting it or applying it to a room.
-  assert.equal(await errorCode(bob.c.action(api.setups.save, { setupId: saved.id, name: "Mine now", settings: quick })), "NOT_FOUND");
-  assert.equal(await errorCode(bob.c.mutation(api.setups.remove, { setupId: saved.id })), "NOT_FOUND");
-  const bobRoom = await roomWith([bob]);
-  const bobRevision = (await bob.c.query(api.rooms.get, { room: bobRoom.roomId })).revision;
-  assert.equal(await errorCode(bob.c.action(api.owner.settings, { roomId: bobRoom.roomId, revision: bobRevision, setupId: saved.id })), "NOT_FOUND");
-  assert.equal(await errorCode(bob.c.action(api.owner.settings, { roomId: bobRoom.roomId, revision: bobRevision, setupId: "not-an-id" })), "NOT_FOUND");
+  // Bob may not change or delete Ann's setup, and is told whose it is.
+  const edit = await errorOf(bob.c.action(api.setups.save, { setupId: saved.id, name: "Mine now", settings: quick }));
+  assert.deepEqual([edit.code, edit.message], ["FORBIDDEN", "Only Owner Ann can edit this setup: duplicate it"]);
+  assert.equal(await errorCode(bob.c.mutation(api.setups.remove, { setupId: saved.id })), "FORBIDDEN");
+  assert.equal(await errorCode(bob.c.mutation(api.setups.remove, { setupId: "not-an-id" })), "NOT_FOUND");
 
-  // Names: 1–40 characters, unique among one's own (overwrite by id instead).
+  // Names: 1–40 characters, unique among one's own (edit by id instead); another human may use the same name.
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "QUICK CLASSIC", settings: quick })), "CONFLICT");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "   ", settings: quick })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "x".repeat(41), settings: quick })), "BAD_REQUEST");
-  // Settings: complete, valid, offered and within the server's limits.
+  const bobs: Setup = await bob.c.action(api.setups.save, { name: "Quick classic", settings: quick });
+  // Settings: complete, valid, offered and within the server's limits; defence goals need one allowed family.
   const { language: _l, ...incomplete } = quick;
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Partial", settings: incomplete }))).message ?? "", /missing: language/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Extra", settings: { ...quick, colour: "red" } }))).message ?? "", /Unknown settings: colour/);
+  assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Old", settings: { ...quick, defenceRate: 0 } }))).message ?? "", /Unknown settings: defenceRate/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Odd board", settings: { ...quick, typeArgs: { size: 3, symbols: "base10", colours: "rgb" } } }))).message ?? "", /not offered/);
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Negative", settings: { ...quick, planningSeconds: -1 } })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Huge", settings: { ...quick, startingObjectCount: 5000 } })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Mixed", settings: { ...quick, grammarId: "typescript-agent-v1" } })), "BAD_REQUEST");
+  const hates = ["hate_colour", "hate_value", "hate_blob", "hate_takeover", "hate_big_blob", "hate_same_corners", "hate_repeat_row", "hate_symbol_takeover"];
+  const noDefence = await errorOf(ann.c.action(api.setups.save, { name: "No defence left", settings: { ...quick, defenceGoals: true, excludedDefenceFamilies: hates } }));
+  assert.deepEqual([noDefence.code, noDefence.message], ["BAD_REQUEST", "Defence goals need at least one defence goal allowed in this world"]);
+  const oneLeft: Setup = await ann.c.action(api.setups.save, { name: "One defence", settings: { ...quick, defenceGoals: true, excludedDefenceFamilies: hates.slice(1) } });
+  await ann.c.mutation(api.setups.remove, { setupId: oneLeft.id });
 
-  // Overwrite (rename too) by id; a default is not hers to change.
+  // Edit (rename too) by id.
   const over: Setup = await ann.c.action(api.setups.save, { setupId: saved.id, name: "Quick classic 2", settings: { ...quick, planningSeconds: 45 } });
   assert.equal(over.id, saved.id);
-  assert.deepEqual((await list(ann)).filter(r => r.mine).map(r => [r.name, r.settings.planningSeconds]), [["Quick classic 2", 45]]);
-  const classicId = (await list(ann)).find(r => r.seedId === "grid-classic")!.id;
-  assert.equal(await errorCode(ann.c.action(api.setups.save, { setupId: classicId, name: "Classic", settings: quick })), "FORBIDDEN");
-  assert.equal(await errorCode(ann.c.mutation(api.setups.remove, { setupId: classicId })), "FORBIDDEN");
+  assert.deepEqual((await list(ann)).filter(r => r.mine).map(r => r.name), ["Quick classic 2"]);
+  assert.equal((await get(ann, saved.id)).settings.planningSeconds, 45);
 
-  // Credentials: read lists only; act may save and remove (setups belong to the human, across rooms).
+  // Credentials: read lists only; act may save, duplicate and remove (setups belong to the human, across rooms).
   const { roomId } = await roomWith([ann]);
   const reader = await playerClient(ann, roomId, "read");
   assert.ok((await reader.query(api.setups.list, {})).some((r: Setup) => r.id === saved.id));
   assert.equal(await errorCode(reader.action(api.setups.save, { name: "From a reader", settings: quick })), "FORBIDDEN");
+  assert.equal(await errorCode(reader.mutation(api.setups.duplicate, { setupId: saved.id })), "FORBIDDEN");
   assert.equal(await errorCode(reader.mutation(api.setups.remove, { setupId: saved.id })), "FORBIDDEN");
   const actor = await playerClient(ann, roomId, "act");
   const fromApp: Setup = await actor.action(api.setups.save, { name: "From my app", settings: quick });
@@ -99,32 +120,36 @@ test("own setups: save, list, overwrite and remove; another human can neither se
 
   await ann.c.mutation(api.setups.remove, { setupId: saved.id });
   await actor.mutation(api.setups.remove, { setupId: fromApp.id });
-  assert.deepEqual((await list(ann)).filter(r => r.mine), []);
+  await bob.c.mutation(api.setups.remove, { setupId: bobs.id });
   assert.equal(await errorCode(ann.c.mutation(api.setups.remove, { setupId: saved.id })), "NOT_FOUND", "gone");
+  assert.ok(!(await list(bob)).some(r => r.id === saved.id), "gone for everyone");
 });
 
-test("an admin edits a default and the edit survives re-seeding; a removed default is never recreated", { timeout: 60_000 }, async () => {
-  const root = await adminGod("Setup Admin");
-  const [ann] = await gods("Seeing Ann");
-  const big = (await list(root)).find(r => r.seedId === "grid-big")!;
-  assert.equal(big.editable, true, "admins may change defaults");
-  const edited = { ...seedSetupSettings("grid-big"), planningSeconds: 120 };
-  await root.c.action(api.setups.save, { setupId: big.id, name: "Big board", settings: edited, summary: "6×6 with a longer planning phase" });
-  await admin.mutation(internal.setups.ensureSeeded, {});
-  const after = (await list(ann)).find(r => r.seedId === "grid-big")!;
-  assert.deepEqual([after.id, after.settings.planningSeconds, after.summary], [big.id, 120, "6×6 with a longer planning phase"], "kept, not re-seeded");
-
-  await root.c.mutation(api.setups.remove, { setupId: big.id });
-  await admin.mutation(internal.setups.ensureSeeded, {});
-  assert.ok(!(await list(ann)).some(r => r.seedId === "grid-big"), "a removed default stays removed");
-  // A credential never carries admin rights.
-  const { roomId } = await roomWith([root]);
-  const app = await playerClient(root, roomId, "owner");
-  const master = (await list(root)).find(r => r.seedId === "grid-master")!;
-  assert.equal(await errorCode(app.action(api.setups.save, { setupId: master.id, name: "Master", settings: seedSetupSettings("grid-master") })), "FORBIDDEN");
+test("duplicate: any setup becomes the duplicator's own \"<name>'s copy\", deduplicated among theirs and within 40 characters", { timeout: 60_000 }, async () => {
+  const [ann, bob] = await gods("Copy Ann", "Copy Bob");
+  const classicRow = (await list(ann)).find(r => r.seedId === "grid-classic")!;
+  const first: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
+  assert.deepEqual([first.name, first.ownerName, first.mine, first.editable, first.system], ["Classic's copy", "Copy Ann", true, true, false]);
+  assert.deepEqual(first.settings, seedSetupSettings("grid-classic"), "starting from the duplicated setup's values");
+  assert.equal(first.summary, classicRow.summary);
+  const second: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
+  const third: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
+  assert.deepEqual([second.name, third.name], ["Classic's copy 2", "Classic's copy 3"]);
+  // Another human's names do not count; another human's setup can be copied too.
+  const bobsCopy: Setup = await bob.c.mutation(api.setups.duplicate, { setupId: first.id });
+  assert.equal(bobsCopy.name, "Classic's copy's copy");
+  assert.equal((await bob.c.mutation(api.setups.duplicate, { setupId: classicRow.id })).name, "Classic's copy");
+  // A long name is shortened so "'s copy" (and " 2") still fit.
+  const long: Setup = await ann.c.action(api.setups.save, { name: "L".repeat(SETUP_NAME_MAX), settings: classic() });
+  const longCopy: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: long.id });
+  const longCopy2: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: long.id });
+  assert.deepEqual([longCopy.name, longCopy2.name], [`${"L".repeat(SETUP_NAME_MAX - 7)}'s copy`, `${"L".repeat(SETUP_NAME_MAX - 9)}'s copy 2`]);
+  // An explicit name is used as given (deduplicated the same way).
+  assert.equal((await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id, name: "Classic's copy" })).name, "Classic's copy 4");
+  assert.equal(await errorCode(ann.c.mutation(api.setups.duplicate, { setupId: "nope" })), "NOT_FOUND");
 });
 
-test("a new room starts on the seeded First steps setup; owner.settings applies a whole setup and records it", { timeout: 60_000 }, async () => {
+test("a new room runs the system's First steps; owner.settings applies anyone's setup and names it in the room", { timeout: 60_000 }, async () => {
   const [host, ada] = await gods("Setup Host", "Setup Ada");
   await touch(host);
   const { roomId, shortCode } = await roomWith([host]);
@@ -132,24 +157,25 @@ test("a new room starts on the seeded First steps setup; owner.settings applies 
   const setups = await list(host);
   const first = setups.find(r => r.seedId === "grid-first-steps")!, master = setups.find(r => r.seedId === "grid-master")!;
   let room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings, first.settings);
-  assert.deepEqual(room.settingsOrigin, { kind: "setup", id: first.id, modified: false });
+  assert.deepEqual(room.settings, seedSetupSettings("grid-first-steps"));
+  assert.deepEqual(room.setup, { id: first.id, name: "First steps", deleted: false });
 
-  // A setup in another language replaces the language too: its settings are applied whole.
-  const mine: Setup = await host.c.action(api.setups.save, { name: "TypeScript Master", settings: {
+  // Ada's setup, in another language: applied whole by the room's owner (setups are shared).
+  const adas: Setup = await ada.c.action(api.setups.save, { name: "TypeScript Master", settings: {
     ...seedSetupSettings("grid-master"), language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", planningSeconds: 300 } });
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: mine.id });
+  const applied = await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: adas.id });
+  assert.equal(applied.setup.created, false);
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings, mine.settings);
-  assert.deepEqual(room.settingsOrigin, { kind: "setup", id: mine.id, modified: false });
+  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: false }]);
   await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: master.id });
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.settingsOrigin], [master.settings, { kind: "setup", id: master.id, modified: false }]);
+  assert.deepEqual([room.settings, room.setup], [seedSetupSettings("grid-master"), { id: master.id, name: "Master", deleted: false }]);
   assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: master.id, settings: { planningSeconds: 5 } })), "BAD_REQUEST",
     "a setup or settings, not both");
-  // A member reads the origin's id, never another human's setup through it.
-  const seen = await ada.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(seen.settingsOrigin, { kind: "setup", id: master.id, modified: false });
-  assert.ok(!(await list(ada)).some(r => r.id === mine.id));
-  await host.c.mutation(api.setups.remove, { setupId: mine.id });
+  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: "not-an-id" })), "NOT_FOUND");
+  // A setup applied and later deleted: the room keeps its snapshot and shows the setup as deleted.
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: adas.id });
+  await ada.c.mutation(api.setups.remove, { setupId: adas.id });
+  room = await ada.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: true }]);
 });

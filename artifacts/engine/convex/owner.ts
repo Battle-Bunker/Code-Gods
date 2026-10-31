@@ -15,9 +15,10 @@ import type { Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { assertOffered, catalogFor, deal, nextSettings, openUniform, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
+import { SETTINGS_DOMAIN } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
-import { nextSettingsOrigin, type SettingsOrigin } from "./lib/settingsOrigin";
+import type { RoomSetupChange } from "./setups";
 import { salienceOf } from "./lib/world";
 import { MAX_GODS } from "./rooms";
 
@@ -32,35 +33,41 @@ export const fillCatalog = internalAction({
 });
 
 type SettingsArgs = { roomId: string; revision: number; settings?: Record<string, unknown>; setupId?: string; aiBudget?: number; principal?: Principal };
-async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<{ revision: number }> {
+type SettingsResult = { revision: number; setup?: RoomSetupChange };
+async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<SettingsResult> {
   const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
   if (context.activeGame) fail("CONFLICT", "Settings and seats are frozen during games");
   if (args.revision !== context.room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
   if (args.settings && args.setupId) fail("BAD_REQUEST", "Send settings or a setupId, not both");
-  const previous = context.room.settings as GameSettings, origin = context.room.settingsOrigin as SettingsOrigin | undefined;
-  if (!args.settings && !args.setupId) {
-    return ctx.runMutation(internal.game.lobby.commitSettings, {
-      roomId: context.room._id, principal: args.principal, revision: args.revision, settings: previous, catalog: catalogFor(previous), aiBudget: args.aiBudget,
+  const previous = context.room.settings as GameSettings;
+  const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> =>
+    ctx.runMutation(internal.game.lobby.commitSettings, {
+      roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
+      ...(setup ? { setup } : {}),
     });
+  if (args.setupId) {
+    const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId });
+    return commit(nextSettings(previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
   }
-  const setup: { id: string; settings: GameSettings } | null = args.setupId
-    ? await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId, principal: args.principal }) : null;
-  const settings = nextSettings(previous, { settings: args.settings, setup: setup?.settings });
-  const originSetup: GameSettings | null = !setup && origin?.kind === "setup" && origin.id
-    ? await ctx.runQuery(internal.setups.settingsOf, { setupId: origin.id }) : null;
-  const settingsOrigin = nextSettingsOrigin(origin, { setupId: setup?.id }, settings, originSetup);
-  return ctx.runMutation(internal.game.lobby.commitSettings, {
-    roomId: context.room._id, principal: args.principal, revision: args.revision, settings, settingsOrigin, catalog: catalogFor(settings), aiBudget: args.aiBudget,
-  });
+  if (args.settings) {
+    // The owner's own setup is changed as it is now (it may have been saved since the room took its snapshot).
+    const owned: { settings: GameSettings; updatedAt: number } | null =
+      await ctx.runQuery(internal.setups.ownedBase, { setupId: context.room.setupId, ownerId: context.ownerId });
+    return commit(nextSettings(owned?.settings ?? previous, { settings: args.settings }), { kind: "edit", ...(owned ? { baseUpdatedAt: owned.updatedAt } : {}) });
+  }
+  return commit(previous);
 }
 
 /**
- * Edit the next game's settings and/or the AI budget: a game setup's complete settings (`setupId`), or a change of
- * some fields applied through the settings model (game-core settings-model.ts: only the game's own dependencies move).
+ * Edit the next game's settings and/or the AI budget. The room always runs a game setup: `setupId` applies one (any
+ * setup: they are shared), its complete settings becoming the room's; `settings` changes some fields through the
+ * settings model (game-core settings-model.ts: only the game's own dependencies move) and writes the result to the
+ * room's setup when the owner owns it, else to a new setup of theirs named "<name>'s copy" that the room then runs.
+ * The result's `setup` says which, with a one-sentence `note`.
  */
 export const settings = action({
   args: { roomId: v.string(), revision: v.number(), settings: v.optional(v.any()), setupId: v.optional(v.string()), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, args): Promise<{ revision: number }> => { await bindRuntime(ctx); return updateSettings(ctx, args); },
+  handler: async (ctx, args): Promise<SettingsResult> => { await bindRuntime(ctx); return updateSettings(ctx, args); },
 });
 
 /** AI seats can play only with a configured provider key, or the mock provider in development. */
@@ -88,7 +95,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   }
   if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
   const settings = room.settings as GameSettings;
-  try { validateSettings(settings); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
+  try { validateSettings(settings, SETTINGS_DOMAIN); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertOffered(settings);
   if (!await languageAvailable(settings)) fail("UNAVAILABLE", "The selected isolated runtime is unavailable");
   const dealt = deal(settings, members.length);

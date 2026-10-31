@@ -134,7 +134,9 @@ export const STEP_VERBS = {
   rollback_panel: ["rolled back a panel", "rolling back a panel", "roll back a panel"],
   delete_panel: ["deleted a panel", "deleting a panel", "delete a panel"],
   list_setups: ["listed the game setups", "listing the game setups", "list the game setups"],
+  get_setup: ["read a game setup", "reading a game setup", "read a game setup"],
   save_setup: ["saved a game setup", "saving a game setup", "save a game setup"],
+  duplicate_setup: ["copied a game setup", "copying a game setup", "copy a game setup"],
   delete_setup: ["deleted a game setup", "deleting a game setup", "delete a game setup"],
   get_layout: ["looked at your screen", "looking at your screen", "look at your screen"],
   open_panel: ["showed a panel", "showing a panel", "show a panel"],
@@ -212,7 +214,8 @@ export function confirmSentence(call: CallRow, ctx: { energy?: number; pauseSeco
     case "add_ai": return `Seat the AI player ${quote(args.aiAgentId, 64)} (it spends the room's AI budget)`;
     case "remove_ai": return "Remove an AI player from the room";
     case "delete_setup": return "Delete one of your game setups (rooms keep their settings)";
-    case "update_settings": return typeof args.setupId === "string" ? "Put the next game on one of the game setups" : "Change the next game's setup";
+    case "update_settings": return typeof args.setupId === "string" ? "Put the next game on one of the game setups"
+      : "Change the room's setup (yours is edited; anyone else's is copied as yours first)";
     default: return `Let your assistant ${verbs(call)[2]}`;
   }
 }
