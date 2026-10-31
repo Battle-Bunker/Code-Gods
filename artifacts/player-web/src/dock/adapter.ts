@@ -11,11 +11,13 @@
  * Floating and pop-out groups are not representable in the tree: on the way back they fold in as tab groups on the
  * right of the root. Panels that carry no pane of ours are dropped.
  */
-import type { GroupPanelViewState, GroupviewPanelState, Orientation, SerializedDockview, SerializedGridObject } from "dockview-react";
+import type { GroupviewPanelState, Orientation, SerializedDockview, SerializedGridObject } from "dockview-react";
 import type { DockLayout, Node, Pane } from "@workspace/player-client/layout";
 
 type Size = { width: number; height: number };
 type Direction = "row" | "column";
+/** A group as dockview serialises it (its type is not exported by name). */
+type GroupPanelViewState = SerializedDockview["grid"]["root"] extends SerializedGridObject<infer T> ? T : never;
 type Grid = SerializedGridObject<GroupPanelViewState>;
 
 const ORIENTATION = { row: "HORIZONTAL", column: "VERTICAL" } as const;
