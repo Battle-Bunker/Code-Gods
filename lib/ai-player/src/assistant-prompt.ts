@@ -156,7 +156,7 @@ export function assistantBriefing({ rules, observation, layout }: { rules?: unkn
     const world = num(rec(o.economy).worldSeconds);
     if (ended) {
       lines.push(`The game is over${world === undefined ? "" : ` at world time ${Math.floor(world / 60)}:${String(Math.floor(world % 60)).padStart(2, "0")}`}. What follows is its frozen final state: `
-        + "the objects, your agents, scores and the leaderboard as they were at the end. Every panel and read tool still shows it; nothing can be changed.");
+        + "the objects, your agents, scores and the leaderboard as they were at the end. Every panel and read tool still shows it. No more summons, destroys or pauses; public chat and the player's panels still work.");
     }
     lines.push(
       `Game ${str(o.gameShortCode) ?? ""} — phase: ${str(o.phase)}; language: ${language}; objects: ${str(o.objectCount) ?? "?"}; your ${live}agents: ${agents === undefined ? "?" : `${agents} ${live}agent${agents === 1 ? "" : "s"}`}${ended ? " (at the end)" : ""}.`,

@@ -213,7 +213,7 @@ New: `dock`, `pane-<id>`, `tab-<id>`, `menu-panel`, `button-add-pane`, `button-p
 | `others-care` | What others care about | Where the others' interests lie (from totals only) | `mode: snapshot\|movements`, `quadrant: none\|chips\|conflict\|shared`, `window 10–50` | running, paused, ended |
 | `bits-over-time` | My points over time | Is it getting better or worse for me | `metric: payoff\|mine\|others`, `objects: top\|bottom\|ids`, `ids ≤ 8`, `count 1–8 (5)`, `window s` | running, paused, ended |
 | `race` | Leaderboard race | Who's winning, is anyone catching up | `show: all\|top3\|me-vs-leader`, `metric: total\|gap`, `window s (300)` | running, paused, ended |
-| `agents` | My agents | Your agents, their energy, when each acts next | `agentIds`, `window s (120)`, `showSource`, `showCosts` | planning, running, paused, ended |
+| `agents` | My agents | Your agents, their energy, when each acts next | `agentIds`, `window s (120)`, `showSource`, `showCosts` | running, paused, ended |
 | `feed` | What just changed | Latest changes and what they did to you | `who: all\|mine\|others`, `objectId?`, `minImpact bits`, `limit 5–50 (20)`, `groupBy: none\|object\|mutator` | running, paused, ended |
 | `what-if` | What if… | What a move would do to your score before anyone makes it | `objectId` (required), `calls` (required), `compare?`, `value?` | planning, running, paused, ended |
 | `public-chat` | Public chat | Everything said to everyone; the only public input | `filter: all\|humans\|ai\|mentionsMe`, `highlight: string[] ≤ 5` | all |

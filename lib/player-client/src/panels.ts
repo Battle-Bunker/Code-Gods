@@ -93,7 +93,7 @@ export const PANELS = {
     summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total payoff", `last ${p.window} s`]),
   }),
   agents: def({
-    id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: GAME,
+    id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: WORLD,
     params: z.strictObject({ agentIds: z.array(z.string().min(1).max(128)).max(32).default([]), window: seconds(30, 600, 120), showSource: bool(false), showCosts: bool(false) }),
     summary: p => line([p.agentIds.length ? `${p.agentIds.length} agent${p.agentIds.length === 1 ? "" : "s"}` : "All agents", `last ${p.window} s`, ...when(p.showSource, "with source"), ...when(p.showCosts, "with costs")]),
   }),

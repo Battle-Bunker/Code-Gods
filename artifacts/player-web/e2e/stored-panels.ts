@@ -351,11 +351,15 @@ await check("after the game ends every built-in panel shows the frozen final sta
     python: { Int: "def agent(x):\n    return [add(1)]", string: "def agent(s):\n    return [swap_chars(0, 1)]", Grid: "def agent(grid):\n    return [slide(row(0), 1)]" },
     typescript: { Int: "function agent(x) { return [add(1)]; }", string: "function agent(s) { return [swapChars(0, 1)]; }", Grid: "function agent(grid) { return [slide(row(0), 1)]; }" },
   };
-  const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
-    command: { type: "summon", language: obs.language, source: AGENT[obs.language][obs.instance.objectType] } } }) as { accepted: boolean; message?: string };
-  assert(summon.accepted, `summon: ${summon.message}`);
-  obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
-  await owner("endGame");
+  // The game ends whatever happens here: the checks after this one expect an ended game.
+  try {
+    const source = AGENT[obs.language][obs.instance.objectType];
+    assert(source, `no agent source for ${obs.language} ${obs.instance.objectType}`);
+    const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
+      command: { type: "summon", language: obs.language, source } } }) as { accepted: boolean; message?: string };
+    assert(summon.accepted, `summon: ${summon.message}`);
+    obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
+  } finally { await owner("endGame"); }
   await page.waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 });
   const whatIf = { objectId: obs.objects[0].id, calls: [obs.transformations.find(t => t.calls?.length)!.calls![0]] };
   /** Each panel's own content, as it renders with data (any one selector). */

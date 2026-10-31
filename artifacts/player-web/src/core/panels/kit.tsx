@@ -92,7 +92,7 @@ export function outOfPhase(panelId: PanelId, phase: Phase): string {
     planning: "Planning is on: write your first agent before the world starts.",
     running: "The world is running now.",
     paused: "The world is paused: a good moment to negotiate in public chat.",
-    ended: "This game is over.",
+    ended: "This game is over: see how it went in How the game went.",
   };
   return `${when} ${next[phase]}`;
 }
