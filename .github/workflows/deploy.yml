@@ -37,13 +37,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: actions/cache@v4   # tsc --build incremental state: ~31s cold, ~15s warm
+      # tsc --build incremental state (~31s cold, ~15s warm). Every library's dist goes with its build info: restoring the
+      # info without the output makes tsc report TS6305 ("output file has not been built from source") for every importer.
+      - uses: actions/cache@v4
         with:
           path: |
             lib/*/tsconfig.tsbuildinfo
-            lib/*/dist/tsconfig.tsbuildinfo
-            lib/ai-player/dist
-            lib/player-client/dist
+            lib/*/dist
             artifacts/*/tsconfig.tsbuildinfo
           key: tsbuild-${{ github.sha }}
           restore-keys: tsbuild-
@@ -88,9 +88,7 @@ jobs:
         with:
           path: |
             lib/*/tsconfig.tsbuildinfo
-            lib/*/dist/tsconfig.tsbuildinfo
-            lib/ai-player/dist
-            lib/player-client/dist
+            lib/*/dist
             artifacts/*/tsconfig.tsbuildinfo
           key: tsbuild-${{ github.sha }}
           restore-keys: tsbuild-
