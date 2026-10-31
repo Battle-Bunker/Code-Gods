@@ -88,10 +88,11 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: |
           if npx convex env list --names-only | grep -qx BETTER_AUTH_JWKS; then echo "BETTER_AUTH_JWKS is set"; exit 0; fi
+          # rotateKeys prints the keys as a JSON array (scripts/dev.mjs stores it the same way).
           # The JWKS (compacted to one line) stays in a shell variable and goes to env set on stdin, never to the log;
           # an empty or invalid result stops here, so a broken value is never stored.
           jwks=$(npx convex run auth/betterAuth:rotateKeys \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!j.keys?.length)process.exit(1);process.stdout.write(JSON.stringify(j))})')
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);if(!(Array.isArray(j)?j:j.keys)?.length)process.exit(1);process.stdout.write(JSON.stringify(j))})')
           [ -n "$jwks" ] || { echo "::error::rotateKeys returned no keys"; exit 1; }
           printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS

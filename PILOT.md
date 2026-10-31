@@ -50,7 +50,9 @@ again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
 
 1. **Deploy keys.** In the Convex dashboard, production deployment → Settings → General →
    generate a production deploy key; dev deployment → Settings → generate a dev deploy key. Name both
-   for GitHub Actions.
+   for GitHub Actions, and give them full permissions: the workflow runs internal functions
+   (`rotateKeys`, the runtime upload, the smoke probe), which a restricted key refuses with
+   `deployment:functions:runInternalActions`.
 2. **GitHub Environments** (repository Settings → Environments): `development` with deployment branch
    rule `develop`, and `production` with rule `main` (optionally with required reviewers). Each gets the
    secret `CONVEX_DEPLOY_KEY` (that deployment's key); the key alone selects the deployment.
