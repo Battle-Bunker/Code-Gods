@@ -371,6 +371,25 @@ export function hasTable(...args: Args): boolean {
   return (tableFor as (...a: Args) => CalibrationTable | undefined)(...args) !== undefined;
 }
 
+/**
+ * Every calibration prior with shipped tables: uniform v1 first (always: it is the spawn prior), then each other prior
+ * the manifest holds tables for (`instances[].priors`, keyed by priorKey). A prior is choosable for a room only through
+ * tables, so this is the list the settings' `priorId` choices come from (synergy matrices are keyed by prior too, but
+ * cannot score anything on their own).
+ */
+export function shippedPriors(): PriorRef[] {
+  const out: PriorRef[] = [UNIFORM_PRIOR];
+  for (const entry of Object.values(manifest.instances)) {
+    for (const key of Object.keys(entry.priors ?? {})) {
+      const at = key.lastIndexOf("@");
+      const id = key.slice(0, at), raw = key.slice(at + 1);
+      if (at <= 0 || out.some(p => p.id === id)) continue;
+      out.push(Object.freeze({ id, version: /^\d+$/.test(raw) ? Number(raw) : raw }));
+    }
+  }
+  return out;
+}
+
 /** Instance keys with shipped data, in manifest order. */
 export const shippedInstances = (): string[] => Object.keys(manifest.instances);
 
@@ -428,7 +447,7 @@ export interface OfferOptions {
  *     every canonical params of its support), except the excluded ones, has a fresh shipped table.
  * A partial rule ("enough families") would make the catalog the settings page shows dishonest: it lists every
  * available family as possible, and the selector would silently never deal the uncalibrated ones. Penalty families
- * count even though defence goals are opt-in, so turning `defenceRate` on can never break a room. Stale tables
+ * count even though defence goals are opt-in, so turning `defenceGoals` on can never break a room. Stale tables
  * (key ≠ current code) count as missing. The order is the manifest's (the pipeline's curated order: Int and string
  * presets, then the curated GridTypes with the Grid default first).
  */
