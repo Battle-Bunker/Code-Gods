@@ -171,6 +171,15 @@ function Timeline({ items, notes, empty, footer }: { items: ChatItem[]; notes: N
     if (pinned.current) el.scrollTop = el.scrollHeight;
     else setFresh(true);
   }, [signature]);
+  // The timeline shrinks when the suggestion chips or a confirmation card appear below it: stay at the bottom, or the
+  // end of the latest answer is hidden under them (seen with a narrow assistant pane).
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => { if (pinned.current) el.scrollTop = el.scrollHeight; });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const onScroll = () => {
     const el = scroller.current;
     if (!el) return;

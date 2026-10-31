@@ -73,7 +73,7 @@ test("the briefing puts the player's utility, energy, phase and room-language he
 const layout = {
   layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1", "p3"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
     panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 5 }, setBy: "assistant" }, p3: { id: "p3", kind: "stored-panel", slug: "mine" }, p2: { id: "p2", kind: "assistant" } } },
-  panels: [{ id: "objects", title: "Objects by payoff", phases: ["running"], paramsSchema: { properties: { sortBy: {}, limit: {} } } }, { id: "race", title: "Leaderboard race", phases: ["running", "ended"], paramsSchema: { properties: { show: {} } } }],
+  panels: [{ id: "objects", title: "Objects by payoff", phases: ["running"], paramsSchema: { properties: { sortBy: { type: "string", enum: ["payoff", "mine"] }, limit: { type: "integer" } } } }, { id: "race", title: "Leaderboard race", phases: ["running", "ended"], paramsSchema: { properties: { show: {} } } }],
   storedPanels: [{ slug: "mine", title: "Mine" }],
 };
 
@@ -81,8 +81,11 @@ test("the briefing's PANELS block names the panes, who set them, the catalogue a
   const text = assistantBriefing({ rules: { rules: "# r" }, observation, layout });
   const block = text.slice(text.indexOf("PANELS."), text.indexOf("Room rules:"));
   assert.ok(block.includes('[p1] objects {"limit":5} (set by you)'), block);
-  assert.ok(block.includes("[p3] stored panel mine") && block.includes("[p2] this conversation"));
-  assert.ok(block.includes("objects — Objects by payoff: params sortBy, limit; phases running"));
+  assert.ok(block.includes("[p3] stored panel mine"));
+  // gpt-4.1-mini read "put the chat on the right" as the public-chat panel: the conversation's pane says it is the chat.
+  assert.ok(block.includes("[p2] this conversation (the chat with you; move_pane moves it)"));
+  // Without the values it guessed others-care's mode and quadrant and failed its first open_panel.
+  assert.ok(block.includes("objects — Objects by payoff: params sortBy(payoff|mine), limit; phases running"));
   assert.ok(block.includes("race — Leaderboard race: params show; phases running/ended"));
   assert.ok(block.includes("Stored panels (open_panel {slug}): mine"));
   assert.equal(assistantBriefing({ rules: { rules: "# r" }, observation }).includes("PANELS."), false, "no block when the layout could not be read");

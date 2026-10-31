@@ -922,6 +922,7 @@
       "type": "object",
       "properties": {
         "agentId": {
+          "description": "The agent's id from get_observation (agents[].id); never a command id.",
           "type": "string",
           "minLength": 1,
           "maxLength": 128
