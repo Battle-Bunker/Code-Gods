@@ -2,7 +2,7 @@
 name: Code Gods product intent
 description: Standing product constraints for the game and player environment.
 ---
-Code Gods aims to elicit human technical understanding through political negotiations about executable transformations, despite unrestricted frontier AI assistance. Players use the Replit developer interface and may freely modify their client and analytics with Agent during play.
+Code Gods aims to elicit human technical understanding through political negotiations about executable transformations, despite unrestricted frontier AI assistance. Players use a developer environment of their choice (a local checkout, Codespaces, Gitpod or Replit) and may freely modify their client and analytics with a coding agent during play. Replit is optional, never required.
 
 **Why:** The user wants technical fluency to be causally important to negotiation, not artificial limits on AI assistance.
 
@@ -60,7 +60,7 @@ Private Replit gates can block headless requests before Code Gods authentication
 
 **Why:** A live connection attempt to the former Replit-published server was redirected to Replit's `__replshield`; following that redirect produced misleading header/referrer errors instead of a game API response.
 
-**How to apply:** Inspect redirects without following them when a connection fails, and report a platform gate as such. The engine itself is now on Convex (`*.convex.site`), outside Replit's gates; player apps still run behind Replit's preview proxy.
+**How to apply:** Inspect redirects without following them when a connection fails, and report a platform gate as such. The engine itself is now on Convex (`*.convex.site`), outside Replit's gates; a player app may still run behind a dev container's preview proxy (e.g. Replit's).
 
 Use full names from verified Replit identities to label human players, not just first names.
 

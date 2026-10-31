@@ -8,7 +8,7 @@
  *        [--permission act] [--out DIR] [--settings '{"objectType":"Int"}']
  *
  * Prints JSON {roomId, shortCode, players: [{identity, session, envFile}]}. Each env file holds
- * CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL (mode 0600), standing in for that app's Replit Secrets.
+ * CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL (mode 0600), standing in for that app's secret store.
  * Ports follow the CG_TEST_* variables of test/helpers.ts (defaults: the dev.mjs ports 3210/3211/3399).
  */
 import { mkdirSync, writeFileSync } from "node:fs";

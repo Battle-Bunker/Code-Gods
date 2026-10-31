@@ -25,7 +25,7 @@ function Authenticated({ conn }: { conn: Connection }) {
   const useAuth = useMemo(() => makeUseAuth(conn), [conn]);
   return (
     <ConvexProviderWithAuth client={client} useAuth={useAuth}>
-      {conn.mode === "app" ? <AppMode conn={conn} /> : <Hosted />}
+      {conn.mode === "devserver" ? <DevServerMode conn={conn} /> : <Hosted />}
     </ConvexProviderWithAuth>
   );
 }
@@ -34,9 +34,9 @@ function Authenticated({ conn }: { conn: Connection }) {
 function makeUseAuth(conn: Connection) {
   return function useAuth() {
     const [state, setState] = useState<{ isLoading: boolean; isAuthenticated: boolean }>(
-      conn.mode === "app" ? { isLoading: false, isAuthenticated: true } : { isLoading: true, isAuthenticated: false });
+      conn.mode === "devserver" ? { isLoading: false, isAuthenticated: true } : { isLoading: true, isAuthenticated: false });
     useEffect(() => {
-      if (conn.mode === "app") { setState({ isLoading: false, isAuthenticated: true }); return; }
+      if (conn.mode === "devserver") { setState({ isLoading: false, isAuthenticated: true }); return; }
       fetch("/api/auth/user", { cache: "no-store" }).then(r => r.json()).then(
         (b: { user: unknown }) => setState({ isLoading: false, isAuthenticated: !!b.user }),
         () => setState({ isLoading: false, isAuthenticated: false }));
@@ -46,12 +46,12 @@ function makeUseAuth(conn: Connection) {
   };
 }
 
-/** App mode: the credential's room, once Convex holds a token (no query may run unauthenticated). */
-function AppMode({ conn }: { conn: Connection }) {
+/** Dev-server mode: the credential's room, once Convex holds a token (no query may run unauthenticated). */
+function DevServerMode({ conn }: { conn: Connection }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   if (isLoading) return <Screen title="Connecting…" testId="status-connecting" />;
   if (!isAuthenticated) return <Screen title="The engine refused this player app" testId="text-connection-error"><AppHelp /></Screen>;
-  return <Play roomId={conn.roomId!} permission={conn.permission ?? "act"} mode="app" />;
+  return <Play roomId={conn.roomId!} permission={conn.permission ?? "act"} mode="devserver" />;
 }
 
 /** Hosted mode: sign in on the engine site, then join the room named in ?room=. */
@@ -96,13 +96,13 @@ function Hosted() {
   return <Play roomId={room.id} permission="act" mode="hosted" />;
 }
 
-function Play({ roomId, permission, mode }: { roomId: string; permission: "read" | "act" | "owner"; mode: "app" | "hosted" }) {
+function Play({ roomId, permission, mode }: { roomId: string; permission: "read" | "act" | "owner"; mode: "devserver" | "hosted" }) {
   const room = useMemo(() => ({ roomId, permission, mode }), [roomId, permission, mode]);
   return (
     <RoomProvider room={room}>
       <Dock>
         <CoreBoundary>
-          <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "app" ? "your player app" : "hosted client"}</span>} />
+          <Console header={<span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>} />
         </CoreBoundary>
       </Dock>
     </RoomProvider>
@@ -123,7 +123,7 @@ function Screen({ title, children, testId }: { title: string; children?: ReactNo
 function AppHelp() {
   return (
     <div className="text-sm space-y-2 text-muted-foreground">
-      <p>In your own Replit player app: set the Secret <code>CODE_GODS_ENGINE_URL</code> to the engine site, run <code>pnpm player connect --room CODE</code>, approve the code on the engine, store the printed <code>CODE_GODS_CREDENTIAL</code> Secret and restart the Player workflow.</p>
+      <p>In your own player app: set <code>CODE_GODS_ENGINE_URL</code> to the engine site (in your environment's secret store or <code>.env.local</code>), run <code>pnpm player connect --room CODE</code>, approve the code on the engine, store the printed <code>CODE_GODS_CREDENTIAL</code> the same way and restart the dev server (<code>pnpm --filter @workspace/player-web dev</code>).</p>
       <p>Check with <code>pnpm player status</code>.</p>
     </div>
   );

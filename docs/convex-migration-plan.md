@@ -2,8 +2,9 @@
 
 Branch `claude/convex-migration`. This plan moves Code Gods' authoritative engine, persistence, auth and
 static hosting onto **one Convex deployment** and deletes PostgreSQL and the Express server. It also
-specifies how each player's duplicated Replit app becomes a distinct, live-moddable game client of
-that one engine, with the player's Replit Agent acting as their room assistant.
+specifies how each player's own copy of the repository (run in any dev environment; Replit is one
+option) becomes a distinct, live-moddable game client of that one engine, with the player's coding
+agent acting as their room assistant.
 
 The plan comes first. Sections marked **Measured** are filled in from local runs as the work lands
 (see §11). Sources for Convex behaviour are cited inline. I checked each one on 2026-10-28 and did
@@ -16,7 +17,7 @@ not rely on memory.
 | Persist in Replit's built-in PostgreSQL | **Convex is the only store.** No PostgreSQL, drizzle, `DATABASE_URL` or PG queue | The user decided to migrate to Convex ("eliminating use of postgres") |
 | Deploy on Replit Autoscale, max one instance; Replit Publish | **Convex hosts everything**: functions, data, file storage, static frontends | "Convex should host the static engine frontend and the default client frontend with no need for any separate server" |
 | Queue DB writes asynchronously with bounded batching | Replaced by **batched engine ticks**: one commit mutation per tick (§3) | The same goal (no write per interaction) in Convex's transactional model |
-| Room credentials last 15 minutes, held only in daemon memory, never persisted | A player app holds a **revocable, scoped, expiring room credential in Replit Secrets** and exchanges it for 10-minute JWTs (§5) | The user asked for onboarding that "stores the scoped credential in Replit Secrets". The credential is room-bound, permission-bound, revocable from the engine UI, and expires after 7 days by default |
+| Room credentials last 15 minutes, held only in daemon memory, never persisted | A player app holds a **revocable, scoped, expiring room credential in its environment's secret store** (e.g. Replit Secrets) and exchanges it for 10-minute JWTs (§5) | The user asked for onboarding that "stores the scoped credential in Replit Secrets". The credential is room-bound, permission-bound, revocable from the engine UI, and expires after 7 days by default |
 | Close connections after 30 minutes without human activity | Kept, as **tick-loop parking**: no ticks are scheduled after 30 minutes without human activity, and the game enters `recovery` with auto-resume | Convex bills function time; a parked loop costs nothing |
 
 All other product rules still hold: aggregate-only disclosure of opponents' utilities, public chat
@@ -33,11 +34,11 @@ summon pricing, two energy accounts, the 2-bit floor and information scoring.
                    │ https://<dep>.convex.site/api/*     HTTP actions: OIDC login, device  │
                    │                                     flow, JWKS, token exchange        │
  Player app #1 ────┤ wss://<dep>.convex.cloud            queries / mutations / actions     │
- (Replit dev,      │   reactive queries (disclosure-filtered projections)                  │
+ (any dev env,     │   reactive queries (disclosure-filtered projections)                  │
   Vite + HMR) ─────┤   mutations (commands, lobby, owner actions, chat)                    │
  Player app #2 ────┤   engine: tick action ("use node", sandboxes) → commit mutation       │
  Player app #3 ────┤   AI seats: scheduled actions per seat (provider keys in env vars)    │
- Replit Agents ────┤   crons: watchdog, idle parking, credential/session expiry GC          │
+ Coding agents ────┤   crons: watchdog, idle parking, credential/session expiry GC          │
  (assistant CLI)   │   file storage: CPython WASI bundle, static assets                    │
                    └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -308,23 +309,25 @@ app.use(staticHosting, { name: "playerSite" });   // default player client at /p
 The "app-owned root routing" mode keeps `/api/*` (OIDC callback, device flow, JWKS) at stable root
 URLs. Uploads use the component's CLI (`upload --component engineSite|playerSite --dist …`), wrapped
 by `pnpm engine:deploy`. The player client is built with `base: "/player/"`. The same build serves
-the Replit-app dev mode with base `/`.
+the player-app dev mode (the `"devserver"` connection mode) with base `/`.
 
-## 8. Many Replit apps, one engine
+## 8. Many player apps, one engine
 
 ### 8.1 Onboarding a player app
 
-1. Duplicate the repository as your own Replit app.
-2. Set the Secret `CODE_GODS_ENGINE_URL` = `https://<dep>.convex.cloud` (the engine page shows it).
+1. Run your own copy of the repository in any dev environment (a local checkout, Codespaces, Gitpod or
+   Replit).
+2. Set `CODE_GODS_ENGINE_URL` = `https://<dep>.convex.site` (the engine page shows it) in the
+   environment's secret store or a gitignored `.env.local`.
 3. Run `pnpm player connect --room <CODE> [--permission act|owner]`. Approve the code on the engine
-   site while signed in with Replit, then save the printed credential as Secret `CODE_GODS_CREDENTIAL`.
-4. Run the **Player** workflow (`pnpm --filter @workspace/player-web dev`). The Vite dev server
-   with HMR serves the client in the Replit preview.
+   site while signed in, then store the printed credential as `CODE_GODS_CREDENTIAL` the same way.
+4. Run `pnpm --filter @workspace/player-web dev` (on Replit, the **Player** workflow). The Vite dev
+   server with HMR serves the client; open it with the private launch link it prints.
 
 No engine code, database or provider keys run in a player app, and its modifications affect only
 that app.
 
-### 8.2 The Replit Agent as the room assistant
+### 8.2 The player's coding agent as the room assistant
 
 `pnpm player assistant <command>` (`lib/player-client`) uses the same credential through
 `ConvexHttpClient`. It keeps every capability Replit implemented on main: `status`, `observation`,
@@ -443,7 +446,7 @@ paused. The test provider `mock` is enabled only when the env var `CODE_GODS_AI_
   receipts and idempotency, AI budgets with the mock provider.
 - **Multi-client E2E (Playwright):** the engine plus **three player-web dev servers on different
   ports**, each with its own identity, credential and panels directory (separate checkouts of
-  `artifacts/player-web` to simulate separate Replit apps). Humans are driven by Playwright, plus one
+  `artifacts/player-web` to simulate separate player apps). Humans are driven by Playwright, plus one
   mock AI seat. Full games on Int, string and Grid.
 - **HMR test:** during a running game, write `panels/test-live.tsx` into client A. Assert it appears
   without a navigation (the `performance.navigation` count and a sentinel `window.__cgBoot` value are

@@ -265,7 +265,7 @@ async function disconnect(engine: Engine, env: NodeJS.ProcessEnv) {
     updateEnvFile(envFile, { [CREDENTIAL_VAR]: undefined });
     out.forgotten = `Removed ${CREDENTIAL_VAR} from ${envFile}.`;
   } else if (source.credential === "env") {
-    out.forgotten = `Delete the Replit Secret ${CREDENTIAL_VAR} (this process cannot remove Secrets); the engine already refuses it.`;
+    out.forgotten = `Delete ${CREDENTIAL_VAR} from your environment's secret store (this process cannot remove it); the engine already refuses it.`;
   }
   return out;
 }
