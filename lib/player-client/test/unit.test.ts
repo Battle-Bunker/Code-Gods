@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { VERSION, commandSchema, observationSchema, ownerActionSchema } from "../src/protocol.ts";
 import { PlayerClient } from "../src/client.ts";
-import { Engine, EngineError, TOKEN_PATH, isSameOriginRequest, loadConfig, normalizeEngineUrl, parseEnvFile, redact, tokenHandler } from "../src/engine.ts";
+import { Engine, EngineError, TOKEN_PATH, devServerHosts, isSameOriginRequest, loadConfig, normalizeEngineUrl, parseEnvFile, redact, tokenHandler } from "../src/engine.ts";
 import { updateEnvFile } from "../src/connect.ts";
 
 const CREDENTIAL = "cgc_" + "A".repeat(43);
@@ -74,8 +74,27 @@ test("same-origin check: Sec-Fetch-Site and Origin against Host", () => {
     assert.equal(isSameOriginRequest(req({ ...host, ...bad })), false, JSON.stringify(bad));
   }
   assert.equal(isSameOriginRequest(req({ "sec-fetch-site": "same-origin" })), false, "no Host");
-  assert.equal(isSameOriginRequest(req({ host: "rebind.evil:5173", "sec-fetch-site": "same-origin" }), ["app.example", ".replit.dev"]), false);
-  assert.equal(isSameOriginRequest(req({ host: "x.y.replit.dev", "sec-fetch-site": "same-origin" }), ["app.example", ".replit.dev"]), true);
+  assert.equal(isSameOriginRequest(req({ host: "rebind.evil:5173", "sec-fetch-site": "same-origin" }), ["app.example", ".dev.example"]), false);
+  assert.equal(isSameOriginRequest(req({ host: "x.y.dev.example", "sec-fetch-site": "same-origin" }), ["app.example", ".dev.example"]), true);
+});
+
+test("dev-server hosts: loopback only by default; dev containers and explicit settings add hosts and set the launch origin", () => {
+  const loopback = ["localhost", "127.0.0.1", "::1"];
+  // No dev container: nothing but loopback is trusted, and the launch link is local.
+  assert.deepEqual(devServerHosts({}, 22772), { allowedHosts: loopback, publicOrigin: "http://localhost:22772" });
+  assert.equal(devServerHosts({}, 22772).allowedHosts.includes(".replit.dev"), false, "Replit hosts only inside Replit");
+  // Replit: its dev domain is the origin; its preview hosts are allowed.
+  assert.deepEqual(devServerHosts({ REPLIT_DEV_DOMAIN: "abc-1.picard.replit.dev" }, 22772),
+    { allowedHosts: [...loopback, ".replit.dev", ".repl.co"], publicOrigin: "https://abc-1.picard.replit.dev" });
+  // GitHub Codespaces: the forwarded host for this port, exactly.
+  assert.deepEqual(devServerHosts({ CODESPACE_NAME: "fuzzy-train", GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: "app.github.dev" }, 5173),
+    { allowedHosts: [...loopback, "fuzzy-train-5173.app.github.dev"], publicOrigin: "https://fuzzy-train-5173.app.github.dev" });
+  // Gitpod: the port is a prefix of the workspace host.
+  assert.deepEqual(devServerHosts({ GITPOD_WORKSPACE_URL: "https://me-repo-x1.ws-eu110.gitpod.io" }, 5173),
+    { allowedHosts: [...loopback, "5173-me-repo-x1.ws-eu110.gitpod.io"], publicOrigin: "https://5173-me-repo-x1.ws-eu110.gitpod.io" });
+  // Explicit settings win for the origin, and its host is allowed along with CODE_GODS_ALLOWED_HOSTS.
+  assert.deepEqual(devServerHosts({ CODE_GODS_PUBLIC_ORIGIN: "https://play.example.org/", CODE_GODS_ALLOWED_HOSTS: " .tunnel.example , box.lan,", REPLIT_DEV_DOMAIN: "abc.replit.dev" }, 22772),
+    { allowedHosts: [...loopback, ".tunnel.example", "box.lan", ".replit.dev", ".repl.co", "play.example.org"], publicOrigin: "https://play.example.org" });
 });
 
 /** A fake engine site for the token middleware: config + credential exchange (counted). */

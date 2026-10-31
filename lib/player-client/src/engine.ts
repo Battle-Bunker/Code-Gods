@@ -1,10 +1,11 @@
 /**
- * Node-side connection from a player app (or its Replit Agent) to the Code Gods engine.
+ * Node-side connection from a player app (or its coding agent) to the Code Gods engine.
  *
- * Configuration lives in two Replit Secrets:
+ * Configuration lives in two environment variables (your environment's secret store, e.g. Replit Secrets or
+ * Codespaces secrets):
  *   CODE_GODS_ENGINE_URL   the engine's website (site) URL; `GET /api/config` gives the Convex client URL
  *   CODE_GODS_CREDENTIAL   a scoped, revocable room credential (`cgc_…`, 7 days) from `pnpm player connect`
- * For local tests a gitignored `.env.local` (or the file named by CODE_GODS_ENV_FILE) is read as a fallback.
+ * A gitignored `.env.local` (or the file named by CODE_GODS_ENV_FILE) is read as a fallback.
  *
  * Every call exchanges the credential for a 10-minute player JWT (`POST /api/device/token`), cached and
  * refreshed about a minute before expiry, and uses the Convex client with the engine's generated `api`.
@@ -106,7 +107,7 @@ export interface LoadConfigOptions {
   credential?: string;
 }
 
-/** Reads the engine URL and credential: explicit options, then the environment (Replit Secrets), then the env file. */
+/** Reads the engine URL and credential: explicit options, then the environment (secret store), then the env file. */
 export function loadConfig(options: LoadConfigOptions = {}): EngineConfig {
   const env = options.env ?? process.env;
   const file = options.envFile === false ? undefined : (options.envFile ?? envFilePath(env));
@@ -121,7 +122,7 @@ export function loadConfig(options: LoadConfigOptions = {}): EngineConfig {
   const engineUrl = pick(options.engineUrl, ENGINE_URL_VAR), credential = pick(options.credential, CREDENTIAL_VAR);
   if (!engineUrl || !credential) {
     const missing = [!engineUrl && ENGINE_URL_VAR, !credential && CREDENTIAL_VAR].filter(Boolean).join(" and ");
-    throw new EngineError("NOT_CONFIGURED", `Not connected: set the Replit Secret${missing.includes(" and ") ? "s" : ""} ${missing}. Run \`pnpm player connect --engine URL --room CODE\` to get a credential.`);
+    throw new EngineError("NOT_CONFIGURED", `Not connected: set ${missing} (in your environment's secret store or .env.local). Run \`pnpm player connect --engine URL --room CODE\` to get a credential.`);
   }
   if (!CREDENTIAL_PATTERN.test(credential.value.trim())) throw new EngineError("INVALID_CONFIG", `${CREDENTIAL_VAR} is not a Code Gods room credential (cgc_…)`);
   const usedFile = engineUrl.from === "file" || credential.from === "file";
@@ -305,7 +306,7 @@ export class Engine {
   }
 }
 
-/** An Engine from explicit options, the Replit Secrets or the local env file. */
+/** An Engine from explicit options, the environment or the local env file. */
 export function createEngine(options: LoadConfigOptions & EngineOptions = {}): Engine {
   return new Engine(loadConfig(options), options);
 }
@@ -318,7 +319,7 @@ export function createEngine(options: LoadConfigOptions & EngineOptions = {}): E
 export interface BrowserToken { token: string; expiresAt: number; convexUrl: string; roomId: string; permission: Permission }
 
 export interface TokenHandlerOptions {
-  /** The engine to use (or a factory). Default: createEngine() on first request, so the app starts without Secrets. */
+  /** The engine to use (or a factory). Default: createEngine() on first request, so the app starts unconfigured. */
   engine?: Engine | (() => Engine);
   /** If set, the request's Host (without port) must be one of these; a leading "." matches subdomains. Guards against DNS rebinding. */
   allowedHosts?: string[];
@@ -383,7 +384,7 @@ export function tokenHandler(options: TokenHandlerOptions = {}) {
       res.setHeader("Cache-Control", "no-store");
       res.setHeader("Referrer-Policy", "no-referrer");
       if (!sameSecret(url.searchParams.get("key") ?? "", launchKey)) { res.statusCode = 403; res.end("Wrong or old launch link: copy the current one from the dev server's console."); return; }
-      // Over https (the Replit preview is an iframe) the cookie must be SameSite=None; Secure; Partitioned.
+      // Over https (dev-container previews, e.g. Replit's, are iframes) the cookie must be SameSite=None; Secure; Partitioned.
       const https = header(req, "x-forwarded-proto") === "https" || (req.socket as { encrypted?: boolean }).encrypted;
       res.setHeader("Set-Cookie", `${sessionCookie}=${session}; Path=/; HttpOnly; ${https ? "SameSite=None; Secure; Partitioned" : "SameSite=Lax"}`);
       res.statusCode = 302; res.setHeader("Location", "/"); res.end(); return;
@@ -420,7 +421,46 @@ export function tokenHandler(options: TokenHandlerOptions = {}) {
       }
     })();
   };
-  /** The launch link for a site origin, e.g. `https://my-repl.replit.dev` → `…/__codegods/launch?key=…`. */
+  /** The launch link for a site origin, e.g. `http://localhost:22772` → `…/__codegods/launch?key=…`. */
   const launchUrl = (origin: string) => `${origin.replace(/\/$/, "")}${LAUNCH_PATH}?key=${encodeURIComponent(launchKey)}`;
   return Object.assign(handler, { launchUrl });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Dev-server hosts
+// ---------------------------------------------------------------------------------------------
+
+/** Where a player app's dev server is reached: the hosts its token endpoint trusts, and its launch-link origin. */
+export interface DevServerHosts { allowedHosts: string[]; publicOrigin: string }
+
+/**
+ * The dev-server host model, from the environment. Loopback is always allowed; add hosts with
+ * CODE_GODS_ALLOWED_HOSTS (comma-separated; a leading "." matches subdomains). Dev containers are detected:
+ * Replit (REPLIT_DEV_DOMAIN), GitHub Codespaces (CODESPACE_NAME + GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN)
+ * and Gitpod (GITPOD_WORKSPACE_URL). The launch origin is CODE_GODS_PUBLIC_ORIGIN (its host is allowed too),
+ * else the detected container's URL for this port, else `http://localhost:<port>`.
+ */
+export function devServerHosts(env: Record<string, string | undefined>, port: number): DevServerHosts {
+  const hosts = ["localhost", "127.0.0.1", "::1",
+    ...(env.CODE_GODS_ALLOWED_HOSTS ?? "").split(",").map(h => h.trim().toLowerCase()).filter(Boolean)];
+  let detected: string | undefined;
+  if (env.REPLIT_DEV_DOMAIN) {
+    hosts.push(".replit.dev", ".repl.co");
+    detected = `https://${env.REPLIT_DEV_DOMAIN}`;
+  } else if (env.CODESPACE_NAME && env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN) {
+    const host = `${env.CODESPACE_NAME}-${port}.${env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`;
+    hosts.push(host);
+    detected = `https://${host}`;
+  } else if (env.GITPOD_WORKSPACE_URL) {
+    const host = `${port}-${new URL(env.GITPOD_WORKSPACE_URL).hostname}`;
+    hosts.push(host);
+    detected = `https://${host}`;
+  }
+  let publicOrigin = detected ?? `http://localhost:${port}`;
+  if (env.CODE_GODS_PUBLIC_ORIGIN) {
+    const url = new URL(env.CODE_GODS_PUBLIC_ORIGIN);
+    publicOrigin = url.origin;
+    hosts.push(url.hostname.replace(/^\[|\]$/g, ""));
+  }
+  return { allowedHosts: [...new Set(hosts)], publicOrigin };
 }

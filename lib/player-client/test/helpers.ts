@@ -56,7 +56,7 @@ export async function signIn(identity: "alice" | "bob" | "carol"): Promise<Brows
 
 export interface Run { status: number | null; stdout: string; stderr: string; json: any }
 
-/** Runs the player CLI with a clean environment (only the given Secrets / env file), optional stdin. */
+/** Runs the player CLI with a clean environment (only the given secrets / env file), optional stdin. */
 export function cli(args: string[], options: { env?: Record<string, string>; input?: string; onStderr?: (text: string) => void } = {}): Promise<Run> {
   const env: Record<string, string> = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", ...options.env };
   const child = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", "--experimental-transform-types", CLI, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });

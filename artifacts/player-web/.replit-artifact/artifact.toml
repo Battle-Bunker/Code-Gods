@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/player/"
 title = "Code Gods · Player"
-description = "Customizable player client for Code Gods: connects to the Convex engine with a room credential held in Replit Secrets."
+description = "Customizable player client for Code Gods: connects to the Convex engine with a room credential held in the environment's secrets (on Replit: Replit Secrets)."
 version = "1.0.0"
 id = "artifacts/player-web"
 router = "path"

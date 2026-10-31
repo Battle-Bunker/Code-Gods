@@ -300,7 +300,7 @@ export function OwnerSettings({ room, act, defaults, options, optionsFailed = fa
         <p className="text-xs text-muted-foreground">Per-game allowance shared by all AI seats; resets when a new game starts. Pending and unconfirmed reservations also reduce available allowance. Separate dollar safety limits still apply.</p>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={confirmBudget} onChange={(e) => setConfirmBudget(e.target.checked)} className="mt-0.5 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
-          I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI)—not Replit credits.
+          I approve AI seats in this room using up to {budgetOk ? fmt(b) : "?"} tokens, billed directly to the server owner's provider accounts (e.g. Anthropic, OpenAI).
         </label>
         <button disabled={!budgetOk || !confirmBudget || act.pending} onClick={() => act.run("budget", () => approveBudget({ roomId: room.id, aiBudget: b }), () => setConfirmBudget(false))} className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve and save budget</button>
       </div>
@@ -347,7 +347,7 @@ export function History({ games, loading, error }: { games?: GameRecord[]; loadi
 }
 
 /**
- * "Your player apps": how to connect a Replit player app to this room, the caller's credentials
+ * "Your player apps": how to connect your own player app to this room, the caller's credentials
  * (auth/credentials:list, revocable at once) and the hosted default player client.
  */
 export function PlayerApps({ room }: { room: RoomState }) {
@@ -371,11 +371,11 @@ export function PlayerApps({ room }: { room: RoomState }) {
   return (
     <Panel title="Your player apps" meta={creds.data ? `${here.length} connected` : undefined}>
       <div className="p-4 space-y-3 text-sm" data-testid="panel-player-apps">
-        <p>Connect your own Replit player app to room <b className="font-mono">{room.shortCode}</b>:</p>
+        <p>Connect your own player app to room <b className="font-mono">{room.shortCode}</b>:</p>
         <ol className="list-decimal pl-5 space-y-2">
-          <li>In your app, set the Secret <code className="font-mono text-xs">CODE_GODS_ENGINE_URL</code> to <code className="font-mono text-xs break-all" data-testid="text-engine-url">{origin}</code></li>
+          <li>In your app's environment (its secret store or <code className="font-mono text-xs">.env.local</code>), set <code className="font-mono text-xs">CODE_GODS_ENGINE_URL</code> to <code className="font-mono text-xs break-all" data-testid="text-engine-url">{origin}</code></li>
           <li>Run <code className="font-mono text-xs break-all bg-muted px-1" data-testid="text-connect-command">pnpm player connect --room {room.shortCode}</code></li>
-          <li>Approve the code it prints on this site's <Link href="/device" className="underline" data-testid="link-device">device approval page</Link>, then save the credential it prints as the Secret <code className="font-mono text-xs">CODE_GODS_CREDENTIAL</code>.</li>
+          <li>Approve the code it prints on this site's <Link href="/device" className="underline" data-testid="link-device">device approval page</Link>, then save the credential it prints as <code className="font-mono text-xs">CODE_GODS_CREDENTIAL</code>.</li>
         </ol>
         <a href={`/player/?room=${encodeURIComponent(room.shortCode)}`} target="_blank" rel="noreferrer" className="border py-2 text-sm flex items-center justify-center gap-2 hover:bg-muted" data-testid="link-player"><ExternalLink className="h-4 w-4" /> Open the hosted player client</a>
       </div>

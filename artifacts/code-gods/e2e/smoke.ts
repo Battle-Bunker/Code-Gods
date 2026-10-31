@@ -200,7 +200,7 @@ try {
       await c.locator('[data-testid^="row-chat-"]', { hasText: `Bob says hello (${name})` }).waitFor();
     });
 
-    await check(`${name}: "Your player apps" explains connecting a Replit app and links the hosted client`, async () => {
+    await check(`${name}: "Your player apps" explains connecting your own player app and links the hosted client`, async () => {
       const panel = a.getByTestId("panel-player-apps");
       await panel.waitFor();
       assert.equal(await a.getByTestId("text-engine-url").innerText(), SITE);

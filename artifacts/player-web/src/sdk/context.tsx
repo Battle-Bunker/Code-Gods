@@ -9,8 +9,8 @@ export type PlayerRoom = {
   roomId: string;
   /** "read" credentials can observe but not act; "owner" can also run owner actions in the room. */
   permission: "read" | "act" | "owner";
-  /** "app": a player's own Replit app; "hosted": the default client on the engine site. */
-  mode: "app" | "hosted";
+  /** "devserver": a player's own app (its Vite dev server holds the credential); "hosted": the default client on the engine site. */
+  mode: "devserver" | "hosted";
 };
 
 const RoomContext = createContext<PlayerRoom | null>(null);
