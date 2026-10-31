@@ -258,6 +258,8 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   const t = await until(bob, sent, DONE, "Bob's turn ends");
   assert.equal(t.turn.status, "budget_exhausted");
   assert.match(t.turn.error.message, /allowance/i);
+  // Not "used up" while tokens remain: how many are left, what the next step may need, and who can raise it.
+  assert.match(t.turn.error.message, /^Your assistant allowance for this game is too low for another step: [\d,]+ of [\d,]+ tokens used \([\d,]+ left\), and the next step may need up to [\d,]+\. The room owner can raise it\.$/);
   assert.deepEqual(t.calls.map((c: any) => c.status), ["ok"], "the first step ran");
   assert.ok(!finalText(t).includes("never"));
   assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed, "Ann's allowance is untouched");

@@ -130,7 +130,8 @@ async function reserveAssistant(ctx: MutationCtx, roomId: Id<"rooms">, subject: 
     return { ok: false, reason: "allowance", message: `The room's assistant allowance (${limit} tokens per player per game) is smaller than one step may need (${tokens}); ask the owner to raise it.` };
   }
   if (used + tokens > limit) {
-    return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is used up: ${used} of ${limit} tokens used, and the next step may need up to ${tokens}.` };
+    const n = (x: number) => Math.max(0, x).toLocaleString("en");
+    return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is too low for another step: ${n(used)} of ${n(limit)} tokens used (${n(limit - used)} left), and the next step may need up to ${n(tokens)}. The room owner can raise it.` };
   }
   const shared = await poolRow(ctx, roomId, ROOM_POOL, epoch);
   if ((shared?.reservedUsd ?? 0) + usd > ASSISTANT_GAME_USD + 1e-12) {
