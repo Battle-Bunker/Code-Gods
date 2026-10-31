@@ -24,4 +24,27 @@ export const calibrationTables = {
     entry: v.string(),
     uploadedAt: v.number(),
   }).index("by_instance", ["instance"]),
+  /**
+   * Tables computed on demand (convex/calibration/compute.ts, engine/calibration.ts resolveTables): one row per table
+   * key, doubling as the job record. The table JSON is written in the same mutation that marks the row ready, so a
+   * reader never sees a half-written table. Analytic tables are never stored (recomputing them is cheaper).
+   */
+  calibrationComputed: defineTable({
+    /** game-utilities tableKey: family, canonical params, instantiation, card, prelude, estimator, prior. Unique. */
+    key: v.string(),
+    instance: v.string(),
+    family: v.string(),
+    paramsKey: v.string(),
+    prior: v.string(),
+    status: v.union(v.literal("computing"), v.literal("ready"), v.literal("failed")),
+    /** CalibrationTable JSON (status ready). */
+    table: v.optional(v.string()),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    attempts: v.number(),
+    error: v.optional(v.string()),
+    /** Build time of the last attempt (ms), for the latency record. */
+    buildMs: v.optional(v.number()),
+    lastUsedAt: v.number(),
+  }).index("by_key", ["key"]).index("by_instance", ["instance"]).index("by_status", ["status"]),
 };
