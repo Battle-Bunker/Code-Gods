@@ -113,7 +113,7 @@ export const ownerActionSchema = z.object({
   requestId: z.string().uuid(),
   revision: z.number().int().nonnegative().optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
-  preset: z.string().max(128).optional(),
+  setupId: z.string().max(128).optional(),
   aiBudget: z.number().int().min(0).max(1000000).optional(),
   aiAgentId: z.string().max(128).optional(),
   deityId: z.string().max(128).optional(),

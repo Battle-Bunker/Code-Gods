@@ -39,7 +39,8 @@ export type PaletteState = {
   storedPanels: readonly { slug: string; title: string; enabled: boolean; currentVersion: number }[];
   filePanels: readonly string[];
   safeMode: boolean;
-  presets: readonly PickOption[];
+  /** The game setups the owner can put the next game on (setups.list). */
+  setups: readonly PickOption[];
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
   gridRenderer: GridRendererId;
@@ -55,7 +56,7 @@ export type PaletteActions = {
   copyObservation(): void;
   owner: {
     start(): Promise<unknown>; resume(): Promise<unknown>; endGame(): Promise<unknown>;
-    addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; preset(presetId: string): Promise<unknown>;
+    addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; setup(setupId: string): Promise<unknown>;
     aiCatalog(): Promise<readonly PickOption[]>;
   };
   panels: { open(slug: string): void; openFile(id: string): void; setEnabled(slug: string, enabled: boolean): Promise<unknown>; remove(slug: string): Promise<unknown>; rollback(slug: string): Promise<unknown> };
@@ -143,7 +144,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
         { id: "two-panels", label: "Two panels and the assistant" }, { id: "reset", label: "Reset layout" },
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
-    "owner.settings": { performer: pick("Next game's setup", () => s.presets, id => a.owner.preset(id)), available: () => betweenGames(s) },
+    "owner.settings": { performer: pick("Next game's setup", () => s.setups, id => a.owner.setup(id)), available: () => betweenGames(s) },
     "owner.start": { performer: submit(() => a.owner.start()), available: () => betweenGames(s) },
     "panels.list": { performer: pick("Open one of your panels", storedOptions(p => p.enabled, p => p.title), slug => a.panels.open(slug)) },
     "panels.code": {

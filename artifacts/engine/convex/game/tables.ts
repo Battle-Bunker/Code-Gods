@@ -10,8 +10,11 @@ import { v } from "convex/values";
  */
 const kind = v.union(v.literal("human"), v.literal("ai"));
 const phase = v.union(v.literal("planning"), v.literal("running"), v.literal("paused"), v.literal("recovery"), v.literal("ended"));
-/** Where settings came from: a preset (and whether they still match it) or a custom configuration (lib/settingsOrigin.ts). */
-export const settingsOriginV = v.object({ kind: v.union(v.literal("preset"), v.literal("custom")), id: v.optional(v.string()), modified: v.boolean() });
+/**
+ * Where settings came from: a game setup (and whether they still match it) or a custom configuration
+ * (lib/settingsOrigin.ts). "preset" is only on rooms and games stored before setups replaced presets.
+ */
+export const settingsOriginV = v.object({ kind: v.union(v.literal("setup"), v.literal("custom"), v.literal("preset")), id: v.optional(v.string()), modified: v.boolean() });
 const wire = v.union(v.number(), v.string());
 const ordinal = v.union(v.number(), v.array(v.number()));
 /** One god's private score of one object (game-utilities GodScore plus the god id). */
@@ -53,7 +56,7 @@ export const gameTables = {
     /** Settings revision for optimistic concurrency; `seq` counts every room change (observation revision). */
     revision: v.number(), seq: v.number(),
     settings: v.any(),
-    /** Absent on rooms created before presets were recorded (treated as custom). */
+    /** Absent on rooms created before origins were recorded (treated as custom). */
     settingsOrigin: v.optional(settingsOriginV),
     aiBudget: v.number(), aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
@@ -79,7 +82,7 @@ export const gameTables = {
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
-    /** The room's settings origin when the game started, so history can name the preset. */
+    /** The room's settings origin when the game started, so history can name the setup. */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
@@ -154,6 +157,25 @@ export const gameTables = {
     /** Deleted templates stay as tombstones so seeding never recreates them. */
     deleted: v.boolean(),
   }).index("by_template", ["templateId"]).index("by_deleted", ["deleted"]),
+
+  /**
+   * The catalogue of game setups (convex/setups.ts): complete next-game settings with a name. `ownerId` null marks a
+   * seeded default (game-core SEED_SETUPS, editable by admins only); otherwise the human who saved it. Defaults are
+   * seeded once by `seedId`; edits are kept, and a removed default stays as a tombstone (`deleted`) so a re-seed never
+   * recreates it.
+   */
+  gameSetups: defineTable({
+    ownerId: v.union(v.string(), v.null()),
+    /** 1–40 characters. */
+    name: v.string(),
+    /** A complete GameSettings, valid and offered when saved. */
+    settings: v.any(),
+    /** One plain sentence for the setup menu. */
+    summary: v.string(),
+    seedId: v.optional(v.string()),
+    createdAt: v.number(), updatedAt: v.number(),
+    deleted: v.optional(v.boolean()),
+  }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"]),
 
   /** Host-wide AI spend per UTC day (the $5/day ceiling across rooms for seats; the assistant's own ceiling). */
   aiUsage: defineTable({

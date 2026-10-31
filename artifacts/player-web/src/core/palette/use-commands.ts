@@ -7,7 +7,6 @@ import { useEffect, useMemo } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
-import { SETTINGS_PRESETS } from "@workspace/game-core";
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { panelPanesOf, paneCaption } from "@workspace/player-client/layout";
 import { PANELS } from "@workspace/player-client/panels";
@@ -40,6 +39,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const owner = useOwnerActions();
   const convex = useConvex();
   const status = useQuery(api.assistant.status, { roomId: room });
+  const setups = useQuery(api.setups.list, s.isOwner ? {} : "skip");
   const cancel = useMutation(api.assistant.cancel);
   const setPrefs = useMutation(api.assistant.setPrefs);
   const join = useMutation(api.rooms.join);
@@ -65,11 +65,11 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       panes, scopePaneId, safeMode: SAFE_MODE,
       storedPanels: (panels.stored ?? []).map(p => ({ slug: p.slug, title: p.title, enabled: p.enabled, currentVersion: p.currentVersion })),
       filePanels: panels.fileIds ?? [],
-      presets: SETTINGS_PRESETS.map(p => ({ id: p.id, label: p.label, detail: p.kid })),
+      setups: (setups ?? []).map(x => ({ id: x.id, label: x.name, detail: x.summary })),
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
       gridRenderer,
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),

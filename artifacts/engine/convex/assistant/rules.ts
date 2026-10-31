@@ -39,12 +39,12 @@ export const isActive = (status: TurnStatus) => ACTIVE.includes(status);
 
 const OWNER = new Set<string>(OWNER_TOOLS.map(t => t.name));
 const LAYOUT = new Set<string>(LAYOUT_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
-const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel"]);
+const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "delete_setup"]);
 /** A layout tool that changes the player's screen (get_layout only reads it). */
 export const isLayoutChange = (tool: string) => LAYOUT.has(tool);
 
 /**
- * Does this call wait for the player's confirmation card? Public chat, pauses, destroying an agent, panel deletion
+ * Does this call wait for the player's confirmation card? Public chat, pauses, destroying an agent, panel and setup deletion
  * and every owner tool always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and
  * this turn already validated the same source at a cost of at most N. Layout (dock) tools never do: a view change
  * touches no game state and is reversible; the chat chip names it.

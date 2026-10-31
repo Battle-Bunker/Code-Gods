@@ -1,14 +1,27 @@
 /**
- * The configuration page's rules (onboarding-and-config.md §4.2, §4.4): limits as the engine enforces them,
- * dependencies (retuning, language, hidden penalty weight), stepped choices, preset matching, the diff, the summary
- * lines and the three-way merge that never discards the owner's draft.
+ * The configuration page's rules (onboarding-and-config.md §4.2, §4.4): limits as the engine enforces them, the
+ * settings model's domain built from the manifest, which setup a room is on, stepped choices and the summary lines.
+ * The dependencies themselves are game-core's (settings-model.test.ts); here only what the page adds.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, WEAK_GRID_FAMILIES, presetSettings, defaultSettingsFor } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
 import {
-  choiceLabel, draftErrors, fieldError, fieldsOf, isHidden, lengthLine, matchPreset, paceWord, retune, settingsDiff, stepChoices, threeWayMerge, withLanguage,
+  SECTIONS, choiceLabel, currentSetup, draftErrors, fieldError, fieldsOf, isHidden, lengthLine, paceWord, settingsDomain, shelfEntries, stepChoices,
 } from "../src/lib/settings-form.ts";
+
+const GRID5 = { size: 5, symbols: "base10", colours: "rgby" };
+const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
+/** A manifest's object types as the engine sends them, hand-cut to three offered instantiations. */
+const types = [
+  { id: "Int", defaults: { min: -2147483648, max: 2147483647 }, offered: [{ key: "Int(0,9999)", args: { min: 0, max: 9999 } }] },
+  { id: "Grid", defaults: { size: 4, symbols: "base10", colours: "rgb" }, offered: [{ key: "Grid(5,base10,rgby)", args: GRID5 }, { key: "Grid(7,cards,rainbow6)", args: GRID7 }] },
+];
+
+test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
+  assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
+  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceRate", "excludedFamilies", "penaltyWeight", "priorId"], "asked, then more, then fixed");
+});
 
 test("limits mirror validateSettings and the engine's resource limits, with the message on the field", () => {
   assert.equal(fieldError("maxAgentsPerGod", 0), "Must be between 1 and 200 agents.");
@@ -21,53 +34,47 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("agentBatteryActs", 0.5), "Must be at least 1 acts.");
   assert.equal(fieldError("defenceRate", 1.5), "Must be between 0 and 1.");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
-  const grid = presetSettings("grid-classic");
+  const grid = seedSetupSettings("grid-classic");
   assert.deepEqual(draftErrors(grid), {});
   assert.deepEqual(Object.keys(draftErrors({ ...grid, stepBudget: 0 })), ["stepBudget"]);
   assert.equal(draftErrors({ ...grid, startingEnergy: null as unknown as number }).startingEnergy, "Enter a number.", "an emptied field (NaN, stored as null) is an error, not 0");
   assert.match(draftErrors({ ...grid, utilitySelectorId: "nope" })._form ?? "", /utilitySelectorId/);
 });
 
-test("a new object type retunes only the fields still at the old tuned defaults, and names them", () => {
-  const int = defaultSettingsFor("Int");
-  const { settings, moved } = retune({ ...int, planningSeconds: 30, spawnRateHz: 0.7 }, { objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } });
-  assert.equal(settings.startingObjectCount, 80);
-  assert.equal(settings.agentEnergyPerSecond, 32);
-  assert.deepEqual(settings.excludedFamilies, WEAK_GRID_FAMILIES);
-  assert.equal(settings.spawnRateHz, 0.7, "an owner's own value stays");
-  assert.equal(settings.planningSeconds, 30);
-  assert.deepEqual(moved.sort(), ["agentEnergyPerSecond", "excludedFamilies", "startingObjectCount"]);
-  const small = retune(presetSettings("grid-classic"), { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" } });
-  assert.ok(small.settings.excludedFamilies.includes("fair_weaver"), "Grid(4,base10,rgb) also excludes fair_weaver");
-  assert.deepEqual(retune(int, { objectType: "Int", typeArgs: int.typeArgs }).moved, [], "same instantiation: nothing moves");
+test("the domain offers exactly the manifest's instantiations, and the families of each from the shipped catalogue", () => {
+  const domain = settingsDomain(types);
+  assert.deepEqual(domain.offered("Grid"), [GRID5, GRID7]);
+  assert.deepEqual(domain.offered("string"), [], "a type the manifest does not list offers nothing");
+  assert.ok(domain.families("Grid", GRID5).includes("ladder_of_numbers"));
+  assert.ok(!domain.families("Grid", GRID7).includes("ladder_of_numbers"), "a locked family does not exist on that board");
+  // The page's controls run through the model with this domain: a new world takes its first offered instantiation.
+  const classic = seedSetupSettings("grid-classic");
+  const toInt = applySettingsChange(classic, { objectType: "Int" }, domain);
+  assert.deepEqual([toInt.typeArgs, toInt.excludedFamilies, toInt.startingObjectCount], [{ min: 0, max: 9999 }, [], classic.startingObjectCount]);
+  assert.throws(() => applySettingsChange(classic, { typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" } }, domain), /not offered/);
+  // The shelf shows only the families that exist on the board, marked as the draft deals them.
+  const shelf = shelfEntries("Grid", GRID7, ["stripe_painter"]);
+  assert.ok(shelf.length > 0 && shelf.every(e => e.available));
+  assert.ok(!shelf.some(e => e.id === "ladder_of_numbers"));
+  assert.deepEqual(shelf.filter(e => e.excluded).map(e => e.id), ["stripe_painter"]);
 });
 
-test("a new language moves the grammar and the summon price with it", () => {
-  const ts = withLanguage(DEFAULT_SETTINGS, "typescript");
-  assert.equal(ts.grammarId, "typescript-agent-v1");
-  assert.equal(ts.complexityFunctionId, "ts-ast-bits-v1-uniform");
-  assert.equal(ts.utilitySelectorId, DEFAULT_SETTINGS.utilitySelectorId);
+test("the room's setup: the one its origin names while the settings still match, else any setup with the same settings, else custom", () => {
+  const classic = seedSetupSettings("grid-classic");
+  const setups = [{ id: "a", settings: classic }, { id: "b", settings: { ...classic } }, { id: "c", settings: seedSetupSettings("grid-big") }];
+  assert.equal(currentSetup(classic, { kind: "setup", id: "b", modified: false }, setups)?.id, "b", "two identical setups: the one the room was put on");
+  assert.equal(currentSetup(classic, null, setups)?.id, "a", "no origin: the first setup with these settings");
+  assert.equal(currentSetup(Object.fromEntries(Object.entries(classic).reverse()) as typeof classic, { kind: "preset", id: "grid-classic", modified: false }, setups)?.id, "a",
+    "a legacy origin is matched by settings, in any key order");
+  assert.equal(currentSetup({ ...classic, planningSeconds: 1 }, { kind: "setup", id: "a", modified: true }, setups), undefined, "changed: custom");
+  assert.equal(currentSetup(classic, { kind: "setup", id: "c", modified: false }, setups)?.id, "a", "the origin's setup was edited since: matched by settings");
 });
 
-test("penalty weight hides while no defence goals are dealt; stepped choices keep the current value", () => {
+test("penalty weight hides while no defence goals are dealt; stepped choices keep the current value; summary lines", () => {
   assert.equal(isHidden("penaltyWeight", { ...DEFAULT_SETTINGS, defenceRate: 0 }), true);
   assert.equal(isHidden("penaltyWeight", { ...DEFAULT_SETTINGS, defenceRate: 0.5 }), false);
   assert.deepEqual(stepChoices("pauseSeconds", 180), [60, 180, 300]);
   assert.deepEqual(stepChoices("pauseSeconds", 240), [60, 180, 240, 300]);
-  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceRate", "excludedFamilies", "penaltyWeight", "priorId"], "asked, then more, then fixed");
-});
-
-test("the preset is matched on every field but the language; a change makes it custom", () => {
-  const presets = ["grid-first-steps", "grid-classic", "grid-low-income"].map(id => ({ id, settings: presetSettings(id) }));
-  assert.equal(matchPreset(presetSettings("grid-low-income"), presets)?.id, "grid-low-income", "same world as Classic, told apart");
-  assert.equal(matchPreset(withLanguage(presetSettings("grid-classic"), "typescript"), presets)?.id, "grid-classic");
-  assert.equal(matchPreset({ ...presetSettings("grid-classic"), planningSeconds: 120 }, presets), undefined);
-});
-
-test("the diff names each change in plain words; the summary gives length and pace", () => {
-  const base = presetSettings("grid-classic");
-  const diff = settingsDiff(base, { ...base, interactionRateHz: 25, defenceRate: 0.5 });
-  assert.deepEqual(diff.map(d => `${d.label}: ${d.from} → ${d.to}`), ["Defence goals: off → 50% of players", "World speed: 100 acts/s → 25 acts/s"]);
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
   assert.deepEqual(stepChoices("interactionRateHz", 25).map(v => choiceLabel("interactionRateHz", v)), ["Slow (25/s)", "Normal (100/s)", "Fast (300/s)", "Max (1,000/s)"]);
   assert.deepEqual([30, 60, 90].map(v => choiceLabel("planningSeconds", v)), ["30 s", "1 min", "90 s"]);
@@ -76,15 +83,4 @@ test("the diff names each change in plain words; the summary gives length and pa
   assert.equal(paceWord(25), "slow");
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");
-});
-
-test("a conflict merges disjoint changes and leaves overlapping ones to the owner; the draft is kept", () => {
-  const base = { a: 1, b: 2, c: 3, d: 4 };
-  const mine = { a: 10, b: 2, c: 30, d: 4 };
-  const theirs = { a: 1, b: 20, c: 31, d: 4 };
-  const { merged, conflicts, fromTheirs } = threeWayMerge(base, mine, theirs);
-  assert.deepEqual(merged, { a: 10, b: 20, c: 30, d: 4 });
-  assert.deepEqual(conflicts, ["c"]);
-  assert.deepEqual(fromTheirs, ["b"]);
-  assert.deepEqual(threeWayMerge(base, mine, { ...theirs, c: 30 }).conflicts, [], "the same change on both sides is no conflict");
 });

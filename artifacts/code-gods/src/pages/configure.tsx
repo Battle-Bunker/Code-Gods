@@ -1,23 +1,27 @@
 /**
  * The configuration page, /rooms/:code/configure (onboarding-and-config.md §4): a long form with a stepper and a
  * sticky summary that asks every GameSettings field, each with its question, meaning and consequence from
- * SETTINGS_DOCS, in the order Start from → World → Goals → Agents → Energy → Population → Time → Players & AI →
- * Review. Owners edit; everyone else reads the same page (it replaces the old read-only settings panel).
+ * SETTINGS_DOCS, in the order World → Goals → Agents → Energy → Population → Time → Players & AI → Review. It edits
+ * the room's next-game settings directly. Owners edit; everyone else reads the same page.
  *
- * - Choices are stepped (the tuned values always among them) plus "Exact value…", validated live as the engine does.
- * - A new object type retunes the fields still at their tuned defaults and says which (with Undo).
- * - Save = owner.settings with the full settings, then rooms.approveAiBudget if a budget changed (with consent).
- * - Changes saved elsewhere meanwhile are merged into the draft: disjoint fields automatically, overlapping ones per
- *   field (Keep mine / Take theirs). The draft is never discarded and survives a reload (localStorage).
+ * - Every control changes the draft through the settings model (game-core applySettingsChange, with the manifest's
+ *   offered instantiations and the shipped family catalogue as its domain): a language moves its grammar and summon
+ *   price, a new world takes its default instantiation and drops the families it lacks, and nothing else moves. The
+ *   derived fields are shown as facts; type arguments are offered only as the server offers them.
+ * - Choices are stepped (pre-authored values) plus "Exact value…", validated live by validateSettings.
+ * - Save = owner.settings with the whole draft, then rooms.approveAiBudget if a budget changed (with consent).
+ *   "Save as a setup…" keeps the draft under a name (setups.save), new or over one of the viewer's own.
+ * - Settings saved elsewhere meanwhile replace an untouched draft; an edited draft is kept (saving puts it in their
+ *   place) with an offer to load theirs. The draft survives a reload (localStorage).
  * - While a game runs the draft stays editable and Save waits, with the reason.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation, useParams, useSearch } from "wouter";
+import { Link, useLocation, useParams } from "wouter";
 import { useAction, useMutation } from "convex/react";
-import { ROOM_BUDGET_DOCS, SETTINGS_DOCS, settingsOptionsFor, type FieldDoc, type SettingsSection } from "@workspace/game-core";
-import { ObjectTypePicker, RuleShelf, catalogFor, findOffered, snapToOffered, withExcluded, type TypeChoice } from "@workspace/object-views";
+import { ROOM_BUDGET_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, applySettingsChange, settingsOptionsFor, type FieldDoc, type SettingsSection } from "@workspace/game-core";
+import { BadgeChips, RuleShelf, sameArgs } from "@workspace/object-views";
 import { api, useLive } from "@/lib/convex";
-import type { Manifest, ObjectTypeInfo, RoomState } from "@/lib/types";
+import type { Manifest, ObjectTypeInfo, RoomState, Setup } from "@/lib/types";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Page, usePage } from "@/components/layout";
@@ -25,12 +29,11 @@ import { Action } from "@/components/action";
 import { ErrorLine } from "@/components/page-parts";
 import { costLine } from "@/components/sheets";
 import { settingsSummary } from "@/components/game-panels";
-import { ToastAction } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt } from "@/lib/errors";
 import {
-  BUDGET_LIMITS, LABELS, SECTIONS, choiceLabel, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, matchPreset, paceWord,
-  retune, same, settingsDiff, stepChoices, threeWayMerge, withLanguage, type Settings, type SettingsKey,
+  BUDGET_LIMITS, LABELS, SECTIONS, choiceLabel, currentSetup, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
+  same, settingsDomain, shelfEntries, stepChoices, type Settings, type SettingsKey,
 } from "@/lib/settings-form";
 
 type Budgets = { aiBudget: number; assistantBudget: number; assistantModel: string };
@@ -61,27 +64,26 @@ export default function Configure() {
 }
 
 function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean }) {
-  const { manifest, openPalette } = usePage();
+  const { manifest, setups, openPalette } = usePage();
   const { toast } = useToast();
   const [, navigate] = useLocation();
-  const from = new URLSearchParams(useSearch()).get("from");
   const saveSettings = useAction(api.owner.settings);
   const approve = useMutation(api.rooms.approveAiBudget);
   const stored = useMemo(() => (editable ? loadDraft(room.id) : null), [room.id, editable]);
   const [base, setBase] = useState<Snapshot>(() => stored?.base ?? { settings: room.settings, revision: room.revision });
   const [draft, setDraft] = useState<Settings>(() => stored?.draft ?? room.settings);
   const [budgets, setBudgets] = useState<Budgets>(() => stored?.budgets ?? budgetsOf(room));
-  const [startFrom, setStartFrom] = useState<string>(from ?? "current");
   const [consent, setConsent] = useState(false);
-  const [conflicts, setConflicts] = useState<SettingsKey[]>([]);
-  const [mergedNote, setMergedNote] = useState<string | null>(null);
+  const [elsewhere, setElsewhere] = useState(false);
+  const [changeError, setChangeError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [confirmReplace, setConfirmReplace] = useState<string | null>(null);
   const roomBudgets = budgetsOf(room);
   const dirtySettings = !same(draft, base.settings);
   const dirtyBudgets = !same(budgets, roomBudgets);
   const dirty = dirtySettings || dirtyBudgets;
+  const types = manifest?.objectTypes ?? [];
+  const domain = useMemo(() => settingsDomain(manifest?.objectTypes ?? []), [manifest]);
 
   // Budgets approved elsewhere (the AI spending sheet, another tab) replace the draft's unless edited here.
   const lastRoomBudgets = useRef(roomBudgets);
@@ -92,69 +94,38 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
     setBudgets(b => (same(b, prev) ? roomBudgets : b));
   }, [room.aiBudget, room.assistantBudget, room.assistantModel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ?from=<preset> opens the page pre-filled from that preset (once the manifest has it; never over a stored draft).
-  const appliedFrom = useRef(!from || !!stored || !editable);
-  useEffect(() => {
-    if (appliedFrom.current) return;
-    const p = manifest?.presets.find(x => x.id === from);
-    if (!manifest) return;
-    appliedFrom.current = true;
-    if (p?.settings) setDraft(withLanguage(p.settings, room.settings.language)); else setStartFrom("current");
-  }, [manifest]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Keep the draft across reloads; clear it once nothing differs.
   useEffect(() => { if (editable) saveDraft(room.id, dirty ? { base, draft, budgets } : null); }, [editable, room.id, base, draft, budgets, dirty]);
 
-  // Settings saved elsewhere (another tab, the assistant): merge them into the draft, never discard it.
+  // Settings saved elsewhere (another tab, the assistant): an untouched draft follows them; an edited one is kept
+  // whole (saving puts it in their place) and the owner may load theirs instead.
   useEffect(() => {
-    if (room.revision === base.revision || same(room.settings, base.settings)) {
-      if (room.revision !== base.revision) setBase({ settings: room.settings, revision: room.revision });
-      return;
-    }
-    if (!dirtySettings) { setDraft(room.settings); setBase({ settings: room.settings, revision: room.revision }); return; }
-    const m = threeWayMerge(base.settings as unknown as Record<string, unknown>, draft as unknown as Record<string, unknown>, room.settings as unknown as Record<string, unknown>);
-    setDraft(m.merged as unknown as Settings);
-    setConflicts(c => [...new Set([...c, ...(m.conflicts as SettingsKey[])])]);
-    if (m.fromTheirs.length) setMergedNote(`Also includes ${m.fromTheirs.length} change${m.fromTheirs.length === 1 ? "" : "s"} saved elsewhere: ${m.fromTheirs.map(k => LABELS[k as SettingsKey]).join(", ")}.`);
+    if (room.revision === base.revision) return;
+    if (!dirtySettings || same(room.settings, draft)) { setDraft(room.settings); setElsewhere(false); }
+    else if (!same(room.settings, base.settings)) setElsewhere(true);
     setBase({ settings: room.settings, revision: room.revision });
   }, [room.revision]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const types = manifest?.objectTypes ?? [];
-  const presets = manifest?.presets ?? [];
-  const startSettings = startFrom === "current" ? base.settings : presets.find(p => p.id === startFrom)?.settings;
-  const startLabel = startFrom === "current" ? "the room's current settings" : presets.find(p => p.id === startFrom)?.label ?? startFrom;
+  /** One control's change, through the settings model; a refusal (a choice the server would refuse) is shown, the draft kept. */
+  const change = (patch: Partial<Settings>) => {
+    try { setDraft(applySettingsChange(draft, patch, domain)); setChangeError(null); } catch (e) { setChangeError(errMsg(e)); }
+  };
+
   const errors = draftErrors(draft);
   const currentType = types.find(t => t.id === draft.objectType);
-  const offered = currentType ? !!findOffered(currentType, draft.typeArgs) : true;
+  const offered = currentType?.offered.find(o => sameArgs({ ...currentType.defaults, ...o.args }, { ...currentType.defaults, ...draft.typeArgs }));
   const budgetErrors = {
     aiBudget: limitError(BUDGET_LIMITS.aiBudget, budgets.aiBudget),
     assistantBudget: limitError({ ...BUDGET_LIMITS.assistantBudget, max: manifest?.aiFunding.assistantBudgetMax ?? BUDGET_LIMITS.assistantBudget.max }, budgets.assistantBudget),
   };
-  const invalid = Object.keys(errors).length > 0 || !offered || !!budgetErrors.aiBudget || !!budgetErrors.assistantBudget;
+  const settingsInvalid = Object.keys(errors).length > 0 || (!!currentType && !offered);
+  const invalid = settingsInvalid || !!budgetErrors.aiBudget || !!budgetErrors.assistantBudget;
   const running = room.activeGame;
   const budgetFrozen = !!running && budgets.aiBudget !== room.aiBudget;
   const saveBlocker = !editable ? null : running && dirtySettings ? `A game is running. Save this for the next game when game ${running.shortCode} ends.`
     : budgetFrozen ? `The AI players' budget can change after game ${running!.shortCode} ends.`
-    : conflicts.length ? "Choose Keep mine or Take theirs for each setting changed in both places."
     : invalid ? "Fix the settings marked in red first." : dirtyBudgets && !consent ? "Tick the approval for the new spending first." : !dirty ? "Nothing has changed yet." : null;
 
-  const set = <K extends SettingsKey>(key: K, value: Settings[K]) => setDraft(d => (key === "language" ? withLanguage(d, value as Settings["language"]) : { ...d, [key]: value }));
-  const pickType = (next: TypeChoice) => {
-    const previous = draft;
-    const { settings, moved } = retune(draft, next);
-    setDraft(settings);
-    if (moved.length) toast({
-      title: `Adjusted ${moved.length} setting${moved.length === 1 ? "" : "s"} for this world`,
-      description: moved.map(k => LABELS[k]).join(", "),
-      action: <ToastAction altText="Undo" onClick={() => setDraft(previous)}>Undo</ToastAction>,
-    });
-  };
-  const applyStart = (id: string) => {
-    const s = id === "current" ? base.settings : presets.find(p => p.id === id)?.settings;
-    if (!s) return;
-    setStartFrom(id); setConfirmReplace(null);
-    setDraft(id === "current" ? s : withLanguage(s, draft.language));
-  };
   const save = async () => {
     if (saveBlocker || saving) return;
     setSaving(true); setSaveError(null);
@@ -165,16 +136,12 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
       toast({ title: "Saved for the next game" });
       navigate(`/rooms/${room.shortCode}`);
     } catch (e) {
-      setSaveError(errCode(e) === "CONFLICT"
-        ? `${errMsg(e)}. Your draft is kept; changes saved elsewhere are merged into it as they arrive. Review and save again.`
-        : errMsg(e));
+      setSaveError(errCode(e) === "CONFLICT" ? `${errMsg(e)}. Your draft is kept; save again to put it in place of the newer settings.` : errMsg(e));
     } finally { setSaving(false); }
   };
 
-  const sectionChanged = (s: SettingsSection) => s === "players" ? dirtyBudgets : fieldsOf(s).some(k => !same(draft[k], base.settings[k]));
-  const diffVsStart = startSettings ? settingsDiff(startSettings, draft) : [];
-  const diffVsRoom = settingsDiff(base.settings, draft);
-  const preset = matchPreset(draft, presets);
+  const setup = setups ? currentSetup(draft, same(draft, room.settings) ? room.settingsOrigin : null, setups) : undefined;
+  const instance = room.objectInstance && same(draft.typeArgs, room.settings.typeArgs) && draft.objectType === room.settings.objectType ? room.objectInstance : undefined;
 
   return (
     <div className="mx-auto max-w-[1280px] px-4 md:px-6 py-8">
@@ -185,60 +152,44 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
         </div>
         <Link href={`/rooms/${room.shortCode}`} className="text-sm underline underline-offset-4" data-testid="link-back-to-room">Back to room {room.shortCode}</Link>
       </div>
-      {mergedNote && <p className="mb-4 border border-primary/40 bg-primary/5 px-4 py-2 text-sm" data-testid="text-merged" role="status">{mergedNote}</p>}
-      {conflicts.length > 0 && (
-        <div className="mb-4 border border-accent px-4 py-3 text-sm space-y-2" data-testid="panel-conflicts" role="alert">
-          <p>These settings were also changed elsewhere since you started. Choose for each:</p>
-          <ul className="space-y-1">{conflicts.map(k => (
-            <li key={k} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="font-medium">{LABELS[k]}</span>
-              <span>yours: {formatValue(k, draft[k])} · theirs: {formatValue(k, room.settings[k])}</span>
-              <button type="button" className="underline" onClick={() => setConflicts(c => c.filter(x => x !== k))} data-testid={`button-keep-mine-${k}`}>Keep mine</button>
-              <button type="button" className="underline" onClick={() => { setDraft(d => ({ ...d, [k]: room.settings[k] })); setConflicts(c => c.filter(x => x !== k)); }} data-testid={`button-take-theirs-${k}`}>Take theirs</button>
-            </li>
-          ))}</ul>
-        </div>
+      {elsewhere && (
+        <p className="mb-4 border border-accent px-4 py-2 text-sm" data-testid="text-changed-elsewhere" role="status">
+          The next game's settings were also changed elsewhere since you started. Saving puts yours in their place.{" "}
+          <button type="button" className="underline" onClick={() => { setDraft(room.settings); setElsewhere(false); }} data-testid="button-load-theirs">Load theirs instead</button>
+        </p>
       )}
+      {changeError && <div className="mb-4"><ErrorLine message={changeError} /></div>}
       <div className="grid gap-8 lg:grid-cols-[11rem_minmax(0,1fr)_17rem]">
         <nav aria-label="Sections" className="hidden lg:block">
           <ol className="sticky top-20 space-y-1 text-sm">
             {SECTIONS.map((s, i) => (
               <li key={s.id}><a href={`#section-${s.id}`} className="flex items-center gap-2 py-1 hover:underline underline-offset-4">
                 <span className="w-4 text-muted-foreground tabular-nums">{i + 1}</span>{s.title}
-                {s.id !== "start" && s.id !== "review" && sectionChanged(s.id) && <span className="text-primary" aria-label="changed">•</span>}
               </a></li>
             ))}
           </ol>
         </nav>
         <div className="space-y-10 min-w-0">
-          <FormSection id="start">
-            <fieldset disabled={!editable} className="space-y-2">
-              <legend className="sr-only">Start from</legend>
-              {[{ id: "current", label: "The room's current settings", kid: preset ? `Now: ${preset.label}` : "Now: a custom setup", offered: true }, ...presets].map(p => (
-                <label key={p.id} className={`flex items-start gap-3 border px-3 py-2 ${startFrom === p.id ? "border-primary bg-primary/5" : ""} ${p.offered ? "" : "opacity-50"}`}>
-                  <input type="radio" name="start-from" checked={startFrom === p.id} disabled={!p.offered} data-testid={`radio-start-${p.id}`}
-                    onChange={() => (dirtySettings && startFrom !== p.id ? setConfirmReplace(p.id) : applyStart(p.id))} className="mt-1" />
-                  <span className="text-sm"><span className="font-medium">{p.label}</span><span className="block text-muted-foreground">{p.kid}{p.offered ? "" : " (not on this server yet)"}</span></span>
-                </label>
-              ))}
-            </fieldset>
-            {confirmReplace && (
-              <p className="text-sm border border-accent px-3 py-2" role="alert">
-                Replace your {diffVsRoom.length} change{diffVsRoom.length === 1 ? "" : "s"} with {presets.find(p => p.id === confirmReplace)?.label ?? "the room's current settings"}?{" "}
-                <button type="button" className="underline" onClick={() => applyStart(confirmReplace)} data-testid="button-confirm-replace">Replace</button>{" · "}
-                <button type="button" className="underline" onClick={() => setConfirmReplace(null)}>Keep my changes</button>
-              </p>
-            )}
-          </FormSection>
-
-          <FormSection id="world" onRecommended={editable && startSettings ? () => setDraft(d => ({ ...d, ...pick(startSettings, ["objectType", "typeArgs", "language", "grammarId", "complexityFunctionId", "excludedFamilies"]) })) : undefined}>
+          <FormSection id="world">
             <Question k="objectType" draft={draft} editable={editable}>
-              {types.length ? <ObjectTypePicker types={types} value={{ objectType: draft.objectType, typeArgs: draft.typeArgs }} onChange={pickType} disabled={!editable} showOffered={false} />
-                : <p className="text-sm text-muted-foreground">Loading object types…</p>}
+              {types.length ? (
+                <div role="radiogroup" aria-label={LABELS.objectType} className="flex flex-wrap gap-1.5">
+                  {types.map(t => (
+                    <button key={t.id} type="button" role="radio" aria-checked={t.id === draft.objectType} disabled={!editable} onClick={() => change({ objectType: t.id })}
+                      data-testid={`choice-objectType-${t.id}`}
+                      className={`border px-3 py-1.5 text-sm text-left ${t.id === draft.objectType ? "border-primary bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"} disabled:cursor-default`}>
+                      <span className="font-medium">{t.emoji} {t.label}</span><span className="block text-xs text-muted-foreground">{t.kid}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : <p className="text-sm text-muted-foreground">Loading object types…</p>}
+            </Question>
+            <Question k="typeArgs" draft={draft} editable={editable}>
+              {currentType && <ShapeChoice type={currentType} draft={draft} editable={editable} onPick={args => change({ typeArgs: args })} />}
               {currentType && <ParamDocs type={currentType} args={draft.typeArgs} />}
             </Question>
             <Question k="language" draft={draft} editable={editable}>
-              <select value={draft.language} disabled={!editable} onChange={e => set("language", e.target.value as Settings["language"])} data-testid="select-language"
+              <select value={draft.language} disabled={!editable} onChange={e => change({ language: e.target.value as Settings["language"] })} data-testid="select-language"
                 className="border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary">
                 <option value="python">Python</option><option value="typescript">TypeScript</option>
               </select>
@@ -246,30 +197,29 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
             <Fixed keys={["grammarId", "complexityFunctionId"]} draft={draft} options={manifest?.options} />
           </FormSection>
 
-          <FormSection id="goals" onRecommended={editable && startSettings ? () => setDraft(d => ({ ...d, ...pick(startSettings, fieldsOf("goals")) })) : undefined}>
+          <FormSection id="goals">
             <Question k="utilitySelectorId" draft={draft} editable={editable}>
-              <Segmented k="utilitySelectorId" value={draft.utilitySelectorId} editable={editable} onPick={v => set("utilitySelectorId", String(v))}
+              <Segmented k="utilitySelectorId" value={draft.utilitySelectorId} editable={editable} onPick={v => change({ utilitySelectorId: String(v) })}
                 choices={settingsOptionsFor("utilitySelectorId", draft.language, draft.objectType).map(o => o.id)} />
             </Question>
-            <NumberQuestion k="defenceRate" draft={draft} editable={editable} onSet={v => set("defenceRate", v)} error={errors.defenceRate} />
+            <NumberQuestion k="defenceRate" draft={draft} editable={editable} onSet={v => change({ defenceRate: v })} error={errors.defenceRate} />
             <More section="goals" draft={draft}>
               <Question k="excludedFamilies" draft={draft} editable={editable}>
-                <RuleShelf title="Rules that can be dealt" entries={withExcluded(catalogFor(draft.objectType, draft.typeArgs), draft.excludedFamilies)}
+                <RuleShelf title="Rules that can be dealt" entries={shelfEntries(draft.objectType, draft.typeArgs, draft.excludedFamilies)}
                   badges={(currentType?.classes ?? []).map(c => c.badge)}
-                  onToggleExcluded={editable ? (familyId, out) => set("excludedFamilies", out ? [...new Set([...draft.excludedFamilies, familyId])] : draft.excludedFamilies.filter(x => x !== familyId)) : undefined}
-                  onUnlock={editable ? patch => { const t = currentType; const snap = t && snapToOffered(t, draft.typeArgs, patch); if (t && snap) pickType({ objectType: t.id, typeArgs: { ...t.defaults, ...snap.args } }); } : undefined} />
+                  onToggleExcluded={editable ? (familyId, out) => change({ excludedFamilies: out ? [...draft.excludedFamilies, familyId] : draft.excludedFamilies.filter(x => x !== familyId) }) : undefined} />
               </Question>
-              {!isHidden("penaltyWeight", draft) && <NumberQuestion k="penaltyWeight" draft={draft} editable={editable} onSet={v => set("penaltyWeight", v)} error={errors.penaltyWeight} />}
+              {!isHidden("penaltyWeight", draft) && <NumberQuestion k="penaltyWeight" draft={draft} editable={editable} onSet={v => change({ penaltyWeight: v })} error={errors.penaltyWeight} />}
             </More>
             <Fixed keys={["priorId"]} draft={draft} />
           </FormSection>
 
           {(["agents", "energy", "population", "time"] as const).map(section => (
-            <FormSection key={section} id={section} onRecommended={editable && startSettings ? () => setDraft(d => ({ ...d, ...pick(startSettings, fieldsOf(section)) })) : undefined}>
-              {fieldsOf(section).filter(k => SETTINGS_DOCS[k].tier === "ask").map(k => <AnyQuestion key={k} k={k} draft={draft} editable={editable} set={set} error={errors[k]} />)}
+            <FormSection key={section} id={section}>
+              {fieldsOf(section).filter(k => SETTINGS_DOCS[k].tier === "ask").map(k => <AnyQuestion key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
               {fieldsOf(section).some(k => SETTINGS_DOCS[k].tier === "more") && (
                 <More section={section} draft={draft}>
-                  {fieldsOf(section).filter(k => SETTINGS_DOCS[k].tier === "more" && !isHidden(k, draft)).map(k => <AnyQuestion key={k} k={k} draft={draft} editable={editable} set={set} error={errors[k]} />)}
+                  {fieldsOf(section).filter(k => SETTINGS_DOCS[k].tier === "more" && !isHidden(k, draft)).map(k => <AnyQuestion key={k} k={k} draft={draft} editable={editable} change={change} error={errors[k]} />)}
                 </More>
               )}
               <Fixed keys={fieldsOf(section).filter(k => SETTINGS_DOCS[k].tier === "fixed")} draft={draft} />
@@ -283,15 +233,12 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
 
           <FormSection id="review">
             <div className="space-y-4" data-testid="panel-review">
-              <div>
-                <h3 className="text-sm font-medium">Compared with {startLabel}</h3>
-                {diffVsStart.length ? <ul className="mt-1 text-sm list-disc pl-5" data-testid="list-diff">{diffVsStart.map(d => <li key={d.key}>{d.label}: {d.from} → {d.to}</li>)}</ul>
-                  : <p className="mt-1 text-sm text-muted-foreground">No differences.</p>}
-              </div>
               <div className="border bg-card px-4 py-3 text-sm" data-testid="card-summary">
-                <p className="font-medium">{preset ? preset.label : `Custom${startFrom !== "current" && startSettings ? ` (based on ${startLabel})` : ""}`}</p>
-                <p className="text-muted-foreground">{settingsSummary(draft, room.objectInstance && same(draft.typeArgs, room.settings.typeArgs) && draft.objectType === room.settings.objectType ? room.objectInstance : undefined)}</p>
+                <p className="font-medium">{setup ? `${setup.name}${setup.seeded ? "" : " (yours)"}` : "Custom"}</p>
+                <p className="text-muted-foreground">{setup ? `${setup.summary}. ` : ""}{settingsSummary(draft, instance)}</p>
               </div>
+              {errors._form && <ErrorLine message={errors._form} />}
+              {currentType && !offered && <ErrorLine message={`${formatValue("typeArgs", draft.typeArgs)} is not offered on this server: choose one of the listed shapes.`} />}
               {editable && dirtyBudgets && (
                 <label className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="block-consent">
                   <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-config-consent" />
@@ -299,26 +246,28 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
                 </label>
               )}
               {editable && (<>
-                <p className="text-sm">{diffVsRoom.length || dirtyBudgets ? `Saving changes ${diffVsRoom.length + (dirtyBudgets ? 1 : 0)} thing${diffVsRoom.length + (dirtyBudgets ? 1 : 0) === 1 ? "" : "s"} for the next game.` : "Nothing to save yet."}</p>
+                <p className="text-sm" data-testid="text-unsaved">{dirty ? "You have unsaved changes for the next game." : "Nothing to save yet."}</p>
                 <div className="flex flex-wrap items-center gap-4">
                   <Action k="owner.settings" label={saving ? "Saving…" : "Save for the next game"} tone="primary" onClick={() => void save()} unavailable={saveBlocker} pending={saving} testId="button-save-settings" showReason />
                   <Link href={`/rooms/${room.shortCode}`} className="text-sm underline underline-offset-4">Cancel</Link>
                 </div>
                 {saveError && <ErrorLine message={saveError} />}
               </>)}
+              <SaveAsSetup draft={draft} setups={setups} blocker={settingsInvalid ? "Fix the settings marked in red first." : null} />
             </div>
           </FormSection>
         </div>
         <aside className="lg:block">
           <div className="lg:sticky lg:top-20 border bg-card p-4 space-y-2 text-sm" data-testid="panel-summary">
             <p className="font-medium">Summary</p>
-            <p>{currentType ? `${currentType.emoji} ${currentType.label}` : draft.objectType} · {Object.values(draft.typeArgs).join(" · ")}</p>
+            <p data-testid="text-summary-setup">{setup ? setup.name : "Custom"}</p>
+            <p>{currentType ? `${currentType.emoji} ${currentType.label}` : draft.objectType} · {offered?.label ?? Object.values(draft.typeArgs).join(" · ")}</p>
             <p>{draft.language === "python" ? "Python" : "TypeScript"}</p>
             <p>{fmt(draft.startingObjectCount)} objects, +{draft.spawnRateHz}/s</p>
             <p>{lengthLine(draft)} · {paceWord(draft.interactionRateHz)} pace</p>
             <p>{room.members.length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} players ({room.members.filter(m => m.kind === "ai").length} AI)</p>
             <p>AI budget: {fmt(budgets.aiBudget)} · Assistant: {budgets.assistantBudget ? fmt(budgets.assistantBudget) : "off"}</p>
-            <p className="text-muted-foreground">vs {startLabel}: {diffVsStart.length} change{diffVsStart.length === 1 ? "" : "s"}</p>
+            {editable && dirty && <p className="text-primary">Unsaved changes</p>}
             {editable && <a href="#section-review" className="underline underline-offset-4">Review and save</a>}
           </div>
         </aside>
@@ -327,16 +276,13 @@ function ConfigureForm({ room, editable }: { room: RoomState; editable: boolean 
   );
 }
 
-const pick = (s: Settings, keys: readonly SettingsKey[]): Partial<Settings> => Object.fromEntries(keys.map(k => [k, s[k]])) as Partial<Settings>;
-
-function FormSection({ id, children, onRecommended }: { id: (typeof SECTIONS)[number]["id"]; children: ReactNode; onRecommended?: () => void }) {
+function FormSection({ id, children }: { id: (typeof SECTIONS)[number]["id"]; children: ReactNode }) {
   const s = SECTIONS.find(x => x.id === id)!;
   const n = SECTIONS.indexOf(s) + 1;
   return (
     <section id={`section-${id}`} className="scroll-mt-20 space-y-4" data-testid={`section-${id}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b pb-2">
+      <div className="border-b pb-2">
         <h2 className="font-display text-2xl"><span className="text-muted-foreground tabular-nums mr-2">{n}</span>{s.title}</h2>
-        {onRecommended && <button type="button" onClick={onRecommended} className="text-sm underline underline-offset-4" data-testid={`button-recommended-${id}`}>Recommended</button>}
       </div>
       <p className="text-sm text-muted-foreground">{s.intro}</p>
       {children}
@@ -351,8 +297,25 @@ function Question({ k, draft, editable, children, error }: { k: SettingsKey; dra
     <div className="space-y-2" data-testid={`field-${k}`}>
       <h3 className="font-medium">{doc.question}</h3>
       <p className="text-sm text-muted-foreground">{doc.meaning} {doc.consequence}</p>
-      {editable || k === "objectType" || k === "excludedFamilies" ? children : <p className="text-sm font-mono" data-testid={`value-${k}`}>{formatValue(k, draft[k])}</p>}
+      {editable || k === "objectType" || k === "typeArgs" || k === "excludedFamilies" ? children : <p className="text-sm font-mono" data-testid={`value-${k}`}>{formatValue(k, draft[k])}</p>}
       {error && <p className="text-sm text-destructive" role="alert" data-testid={`error-${k}`}>{error}</p>}
+    </div>
+  );
+}
+
+/** The object's shape: exactly the instantiations the server offers for this type (each has calibration tables). */
+function ShapeChoice({ type, draft, editable, onPick }: { type: ObjectTypeInfo; draft: Settings; editable: boolean; onPick: (args: Settings["typeArgs"]) => void }) {
+  const full = (args: Record<string, number | string>) => ({ ...type.defaults, ...args });
+  const selected = type.offered.findIndex(o => sameArgs(full(o.args), full(draft.typeArgs)));
+  const chosen = type.offered[selected];
+  return (
+    <div className="space-y-2">
+      <select value={selected} disabled={!editable} onChange={e => { const o = type.offered[Number(e.target.value)]; if (o) onPick(o.args); }} data-testid="select-typeArgs"
+        className="max-w-full border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary">
+        {selected < 0 && <option value={-1} disabled>{formatValue("typeArgs", draft.typeArgs)} (not offered on this server)</option>}
+        {type.offered.map((o, i) => <option key={o.key} value={i}>{o.label}</option>)}
+      </select>
+      {chosen && <div><BadgeChips badges={chosen.badges} /></div>}
     </div>
   );
 }
@@ -390,10 +353,10 @@ function NumberQuestion({ k, draft, editable, onSet, error }: { k: SettingsKey; 
   );
 }
 
-function AnyQuestion({ k, draft, editable, set, error }: { k: SettingsKey; draft: Settings; editable: boolean; set: <K extends SettingsKey>(key: K, value: Settings[K]) => void; error?: string }) {
-  if (k === "commitClause") return <Question k={k} draft={draft} editable={editable}><Segmented k={k} value={draft.commitClause} choices={[false, true]} editable={editable} onPick={v => set("commitClause", v === true)} /></Question>;
-  if (k === "objectSelection") return <Question k={k} draft={draft} editable={editable}><Segmented k={k} value={draft.objectSelection} choices={["uniform", "shelter"]} editable={editable} onPick={v => set("objectSelection", v as Settings["objectSelection"])} /></Question>;
-  if (typeof draft[k] === "number") return <NumberQuestion k={k} draft={draft} editable={editable} onSet={v => set(k, v as never)} error={error} />;
+function AnyQuestion({ k, draft, editable, change, error }: { k: SettingsKey; draft: Settings; editable: boolean; change: (patch: Partial<Settings>) => void; error?: string }) {
+  if (k === "commitClause") return <Question k={k} draft={draft} editable={editable}><Segmented k={k} value={draft.commitClause} choices={[false, true]} editable={editable} onPick={v => change({ commitClause: v === true })} /></Question>;
+  if (k === "objectSelection") return <Question k={k} draft={draft} editable={editable}><Segmented k={k} value={draft.objectSelection} choices={["uniform", "shelter"]} editable={editable} onPick={v => change({ objectSelection: v as Settings["objectSelection"] })} /></Question>;
+  if (typeof draft[k] === "number") return <NumberQuestion k={k} draft={draft} editable={editable} onSet={v => change({ [k]: v })} error={error} />;
   return <Question k={k} draft={draft} editable={false} />;
 }
 
@@ -407,7 +370,7 @@ function More({ section, draft, children }: { section: SettingsSection; draft: S
   );
 }
 
-/** Single-option fields are facts, not questions. */
+/** Fields that follow from others, or have one option, are facts, not questions. */
 function Fixed({ keys, draft, options }: { keys: readonly SettingsKey[]; draft: Settings; options?: Manifest["options"] }) {
   if (!keys.length) return null;
   const label = (k: SettingsKey) => (options && (k === "grammarId" || k === "complexityFunctionId") ? options[k].find(o => o.id === draft[k])?.label : undefined) ?? String(draft[k]);
@@ -434,6 +397,70 @@ function ParamDocs({ type, args }: { type: ObjectTypeInfo; args: Record<string, 
           <span className="block text-muted-foreground">{p.meaning} {p.consequence}</span></li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * "Save as a setup…": the draft under a name (at most SETUP_NAME_MAX characters), as a new setup of the viewer's or
+ * over one they may change (their own; an admin also the defaults). Their own setups are listed with Delete.
+ */
+function SaveAsSetup({ draft, setups, blocker }: { draft: Settings; setups?: Setup[]; blocker: string | null }) {
+  const { toast } = useToast();
+  const save = useAction(api.setups.save);
+  const remove = useMutation(api.setups.remove);
+  const [name, setName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [armed, setArmed] = useState<string | null>(null);
+  const mine = (setups ?? []).filter(s => s.mine);
+  const editableDefaults = (setups ?? []).filter(s => s.seeded && s.editable);
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  const over = mine.find(s => s.name.toLowerCase() === trimmed.toLowerCase());
+  const nameProblem = !trimmed ? "Give the setup a name." : trimmed.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
+  const run = async (what: string, call: () => Promise<unknown>) => {
+    setPending(true); setError(null);
+    try { await call(); toast({ title: what }); } catch (e) { setError(errMsg(e)); } finally { setPending(false); }
+  };
+  const saveAs = (target?: Setup) => run(`Saved the setup ${target?.name ?? trimmed}`, async () => {
+    await save({ name: target ? target.name : trimmed, settings: draft, ...(target ? { setupId: target.id } : over ? { setupId: over.id } : {}) });
+    if (!target) setName("");
+  });
+  const row = (s: Setup) => (
+    <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-1.5" data-testid={`row-setup-${s.id}`}>
+      <span className="font-medium">{s.name}</span>
+      <span className="text-xs text-muted-foreground min-w-0 flex-1">{s.summary}</span>
+      <Action k="setups.save" label="Save over" tone="link" onClick={() => void saveAs(s)} unavailable={blocker} pending={pending} testId={`button-save-over-${s.id}`} />
+      <Action k="setups.remove" label={armed === s.id ? "Select again to delete" : "Delete"} tone="link" pending={pending} testId={`button-delete-setup-${s.id}`}
+        onClick={() => { if (armed !== s.id) { setArmed(s.id); return; } setArmed(null); void run(`Deleted the setup ${s.name}`, () => remove({ setupId: s.id })); }} />
+    </li>
+  );
+  return (
+    <details className="border-t pt-4 space-y-3 text-sm" data-testid="block-save-as-setup">
+      <summary className="cursor-pointer font-medium">Save as a setup…</summary>
+      <p className="text-muted-foreground">Keeps these settings under a name you can pick from the Setup menu of any of your rooms. It changes no room.</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2">
+          <span>Name</span>
+          <input value={name} maxLength={SETUP_NAME_MAX + 10} onChange={e => setName(e.target.value)} aria-invalid={!!name && !!nameProblem || undefined}
+            className="w-64 border bg-background px-2 py-1 text-sm outline-none focus:border-primary" data-testid="input-setup-name" />
+        </label>
+        <Action k="setups.save" label={over ? `Save over ${over.name}` : "Save as a setup"} onClick={() => void saveAs()} unavailable={blocker ?? (name ? nameProblem : "Give the setup a name.")}
+          pending={pending} testId="button-save-setup" />
+      </div>
+      {name && nameProblem && <p className="text-destructive" role="alert">{nameProblem}</p>}
+      {over && !nameProblem && <p className="text-muted-foreground">You already have a setup called {over.name}: saving replaces its settings.</p>}
+      {error && <ErrorLine message={error} />}
+      <div>
+        <h3 className="font-medium">Your setups</h3>
+        {mine.length ? <ul className="divide-y" data-testid="list-your-setups">{mine.map(row)}</ul> : <p className="text-muted-foreground">None yet.</p>}
+      </div>
+      {editableDefaults.length > 0 && (
+        <div>
+          <h3 className="font-medium">Defaults (you are an admin)</h3>
+          <ul className="divide-y">{editableDefaults.map(row)}</ul>
+        </div>
+      )}
+    </details>
   );
 }
 
@@ -492,5 +519,3 @@ function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, o
     </div>
   );
 }
-
-

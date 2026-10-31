@@ -272,10 +272,12 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // Agent income 32 bits/s with the 2-bit floor (perActFloorBits, a global default): the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
-    // alternative is the "grid-low-income" preset (16 bits/s, floor 1).
+    // alternative is the "grid-low-income" seed setup (16 bits/s, floor 1).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
     byKey: {
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
+      "Grid(7,cards,rainbow6)": { excludedFamilies: WEAK_GRID_FAMILIES.filter(id => id !== "ladder_of_numbers") },
     },
   },
 };
@@ -289,35 +291,9 @@ export function typeDefaults(objectType: string, typeArgs?: TypeArgs): Partial<G
 }
 
 /**
- * Named starting points for the settings picker, in the suggested learning order. A preset is a settings
- * patch; owners can change anything afterwards. "Gentle" slows interactions so kids can follow their own
- * scores (explore/gridtypes.md: at 100 Hz an own score changes 10–17 times a minute).
+ * Default settings for one instantiation and language: tuned type defaults and the language's grammar. Used to build
+ * the seed setups below (and fixtures); a settings CHANGE never consults tuned defaults (settings-model.ts).
  */
-export const SETTINGS_PRESETS: readonly {
-  readonly id: string; readonly label: string; readonly kid: string;
-  readonly objectType: string; readonly typeArgs: TypeArgs; readonly patch: Partial<GameSettings>;
-}[] = [
-  { id: "grid-first-steps", label: "First steps", kid: "A small 4×4 board, slowed down so you can watch your score",
-    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, patch: { interactionRateHz: 25 } },
-  { id: "grid-classic", label: "Classic", kid: "5×5 with four colours: the standard game",
-    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: {} },
-  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
-  { id: "grid-low-income", label: "Low income", kid: "Classic 5×5, but agents earn half as fast and acts cost a little less",
-    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: { agentEnergyPerSecond: 16, perActFloorBits: 1 } },
-  { id: "grid-big", label: "Big board", kid: "6×6 in hex digits and six colours",
-    objectType: "Grid", typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" }, patch: {} },
-  { id: "grid-master", label: "Master", kid: "7×7 playing cards in rainbow colours",
-    objectType: "Grid", typeArgs: { size: 7, symbols: "cards", colours: "rainbow6" }, patch: {} },
-];
-
-/** Settings for a preset: the instantiation's tuned defaults, then the preset's own patch. */
-export function presetSettings(id: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language): GameSettings {
-  const preset = SETTINGS_PRESETS.find(p => p.id === id);
-  if (!preset) throw new Error(`Unknown settings preset: ${id}`);
-  return { ...defaultSettingsFor(preset.objectType, language, preset.typeArgs), ...preset.patch };
-}
-
-/** Default settings for one instantiation and language: tuned type defaults and the language's grammar. */
 export function defaultSettingsFor(
   objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language, typeArgs?: TypeArgs,
 ): GameSettings {
@@ -326,6 +302,51 @@ export function defaultSettingsFor(
     ...DEFAULT_SETTINGS, ...typeDefaults(objectType, args), language, objectType, typeArgs: args,
     grammarId: `${language}-agent-v1` as GrammarId, complexityFunctionId: COMPLEXITY_FOR[language],
   };
+}
+
+/**
+ * The seed catalogue of game setups, in the suggested learning order. Each is a complete settings object: the
+ * instantiation's tuned defaults (TYPE_DEFAULTS), then the setup's own patch. The engine seeds them once into its
+ * `gameSetups` table (artifacts/engine/convex/setups.ts), where admins may edit them later; edits are kept. "First
+ * steps" slows interactions so kids can follow their own scores (explore/gridtypes.md: at 100 Hz an own score changes
+ * 10–17 times a minute).
+ */
+export interface SeedSetup {
+  /** Stable id of the seeded row (the former preset id), so a re-seed never duplicates or recreates it. */
+  readonly seedId: string;
+  /** At most SETUP_NAME_MAX characters. */
+  readonly name: string;
+  /** One plain sentence for the setup menu. */
+  readonly summary: string;
+  readonly settings: Readonly<GameSettings>;
+}
+/** The longest setup name. */
+export const SETUP_NAME_MAX = 40;
+/** The setup a new room starts on (docs/ui-redesign.md §1): a small, slowed-down board a newcomer can follow. */
+export const FIRST_STEPS_SEED_ID = "grid-first-steps";
+
+const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
+  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, "python", typeArgs), ...patch }) });
+
+export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
+  seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25 }),
+  seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
+    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
+  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
+  seed("grid-low-income", "Low income", "Classic 5×5, but agents earn half as fast and acts cost a little less",
+    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, { agentEnergyPerSecond: 16, perActFloorBits: 1 }),
+  seed("grid-big", "Big board", "6×6 in hex digits and six colours",
+    "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
+  seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
+    "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
+]);
+
+/** A seed setup's complete settings (a fresh copy). */
+export function seedSetupSettings(seedId: string): GameSettings {
+  const found = SEED_SETUPS.find(s => s.seedId === seedId);
+  if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
+  return { ...found.settings, typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -338,7 +359,7 @@ export type SettingsSection = "world" | "goals" | "agents" | "energy" | "populat
 /**
  * One field's documentation, read by every surface: the configuration page, the read-only view, the assistant's
  * explanation and tool descriptions. `meaning` and `consequence` are each one neutral sentence with no reference to
- * layout or controls. `suggested` are the stepped choices (every default and preset value is among them); `tier`
+ * layout or controls. `suggested` are the stepped choices (every default and seed setup value is among them); `tier`
  * says whether a newcomer is asked ("ask"), the field sits under "More" ("more") or is a fixed fact ("fixed").
  */
 export interface FieldDoc {

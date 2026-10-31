@@ -1,14 +1,14 @@
 /**
  * SETTINGS_DOCS (docs/research/ui-redesign/onboarding-and-config.md §4.6): every GameSettings field is documented
  * (the `satisfies` makes a missing field a type error; this test checks the texts), each meaning and consequence is
- * one plain sentence the assistant can read too, and the stepped choices contain every tuned value a preset or the
+ * one plain sentence the assistant can read too, and the stepped choices contain every tuned value a seed setup or the
  * type defaults use, so the configuration page can always show the current value as a choice.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { OBJECT_TYPES } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, ROOM_BUDGET_DOCS, SETTINGS_DOCS, SETTINGS_PRESETS, TYPE_DEFAULTS, presetSettings, type FieldDoc, type GameSettings,
+  DEFAULT_SETTINGS, ROOM_BUDGET_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
 } from "../src/settings.ts";
 
 const LAYOUT_WORDS = /\b(below|above|click|button|tab|panel|page|screen)\b/i;
@@ -31,12 +31,12 @@ test("every settings field, type argument and room budget has a question, a mean
   }
 });
 
-test("stepped choices include every default, tuned type default and preset value", () => {
+test("stepped choices include every default, tuned type default and seed setup value", () => {
   const sources: [string, Partial<GameSettings>][] = [
     ["DEFAULT_SETTINGS", DEFAULT_SETTINGS],
     ...Object.entries(TYPE_DEFAULTS).flatMap(([type, d]): [string, Partial<GameSettings>][] => [
       [`${type}.all`, d.all ?? {}], ...Object.entries(d.byKey ?? {}).map(([k, v]): [string, Partial<GameSettings>] => [k, v])]),
-    ...SETTINGS_PRESETS.map((p): [string, Partial<GameSettings>] => [p.id, presetSettings(p.id)]),
+    ...SEED_SETUPS.map((s): [string, Partial<GameSettings>] => [s.seedId, s.settings]),
   ];
   for (const [source, values] of sources) {
     for (const [key, value] of Object.entries(values) as [keyof GameSettings, unknown][]) {
