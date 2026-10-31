@@ -26,14 +26,23 @@ export const seedUser = internalMutation({
   },
 });
 
-/** Mint a player credential row (the auth agent's device flow is not in this worktree). */
+/** Mint a player credential row; with `tokenHash` (sha256 hex of a `cgc_…` value) it also works as a bearer for POST /mcp. */
 export const seedCredential = internalMutation({
-  args: { subject: v.string(), roomId: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")) },
+  args: { subject: v.string(), roomId: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")), tokenHash: v.optional(v.string()) },
   handler: async (ctx, args) => {
     dev();
     const now = Date.now();
-    return ctx.db.insert("credentials", { tokenHash: crypto.randomUUID(), subject: args.subject, roomId: args.roomId, permission: args.permission,
+    return ctx.db.insert("credentials", { tokenHash: args.tokenHash ?? crypto.randomUUID(), subject: args.subject, roomId: args.roomId, permission: args.permission,
       label: "test", createdAt: now, expiresAt: now + 3600_000 });
+  },
+});
+
+/** Patch a credential (revokedAt, expiresAt, refreshExpiresAt) to test revocation and expiry. */
+export const patchCredential = internalMutation({
+  args: { credentialId: v.id("credentials"), patch: v.object({ revokedAt: v.optional(v.number()), expiresAt: v.optional(v.number()), refreshExpiresAt: v.optional(v.number()) }) },
+  handler: async (ctx, { credentialId, patch }) => {
+    dev();
+    await ctx.db.patch(credentialId, patch);
   },
 });
 

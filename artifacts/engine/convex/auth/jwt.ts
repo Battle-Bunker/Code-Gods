@@ -34,7 +34,8 @@ export type MintInput =
   | { subject: string; scope: "browser"; sessionId: string }
   | { subject: string; scope: "player"; credentialId: string; roomId: string; permission: string };
 
-export async function mintJwt(input: MintInput): Promise<{ token: string; expiresAt: number }> {
+/** `ttlSeconds` (default 10 minutes): MCP OAuth access tokens last 60 minutes (convex/agent/oauth.ts). */
+export async function mintJwt(input: MintInput, ttlSeconds = JWT_TTL_SECONDS): Promise<{ token: string; expiresAt: number }> {
   const { key, publicJwk } = await signer();
   const now = Math.floor(Date.now() / 1000);
   const claims: Record<string, string> = { scope: input.scope };
@@ -43,7 +44,7 @@ export async function mintJwt(input: MintInput): Promise<{ token: string; expire
   const token = await new SignJWT(claims)
     .setProtectedHeader({ alg: "RS256", kid: publicJwk.kid, typ: "JWT" })
     .setIssuer(jwtIssuer()).setAudience(JWT_AUDIENCE).setSubject(input.subject)
-    .setIssuedAt(now).setExpirationTime(now + JWT_TTL_SECONDS)
+    .setIssuedAt(now).setExpirationTime(now + ttlSeconds)
     .sign(key);
-  return { token, expiresAt: (now + JWT_TTL_SECONDS) * 1000 };
+  return { token, expiresAt: (now + ttlSeconds) * 1000 };
 }

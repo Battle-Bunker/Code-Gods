@@ -13,6 +13,7 @@
     "deploy-static": "node scripts/deploy-static.mjs",
     "fake-oidc": "node scripts/fake-oidc.mjs",
     "upload-runtime": "node scripts/upload-runtime.mjs",
+    "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts",
     "test:unit": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },
   "dependencies": {

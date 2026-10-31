@@ -10,7 +10,15 @@
 
 import type * as activity from "../activity.js";
 import type * as agent_bound from "../agent/bound.js";
+import type * as agent_connect from "../agent/connect.js";
+import type * as agent_mcp from "../agent/mcp.js";
+import type * as agent_node from "../agent/node.js";
+import type * as agent_oauth from "../agent/oauth.js";
+import type * as agent_oauthStore from "../agent/oauthStore.js";
+import type * as agent_registry from "../agent/registry.js";
 import type * as agent_rules from "../agent/rules.js";
+import type * as agent_store from "../agent/store.js";
+import type * as agent_tables from "../agent/tables.js";
 import type * as ai_seats from "../ai/seats.js";
 import type * as ai_turn from "../ai/turn.js";
 import type * as aiTemplates from "../aiTemplates.js";
@@ -68,7 +76,15 @@ import type {
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
   "agent/bound": typeof agent_bound;
+  "agent/connect": typeof agent_connect;
+  "agent/mcp": typeof agent_mcp;
+  "agent/node": typeof agent_node;
+  "agent/oauth": typeof agent_oauth;
+  "agent/oauthStore": typeof agent_oauthStore;
+  "agent/registry": typeof agent_registry;
   "agent/rules": typeof agent_rules;
+  "agent/store": typeof agent_store;
+  "agent/tables": typeof agent_tables;
   "ai/seats": typeof ai_seats;
   "ai/turn": typeof ai_turn;
   aiTemplates: typeof aiTemplates;

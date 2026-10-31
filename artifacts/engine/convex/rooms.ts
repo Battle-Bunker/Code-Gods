@@ -72,7 +72,7 @@ export const list = query({
 });
 
 /** A room's public state by id, GUID or short code: owner, creation date, members, chat, settings, active game. */
-async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
+export async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
   const room = await requireRoom(ctx, ref);
   requireReaderAs(viewer, room);
   const [members, chat] = await Promise.all([membersOf(ctx, room._id), recentChat(ctx, room._id)]);
@@ -135,7 +135,7 @@ export const setReady = mutation({
 });
 
 /** Older public chat (members only), 100 messages before `before`. */
-async function chatFor(ctx: QueryCtx, viewer: Viewer, { roomId, before, limit }: { roomId: string; before?: number; limit?: number }) {
+export async function chatFor(ctx: QueryCtx, viewer: Viewer, { roomId, before, limit }: { roomId: string; before?: number; limit?: number }) {
   const room = await requireRoom(ctx, roomId);
   await requireMemberAs(ctx, viewer, room, "read");
   const rows = await recentChat(ctx, room._id, Math.max(1, Math.min(100, Math.floor(limit ?? 100))), 0, (before ?? Infinity) - 1);
@@ -151,7 +151,7 @@ export const chatHistoryAs = internalQuery({
 });
 
 /** The room's finished games, newest first: public results only. */
-async function historyFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
+export async function historyFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { room: string }) {
   const room = await requireRoom(ctx, ref);
   requireReaderAs(viewer, room);
   const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc").take(200);

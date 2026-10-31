@@ -9,7 +9,8 @@
     "./assistant": "./src/assistant.ts",
     "./state": "./src/state.ts",
     "./connect": "./src/connect.ts",
-    "./tools": "./src/tools.ts"
+    "./tools": "./src/tools.ts",
+    "./rules": "./src/rules.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",

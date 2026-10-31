@@ -63,7 +63,7 @@ export const eventsAs = internalQuery({
   args: { principal: principalV, ...eventsArgs },
   handler: async (ctx, { principal, ...args }) => eventsFor(ctx, await viewerOf(ctx, principal), args),
 });
-const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; after?: number; limit?: number }) => {
+export const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; after?: number; limit?: number }) => {
     const { viewer, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     if (!game) return { gameId: null, events: [], nextCursor: args.after ?? -1, latestCursor: -1, gap: false };
@@ -86,7 +86,7 @@ export const historyAs = internalQuery({
   args: { principal: principalV, ...historyArgs },
   handler: async (ctx, { principal, ...args }) => historyFor(ctx, await viewerOf(ctx, principal), args),
 });
-const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; limit?: number }) => {
+export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; limit?: number }) => {
     const { viewer, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     const after = args.afterSeq ?? -1;
@@ -105,7 +105,7 @@ export const trajectoriesAs = internalQuery({
   args: { principal: principalV, ...trajectoriesArgs },
   handler: async (ctx, { principal, ...args }) => trajectoriesFor(ctx, await viewerOf(ctx, principal), args),
 });
-const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
+export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
     const { game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
     if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? game.nextBatch - 1 : -1 };
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
@@ -124,7 +124,7 @@ export const myUtilityAs = internalQuery({
   args: { principal: principalV, roomId: v.string() },
   handler: async (ctx, { principal, ...args }) => myUtilityFor(ctx, await viewerOf(ctx, principal), args),
 });
-async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { roomId: string }) {
+export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { roomId: string }) {
     const room = await requireRoom(ctx, roomId);
     await requireMemberAs(ctx, viewer, room, "read");
     const game = await currentGame(ctx, room);
