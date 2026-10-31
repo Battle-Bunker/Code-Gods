@@ -25,13 +25,14 @@ export function anthropicProvider(client: Pick<Anthropic, "messages">, config: {
         max_tokens: request.maxOutputTokens,
         system: request.system,
         messages: [{ role: "user", content: request.data }],
-        // No tools, prompt caching, extended thinking, or separately billable features.
+        // No tools, prompt caching or separately billable features; the model's default thinking applies.
       }, { signal: request.signal, maxRetries: 0 });
-      if (result.stop_reason !== "end_turn" || !result.content.length ||
-          result.content.some(block => block.type !== "text")) {
+      // Claude 5 models think by default: their thinking blocks are skipped (a one-shot call never replays them).
+      const answer = result.content.filter(block => block.type !== "thinking" && block.type !== "redacted_thinking");
+      if (result.stop_reason !== "end_turn" || !answer.length || answer.some(block => block.type !== "text")) {
         throw new Error("Incomplete or unsupported Anthropic response");
       }
-      const text = result.content.map(block => block.type === "text" ? block.text : "").join("");
+      const text = answer.map(block => block.type === "text" ? block.text : "").join("");
       const usage = result.usage;
       const inputTokens = usage.input_tokens + (usage.cache_creation_input_tokens ?? 0) +
         (usage.cache_read_input_tokens ?? 0);

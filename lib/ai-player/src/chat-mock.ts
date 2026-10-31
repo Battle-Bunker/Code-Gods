@@ -2,21 +2,24 @@
  * The scripted mock ChatProvider: offline, deterministic, free. The engine selects it only when AI_MOCK=1
  * (local deployments), so the `/mock` syntax below is never parsed in production.
  *
- * The latest user message of the conversation (the one that started the turn) picks the script:
+ * The latest user message of the conversation (the one that started the turn; not a tool-result message) picks the
+ * script from its last text block (earlier blocks, such as the engine's briefing, are its context):
  *   `/mock {"steps":[step, …]}` or `/mock [step, …]`, where a step is one model call:
- *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message" }
+ *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message",
+ *       "echo": true (answer with JSON {system, tools: names, context: the prompt's other text blocks}) }
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
  * the turn with no text. Usage is reported from the request and answer sizes (about four characters a token).
  */
 import { z } from "zod";
-import type { ChatProvider, ChatRequest, ChatResult } from "./chat.ts";
+import type { ChatMessage, ChatProvider, ChatRequest, ChatResult } from "./chat.ts";
 
 const stepSchema = z.object({
   text: z.union([z.string(), z.array(z.string())]).optional().transform(t => t === undefined ? [] : typeof t === "string" ? [t] : t),
   delayMs: z.number().int().min(0).max(60_000).default(0),
   tools: z.array(z.object({ name: z.string().min(1).max(64), input: z.record(z.unknown()).default({}) }).strict()).max(8).default([]),
   fail: z.string().max(500).optional(),
+  echo: z.boolean().optional(),
 }).strict();
 const scriptSchema = z.object({ steps: z.array(stepSchema).max(20) }).strict();
 export type MockStep = z.output<typeof stepSchema>;
@@ -56,8 +59,9 @@ export function mockChatProvider(): ChatProvider {
     estimateMaxUsd: (input, output) => (input + output) * 1e-8,
     async stream(request): Promise<ChatResult> {
       let promptAt = -1;
-      request.messages.forEach((m, i) => { if (m.role === "user" && typeof m.content === "string") promptAt = i; });
-      const prompt = promptAt >= 0 ? request.messages[promptAt].content as string : "";
+      request.messages.forEach((m, i) => { if (m.role === "user" && (typeof m.content === "string" || !m.content.some(b => b.type === "tool_result"))) promptAt = i; });
+      const blocks = promptAt < 0 ? [] : (m => typeof m === "string" ? [m] : m.flatMap(b => b.type === "text" ? [b.text] : []))(request.messages[promptAt].content as ChatMessage["content"]);
+      const prompt = blocks.at(-1) ?? "";
       const step = request.messages.slice(promptAt + 1).filter(m => m.role === "assistant").length;
       const script = parseMockScript(prompt);
       const current = script ? script.steps[step] : defaultStep(step, request);
@@ -65,7 +69,8 @@ export function mockChatProvider(): ChatProvider {
       if (!current) return { content: [], stopReason: "end_turn", inputTokens, outputTokens: 1 };
       if (current.fail) throw new Error(current.fail);
       let text = "";
-      for (const chunk of current.text) {
+      const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: request.tools.map(t => t.name), context: blocks.slice(0, -1) })] : current.text;
+      for (const chunk of chunks) {
         if (current.delayMs) await sleep(current.delayMs, request.signal);
         if (request.signal.aborted) throw new Error("Mock stream aborted");
         text += chunk;

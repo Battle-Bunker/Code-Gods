@@ -8,13 +8,17 @@
  *      characters through a mutation that also reports cancellation), settle the usage, record its tool calls;
  *   3. run those calls (step 1), then schedule the next step, or finish (model stop, step ceiling, deadline, budget).
  *
+ * Before the turn's first model step, the briefing (the player's utility, energy, helpers and the room's rules) is read
+ * through the same registry and stored with the turn. The model's blocks of each step are stored verbatim and replayed
+ * in its history (rules.ts buildHistory), so Claude's thinking blocks stay valid across the turn's steps.
+ *
  * Every tool runs through the agent registry as the turn's assistant credential (`runTool(ctx, {credentialId}, …)`):
  * there is no other path to game state. Command and request ids are UUIDv5 of (turn, call), never the model's.
  */
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
 import {
-  assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider, mockChatProvider,
+  assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider, mockChatProvider,
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse,
 } from "@workspace/ai-player";
 import { findTool, mayUse, type ToolResult } from "@workspace/player-client/tools";
@@ -60,6 +64,18 @@ function validatedCost(calls: CallRow[], args: Record<string, unknown>): number 
     } catch { /* not a usable validation */ }
   }
   return undefined;
+}
+
+/**
+ * The player's situation for the turn's briefing, read as the turn's credential like any tool call: the room's rules
+ * and the observation (absent in the lobby or when a read fails; the briefing says so).
+ */
+async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["credentialId"]): Promise<string> {
+  const read = async (tool: string, args: Record<string, unknown>) => {
+    try { return (await runTool(ctx, { credentialId }, tool, args)).data; } catch { return undefined; }
+  };
+  const [rules, observation] = await Promise.all([read("get_rules", {}), read("get_observation", { objectsLimit: 1 })]);
+  return assistantBriefing({ rules, observation });
 }
 
 /**
@@ -132,7 +148,7 @@ export const run = internalAction({
   handler: async (ctx, { turnId, gen }): Promise<void> => {
     const finish = (status: "done" | "failed" | "budget_exhausted" | "cancelled", error?: { code: string; message: string }) =>
       ctx.runMutation(internal.assistant.store.finish, { turnId, gen, status, ...(error ? { error } : {}) });
-    const c = await loadContext(ctx, turnId, gen);
+    let c = await loadContext(ctx, turnId, gen);
     if ("stop" in c) {
       // A cancelled turn whose step was only scheduled: acknowledge the cancellation.
       if (c.stop === "stale" && c.status === "cancelling") await finish("cancelled");
@@ -153,7 +169,14 @@ export const run = internalAction({
     if (c.turn.step >= c.turn.maxSteps) return void await finish("done", { code: "STEP_LIMIT", message: `Stopped after ${c.turn.maxSteps} steps; ask again to continue.` });
     if (!who) return void await finish("failed", { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." });
 
-    // 2. One model step.
+    // 2. One model step. The first one fetches the briefing (kept for the whole turn, so its history stays append-only).
+    if (!c.hasBriefing) {
+      const { cancelled } = await ctx.runMutation(internal.assistant.store.setBriefing, { turnId, gen, briefing: await briefingFor(ctx, c.turn.credentialId) });
+      if (cancelled) return void await finish("cancelled");
+      const reloaded = await loadContext(ctx, turnId, gen);
+      if ("stop" in reloaded) { if (reloaded.stop === "stale" && reloaded.status === "cancelling") await finish("cancelled"); return; }
+      c = reloaded;
+    }
     let provider: ChatProvider;
     try { provider = providerFor(c.model); } catch (error) { return void await finish("failed", { code: "UNAVAILABLE", message: messageOf(error) }); }
     const tools = modelTools(who.permission);
@@ -201,20 +224,26 @@ export const run = internalAction({
     }
     log("step", { turnId, step: c.turn.step, outcome: result.stopReason, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
     const text = result.content.filter(b => b.type === "text").map(b => b.text).join("");
-    const uses = result.content.filter((b): b is ChatToolUse => b.type === "tool_use").slice(0, 16);
-    const calls = uses.map(use => {
+    // Every tool use gets a call row (and so a result): the step's blocks are replayed verbatim.
+    const uses = result.content.filter((b): b is ChatToolUse => b.type === "tool_use");
+    const calls = uses.map((use, n) => {
       const id = commandIdFor(turnId, use.id, sha1);
       const args = prepareArgs(use.name, use.input, id);
       const argsJson = JSON.stringify(args);
       const ids = args.commandId === id || args.requestId === id ? { commandId: id } : {};
+      if (n >= LIMITS.callsPerStep) {
+        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Too many calls in one step",
+          resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: `At most ${LIMITS.callsPerStep} tool calls run per step; repeat this one in the next step` } }) };
+      }
       if (argsJson.length > argsLimit(use.name)) {
         return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Arguments too large",
           resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: `Tool arguments are limited to ${argsLimit(use.name)} characters` } }) };
       }
       return { callId: use.id, tool: use.name, argsJson, ...ids, status: "pending" as const, summary: "" };
     });
+    const contentJson = JSON.stringify(result.content);
     const done = await ctx.runMutation(internal.assistant.store.completeStep, {
-      turnId, gen, messageId, text, inputTokens: result.inputTokens, outputTokens: result.outputTokens, stop: result.stopReason, calls,
+      turnId, gen, messageId, text, ...(contentJson.length <= LIMITS.contentChars ? { contentJson } : {}), inputTokens: result.inputTokens, outputTokens: result.outputTokens, stop: result.stopReason, calls,
     });
     if (done.cancelled) return void await finish("cancelled");
     if (!calls.length) return void await finish("done");

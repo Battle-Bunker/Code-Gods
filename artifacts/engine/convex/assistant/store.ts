@@ -8,7 +8,8 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { LIMITS, isActive, type TurnStatus } from "./rules";
+import type { ChatMessage } from "@workspace/ai-player";
+import { LIMITS, buildHistory, isActive, type TurnStatus } from "./rules";
 
 type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
@@ -64,43 +65,23 @@ async function liveTurn(ctx: Ctx, turnId: Id<"assistantTurns">, gen: number) {
 // Context of one step
 // ---------------------------------------------------------------------------------------------
 
-type ToolUse = { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
-type History = ({ role: "user"; content: string | ({ type: "text"; text: string } | { type: "tool_result"; toolUseId: string; content: string; isError?: boolean })[] }
-  | { role: "assistant"; content: ({ type: "text"; text: string } | ToolUse)[] })[];
-
-const parse = (json: string): Record<string, unknown> => { try { return JSON.parse(json) as Record<string, unknown>; } catch { return {}; } };
-
-/** The thread as model messages: user text; each step's text and tool uses; their results. Oldest turns are cut first. */
-async function historyOf(ctx: QueryCtx, turn: Turn): Promise<History> {
-  const rows = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId)).order("desc").take(LIMITS.historyMessages)).reverse();
-  const calls = new Map<string, Call[]>();
-  for (const c of await ctx.db.query("assistantToolCalls").withIndex("by_thread", q => q.eq("threadId", turn.threadId)).order("desc").take(400)) {
-    if (!TERMINAL_CALL.includes(c.status)) continue;
-    const list = calls.get(c.messageId) ?? [];
-    list.push(c);
-    calls.set(c.messageId, list);
-  }
-  // Groups of one user message and the steps that answered it.
-  const groups: { turnId: string; messages: History }[] = [];
-  for (const m of rows) {
-    if (m.role === "user") { groups.push({ turnId: m.turnId, messages: [{ role: "user", content: m.text }] }); continue; }
-    const group = groups.at(-1);
-    if (!group) continue; // the cut fell inside an older turn
-    const used = (calls.get(m._id) ?? []).sort((a, b) => a.index - b.index);
-    const content: ({ type: "text"; text: string } | ToolUse)[] = m.text ? [{ type: "text", text: m.text }] : [];
-    for (const c of used) content.push({ type: "tool_use", id: c.callId, name: c.tool, input: parse(c.argsJson) });
-    if (!content.length) continue;
-    group.messages.push({ role: "assistant", content });
-    if (used.length) {
-      group.messages.push({ role: "user", content: used.map(c => ({
-        type: "tool_result" as const, toolUseId: c.callId, content: c.resultJson ?? "{}", ...(c.status === "ok" ? {} : { isError: true }),
-      })) });
-    }
-  }
-  const size = (g: { messages: History }) => JSON.stringify(g.messages).length;
-  let total = groups.reduce((s, g) => s + size(g), 0);
-  while (groups.length > 1 && groups[0].turnId !== turn._id && total > LIMITS.historyChars) total -= size(groups.shift()!);
-  return groups.flatMap(g => g.messages);
+/**
+ * The thread as model messages (rules.ts buildHistory). The window is turn-aligned so it never moves during a turn:
+ * all of the current turn, and up to LIMITS.historyMessages earlier messages with their calls.
+ */
+async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
+  const mine = await ctx.db.query("assistantMessages").withIndex("by_turn", q => q.eq("turnId", turn._id)).take(200);
+  const firstSeq = Math.min(...mine.map(m => m.seq), Number.MAX_SAFE_INTEGER);
+  const before = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId).lt("seq", firstSeq))
+    .order("desc").take(LIMITS.historyMessages)).reverse();
+  const rows = [...before, ...mine.sort((a, b) => a.seq - b.seq)];
+  const turnIds = [...new Set(rows.map(m => m.turnId))];
+  const calls = (await Promise.all(turnIds.map(id => callsOf(ctx, id)))).flat();
+  return buildHistory(
+    rows.map(m => ({ id: m._id, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
+    calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
+    { turnId: turn._id, briefing: turn.briefing ?? null },
+  );
 }
 
 /** Everything a step needs, or why it must stop. The history is JSON (model-chosen keys need not be Convex field names). */
@@ -119,6 +100,7 @@ export const context = internalQuery({
       roomId: turn.roomId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
       calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null })),
+      hasBriefing: turn.briefing !== undefined,
       historyJson: JSON.stringify(await historyOf(ctx, turn)),
     };
   },
@@ -127,6 +109,17 @@ export const context = internalQuery({
 // ---------------------------------------------------------------------------------------------
 // One model step
 // ---------------------------------------------------------------------------------------------
+
+/** The turn's briefing, written once before its first model step (rules.ts buildHistory puts it in front). */
+export const setBriefing = internalMutation({
+  args: { turnId: v.id("assistantTurns"), gen: v.number(), briefing: v.string() },
+  handler: async (ctx, { turnId, gen, briefing }) => {
+    const turn = await liveTurn(ctx, turnId, gen);
+    if (!turn) return { cancelled: true };
+    if (turn.briefing === undefined) await ctx.db.patch(turn._id, { briefing, updatedAt: Date.now() });
+    return { cancelled: false };
+  },
+});
 
 /** After a successful reservation: the step's (streaming) assistant message, and the tools offered. */
 export const openStep = internalMutation({
@@ -168,14 +161,17 @@ const newCall = v.object({ callId: v.string(), tool: v.string(), argsJson: v.str
 /** The model answered: its final text and usage, and its tool calls (pending, or refused at once). */
 export const completeStep = internalMutation({
   args: {
-    turnId: v.id("assistantTurns"), gen: v.number(), messageId: v.id("assistantMessages"), text: v.string(),
+    turnId: v.id("assistantTurns"), gen: v.number(), messageId: v.id("assistantMessages"), text: v.string(), contentJson: v.optional(v.string()),
     inputTokens: v.number(), outputTokens: v.number(), stop: v.union(v.literal("end_turn"), v.literal("tool_use")), calls: v.array(newCall),
   },
   handler: async (ctx, args) => {
     const turn = await liveTurn(ctx, args.turnId, args.gen);
     if (!turn) return { cancelled: true };
     const now = Date.now();
-    await ctx.db.patch(args.messageId, { text: clipText(args.text), status: "done", inputTokens: args.inputTokens, outputTokens: args.outputTokens, updatedAt: now });
+    await ctx.db.patch(args.messageId, {
+      text: clipText(args.text), status: "done", inputTokens: args.inputTokens, outputTokens: args.outputTokens, updatedAt: now,
+      ...(args.contentJson ? { contentJson: args.contentJson } : {}),
+    });
     await ctx.db.patch(turn._id, {
       step: turn.step + 1, lastStop: args.calls.length ? "tool_use" : "end_turn", updatedAt: now,
       usage: { ...turn.usage, inputTokens: turn.usage.inputTokens + args.inputTokens, outputTokens: turn.usage.outputTokens + args.outputTokens },

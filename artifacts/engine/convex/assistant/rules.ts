@@ -3,6 +3,7 @@
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
 import { OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
+import type { ChatAssistantBlock, ChatMessage, ChatToolResult } from "@workspace/ai-player";
 import { bound } from "../agent/bound.ts";
 
 export const LIMITS = {
@@ -19,8 +20,12 @@ export const LIMITS = {
   /** Streaming flushes: about every 250 ms or 400 characters. */
   flushMs: 250,
   flushChars: 400,
-  /** Output ceiling per model step, and how long a summon/validate tool call waits for its receipt. */
-  maxOutputTokens: 4096,
+  /** Output ceiling per model step (thinking included), and how long a summon/validate tool call waits for its receipt. */
+  maxOutputTokens: 8192,
+  /** A step's stored model blocks (assistantMessages.contentJson; at most 3 bytes a character keeps the document under 1 MiB); larger ones are replayed without thinking. */
+  contentChars: 200_000,
+  /** Tool calls run per model step; more are answered with an error. */
+  callsPerStep: 16,
   waitMs: 60_000,
   /** Model context: the thread's history is cut (oldest first) to this many characters. */
   historyChars: 60_000,
@@ -125,6 +130,70 @@ export function summarize(tool: string, result: { data: unknown }): string {
   if (OWNER.has(tool) && data.requestId) return "Done";
   if (findTool(tool)?.annotations.readOnlyHint) return "Read";
   return "Done";
+}
+
+// ---------------------------------------------------------------------------------------------
+// The model's history
+// ---------------------------------------------------------------------------------------------
+
+/** A stored message, oldest first. `contentJson` holds the model's own blocks (thinking included) for one step. */
+export type HistoryRow = { id: string; turnId: string; role: "user" | "assistant"; text: string; contentJson?: string | null };
+export type HistoryCall = { messageId: string; callId: string; index: number; tool: string; argsJson: string; status: string; resultJson?: string | null };
+const FINISHED = ["ok", "error", "denied"];
+const NOT_RUN = JSON.stringify({ error: { code: "NOT_RUN", message: "This call did not run." } });
+const parseObject = (json: string): Record<string, unknown> => { try { return JSON.parse(json) as Record<string, unknown>; } catch { return {}; } };
+
+function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | null {
+  if (!json) return null;
+  try { const blocks = JSON.parse(json) as unknown; return Array.isArray(blocks) ? blocks as ChatAssistantBlock[] : null; } catch { return null; }
+}
+
+/**
+ * The thread as model messages. Rules (Claude 5 thinking blocks are valid only while everything before them is
+ * byte-identical, so the history must be append-only within a turn):
+ *   - the current turn: the user's message after its briefing, then each step's own blocks verbatim (thinking and the
+ *     model's raw tool input) and its tool results;
+ *   - earlier turns: the same without thinking (a leading run of thinking may be dropped) and without briefings;
+ *   - earlier turns are cut whole, oldest first, by their own size only, so the cut never moves during a turn;
+ *   - every tool use gets a result (an error when its call never finished).
+ * Rows from before stored blocks existed are rebuilt from their text and calls.
+ */
+export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefing?: string | null }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
+  const byMessage = new Map<string, HistoryCall[]>();
+  for (const c of calls) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
+  const groups: { turnId: string; messages: ChatMessage[] }[] = [];
+  for (const m of rows) {
+    const isCurrent = m.turnId === current.turnId;
+    if (m.role === "user") {
+      const content = isCurrent && current.briefing ? [{ type: "text" as const, text: current.briefing }, { type: "text" as const, text: m.text }] : m.text;
+      groups.push({ turnId: m.turnId, messages: [{ role: "user", content }] });
+      continue;
+    }
+    const group = groups.at(-1);
+    if (!group || group.turnId !== m.turnId) continue; // the window starts inside an older turn
+    const used = (byMessage.get(m.id) ?? []).sort((a, b) => a.index - b.index);
+    let content = storedBlocks(m.contentJson);
+    if (content) { if (!isCurrent) content = content.filter(b => b.type !== "thinking"); }
+    else {
+      const finished = used.filter(c => FINISHED.includes(c.status));
+      content = [...(m.text ? [{ type: "text" as const, text: m.text }] : []),
+        ...finished.map(c => ({ type: "tool_use" as const, id: c.callId, name: c.tool, input: parseObject(c.argsJson) }))];
+    }
+    if (!content.length) continue;
+    group.messages.push({ role: "assistant", content });
+    const results: ChatToolResult[] = content.flatMap(b => {
+      if (b.type !== "tool_use") return [];
+      const c = used.find(x => x.callId === b.id && FINISHED.includes(x.status));
+      return [{ type: "tool_result" as const, toolUseId: b.id, content: c ? c.resultJson ?? "{}" : NOT_RUN, ...(c?.status === "ok" ? {} : { isError: true }) }];
+    });
+    if (results.length) group.messages.push({ role: "user", content: results });
+  }
+  const older = groups.filter(g => g.turnId !== current.turnId);
+  const now = groups.filter(g => g.turnId === current.turnId);
+  const size = (g: { messages: ChatMessage[] }) => JSON.stringify(g.messages).length;
+  let total = older.reduce((s, g) => s + size(g), 0);
+  while (older.length && total > maxChars) total -= size(older.shift()!);
+  return [...older, ...now].flatMap(g => g.messages);
 }
 
 // ---------------------------------------------------------------------------------------------

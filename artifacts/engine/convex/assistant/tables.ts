@@ -39,6 +39,8 @@ export const assistantTables = {
     /** The latest step's model stop: "tool_use" continues the turn once its calls are resolved. */
     lastStop: v.optional(v.union(v.literal("end_turn"), v.literal("tool_use"))),
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
+    /** The player's situation, fetched once before the turn's first model step and put in front of their message. */
+    briefing: v.optional(v.string()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
   }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"]),
 
@@ -50,6 +52,8 @@ export const assistantTables = {
     status: v.union(v.literal("streaming"), v.literal("done"), v.literal("error"), v.literal("cancelled")),
     /** Assistant messages (one per model step): the step's budget reservation and provider usage. */
     reservedTokens: v.optional(v.number()), inputTokens: v.optional(v.number()), outputTokens: v.optional(v.number()),
+    /** Assistant messages: the model's own blocks of the step, verbatim (thinking included), replayed in its history. */
+    contentJson: v.optional(v.string()),
     createdAt: v.number(), updatedAt: v.number(),
   }).index("by_thread_seq", ["threadId", "seq"]).index("by_turn", ["turnId"]),
 

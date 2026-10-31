@@ -7,15 +7,23 @@
  *   - makes exactly one attempt (SDK retries off), honours the abort signal and the output ceiling;
  *   - returns only complete answers: a model stop or a tool-use stop. A max-tokens cut, a refusal or any other stop
  *     is an error, so a truncated reply is never acted on;
- *   - validates provider usage (non-negative integers, output within the ceiling) before the caller settles a budget.
+ *   - validates provider usage (non-negative integers, output within the ceiling) before the caller settles a budget;
+ *   - returns reasoning blocks opaque and in order (ChatThinking), and replays the ones it produced verbatim. Callers
+ *     keep a conversation append-only within a turn, so a replayed block's prefix never changes.
  */
 export type ChatToolSpec = { name: string; description: string; inputSchema: Record<string, unknown> };
 export type ChatText = { type: "text"; text: string };
 export type ChatToolUse = { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
+/**
+ * A provider's reasoning block (Anthropic `thinking` / `redacted_thinking`), kept opaque: it must be replayed
+ * byte-for-byte in the same place, and only to the provider that produced it. Other adapters drop it.
+ */
+export type ChatThinking = { type: "thinking"; provider: "anthropic"; block: Record<string, unknown> };
 export type ChatToolResult = { type: "tool_result"; toolUseId: string; content: string; isError?: boolean };
 export type ChatMessage =
   | { role: "user"; content: string | (ChatText | ChatToolResult)[] }
-  | { role: "assistant"; content: (ChatText | ChatToolUse)[] };
+  | { role: "assistant"; content: ChatAssistantBlock[] };
+export type ChatAssistantBlock = ChatText | ChatToolUse | ChatThinking;
 
 export interface ChatRequest {
   system: string;
@@ -27,7 +35,8 @@ export interface ChatRequest {
   onText?: (delta: string) => void;
 }
 export interface ChatResult {
-  content: (ChatText | ChatToolUse)[];
+  /** The model's blocks in order, reasoning included: append them unchanged as the next assistant message. */
+  content: ChatAssistantBlock[];
   stopReason: "end_turn" | "tool_use";
   inputTokens: number;
   outputTokens: number;

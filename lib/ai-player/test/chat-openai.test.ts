@@ -87,3 +87,14 @@ test("an aborted signal rejects before or during the request", async () => {
   controller.abort();
   await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, "stop"), usage(1, 1)])).stream(request({ signal: controller.signal })));
 });
+
+test("another provider's thinking blocks are left out of the history", async () => {
+  let body: any;
+  const model = provider(async (_url, init) => { body = JSON.parse(String(init!.body)); return stream([chunk({ content: "ok" }, "stop"), usage(5, 1)]); });
+  await model.stream(request({ messages: [
+    { role: "user", content: "Hi" },
+    { role: "assistant", content: [{ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature: "s" } }, { type: "text", text: "Hello" }] },
+    { role: "user", content: "Again" },
+  ] }));
+  assert.deepEqual(body.messages.slice(1), [{ role: "user", content: "Hi" }, { role: "assistant", content: "Hello" }, { role: "user", content: "Again" }]);
+});
