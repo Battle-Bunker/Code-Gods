@@ -31,9 +31,9 @@ Requirements:
 Write the solver in `src/analytic/{grid,int,string}.ts` (`SOLVERS`, or `CELL_ADDITIVE` for Grid sum-over-cells rules).
 `test/analytic-solutions.test.ts` then checks it against every shipped table automatically, and against exhaustive
 enumeration for Int and string. Run `scripts/analytic-verify.ts` over every table you can find (§6) before you call it
-done. To make the engine USE it, give the family its `analytic` hook (src/analytic.ts `AnalyticSurvival`: a versioned
-formula id such as `"rainbow-bands@1"` that becomes part of the table key, `kind: "exact"`, and the levels with the
-first level exactly 0), archive the family's Monte Carlo tables as its reference
+done. To make the engine USE it, add `analytic: solvedAnalytic("<family id>")` to the family definition
+(src/analytic/hook.ts wraps the levels as src/analytic.ts `AnalyticSurvival` with the formula id `<family-id>@1`, part of
+the table key; bump its version in `FORMULA_VERSIONS` whenever the solution changes), archive the family's Monte Carlo tables as its reference
 (`scripts/analytic-reference.ts <family> --from <dirs>`), and regenerate its tables (`calibrate`); §7.
 
 ## 2. Step 0: canonical params, symmetry, and the reduced alphabet

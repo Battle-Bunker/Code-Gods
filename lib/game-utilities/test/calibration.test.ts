@@ -312,7 +312,7 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   const { UNIFORM_PRIOR, displayScale } = await import("../src/calibration.ts");
   const inst = instantiate("Int", { min: 0, max: 9999 });
   const uniform = buildTable("digit-devotee", { d: 7 }, inst).table; // exact enumeration: G_uniform is exact
-  assert.equal(uniform.estimator.budget, "exact");
+  assert.match(String(uniform.estimator.budget), /^exact(:|$)/); // exact enumeration or digit-devotee's exact analytic
   const pool = { id: "synthetic", instance: inst.key, wires: [7777, 7770, 1234, 7, 0, 77] };
   const mix = mixtureTable(uniform, pool, inst);
   const count = (k: number) => pool.wires.filter(x => String(x).split("").filter(c => c === "7").length >= k).length;

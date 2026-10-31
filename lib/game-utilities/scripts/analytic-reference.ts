@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { instantiateKey, tableOrder, type CalibrationFile, type CalibrationTable } from "../src/calibration.ts";
+import { analyticFor, instantiateKey, tableOrder, type CalibrationFile, type CalibrationTable } from "../src/calibration.ts";
 import { canonicalSupport, context, family } from "../src/catalog.ts";
 import { budgetFor, buildTable, mcTableKey, tableJson } from "./estimator.ts";
 
@@ -32,20 +32,23 @@ for (let i = 0; i < rest.length; i++) {
 }
 mkdirSync(REFERENCE_DIR, { recursive: true });
 const path = join(REFERENCE_DIR, `${familyId}.json`);
+if (!f.analytic) throw new Error(`${familyId} has no analytic hook: archive its references when wiring it (re-running now would drop them all)`);
+const covered = (t: CalibrationTable) => analyticFor(familyId, t.canonicalParams, instantiateKey(t.instance)) !== null;
 const current = (t: CalibrationTable) => !t.prior && typeof t.estimator.budget !== "string" && t.key === mcTableKey(t.family, t.canonicalParams, instantiateKey(t.instance));
 const kept = new Map<string, CalibrationTable>();
-if (existsSync(path)) for (const t of (JSON.parse(readFileSync(path, "utf8")) as { tables: CalibrationTable[] }).tables) if (current(t)) kept.set(t.key, t);
+if (existsSync(path)) for (const t of (JSON.parse(readFileSync(path, "utf8")) as { tables: CalibrationTable[] }).tables) if (current(t) && covered(t)) kept.set(t.key, t);
 for (const dir of from) {
   for (const name of readdirSync(dir).filter(n => n.endsWith(".json") && n !== "manifest.json")) {
     const file = JSON.parse(readFileSync(join(dir, name), "utf8")) as CalibrationFile;
-    for (const t of file.tables) if (t.family === familyId && current(t)) kept.set(t.key, t);
+    // only draws the analytic covers (e.g. not a family's rows+columns params when only its rows variant is solved)
+    for (const t of file.tables) if (t.family === familyId && current(t) && covered(t)) kept.set(t.key, t);
   }
 }
 for (const key of instances) {
   const inst = instantiateKey(key), ctx = context(inst);
   for (const p of canonicalSupport(f, ctx)) {
     const k = mcTableKey(familyId, p, inst);
-    if (kept.has(k)) continue;
+    if (kept.has(k) || !analyticFor(familyId, p, inst)) continue;
     const r = buildTable(familyId, p, inst, budgetFor(inst.objectType), { exact: false });
     if (r.table.key !== k) throw new Error("internal: reference key mismatch");
     kept.set(k, JSON.parse(tableJson(r.table)) as CalibrationTable);

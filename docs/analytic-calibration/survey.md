@@ -33,7 +33,10 @@ records the status today.
 (≤ 1–2 s); **H** exact only with a large state space or offline; **R** no exact method known here, use an
 approximation or the fallback.
 
-**Status**: ✅ exact solution shipped in `src/analytic` (verified on every shape that has tables); 🔒 already exact
+**Status**: ✅ exact solution in `src/analytic`, verified on every shape that has tables, and live (the family's
+`analytic` hook uses it, so its tables are built from the formula); ✅‡ exact and verified but not wired yet: its
+archived Monte Carlo tables are wrong in the deep tail by more than the reference test (test/analytic.test.ts) allows,
+so wiring needs the `KNOWN_TABLE_BIAS` allowance described in solutions.md §5 (`scale-keeper`: its 16k exact levels are too big a table); 🔒 already exact
 and wired through the family's `analytic` hook (src/analytic.ts); ≈ approximation documented, not shipped; · not attempted.
 
 ## Grid families (96)
@@ -64,18 +67,18 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `chessmaster` | (2) | 2×2 checkerboards and seams of two colours | local | 3-letter transfer (3^(N+1) states) | H | · |
 | `archipelago` | scalar | number of my-colour components | conn | cluster-count transfer (partition states) | H | · |
 | `bridge_builder` | scalar | columns spanned by one my-colour component | conn | — | H | · |
-| `looking_glass` | scalar | cells equal to their mirror twin | block (pairs) | Binomial(#pairs, q) | E | ✅ |
-| `pinwheel` | (2) | quarter-turn orbits all alike; most-alike counts | block (orbits) | max multiplicity of 4 iid keys | E | ✅ |
+| `looking_glass` | scalar | cells equal to their mirror twin | block (pairs) | Binomial(#pairs, q) | E | ✅‡ |
+| `pinwheel` | (2) | quarter-turn orbits all alike; most-alike counts | block (orbits) | max multiplicity of 4 iid keys | E | ✅‡ |
 | `card_windmill` | (2) | suits stepping round each quarter-turn orbit | block (orbits) | 4^4 enumeration per orbit | E | ✅ |
 | `royal_court` | (2) | picture-card component holding the centre | conn | — | H | · |
-| `bullseye` | (2) | one-colour rings, alternating, from outside in | block (rings) | chain over rings | E | ✅ |
+| `bullseye` | (2) | one-colour rings, alternating, from outside in | block (rings) | chain over rings | E | ✅‡ |
 | `snake_charmer` | scalar | longest unbranched my-colour component | conn | — | R | · |
 | `tetromino_tamer` | (2) | my-colour components of size 4 (of my shape) | conn (small) | animal enumeration + inclusion–exclusion; Poisson | H | · |
-| `rainbow_bands` | (2) | anti-diagonals in their rainbow colour | block (diagonals) | Binomial per diagonal | E | ✅ |
+| `rainbow_bands` | (2) | anti-diagonals in their rainbow colour | block (diagonals) | Binomial per diagonal | E | ✅‡ |
 | `constellation` | scalar | largest 8-connected cluster of my value | conn | percolation transfer | H | · |
 | `rainbow_roads` | scalar | paths through the palette order | global | — | R | · |
 | `paint_mixer` | (2) | mixed colours between their parents | local | full-colour transfer | H | · |
-| `colour_carousel` | (3) | the border going round the colour wheel | line (cycle) | chain along the ring, closed at the start | E | ✅ |
+| `colour_carousel` | (3) | the border going round the colour wheel | line (cycle) | chain along the ring, closed at the start | E | ✅‡ |
 | `gravity` | scalar | my colour stacked from the bottom of each column | block (columns) | truncated geometric per column | E | ✅ |
 | `swiss_cheese` | (2) | enclosed non-cheese holes; rind | conn | — | H | · |
 | `mountain_climb` | (2) | +1 climbs from corner to corner | global | — | R | · |
@@ -105,7 +108,7 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `colour_mixer` | (2) | mixed cells touching both parents | local (4 letters) | transfer, 4^N states | H | · |
 | `fair_weaver` | (2) | lines with balanced colour counts | rows+cols | rows exact × columns ≈ | R | · |
 | `lantern_lighter` | scalar | my-colour cells alone in their row and column | rows+cols (counts) | DP over rows, state = per-column count ∈ {0, 1, ≥2} (3^N) | M | · |
-| `best_friends` | scalar | edges joining my two colours | local (3 letters) | 3-letter transfer (3^N states) | M | · |
+| `best_friends` | scalar | edges joining my two colours | local (3 letters) | 3-letter row transfer (tail-toolkit.md) | M | 🔒 |
 | `rainbow_steps` | scalar | steps round the rainbow along rows | block (rows) | Binomial(N(N−1), 1/C) | E | ✅ |
 | `quilt_maker` | scalar | 2×2 squares of four colours | local (full colours) | — | H | · |
 | `flag_bearer` | (2) | rows my colour wins; total lead | block (rows) | multinomial per row | E | ✅ |
@@ -140,10 +143,10 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `hate_repeat_row` (penalty) | (2) | repeats in one row | line | chain over (colour mask, last, repeats) | E | ✅ |
 | `hate_symbol_takeover` (penalty) | scalar | largest value count | exch | max occupancy | E | ✅ |
 
-Grid tally: **41 exact** (39 in `src/analytic`, 2 more via their own `analytic` hook), of which 5 only for their `rows` params; 7 more
-are cheap exact DPs not yet written (M: `rooks_watch`, `ladder_of_numbers`, `odds_evens`, `lantern_lighter`,
-`best_friends`, `othello_sandwich`, `rummy_melder`); the rest need connectivity or large-alphabet transfer matrices
-(H) or have no exact method (R).
+Grid tally: **42 exact** (39 in `src/analytic`, and `picture_frame`, `lone_peak` and `best_friends` via their own
+`analytic` hook), of which 5 only for their `rows` params; 6 more are cheap exact DPs not yet written (M: `rooks_watch`,
+`ladder_of_numbers`, `odds_evens`, `lantern_lighter`, `othello_sandwich`, `rummy_melder`); the rest need connectivity or
+large-alphabet transfer matrices (H) or have no exact method (R).
 
 ## Int families (14): x uniform on [min, max]
 
@@ -154,7 +157,7 @@ are cheap exact DPs not yet written (M: `rooks_watch`, `ladder_of_numbers`, `odd
 | `firstborn` | scalar | leading digits matching a head | digits | digit DP | E | ✅ |
 | `power-hoarder` | scalar | v_p(x) | arith | multiples of p^k | E | ✅ |
 | `many-faced` | scalar | ω(x), distinct prime factors | arith (multiplicative) | Selberg–Delange / Sathe ≈; exact needs a sieve | R | · |
-| `smooth-operator` | scalar | the S-smooth part of x | arith | inclusion–exclusion over S per smooth value | E | ✅ |
+| `smooth-operator` | scalar | the S-smooth part of x | arith | inclusion–exclusion over S per smooth value | E | ✅‡ |
 | `truncation-saint` | scalar | prime prefixes of x | arith (primes) | prime-density ≈ per prefix length | R | · |
 | `palindromist` | scalar | matching outer digit pairs in base b | digits (two-ended) | enumerate the high half, count middles | M | ✅ |
 | `stairwalker` | scalar | longest ±1 digit staircase | digits | digit DP | E | ✅ |
@@ -170,20 +173,20 @@ Int tally: **12 of 14 exact**, all verified against exhaustive enumeration on fo
 
 | id | shape | what it counts | structure | method | diff | status |
 |---|---|---|---|---|---|---|
-| `glyph-glutton` | scalar | copies of one character | chars | Binomial mixture | E | ✅ |
+| `glyph-glutton` | scalar | copies of one character | chars | Binomial mixture | E | ✅‡ |
 | `purist` | scalar | members − non-members | chars | Binomial mixture | E | ✅ |
 | `streaker` | scalar | longest run of a class | chars | longest-run chain | E | ✅ |
-| `incantor` | scalar | longest spell prefix present | chars (substring) | KMP automaton, max state reached | E | ✅ |
-| `last-word` | scalar | ending matched from the back | chars (equality chain) | 128^−k | E | ✅ |
-| `mirror` | scalar | palindrome pairs | chars (equality chain) | 128^−k | E | ✅ |
+| `incantor` | scalar | longest spell prefix present | chars (substring) | KMP automaton, max state reached | E | ✅‡ |
+| `last-word` | scalar | ending matched from the back | chars (equality chain) | 128^−k | E | ✅‡ |
+| `mirror` | scalar | palindrome pairs | chars (equality chain) | 128^−k | E | ✅‡ |
 | `ascender` | scalar | longest strictly increasing run | chars (order) | absorbing chain over (last code, run) | M | ✅ |
-| `echo` | scalar | period-P repeats | chars (equality chain) | 128^−k | E | ✅ |
+| `echo` | scalar | period-P repeats | chars (equality chain) | 128^−k | E | ✅‡ |
 | `nest-builder` | scalar | deepest closed parenthesis | chars (walk) | chain over (depth, best) | E | ✅ |
-| `haiku-master` | scalar | −\|length − ℓ\| | length only | length law | E | ✅ |
-| `wordsmith` | scalar | lowercase words between spaces | chars | chain over (piece length, valid) | E | ✅ |
+| `haiku-master` | scalar | −\|length − ℓ\| | length only | length law | E | ✅‡ |
+| `wordsmith` | scalar | lowercase words between spaces | chars | chain over (piece length, valid) | E | ✅‡ |
 | `tallykeeper` | scalar | −\|digit-character sum − T\| | chars | convolution | E | ✅ |
-| `palette-keeper` | (2) | −\|distinct − K\|, min(length, 32) | chars (occupancy) | occupancy per length | E | ✅ |
-| `scale-keeper` | scalar | −\|Σ codes − W\| | chars | convolution of uniform{0..127} | E | ✅ |
+| `palette-keeper` | (2) | −\|distinct − K\|, min(length, 32) | chars (occupancy) | occupancy per length | E | ✅‡ |
+| `scale-keeper` | scalar | −\|Σ codes − W\| | chars | convolution of uniform{0..127} | E | ✅‡ |
 
 string tally: **14 of 14 exact**, all verified against exhaustive enumeration of every string of length ≤ 3.
 
@@ -191,6 +194,6 @@ string tally: **14 of 14 exact**, all verified against exhaustive enumeration of
 
 | type | families | exact today | cheap exact, not written | hard exact / offline | no exact method |
 |---|---|---|---|---|---|
-| Grid | 96 | 41 (5 of them rows-only) | 7 | ~30 | ~18 |
+| Grid | 96 | 42 (5 of them rows-only) | 6 | ~30 | ~18 |
 | Int | 14 | 12 | 0 | 0 | 2 |
 | string | 14 | 14 | 0 | 0 | 0 |

@@ -5,6 +5,7 @@ import {
   range, recolour, symForValue, thing, tsCard, tuple, valueLaw, wire,
 } from "./_util.ts";
 import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -160,6 +161,7 @@ const conqText = (p: ConqP, g: GridSpec): CardText => {
 };
 const conqueror = gridFamily<ConqP>({
   id: "conqueror", name: "Conqueror", emoji: "⚔️", theme: "Your army against your enemy",
+  analytic: solvedAnalytic("conqueror"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => colourPairs(g).flatMap(([A, B]) => (["one", "value"] as const).map(weight => ({ A, B, weight }))),
   canonical: p => recolour(p, ["A", "B"]),
@@ -211,6 +213,7 @@ const parityText = (p: ParityP, g: GridSpec): CardText => {
 };
 const parityPainter = gridFamily<ParityP>({
   id: "parity_painter", name: "Parity Painter", emoji: "🎭", theme: "Numbers wear the colour of their kind",
+  analytic: solvedAnalytic("parity_painter"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => colourPairs(g).flatMap(([P, Q]) =>
     (g.cards ? ["parity", "suit"] as const : ["parity"] as const).map(key => ({ P, Q, key }))),
@@ -291,6 +294,7 @@ const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
 };
 const mirrormancer = gridFamily<MirrorP>({
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
+  analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
   support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
   canonical: p => ({ ...p, axis: "LR" }),
@@ -343,6 +347,7 @@ const homeText = (p: HomeP, g: GridSpec): CardText => ({
 });
 const homebody = gridFamily<HomeP>({
   id: "homebody", name: "Homebody", emoji: "🏡", theme: "Your colour belongs at home",
+  analytic: solvedAnalytic("homebody"),
   shape: SCALAR, tags: ["shortlist"],
   support: g => product<HomeP>({ X: range(g.C), zone: ["core", "rim"] }),
   canonical: p => recolour(p, ["X"]),
@@ -618,6 +623,7 @@ const luckyText = (p: TokenP, g: GridSpec): CardText => ({
 });
 const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
+  analytic: solvedAnalytic("lucky_token"),
   tags: ["generalised-seed"],
   support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
   canonical: () => ({ S: 0, X: 0 }),

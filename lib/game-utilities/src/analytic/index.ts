@@ -9,7 +9,7 @@
  */
 import type { Instantiation } from "@workspace/game-types";
 import type { Params } from "../types.ts";
-import { GRID_SOLVED, gridLevels } from "./grid.ts";
+import { GRID_SOLVED, gridApplies, gridLevels } from "./grid.ts";
 import { INT_SOLVED, intLevels } from "./int.ts";
 import { STRING_SOLVED, stringLevels } from "./string.ts";
 import type { Levels } from "./kit.ts";
@@ -25,3 +25,9 @@ export function analyticLevels(familyId: string, params: Params, inst: Instantia
 
 /** Family ids with an analytic solution for at least some draws, by object type. */
 export const ANALYTIC_FAMILIES: Readonly<Record<string, readonly string[]>> = { Grid: GRID_SOLVED, Int: INT_SOLVED, string: STRING_SOLVED };
+
+/** Whether `analyticLevels` returns levels for this draw, without computing them (the table key needs only this). */
+export function hasSolution(familyId: string, params: Params, inst: Instantiation): boolean {
+  if (inst.objectType === "Grid") return gridApplies(familyId, params, inst);
+  return (ANALYTIC_FAMILIES[inst.objectType] ?? []).includes(familyId);
+}
