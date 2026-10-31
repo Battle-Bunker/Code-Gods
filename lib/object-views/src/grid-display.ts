@@ -96,6 +96,54 @@ export function changedCells(a: GridModel | null, b: GridModel | null): boolean[
 }
 
 // ---------------------------------------------------------------------------------------------
+// The "digits" renderer: the grid as lines of raw glyphs, each coloured by its cell's colour.
+
+export interface DigitsCell {
+  /** Leading spaces that right-align this glyph with the widest one in the grid (outside any underline). */
+  pad: string;
+  /** "7", or rank and suit for cards ("10♥"); with the letter cue, the colour letter follows ("7R"). */
+  glyph: string;
+  letter: string;
+  /** Differs from the compared grid: drawn underlined and bold, never by colour alone. */
+  changed: boolean;
+}
+export interface DigitsLine {
+  /** The row as plain text, cells separated by one space, e.g. "7 3 0 1". */
+  text: string;
+  cells: DigitsCell[];
+}
+
+/** One line per row of the grid, for the digits renderer (and its tests). */
+export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, opts: { letters?: boolean } = {}): DigitsLine[] {
+  const glyph = (c: GridCellModel) => (opts.letters ? `${c.glyph}${c.letter}` : c.glyph);
+  const width = Math.max(...model.rows.flatMap(row => row.map(c => glyph(c).length)));
+  return model.rows.map((row, r) => {
+    const cells = row.map((c, k): DigitsCell => {
+      const g = glyph(c);
+      return { pad: " ".repeat(width - g.length), glyph: g, letter: c.letter, changed: !!changes?.[r]?.[k] };
+    });
+    return { text: cells.map(c => c.pad + c.glyph).join(" "), cells };
+  });
+}
+
+/**
+ * Text colours of the digits renderer, per colour letter, for light and for dark pages. Each reads at 4.5:1 or
+ * better on both apps' page, card, popover and muted surfaces of its scheme, and the six of a scheme are at
+ * least ΔE76 25 and 25° of hue apart (test/text-shades.test.ts). Yellow on a light page is a dark gold. Both
+ * apps' index.css carry them as `--cg-ink-<letter>`; keep the three in step.
+ */
+export const TEXT_SHADES: Readonly<{ light: Readonly<Record<string, string>>; dark: Readonly<Record<string, string>> }> = Object.freeze({
+  light: Object.freeze({ R: "#c4102c", O: "#9c4c00", Y: "#725f00", G: "#147137", B: "#1d5bbd", V: "#8e2ca8" }),
+  dark: Object.freeze({ R: "#ff6f7d", O: "#ff9b47", Y: "#ecd43f", G: "#52d273", B: "#6ea8ff", V: "#d68cfa" }),
+});
+
+/** CSS colour of a glyph: the theme's custom property, falling back to the light shade (or the text colour). */
+export function textShadeVar(letter: string): string {
+  const light = TEXT_SHADES.light[letter];
+  return light ? `var(--cg-ink-${letter}, ${light})` : "currentColor";
+}
+
+// ---------------------------------------------------------------------------------------------
 // Non-hue colour cues. Every colour letter gets a distinct pattern, drawn in its ink colour, and
 // the letter itself is always available (shown in the detail view, or in compact cells in
 // "letter" mode). Hue is never the only cue.
@@ -142,6 +190,30 @@ export function relativeLuminance(hex: string): number {
 export function contrastRatio(a: string, b: string): number {
   const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
+}
+
+// CIE L*a*b* (D65) and the CIE76 colour difference, for keeping the text shades apart.
+function srgbLinear(v: number): number {
+  const s = v / 255;
+  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+}
+export function labOf(hex: string): [number, number, number] {
+  const [r, g, b] = hexRgb(hex).map(srgbLinear);
+  const x = (0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047;
+  const y = 0.2126729 * r + 0.7151522 * g + 0.0721750 * b;
+  const z = (0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883;
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116);
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+}
+/** Euclidean distance in Lab: about 2.3 is just noticeable; 25 or more reads as a different colour. */
+export function deltaE76(a: string, b: string): number {
+  const [p, q] = [labOf(a), labOf(b)];
+  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+}
+/** Hue angle in degrees (0–360) in Lab's a*b* plane. */
+export function labHue(hex: string): number {
+  const [, a, b] = labOf(hex);
+  return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
 }
 
 // ---------------------------------------------------------------------------------------------

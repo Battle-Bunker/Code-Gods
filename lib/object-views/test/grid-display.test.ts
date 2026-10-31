@@ -3,7 +3,7 @@ import test from "node:test";
 import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-types";
 import {
   COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
-  getColourCue, setColourCue, subscribeColourCue,
+  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
 
@@ -109,4 +109,27 @@ test("colour cue: defaults to pattern, survives missing or throwing storage", ()
   } finally {
     if (had) Object.defineProperty(g, "localStorage", had); else delete g.localStorage;
   }
+});
+
+test("digits: one line per row, one glyph per cell, each tagged with its colour letter", () => {
+  const m = gridModel("7R,3G,0B,1Y/1R,2R,9B,5O/4G,4G,8R,6V/0B,0B,0B,0B")!;
+  const lines = gridDigitsLines(m);
+  assert.deepEqual(lines.map(l => l.text), ["7 3 0 1", "1 2 9 5", "4 4 8 6", "0 0 0 0"], "a 4×4 reads as 4 lines of 4 digits");
+  assert.deepEqual(lines[0].cells.map(c => c.letter), ["R", "G", "B", "Y"]);
+  assert.deepEqual(lines[1].cells.map(c => c.glyph), ["1", "2", "9", "5"]);
+  assert.ok(lines.flatMap(l => l.cells).every(c => c.pad === "" && !c.changed));
+});
+
+test("digits: cards show rank and suit, padded so columns line up", () => {
+  const lines = gridDigitsLines(gridModel("THB,ASR/KCV,2DO")!);
+  assert.deepEqual(lines.map(l => l.text), ["10♥  A♠", " K♣  2♦"]);
+  assert.equal(lines[0].cells[1].pad, " ");
+  assert.equal(lines[0].cells[1].glyph, "A♠", "the pad is not part of the glyph (an underline never spans it)");
+});
+
+test("digits: changed cells are flagged (drawn underlined and bold), and the letter cue appends the colour letter", () => {
+  const a = gridModel("1R,2G/3B,4R")!, b = gridModel("1R,2B/3B,5R")!;
+  const lines = gridDigitsLines(b, changedCells(b, a));
+  assert.deepEqual(lines.map(l => l.cells.map(c => c.changed)), [[false, true], [false, true]]);
+  assert.deepEqual(gridDigitsLines(b, null, { letters: true }).map(l => l.text), ["1R 2B", "3B 5R"]);
 });

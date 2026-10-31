@@ -74,6 +74,15 @@
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
 
+  /* Grid digits: one text colour per colour letter (lib/object-views TEXT_SHADES.light; tested for contrast on these
+     surfaces and for distinguishability). */
+  --cg-ink-R: #c4102c;
+  --cg-ink-O: #9c4c00;
+  --cg-ink-Y: #725f00;
+  --cg-ink-G: #147137;
+  --cg-ink-B: #1d5bbd;
+  --cg-ink-V: #8e2ca8;
+
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
 
@@ -223,6 +232,15 @@
 .dark {
   --button-outline: rgba(255, 255, 255, 0.1);
   --badge-outline: rgba(255, 255, 255, 0.05);
+
+  /* Grid digits on the dark page (lib/object-views TEXT_SHADES.dark). Not keyed to prefers-color-scheme: the page
+     itself does not follow the OS, so dark shades there would put light text on the light page. */
+  --cg-ink-R: #ff6f7d;
+  --cg-ink-O: #ff9b47;
+  --cg-ink-Y: #ecd43f;
+  --cg-ink-G: #52d273;
+  --cg-ink-B: #6ea8ff;
+  --cg-ink-V: #d68cfa;
 
   --opaque-button-border-intensity: 9; /* In terms of percentages */
 
