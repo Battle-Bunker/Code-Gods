@@ -99,7 +99,7 @@ export function changedCells(a: GridModel | null, b: GridModel | null): boolean[
 // The "digits" renderer: the grid as lines of raw glyphs, each coloured by its cell's colour.
 
 export interface DigitsCell {
-  /** Leading spaces that right-align this glyph with the widest one in the grid (outside any underline). */
+  /** Leading spaces that right-align this glyph with the widest one in the grid, in the plain-text line. */
   pad: string;
   /** "7", or rank and suit for cards ("10♥"); with the letter cue, the colour letter follows ("7R"). */
   glyph: string;

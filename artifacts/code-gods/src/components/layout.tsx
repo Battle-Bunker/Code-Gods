@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { Link, useLocation } from "wouter";
 import { useAction, useConvex, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
-import { setObjectRenderer, useObjectRenderer } from "@workspace/object-views";
+import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { useAuth } from "@/hooks/use-auth";
 import { useManifest } from "@/hooks/use-manifest";
 import { useToast } from "@/hooks/use-toast";
@@ -108,7 +108,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const approve = useMutation(api.rooms.approveAiBudget);
   const saveSettings = useAction(api.owner.settings);
   const revoke = useMutation(api.auth.credentials.revoke);
-  const gridRenderer = useObjectRenderer("Grid") === "tiles" ? "tiles" : "digits";
+  const gridRenderer = useGridRenderer();
 
   const fail = useCallback((what: string, e: unknown) => toast({ title: `${what} failed`, description: errMsg(e), variant: "destructive" }), [toast]);
   const roomId = room?.id;

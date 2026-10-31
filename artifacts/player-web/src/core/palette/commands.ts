@@ -13,6 +13,7 @@ import { CATALOG, type CatalogEntry, type PublicFunctionPath } from "@workspace/
 import { LENSES, LENS_IDS, type LensId, type Phase } from "@workspace/player-client/lenses";
 import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
+import type { GridRendererId } from "@workspace/object-views";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -41,7 +42,7 @@ export type PaletteState = {
   presets: readonly PickOption[];
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
-  gridRenderer: "digits" | "tiles";
+  gridRenderer: GridRendererId;
 };
 
 export type PaletteActions = {
@@ -76,7 +77,7 @@ export type PaletteActions = {
   };
   links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
-  objects: { setGridRenderer(id: "digits" | "tiles"): void };
+  objects: { setGridRenderer(id: GridRendererId): void };
   notify(text: string): void;
 };
 

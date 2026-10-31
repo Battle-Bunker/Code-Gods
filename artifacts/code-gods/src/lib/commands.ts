@@ -9,6 +9,7 @@ import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
+import type { GridRendererId } from "@workspace/object-views";
 import { firstName } from "./next-step.ts";
 export { STEP_IDS } from "./next-step.ts";
 
@@ -69,7 +70,7 @@ export interface EngineScope {
   minPlayers: number;
   maxPlayers: number;
   /** How this viewer sees grids (lib/object-views' Grid renderer); digits when absent. */
-  gridRenderer?: "digits" | "tiles";
+  gridRenderer?: GridRendererId;
 }
 
 export interface EngineActions {
@@ -99,7 +100,7 @@ export interface EngineActions {
   serverInfo(): readonly string[];
   whoAmI(): readonly string[];
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
-  setGridRenderer(id: "digits" | "tiles"): void;
+  setGridRenderer(id: GridRendererId): void;
   origin: string;
 }
 

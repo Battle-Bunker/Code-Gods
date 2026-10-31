@@ -120,22 +120,20 @@ const digitsPx = (n: number) => (n <= 4 ? 13 : n <= 6 ? 12 : n <= 8 ? 11 : 10);
 /**
  * The digits renderer's compact form: one monospace line per row, each glyph in its colour's text shade
  * (`--cg-ink-<letter>`), no tiles. Changed cells are underlined and bold, never marked by colour alone.
+ * Laid out as a CSS grid with right-aligned columns (not the helper's space padding), so columns stay
+ * aligned even when a font draws the suit symbols wider than a digit.
  */
 function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
   return (
-    <span role="img" aria-label={label} className="inline-flex flex-col font-mono font-semibold leading-[1.1] text-left select-none"
-      style={{ fontSize: digitsPx(model.size) }} data-renderer="digits">
-      {lines.map((line, r) => (
-        <span key={r} className="flex whitespace-pre" style={{ gap: "0.45ch" }}>
-          {line.cells.map((c, k) => (
-            <span key={k} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}>
-              {c.pad}
-              <span style={{ color: textShadeVar(c.letter), ...(c.changed ? { fontWeight: 800, textDecorationLine: "underline", textDecorationThickness: 2, textUnderlineOffset: 2 } : {}) }}>{c.glyph}</span>
-            </span>
-          ))}
+    <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono font-semibold leading-[1.1] select-none"
+      style={{ fontSize: digitsPx(model.size), gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
+      {lines.flatMap((line, r) => line.cells.map((c, k) => (
+        <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}
+          style={{ color: textShadeVar(c.letter), ...(c.changed ? { fontWeight: 800, textDecorationLine: "underline", textDecorationThickness: 2, textUnderlineOffset: 2 } : {}) }}>
+          {c.glyph}
         </span>
-      ))}
+      )))}
     </span>
   );
 }
@@ -170,6 +168,12 @@ function RendererToggle({ mode }: { mode: GridRendererId }) {
 
 /** The Grid renderers' ids: coloured digits (the default) or tiles. */
 export type GridRendererId = "digits" | "tiles";
+const asGridRenderer = (id: string | undefined): GridRendererId => (id === "tiles" ? "tiles" : "digits");
+
+/** The Grid renderer in effect for this viewer, live (for palettes and menus). */
+export function useGridRenderer(): GridRendererId {
+  return asGridRenderer(useObjectRenderer("Grid"));
+}
 
 function GridView({ model, previous, typeLabel, className, mode }: {
   model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId;
@@ -241,7 +245,7 @@ function GridView({ model, previous, typeLabel, className, mode }: {
  */
 export function GridObject(props: ObjectViewProps) {
   const { value, compareTo, grid, className } = props;
-  const mode: GridRendererId = props.renderer === "tiles" ? "tiles" : "digits";
+  const mode = asGridRenderer(props.renderer);
   const key = `${grid?.size}|${grid?.symbols}|${grid?.colours}`;
   const model = useMemo(() => gridModel(value, grid), [value, key]);
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
