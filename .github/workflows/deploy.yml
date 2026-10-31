@@ -49,6 +49,8 @@ jobs:
           restore-keys: tsbuild2-
       - run: pnpm run typecheck
       - run: pnpm run test:offline
+      - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
+        run: pnpm --filter @workspace/game-utilities calibrate --check
       - uses: actions/cache@v4
         id: cpython
         with:
@@ -96,6 +98,8 @@ jobs:
         run: pnpm run typecheck
       - if: github.ref_name == 'main'
         run: pnpm run test:offline
+      - if: github.ref_name == 'main'
+        run: pnpm --filter @workspace/game-utilities calibrate --check
 
       # ---- the pinned Python runtime bundle ----
       - uses: actions/cache@v4
@@ -170,6 +174,11 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: pnpm --filter @workspace/engine upload-runtime
 
+      - name: Upload the calibration tables   # unchanged files are skipped; storage mirrors git
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter @workspace/engine upload-calibration
+
       - name: Build and upload the static sites
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
@@ -186,3 +195,6 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
           npx convex run runtime/probe:smoke
+          # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
+          npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}}}' \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r));if(!r.key||!r.tables)process.exit(1)})'

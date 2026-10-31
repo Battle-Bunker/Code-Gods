@@ -638,6 +638,9 @@ importers:
         specifier: workspace:*
         version: link:../game-types
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
       typescript:
         specifier: ~5.9.3
         version: 5.9.3

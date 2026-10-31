@@ -62,6 +62,11 @@ export function convexClient(url: string): ConvexReactClient {
   return g.__cgConvex ??= new ConvexReactClient(url, { unsavedChangesWarning: false });
 }
 
+/** The page's Convex client, once `convexClient` has made it (the SDK's host transport reaches the engine with it). */
+export function existingConvexClient(): ConvexReactClient | undefined {
+  return g.__cgConvex;
+}
+
 /** Dev-server mode: a fresh player JWT for the Convex client's fetchAccessToken (null = refused). */
 export async function fetchAppAccessToken(): Promise<string | null> {
   return (await fetchAppToken())?.token ?? null;

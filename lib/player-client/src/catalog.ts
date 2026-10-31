@@ -244,6 +244,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it; list_setups lists the game setups." },
     tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: E },
   },
+  "calibration.node.tables": {
+    kind: "action", audience: "infrastructure",
+    human: { title: "Load calibration tables", tooltip: "The calibration tables of a utility and its defence goal, for scoring values in the browser." },
+    ai: { description: "The calibration tables (ordinal to surprisal bits) of one or two draws of a game's instantiation, as JSON text. The player client's evaluator uses them to score hypothetical values exactly as the engine does; evaluate_value does this server-side for agents." },
+    tools: [], palette: null, why: "The player client's evaluator loads these itself; agents score values with evaluate_value.",
+  },
   // ----- owner -----
   "owner.settings": {
     kind: "action", audience: "owner",
