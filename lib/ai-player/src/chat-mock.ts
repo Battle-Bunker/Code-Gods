@@ -6,6 +6,7 @@
  * script from its last text block (earlier blocks, such as the engine's briefing, are its context):
  *   `/mock {"steps":[step, …]}` or `/mock [step, …]`, where a step is one model call:
  *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message",
+ *       "status": 400..599 (with fail: the HTTP status of a provider SDK error, as when the request is refused),
  *       "echo": true (answer with JSON {system, tools: names, context: the prompt's other text blocks}) }
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
@@ -19,6 +20,7 @@ const stepSchema = z.object({
   delayMs: z.number().int().min(0).max(60_000).default(0),
   tools: z.array(z.object({ name: z.string().min(1).max(64), input: z.record(z.unknown()).default({}) }).strict()).max(8).default([]),
   fail: z.string().max(500).optional(),
+  status: z.number().int().min(400).max(599).optional(),
   echo: z.boolean().optional(),
 }).strict();
 const scriptSchema = z.object({ steps: z.array(stepSchema).max(20) }).strict();
@@ -67,7 +69,7 @@ export function mockChatProvider(): ChatProvider {
       const current = script ? script.steps[step] : defaultStep(step, request);
       const inputTokens = Math.ceil(JSON.stringify({ system: request.system, messages: request.messages, tools: request.tools }).length / 4);
       if (!current) return { content: [], stopReason: "end_turn", inputTokens, outputTokens: 1 };
-      if (current.fail) throw new Error(current.fail);
+      if (current.fail) throw Object.assign(new Error(current.fail), current.status ? { status: current.status } : {});
       let text = "";
       const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: request.tools.map(t => t.name), context: blocks.slice(0, -1) })] : current.text;
       for (const chunk of chunks) {

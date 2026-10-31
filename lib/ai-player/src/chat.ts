@@ -90,3 +90,29 @@ export function mergeTurns(messages: ChatMessage[]): ChatMessage[] {
   }
   return out;
 }
+
+const PALETTE = "until then, the command palette does everything the assistant would";
+
+/**
+ * A failed model call as the reason shown to the player, and whether it is known to have cost nothing. A provider SDK
+ * error with an HTTP status (OpenAI's and Anthropic's APIError) means the request was refused before any answer
+ * streamed, so nothing was billed; an error without one (a stream cut, an incomplete answer) may have been. The
+ * operator's account problems (out of credit, a rejected key) are named without the provider's billing links: the
+ * player can't fix them.
+ */
+export function providerFailure(error: unknown): { message: string; unbilled: boolean } {
+  const e = (error ?? {}) as { status?: unknown; message?: unknown; error?: unknown };
+  const status = typeof e.status === "number" ? e.status : undefined;
+  const raw = typeof e.message === "string" ? e.message : String(error);
+  const body = JSON.stringify(e.error ?? {});
+  const unbilled = status !== undefined;
+  if (status === 401 || status === 403) {
+    return { unbilled, message: `The assistant's AI provider rejected this server's API key. Whoever runs this server has to fix it; ${PALETTE}.` };
+  }
+  if ((status === 429 || status === 400 || status === 402) && /insufficient_quota|credit|billing/i.test(`${raw} ${body}`)) {
+    return { unbilled, message: `The assistant's AI provider account is out of credit. Whoever runs this server has to top it up; ${PALETTE}.` };
+  }
+  if (status === 429) return { unbilled, message: "The AI provider is rate-limiting this server right now; try again in a minute." };
+  if (status !== undefined && status >= 500) return { unbilled, message: "The AI provider is overloaded or down right now; try again in a few minutes." };
+  return { unbilled, message: `The model call failed: ${raw.slice(0, 300)}` };
+}
