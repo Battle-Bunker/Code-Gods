@@ -1,13 +1,13 @@
 /**
  * The annotation helpers (src/annotations.ts): merging, the legend, the per-cell and per-character marks the renderers
- * draw, region outlines, and the visual encodings of weight (wash opacity, underline thickness, font weight), which must
- * grow with the weight so colour is never the only cue.
+ * draw, region outlines, and the quiet cues: tone as the cue's shape (never a glyph or a hue), weight as its thickness
+ * and opacity, each growing with the weight.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  annotationBadges, annotationLegend, cellWeightMap, legendText, markFontWeight, mergeAnnotations, regionEdges, textSegments,
-  toneColour, underlinePx, washOpacity, type Annotation,
+  TONE_DECORATION, annotationBadges, annotationLegend, cellWeightMap, cueColour, cueOpacity, legendText, mergeAnnotations, regionEdges,
+  textSegments, underlinePx, type Annotation,
 } from "../src/annotations.ts";
 
 const good: Annotation = { kind: "cells", tone: "good", label: "safe red", cells: [{ r: 0, c: 0 }, { r: 1, c: 1, weight: 0.5 }] };
@@ -24,7 +24,8 @@ test("annotationLegend lists each label once with its tone, in first-seen order;
   const again: Annotation = { kind: "region", tone: "good", label: "safe red", cells: [{ r: 0, c: 1 }] };
   const unlabelled: Annotation = { kind: "cells", tone: "neutral", cells: [{ r: 0, c: 2 }] };
   assert.deepEqual(annotationLegend([good, badge, bad, again, unlabelled]), [{ label: "safe red", tone: "good" }, { label: "touching", tone: "bad" }]);
-  assert.equal(legendText(annotationLegend([good, bad])), "✓ safe red · ✗ touching");
+  assert.equal(legendText(annotationLegend([good, bad])), "solid underline: safe red · dotted underline: touching");
+  assert.doesNotMatch(legendText([{ label: "a", tone: "good" }, { label: "b", tone: "bad" }, { label: "c", tone: "neutral" }]), /[✓✗•]/u, "no glyphs");
   assert.equal(legendText([]), "");
   assert.deepEqual(annotationBadges([good, badge, bad]), [badge]);
 });
@@ -37,7 +38,7 @@ test("cellWeightMap: one mark per cell, the heavier mark wins, weights default t
     [null, { tone: "bad", weight: 0.8, label: "touching" }, null],
     [null, null, { tone: "bad", weight: 0.2, label: "touching" }],
   ]);
-  // Regions are outlines, not washes.
+  // Regions are outlines, not per-cell marks.
   assert.deepEqual(cellWeightMap([{ kind: "region", tone: "good", cells: [{ r: 0, c: 0 }] }], 2), [[null, null], [null, null]]);
 });
 
@@ -50,20 +51,23 @@ test("regionEdges draws a region's outer border only: the sides of member cells 
   assert.equal(edges[0][1], null);
 });
 
-test("weight sets opacity, underline thickness and font weight, each growing with the weight", () => {
-  assert.equal(washOpacity(0), 0);
-  assert.ok(washOpacity(0.1) > 0, "a light mark is still visible");
-  assert.ok(washOpacity(0.2) < washOpacity(0.6) && washOpacity(0.6) < washOpacity(1));
-  assert.ok(washOpacity(1) <= 0.4, "a full wash still lets the coloured digit read");
-  assert.equal(washOpacity(5), washOpacity(1), "clamped");
-  assert.deepEqual([0.1, 0.5, 1].map(underlinePx), [1, 2, 3]);
-  assert.ok(markFontWeight(0.2) < markFontWeight(1));
+test("tone sets the cue's shape: good, bad and neutral differ without hue", () => {
+  assert.deepEqual(TONE_DECORATION, { good: "solid", bad: "dotted", neutral: "dashed" });
+  assert.equal(new Set(Object.values(TONE_DECORATION)).size, 3);
 });
 
-test("toneColour uses the theme's tokens, with a fallback, at the given opacity", () => {
-  assert.equal(toneColour("good", 0.3), "hsl(var(--accent, 168 52% 30%) / 0.3)");
-  assert.equal(toneColour("bad"), "hsl(var(--destructive, 350 70% 42%) / 1)");
-  assert.match(toneColour("neutral", 0.5), /--muted-foreground/);
+test("weight sets the cue's thickness and opacity, each growing with the weight", () => {
+  assert.equal(cueOpacity(0), 0);
+  assert.ok(cueOpacity(0.1) >= 0.3, "a light mark is still visible");
+  assert.ok(cueOpacity(0.2) < cueOpacity(0.6) && cueOpacity(0.6) < cueOpacity(1));
+  assert.ok(cueOpacity(1) <= 0.75, "a strong mark stays quiet beside the coloured digit");
+  assert.equal(cueOpacity(5), cueOpacity(1), "clamped");
+  assert.deepEqual([0.1, 0.5, 1].map(underlinePx), [1, 1.5, 2]);
+});
+
+test("a cue is drawn in the page's ink (the theme's foreground, with a fallback), not a tone hue", () => {
+  assert.equal(cueColour(1), "hsl(var(--foreground, 232 38% 14%) / 0.7)");
+  assert.doesNotMatch(cueColour(0.5), /accent|destructive/);
 });
 
 test("textSegments: string spans index characters, not the JSON-quoted display; Int digits count from the left, past the sign", () => {

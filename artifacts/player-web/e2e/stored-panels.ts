@@ -429,6 +429,51 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
   await phoneContext.close();
 });
 
+await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, rectangles to scale with labelled edges, the top bar at the ramp's strong end, no sideways scroll", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
+  await owner("settings", { revision, settings: { objectType: "Grid", language: "typescript", planningSeconds: 2, halfLifeSeconds: 3600 } });
+  await owner("start");
+  const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "human" } } } });
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await phoneContext.addCookies(sessionCookies(session));
+  const phone = await phoneContext.newPage();
+  phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
+  const panel = await phone.evaluate(() => {
+    const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
+    const list = rows[0].closest("ol")!.parentElement!;
+    return {
+      text: list.textContent ?? "",
+      rects: [...list.querySelectorAll("svg[data-testid^=payoff-rect-]")].map(r => ({
+        kind: r.getAttribute("data-kind"), w: Number(r.getAttribute("data-width")), h: Number(r.getAttribute("data-height")),
+        yours: Number(r.querySelector("[data-testid=payoff-label-yours]")?.textContent), others: Number(r.querySelector("[data-testid=payoff-label-others]")?.textContent),
+      })),
+      topBar: getComputedStyle(rows[0].querySelector("[data-testid^=payoff-bar-]")!).backgroundColor,
+      scrollWidth: document.scrollingElement!.scrollWidth,
+    };
+  });
+  assert(!/[✓✗]/u.test(panel.text), `glyphs in the objects panel: ${panel.text.match(/.{0,20}[✓✗].{0,20}/u)?.[0]}`);
+  assert(panel.rects.length > 0 && panel.rects.every(r => Number.isFinite(r.yours) && Number.isFinite(r.others)), "every rectangle labels both edges");
+  // One scale for both axes: where both sides are well above the minimum, width : height = yours : others.
+  for (const r of panel.rects.filter(r => r.kind === "gain" && r.w > 8 && r.h > 8 && r.others > 0)) {
+    const drawn = r.w / r.h, values = Math.abs(r.yours) / r.others;
+    assert(Math.abs(drawn / values - 1) < 0.1, `rectangle ${r.w}×${r.h} for ${r.yours} × ${r.others} is not to scale`);
+  }
+  // The bar mixes the ramp in linear light, so the browser may report it as color(srgb-linear …): compare as sRGB bytes.
+  const srgb = (css: string) => {
+    const lin = /^color\(srgb-linear ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/.exec(css);
+    if (lin) return lin.slice(1, 4).map(Number).map(c => Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)));
+    return (/^rgba?\((\d+), (\d+), (\d+)/.exec(css) ?? []).slice(1, 4).map(Number);
+  };
+  if (panel.rects[0].kind === "gain") assert(srgb(panel.topBar).join() === "154,96,5", `the top object's bar is ${panel.topBar}, not the ramp's strong end #9a6005`);
+  assert(panel.scrollWidth <= 390, `the page scrolls sideways: ${panel.scrollWidth}px`);
+  await phoneContext.close();
+  await owner("endGame");
+});
+
 await check("?panels=off loads only the built-in panels and the assistant", async () => {
   const safe = await context.newPage();
   await safe.goto(`${SITE}/player/?room=${shortCode}&panels=off`);

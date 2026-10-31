@@ -1,9 +1,10 @@
 /**
  * The objects panel's payoff rectangle (pure): payoff = your net bits × the others' care, drawn as a rectangle whose
- * width is your bits and whose height is the others' care, so its area is the payoff. One scale for every row shown:
- * the largest gain and loss set the horizontal span (losses to the left of the axis), the largest care the full height.
- * A loss (negative own bits) is an unfilled outline left of the axis in the destructive tone: visible, but it adds no
- * filled area; an object nobody else cares about is a flat line (no area: no payoff).
+ * width is your bits and whose height is the others' care on ONE linear scale for both axes, so equal values make a
+ * square and the area is the payoff. One scale for every row shown: the largest value of either dimension (a loss
+ * counts by its magnitude) sets the full side. Any non-zero dimension keeps at least MIN_PX so a tiny value stays
+ * visible. A loss (negative own bits) is drawn at its magnitude and marked as a loss; an object nobody else cares
+ * about is flat (no area: no payoff).
  */
 
 export interface PayoffRow {
@@ -13,42 +14,50 @@ export interface PayoffRow {
   care: number;
 }
 export interface PayoffScale {
-  maxGain: number;
-  maxLoss: number;
-  maxCare: number;
+  /** The largest |own| or care among the rows shown: the value that fills the side. */
+  max: number;
 }
 export interface PayoffRect {
-  /** gain: a filled rectangle; loss: an outline left of the axis; flat: bits but nobody else cares (a line); none: no bits. */
+  /** gain: your bits and their care; loss: negative own bits; flat: bits but nobody else cares; none: no own bits. */
   kind: "gain" | "loss" | "flat" | "none";
-  /** x of the zero axis. */
-  axis: number;
-  x: number;
+  /** px, both on the one scale; the rectangle stands on the bottom-left corner of its box. */
   width: number;
-  /** Rectangles stand on the bottom edge. */
-  y: number;
   height: number;
 }
+
+/** The fewest pixels a non-zero dimension is drawn with. */
+export const MIN_PX = 3;
 
 const finite = (x: number) => (Number.isFinite(x) ? x : 0);
 
 export function payoffScale(rows: readonly PayoffRow[]): PayoffScale {
-  let maxGain = 0, maxLoss = 0, maxCare = 0;
-  for (const r of rows) {
-    const own = finite(r.own), care = Math.max(0, finite(r.care));
-    if (own > maxGain) maxGain = own;
-    if (-own > maxLoss) maxLoss = -own;
-    if (care > maxCare) maxCare = care;
-  }
-  return { maxGain, maxLoss, maxCare };
+  let max = 0;
+  for (const r of rows) max = Math.max(max, Math.abs(finite(r.own)), Math.max(0, finite(r.care)));
+  return { max };
 }
 
-export function payoffRect(row: PayoffRow, scale: PayoffScale, box: { width: number; height: number }): PayoffRect {
-  const span = scale.maxGain + scale.maxLoss;
-  const px = span > 0 ? box.width / span : 0;
-  const axis = scale.maxLoss * px;
+export function payoffRect(row: PayoffRow, scale: PayoffScale, side: number): PayoffRect {
   const own = finite(row.own), care = Math.max(0, finite(row.care));
-  const width = Math.abs(own) * px;
-  const height = scale.maxCare > 0 ? (care / scale.maxCare) * box.height : 0;
-  const kind = own === 0 || width === 0 ? "none" : own < 0 ? "loss" : height > 0 ? "gain" : "flat";
-  return { kind, axis, x: own < 0 ? axis - width : axis, width, y: box.height - height, height };
+  const px = scale.max > 0 ? side / scale.max : 0;
+  const size = (v: number) => (v === 0 || px === 0 ? 0 : Math.min(side, Math.max(MIN_PX, v * px)));
+  const width = size(Math.abs(own)), height = size(care);
+  const kind = width === 0 ? "none" : own < 0 ? "loss" : height > 0 ? "gain" : "flat";
+  return { kind, width, height };
+}
+
+export interface LabelSpot {
+  x: number;
+  y: number;
+}
+/**
+ * Where the two series labels go in a box of `side` whose rectangle stands on the bottom-left corner: the width's value
+ * centred under the bottom edge (`below` px under it, never closer to the box's left than `halfLabel`), the height's
+ * value `gap` px right of the right edge, level with its middle (a flat rectangle's, at the bottom edge).
+ */
+export function payoffLabels(g: PayoffRect, side: number, { gap, below, halfLabel }: { gap: number; below: number; halfLabel: number }):
+  { width: LabelSpot; height: LabelSpot } {
+  return {
+    width: { x: Math.max(halfLabel, g.width / 2), y: side + below },
+    height: { x: g.width + gap, y: side - g.height / 2 },
+  };
 }

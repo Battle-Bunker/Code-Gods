@@ -6,8 +6,8 @@ import {
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 import {
-  TONE_DECORATION, TONE_SYMBOL, annotationBadges, annotationLegend, cellWeightMap, legendText, markFontWeight, regionEdges, textSegments,
-  toneColour, underlinePx, washOpacity, type Annotation, type BadgeAnnotation, type LegendEntry, type Mark, type RegionEdge,
+  TONE_CUE, TONE_DECORATION, annotationBadges, annotationLegend, cellWeightMap, cueColour, legendText, regionEdges, textSegments,
+  underlinePx, type Annotation, type AnnotationTone, type BadgeAnnotation, type LegendEntry, type Mark, type RegionEdge,
 } from "./annotations.ts";
 
 export interface ObjectViewProps extends ObjectContext {
@@ -21,8 +21,9 @@ export interface ObjectViewProps extends ObjectContext {
   /** Draw with this renderer of the type (e.g. "tiles") instead of the viewer's choice or the type's default. */
   renderer?: string;
   /**
-   * Marks that draw the eye to what makes up a score (src/annotations.ts): grid cells as a soft wash (digits) or an
-   * outline (tiles), regions as one outline, string spans and Int digits underlined, badges as chips after the object.
+   * Marks that draw the eye to what makes up a score (src/annotations.ts), as quiet cues in the page's ink: grid cells
+   * and text underlined (digits) or outlined (tiles), solid for good and dotted for bad, regions as one outline, badges
+   * as chips after the object.
    */
   annotations?: readonly Annotation[];
 }
@@ -66,41 +67,47 @@ export function objectText(value: ObjectValue): string {
   return typeof value === "number" ? String(value) : JSON.stringify(value);
 }
 
-/** Inline style of an annotated character: a soft wash, and an underline whose style says the tone and whose thickness the weight. */
+/** Inline style of an annotated character: an underline in the page's ink whose style says the tone and whose thickness and opacity the weight. */
 export function markStyle(mark: Mark): CSSProperties {
   return {
-    backgroundColor: toneColour(mark.tone, washOpacity(mark.weight)),
-    textDecorationLine: "underline", textDecorationStyle: TONE_DECORATION[mark.tone], textDecorationColor: toneColour(mark.tone),
-    textDecorationThickness: underlinePx(mark.weight), textUnderlineOffset: 2, fontWeight: markFontWeight(mark.weight),
+    textDecorationLine: "underline", textDecorationStyle: TONE_DECORATION[mark.tone], textDecorationColor: cueColour(mark.weight),
+    textDecorationThickness: underlinePx(mark.weight), textUnderlineOffset: 3, textDecorationSkipInk: "none",
   };
 }
 
-/** Small chips after an object, one per badge annotation; the tone's symbol leads so colour is not the only cue. */
+/** A tone's cue drawn on its own (legends, badges): a short line, solid, dotted or dashed, in the page's ink. */
+export function ToneCue({ tone, weight = 1 }: { tone: AnnotationTone; weight?: number }) {
+  const dash = TONE_DECORATION[tone] === "dotted" ? "0.1 3.4" : TONE_DECORATION[tone] === "dashed" ? "4 2.5" : undefined;
+  return (
+    <svg width={16} height={8} viewBox="0 0 16 8" aria-hidden className="inline-block shrink-0" data-cue={tone}>
+      <line x1={1.5} x2={14.5} y1={6} y2={6} stroke={cueColour(weight)} strokeWidth={2} strokeLinecap="round" strokeDasharray={dash} />
+    </svg>
+  );
+}
+
+/** Small chips after an object, one per badge annotation; the tone's cue leads, so neither colour nor a glyph is needed. */
 export function AnnotationBadges({ badges }: { badges: readonly BadgeAnnotation[] }) {
   if (!badges.length) return null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1 align-middle" data-testid="object-annotation-badges">
       {badges.map((b, i) => (
-        <span key={i} className="whitespace-nowrap border px-1 font-sans text-[10px] leading-4"
-          style={{ borderColor: toneColour(b.tone, 0.6), backgroundColor: toneColour(b.tone, 0.08) }}>
-          {TONE_SYMBOL[b.tone]} {b.text}
+        <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap border px-1 font-sans text-[10px] leading-4"
+          style={{ borderColor: cueColour(0.5), borderStyle: TONE_DECORATION[b.tone] }} aria-label={`${TONE_CUE[b.tone]}: ${b.text}`}>
+          {b.text}
         </span>
       ))}
     </span>
   );
 }
 
-/** The legend of an object's (or a list's) annotations: each label with its tone's swatch and symbol. */
+/** The legend of an object's (or a list's) annotations: each label after its tone's cue, drawn as it appears on the object. */
 export function AnnotationLegend({ entries, className, testId = "annotation-legend" }: { entries: readonly LegendEntry[]; className?: string; testId?: string }) {
   if (!entries.length) return null;
   return (
     <p className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${className ?? ""}`} data-testid={testId} aria-label={`Marked: ${legendText(entries)}`}>
       {entries.map(e => (
         <span key={`${e.tone}:${e.label}`} className="inline-flex items-center gap-1">
-          <span aria-hidden className="inline-flex h-3 w-3 items-center justify-center text-[9px] font-bold leading-none"
-            style={{ backgroundColor: toneColour(e.tone, washOpacity(1)), color: toneColour(e.tone), border: `1px solid ${toneColour(e.tone, 0.7)}` }}>
-            {TONE_SYMBOL[e.tone]}
-          </span>
+          <ToneCue tone={e.tone} />
           {e.label}
         </span>
       ))}
@@ -142,7 +149,7 @@ const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 
 /** Inset strokes along a region's outline (box-shadows, so they take no layout space and meet at the corners). */
 function edgeShadows(edge: RegionEdge | null, px: number): string[] {
   if (!edge) return [];
-  const c = toneColour(edge.tone, 0.95);
+  const c = cueColour(0.9);
   return [edge.top && `inset 0 ${px}px 0 0 ${c}`, edge.right && `inset -${px}px 0 0 0 ${c}`, edge.bottom && `inset 0 -${px}px 0 0 ${c}`, edge.left && `inset ${px}px 0 0 0 ${c}`]
     .filter((x): x is string => !!x);
 }
@@ -159,13 +166,13 @@ function Cell({ cell, px, wide, cue, changed, detail, mark, edge }: {
     textShadow: showPattern ? `0 0 2px ${cell.css}, 0 0 1px ${cell.css}` : undefined,
     // Changed cells get an outline in the surrounding text colour (inherited), not a hue.
     ...(changed ? { outline: "2px solid currentColor", zIndex: 1 } : {}),
-    // An annotated cell: an outline whose style says the tone and whose thickness the weight, with a soft glow.
+    // An annotated cell: an outline in the page's ink whose style says the tone and whose thickness and opacity the weight.
     ...(!changed && mark ? {
-      outline: `${underlinePx(mark.weight)}px ${TILE_OUTLINE[mark.tone]} ${toneColour(mark.tone)}`,
+      outline: `${underlinePx(mark.weight)}px ${TONE_DECORATION[mark.tone]} ${cueColour(mark.weight)}`,
       outlineOffset: -underlinePx(mark.weight), zIndex: 1,
     } : {}),
   };
-  const shadows = [...edgeShadows(edge ?? null, detail ? 3 : 2), ...(mark ? [`0 0 ${2 + 4 * mark.weight}px ${toneColour(mark.tone, 2 * washOpacity(mark.weight))}`] : [])];
+  const shadows = edgeShadows(edge ?? null, detail ? 3 : 2);
   if (shadows.length) style.boxShadow = shadows.join(", ");
   return (
     <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none" style={style} data-cell={`${cell.code}${cell.letter}`} data-changed={changed || undefined}
@@ -179,10 +186,7 @@ function Cell({ cell, px, wide, cue, changed, detail, mark, edge }: {
   );
 }
 
-/** Tile outlines per tone (CSS outlines cannot be wavy, so bad marks are dashed). */
-const TILE_OUTLINE = { good: "solid", bad: "dashed", neutral: "dotted" } as const;
-
-/** The marks of a grid's annotations, cell by cell: washes/outlines from `cells`, outline sides from `region`. */
+/** The marks of a grid's annotations, cell by cell: underlines/outlines from `cells`, outline sides from `region`. */
 interface GridMarks {
   marks: (Mark | null)[][];
   edges: (RegionEdge | null)[][];
@@ -214,14 +218,15 @@ const digitsPx = (n: number) => (n <= 4 ? 13 : n <= 6 ? 12 : n <= 8 ? 11 : 10);
 
 /**
  * The digits renderer's compact form: one monospace line per row, each glyph in its colour's text shade
- * (`--cg-ink-<letter>`), no tiles. Changed cells are underlined and bold, never marked by colour alone.
+ * (`--cg-ink-<set>-<letter>`), no tiles. Changed cells are underlined and bold, never marked by colour alone.
  * Laid out as a CSS grid with right-aligned columns (not the helper's space padding), so columns stay
  * aligned even when a font draws the suit symbols wider than a digit.
  */
 function Digits({ model, cue, changes, label, marks }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string; marks?: GridMarks | null }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
-  // Annotated grids pad each cell instead of spacing the columns, so washes and region outlines meet edge to edge.
-  const spacing: CSSProperties = marks ? { columnGap: 0, justifyItems: "stretch" } : { columnGap: "0.45ch" };
+  // Annotated grids pad each cell instead of spacing the columns, so region outlines meet edge to edge, and open the
+  // rows up so an underline clears the row below.
+  const spacing: CSSProperties = marks ? { columnGap: 0, justifyItems: "stretch", lineHeight: 1.45 } : { columnGap: "0.45ch" };
   return (
     <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono font-semibold leading-[1.1] select-none"
       style={{ fontSize: digitsPx(model.size), gridTemplateColumns: `repeat(${model.size}, auto)`, ...spacing }} data-renderer="digits">
@@ -232,7 +237,7 @@ function Digits({ model, cue, changes, label, marks }: { model: GridModel; cue: 
           <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined} data-mark={mark?.tone}
             data-region={edge ? edge.tone : undefined}
             style={{
-              color: textShadeVar(c.letter),
+              color: textShadeVar(c.letter, model.colours),
               ...(marks ? { paddingInline: "0.225ch", textAlign: "right" } : {}),
               ...(mark ? markStyle(mark) : {}),
               ...(shadows.length ? { boxShadow: shadows.join(", ") } : {}),

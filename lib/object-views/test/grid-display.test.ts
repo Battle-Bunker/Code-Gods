@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-types";
 import {
+  TEXT_SHADES,
   COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
   getColourCue, setColourCue, subscribeColourCue, gridDigitsLines,
 } from "../src/grid-display.ts";
@@ -42,7 +43,8 @@ test("grid model: glyphs, names, colours", () => {
   assert.equal(m.size, 3);
   assert.equal(m.rows[0][0].glyph, "7");
   assert.equal(m.rows[0][0].name, "seven, red");
-  assert.equal(m.rows[0][2].css, COLOUR_LETTERS.B.css);
+  // No settings: the tile takes the letter's shade from rainbow6, the set that names every letter.
+  assert.equal(m.rows[0][2].css, TEXT_SHADES.dark.B);
   assert.equal(m.strict, false);
   const cards = gridModel("THB,ASR/KCV,2DO")!;
   assert.equal(cards.rows[0][0].glyph, "10♥");

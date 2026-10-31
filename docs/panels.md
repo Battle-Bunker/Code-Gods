@@ -175,24 +175,34 @@ coloured digits, or card rank and suit, compact enough for lists) and `tiles` (c
 letter per colour). Int and string have one each (`text`). The viewer switches grids from the palette ("Show grids as
 tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
 every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only
-where one form is essential. The digit colours are the theme tokens `--cg-ink-R` … `--cg-ink-V`.
+where one form is essential. The digit colours are per colour set, as the theme tokens `--cg-ink-<set>-<letter>`
+(rainbow6, and grids whose set is unknown: `--cg-ink-R` … `--cg-ink-V`); tiles use the same sets' bright shades.
 
 **Annotations.** An annotation draws the eye to the parts of an object that make up a utility's score. The vocabulary
 (`lib/game-utilities/src/annotations.ts`, re-exported by `@workspace/object-views` with its helpers):
 
 | kind | for | shape | drawn as |
 |---|---|---|---|
-| `cells` | Grid | `{cells: [{r, c, weight?}], tone, label?}` | digits: a soft wash behind the glyph (opacity by weight) and an underline (thickness by weight); tiles: an outline (thickness by weight) and a glow |
+| `cells` | Grid | `{cells: [{r, c, weight?}], tone, label?}` | digits: an underline in the page's ink (thickness and opacity by weight); tiles: an outline in the same ink |
 | `region` | Grid | `{cells, tone, label?}`, a connected group | one outline around the group |
-| `spans` | string | `{spans: [{start, end, weight?}], tone, label?}`, character indices, end exclusive | washed and underlined characters |
-| `digits` | Int | `{positions, weights?, tone, label?}`, positions from the left of the decimal digits, the minus sign not counted | washed and underlined digits |
+| `spans` | string | `{spans: [{start, end, weight?}], tone, label?}`, character indices, end exclusive | underlined characters |
+| `digits` | Int | `{positions, weights?, tone, label?}`, positions from the left of the decimal digits, the minus sign not counted | underlined digits |
 | `badge` | any | `{text, tone}` | a small chip after the object |
 
-`tone` is `good` (theme accent, ✓, solid underline), `bad` (destructive, ✗, wavy underline; dashed outline on tiles) or
-`neutral` (muted, •, dotted). Colour is never the only cue: weight also sets the underline or outline thickness and the
-font weight, and tones differ by symbol and line style. The labels form a legend: in a grid's detail view, as the object's
-tooltip, and under the objects panel's caption (`AnnotationLegend`, `annotationLegend`, `legendText`). Helpers:
-`mergeAnnotations`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`, `washOpacity`, `toneColour`.
+`tone` is `good` (a solid underline or outline), `bad` (dotted) or `neutral` (dashed). The cues are quiet so they never
+fight the digits' own colours: no washes, no glyphs and no tone hue, only the line's style (the tone) and its thickness
+and opacity (the weight), in the page's ink (`TONE_DECORATION`, `underlinePx`, `cueOpacity`, `cueColour`). The labels form a legend: in a grid's detail view, as the object's
+tooltip, and under the objects panel's caption, each label after its cue drawn inline (`AnnotationLegend`, `ToneCue`,
+`annotationLegend`, `legendText`, which reads "solid underline: supports your score" to screen readers). Helpers:
+`mergeAnnotations`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`, `cueColour`.
+
+**The payoff's colour coding.** Your bits and what the others care (or their summed bits) wear one colour each wherever
+they appear, so the coding is learnt once: `yours` petrol blue and `others` raspberry (`dimensionVar("yours")`,
+`--cg-yours` / `--cg-others`); a payoff's strength relative to the best shown runs one amber ramp from muted to strong
+(`relativeStrength`, `rampVar`, `--cg-ramp-low` / `--cg-ramp-high`). The objects panel's rectangle is drawn to one
+scale for both axes (a square when the two are equal), its bottom edge and value in the yours colour and its right
+edge and value in the others colour, filled by the ramp like the relative bar. `Table` columns take a `colour` and
+`ScatterPlot` takes `xColour` / `yColour` for the same coding in your own panels.
 
 ```tsx
 const { ctx } = useObjectContext();

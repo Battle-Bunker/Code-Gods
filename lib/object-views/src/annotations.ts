@@ -4,9 +4,10 @@
  * `@workspace/game-utilities` beside the per-family annotators that produce it, and is re-exported here; this module
  * holds the framework-free helpers the renderers draw with, unit tested under Node.
  *
- * Encodings: tone sets the hue (good = the theme's accent, bad = destructive, neutral = muted) and a non-colour cue
- * (✓ ✗ • in legends and badges; solid, wavy or dotted underlines in text); weight sets the wash opacity AND the
- * underline thickness or font weight, so colour is never the only signal.
+ * Encodings are quiet, so they never fight the digits' own colours: no washes, no glyphs and no tone hues. Tone sets
+ * the cue's SHAPE (good: a solid underline or outline, bad: dotted, neutral: dashed), drawn in the page's ink; weight
+ * sets the cue's strength (its thickness and its opacity). Legends draw the same cues inline, and screen readers get
+ * the words ("solid underline: supports your score").
  */
 import type { Annotation, AnnotationTone, BadgeAnnotation } from "@workspace/game-utilities";
 
@@ -64,14 +65,14 @@ export function annotationLegend(annotations: readonly Annotation[]): LegendEntr
   return out;
 }
 
-/** A tone's non-colour symbol, used wherever a tone is named (legend, badges). */
-export const TONE_SYMBOL: Readonly<Record<AnnotationTone, string>> = Object.freeze({ good: "✓", bad: "✗", neutral: "•" });
-/** A tone's underline style in text renderers. */
-export const TONE_DECORATION: Readonly<Record<AnnotationTone, "solid" | "wavy" | "dotted">> = Object.freeze({ good: "solid", bad: "wavy", neutral: "dotted" });
+/** A tone's cue: an underline (text, digits) or outline (tiles) of this style. Never hue alone. */
+export const TONE_DECORATION: Readonly<Record<AnnotationTone, "solid" | "dotted" | "dashed">> = Object.freeze({ good: "solid", bad: "dotted", neutral: "dashed" });
+/** A tone's cue in words, for tooltips and screen readers. */
+export const TONE_CUE: Readonly<Record<AnnotationTone, string>> = Object.freeze({ good: "solid underline", bad: "dotted underline", neutral: "dashed underline" });
 
-/** "✓ safe red · ✗ touching": the legend as one line (tooltips, screen readers). */
+/** "solid underline: safe red · dotted underline: touching": the legend as one line (tooltips, screen readers). */
 export function legendText(entries: readonly LegendEntry[]): string {
-  return entries.map(e => `${TONE_SYMBOL[e.tone]} ${e.label}`).join(" · ");
+  return entries.map(e => `${TONE_CUE[e.tone]}: ${e.label}`).join(" · ");
 }
 
 export function annotationBadges(annotations: readonly Annotation[]): BadgeAnnotation[] {
@@ -121,28 +122,19 @@ export function regionEdges(annotations: readonly Annotation[], size: number): (
   return out;
 }
 
-/** Background wash opacity for a weight: 0 for no weight, then 0.1 rising to 0.35, so the coloured glyph on top still reads. */
-export function washOpacity(weight: number): number {
+/** Cue thickness in px for a weight: 1, 1.5 or 2 (thin: a cue, not a bar under the digit). */
+export function underlinePx(weight: number): 1 | 1.5 | 2 {
   const w = clampWeight(weight);
-  return w === 0 ? 0 : Math.round((0.1 + 0.25 * w) * 1000) / 1000;
+  return w < 0.34 ? 1 : w < 0.67 ? 1.5 : 2;
 }
-/** Underline thickness in px for a weight: 1, 2 or 3. */
-export function underlinePx(weight: number): 1 | 2 | 3 {
+/** Cue opacity for a weight: 0 for no weight, then 0.3 rising to 0.7 (a light mark is still visible, a strong one stays quiet). */
+export function cueOpacity(weight: number): number {
   const w = clampWeight(weight);
-  return w < 0.34 ? 1 : w < 0.67 ? 2 : 3;
+  return w === 0 ? 0 : Math.round((0.3 + 0.4 * w) * 1000) / 1000;
 }
-/** Font weight for a weight (the renderers' glyphs are semibold to begin with). */
-export function markFontWeight(weight: number): 600 | 700 | 800 {
-  const w = clampWeight(weight);
-  return w < 0.34 ? 600 : w < 0.67 ? 700 : 800;
-}
-
-const TONE_TOKEN: Readonly<Record<AnnotationTone, string>> = Object.freeze({
-  good: "var(--accent, 168 52% 30%)", bad: "var(--destructive, 350 70% 42%)", neutral: "var(--muted-foreground, 232 12% 42%)",
-});
-/** A tone's colour from the app's theme tokens (light-theme fallbacks), at an opacity. */
-export function toneColour(tone: AnnotationTone, alpha = 1): string {
-  return `hsl(${TONE_TOKEN[tone]} / ${alpha})`;
+/** A cue's colour: the page's ink (the theme's foreground, light-theme fallback) at the weight's opacity. */
+export function cueColour(weight: number): string {
+  return `hsl(var(--foreground, 232 38% 14%) / ${cueOpacity(weight)})`;
 }
 
 export interface TextSegment {
