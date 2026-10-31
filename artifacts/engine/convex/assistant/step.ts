@@ -45,7 +45,7 @@ function providerFor(modelId: string | null): ChatProvider {
   const config = AI_MODEL_CATALOG.find(m => m.id === (modelId ?? DEFAULT_AGENT_MODEL));
   if (!config) throw new Error("The assistant's model is no longer offered");
   const key = (config.provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
-  if (!key) throw new Error(`The assistant needs a server-side ${config.provider} API key`);
+  if (!key) throw new Error(`The assistant is not set up on this server yet: whoever runs it has to add an ${config.provider} API key. Until then, the command palette does everything the assistant would.`);
   return config.provider === "anthropic"
     ? createDirectAnthropicChatProvider(key, { model: config.id, inputUsdPerMillion: config.inputUsdPerMillion, outputUsdPerMillion: config.outputUsdPerMillion })
     : createDirectOpenAIChatProvider(key, config.id, config);
