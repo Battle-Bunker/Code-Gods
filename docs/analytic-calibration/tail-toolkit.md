@@ -5,8 +5,8 @@ sampling estimator. Every tool below is stated, implemented in `lib/game-utiliti
 on a real family whose formula is wired into the family (`analytic`) and verified against the archived Monte Carlo
 tables of all 48 Grid shapes (`data/analytic-reference/<family>.json`, `scripts/verify-analytic.ts`). §8 turns the
 comparison round and measures the estimator itself, which tells you how much to trust a table you cannot yet derive.
-The catalogue of solved families and the "recognise the shape" guide are in `playbook.md` (Opus session); the engine
-side is in `architecture.md`.
+The catalogue of solved families and the "recognise the shape" guide are `playbook.md` (being written by the Opus
+session; until it lands, §2–§6 below list the verified-but-unwired formulas); the engine side is in `architecture.md`.
 
 Notation. A Grid instantiation has N×N = n cells, S symbols, C colours; under μ every cell is an independent uniform
 draw from symbols × colours. `p_v` is the mass of value v (digits: 1/S; cards: 1/13 for each of 1..13, since suits
@@ -141,14 +141,16 @@ colours and values, combined with `pairOrdinal`.
 **Tool.** When a count sums a within-row term `h(row)` and a between-adjacent-rows term `v(row, next)`, the board's law
 is exact by a transfer matrix whose state is a whole row (C^N colourings, or S^N symbol rows): carry, per state, the
 polynomial in z of the count so far (`rowTransferCount(N, M, h, v, maxCount)`, O(N · M² · maxCount)). This is exact
-enumeration organised so that it costs M² instead of M^N. It is feasible to M ≈ 1100 states (about a second at 1024;
-`TRANSFER_STATES` in `colour.ts`): colour rules with C^N ≤ 1100 (rgb up to 6×6, rgby to 5×5, rainbow6 to 4×4);
-symbol rules only at 4×4 with ≤ 5 values. Beyond that the family returns null and sampling serves the shape; §7 says
-why a Poisson substitute is *not* acceptable there.
+enumeration organised so that it costs M² instead of M^N. It is feasible to M ≈ 1300 states (0.6 s at 1024, about
+1 s at 1296; `TRANSFER_STATES` in `colour.ts`): colour rules with C^N ≤ 1300, i.e. rgb up to 6×6, rgby up to 5×5 and
+rainbow6 at 4×4 (24 of the 48 shapes); symbol rules only at 4×4 with ≤ 5 values. Beyond that the family returns null
+and sampling serves the shape; §7 says why a Poisson substitute is *not* acceptable there. Because the law takes up to
+a second, the family returns it through `lazySurvival`: the id (all a table key needs) is instant and the law is
+computed once, when the table is built.
 
 **Best Friends** (`best_friends`, `colour.ts`): seams between colours A and B over the 2N(N−1) edges; `h` counts the
-horizontal seams inside a row, `v` the vertical seams between two rows. Wired `transfer-matrix-rows@1` on 20 of the 48
-shapes (null on the rest). 20 shapes, 712 levels, none unattainable:
+horizontal seams inside a row, `v` the vertical seams between two rows. Wired `transfer-matrix-rows@1` on 24 of the 48
+shapes (null on the rest). 24 shapes, 808 levels, none unattainable:
 
 | shape | levels | max abs Δ | max z | table top / analytic top (bits) |
 |---|---|---|---|---|
@@ -159,8 +161,8 @@ shapes (null on the rest). 20 shapes, 712 levels, none unattainable:
 | Grid(5,cards,rgby) | 40 | 0.59 | 0.9 | 48.7 / 49.0 |
 | Grid(6,base16,rgb) | 54 | 0.56 | 1.0 | 56.1 / 56.1 |
 
-(the full 20 rows: `scripts/verify-analytic.ts --families best_friends`). Bands: RMS Δ 0.013 / 0.082 / 0.178 / 0.424 /
-0.780 / 0.802 bits, RMS z 0.46–1.26. The symbol layer is irrelevant to this rule, and the four symbol sets of each
+(the full 24 rows: `scripts/verify-analytic.ts --families best_friends`). Bands: RMS Δ 0.013 / 0.080 / 0.179 / 0.402 /
+0.764 / 0.802 bits, RMS z 0.45–1.24. The symbol layer is irrelevant to this rule, and the four symbol sets of each
 (N, C) give four independent sampling tables of the same law: they scatter around the one analytic curve as the nominal
 se predicts, a free replication test.
 
@@ -225,7 +227,7 @@ The estimator (`scripts/estimator.ts`, estimator "mc-ams" version 3) is a 2^15-s
 symmetric kernel per stage, 64-bit target), cleaned by weighted isotonic regression and thinned to 0.1 bits. Shipped
 tables carry no per-level error; `analytic-verify.ts nominalSe` reconstructs it from the budget: an MC level with
 survival G has var(bits) = (1−G)/(G·nMc)/ln²2, each splitting stage adds (1−p0)/(p0·particles)/ln²2 (one stage per bit),
-inflated ×1.6 for particle correlation. Pooling the six wired families over 48 shapes (260 tables, 16,130 levels) and,
+inflated ×1.6 for particle correlation. Pooling the six wired families over 48 shapes (264 tables, about 16,000 levels) and,
 in the scratch run, 13 families (about 36,000 levels) gives the same picture:
 
 | band (bits) | levels | mean Δ (table − exact) | RMS Δ | max abs Δ | RMS z (nominal se) |

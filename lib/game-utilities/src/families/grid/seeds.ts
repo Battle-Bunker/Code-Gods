@@ -1,10 +1,9 @@
 /** The three seed rules (lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
-import { valueLaw } from "./_util.ts";
 import {
   SCALAR, chance, cname, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
-  thing, tsCard, tuple, valueNote, wire,
+  thing, tsCard, tuple, valueNote, valueLaw, wire,
 } from "./_util.ts";
 
 // --- Seed 1: Line Painter ---------------------------------------------------------------------

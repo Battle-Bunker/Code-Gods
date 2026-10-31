@@ -21,7 +21,7 @@
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
-import { ANALYTIC_MAX_ERROR_BITS, assertAnalytic, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
+import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // format
@@ -41,7 +41,8 @@ const analyticMemo = new Map<string, AnalyticSurvival | null>();
  * The family's analytic survival function for (canonical params, instantiation), validated, or null when the family
  * has none there, or offers only an approximation whose error bound exceeds ANALYTIC_MAX_ERROR_BITS. Its id is part of
  * the table key (`tableKeyParts.exact`), so a changed formula regenerates exactly the tables built from it. Memoised
- * per process by (instance, family, params).
+ * per process by (instance, family, params). Cheap: the levels are not read here (they may be lazy; the estimator
+ * validates them with `assertAnalytic` when it builds the table).
  */
 export function analyticFor(familyId: string, canonicalParams: Params, inst: Instantiation): AnalyticSurvival | null {
   const m = `${inst.key}\0${familyId}\0${paramsKey(canonicalParams)}`;
@@ -50,7 +51,8 @@ export function analyticFor(familyId: string, canonicalParams: Params, inst: Ins
     const f = family(familyId);
     a = f.analytic && f.objectType === inst.objectType ? f.analytic(canonicalParams, context(inst)) : null;
     if (a) {
-      assertAnalytic(a, `${familyId} ${paramsKey(canonicalParams)} on ${inst.key}`);
+      // The id and kind are checked here (they key tables); the levels, which may be lazy, when a table is built.
+      assertAnalyticHeader(a, `${familyId} ${paramsKey(canonicalParams)} on ${inst.key}`);
       if (a.kind === "approx" && a.maxErrorBits! > ANALYTIC_MAX_ERROR_BITS) a = null;
     }
     analyticMemo.set(m, a);

@@ -32,6 +32,7 @@ export interface AnalyticSurvival {
    * log2 μ{u ≥ t} at every attainable ordinal t (a superset is fine): ordinals strictly increasing, values non-increasing
    * and ≤ 0, the first entry 0 (the least attainable ordinal has G = 1). Scoring interpolates between levels exactly as
    * it does for estimated tables (calibration.ts `surprisal`), so listing every attainable ordinal makes the table exact.
+   * May be a getter (`lazySurvival`): keys need only the id, and the levels are read once, when a table is built.
    */
   readonly levels: AnalyticLevels;
   /** "exact": closed form, exact enumeration or exact dynamic programme. "approx": every level within `maxErrorBits`. */
@@ -53,11 +54,15 @@ export function cmpOrdinals(a: Ordinal, b: Ordinal): number {
   return 0;
 }
 
-/** Throws unless `a` is well formed (see AnalyticSurvival.levels); `where` names the family for the message. */
-export function assertAnalytic(a: AnalyticSurvival, where: string): void {
+/** Throws unless the id, kind and error bound are well formed (without reading the levels, which may be lazy). */
+export function assertAnalyticHeader(a: AnalyticSurvival, where: string): void {
   if (!/^[a-z0-9-]+@\d+$/.test(a.id)) throw new Error(`${where}: analytic id ${JSON.stringify(a.id)} must look like "name@1"`);
   if (a.kind !== "exact" && a.kind !== "approx") throw new Error(`${where}: analytic kind ${String(a.kind)}`);
   if (a.kind === "approx" && !(typeof a.maxErrorBits === "number" && a.maxErrorBits >= 0)) throw new Error(`${where}: an approximation needs maxErrorBits ≥ 0`);
+}
+/** Throws unless `a` is well formed (see AnalyticSurvival.levels); `where` names the family for the message. */
+export function assertAnalytic(a: AnalyticSurvival, where: string): void {
+  assertAnalyticHeader(a, where);
   const L = a.levels;
   if (!L.length) throw new Error(`${where}: analytic has no levels`);
   if (L[0][1] !== 0) throw new Error(`${where}: the first level must have log2 G = 0 (got ${L[0][1]})`);
@@ -276,3 +281,11 @@ export function poissonTail(lambda: number, t: number): number {
 }
 /** An exact survival as an `AnalyticSurvival`. */
 export const exactSurvival = (id: string, d: Dist): AnalyticSurvival => ({ id, kind: "exact", levels: survivalLevels(d) });
+/**
+ * An exact survival whose law is computed on first use (and then kept): for formulas costing more than a few
+ * milliseconds (a transfer matrix), so that computing a table key (which needs the id only) stays instant.
+ */
+export function lazySurvival(id: string, law: () => Dist): AnalyticSurvival {
+  let levels: AnalyticLevels | undefined;
+  return { id, kind: "exact", get levels() { return levels ??= survivalLevels(law()); } };
+}

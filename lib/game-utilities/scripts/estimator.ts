@@ -26,6 +26,7 @@ import {
   type CalibrationBudget, type CalibrationTable,
 } from "../src/calibration.ts";
 import type { Ordinal, Params } from "../src/types.ts";
+import { assertAnalytic } from "../src/analytic.ts";
 
 /** The shipped default (measured: 13–30 µs per Grid evaluation incl. encode + decode, 2–10 µs Int/string). */
 export const DEFAULT_BUDGET: CalibrationBudget = Object.freeze({
@@ -140,6 +141,7 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   let budgetLabel: CalibrationTable["estimator"]["budget"] = budget;
 
   if (analytic) {
+    assertAnalytic(analytic, `${familyId} ${JSON.stringify(params)} on ${inst.key}`);   // reads the (possibly lazy) levels
     exactMode = true;
     budgetLabel = `${analytic.kind}:${analytic.id}`;
     const v = analytic.kind === "approx" ? analytic.maxErrorBits! ** 2 : 0;
