@@ -69,6 +69,8 @@ const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 
 const { session } = await login("carol");
+/** carol's Better Auth cookies (login's `session` is the cookie header her sign-in produced). */
+const sessionCookies = (header: string) => header.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
 const carol = new ConvexHttpClient(CLOUD);
 carol.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await carol.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -90,7 +92,7 @@ export default definePanel({ title: "E2E live", placement: "left", Component() {
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
-await context.addCookies([{ name: "cg_session", value: session, url: SITE }]);
+await context.addCookies(sessionCookies(session));
 const page = await context.newPage();
 const pageErrors: string[] = [];
 const cspReports: string[] = [];
@@ -198,7 +200,7 @@ export default definePanel({ title: "Navigates", Component() {
   // WebSocket to the local engine: this one browser runs without them.
   const lax = await chromium.launch({ args: ["--disable-features=LocalNetworkAccessChecks"] });
   const laxContext = await lax.newContext();
-  await laxContext.addCookies([{ name: "cg_session", value: session, url: SITE }]);
+  await laxContext.addCookies(sessionCookies(session));
   const bare = await laxContext.newPage();
   const bareLog: string[] = [];
   bare.on("console", m => bareLog.push(m.text().slice(0, 150)));
