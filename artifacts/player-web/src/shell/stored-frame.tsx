@@ -2,7 +2,8 @@
  * A panel in a sandboxed frame: stored panels always, file panels when the player turns on "run sandboxed".
  *
  * The iframe (`sandbox="allow-scripts"`: an opaque origin, no same-origin access, no popups, forms or top
- * navigation) loads /player/panel-frame.html, which has its own CSP (connect-src 'none'). The host serves it over
+ * navigation) loads /player/panel-frame.html, which has its own CSP (connect-src 'none'); the page's CSP (frame-src
+ * 'self', in a build and in a dev server: vite/csp.ts) stops the frame navigating itself off-origin. The host serves it over
  * a BridgeHost: the SDK's read queries for this room, throttled per hz; commands, with a host-rendered
  * confirmation for chat, summon, destroy and pause; and the evaluator's calibration tables once.
  *
@@ -70,7 +71,10 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
   const room = useRoom();
   const convex = useConvex();
   const iframe = useRef<HTMLIFrameElement>(null);
-  const nonce = useMemo(() => crypto.randomUUID(), []);
+  // One nonce per bridge. The iframe is keyed on it: when the bridge restarts (another room or client, or a Fast
+  // Refresh), a fresh frame document loads and says `ready` again; the old one would never repeat it.
+  const nonce = useMemo(() => crypto.randomUUID(), [convex, room]);
+  const loads = useRef(0);
   const [height, setHeight] = useState(80);
   const [state, setState] = useState<{ kind: FrameState; message?: string }>({ kind: "booting" });
   const latest = useRef({ panel, info });
@@ -155,6 +159,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
     };
     window.addEventListener("message", onWindowMessage);
     link.current.boot = boot;
+    loads.current = 0;
     return () => { window.removeEventListener("message", onWindowMessage); stop(false); };
   }, [convex, room, nonce]);
 
@@ -170,7 +175,6 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
 
   // The frame element's first load is ours; any later one is a navigation (the sandbox allows a frame to
   // navigate itself), so the bridge stops and nothing more reaches whatever document it loaded.
-  const loads = useRef(0);
   const onLoad = () => { if (++loads.current > 1) link.current.stop(); };
 
   if (state.kind === "navigated") {
@@ -178,7 +182,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
   }
   return (
     <div data-testid={`panel-frame-${file}`} data-frame-state={state.kind}>
-      <iframe ref={iframe} title={title} src={frameUrl(nonce)} sandbox="allow-scripts" onLoad={onLoad}
+      <iframe key={nonce} ref={iframe} title={title} src={frameUrl(nonce)} sandbox="allow-scripts" onLoad={onLoad}
         referrerPolicy="no-referrer" style={{ width: "100%", height, border: 0, display: "block", background: "transparent" }} />
       {state.kind === "failed" && <p className="sr-only" data-testid={`panel-failed-${file}`}>{state.message}</p>}
     </div>

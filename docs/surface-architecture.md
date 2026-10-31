@@ -120,7 +120,7 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 **Client (`artifacts/player-web`).**
 - The shell registry merges file panels with stored panels from `panels.list`. On an id clash the file panel wins and shows a "shadows stored vN" badge.
-- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/player/panel-frame.html`, with its own meta CSP (`connect-src 'none'`).
+- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/player/panel-frame.html`, with its own meta CSP (`connect-src 'none'`). The client page's CSP has `frame-src 'self'` (hosted and dev server alike), so a frame cannot navigate itself off-origin.
 - **Bridge:** a postMessage bridge carries the same `@sdk` API. The SDK is built twice with a swapped transport: `useQuery` on the host, bridge subscriptions in the frame. Panels keep real React hooks.
 - **Confirmations:** the host enforces a confirmation for `chat`, `summon`, `destroy` and `pause` coming from a stored panel. A per-panel "let it act" grant is set by the player and reset whenever a non-browser author writes a new version.
 - **Failure handling:** a crashing panel stays inside its frame. `?panels=off` is safe mode.

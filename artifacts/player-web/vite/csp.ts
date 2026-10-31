@@ -1,10 +1,14 @@
 /**
- * Content Security Policies of the hosted player client (build time; there is no CSP in dev):
+ * Content Security Policies of the player client:
  *
- *   /player/                    pageCsp: connect-src only this origin and the Convex deployment (https + wss);
- *                               'unsafe-eval' because the utility evaluator compiles kid cards with new Function.
- *   /player/panel-frame.html    frameCsp: a stored panel's sandboxed frame; no network at all (connect-src 'none',
- *                               images and fonts only from data:/blob:), scripts and styles only from the deployment.
+ *   /player/ (a build)          pageCsp: connect-src only this origin and the Convex deployment (https + wss);
+ *                               'unsafe-eval' because the utility evaluator compiles kid cards with new Function;
+ *                               frame-src 'self', so a panel's frame cannot navigate itself to another origin.
+ *   the dev server's page       devPageCsp: only frame-src 'self' (and object-src 'none'), so HMR keeps working.
+ *   panel-frame.html            frameCsp: a stored panel's sandboxed frame. No fetch, XHR or WebSocket (connect-src
+ *                               'none'), images and fonts only from data:/blob:, scripts and styles only from the
+ *                               frame URL's origin and the deployment. A frame's own CSP cannot stop it navigating
+ *                               itself (a URL can carry data out); the embedding page's frame-src does.
  *
  * The deployment comes from VITE_CONVEX_URL (scripts/deploy-static.mjs sets it, and VITE_CONVEX_SITE_URL).
  */
@@ -42,12 +46,17 @@ export function pageCsp(env: Env): string {
   ].join("; ");
 }
 
-/** `origin`: where panel-runtime.js and panel-frame.css are served from (the frame's own origin is opaque). */
+/**
+ * `origin`: the deployment's site origin, where panel-runtime.js and panel-frame.css are served from. The frame's own
+ * origin is opaque (sandboxed), but Chromium matches 'self' against its document URL, so 'self' also admits the
+ * runtime when the client is served from a custom domain (CODE_GODS_SITE_URL) instead of the deployment's .convex.site.
+ */
 export function frameCsp(origin: string): string {
+  const sources = [...new Set(["'self'", origin])].join(" ");
   return [
     "default-src 'none'",
-    `script-src ${origin} 'unsafe-eval'`,
-    `style-src ${origin} 'unsafe-inline'`,
+    `script-src ${sources} 'unsafe-eval'`,
+    `style-src ${sources} 'unsafe-inline'`,
     "img-src data: blob:",
     "font-src data:",
     "connect-src 'none'",
@@ -75,8 +84,18 @@ export function frameHtml(origin: string): string {
 `;
 }
 
-/** Insert the page CSP as the first element of <head> (before any script or stylesheet). */
-export function injectPageCsp(html: string, env: Env): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${escape(pageCsp(env))}" />`;
+/**
+ * The dev server's page CSP: only what keeps stored-panel frames contained. `frame-src 'self'` governs every
+ * navigation of a child frame, so a panel cannot navigate its own frame to another origin (and carry data out in
+ * the URL). Nothing else is restricted: Vite's inline preamble, its HMR socket and the token endpoint keep working.
+ */
+export function devPageCsp(): string {
+  return ["frame-src 'self'", "object-src 'none'"].join("; ");
+}
+
+/** Insert a CSP meta tag as the first element of <head> (before any script or stylesheet). */
+export function injectCsp(html: string, policy: string): string {
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${escape(policy)}" />`;
   return html.replace(/<head>/i, `<head>\n    ${meta}`);
 }
+export const injectPageCsp = (html: string, env: Env): string => injectCsp(html, pageCsp(env));
