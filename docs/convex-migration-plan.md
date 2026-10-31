@@ -266,11 +266,13 @@ compilation and startup outside the per-act budget.
   JWKS, authorize with a test-only identity picker, token endpoint) is selected **only** by setting
   the Convex env var `REPLIT_OIDC_ISSUER` on the *local* deployment. Production leaves it unset and
   uses `https://replit.com/oidc`. The stand-in is never bundled into the deployment.
-- **Risk:** Replit's OIDC must accept `https://<dep>.convex.site/api/callback` as a redirect URI for
-  the configured client. This must be checked when the real account is connected (§12). If Replit
-  restricts redirect URIs to Replit-hosted domains, the fallback is a minimal callback page on the
-  engine's existing Replit domain that only forwards `code` and `state` to the Convex callback. It
-  holds no secrets and no state.
+- **Redirect URI (verified 2026-10-31).** Replit's OIDC refuses `https://<dep>.convex.site/api/callback`
+  (`invalid_redirect_uri`): it accepts any path on the client Repl's own domains and nothing else. So
+  the engine Repl serves a relay page (`artifacts/engine/relay/convex-callback.html`) that forwards
+  `code` and `state` unchanged to the Convex callback, and `REPLIT_OIDC_REDIRECT_URI` names the relay
+  for both the authorization request and the token exchange. It holds no secrets and no state; the
+  flow cookie (SameSite=Lax, sent on the top-level navigation), state, nonce and PKCE still bind the code
+  to the browser that started the login.
 
 ## 6. Disclosure enforced in queries
 
@@ -535,14 +537,16 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
    - `CODE_GODS_SEASON_SALT`: at least 16 random characters, secret for the season. Games refuse to
      start in production without it, and game records carry its sha256 commitment;
    - `REPLIT_OIDC_CLIENT_ID`: the Replit OIDC client id (the engine Repl's `REPL_ID`, as before);
+   - `REPLIT_OIDC_REDIRECT_URI`: the login relay's URL on the engine Repl (step 4);
    - `CODE_GODS_ADMIN_EMAILS`: the admin allowlist of verified emails;
    - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`: the AI seats' provider keys;
    - optionally, `CODE_GODS_SITE_URL` for a custom domain, and `CODE_GODS_VERSION`.
 
    **Never** set `REPLIT_OIDC_ISSUER`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV`
    in production. They exist only for local tests.
-4. **Replit OIDC redirect URI:** register `https://<dep>.convex.site/api/callback`, then verify one real
-   login (§5 risk). If Replit refuses a convex.site redirect, use the relay page fallback in §5.
+4. **Replit login relay (§5):** publish `artifacts/engine/relay/convex-callback.html` on the engine Repl
+   (its `ENGINE_SITE` set to `https://<dep>.convex.site`), set `REPLIT_OIDC_REDIRECT_URI` to its URL,
+   then verify one real login.
 5. **Runtime and static sites:**
    - `pnpm --filter @workspace/game-runtime setup:python` (once: the pinned CPython download);
    - `pnpm --filter @workspace/game-runtime build:python`;

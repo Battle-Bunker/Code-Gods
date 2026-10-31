@@ -33,8 +33,11 @@ pnpm --filter @workspace/engine deploy-static --prod                      # buil
 ```
 
 Also set `REPLIT_OIDC_CLIENT_ID`, `CODE_GODS_ADMIN_EMAILS` and the provider keys
-(`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`, and register
-`https://<dep>.convex.site/api/callback` as the Replit OIDC redirect URI. Never set
+(`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`.
+`REPLIT_OIDC_CLIENT_ID` is the engine Repl's `REPL_ID`. Replit Auth only returns to that Repl's own
+domains, so the engine Repl serves `artifacts/engine/relay/convex-callback.html` (for example at
+`https://code-gods-engine.replit.app/convex-callback`) and `REPLIT_OIDC_REDIRECT_URI` names that URL. The
+page forwards the login to `https://<dep>.convex.site/api/callback`. Never set
 `REPLIT_OIDC_ISSUER`, `CODE_GODS_AI_MOCK`, `CODE_GODS_TEST_FIXTURES` or `CODE_GODS_DEV` in production.
 Without `CODE_GODS_SEASON_SALT` the engine refuses to run games in production. Never share the salt
 during the season; game records carry its sha256 commitment.
