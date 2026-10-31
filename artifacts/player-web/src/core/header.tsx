@@ -10,6 +10,7 @@ import { SAFE_MODE } from "@/shell/safe-mode";
 import { useNow, useSituation, type Situation } from "@/core/game/situation";
 import { runner, useGameCommands, useRunner } from "@/core/game/runner";
 import { noticeStore, useNotices } from "./notices";
+import { composer } from "@/core/chat/composer";
 import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
@@ -61,9 +62,11 @@ export function Header() {
       </span>
       {SAFE_MODE && <span className="shrink-0 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: panels are off</span>}
       <div className="ml-auto shrink-0">
-        <PaletteTrigger placeholder="Search or do…" onOpen={() => paletteStore.open(focused)} compact={!wide} />
+        <PaletteTrigger placeholder="Search or do…" onOpen={init => paletteStore.open(focused, init)} compact={!wide} />
       </div>
+      {/* The dock shell binds Cmd/Ctrl+K, "/" and "?" itself (it knows the focused pane), so the palette's own hotkeys stay off. */}
       <CommandPalette commands={commands} context={context} open={palette.open} onOpenChange={open => (open ? paletteStore.open(focused) : paletteStore.close())}
+        init={palette.init} hotkeys={false} handoff={draft => composer.fill(draft.text)} onError={(error, command) => noticeStore.push(`${command.human.title}: ${error instanceof Error ? error.message : String(error)}`)}
         placeholder="Search or do…" recentKey="cg.palette.player" suggested={["ui.forge.edit", "ui.lens.add.objects", "ui.chat", "ui.layout.side-by-side"]} />
     </header>
   );

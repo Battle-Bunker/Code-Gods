@@ -28,7 +28,8 @@ test("every parameter is optional with a default, except what-if's objectId and 
     assert.deepEqual(parseLensParams(id, undefined), { ok: true, params: defaults }, `${id}: no params means the defaults`);
   }
   assert.equal(parseLensParams("what-if", { objectId: "o1" }).ok, false, "calls are required");
-  const ok = parseLensParams("what-if", { objectId: "o1", calls: [["swap", [1, 2]]] });
+  assert.equal(parseLensParams("what-if", { objectId: "o1", calls: [["swap", [1, 2]]] }).ok, false, "calls carry named arguments, as the engine's wire form does");
+  const ok = parseLensParams("what-if", { objectId: "o1", calls: [["swap", { a: 1, b: 2 }]] });
   assert.ok(ok.ok && ok.params.compare === undefined);
   const bad = parseLensParams("objects", { limit: 1000, sortBy: "nope" });
   assert.ok(!bad.ok && bad.issues.some(i => i.startsWith("limit")) && bad.issues.some(i => i.startsWith("sortBy")));
@@ -43,7 +44,7 @@ test("summaries read as pane captions", () => {
   assert.equal(lensSummary("race", {}), "Everyone · total payoff · last 300 s");
   assert.equal(lensSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(lensSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");
-  assert.equal(lensSummary("what-if", { objectId: "o", calls: [["add", [1]]], compare: [["add", [2]]] }), "1 move on one object · vs an alternative");
+  assert.equal(lensSummary("what-if", { objectId: "o", calls: [["add", { k: 1 }]], compare: [["add", { k: 2 }]] }), "1 move on one object · vs an alternative");
   assert.equal(lensSummary("objects", { limit: "many" }), "Objects by payoff", "invalid params fall back to the title");
   assert.equal(lensSummary("overview", {}), "Situation, standing, next step");
 });

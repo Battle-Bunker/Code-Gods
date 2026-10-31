@@ -51,7 +51,7 @@ function useShortcuts(store: DockStore) {
       if (e.ctrlKey && e.key === "`") { e.preventDefault(); composer.focus(); return; }
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "/") { e.preventDefault(); composer.focus(); }
-      else if (e.key === "?") { e.preventDefault(); paletteStore.open(store.getSnapshot().focused); }
+      else if (e.key === "?") { e.preventDefault(); paletteStore.open(store.getSnapshot().focused, { page: "help" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

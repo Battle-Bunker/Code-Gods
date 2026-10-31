@@ -349,8 +349,11 @@ export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layou
   if (Object.keys(layout.panes).length >= LAYOUT_LIMITS.panes) throw new LayoutError("CONFLICT", `At most ${LAYOUT_LIMITS.panes} panes; close one first`);
   const want = place ?? defaultPlace(layout, pane);
   if (want.relativeTo !== undefined) requirePane(layout, want.relativeTo);
-  let direction = want.direction;
-  if (pane.kind === "lens" && lensPanesOf(layout).length >= LAYOUT_LIMITS.lensPanes) direction = "tab";
+  const direction = want.direction;
+  // parseLayout drops lens panes past the limit, so a fifth one is refused here rather than silently lost later.
+  if (pane.kind === "lens" && lensPanesOf(layout).length >= LAYOUT_LIMITS.lensPanes) {
+    throw new LayoutError("CONFLICT", `At most ${LAYOUT_LIMITS.lensPanes} lens panes; change a pane's lens (set_lens_params or the lens menu) or close one first`);
+  }
   const id = pane.id && !layout.panes[pane.id] ? pane.id : nextPaneId(layout);
   const fresh: Pane = { ...pane, id } as Pane;
   const panes = { ...layout.panes, [id]: fresh };

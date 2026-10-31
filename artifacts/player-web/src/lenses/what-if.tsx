@@ -10,9 +10,8 @@ import { composer } from "@/core/chat/composer";
 import { LensEmpty, Section, TextButton, type LensProps } from "./kit";
 
 type Calls = NonNullable<LensProps<"what-if">["params"]>["calls"];
-const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-/** The lens's calls carry argument lists; the engine's wire form is [mutatorId, {named arguments}]. */
-const toWire = (calls: Calls): MutatorCallWire[] => calls.map(([id, args]) => [id, Array.isArray(args) && args.length === 1 && isRecord(args[0]) ? args[0] : isRecord(args) ? args : {}] as const);
+/** The lens's calls are already the engine's wire form: [mutatorId, {named arguments}]. */
+const toWire = (calls: Calls): MutatorCallWire[] => calls.map(([id, args]) => [id, args] as MutatorCallWire);
 
 type Outcome = { error: string; cost?: number } | { value: LiveObject["value"]; cost: number; before: number; after: number };
 function tryMove(evaluator: Evaluator, target: LiveObject, calls: Calls): Outcome {

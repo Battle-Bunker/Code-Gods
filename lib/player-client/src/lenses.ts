@@ -32,8 +32,8 @@ export interface LensDefinition<P extends z.ZodObject = z.ZodObject> {
 const objectId = z.string().min(1).max(128);
 const objectIds = (max: number) => z.array(objectId).max(max).default([]);
 const seconds = (min: number, max: number, dflt: number) => z.number().int().min(min).max(max).default(dflt);
-/** One mutator call: the mutator id and its arguments, as the observation's transformations list them. */
-const call = z.tuple([z.string().min(1).max(64), z.array(z.unknown()).max(16)]);
+/** One mutator call in the engine's wire form: the mutator id and its named arguments (the observation's `calls`). */
+const call = z.tuple([z.string().min(1).max(64), z.record(z.string(), z.unknown())]);
 const calls = z.array(call).min(1).max(16);
 
 const def = <P extends z.ZodObject>(d: LensDefinition<P>) => d;
