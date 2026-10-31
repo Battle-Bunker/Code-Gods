@@ -458,3 +458,42 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
   const again = new URL((await go({ scope: "read" })).headers.get("location")!).searchParams.get("request")!;
   await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: again, roomId, permission: "act", completion: "c".repeat(43) }), /lower/);
 });
+
+test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used clients and old retired refresh tokens", { timeout: 120000 }, async () => {
+  const { ada, roomId } = await lobby();
+  const register = () => fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Flood", redirect_uris: ["http://127.0.0.1:1/cb"] }) });
+  // The sweep, run as if 31 days had passed. First it clears never-used clients of earlier runs from the window.
+  const later = Date.now() + 31 * 24 * 3600_000;
+  const sweep = () => admin.mutation(internal.agent.oauthStore.sweep, { now: later }) as Promise<Record<string, number>>;
+  while ((await sweep()).dcrClients > 0) { /* drain */ }
+  // A used connection (its client redeemed a code), rotated once so it has a retired refresh token.
+  const used = await connect(ada, roomId, "act");
+  const rotated = await (await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }))).json() as any;
+  assert.ok(rotated.refresh_token, JSON.stringify(rotated));
+  // Unauthenticated registration is capped globally: a flood soon gets 429.
+  let limited: Response | undefined;
+  for (let i = 0; i < 200 && !limited; i++) {
+    const response = await register();
+    if (response.status === 429) limited = response;
+    else assert.equal(response.status, 201, await response.text());
+  }
+  assert.ok(limited, "DCR has a global rate limit");
+  assert.equal((await limited.json() as any).error, "temporarily_unavailable");
+  assert.ok(Number(limited.headers.get("retry-after")) > 0, "Retry-After");
+  const swept = await sweep();
+  assert.ok(swept.dcrClients > 0 && swept.retiredRefresh > 0, JSON.stringify(swept));
+  // The flood's clients are gone (and with them the rate limit); the used client still authorizes.
+  assert.equal((await register()).status, 201, "the sweep freed the registration window");
+  const authorizeWith = (clientId: string, redirectUri: string) => {
+    const url = new URL(`${SITE}/oauth/authorize`);
+    for (const [k, v] of Object.entries({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, code_challenge: pkce().challenge,
+      code_challenge_method: "S256", scope: "act", resource: MCP })) url.searchParams.set(k, v);
+    return fetch(url, { redirect: "manual" });
+  };
+  assert.equal((await authorizeWith(used.client.client_id, "http://127.0.0.1:51515/callback")).status, 302, "a used client is kept");
+  // The retired refresh token's row is gone: presenting it now is just invalid, and the live grant keeps working.
+  const old = await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }));
+  assert.equal(old.status, 400);
+  assert.equal((await call(rotated.access_token, "whoami", {})).data.permission, "act");
+});

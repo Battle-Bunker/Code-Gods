@@ -24,7 +24,7 @@ import { PLAYER_JWT_AUDIENCE, playerIssuer, siteUrl } from "../auth/config";
 import { pkceChallenge, randomToken, sha256Hex } from "../auth/crypto";
 import { jwks, mintPlayerJwt } from "../auth/jwt";
 import { resourceUrl } from "./mcp";
-import { CIMD_CACHE_MS } from "./oauthStore";
+import { CIMD_CACHE_MS, DCR_WINDOW_MS } from "./oauthStore";
 import { cimdUrlProblem, envList, parseScope, redirectAllowedForRegistration, redirectMatches } from "./rules";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 3600;
@@ -107,7 +107,11 @@ const register = guarded(async (ctx, request) => {
   if (method !== "none") return oauthError("invalid_client_metadata", "Only public clients (token_endpoint_auth_method none) are supported");
   const name = typeof body.client_name === "string" && body.client_name.trim() && printable(body.client_name) ? body.client_name.trim().slice(0, 120) : "Unnamed MCP client";
   const clientId = randomToken("cgo_", 24);
-  await ctx.runMutation(internal.agent.oauthStore.registerClient, { clientId, clientName: name, redirectUris: uris });
+  const registered = await ctx.runMutation(internal.agent.oauthStore.registerClient, { clientId, clientName: name, redirectUris: uris });
+  if (!registered.ok) {
+    return json({ error: "temporarily_unavailable", error_description: "Too many client registrations right now; try again in a few minutes" }, 429,
+      { "Retry-After": String(DCR_WINDOW_MS / 1000 / 2) });
+  }
   return json({
     client_id: clientId, client_id_issued_at: Math.floor(Date.now() / 1000), client_name: name, redirect_uris: uris,
     token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], scope: SCOPES.join(" "),

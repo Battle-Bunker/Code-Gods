@@ -13,6 +13,17 @@ export const OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 /** An OAuth grant expires after 30 days without a refresh. */
 export const OAUTH_IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const CIMD_CACHE_MS = 60 * 60 * 1000;
+/** Unauthenticated DCR is capped for the whole deployment: at most this many registrations per window. */
+export const DCR_WINDOW_MS = 10 * 60 * 1000;
+export const DCR_MAX_PER_WINDOW = 50;
+/** A DCR client that has not redeemed a code this long after registering is deleted. */
+export const DCR_UNUSED_TTL_MS = 24 * 60 * 60 * 1000;
+/**
+ * A retired refresh token is kept for reuse detection this long: as long as the grant it belonged to could have
+ * stayed idle. Presented later, it is merely invalid (it no longer revokes the grant).
+ */
+export const RETIRED_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SWEEP_BATCH = 200;
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
 
 export const getClient = internalQuery({
@@ -20,10 +31,16 @@ export const getClient = internalQuery({
   handler: async (ctx, { clientId }) => ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", clientId)).unique(),
 });
 
+/** Register a DCR client, unless the deployment-wide rate limit is reached (then {ok: false}). */
 export const registerClient = internalMutation({
   args: { clientId: v.string(), clientName: v.string(), redirectUris: v.array(v.string()) },
   handler: async (ctx, args) => {
-    await ctx.db.insert("oauthClients", { ...args, kind: "dcr", createdAt: Date.now() });
+    const now = Date.now();
+    const recent = await ctx.db.query("oauthClients").withIndex("by_kind_created", q => q.eq("kind", "dcr").gt("createdAt", now - DCR_WINDOW_MS))
+      .take(DCR_MAX_PER_WINDOW);
+    if (recent.length >= DCR_MAX_PER_WINDOW) return { ok: false as const };
+    await ctx.db.insert("oauthClients", { ...args, kind: "dcr", createdAt: now });
+    return { ok: true as const };
   },
 });
 
@@ -38,7 +55,7 @@ export const putCimd = internalMutation({
   },
 });
 
-async function sweep(ctx: MutationCtx) {
+async function sweepRequests(ctx: MutationCtx) {
   for (const old of await ctx.db.query("oauthRequests").withIndex("by_expires", q => q.lt("expiresAt", Date.now() - OAUTH_REQUEST_TTL_MS)).take(20)) {
     await ctx.db.delete(old._id);
   }
@@ -50,7 +67,7 @@ export const createRequest = internalMutation({
     codeChallenge: v.string(), permission, resource: v.string(),
   },
   handler: async (ctx, args) => {
-    await sweep(ctx);
+    await sweepRequests(ctx);
     await ctx.db.insert("oauthRequests", { ...args, status: "pending", expiresAt: Date.now() + OAUTH_REQUEST_TTL_MS });
   },
 });
@@ -116,6 +133,8 @@ export const redeemCode = internalMutation({
       kind: "oauth", clientId: request.clientId, refreshHash: args.refreshHash, refreshExpiresAt: now + OAUTH_IDLE_TTL_MS,
     });
     await ctx.db.patch(request._id, { status: "redeemed", credentialId });
+    const client = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", request.clientId)).unique();
+    if (client) await ctx.db.patch(client._id, { usedAt: now });
     return { credentialId, subject, roomId, permission: granted };
   },
 });
@@ -159,5 +178,25 @@ export const revokeToken = internalMutation({
     if (!row || row.kind !== "oauth" || (args.clientId !== undefined && row.clientId !== args.clientId)) return false;
     await revoke(ctx, row._id);
     return true;
+  },
+});
+
+/**
+ * The hourly sweep (crons.ts) that keeps the OAuth tables bounded: retired refresh tokens past
+ * RETIRED_REFRESH_TTL_MS, DCR clients that never redeemed a code within DCR_UNUSED_TTL_MS, client metadata
+ * documents past their cache time (fetched again on next use) and expired authorization requests. Each kind
+ * deletes at most SWEEP_BATCH rows per run. `now` defaults to the current time.
+ */
+export const sweep = internalMutation({
+  args: { now: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now();
+    const retired = await ctx.db.query("oauthRetiredRefresh").withIndex("by_retired", q => q.lt("retiredAt", now - RETIRED_REFRESH_TTL_MS)).take(SWEEP_BATCH);
+    const unused = await ctx.db.query("oauthClients")
+      .withIndex("by_kind_used_created", q => q.eq("kind", "dcr").eq("usedAt", undefined).lt("createdAt", now - DCR_UNUSED_TTL_MS)).take(SWEEP_BATCH);
+    const stale = await ctx.db.query("oauthClients").withIndex("by_kind_fetched", q => q.eq("kind", "cimd").lt("fetchedAt", now - CIMD_CACHE_MS)).take(SWEEP_BATCH);
+    const requests = await ctx.db.query("oauthRequests").withIndex("by_expires", q => q.lt("expiresAt", now - OAUTH_REQUEST_TTL_MS)).take(SWEEP_BATCH);
+    for (const row of [...retired, ...unused, ...stale, ...requests]) await ctx.db.delete(row._id);
+    return { retiredRefresh: retired.length, dcrClients: unused.length, cimdClients: stale.length, requests: requests.length };
   },
 });
