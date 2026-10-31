@@ -7,6 +7,8 @@
  *   CODE_GODS_JWT_PRIVATE_KEY  RS256 PKCS#8 PEM (scripts/gen-jwt-key.mjs)
  *   CODE_GODS_JWT_JWKS         its public JWKS (same script); auth.config.ts inlines it as a data URI
  *   REPLIT_OIDC_CLIENT_ID      the Replit OIDC client id (the engine Repl's REPL_ID)
+ *   REPLIT_OIDC_REDIRECT_URI   the callback relay on that Repl's domain (Replit accepts no other), which
+ *                              forwards to /api/callback. Unset: /api/callback itself (local tests).
  *   REPLIT_OIDC_ISSUER         LOCAL TESTING ONLY: points login at scripts/fake-oidc.mjs.
  *                              Production must leave it unset (issuer = https://replit.com/oidc).
  */

@@ -85,7 +85,12 @@ function guarded(handler: (ctx: ActionCtx, request: Request) => Promise<Response
 // ---------------------------------------------------------------------------------------------
 // Browser login
 // ---------------------------------------------------------------------------------------------
-const redirectUri = () => `${siteUrl()}/api/callback`;
+/**
+ * The OIDC callback URL: this site's /api/callback, unless REPLIT_OIDC_REDIRECT_URI names a relay. Replit
+ * only redirects to the client Repl's own domains, so production points it at a page there that forwards
+ * `code` and `state` here unchanged (PKCE, state and nonce still bind the code to this browser's flow).
+ */
+const redirectUri = () => process.env.REPLIT_OIDC_REDIRECT_URI?.trim() || `${siteUrl()}/api/callback`;
 
 const login = guarded(async (ctx, request) => {
   const returnTo = safeReturn(new URL(request.url).searchParams.get("returnTo"));

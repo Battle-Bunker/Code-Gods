@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { createLocalJWKSet, jwtVerify } from "jose";
 import {
   SITE, OIDC, POLL_GAP_MS, admin, authorize, browserJwt, browserToken, callback, client, decodeJwt, deviceRequest,
@@ -153,6 +154,30 @@ test("login rejects a bad state, nonce, PKCE, signature, audience, issuer, expir
   for (const key of ["state", "nonce", "code_challenge"]) assert.ok(login.authorize.searchParams.get(key)!.length >= 43, key);
   assert.equal(login.authorize.searchParams.get("code_challenge_method"), "S256");
   assert.equal(login.authorize.searchParams.get("redirect_uri"), `${SITE}/api/callback`);
+});
+
+/** Set (or with undefined, remove) an environment variable on the local test deployment. */
+function deploymentEnv(name: string, value: string | undefined) {
+  const args = value === undefined ? ["convex", "env", "remove", name] : ["convex", "env", "set", name];
+  const result = spawnSync("npx", args, { input: value, stdio: ["pipe", "ignore", "inherit"], env: process.env });
+  assert.equal(result.status, 0, `convex env ${args[2]} ${name}`);
+}
+
+test("a relay callback on the engine Repl's domain (Replit accepts no other) completes the login", async () => {
+  // Replit's OIDC only redirects to the client Repl's own domains, so a page there forwards code and state
+  // to /api/callback. The login and the token exchange must both name that relay URL.
+  const relay = "https://code-gods-engine.example/convex-callback";
+  deploymentEnv("REPLIT_OIDC_REDIRECT_URI", relay);
+  try {
+    const { authorize: url, flowCookie } = await startLogin();
+    assert.equal(url.searchParams.get("redirect_uri"), relay);
+    const back = await authorize(url, "alice");
+    assert.equal(back.origin + back.pathname, relay, "the provider returns to the relay");
+    const forwarded = new URL(`${SITE}/api/callback${back.search}`);
+    const done = await callback(forwarded, flowCookie);
+    assert.equal(done.status, 302, await done.text());
+    assert.ok(setCookies(done).cg_session, "signed in");
+  } finally { deploymentEnv("REPLIT_OIDC_REDIRECT_URI", undefined); }
 });
 
 test("unsafe returnTo values are neutralised to /", async () => {
