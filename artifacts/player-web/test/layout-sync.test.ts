@@ -6,11 +6,12 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, movePane, openPane, setPaneLens, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, lensPanesOf, movePane, openPane, parseLayout, setPaneLens, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import {
   effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
+import { dockAssistant, showLens } from "../src/dock/operations.ts";
 
 const base = DEFAULT_LAYOUT("running");
 const withRace = openPane(base, { id: "", kind: "lens", lensId: "race", params: {}, setBy: "human" }).layout;
@@ -138,4 +139,35 @@ test("history: the dropdown restores the parameters last used for a lens in that
   assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" });
   assert.equal(lastParams(h, "p1", "feed"), undefined);
   assert.equal(lastParams(h, "p9", "objects"), undefined);
+});
+
+const ctx = { phase: "running" as const, storedSlugs: [] };
+test("showing a lens reuses its open pane, adds one otherwise, and at four lenses the focused pane shows it instead", () => {
+  const again = showLens(withRace, "race");
+  assert.equal(again.layout.panes.p3?.kind === "lens" && again.layout.panes.p3.lensId, "race");
+  assert.equal(Object.keys(again.layout.panes).length, 3, "no second race pane");
+  let layout = base;
+  for (const id of ["race", "feed", "objects"] as const) layout = parseLayout(showLens(layout, id).layout, ctx).layout;
+  assert.equal(lensPanesOf(layout).length, 4);
+  const full = showLens(layout, "public-chat", undefined, "p3");
+  assert.ok(full.replaced);
+  assert.equal(full.paneId, "p3");
+  const parsed = parseLayout(full.layout, ctx).layout;
+  assert.equal(lensPanesOf(parsed).length, 4, "nothing parseLayout would drop");
+  assert.ok(lensPanesOf(parsed).some(p => p.lensId === "public-chat"));
+  assert.throws(() => showLens(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
+});
+
+test("moving the assistant to a side stacks the lenses beside it; to the bottom puts them side by side", () => {
+  const twoInARow = parseLayout(withRace, ctx).layout;
+  const right = parseLayout(dockAssistant(twoInARow, "right"), ctx).layout;
+  assert.equal(assistantSide(right), "row");
+  assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+    ["row", ["column", "p2"]], "lenses in a column, the assistant on the right");
+  const bottom = parseLayout(dockAssistant(right, "bottom"), ctx).layout;
+  assert.equal(assistantSide(bottom), "column");
+  assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+    ["column", ["row", "p2"]]);
+  const left = parseLayout(dockAssistant(twoInARow, "left"), ctx).layout;
+  assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "tabs", panes: ["p2"], active: "p2" });
 });

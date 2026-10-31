@@ -1,5 +1,5 @@
 /**
- * Keeps the core console standing: an error in the core (most often a query failing while the engine
+ * Keeps the player's screen standing: an error in the core (most often a query failing while the engine
  * is unreachable or the credential was revoked) shows a banner and retries by itself every few
  * seconds, instead of taking down the page. Panels have their own boundaries (shell/panel-frame.tsx).
  */

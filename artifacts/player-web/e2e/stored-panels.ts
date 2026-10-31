@@ -8,13 +8,16 @@
  * first (CG_E2E_SKIP_DEPLOY=1 skips that). Playwright must be resolvable (e.g. NODE_PATH to a global install).
  *
  * What it checks (each line printed as ok / FAIL):
- *   a panel saved with panels.save appears without a reload (a window marker survives), with live data over the
- *   bridge, also when the frame is served from another origin than its CSP names (a custom domain); an update and a rollback change it live; a render-throwing version stays inside its frame; a panel
+ *   a panel saved with panels.save and opened as a pane from the lens menu appears without a reload (a window marker
+ *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
+ *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
+ *   change it live; moving the pane does not restart its frame; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
- *   the engine; ?panels=off loads only the core; the page CSP reports nothing of its own and sign-in still works.
+ *   the engine; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
+ *   built-in lenses and the assistant; the page CSP reports nothing of its own and sign-in still works.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
@@ -78,9 +81,22 @@ const { roomId, shortCode } = await carol.mutation(fn.m("rooms:create"), {}) as 
 // Earlier runs' panels of this identity would crowd the dock: start clean.
 for (const p of await carol.query(fn.q("panels:list"), {}) as { slug: string }[]) await carol.mutation(fn.m("panels:remove"), { slug: p.slug });
 
-async function save(slug: string, source: string) {
+const { DEFAULT_LAYOUT, openPane } = await import("@workspace/player-client/layout");
+type Layout = ReturnType<typeof DEFAULT_LAYOUT>;
+// Layouts follow the human across rooms: start this room from the default arrangement.
+await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+
+/** Open a stored panel as a pane through the engine's layout, as the assistant's open_panel does (the page follows). */
+async function openAsPane(slug: string) {
+  const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
+  if (Object.values(layout.panes).some(p => p.kind === "stored-panel" && p.slug === slug)) return;
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: openPane(layout, { id: "", kind: "stored-panel", slug }).layout });
+}
+/** Save a panel (and open it as a pane unless told not to). */
+async function save(slug: string, source: string, { open = true } = {}) {
   const result = await carol.action(fn.a("panels:save"), { slug, source }) as { ok: boolean; version?: number; diagnostics: unknown[] };
   assert(result.ok, `save ${slug}: ${JSON.stringify(result.diagnostics)}`);
+  if (open) await openAsPane(slug);
   return result.version!;
 }
 const live = (label: string) => `import { definePanel, useGame } from "@sdk";
@@ -118,8 +134,11 @@ async function frameShows(slug: string, testId: string, expected: RegExp) {
   }
 }
 
-await check("a panel saved with panels.save appears without a reload, with live data over the bridge", async () => {
-  assert(await save("e2e-live", live("v1")) === 1, "first version");
+await check("a panel saved with panels.save and opened from the lens menu appears without a reload, with live data over the bridge", async () => {
+  assert(await save("e2e-live", live("v1"), { open: false }) === 1, "first version");
+  // "Your panels" in a lens pane's menu opens it as a pane of its own.
+  await page.locator("[data-testid=menu-lens]").first().click();
+  await page.click("[data-testid=menu-lens-panel-e2e-live]", { timeout: 15_000 });
   await frameShows("e2e-live", "sp-text", /^v1 with data$/);
   assert(await page.textContent("[data-testid=badge-stored-e2e-live]") === "stored v1", "version badge");
   assert(await page.getAttribute('[data-testid="panel-frame-stored:e2e-live"] iframe', "sandbox") === "allow-scripts", "sandbox attribute");
@@ -133,6 +152,20 @@ await check("an update and a rollback change the panel live", async () => {
   await frameShows("e2e-live", "sp-text", /^v1 with data$/);
   await page.waitForFunction(() => document.querySelector("[data-testid=badge-stored-e2e-live]")?.textContent === "stored v3", null, { timeout: 15_000 });
   assert(await sameDocument(), "the page reloaded");
+});
+
+await check("moving a panel's pane (the assistant to the right) does not restart its frame", async () => {
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("[data-testid=dialog-palette]");
+  await page.keyboard.type("Move assistant right");
+  await page.keyboard.press("Enter");
+  await sleep(1500);
+  assert(await page.getAttribute('[data-testid="panel-frame-stored:e2e-live"]', "data-frame-state") !== "navigated", "the moved frame was stopped as a navigation");
+  await frameShows("e2e-live", "sp-text", /^v1 with data$/);
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("Move assistant to the bottom");
+  await page.keyboard.press("Enter");
+  await sleep(500);
 });
 
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {
@@ -304,13 +337,30 @@ export default definePanel({ title: "Evaluator", Component() {
   await owner("endGame");
 });
 
-await check("?panels=off loads only the core console", async () => {
+await check("at phone size (390×844) a panel's pane runs in the stacked layout, with the assistant as a sheet", async () => {
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await phoneContext.addCookies(sessionCookies(session));
+  const phone = await phoneContext.newPage();
+  phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached", timeout: 60_000 });
+  const text = await phone.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 });
+  assert(text === "v1 with data", `phone frame: ${text}`);
+  assert(await phone.locator(".dv-dockview").count() === 0, "dockview on a phone");
+  const width = await phone.evaluate(() => document.scrollingElement!.scrollWidth);
+  assert(width <= 390, `the page scrolls sideways: ${width}px`);
+  await phoneContext.close();
+});
+
+await check("?panels=off loads only the built-in lenses and the assistant", async () => {
   const safe = await context.newPage();
   await safe.goto(`${SITE}/player/?room=${shortCode}&panels=off`);
   await safe.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await safe.waitForSelector("[data-testid=text-safe-mode]");
+  await safe.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   await sleep(1500);
   assert(await safe.locator("[data-panel-origin]").count() === 0, "panels rendered in safe mode");
+  assert(await safe.locator("[data-testid=dock] [data-testid=menu-lens]").count() >= 1, "no lens in safe mode");
   await safe.close();
 });
 

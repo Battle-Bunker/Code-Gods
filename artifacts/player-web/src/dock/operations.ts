@@ -4,15 +4,23 @@
  */
 import { LENSES, defaultLensParams, type LensId, type Phase } from "@workspace/player-client/lenses";
 import {
-  activatePane, assistantPaneOf, assistantSide, lensPanesOf, openPane, panesOf, setPaneLens, type DockLayout, type Node, type Pane, type Place,
+  LAYOUT_LIMITS, activatePane, assistantPaneOf, assistantSide, lensPanesOf, openPane, panesOf, setPaneLens, type DockLayout, type Node, type Pane, type Place,
 } from "@workspace/player-client/layout";
 
-/** Show a lens: activate an open pane of it (one pane per lens, like the assistant's open_lens), else add one. */
-export function showLens(layout: DockLayout, lensId: LensId, params?: Record<string, unknown>): { layout: DockLayout; paneId: string } {
-  const open = lensPanesOf(layout).find(p => p.lensId === lensId);
+/**
+ * Show a lens: activate an open pane of it (one pane per lens, like the assistant's open_lens), else add one. With
+ * the most lens panes already open (parseLayout keeps four), the focused lens pane (else the last) shows it instead.
+ */
+export function showLens(layout: DockLayout, lensId: LensId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
+  const lenses = lensPanesOf(layout);
+  const open = lenses.find(p => p.lensId === lensId);
   if (open) return { layout: activatePane(layout, open.id), paneId: open.id };
   const values = params ?? defaultLensParams(lensId);
   if (!values) throw new Error(`${LENSES[lensId].title} needs your assistant to set it up`);
+  if (lenses.length >= LAYOUT_LIMITS.lensPanes) {
+    const target = lenses.find(p => p.id === focused) ?? lenses[lenses.length - 1];
+    return { layout: activatePane(setPaneLens(layout, target.id, lensId, "human", values), target.id), paneId: target.id, replaced: true };
+  }
   return openPane(layout, { id: "", kind: "lens", lensId, params: values, setBy: "human" });
 }
 
@@ -35,6 +43,7 @@ export function lensOrder(phase: Phase): LensId[] {
 
 /** "Add lens below / to the right" from a pane's ⋯ menu: the first useful lens not shown yet, next to that pane. */
 export function addLensNextTo(layout: DockLayout, paneId: string, phase: Phase): { layout: DockLayout; paneId: string } {
+  if (lensPanesOf(layout).length >= LAYOUT_LIMITS.lensPanes) throw new Error(`At most ${LAYOUT_LIMITS.lensPanes} lenses at a time: change a pane's lens from its menu, or close one.`);
   const open = new Set(lensPanesOf(layout).map(p => p.lensId));
   const lensId = lensOrder(phase).find(id => !open.has(id)) ?? "overview";
   const direction: Place["direction"] = assistantSide(layout) === "row" ? "below" : "right";
@@ -54,11 +63,24 @@ function without(node: Node, id: string): Node {
   if (node.type === "tabs") return { ...node, panes: node.panes.filter(p => p !== id), active: node.active === id ? node.panes.find(p => p !== id) ?? "" : node.active };
   return { ...node, children: node.children.map(child => without(child, id)) };
 }
-/** Move the assistant to an edge of the whole dock, keeping the rest of the arrangement (parse the result). */
+/** Drop empty tab groups and one-child splits (enough to see the shape of what is left). */
+function prune(node: Node): Node | null {
+  if (node.type === "tabs") return node.panes.length ? node : null;
+  const children = node.children.map(prune).filter((c): c is Node => !!c);
+  if (!children.length) return null;
+  return children.length === 1 ? children[0] : { ...node, children, sizes: node.sizes.filter((_, i) => !!prune(node.children[i])) };
+}
+/**
+ * Move the assistant to an edge of the whole dock (parse the result). The rest keeps its arrangement, except that its
+ * outermost split turns to run along the assistant: lenses stack beside a side assistant and sit side by side above
+ * a bottom one (otherwise every pane would join one long row or column).
+ */
 export function dockAssistant(layout: DockLayout, side: "left" | "right" | "bottom"): DockLayout {
   const assistant = assistantPaneOf(layout);
   if (!assistant) return layout;
-  const rest = without(layout.root, assistant.id);
+  let rest = prune(without(layout.root, assistant.id)) ?? { type: "tabs", panes: [], active: "" };
+  const along = side === "bottom" ? "row" : "column";
+  if (rest.type === "split" && rest.direction !== along) rest = { ...rest, direction: along };
   const mine: Node = { type: "tabs", panes: [assistant.id], active: assistant.id };
   const root: Node = side === "bottom" ? { type: "split", direction: "column", sizes: [50, 50], children: [rest, mine] }
     : side === "right" ? { type: "split", direction: "row", sizes: [62, 38], children: [rest, mine] }

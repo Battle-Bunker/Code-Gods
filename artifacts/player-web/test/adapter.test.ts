@@ -49,6 +49,8 @@ test("the dockview JSON: orientation from the root split, pixel sizes from the w
   const assistant = Object.values(json.panels).find(p => p.contentComponent === "assistant")!;
   assert.equal(assistant.renderer, "always", "the chat keeps its draft and stream while hidden");
   assert.equal(json.panels.p4.contentComponent, "stored-panel");
+  assert.equal(json.panels.p4.renderer, "always", "a panel's frame never moves in the DOM: a moved iframe reloads, which reads as a navigation");
+  assert.equal(json.panels.p1.renderer, undefined, "lenses render only while visible");
   assert.equal(json.panels.p1.tabComponent, "lens");
 });
 

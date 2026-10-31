@@ -4,8 +4,8 @@
  */
 import { useMemo } from "react";
 import { DEFAULT_LAYOUT, PRESET_LAYOUTS, closePane, type DockLayout } from "@workspace/player-client/layout";
-import type { LensId } from "@workspace/player-client/lenses";
-import { notifyError } from "@/core/notices";
+import { LENSES, type LensId } from "@workspace/player-client/lenses";
+import { notify, notifyError } from "@/core/notices";
 import { composer } from "@/core/chat/composer";
 import { runner } from "@/core/game/runner";
 import { lastParams } from "./history";
@@ -20,8 +20,11 @@ export function dockActions(store: DockStore) {
   const focusPane = (find: (layout: DockLayout) => string | undefined) => setTimeout(() => { const id = find(store.layout); if (id) { store.setFocused(id); store.activate(id); } }, 0);
   return {
     show(lensId: LensId) {
-      let id: string | undefined;
-      attempt(store, layout => { const r = showLens(layout, lensId); id = r.paneId; return r.layout; }, () => focusPane(() => id));
+      let id: string | undefined, replaced = false;
+      attempt(store, layout => { const r = showLens(layout, lensId, undefined, store.getSnapshot().focused); id = r.paneId; replaced = !!r.replaced; return r.layout; }, () => {
+        focusPane(() => id);
+        if (replaced) notify(`Four lenses is the most at a time, so this pane shows ${LENSES[lensId].title} now.`);
+      });
     },
     change(paneId: string, lensId: LensId) {
       attempt(store, layout => changeLens(layout, paneId, lensId, lastParams(store.getSnapshot().history, paneId, lensId)));

@@ -12,6 +12,7 @@ import { runner, useGameCommands, useRunner } from "@/core/game/runner";
 import { noticeStore, useNotices } from "./notices";
 import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
+import { useWide } from "./use-wide";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -39,6 +40,7 @@ export function Header() {
   const { focused } = useDock();
   const palette = usePaletteState();
   const { commands, context } = usePlayerCommands(palette.open ? palette.scopePaneId : focused);
+  const wide = useWide();
   const self = s.obs?.self;
   const live = s.obs?.phase === "planning" || s.obs?.phase === "running" || s.obs?.phase === "paused";
   return (
@@ -59,7 +61,7 @@ export function Header() {
       </span>
       {SAFE_MODE && <span className="shrink-0 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: panels are off</span>}
       <div className="ml-auto shrink-0">
-        <PaletteTrigger placeholder="Search or do…" onOpen={() => paletteStore.open(focused)} />
+        <PaletteTrigger placeholder="Search or do…" onOpen={() => paletteStore.open(focused)} compact={!wide} />
       </div>
       <CommandPalette commands={commands} context={context} open={palette.open} onOpenChange={open => (open ? paletteStore.open(focused) : paletteStore.close())}
         placeholder="Search or do…" recentKey="cg.palette.player" suggested={["ui.forge.edit", "ui.lens.add.objects", "ui.chat", "ui.layout.side-by-side"]} />

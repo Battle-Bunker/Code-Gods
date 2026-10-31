@@ -30,8 +30,10 @@ export const groupIdOf = (node: Extract<Node, { type: "tabs" }>) => `g-${node.pa
 export function panelOf(pane: Pane, title: string): GroupviewPanelState {
   return {
     id: pane.id, contentComponent: pane.kind, tabComponent: pane.kind, title, params: { pane },
-    // The chat keeps its draft, scroll position and stream while another tab covers it.
-    ...(pane.kind === "assistant" ? { renderer: "always" as const } : {}),
+    // "always" keeps the content in one overlay element that dockview positions over its group: the chat keeps its
+    // draft, scroll and stream while covered, and a panel's iframe is never re-parented (that reloads it, which the
+    // frame's bridge must treat as a navigation and stop). Lenses render only while visible.
+    ...(pane.kind !== "lens" ? { renderer: "always" as const } : {}),
   };
 }
 

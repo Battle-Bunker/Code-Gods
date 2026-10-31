@@ -31,7 +31,8 @@ export function PaneHeader({ paneId, desktop }: { paneId: string; desktop: boole
   const pane = layout.panes[paneId];
   if (!pane) return null;
   const focus = () => store.setFocused(paneId);
-  const tabbed = isTabbed(layout, paneId);
+  // On a phone tabs become stacked panes, each with its full header.
+  const tabbed = desktop && isTabbed(layout, paneId);
   return (
     <div data-testid={`tab-${paneId}`} onPointerDownCapture={focus} onFocusCapture={focus}
       className={`cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2 ${tabbed ? "max-w-72" : ""}`}>
@@ -62,7 +63,7 @@ function LensHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { kind: "le
   const byAssistant = pane.setBy === "assistant";
   return (
     <>
-      <LensMenu pane={pane} />
+      <LensMenu pane={pane} tabbed={tabbed} />
       {!tabbed && (
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
           {caption}{byAssistant ? " · set by your assistant" : ""}
@@ -85,7 +86,7 @@ function LensHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { kind: "le
 }
 
 /** The lens menu: lenses for this phase first, then the others, then the player's panels. It changes the lens only. */
-function LensMenu({ pane }: { pane: Extract<Pane, { kind: "lens" }> }) {
+function LensMenu({ pane, tabbed }: { pane: Extract<Pane, { kind: "lens" }>; tabbed: boolean }) {
   const { phase, history } = useDock();
   const actions = useDockActions();
   const panels = usePanels();
@@ -106,7 +107,7 @@ function LensMenu({ pane }: { pane: Extract<Pane, { kind: "lens" }> }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger data-testid="menu-lens" onPointerDown={e => e.stopPropagation()}
-        className="inline-flex max-w-[60%] shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted">
+        className={`inline-flex ${tabbed ? "" : "max-w-[60%]"} min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted`}>
         <span className="truncate">{LENSES[pane.lensId].title}</span><ChevronDown size={13} className="shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[70vh] overflow-auto rounded-none">

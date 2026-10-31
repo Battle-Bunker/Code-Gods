@@ -7,7 +7,7 @@
  * Keys: Cmd/Ctrl+K opens the palette everywhere; `/` focuses the assistant's composer and `?` opens the palette when
  * no input has focus; Ctrl+` focuses the assistant.
  */
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useRoom } from "@/sdk";
@@ -17,24 +17,13 @@ import { Header, HeaderBanners } from "@/core/header";
 import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
+import { useWide } from "@/core/use-wide";
 import { dockActions } from "./actions";
 import { PanelsProvider, usePanelRegistry, type Panels } from "./panels";
 import StackedDock from "./stacked";
 import { DockContext, DockStore, useDockStore } from "./store";
 
 const DesktopDock = lazy(() => import("./desktop"));
-const WIDE = "(min-width: 768px)";
-
-function useWide() {
-  const [wide, setWide] = useState(() => typeof matchMedia === "function" && matchMedia(WIDE).matches);
-  useEffect(() => {
-    const query = matchMedia(WIDE);
-    const onChange = () => setWide(query.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return wide;
-}
 
 /** Counts real input as human activity (at most once a minute): it keeps the engine from idle-parking. */
 function useHumanActivity() {
