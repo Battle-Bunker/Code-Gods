@@ -208,18 +208,29 @@ New: `dock`, `pane-<id>`, `tab-<id>`, `menu-panel`, `button-add-pane`, `button-p
 | id | Title | For a newcomer | Parameters (assistant only) | Phases |
 |---|---|---|---|---|
 | `overview` | Where am I | What's happening, how I'm doing, the one thing to do next (lobby variant: who is here, the owner, what happens at start) | `focus: auto\|goal\|agents\|standing` | all |
-| `my-card` | Your secret goal | Your utility card in plain words, with live examples | `examples 0–6 (3)`, `showSource`, `exampleSort: best\|worst` | planning, running, paused |
+| `my-card` | Your secret goal | Your utility card in plain words, with live examples | `examples 0–6 (3)`, `showSource`, `exampleSort: best\|worst` | planning, running, paused, ended |
 | `objects` | Objects by payoff | Which things in the world earn you points | `sortBy: payoff\|mine\|othersCare`, `filter: all\|positive\|contested\|chips`, `limit 3–60 (12)`, `highlight: objectId[] ≤ 8`, `layout: list\|grid`, `annotate: mine\|none` | running, paused, ended |
-| `others-care` | What others care about | Where the others' interests lie (from totals only) | `mode: snapshot\|movements`, `quadrant: none\|chips\|conflict\|shared`, `window 10–50` | running, paused |
+| `others-care` | What others care about | Where the others' interests lie (from totals only) | `mode: snapshot\|movements`, `quadrant: none\|chips\|conflict\|shared`, `window 10–50` | running, paused, ended |
 | `bits-over-time` | My points over time | Is it getting better or worse for me | `metric: payoff\|mine\|others`, `objects: top\|bottom\|ids`, `ids ≤ 8`, `count 1–8 (5)`, `window s` | running, paused, ended |
 | `race` | Leaderboard race | Who's winning, is anyone catching up | `show: all\|top3\|me-vs-leader`, `metric: total\|gap`, `window s (300)` | running, paused, ended |
-| `agents` | My agents | Your agents, their energy, when each acts next | `agentIds`, `window s (120)`, `showSource`, `showCosts` | running, paused |
+| `agents` | My agents | Your agents, their energy, when each acts next | `agentIds`, `window s (120)`, `showSource`, `showCosts` | running, paused, ended |
 | `feed` | What just changed | Latest changes and what they did to you | `who: all\|mine\|others`, `objectId?`, `minImpact bits`, `limit 5–50 (20)`, `groupBy: none\|object\|mutator` | running, paused, ended |
-| `what-if` | What if… | What a move would do to your score before anyone makes it | `objectId` (required), `calls` (required), `compare?`, `value?` | planning, running, paused |
+| `what-if` | What if… | What a move would do to your score before anyone makes it | `objectId` (required), `calls` (required), `compare?`, `value?` | planning, running, paused, ended |
 | `public-chat` | Public chat | Everything said to everyone; the only public input | `filter: all\|humans\|ai\|mentionsMe`, `highlight: string[] ≤ 5` | all |
-| `forge` | Agent code | The agent being written for you and what it costs; Edit for the editor | `language?`, `source? ≤ 16 KiB`, `agentId?`, `showHelpers` | planning, running, paused |
+| `forge` | Agent code | The agent being written for you and what it costs; Edit for the editor | `language?`, `source? ≤ 16 KiB`, `agentId?`, `showHelpers` | planning, running, paused, ended (read-only) |
 | `results` | How the game went | Final standings and why you finished where you did | `gameId?`, `section: all\|standings\|mine` | ended, lobby |
 | `rules` | How to play | The 90-second explanation, scoring and this room's settings | `section: all\|primer\|scoring\|settings` | all |
+
+**An ended game stays inspectable.** When a game ends nothing the player could see disappears: every panel with game
+data has `ended` among its phases and renders the game frozen at its final tick (objects with their final payoffs and
+marks, the player's agents and their final accounts, the race, bits-over-time and the feed to the end, others-care,
+the player's own card, what-if evaluated locally on the final values, chat). `results` is only the *default* panel once
+the game is over (`defaultPanelFor`); a pane the player chose or a carried layout keeps its panel. Actions are refused,
+never hidden: the forge keeps the editor with Validate and Summon off and one line saying why, and My agents keeps
+"Edit a copy" with Destroy off. Public chat stays open after the end: it belongs to the room, as on the room page.
+Utility cards stay private after the end (no reveal of the others' goals). The engine keeps every row of an ended game
+(objects, agents, deities, event batches, chat); the observation serves it until the room's next game takes the
+slot, and by game id after that (`player.history`, `games.view`, `rooms.history`). Lint: `lib/player-client/test/panels.test.ts`.
 
 Phase-aware prompt chips and empty-state copy: player-client §4; the 90-second explanation and the glossary:
 onboarding §2 (the glossary lives in `lib/ui-kit/src/glossary.ts` and feeds the assistant's primer).

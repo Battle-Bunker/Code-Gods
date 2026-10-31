@@ -57,8 +57,10 @@ export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, w
 }
 
 /** God energy: starting energy plus real-time income, minus summon prices paid. */
-export function godEnergy(game: Pick<Clock, "settings" | "createdAt">, spent: number, nowMs = Date.now()): number {
-  return game.settings.startingEnergy + Math.max(0, nowMs - game.createdAt) / 1000 * game.settings.energyPerSecond - spent;
+export function godEnergy(game: Pick<Clock, "settings" | "createdAt"> & { endedAt?: number }, spent: number, nowMs = Date.now()): number {
+  // An ended game is frozen: its gods' energy stops accruing at the end.
+  const at = game.endedAt !== undefined ? Math.min(nowMs, game.endedAt) : nowMs;
+  return game.settings.startingEnergy + Math.max(0, at - game.createdAt) / 1000 * game.settings.energyPerSecond - spent;
 }
 
 /** A god's own view of one object from the private score list: own score and peer aggregates only. */

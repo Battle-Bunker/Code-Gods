@@ -30,7 +30,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
   const situation = phase === "planning" ? `Planning: the world starts ${left ? `in ${left} s` : "any moment"}.`
     : phase === "running" ? `The world is running (world time ${clock(obs?.economy?.worldSeconds ?? 0)}).`
     : phase === "paused" ? `The world is paused${left ? `; it resumes in ${left} s` : ""}.`
-    : "The game is over.";
+    : `The game is over (world time ${clock(obs?.economy?.worldSeconds ?? 0)}): every panel shows its final state.`;
   const focus = params.focus === "auto" ? (phase === "planning" ? "goal" : "standing") : params.focus;
   const middle = !s.seated && phase !== "ended" ? "You're watching this game; you play in the next one."
     : focus === "goal" ? (obs?.self.utility ? `Your secret goal: ${obs.self.utility.summary}` : "Your secret goal is dealt when the game starts.")
@@ -47,7 +47,9 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
       <dl className="grid grid-cols-3 gap-4">
         <BigNumber label="Rank" value={standing.rank ? `${standing.rank}/${standing.of}` : "–"} testId="stat-rank" />
         <BigNumber label="Payoff" value={fmt(standing.total)} testId="stat-payoff" tone={standing.total > 0 ? "good" : standing.total < 0 ? "bad" : undefined} />
-        <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />
+        {phase === "ended"
+          ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
+          : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}
       </dl>
       <PrimaryButton onClick={go} testId="button-next-step">{step.label}</PrimaryButton>
     </div>

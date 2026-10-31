@@ -96,6 +96,20 @@ test("the briefing's PANELS block names the panes, who set them, the catalogue a
   assert.doesNotThrow(() => assistantBriefing({ rules: {}, observation, layout: { layout: "nope", panels: "nope" } }));
 });
 
+test("an ended game is briefed as its frozen final state, not as a lobby, and every panel still reads it", () => {
+  const ended = assistantBriefing({ rules: { rules: "# r" }, observation: { ...observation, phase: "ended", economy: { ...observation.economy, worldSeconds: 754 } } });
+  assert.doesNotMatch(ended, /no game is running|lobby/i);
+  assert.match(ended, /game is over/i);
+  assert.match(ended, /frozen|final state/i);
+  assert.ok(ended.includes("12:34"), "the final world time");
+  for (const kept of ["Power Hoarder", "You hoard factors of 3.", "Leaderboard: you are #2 of 2"]) assert.ok(ended.includes(kept), `the frozen briefing keeps ${kept}`);
+  assert.doesNotMatch(ended, /live agent/, "an ended game's agents are not live");
+  const steps = prompt("act").split("\n").find(l => l.startsWith("NEXT STEPS."))!;
+  const endedStep = steps.slice(steps.indexOf("Ended:"));
+  assert.match(endedStep, /results/);
+  assert.match(endedStep, /every (other )?panel/i, "the ended next step says the other panels still show the final state");
+});
+
 test("the briefing is bounded and survives a lobby (no game) or unexpected shapes", () => {
   // No observation at all means the engine's read failed, not that the room is in the lobby.
   const lobby = assistantBriefing({ rules: { rules: "# Code Gods: rules" } });

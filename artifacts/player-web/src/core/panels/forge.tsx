@@ -14,7 +14,7 @@ import { GhostButton, PrimaryButton, TextButton, type PanelProps } from "./kit";
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 
-export default function Forge({ params }: PanelProps<"forge">) {
+export default function Forge({ params, phase }: PanelProps<"forge">) {
   const obs = useObservation({ hz: 2 });
   const { agents } = useMyAgents({ hz: 1 });
   const state = useRunner();
@@ -28,7 +28,7 @@ export default function Forge({ params }: PanelProps<"forge">) {
     const lang = live?.language ?? params.language ?? obs?.language ?? "python";
     return (
       <div className="space-y-3" data-testid="panel-forge">
-        <p className="text-sm text-muted-foreground">{live ? "The code of one of your live agents." : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
+        <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? "The code of one of your agents, as it ran until the end." : "The code of one of your live agents.") : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
           <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>
@@ -37,10 +37,10 @@ export default function Forge({ params }: PanelProps<"forge">) {
       </div>
     );
   }
-  return <Editor language={language} assistantDraft={params.source} showHelpers={params.showHelpers} />;
+  return <Editor language={language} assistantDraft={params.source} showHelpers={params.showHelpers} ended={phase === "ended"} />;
 }
 
-function Editor({ language, assistantDraft, showHelpers }: { language: Lang; assistantDraft?: string; showHelpers: boolean }) {
+function Editor({ language, assistantDraft, showHelpers, ended }: { language: Lang; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
   const obs = useObservation({ hz: 2 });
   const { instance } = useMutators();
   const commands = useGameCommands();
@@ -53,7 +53,8 @@ function Editor({ language, assistantDraft, showHelpers }: { language: Lang; ass
     runner.setDraft({ source: source.slice(0, at) + name + source.slice(end) });
     requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(at + name.length, at + name.length); } });
   };
-  const gameplay = !!obs && !unknown && commands.canAct;
+  // After the end the editor stays (read the code, copy it for the next game) but nothing can be validated or summoned.
+  const gameplay = !!obs && !unknown && commands.canAct && !ended;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && language === obs?.language && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
@@ -86,6 +87,7 @@ function Editor({ language, assistantDraft, showHelpers }: { language: Lang; ass
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
       </div>
+      {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
       <div data-testid="panel-validation" className="text-sm">
         {current ? (
           <div className={`border-l-4 py-1 pl-3 ${current.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>

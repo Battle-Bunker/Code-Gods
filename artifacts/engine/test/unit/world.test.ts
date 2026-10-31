@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planSpawns } from "../../convex/lib/world.ts";
+import { godEnergy, planSpawns } from "../../convex/lib/world.ts";
 
 const every = (gap: number) => () => gap;
 type Args = Omit<Parameters<typeof planSpawns>[0], "place">;
@@ -52,4 +52,13 @@ test("a spawn that finds no free value does not use up room, so it cannot fake a
   const p = plan({ nextSpawn: 10, windowStart: 9.5, until: 11, endAtWorld: 1000, room: 1, interval: every(0.25) }, t => t < 11);
   assert.deepEqual(p.times, [11]);
   assert.equal(p.full, false);
+});
+
+test("an ended game is frozen: a god's energy stops accruing at the end", () => {
+  const settings = { startingEnergy: 100, energyPerSecond: 2 } as Parameters<typeof godEnergy>[0]["settings"];
+  const live = { settings, createdAt: 0 };
+  assert.equal(godEnergy(live, 10, 30_000), 100 + 60 - 10, "a live game accrues with wall time");
+  const ended = { ...live, endedAt: 20_000 };
+  assert.equal(godEnergy(ended, 10, 30_000), 100 + 40 - 10, "reading after the end gives the energy at the end");
+  assert.equal(godEnergy(ended, 10, 3_600_000), godEnergy(ended, 10, 20_000), "and it does not move however late it is read");
 });

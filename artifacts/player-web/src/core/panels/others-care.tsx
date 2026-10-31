@@ -53,7 +53,7 @@ export default function OthersCare({ params }: PanelProps<"others-care">) {
   const inQuadrant = (o: LiveObject) => (quadrant ? IN[quadrant](o.own.netBits, o.peerNetBits) : false);
   const listed = quadrant ? objects.filter(inQuadrant).sort((a, b) => b.peerCare - a.peerCare) : [];
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="panel-others-care">
       {caption}
       <ScatterPlot width={320} height={200} xLabel="your bits" yLabel="others' bits" onSelect={id => referObject(ranks.get(id))}
         points={objects.map(o => ({ key: o.id, x: o.own.netBits, y: o.peerNetBits, highlight: inQuadrant(o), label: `#${ranks.get(o.id)}: yours ${fmtBits(o.own.netBits)}, others ${fmtBits(o.peerNetBits)}` }))} />
