@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { api, useLive } from "@/lib/convex";
 import { connectBlocker, permissionChoices, type Permission } from "@/lib/device-approval";
 import { errMsg } from "@/lib/errors";
+import { completionSecret } from "@/lib/connect-completion";
 
 /**
  * MCP connection approval (OAuth from Claude or another MCP client: GET /oauth/authorize sends the browser
@@ -15,12 +16,6 @@ import { errMsg } from "@/lib/errors";
  * browser goes to /oauth/authorize/complete with a one-time completion secret generated here (so only this browser
  * can collect the code), which returns it to the client.
  */
-/** 32 random bytes, base64url. */
-function newCompletionSecret(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 export default function Connect() {
   const { isAuthenticated, isLoading, login } = useAuth();
   const request = new URLSearchParams(window.location.search).get("request") ?? "";
@@ -45,7 +40,7 @@ export default function Connect() {
   const chosen = permission ?? d?.permission ?? "read";
   const blocker = d ? connectBlocker({ status: d.status, expiresAt: d.expiresAt, now, roomId, permission: chosen, isRoomOwner: !!room?.isOwner, ownerConsent }) : null;
   // The code is released only with this one-time secret, so only this browser can collect it (agent/connect.ts).
-  const [completion] = useState(newCompletionSecret);
+  const [completion] = useState(() => completionSecret((() => { try { return window.sessionStorage; } catch { return null; } })(), request));
   const finish = () => window.location.assign(`/oauth/authorize/complete?request=${encodeURIComponent(request)}&completion=${encodeURIComponent(completion)}`);
   const decide = (action: "approve" | "deny") => {
     if (!d || pending || (action === "approve" && blocker)) return;

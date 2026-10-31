@@ -124,6 +124,16 @@ export const rawRoom = internalQuery({
   },
 });
 
+/** Forget that an OAuth client was used, as for a client registered before `usedAt` existed. */
+export const forgetClientUse = internalMutation({
+  args: { clientId: v.string() },
+  handler: async (ctx, { clientId }) => {
+    dev();
+    const row = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", clientId)).unique();
+    if (row) await ctx.db.patch(row._id, { usedAt: undefined });
+  },
+});
+
 /** Insert chat messages that all share one timestamp (paging must neither skip nor repeat them). */
 export const seedChat = internalMutation({
   args: { roomId: v.id("rooms"), authorId: v.string(), texts: v.array(v.string()), timestamp: v.number() },

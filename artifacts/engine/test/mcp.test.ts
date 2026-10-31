@@ -471,6 +471,9 @@ test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used
   const used = await connect(ada, roomId, "act");
   const rotated = await (await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }))).json() as any;
   assert.ok(rotated.refresh_token, JSON.stringify(rotated));
+  // A client that holds a grant but has no usedAt (registered before usedAt existed) is kept too.
+  const legacy = await connect(ada, roomId, "read");
+  await admin.mutation(internal.testing.forgetClientUse, { clientId: legacy.client.client_id });
   // Unauthenticated registration is capped globally: a flood soon gets 429.
   let limited: Response | undefined;
   for (let i = 0; i < 200 && !limited; i++) {
@@ -492,6 +495,7 @@ test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used
     return fetch(url, { redirect: "manual" });
   };
   assert.equal((await authorizeWith(used.client.client_id, "http://127.0.0.1:51515/callback")).status, 302, "a used client is kept");
+  assert.equal((await authorizeWith(legacy.client.client_id, "http://127.0.0.1:51515/callback")).status, 302, "a client holding a grant is kept");
   // The retired refresh token's row is gone: presenting it now is just invalid, and the live grant keeps working.
   const old = await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }));
   assert.equal(old.status, 400);

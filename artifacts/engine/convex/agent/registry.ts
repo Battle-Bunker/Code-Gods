@@ -93,11 +93,11 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   for (let attempt = 0; ; attempt++) {
     const status = await receiptStatus(ctx, principal, who, envelope.commandId);
     if (status.status !== "pending" && status.status !== "not_found") return { data: status };
-    const delay = pollDelay(attempt);
-    if (Date.now() + delay > deadline) {
+    const left = deadline - Date.now();
+    if (left <= 0) {
       return { data: { status: "pending", commandId: envelope.commandId, message: "Still running. Call get_receipt with this commandId to get the result." } };
     }
-    await sleep(delay);
+    await sleep(Math.min(pollDelay(attempt), left));
   }
 }
 

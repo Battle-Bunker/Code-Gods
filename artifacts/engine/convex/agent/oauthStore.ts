@@ -196,7 +196,16 @@ export const sweep = internalMutation({
       .withIndex("by_kind_used_created", q => q.eq("kind", "dcr").eq("usedAt", undefined).lt("createdAt", now - DCR_UNUSED_TTL_MS)).take(SWEEP_BATCH);
     const stale = await ctx.db.query("oauthClients").withIndex("by_kind_fetched", q => q.eq("kind", "cimd").lt("fetchedAt", now - CIMD_CACHE_MS)).take(SWEEP_BATCH);
     const requests = await ctx.db.query("oauthRequests").withIndex("by_expires", q => q.lt("expiresAt", now - OAUTH_REQUEST_TTL_MS)).take(SWEEP_BATCH);
-    for (const row of [...retired, ...unused, ...stale, ...requests]) await ctx.db.delete(row._id);
-    return { retiredRefresh: retired.length, dcrClients: unused.length, cimdClients: stale.length, requests: requests.length };
+    // A client registered before usedAt existed may hold grants: it is marked used, never deleted.
+    const holding = new Set<string>();
+    for (const client of unused) {
+      if (await ctx.db.query("credentials").withIndex("by_client", q => q.eq("clientId", client.clientId)).first()) {
+        holding.add(client.clientId);
+        await ctx.db.patch(client._id, { usedAt: client.createdAt });
+      }
+    }
+    const dead = unused.filter(c => !holding.has(c.clientId));
+    for (const row of [...retired, ...dead, ...stale, ...requests]) await ctx.db.delete(row._id);
+    return { retiredRefresh: retired.length, dcrClients: dead.length, cimdClients: stale.length, requests: requests.length };
   },
 });

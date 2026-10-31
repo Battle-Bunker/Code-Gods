@@ -160,6 +160,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
     window.addEventListener("message", onWindowMessage);
     link.current.boot = boot;
     loads.current = 0;
+    setState(s => s.kind === "navigated" ? s : { kind: "booting" });
     return () => { window.removeEventListener("message", onWindowMessage); stop(false); };
   }, [convex, room, nonce]);
 

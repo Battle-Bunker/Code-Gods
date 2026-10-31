@@ -22,6 +22,16 @@ export function siteOrigin(env: Env): string | undefined {
   return cloud.hostname.endsWith(".convex.cloud") ? `${cloud.protocol}//${cloud.hostname.replace(/\.convex\.cloud$/, ".convex.site")}` : undefined;
 }
 
+/**
+ * Where a hosted frame's runtime may load from besides 'self': the deployment's site origin and, when the client
+ * is served from a custom domain, CODE_GODS_SITE_URL's origin (set it in the build environment), so the frame
+ * works even in a browser that does not match 'self' in an opaque, sandboxed document.
+ */
+export function frameOrigins(env: Env): string[] {
+  const origins = [siteOrigin(env), env.CODE_GODS_SITE_URL ? new URL(env.CODE_GODS_SITE_URL).origin : undefined];
+  return [...new Set(origins.filter((o): o is string => !!o))];
+}
+
 /** The Convex client URL as connect-src sources: its origin and the WebSocket twin. */
 export function convexSources(env: Env): string[] {
   if (!env.VITE_CONVEX_URL) return ["https://*.convex.cloud", "wss://*.convex.cloud"];
@@ -51,8 +61,8 @@ export function pageCsp(env: Env): string {
  * origin is opaque (sandboxed), but Chromium matches 'self' against its document URL, so 'self' also admits the
  * runtime when the client is served from a custom domain (CODE_GODS_SITE_URL) instead of the deployment's .convex.site.
  */
-export function frameCsp(origin: string): string {
-  const sources = [...new Set(["'self'", origin])].join(" ");
+export function frameCsp(origin: string | readonly string[]): string {
+  const sources = [...new Set(["'self'", ...[origin].flat()])].join(" ");
   return [
     "default-src 'none'",
     `script-src ${sources} 'unsafe-eval'`,
@@ -66,7 +76,7 @@ export function frameCsp(origin: string): string {
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /** The frame document. Relative URLs resolve against /player/panel-frame.html (or /panel-frame.html in dev). */
-export function frameHtml(origin: string): string {
+export function frameHtml(origin: string | readonly string[]): string {
   return `<!doctype html>
 <html lang="en">
 <head>

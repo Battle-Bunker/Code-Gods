@@ -1,7 +1,7 @@
 /** The hosted client's CSPs (vite/csp.ts), derived from the deployment URL that deploy-static passes. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { devPageCsp, frameCsp, frameHtml, injectCsp, injectPageCsp, pageCsp, siteOrigin } from "../vite/csp.ts";
+import { devPageCsp, frameCsp, frameHtml, frameOrigins, injectCsp, injectPageCsp, pageCsp, siteOrigin } from "../vite/csp.ts";
 
 const directive = (csp: string, name: string) => csp.split(/;\s*/).find(d => d.startsWith(`${name} `));
 
@@ -51,4 +51,13 @@ test("a dev server page also gets frame-src 'self' (a panel frame cannot navigat
   for (const name of ["default-src", "script-src", "connect-src", "style-src"]) assert.equal(directive(csp, name), undefined, `${name} would block Vite's inline preamble or HMR socket`);
   const out = injectCsp(`<html><head><script type="module" src="/@vite/client"></script></head></html>`, csp);
   assert.ok(out.indexOf("frame-src 'self'") > 0 && out.indexOf("Content-Security-Policy") < out.indexOf("<script"));
+});
+
+test("frameOrigins: the deployment's site origin, plus CODE_GODS_SITE_URL's when the client is served from a custom domain", () => {
+  assert.deepEqual(frameOrigins({ VITE_CONVEX_URL: "https://a-b-1.convex.cloud" }), ["https://a-b-1.convex.site"]);
+  assert.deepEqual(frameOrigins({ VITE_CONVEX_URL: "https://a-b-1.convex.cloud", CODE_GODS_SITE_URL: "https://play.example.org/" }),
+    ["https://a-b-1.convex.site", "https://play.example.org"]);
+  assert.deepEqual(frameOrigins({}), []);
+  assert.equal(directive(frameCsp(["https://a.convex.site", "https://play.example.org"]), "script-src"),
+    "script-src 'self' https://a.convex.site https://play.example.org 'unsafe-eval'");
 });

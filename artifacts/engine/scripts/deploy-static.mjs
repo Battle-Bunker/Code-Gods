@@ -13,7 +13,8 @@
  *
  * Both builds get VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud) and VITE_CONVEX_SITE_URL
  * (its site URL, where the stored-panel frame loads its runtime from: the frame CSP names it), read
- * from the component itself, never from a local .env. Each upload is atomic (the previous version
+ * from the component itself, never from a local .env. With a custom domain, also export CODE_GODS_SITE_URL here:
+ * the frame CSP then names that origin too (besides 'self'). Each upload is atomic (the previous version
  * stays live if it fails) and garbage-collects the previous upload. SPA fallback stays on.
  */
 import { spawnSync } from "node:child_process";
