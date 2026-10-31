@@ -323,7 +323,7 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
 function Row({ row, armed, onRun }: { row: PaletteRow; armed: boolean; onRun: () => void }) {
   const { command, availability, alias } = row;
   return (
-    <Cmdk.Item value={command.id} onSelect={onRun} aria-disabled={!availability.ok || undefined} data-testid={`row-palette-${command.id}`}
+    <Cmdk.Item value={command.id} onSelect={onRun} data-unavailable={!availability.ok || undefined} data-testid={`row-palette-${command.id}`}
       className={`flex items-center gap-3 px-2 py-2 text-sm cursor-pointer data-[selected=true]:bg-muted ${availability.ok ? "" : "opacity-55"}`}>
       <span className="min-w-0 flex-1">
         <span className="block truncate">
@@ -375,7 +375,7 @@ function PickPage({ page, query, armedId, busy, error, onPick }: {
     {shown.map(o => {
       const armed = !!armedId && armedId.endsWith(`:${o.id}`);
       return (
-        <Cmdk.Item key={o.id} value={`opt:${o.id}`} onSelect={() => !busy && onPick(o)} aria-disabled={!!o.unavailable || undefined} data-testid={`row-palette-option-${o.id}`}
+        <Cmdk.Item key={o.id} value={`opt:${o.id}`} onSelect={() => !busy && onPick(o)} data-unavailable={!!o.unavailable || undefined} data-testid={`row-palette-option-${o.id}`}
           className={`flex items-baseline gap-3 px-2 py-2 text-sm cursor-pointer data-[selected=true]:bg-muted ${o.unavailable ? "opacity-55" : ""}`}>
           <span className="min-w-0 flex-1 truncate">{armed ? <span className="text-destructive">Press ↵ again: {o.label}. Esc keeps it.</span> : o.label}</span>
           <span className="max-w-[55%] truncate text-xs text-muted-foreground">{o.unavailable ?? o.detail ?? ""}</span>

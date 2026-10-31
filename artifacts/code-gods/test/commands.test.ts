@@ -61,3 +61,11 @@ test("a code-shaped query opens a room or a game", () => {
   assert.deepEqual(codeCommands("hi", act), []);
   assert.deepEqual(codeCommands("not a code", act), []);
 });
+
+test("outside a room (the landing page, your rooms) every command answers availability without a room", () => {
+  for (const s of [scope({ user: null }), scope({})]) {
+    for (const c of engineCommands(s, act)) assert.doesNotThrow(() => c.available(paletteContextFor(s)), c.id);
+    const ids = paletteRows(engineCommands(s, act), paletteContextFor(s), { query: "start game" }).flatMap(x => x.rows).map(r => r.command.id);
+    assert.ok(!ids.includes("owner.start"), "room commands are hidden where there is no room");
+  }
+});

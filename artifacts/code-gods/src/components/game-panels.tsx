@@ -20,8 +20,8 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, emptyBody
   }, [rows, roster]);
   const max = Math.max(1, ...rows.map(r => Math.abs(r.totalPayoff)));
   return (
-    <Section title="Leaderboard" count={merged.length} action={agentCount !== undefined ? <span className="text-xs text-muted-foreground" data-testid="text-agent-count">{agentCount} agents</span> : undefined}>
-      <p className="px-4 pt-2 text-xs text-muted-foreground">Points: each player's <Term id="bits" /> times how much the others care, summed over every object now.</p>
+    <Section title="Leaderboard" count={merged.length} action={agentCount !== undefined ? <span className="text-xs text-muted-foreground" data-testid="text-agent-count">{agentCount} agent{agentCount === 1 ? "" : "s"}</span> : undefined}>
+      <p className="px-4 pt-2 text-xs text-muted-foreground">Points: each player's <Term id="bits">bits</Term> times how much the others care, summed over every object now.</p>
       {merged.length === 0 ? <EmptyState title="No players yet" body={emptyBody} /> : (
         <ol className="divide-y">
           {merged.map(p => (
@@ -125,7 +125,7 @@ export function SettingsList({ settings, instance }: { settings: Settings; insta
   return (
     <div className="space-y-2 text-sm" data-testid="list-settings">
       <div>
-        <p className="font-medium">{instance ? instance.label : settings.objectType} · {settings.language}</p>
+        <p className="font-medium">{instance ? instance.label : settings.objectType} · {formatValue("language", settings.language)}</p>
         {instance && <div className="mt-1"><BadgeChips badges={instance.badges} /></div>}
       </div>
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">

@@ -125,21 +125,21 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   // State checks layered over the catalogue's audience rule (which stays first: "Only the room owner…").
   const needRoom = (a: Availability) => (!room ? no("Open a room first.", { hidden: true }) : a);
-  const ownerOnly = (a: Availability): Availability => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.", { hidden: true })
-    : !isOwner ? no(`Only the owner, ${room.ownerName}, can do this.`) : a);
+  const ownerOnly = (a: () => Availability): Availability => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.", { hidden: true })
+    : !isOwner ? no(`Only the owner, ${room.ownerName}, can do this.`) : a());
   const lobby = (a: Availability): Availability => (running ? no(`Changes wait until game ${running.shortCode} ends.`) : a);
 
   const states: Partial<Record<PublicFunctionPath, (base: Availability) => Availability>> = {
-    "owner.start": () => ownerOnly(running ? no(`Game ${running.shortCode} is already running.`)
+    "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : room!.members.length < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${room!.members.length} ${room!.members.length === 1 ? "has" : "have"} joined.`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
-    "owner.settings": () => ownerOnly(lobby(ok)),
+    "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
-      : ownerOnly(lobby(room!.members.length >= scope.maxPlayers ? no(`The room is full (${scope.maxPlayers} players).`) : ok))),
+      : ownerOnly(() => lobby(room!.members.length >= scope.maxPlayers ? no(`The room is full (${scope.maxPlayers} players).`) : ok))),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
-      : ownerOnly(lobby(ais.length ? ok : no("No AI players are seated.")))),
-    "rooms.endActiveGame": () => ownerOnly(running ? ok : no("No game is running.")),
-    "rooms.resume": () => ownerOnly(running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
-    "rooms.approveAiBudget": () => ownerOnly(ok),
+      : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
+    "rooms.endActiveGame": () => ownerOnly(() => running ? ok : no("No game is running.")),
+    "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
+    "rooms.approveAiBudget": () => ownerOnly(() => ok),
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),
     "rooms.leave": () => (!room || !me ? no("You are not in this room.", { hidden: true }) : isOwner ? no("The owner cannot leave their room.", { hidden: true })
       : seated ? no(`You are playing in game ${running!.shortCode}; leave after it ends.`) : ok),

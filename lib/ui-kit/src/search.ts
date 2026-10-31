@@ -136,7 +136,7 @@ export function paletteRows(commands: readonly Command[], ctx: PaletteContext, o
     const sections = group([...rest, ...help], r => sectionOf(r.command), SECTION_ORDER);
     return top.length ? [{ section: "suggested", rows: top }, ...sections] : sections;
   }
-  const dynamic = (opts.dynamic?.(opts.query.trim(), ctx) ?? []).map(command => ({ command, availability: command.available(ctx), score: 200 }) as PaletteRow);
+  const dynamic = (opts.dynamic?.(opts.query.trim(), ctx) ?? []).map((command, i) => ({ command, availability: command.available(ctx), score: 200 - i }) as PaletteRow);
   const matched = all.map(r => {
     const m = scoreCommand(r.command, q);
     return { ...r, score: m.score + (m.score && suggested.includes(r.command.id) ? 10 : 0), ...(m.alias ? { alias: m.alias } : {}) };

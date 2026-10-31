@@ -167,6 +167,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceRate" && typeof v === "number") return v === 0 ? "off" : `${Math.round(v * 100)}% of players`;
+  if ((key === "language" || key === "utilitySelectorId" || key === "objectSelection") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }

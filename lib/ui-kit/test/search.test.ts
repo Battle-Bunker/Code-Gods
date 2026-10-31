@@ -80,9 +80,10 @@ test("sections derive from groups; navigation goes to Go to", () => {
 });
 
 test("dynamic rows (a code-shaped query) join the results", () => {
-  const dynamic = (q: string) => /^[A-Z0-9-]{4,36}$/i.test(q) ? [cmd(`open:${q}`, `Open room ${q.toUpperCase()}`, { section: "goto" })] : [];
+  const dynamic = (q: string) => /^[A-Z0-9-]{4,36}$/i.test(q)
+    ? [cmd(`open:${q}`, `Open room ${q.toUpperCase()}`, { section: "goto" }), cmd(`game:${q}`, `Open game ${q.toUpperCase()}`, { section: "goto" })] : [];
   const rows = paletteRows([cmd("a", "Alpha")], member, { query: "k7qx", dynamic }).flatMap(s => s.rows);
-  assert.equal(rows[0].command.human.title, "Open room K7QX");
+  assert.deepEqual(rows.slice(0, 2).map(r => r.command.human.title), ["Open room K7QX", "Open game K7QX"], "in the order given, so Enter opens the room");
 });
 
 test("glossary rows: 'what is bits' finds the gloss, only when typed", () => {
