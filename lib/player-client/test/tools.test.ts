@@ -12,8 +12,9 @@ import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
-  "evaluate_value", "get_chat", "get_receipt"];
-const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine"];
+  "evaluate_value", "get_chat", "get_receipt", "list_panels", "get_panel"];
+const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine",
+  "save_panel", "rollback_panel", "place_panel", "delete_panel"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
 const uuid = "6a1f8b7e-3c2d-4e5f-8a9b-0c1d2e3f4a5b";
 
@@ -29,7 +30,7 @@ test("registry: exactly the planned tools, snake_case, each with title, descript
   for (const name of ACT) assert.equal(tool(name).permission, "act", name);
   for (const name of OWNER) assert.equal(tool(name).permission, "owner", name);
   for (const name of READ) assert.equal(tool(name).annotations.readOnlyHint, true, `${name} is read-only`);
-  for (const name of ["destroy_agent", "end_game", "remove_ai"]) assert.equal(tool(name).annotations.destructiveHint, true, name);
+  for (const name of ["destroy_agent", "end_game", "remove_ai", "delete_panel"]) assert.equal(tool(name).annotations.destructiveHint, true, name);
 });
 
 test("permission matrix: a grant lists exactly the tools at or below it", () => {

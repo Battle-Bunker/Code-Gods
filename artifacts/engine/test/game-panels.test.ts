@@ -207,6 +207,6 @@ test("unauthenticated callers get nothing", async () => {
   const { ConvexHttpClient } = await import("convex/browser");
   const { URL_ } = await import("./game-helpers.ts");
   const anon = new ConvexHttpClient(URL_);
-  assert.match(await rejects(anon.query(api.panels.list, {})), /log in/i);
+  assert.match(await rejects(anon.query(api.panels.list, {})), /sign in/i);
   assert.equal(await errorCode(anon.action(api.panels.save, { slug: "x", source: panel("x") })), "UNAUTHENTICATED");
 });

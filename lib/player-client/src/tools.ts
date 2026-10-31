@@ -16,6 +16,7 @@
  * fails until registry.ts has its executor.
  */
 import { z } from "zod/v4";
+import { SLUG } from "@workspace/engine/convex/panels/limits.ts";
 import { VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -172,7 +173,7 @@ export const OWNER_TOOLS = [
 
 /** Tool groups in listing order. Stored-panel tools join as one more group. */
 /** Stored panels (docs/panels.md "Stored panels"): the human's own UI panels, across all their rooms; every open client re-renders them live. */
-const slug = z.string().regex(/^[a-z0-9][a-z0-9-]{0,47}$/).describe("kebab-case panel id, like a file name in src/panels/");
+const slug = z.string().regex(SLUG).describe("kebab-case panel id, like a file name in src/panels/");
 const placement = z.enum(["left", "right", "bottom"]);
 const size = z.enum(["sm", "md", "lg"]);
 export const PANEL_TOOLS = [

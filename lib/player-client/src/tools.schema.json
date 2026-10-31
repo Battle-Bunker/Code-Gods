@@ -1902,7 +1902,7 @@
         "slug": {
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         },
         "version": {
           "type": "integer",
@@ -1958,7 +1958,7 @@
         "slug": {
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         },
         "source": {
           "type": "string",
@@ -2035,7 +2035,7 @@
         "slug": {
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         },
         "version": {
           "type": "integer",
@@ -2092,7 +2092,7 @@
         "slug": {
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         },
         "placement": {
           "type": "string",
@@ -2163,7 +2163,7 @@
         "slug": {
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,47}$"
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         }
       },
       "required": [
