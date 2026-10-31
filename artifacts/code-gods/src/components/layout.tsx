@@ -14,11 +14,11 @@ import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { useAuth } from "@/hooks/use-auth";
 import { useManifest } from "@/hooks/use-manifest";
 import { useToast } from "@/hooks/use-toast";
-import { api } from "@/lib/convex";
+import { api, useLive } from "@/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope } from "@/lib/commands";
 import { errMsg, rid } from "@/lib/errors";
-import { matchPreset } from "@/lib/settings-form";
-import type { GameRecord, GameView, Manifest, RoomState } from "@/lib/types";
+import { currentSetup } from "@/lib/settings-form";
+import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/lib/types";
 import { rulesFor } from "@/components/game-rules";
 import { Tip } from "@/components/action";
 import { AiBudgetDialog, AiSpendingSheet, ConnectedAppsSheet, CreateRoomDialog, PastGamesSheet, ScoringSheet } from "@/components/sheets";
@@ -51,6 +51,8 @@ interface PageApi {
   openSheet(sheet: Sheet): void;
   ctx: PaletteContext;
   manifest?: Manifest;
+  /** The game setups the viewer can use (setups.list), undefined while loading or signed out. */
+  setups?: Setup[];
   /** The actions behind the commands, for controls that pass their own argument (the Setup select, an AI row's Remove). */
   act: EngineActions;
 }
@@ -114,7 +116,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const roomId = room?.id;
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
-  /** Create a room on the starting preset and, when the owner consented in the dialog, turn on the assistant in the same call. */
+  /** Create a room (on the First steps setup) and, when the owner consented in the dialog, turn on the assistant in the same call. */
   const doCreate = useCallback(async (assistant: { assistantBudget: number; assistantModel: string } | null) => {
     setCreating("busy");
     try {
@@ -124,11 +126,11 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     } catch (e) { setCreating("dialog"); fail("Creating the room", e); }
   }, [create, navigate, fail]);
 
+  const setups = useLive(api.setups.list, user ? {} : "skip").data;
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
-    aiConfigured: manifest?.aiFunding.configured, presets: manifest?.presets ?? [],
-    // The room records which preset it was set from; matching the settings is the fallback for rooms from before that.
-    currentPreset: room && manifest ? (room.settingsOrigin ? (room.settingsOrigin.kind === "preset" && !room.settingsOrigin.modified ? room.settingsOrigin.id : undefined) : matchPreset(room.settings, manifest.presets)?.id) : undefined,
+    aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
+    currentSetup: room && setups ? currentSetup(room.settings, room.settingsOrigin, setups)?.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer,
   };
@@ -153,12 +155,16 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       await addAi({ roomId: need(roomId), templateId });
     },
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
-    applyPreset: async id => {
+    applySetup: async id => {
       const r = need(room), previous = r.settings;
-      const saved = await saveSettings({ roomId: r.id, revision: r.revision, preset: id, settings: { language: previous.language } });
-      const label = manifest?.presets.find(p => p.id === id)?.label ?? id;
-      toast({ title: `Next game: ${label}`, action: (
-        <ToastAction altText="Undo" data-testid="button-undo-preset" onClick={() => { saveSettings({ roomId: r.id, revision: saved.revision, settings: previous }).catch(e => fail("Undo", e)); }}>Undo</ToastAction>
+      // Undo puts back the setup the room was on (so it is named again), or its custom settings.
+      const was = currentSetup(previous, r.settingsOrigin, setups ?? []);
+      const saved = await saveSettings({ roomId: r.id, revision: r.revision, setupId: id });
+      const name = setups?.find(s => s.id === id)?.name ?? "the chosen setup";
+      toast({ title: `Next game: ${name}`, action: (
+        <ToastAction altText="Undo" data-testid="button-undo-setup" onClick={() => {
+          saveSettings({ roomId: r.id, revision: saved.revision, ...(was ? { setupId: was.id } : { settings: previous }) }).catch(e => fail("Undo", e));
+        }}>Undo</ToastAction>
       ) });
     },
     templates: async () => (await convex.query(api.aiTemplates.catalog, {})).agents,
@@ -171,7 +177,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     serverInfo: () => manifest ? [
       `Players per game: ${manifest.minimumPlayers} to ${manifest.maximumPlayers}; AI players count.`,
       `Agent languages: ${manifest.runtimes.join(", ") || "none available right now"}.`,
-      `Ready-made setups: ${manifest.presets.filter(p => p.offered).map(p => p.label).join(", ")}.`,
+      `Ready-made setups: ${(setups ?? []).filter(s => s.seeded).map(s => s.name).join(", ") || "none"}.`,
       manifest.aiFunding.configured ? `AI players and assistants: available${manifest.aiFunding.mock ? " (development: scripted, nothing billed)" : ""}.` : "AI players and assistants: not set up on this server.",
     ] : ["Loading server info…"],
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],
@@ -179,13 +185,13 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     origin: window.location.origin,
   };
   // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
-  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, setups]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
   const openPalette = (init?: PaletteOpenInit) => setPalette({ open: true, init });
   const api_: PageApi = {
-    ctx, manifest, openPalette, openSheet: setSheet, act,
+    ctx, manifest, setups, openPalette, openSheet: setSheet, act,
     command: id => byId.get(id),
     unavailable: id => { const c = byId.get(id); if (!c) return "Not available here."; const a = c.available(ctx); return a.ok ? null : a.reason; },
     run: id => {

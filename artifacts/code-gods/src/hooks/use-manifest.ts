@@ -4,7 +4,7 @@ import { api } from "@/lib/convex";
 import type { Manifest } from "@/lib/types";
 
 /**
- * The settings manifest (object types, offered instantiations, presets, options, runtimes). It is a
+ * The settings manifest (object types, offered instantiations, options, runtimes). It is a
  * Convex action, not a reactive query; it only changes with a deploy, so one load per page session.
  */
 let cached: Promise<Manifest> | null = null;

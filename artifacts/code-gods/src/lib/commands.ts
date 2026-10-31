@@ -56,7 +56,7 @@ export interface CmdRoom {
 }
 export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
-export interface PresetLike { id: string; label: string; kid: string; offered: boolean }
+export interface SetupLike { id: string; name: string; summary: string; seeded: boolean }
 
 export interface EngineScope {
   user: { id: string; name: string; isAdmin: boolean } | null;
@@ -64,9 +64,10 @@ export interface EngineScope {
   game?: CmdGame | null;
   /** manifest.aiFunding.configured; undefined while the manifest loads. */
   aiConfigured?: boolean;
-  presets: readonly PresetLike[];
-  /** The preset the room's settings match, if any. */
-  currentPreset?: string;
+  /** The game setups the viewer can use (setups.list): the defaults, then their own. */
+  setups: readonly SetupLike[];
+  /** The setup the room's next-game settings are on, if any (settings-form currentSetup). */
+  currentSetup?: string;
   minPlayers: number;
   maxPlayers: number;
   /** How this viewer sees grids (lib/object-views' Grid renderer); digits when absent. */
@@ -89,7 +90,8 @@ export interface EngineActions {
   /** Seat an AI player (the app asks for the AI budget first when it is 0). */
   addAi(templateId: string): Promise<unknown>;
   removeAi(godId: string): Promise<unknown>;
-  applyPreset(id: string): Promise<unknown>;
+  /** Put the next game on a setup at once (the app offers Undo). */
+  applySetup(id: string): Promise<unknown>;
   templates(): Promise<readonly Template[]>;
   adminTemplates(): Promise<readonly Template[]>;
   pastGames(): Promise<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
@@ -165,10 +167,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       onPick: id => act.revoke(id) } },
     "auth.user.me": { kind: "form", page: { kind: "info", title: "Who am I", lines: act.whoAmI() } },
     "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", lines: act.serverInfo() } },
-    "owner.settings": { kind: "form", page: { kind: "pick", title: "Choose the next game's setup",
-      options: () => scope.presets.map((p): PickOption => ({ id: p.id, label: `${p.label}${p.id === scope.currentPreset ? " (current)" : ""}`, detail: p.kid,
-        ...(p.offered ? {} : { unavailable: "Not available on this server yet" }) })),
-      onPick: id => act.applyPreset(id) } },
+    "owner.settings": { kind: "form", page: { kind: "pick", title: "Choose the next game's setup", empty: "No setups yet.",
+      options: () => scope.setups.map((s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
+        detail: s.seeded ? s.summary : `Yours · ${s.summary}` })),
+      onPick: id => act.applySetup(id) } },
     "owner.start": { kind: "submit", run: act.start },
     "rooms.create": { kind: "local", run: act.createRoom },
     "rooms.join": { kind: "submit", run: act.join },

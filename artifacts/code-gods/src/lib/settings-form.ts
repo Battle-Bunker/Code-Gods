@@ -3,22 +3,21 @@
  * without a browser:
  * - field limits and messages, mirroring `validateSettings` and the engine's `nextSettings` resource limits, shown
  *   on the field ("Must be between 1 and 200 agents.");
- * - dependencies (§4.2): a new object type retunes the fields still at the old tuned defaults, exactly as the
- *   engine's `retuneSettings` does on save, and reports which moved; a new language moves grammar and price;
- *   penalty weight hides while no defence goals are dealt;
- * - stepped choices that always contain the current value; the preset the settings match; a plain-language diff;
- *   the length and pace lines of the summary; the three-way merge of a draft with changes saved elsewhere.
+ * - the settings model's domain from the manifest (`settingsDomain`): every control changes the draft through
+ *   game-core's `applySettingsChange`, exactly as the engine applies a change, so the only dependencies are the
+ *   game's own (a language moves its grammar and summon price, a world its default instantiation and the families
+ *   that no longer exist); penalty weight hides while no defence goals are dealt;
+ * - the family shelf of an instantiation; which game setup the settings are on;
+ * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
-import {
-  COMPLEXITY_FOR, DEFAULT_SETTINGS, SETTINGS_DOCS, instantiationOf, settingsOptionsFor, typeDefaults, validateSettings,
-  type FieldDoc, type GameSettings, type SettingsSection,
-} from "@workspace/game-core";
+import { SETTINGS_DOCS, sameSettings, validateSettings, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { instantiate, type TypeArgs } from "@workspace/game-types";
+import { publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
 
-export const SECTIONS: readonly { id: SettingsSection | "start" | "review"; title: string; intro: string }[] = [
-  { id: "start", title: "Start from", intro: "Pick a ready-made game; every answer below starts from it." },
+export const SECTIONS: readonly { id: SettingsSection | "review"; title: string; intro: string }[] = [
   { id: "world", title: "World", intro: "What the objects are and which language agents are written in." },
   { id: "goals", title: "Goals", intro: "How secret goals are dealt and whether players also defend something." },
   { id: "agents", title: "Agents", intro: "How many agents each player may keep and how much they may compute." },
@@ -114,51 +113,46 @@ export function stepChoices(key: SettingsKey, current: unknown): (number | strin
   return suggested;
 }
 
-const canon = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
-export const same = (a: unknown, b: unknown) => canon(a) === canon(b);
+/** Equal settings (or field values), whatever their key order. */
+export const same = sameSettings;
 
+const catalogs = new Map<string, CatalogEntry[]>();
+/** The utility families that exist (can be dealt) in an instantiation, from the shipped catalogue; [] for bad args. */
+function existingFamilies(objectType: string, typeArgs: TypeArgs): CatalogEntry[] {
+  let key: string;
+  try { key = instantiate(objectType, typeArgs).key; } catch { return []; }
+  let entries = catalogs.get(key);
+  if (!entries) catalogs.set(key, entries = publicCatalog(instantiate(objectType, typeArgs)).filter(e => e.available));
+  return entries;
+}
+
+/** The manifest's object types, as far as the settings model needs them. */
+export interface OfferedTypes { id: string; offered: readonly { args: TypeArgs }[] }
 /**
- * A new object type or type arguments: fields still at the old instantiation's tuned defaults move to the new ones
- * (the engine's retuneSettings does the same on save), and the moved fields are named for the toast.
+ * The settings model's domain on this page: the instantiations the manifest offers (the engine applies a change with
+ * the same list) and the families that exist in each, from the shipped catalogue.
  */
-export function retune(prev: Settings, next: Pick<Settings, "objectType" | "typeArgs">): { settings: Settings; moved: SettingsKey[] } {
-  const out = { ...prev, objectType: next.objectType, typeArgs: next.typeArgs } as Settings;
-  let oldDefaults: Partial<Settings>, newDefaults: Partial<Settings>;
-  try {
-    if (instantiationOf(prev).key === instantiationOf(out).key) return { settings: out, moved: [] };
-    oldDefaults = typeDefaults(prev.objectType, prev.typeArgs);
-    newDefaults = typeDefaults(out.objectType, out.typeArgs);
-  } catch { return { settings: out, moved: [] }; }
-  const moved: SettingsKey[] = [];
-  const keys = new Set([...Object.keys(oldDefaults), ...Object.keys(newDefaults)]) as Set<SettingsKey>;
-  for (const key of keys) {
-    if (key === "objectType" || key === "typeArgs") continue;
-    const wasDefault = same(prev[key], oldDefaults[key] ?? DEFAULT_SETTINGS[key]);
-    const target = newDefaults[key] ?? DEFAULT_SETTINGS[key];
-    if (wasDefault && !same(prev[key], target)) { (out as unknown as Record<string, unknown>)[key] = target; moved.push(key); }
-  }
-  return { settings: fixOptions(out), moved };
+export function settingsDomain(types: readonly OfferedTypes[]): SettingsDomain {
+  return {
+    offered: objectType => types.find(t => t.id === objectType)?.offered.map(o => o.args) ?? [],
+    families: (objectType, typeArgs) => existingFamilies(objectType, typeArgs).map(e => e.id),
+  };
 }
 
-/** Grammar, selector and price moved to a choice the language and object type offer (the first), as the engine does. */
-export function fixOptions(s: Settings): Settings {
-  const out = { ...s };
-  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
-    const choices = settingsOptionsFor(key, s.language, s.objectType);
-    if (!choices.some(o => o.id === s[key])) (out as Record<string, unknown>)[key] = choices[0]?.id ?? s[key];
-  }
-  return out;
+/** The family shelf of an instantiation: the families that exist there, each marked excluded as the draft says. */
+export function shelfEntries(objectType: string, typeArgs: TypeArgs, excluded: readonly string[]): (CatalogEntry & { excluded: boolean })[] {
+  const out = new Set(excluded);
+  return existingFamilies(objectType, typeArgs).map(e => ({ ...e, excluded: out.has(e.id) }));
 }
 
-/** A new language: the grammar and the summon-price function follow it. */
-export function withLanguage(s: Settings, language: Settings["language"]): Settings {
-  return fixOptions({ ...s, language, grammarId: `${language}-agent-v1` as Settings["grammarId"], complexityFunctionId: COMPLEXITY_FOR[language] });
-}
-
-const LANGUAGE_FIELDS: readonly SettingsKey[] = ["language", "grammarId", "complexityFunctionId"];
-/** The preset these settings are exactly (ignoring the language, which every preset takes from the room), if any. */
-export function matchPreset<P extends { id: string; settings?: Settings; offered?: boolean }>(s: Settings, presets: readonly P[]): P | undefined {
-  return presets.find(p => p.settings && (Object.keys(p.settings) as SettingsKey[]).every(k => LANGUAGE_FIELDS.includes(k) || same(p.settings![k], s[k])));
+export type OriginLike = { kind: string; id?: string; modified: boolean } | null | undefined;
+/**
+ * The game setup these settings are on: the setup the room's origin names while the settings still equal it, else
+ * the first setup with exactly these settings (two setups may be equal), else undefined (custom settings).
+ */
+export function currentSetup<S extends { id: string; settings: unknown }>(settings: Settings, origin: OriginLike, setups: readonly S[]): S | undefined {
+  const named = origin?.kind === "setup" ? setups.find(s => s.id === origin.id && same(s.settings, settings)) : undefined;
+  return named ?? setups.find(s => same(s.settings, settings));
 }
 
 /** A value in plain words: "25 acts/s", "4 × base10 × rgb", "11 rules", "offered". */
@@ -193,13 +187,6 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   return typeof v === "number" ? n(v) : v;
 }
 
-export interface Change { key: SettingsKey; label: string; from: string; to: string }
-/** What differs from the base, in field order. */
-export function settingsDiff(base: Settings, draft: Settings): Change[] {
-  return (Object.keys(SETTINGS_DOCS) as SettingsKey[]).filter(k => !same(base[k], draft[k]))
-    .map(key => ({ key, label: LABELS[key], from: formatValue(key, base[key]), to: formatValue(key, draft[key]) }));
-}
-
 /** "~6 min (often 3–13)": planning plus the half-life, and the 20%–80% range of the random end. */
 export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSeconds">): string {
   const m = (sec: number) => Math.max(1, Math.round(sec / 60));
@@ -207,19 +194,3 @@ export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSecond
   return `~${m(p + h)} min (often ${m(p + 0.415 * h)}–${m(p + 2.32 * h)})`;
 }
 export const paceWord = (hz: number) => (hz <= 30 ? "slow" : hz <= 150 ? "normal" : "fast");
-
-/**
- * The owner's draft against settings saved elsewhere since it began (another tab, the assistant): fields only one
- * side changed merge; fields both changed differently are conflicts, resolved per field (the draft's value until
- * the owner takes theirs). The draft is never discarded.
- */
-export function threeWayMerge<T extends Record<string, unknown>>(base: T, mine: T, theirs: T): { merged: T; conflicts: (keyof T)[]; fromTheirs: (keyof T)[] } {
-  const merged = { ...mine } as T;
-  const conflicts: (keyof T)[] = [], fromTheirs: (keyof T)[] = [];
-  for (const key of new Set([...Object.keys(base), ...Object.keys(mine), ...Object.keys(theirs)]) as Set<keyof T>) {
-    const mineChanged = !same(base[key], mine[key]), theirsChanged = !same(base[key], theirs[key]);
-    if (theirsChanged && !mineChanged) { merged[key] = theirs[key]; fromTheirs.push(key); }
-    else if (theirsChanged && mineChanged && !same(mine[key], theirs[key])) conflicts.push(key);
-  }
-  return { merged, conflicts, fromTheirs };
-}
