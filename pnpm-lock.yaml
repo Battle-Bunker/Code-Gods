@@ -672,6 +672,9 @@ importers:
       '@workspace/engine':
         specifier: workspace:*
         version: link:../../artifacts/engine
+      '@workspace/game-core':
+        specifier: workspace:*
+        version: link:../game-core
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)

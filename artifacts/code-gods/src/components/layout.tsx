@@ -112,24 +112,21 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const roomId = room?.id;
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
-  /** Create a room, then (optionally) turn on the assistant. rooms.create takes no budget yet, so it is a second call. */
+  /** Create a room on the starting preset and, when the owner consented in the dialog, turn on the assistant in the same call. */
   const doCreate = useCallback(async (assistant: { assistantBudget: number; assistantModel: string } | null) => {
     setCreating("busy");
     try {
-      const r = await create({});
-      if (assistant) {
-        try { await approve({ roomId: r.roomId, aiBudget: 0, ...assistant }); }
-        catch (e) { fail("Turning on the assistant", e); }
-      }
+      const r = await create(assistant ?? {});
       setCreating(null);
       navigate(`/rooms/${r.shortCode}`);
     } catch (e) { setCreating("dialog"); fail("Creating the room", e); }
-  }, [create, approve, navigate, fail]);
+  }, [create, navigate, fail]);
 
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
     aiConfigured: manifest?.aiFunding.configured, presets: manifest?.presets ?? [],
-    currentPreset: room && manifest ? matchPreset(room.settings, manifest.presets)?.id : undefined,
+    // The room records which preset it was set from; matching the settings is the fallback for rooms from before that.
+    currentPreset: room && manifest ? (room.settingsOrigin?.kind === "preset" ? room.settingsOrigin.id : matchPreset(room.settings, manifest.presets)?.id) : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
   };
   const act: EngineActions = {

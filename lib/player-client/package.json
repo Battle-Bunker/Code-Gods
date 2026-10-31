@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@workspace/engine": "workspace:*",
+    "@workspace/game-core": "workspace:*",
     "convex": "1.48.0",
     "zod": "catalog:"
   },
