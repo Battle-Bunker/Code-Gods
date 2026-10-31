@@ -23,7 +23,7 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 | **Hosted client** (`/player/` on the deployment) | Convex WebSocket, browser session | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
 | **Dev container** (any Vite environment: local, Codespaces, Gitpod, Replit, …) | Convex WebSocket, JWTs from the dev server's `/__codegods/token` after the private launch link | same | file panels (HMR, in-process) **and** stored panels | the environment's coding agent through MCP or the CLI, plus the in-client assistant |
 | **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the hosted client | Claude itself |
-| **Claude artifact** (claude.ai page) | the Code Gods connector through the page's `mcp` capability (`watchTool`, about 30 s polling floor) | `callTool` | Claude republishes the page; optionally renders stored panels | Claude, plus the page's `sample` |
+| **Claude artifact** (claude.ai page; `clients/claude-artifact/`) | the Code Gods connector through the page's `mcp` capability: `watchTool` on `get_observation` and `whoami` (about 30 s polling floor, paused while hidden) | `callTool` on a click: `send_chat` (confirmed in the page), `validate_agent`, `summon_agent`, `set_ready`; ambiguous failures check `get_receipt` and resend with the same `commandId` | Claude republishes the page; whether it could render stored panels is what `probe.html` checks | Claude, plus the page's `sample` ("Ask Claude") |
 
 The engine UI (`/`) stays the common room display and owner control panel. Sign-in, device and connector approval, and credential management live there.
 
@@ -176,7 +176,16 @@ Type-checking against `sdk.d.ts` is phase 2.
 3. **Stored panels:** sandboxed iframes; compile-time syntax checks only in phase 1; scoped to the human; `act` credentials may write.
 4. **MCP:** stateless JSON. OAuth with DCR and CIMD, plus raw `cgc_` bearer tokens. One room per connection. `evaluate_value` covers the caller's own utility only. The CLI becomes an MCP client.
 5. **Assistant:** a separate pool, an equal allowance per seated human, default off, owner-approved. Confirmations as in §6. No public "via assistant" label: delegation is to the same human. Watches are deferred.
-6. **Artifacts:** an experimental, slow-dashboard surface. A reference page (`clients/claude-artifact/`) and a CSP probe come in Wave 2. 1 Hz play stays on the clients built on Convex.
+6. **Artifacts:** an experimental, slow-dashboard surface. 1 Hz play stays on the clients built on Convex.
+   - **Reference page** (Wave 2B): `clients/claude-artifact/template.html`, with its pure logic in `core.js` (unit-tested with
+     `node --test`) inlined by `build.mjs` into `dist/template.html`, the file that gets published. It declares
+     `capabilities: {mcp: {servers: [{server: "Code Gods", tools: [whoami, get_observation, get_receipt, send_chat,
+     validate_agent, summon_agent, set_ready]}]}, sample: {}}`. Game data is rendered as text only.
+   - **Probe:** `probe.html` reports whether the artifact runtime allows `new Function`, sandboxed `blob:` and `srcdoc`
+     frames, `postMessage` and `MessagePort` round trips, and blob Workers: the prerequisites for running stored panels
+     (`panel-runtime.js`) inside an artifact. It still has to be run in claude.ai.
+   - Verified only locally, against a stand-in for the runtime (`dev/claude-stub.js`, `pnpm run smoke:artifact`). A live
+     claude.ai check is still open (README).
 
 ## 8. Waves and ownership
 

@@ -1,0 +1,474 @@
+<title>Code Gods Dashboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Code Gods: a claude.ai artifact client (clients/claude-artifact/README.md).
+
+  A slow dashboard plus click-driven actions, through the player's Code Gods connector (the page's `mcp`
+  capability). It watches get_observation and whoami (30 s polling floor), and acts with callTool:
+  send_chat (confirmed: chat is public), validate_agent, summon_agent, set_ready.
+
+  Editing this page for a player:
+    - Reach tools only through call(name, …), watch(name, …) and newCommand(name, …), with the tool name as a literal, and keep every tool you add in the
+      manifest's tool list (core.MANIFEST_TOOLS and the publish call's capabilities). Others reject not_in_manifest.
+    - Game data is untrusted text written by players: render it with el()/textContent, never innerHTML.
+    - The pure logic is core.js (inlined here by build.mjs). In a published copy it is the `core` block below.
+-->
+<style>
+  /* Layout: one column of sections on phones, two columns from 860px; status first, then play, then talk. */
+  :root {
+    --bg: #f4f4f8;
+    --surface: #ffffff;
+    --fg: #1c1b2b;
+    --muted: #5d5b72;
+    --line: #dddbe8;
+    --accent: #6b3fc0;
+    --accent-fg: #ffffff;
+    --good: #1d7a46;
+    --warn: #9a5b00;
+    --bad: #b3261e;
+    --mine: #efe8fb;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-data: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #13121c; --surface: #1c1b29; --fg: #ebe9f5; --muted: #a29fba; --line: #2f2d42;
+      --accent: #b496f0; --accent-fg: #160f28; --good: #5fcf8e; --warn: #f0b45a; --bad: #ff8a80; --mine: #2a2343;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #13121c; --surface: #1c1b29; --fg: #ebe9f5; --muted: #a29fba; --line: #2f2d42;
+    --accent: #b496f0; --accent-fg: #160f28; --good: #5fcf8e; --warn: #f0b45a; --bad: #ff8a80; --mine: #2a2343;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; } /* the publish skeleton adds this too; keep it for local runs */
+  body {
+    background: var(--bg); color: var(--fg); font: 14px/1.45 var(--font-ui);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 16px 32px;
+  }
+  main { max-width: 1100px; margin: 0 auto; display: grid; gap: 16px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  header h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+  header .who { color: var(--muted); flex: 1 1 200px; min-width: 0; }
+  .fresh { color: var(--muted); font-size: 0.85rem; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .grid { grid-template-columns: 1fr 1fr; } }
+  section { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0; display: grid; gap: 10px; align-content: start; }
+  h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+  .stat { display: grid; }
+  .stat .k { font-size: 0.75rem; color: var(--muted); }
+  .stat .v { font: 600 1.15rem var(--font-data); font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.8rem; border: 1px solid currentColor; }
+  .pill.planning { color: var(--warn); } .pill.running { color: var(--good); } .pill.paused { color: var(--warn); }
+  .pill.ended, .pill.lobby { color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-family: var(--font-data); }
+  td.val { font-family: var(--font-data); max-width: 16ch; overflow: hidden; text-overflow: ellipsis; }
+  tr.mine td { background: var(--mine); }
+  .pos { color: var(--good); } .neg { color: var(--bad); }
+  .muted { color: var(--muted); }
+  .note { font-size: 0.85rem; color: var(--muted); margin: 0; }
+  .error { color: var(--bad); font-size: 0.9rem; margin: 0; }
+  .banner { border: 1px solid var(--bad); color: var(--fg); background: var(--surface); border-radius: 8px; padding: 10px 14px; }
+  .chat { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
+  .chat li { overflow-wrap: anywhere; }
+  .chat .who { font-weight: 600; margin-right: 6px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row > input[type="text"] { flex: 1 1 200px; min-width: 0; }
+  button, input, textarea { font: inherit; color: inherit; }
+  input[type="text"], textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 140px; font-family: var(--font-data); font-size: 0.85rem; resize: vertical; }
+  button { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .confirm { border: 1px dashed var(--warn); border-radius: 6px; padding: 8px; display: grid; gap: 6px; }
+  .confirm q { font-style: italic; overflow-wrap: anywhere; }
+  .status { font-size: 0.9rem; display: grid; gap: 4px; }
+  .status pre, .answer { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; font-family: var(--font-data); font-size: 0.8rem; }
+  .answer { font-family: var(--font-ui); font-size: 0.9rem; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main>
+  <header>
+    <h1>Code Gods</h1>
+    <span class="who" id="who">Connecting…</span>
+    <span class="fresh" id="fresh"></span>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="grid">
+    <section id="status-section" aria-labelledby="h-status">
+      <h2 id="h-status">Game</h2>
+      <div class="stats" id="stats"><span class="muted">Waiting for the first observation.</span></div>
+      <div class="row" id="ready-row" hidden>
+        <button id="ready" type="button">Mark ready</button>
+        <span class="status" id="ready-status"></span>
+      </div>
+      <p class="error" id="obs-error" hidden></p>
+      <div class="row" id="approve-row" hidden><button id="approve" type="button">Allow and load</button></div>
+    </section>
+
+    <section aria-labelledby="h-board">
+      <h2 id="h-board">Leaderboard</h2>
+      <div class="scroll"><table><thead><tr><th>#</th><th>God</th><th class="num">Payoff</th></tr></thead><tbody id="board"></tbody></table></div>
+    </section>
+
+    <section aria-labelledby="h-objects">
+      <h2 id="h-objects">Objects, best for me first</h2>
+      <div class="scroll"><table><thead><tr><th>Object</th><th>Value</th><th class="num">My payoff</th><th class="num">My net bits</th><th class="num">Peers' net bits</th></tr></thead><tbody id="objects"></tbody></table></div>
+      <p class="note" id="objects-note"></p>
+    </section>
+
+    <section aria-labelledby="h-agents">
+      <h2 id="h-agents">My agents</h2>
+      <div class="scroll"><table><thead><tr><th>Agent</th><th class="num">Energy</th><th>State</th><th class="num">Acts</th><th class="num">Spent</th><th class="num">Bits per act</th></tr></thead><tbody id="agents"></tbody></table></div>
+      <p class="note" id="agents-note"></p>
+    </section>
+
+    <section aria-labelledby="h-summon" id="summon-section">
+      <h2 id="h-summon">Validate or summon an agent</h2>
+      <label class="note" for="source">Agent source (the game's language). Validate measures it for free; summon pays its cost from your energy.</label>
+      <textarea id="source" spellcheck="false">def agent(obj):
+    return []</textarea>
+      <div class="row">
+        <button id="validate" type="button">Validate</button>
+        <button id="summon" type="button" class="primary">Summon</button>
+        <button id="cmd-action" type="button" hidden></button>
+        <button id="cmd-forget" type="button" hidden>Forget this command</button>
+      </div>
+      <div class="status" id="cmd-status"></div>
+    </section>
+
+    <section aria-labelledby="h-chat" id="chat-section">
+      <h2 id="h-chat">Room chat</h2>
+      <ul class="chat" id="chat"></ul>
+      <form class="row" id="chat-form">
+        <input type="text" id="chat-text" maxlength="2000" placeholder="Message the room" autocomplete="off">
+        <button type="submit">Send…</button>
+      </form>
+      <div class="confirm" id="chat-confirm" hidden>
+        <span>Everyone in the room reads this. Send it as you?</span>
+        <q id="chat-preview"></q>
+        <div class="row"><button id="chat-send" type="button" class="primary">Send publicly</button><button id="chat-cancel" type="button">Cancel</button></div>
+      </div>
+      <div class="status" id="chat-status"></div>
+    </section>
+
+    <section aria-labelledby="h-ask" id="ask-section" hidden>
+      <h2 id="h-ask">Ask Claude about this game</h2>
+      <form class="row" id="ask-form">
+        <input type="text" id="ask-text" placeholder="Which object should my next agent target?" autocomplete="off">
+        <button type="submit">Ask</button>
+        <button type="button" id="ask-stop" hidden>Stop</button>
+      </form>
+      <p class="note">Claude reads only the current observation shown on this page, and uses your Claude usage.</p>
+      <div class="answer" id="ask-answer"></div>
+    </section>
+  </div>
+</main>
+
+<script type="module">
+import * as core from "./core.js";
+
+/** The connector's display name in claude.ai. It must match the publish call's capabilities. */
+const SERVER = core.SERVER;
+const REFETCH_MS = 30_000; // the runtime clamps polling to a ~30 s floor and pauses it while the page is hidden
+
+const $ = (id) => document.getElementById(id);
+/** Build an element. Strings become text nodes: game data never reaches innerHTML. */
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v; else if (k === "text") node.textContent = v; else node.setAttribute(k, v);
+  }
+  for (const c of children) node.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return node;
+}
+const fmt = (n, d = 1) => (Number.isFinite(n) ? n.toFixed(d) : "–");
+const signClass = (n) => (n > 0 ? "num pos" : n < 0 ? "num neg" : "num");
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const ago = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? `${s} s ago` : `${Math.floor(s / 60)} min ago`; };
+const countdown = (ms) => { const s = Math.ceil(ms / 1000); return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : `${s} s`; };
+
+const state = { obs: null, who: null, canAct: false };
+let mcp = null;
+
+function call(tool, input, options = {}) { return mcp.callTool(SERVER, tool, input, { cache: false, ...options }); }
+function watch(tool, input, handler) { return mcp.watchTool(SERVER, tool, input, handler, { refetchInterval: REFETCH_MS }); }
+
+function banner(text) { $("banner").hidden = !text; $("banner").textContent = text || ""; }
+
+// ----- rendering -----------------------------------------------------------------------------
+
+function render() {
+  const vm = state.obs ? core.viewModel(state.obs.data, Date.now()) : null;
+  renderStatus(vm);
+  renderBoard(vm);
+  renderObjects(vm);
+  renderAgents(vm);
+  renderChat(vm);
+  renderFresh();
+}
+
+function renderStatus(vm) {
+  const stats = $("stats");
+  if (!vm) { stats.replaceChildren(el("span", { class: "muted", text: "No observation yet." })); $("ready-row").hidden = true; return; }
+  const stat = (k, v, cls = "v") => el("div", { class: "stat" }, el("span", { class: "k", text: k }), v instanceof Node ? v : el("span", { class: cls, text: v }));
+  const items = [
+    stat("Phase", el("span", { class: `pill ${vm.phase}`, text: vm.phase || "unknown" })),
+    stat("My energy", fmt(vm.self.energy)),
+    stat("Game", vm.game ? `${vm.game.shortCode || vm.game.gameId} · ${vm.game.language}` : "none"),
+    ...vm.clocks.map(c => stat(c.label, countdown(c.remainingMs))),
+  ];
+  if (!vm.seated) items.push(stat("Seat", "spectating"));
+  stats.replaceChildren(...items);
+  $("ready-row").hidden = !state.canAct || (vm.phase !== "lobby" && vm.phase !== "ended");
+  $("ready").textContent = vm.self.ready ? "Mark not ready" : "Mark ready";
+}
+
+function renderBoard(vm) {
+  $("board").replaceChildren(...(vm?.leaderboard ?? []).map(r =>
+    el("tr", r.mine ? { class: "mine" } : {}, el("td", { text: r.rank }), el("td", { text: r.label + (r.isAI ? " (AI)" : "") }),
+      el("td", { class: "num", text: fmt(r.totalPayoff, 2) }))));
+}
+
+function renderObjects(vm) {
+  $("objects").replaceChildren(...(vm?.objects ?? []).map(o =>
+    el("tr", {}, el("td", { text: o.id }), el("td", { class: "val", title: o.value, text: o.value }),
+      el("td", { class: signClass(o.payoff), text: fmt(o.payoff, 2) }), el("td", { class: signClass(o.ownNetBits), text: fmt(o.ownNetBits) }),
+      el("td", { class: "num", text: fmt(o.peerNetBits) }))));
+  $("objects-note").textContent = vm && vm.objectCount > vm.objectsShown ? `Showing the first ${vm.objectsShown} of ${vm.objectCount} objects the engine sent, sorted by my payoff.` : "";
+}
+
+function renderAgents(vm) {
+  $("agents").replaceChildren(...(vm?.agents ?? []).map(a =>
+    el("tr", {}, el("td", { class: "val", title: a.id, text: a.id }), el("td", { class: signClass(a.energy), text: fmt(a.energy) }),
+      el("td", { text: a.eligible ? "acting" : a.energy < 0 ? "cooling down" : "saving up" }), el("td", { class: "num", text: a.acts }),
+      el("td", { class: "num", text: fmt(a.spent) }), el("td", { class: "num", text: fmt(a.expectedActCost) }))));
+  $("agents-note").textContent = vm ? (vm.agentCount ? `${vm.agentCount} agent${vm.agentCount === 1 ? "" : "s"}.` : "No agents yet.") : "";
+}
+
+function renderChat(vm) {
+  const list = $("chat");
+  const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 4;
+  list.replaceChildren(...(vm?.chat ?? []).map(m => el("li", {}, el("span", { class: "who", text: m.label + (m.isAI ? " (AI)" : "") }), m.text)));
+  if (atBottom) list.scrollTop = list.scrollHeight;
+}
+
+function renderFresh() {
+  const o = state.obs;
+  $("fresh").textContent = o ? `Updated ${ago(Date.now() - o.storedAt)}${o.revalidating ? ", refreshing…" : ""}` : "";
+}
+
+function renderWho() {
+  const w = state.who;
+  $("who").textContent = w ? `${w.name || "You"} in room ${w.roomCode || "?"}, ${w.permission} access` : "";
+  for (const id of ["summon-section", "chat-form"]) $(id).querySelectorAll("button, textarea, input").forEach(n => { n.disabled = !state.canAct; });
+  lockSummon(unresolved(summonSlot.s));
+  if (w && !state.canAct) $("cmd-status").replaceChildren(el("p", { class: "note", text: "This connection has read access. Reconnect with act permission to summon or chat." }));
+}
+
+// ----- watches ---------------------------------------------------------------------------------
+
+function onObservation(ev) {
+  if (ev.type === "data") {
+    try { state.obs = core.unwrap(ev.result, Date.now()); $("obs-error").hidden = true; $("approve-row").hidden = true; banner(""); }
+    catch (e) { showObsError({ code: "upstream_error", message: String(e?.message ?? e) }); }
+    render();
+    return;
+  }
+  showObsError(ev.error);
+}
+
+function showObsError(error) {
+  const c = core.classify(error, SERVER);
+  if (c.retract) state.obs = null; // a denial withdraws what was shown; a transient failure keeps the last good data
+  if (c.kind === "no_mcp" || c.kind === "stop") banner(c.text);
+  $("obs-error").hidden = false;
+  $("obs-error").textContent = state.obs ? `${c.text} Showing the last data received.` : c.text;
+  $("approve-row").hidden = c.kind !== "needs_approval";
+  render();
+}
+
+function onWhoami(ev) {
+  if (ev.type !== "data") { const c = core.classify(ev.error, SERVER); if (c.retract) { state.who = null; state.canAct = false; } $("who").textContent = c.text; return; }
+  try { state.who = core.whoamiView(core.unwrap(ev.result, Date.now()).data); state.canAct = !!state.who?.canAct; } catch { state.who = null; }
+  renderWho();
+}
+
+// approval_required: a watch never asks; one click makes the call that does.
+$("approve").onclick = async () => {
+  try { onObservation({ type: "data", result: await call("get_observation", core.OBSERVATION_INPUT, { cache: { refresh: true } }) }); }
+  catch (error) { showObsError(error); }
+};
+
+$("refresh").onclick = async () => {
+  $("refresh").disabled = true;
+  try { await mcp.invalidate(SERVER); } // watched identities re-execute and deliver
+  catch { try { onObservation({ type: "data", result: await call("get_observation", core.OBSERVATION_INPUT) }); } catch (error) { showObsError(error); } }
+  finally { $("refresh").disabled = false; }
+};
+
+// ----- commands --------------------------------------------------------------------------------
+
+const STATUS_TEXT = {
+  sending: "Sending…", checking: "Checking the receipt…", done: "Done.", rejected: "The engine did not accept it.",
+  pending: "Still running on the engine. Check again in a few seconds.",
+  unknown: "The answer was lost, so it may or may not have run. Check the receipt before anything else.",
+  failed: "Not applied. You can resend the identical command (same command ID); it is never applied twice.",
+  lost: "The engine never received it. You can resend it (same command ID).",
+  refused: "Refused.", blocked: "Could not reach the game.",
+};
+const ACTION_LABEL = { check: "Check result", resend: "Resend (same command)" };
+
+/** One command slot: its state, where it renders, and an optional action button. */
+function slot(statusId, actionId, forgetId) { return { s: null, statusId, actionId, forgetId }; }
+const summonSlot = slot("cmd-status", "cmd-action", "cmd-forget");
+const chatSlot = slot("chat-status");
+const readySlot = slot("ready-status");
+
+function renderSlot(sl) {
+  const s = sl.s;
+  const box = $(sl.statusId);
+  if (sl === summonSlot) lockSummon(unresolved(s));
+  if (!s) { box.replaceChildren(); if (sl.actionId) $(sl.actionId).hidden = $(sl.forgetId).hidden = true; return; }
+  const lines = [el("span", { text: `${s.tool}: ${STATUS_TEXT[s.status] ?? s.status}` })];
+  if (s.error?.text) lines.push(el("span", { class: "error", text: s.error.text }));
+  const r = core.receiptView(s.receipt);
+  if (r) {
+    if (r.message) lines.push(el("span", { text: r.message }));
+    if (r.validation) {
+      const v = r.validation;
+      lines.push(el("span", { text: `${v.valid ? "Valid" : "Invalid"}. Summon cost ${fmt(v.cost)} bits, about ${fmt(v.expectedActCost)} bits per act.` }));
+      if (v.diagnostics.length) lines.push(el("pre", { text: v.diagnostics.join("\n") }));
+    }
+  }
+  box.replaceChildren(...lines);
+  if (sl.actionId) {
+    const action = core.nextAction(s);
+    const btn = $(sl.actionId);
+    btn.hidden = !(action === "check" || action === "resend") || !!core.autoAction(s); // hidden while the page checks by itself
+    btn.textContent = ACTION_LABEL[action] ?? "";
+    btn.disabled = !!s.inFlight;
+    btn.onclick = () => run(sl, action);
+    $(sl.forgetId).hidden = !unresolved(s) || !!s.inFlight;
+  }
+}
+
+/** A command whose outcome is still open: starting a new intent now could run twice. */
+const unresolved = (s) => !!s && ["sending", "checking", "unknown", "pending", "failed", "lost"].includes(s.status);
+
+async function run(sl, action) {
+  const req = core.request(sl.s, action);
+  sl.s = core.sent(sl.s, action);
+  renderSlot(sl);
+  try { sl.s = core.settled(sl.s, core.unwrap(await call(req.tool, req.input), Date.now()).data); }
+  catch (error) { sl.s = core.failed(sl.s, error); }
+  renderSlot(sl);
+  if (sl.s.status === "done" || sl.s.status === "rejected") mcp.invalidate(SERVER, "get_observation").catch(() => {});
+  // The one unattended step: after an ambiguous failure, read the receipt once (a read is safe to repeat).
+  const auto = core.autoAction(sl.s);
+  if (!auto) return;
+  const waiting = sl.s;
+  await sleep(800 + Math.random() * 1200);
+  if (sl.s === waiting) return run(sl, auto); // unless the player forgot the command meanwhile
+}
+
+function start(sl, command) { sl.s = command; return run(sl, "send"); }
+
+function summonOrValidate(tool) {
+  if (unresolved(summonSlot.s)) return; // the buttons are disabled, but keep the rule here too
+  const source = $("source").value;
+  if (!source.trim()) { $("cmd-status").textContent = "Write an agent first."; return; }
+  const id = core.uuid();
+  const input = tool === "summon_agent" ? core.summonInput(source, id) : core.validateInput(source, id);
+  const command = tool === "summon_agent" ? core.newCommand("summon_agent", input, id) : core.newCommand("validate_agent", input, id);
+  start(summonSlot, command);
+}
+function lockSummon(locked) { $("validate").disabled = $("summon").disabled = locked || !state.canAct; }
+$("validate").onclick = () => summonOrValidate("validate_agent");
+$("summon").onclick = () => summonOrValidate("summon_agent");
+$("cmd-forget").onclick = () => { summonSlot.s = null; renderSlot(summonSlot); };
+
+// Chat is public: a typed message waits for an explicit second click that shows exactly what goes out.
+$("chat-form").onsubmit = (e) => {
+  e.preventDefault();
+  const text = $("chat-text").value.trim();
+  if (!text) return;
+  $("chat-preview").textContent = text;
+  $("chat-confirm").hidden = false;
+  $("chat-send").focus();
+};
+$("chat-cancel").onclick = () => { $("chat-confirm").hidden = true; };
+$("chat-send").onclick = async () => {
+  const text = $("chat-preview").textContent;
+  $("chat-confirm").hidden = true;
+  const id = core.uuid();
+  await start(chatSlot, core.newCommand("send_chat", core.chatInput(text, id), id));
+  if (chatSlot.s.status === "done") $("chat-text").value = "";
+};
+
+$("ready").onclick = () => {
+  const vm = state.obs && core.viewModel(state.obs.data, Date.now());
+  const id = core.uuid();
+  start(readySlot, core.newCommand("set_ready", core.readyInput(!vm?.self.ready, id), id));
+};
+
+// ----- Ask Claude (sample) ---------------------------------------------------------------------
+
+function setupAsk(sample) {
+  $("ask-section").hidden = false;
+  let ctl = null;
+  $("ask-stop").onclick = () => ctl?.abort();
+  $("ask-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const question = $("ask-text").value.trim();
+    if (!question || ctl) return;
+    if (!state.obs) { $("ask-answer").textContent = "No observation yet to ask about."; return; }
+    ctl = new AbortController();
+    $("ask-stop").hidden = false;
+    $("ask-answer").textContent = "Thinking…";
+    try {
+      const { text, truncated } = await sample(core.askPrompt(question, state.obs.data), { signal: ctl.signal, onText: ({ text }) => { $("ask-answer").textContent = text; } });
+      $("ask-answer").textContent = text + (truncated ? "\n\n(Cut short. Ask a narrower question.)" : "");
+    } catch (err) {
+      const hide = ["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"];
+      if (hide.includes(err?.code)) { $("ask-section").hidden = true; }
+      else if (err?.code === "cancelled") { $("ask-answer").textContent = err.text ?? ""; }
+      else if (err?.code === "rate_limited") { $("ask-answer").textContent = "Too many questions right now. Try again in a minute."; }
+      else if (err?.code === "prompt_too_large") { $("ask-answer").textContent = "The game is too big to send whole. Ask about less."; }
+      else if (err?.code === "refused") { $("ask-answer").textContent = "Claude declined that question. Rephrase it."; }
+      else { $("ask-answer").textContent = (err?.text ? err.text + "\n\n" : "") + "Interrupted. Ask again."; }
+    } finally { ctl = null; $("ask-stop").hidden = true; }
+  };
+}
+
+// ----- boot ------------------------------------------------------------------------------------
+
+async function use(name) { try { return window.claude?.use ? await window.claude.use(name) : null; } catch { return null; } }
+
+setInterval(() => { if (state.obs) { renderStatus(core.viewModel(state.obs.data, Date.now())); renderFresh(); } }, 1000); // local clocks only, no calls
+render();
+[summonSlot, chatSlot, readySlot].forEach(renderSlot);
+
+const [mcpNs, sample] = await Promise.all([use("mcp"), use("sample")]);
+if (sample) setupAsk(sample);
+if (!mcpNs) {
+  $("who").textContent = "Not connected";
+  banner(`This page needs the ${SERVER} connector. Open it in claude.ai, add ${SERVER} in Settings → Connectors (the engine's /mcp URL), approve a room on the engine's /connect page, and allow the connector for this artifact.`);
+  for (const id of ["refresh", "validate", "summon", "ready"]) $(id).disabled = true;
+  $("chat-form").querySelectorAll("button, input").forEach(n => { n.disabled = true; });
+} else {
+  mcp = mcpNs;
+  watch("whoami", {}, onWhoami);
+  watch("get_observation", core.OBSERVATION_INPUT, onObservation);
+}
+</script>

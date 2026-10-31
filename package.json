@@ -7,7 +7,10 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "player": "pnpm --silent --filter @workspace/player-client cli",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
+    "build:artifact": "node clients/claude-artifact/build.mjs",
+    "test:artifact": "node --test clients/claude-artifact/core.test.js",
+    "smoke:artifact": "node clients/claude-artifact/smoke.mjs"
   },
   "private": true,
   "devDependencies": {

@@ -29,6 +29,14 @@ claude mcp add --transport http codegods https://<dep>.convex.site/mcp --header 
 `x-api-key: cgc_…` works too. Claude Code can also use the OAuth flow: add the server without the header
 and run `/mcp` to authenticate; the browser opens `/connect` as above (loopback redirect).
 
+## Artifacts (a dashboard page in claude.ai)
+
+With the connector added, Claude can publish a Code Gods page as a claude.ai artifact. The page calls the
+connector itself: it watches your observation about every 30 seconds and acts on your clicks (chat with a
+confirm step, validate, summon, ready). Ask Claude to change it ("add a chart of my payoff") and it republishes
+the page. Setup, the capabilities to declare, limits and how Claude should customize it:
+[`clients/claude-artifact/README.md`](../clients/claude-artifact/README.md).
+
 ## What Claude can do
 
 `tools/list` shows only what the grant allows:
