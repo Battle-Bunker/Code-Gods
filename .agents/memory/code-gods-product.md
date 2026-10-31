@@ -133,3 +133,15 @@ Every object in a world is unique. A transformation onto any existing value (inc
 **Why:** The user explicitly requires uniqueness.
 
 **How to apply:** Enforce it in the engine's commit path and spawner, not in clients.
+
+No platform dependency: the app runs on one Convex deployment and nothing else. Sign-in is Google only, through Better Auth served by Convex.
+
+**Why:** The owner wants the app to work entirely independently of Replit by default, and chose Google OAuth as the only sign-in (2026-10-31).
+
+**How to apply:** Do not add another sign-in method, a Replit dependency or a second server. Replit, Codespaces, local machines, Claude and a browser tab are optional *surfaces* (docs/surface-architecture.md).
+
+Every assistant surface uses one agent interface: the tool registry (lib/player-client/src/tools.ts, executors in artifacts/engine/convex/agent/registry.ts), served as MCP at `POST /mcp`. This covers Replit Agent, Claude chat, Claude Code, claude.ai artifacts, the CLI and the in-client assistant served by Convex.
+
+**Why:** The owner wants Replit, Claude artifacts and an in-client assistant to plug into exactly the same interfaces. That interface has to let them act, query state and history, and live-update the client UI.
+
+**How to apply:** New agent capabilities are registry tools, run inside Convex as the human behind a revocable credential (principal = credential), never a surface-specific API. Live UI changes are stored panels: TSX in Convex, compiled on save, rendered in sandboxed frames by every open client. The in-client assistant uses the same executors, is off until the room owner approves an allowance, and asks the player to confirm public chat, summons, pauses and owner actions.
