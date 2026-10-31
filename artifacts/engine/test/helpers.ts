@@ -1,5 +1,7 @@
 /**
- * Helpers for test/auth.test.ts (run by scripts/test-auth.mjs against a live local backend).
+ * Helpers for test/auth.test.ts (run by scripts/test-auth.mjs against a live local backend), also used by
+ * scripts/seed-players.ts and the player-web e2e. Browser humans sign in through Better Auth's generic OAuth
+ * provider "fake" (scripts/fake-oidc.mjs, enabled only under test fixtures) with a small cookie jar.
  * Plain TypeScript that Node's type stripping can run (no enums, no parameter properties).
  */
 import { readFileSync } from "node:fs";
@@ -19,6 +21,7 @@ export function admin() {
   (client as unknown as { setAdminAuth(key: string): void }).setAdminAuth(adminKey);
   return {
     mutation: (name: string, args: Record<string, unknown>) => client.mutation(makeFunctionReference<"mutation">(name), args),
+    query: (name: string, args: Record<string, unknown>) => client.query(makeFunctionReference<"query">(name), args),
   };
 }
 
@@ -53,47 +56,77 @@ export const rawSetCookies = (response: Response) => response.headers.getSetCook
 
 const manual = { redirect: "manual" as const };
 
-/** Start a login: returns the provider authorization URL and the flow cookie. */
-export async function startLogin(returnTo?: string) {
-  const response = await fetch(`${SITE}/api/login${returnTo === undefined ? "" : `?returnTo=${encodeURIComponent(returnTo)}`}`, manual);
-  if (response.status !== 302) throw new Error(`login: ${response.status}`);
-  return { authorize: new URL(response.headers.get("location")!), flowCookie: setCookies(response).cg_oidc, response };
+export type Jar = { jar: Record<string, string>; take(response: Response): Response; header(): string };
+/** A browser's cookies for the site: set from responses, sent as one `cookie` header (empty values delete). */
+export function cookieJar(): Jar {
+  const jar: Record<string, string> = {};
+  return {
+    jar,
+    take(response: Response) {
+      for (const [k, v] of Object.entries(setCookies(response))) { if (v) jar[k] = v; else delete jar[k]; }
+      return response;
+    },
+    header: () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; "),
+  };
+}
+
+/** Better Auth's session cookie on the plain-http loopback site (`__Secure-` prefixed on https). */
+export const SESSION_COOKIE = "better-auth.session_token";
+
+/**
+ * Start a sign-in with the fake provider: returns its authorization URL and the browser's cookies (OAuth state).
+ * Throws unless Better Auth answers 200 (use `signInRequest` to inspect a refusal).
+ */
+export async function startLogin(callbackURL = "/", jar = cookieJar()) {
+  const response = await signInRequest("/api/auth/sign-in/oauth2", { providerId: "fake", callbackURL }, jar);
+  if (response.status !== 200) throw new Error(`sign-in/oauth2: ${response.status} ${await response.text()}`);
+  const { url } = await response.json() as { url: string };
+  return { authorize: new URL(url), jar };
+}
+/** POST a Better Auth sign-in endpoint as the site's own page would (same Origin). */
+export async function signInRequest(path: string, body: Record<string, unknown>, jar = cookieJar()) {
+  return jar.take(await fetch(`${SITE}${path}`, {
+    method: "POST", headers: { "content-type": "application/json", origin: SITE, ...(jar.header() ? { cookie: jar.header() } : {}) },
+    body: JSON.stringify(body),
+  }));
 }
 
 /** Pick an identity at the fake provider: returns the callback URL it redirects to. */
-export async function authorize(url: URL, loginHint: string, extra: Record<string, string> = {}) {
+export async function authorize(url: URL, loginHint: string) {
   const target = new URL(url);
   target.searchParams.set("login_hint", loginHint);
-  for (const [k, v] of Object.entries(extra)) target.searchParams.set(k, v);
   const response = await fetch(target, manual);
   if (response.status !== 302) throw new Error(`authorize: ${response.status} ${await response.text()}`);
   return new URL(response.headers.get("location")!);
 }
 
-export async function callback(url: URL, flowCookie: string | undefined) {
-  return await fetch(url, { ...manual, headers: flowCookie ? { cookie: `cg_oidc=${flowCookie}` } : {} });
+export async function callback(url: URL, jar: Jar) {
+  return jar.take(await fetch(url, { ...manual, headers: jar.header() ? { cookie: jar.header() } : {} }));
 }
 
-/** Full browser login → {session cookie value, final redirect}. */
-export async function login(identity: string, returnTo?: string) {
-  const { authorize: url, flowCookie } = await startLogin(returnTo);
-  const response = await callback(await authorize(url, identity), flowCookie);
-  if (response.status !== 302) throw new Error(`callback: ${response.status} ${await response.text()}`);
-  const session = setCookies(response).cg_session;
-  if (!session) throw new Error("no session cookie");
-  return { session, location: response.headers.get("location")!, response };
-}
-
-/** The React client's fetchAccessToken equivalent. */
-export async function browserToken(session: string, origin: string | null = SITE) {
-  return await fetch(`${SITE}/api/auth/token`, {
-    method: "POST", headers: { cookie: `cg_session=${session}`, ...(origin ? { origin } : {}) },
-  });
+/** The React client's token fetch: session cookie → a Convex JWT from Better Auth (`/api/auth/convex/token`). */
+export async function browserToken(session: string) {
+  return await fetch(`${SITE}/api/auth/convex/token`, { headers: session ? { cookie: session } : {} });
 }
 export async function browserJwt(session: string): Promise<string> {
   const response = await browserToken(session);
-  if (response.status !== 200) throw new Error(`token: ${response.status}`);
+  if (response.status !== 200) throw new Error(`convex/token: ${response.status} ${await response.text()}`);
   return (await response.json() as { token: string }).token;
+}
+
+/**
+ * Full browser sign-in → {session: the `cookie` header a browser would send, cookies, jwt, subject (the god
+ * id: the Better Auth user id), location (the final redirect)}.
+ */
+export async function login(identity: string, callbackURL = "/") {
+  const { authorize: url, jar } = await startLogin(callbackURL);
+  const response = await callback(await authorize(url, identity), jar);
+  if (response.status !== 302 || !jar.jar[SESSION_COOKIE]) {
+    throw new Error(`callback: ${response.status} ${response.headers.get("location")} ${await response.text()}`);
+  }
+  const session = jar.header();
+  const jwt = await browserJwt(session);
+  return { session, cookies: { ...jar.jar }, jwt, subject: decodeJwt(jwt).payload.sub as string, location: response.headers.get("location")!, response };
 }
 
 export const post = async (path: string, body: unknown, headers: Record<string, string> = {}) => {

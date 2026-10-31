@@ -1,23 +1,27 @@
 /**
  * The access contract every game function uses (owned by convex/auth; game code only calls it).
  *
- * A caller is identified by a JWT this deployment minted (auth.config.ts):
- *   scope "browser": a signed-in human on the engine site (full rights of that human); the JWT's
- *                    session (`sid`) is checked on every call, so logout is immediate;
- *   scope "player":  a player app or room assistant holding a scoped credential for ONE room, with a
- *                    permission: "read" < "act" < "owner". The credential is checked for revocation on
- *                    every call (an indexed point read), so revocation is immediate.
+ * A caller is identified by a Convex JWT from one of two issuers (auth.config.ts), told apart by issuer only
+ * (identity.ts tokenKind):
+ *   scope "browser": Better Auth (issuer CONVEX_SITE_URL), a signed-in human on the engine site (full rights
+ *                    of that human). The JWT's Better Auth session (`sessionId`) must still exist and be
+ *                    unexpired on every call, so sign-out is immediate.
+ *   scope "player":  our player JWT (issuer CONVEX_SITE_URL/api/device): a player app or room assistant holding
+ *                    a scoped credential for ONE room, with a permission: "read" < "act" < "owner". The
+ *                    credential is checked for revocation on every call, so revocation is immediate.
  *
- * God ids in game tables are strings: a human's Replit subject (`sub`), or "ai:<uuid>" for an AI seat.
+ * God ids in game tables are strings: a human's Better Auth user id, or "ai:<uuid>" for an AI seat.
  */
 import { ConvexError } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
+import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
-import { oidcIssuer } from "./config";
+import { convexSiteUrl } from "./config";
+import { isAdminUser, tokenKind } from "./identity";
 
 export type Permission = "read" | "act" | "owner";
 export type Viewer = {
-  /** The human's Replit subject: the god id in game tables. */
+  /** The human's god id (Better Auth user id). */
   subject: string;
   /** Full verified name. */
   name: string;
@@ -28,40 +32,33 @@ export type Viewer = {
   credentialId?: string;
   /** Self-reported label of a player credential (never a verified identity). */
   label?: string;
-  /** Verified-email admin (browser scope only). */
+  /** Verified Google email on the admin allowlist (browser scope only). */
   isAdmin: boolean;
 };
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 
-export function isAdminEmail(email: string | undefined, verified: boolean): boolean {
-  if (!verified || !email) return false;
-  const allowed = (process.env.CODE_GODS_ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
-  return allowed.includes(email.trim().toLowerCase());
+/** The Better Auth session a browser JWT names, if it still exists, is unexpired and belongs to `subject`. */
+async function liveSession(ctx: QueryCtx | MutationCtx, sessionId: unknown, subject: string): Promise<boolean> {
+  if (typeof sessionId !== "string" || !sessionId || sessionId.length > 64) return false;
+  const session = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "session",
+    where: [{ field: "_id", value: sessionId }, { field: "expiresAt", operator: "gt", value: Date.now() }],
+  }) as { userId?: string } | null;
+  return !!session && session.userId === subject;
 }
 
-/**
- * Admin = verified email on the allowlist, persisted at login from the CONFIGURED OIDC issuer's
- * signed claims (production: https://replit.com/oidc), as before.
- */
-export function isAdminUser(user: Pick<Doc<"users">, "email" | "emailVerified" | "issuer">): boolean {
-  return user.issuer === oidcIssuer() && isAdminEmail(user.email, user.emailVerified);
-}
-
-/** The authenticated caller, or null. Revoked or expired credentials and unknown users yield null. */
+/** The authenticated caller, or null. Ended sessions, revoked or expired credentials and unknown users yield null. */
 export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) return null;
+  const scope = tokenKind(identity.issuer, convexSiteUrl());
+  if (!scope) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", identity.subject)).unique();
   if (!user) return null;
-  const scope = identity.scope === "player" ? "player" : identity.scope === "browser" ? "browser" : null;
-  if (!scope) return null;
   if (scope === "browser") {
-    // Browser JWTs name their session (`sid`), so logout takes effect at once, not after the JWT's 10 minutes.
-    const sessionId = typeof identity.sid === "string" ? ctx.db.normalizeId("sessions", identity.sid) : null;
-    const session = sessionId ? await ctx.db.get(sessionId) : null;
-    if (!session || session.subject !== user.subject || session.expiresAt <= Date.now()) return null;
-    return { subject: user.subject, name: user.name, scope, isAdmin: isAdminUser(user) };
+    if (!(await liveSession(ctx, identity.sessionId, user.subject))) return null;
+    return { subject: user.subject, name: user.name, scope, isAdmin: isAdminUser(user, process.env) };
   }
   const credentialId = typeof identity.cred === "string" ? identity.cred : null;
   const id = credentialId ? ctx.db.normalizeId("credentials", credentialId) : null;
@@ -76,7 +73,7 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
 /** Throws ConvexError {code: "UNAUTHENTICATED"} without a valid caller. */
 export async function requireViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer> {
   const viewer = await getViewer(ctx);
-  if (!viewer) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please log in (or reconnect this player app)" });
+  if (!viewer) throw new ConvexError({ code: "UNAUTHENTICATED", message: "Please sign in (or reconnect this player app)" });
   return viewer;
 }
 

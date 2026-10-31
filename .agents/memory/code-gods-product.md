@@ -24,7 +24,7 @@ Require at least three players per game; additional slots can be populated by au
 
 **Why:** The user explicitly added these requirements.
 
-**How to apply:** Enforce the minimum on the server, distinguish AI identities from Replit human identities, and give bots the same information and action permissions as human players. Do not implement private messaging.
+**How to apply:** Enforce the minimum on the server, distinguish AI identities from human (Google) identities, and give bots the same information and action permissions as human players. Do not implement private messaging.
 
 Use parallel subtasks for this project; the main agent should act as coordinator and remain responsive.
 
@@ -62,11 +62,11 @@ Private Replit gates can block headless requests before Code Gods authentication
 
 **How to apply:** Inspect redirects without following them when a connection fails, and report a platform gate as such. The engine itself is now on Convex (`*.convex.site`), outside Replit's gates; a player app may still run behind a dev container's preview proxy (e.g. Replit's).
 
-Use full names from verified Replit identities to label human players, not just first names.
+Use full names from verified Google identities (given + family name) to label human players, not just first names.
 
 **Why:** First names do not sufficiently distinguish the game's players.
 
-**How to apply:** Combine given and family names for display while preserving Replit subject IDs as the actual identity keys.
+**How to apply:** `convex/auth/profileName.ts` combines Google's given and family names at sign-in. The identity key (god id) is the Better Auth user id, never the display name; Google's `sub` is kept on the `users` row for audit.
 
 Grammar, utility-selector and complexity-function options are always pre-authored in deployed code.
 

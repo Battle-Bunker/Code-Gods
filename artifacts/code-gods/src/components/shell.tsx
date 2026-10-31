@@ -32,10 +32,10 @@ export function Shell({ children, right }: { children: ReactNode; right?: ReactN
             <div className="flex items-center gap-3">
               {user?.isAdmin && <Link href="/admin/agents" className="label-mono hover:text-foreground" data-testid="link-admin-agents">AI library</Link>}
               <span className="text-sm hidden sm:inline" data-testid="text-username">{displayName(user)}</span>
-              <button onClick={logout} className="label-mono hover:text-foreground border px-2.5 py-1.5" data-testid="button-logout">Log out</button>
+              <button onClick={logout} className="label-mono hover:text-foreground border px-2.5 py-1.5" data-testid="button-logout">Sign out</button>
             </div>
           ) : (
-            <button onClick={login} className="text-sm bg-foreground text-background px-3 py-1.5" data-testid="button-login-header">Log in</button>
+            <button onClick={login} className="text-sm bg-foreground text-background px-3 py-1.5" data-testid="button-login-header">Sign in with Google</button>
           )}
         </div>
       </header>

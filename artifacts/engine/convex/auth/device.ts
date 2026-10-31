@@ -15,13 +15,18 @@
  * claimed; read/act grants are never upgraded (a new owner grant is a new request).
  */
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query, type QueryCtx } from "../_generated/server";
+import { internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import { requireViewer, type Viewer } from "./access";
 import { CREDENTIAL_TTL_MS, DEVICE_POLL_INTERVAL_S, DEVICE_TTL_MS } from "./config";
 import { constantTimeEqual, formatUserCode, normalizeUserCode, sha256Hex } from "./crypto";
 import { isRoomMember, resolveRoom } from "./rooms";
-import { sweepExpired } from "./sessions";
+
+/** Bounded opportunistic cleanup of expired device requests, run from the unauthenticated request path. */
+async function sweepExpired(ctx: MutationCtx, limit = 16) {
+  const rows = await ctx.db.query("devices").withIndex("by_expires", q => q.lt("expiresAt", Date.now())).take(limit);
+  for (const row of rows) await ctx.db.delete(row._id);
+}
 
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
 const MAX_PENDING_PER_ROOM = 20;

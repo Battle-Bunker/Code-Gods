@@ -5,7 +5,7 @@
  *
  * What it simulates:
  *   - The engine: the local Convex backend from `pnpm --filter @workspace/engine dev` (started here if
- *     it is not already running), with the stand-in Replit OIDC provider and the mock AI provider.
+ *     it is not already running), with the stand-in OIDC provider (Better Auth's test-only "fake") and the mock AI provider.
  *   - Three players (alice, bob, carol) who each run their own copy of the repository as a player app: three
  *     git worktrees of HEAD, each with its own install, panels directory, credential (obtained through
  *     the real device flow) and Vite dev server on its own port.
@@ -83,7 +83,7 @@ if (!(await up())) {
   await until(() => engine.output().includes("[dev] READY"), "engine ready", 300_000);
 }
 execFileSync("npx", ["convex", "env", "set", "CODE_GODS_DEV", "1"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
-const { browserJwt, client, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
+const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
 
@@ -290,7 +290,9 @@ await playGame("string", async () => {
   });
   await check("assistant observation discloses only bob's own scores and peer aggregates", async () => {
     const text = playerCli("bob", ["assistant", "observation"]);
-    for (const forbidden of ["test-alice", "test-carol"]) {
+    // God ids are Better Auth user ids: read alice's and carol's from their browser JWTs.
+    const subjectOf = async (p: Player) => decodeJwt(await browserJwt(sessionOf(p))).payload.sub as string;
+    for (const forbidden of [await subjectOf("alice"), await subjectOf("carol")]) {
       // Opponents appear only as leaderboard/chat identities, never with per-object scores.
       const objects = JSON.stringify((JSON.parse(text) as { observation?: { objects?: unknown[] }; objects?: unknown[] }).observation?.objects ?? (JSON.parse(text) as { objects?: unknown[] }).objects ?? []);
       assert(!objects.includes(forbidden), `objects mention ${forbidden}`);
@@ -369,7 +371,8 @@ await check("the engine serves both frontends (static hosting with SPA fallback)
 });
 await check("the hosted player client (engine site, /player/) plays as the signed-in human", async () => {
   const context = await browser.newContext();
-  await context.addCookies([{ name: "cg_session", value: sessionOf("carol"), url: SITE }]);
+  // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
+  await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}/player/?room=${shortCode}`);
   await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });

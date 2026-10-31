@@ -16,13 +16,15 @@
     "test:unit": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "0.12.6",
+    "@convex-dev/static-hosting": "0.2.1",
+    "@workspace/ai-player": "workspace:*",
     "@workspace/game-core": "workspace:*",
+    "@workspace/game-runtime": "workspace:*",
     "@workspace/game-types": "workspace:*",
     "@workspace/game-utilities": "workspace:*",
-    "@workspace/game-runtime": "workspace:*",
     "@workspace/player-client": "workspace:*",
-    "@workspace/ai-player": "workspace:*",
-    "@convex-dev/static-hosting": "0.2.1",
+    "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",
     "quickjs-emscripten": "0.31.0",
