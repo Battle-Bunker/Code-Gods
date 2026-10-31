@@ -29,7 +29,7 @@ test("a layout is per human per room; the arrangement follows the human to a new
     panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 5 }, setBy: "assistant" }, p2: { id: "p2", kind: "assistant" } } };
   const written = await ada.c.mutation(api.layout.set, { roomId, layout: side });
   assert.deepEqual(written.warnings, []);
-  assert.deepEqual(panelPane(written.layout, "p1").params, { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" }, "defaults are filled in");
+  assert.deepEqual(panelPane(written.layout, "p1").params, { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "mine" }, "defaults are filled in");
   const mine = await ada.c.query(api.layout.current, { roomId });
   assert.equal(mine.source, "room");
   assert.equal(mine.setBy?.kind, "browser");
@@ -43,12 +43,12 @@ test("a layout is per human per room; the arrangement follows the human to a new
   const carried = await ada.c.query(api.layout.current, { roomId: other.roomId });
   assert.equal(carried.source, "carried");
   assert.equal(carried.layout.root.type === "split" && carried.layout.root.direction, "row");
-  assert.deepEqual(panelPane(carried.layout, "p1"), { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
+  assert.deepEqual(panelPane(carried.layout, "p1"), { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
   // Compare-and-set: a stale write is refused; a broken layout is repaired, never stored broken.
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: side, ifUpdatedAt: written.updatedAt - 1 })), "CONFLICT");
   const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["x"], active: "x" }, panes: { x: { id: "x", kind: "panel", panelId: "nope" } } }, ifUpdatedAt: written.updatedAt });
   assert.ok(repaired.warnings.some((w: string) => /unknown panel/.test(w)) && repaired.warnings.some((w: string) => /no assistant pane/.test(w)), repaired.warnings.join("\n"));
-  assert.equal(panelPane(repaired.layout, "x").panelId, "overview");
+  assert.equal(panelPane(repaired.layout, "x").panelId, "objects", "an unknown panel becomes the default panel");
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["p1"], active: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "overview", params: { focus: "x".repeat(40_000) } } } } })), "BAD_REQUEST");
 });
 
@@ -81,7 +81,7 @@ test("the layout tools open, reparameterise, move and close panes as the human, 
   assert.match(invalid, /Schema: \{"type":"object"/, "the refusal carries the panel's JSON Schema so the model can correct itself");
   assert.equal(await errorCode(admin.mutation(internal.layout.openPanelAs, { principal, panelId: "stored" })), "BAD_REQUEST");
   const set = await admin.mutation(internal.layout.setPanelParamsAs, { principal, paneId: opened.paneId, params: { sortBy: "mine" } });
-  assert.deepEqual(panelPane(set.layout, opened.paneId).params, { sortBy: "mine", filter: "all", limit: 12, highlight: [], layout: "list" });
+  assert.deepEqual(panelPane(set.layout, opened.paneId).params, { sortBy: "mine", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" });
   assert.equal(await errorCode(admin.mutation(internal.layout.setPanelParamsAs, { principal, paneId: "p2", params: {} })), "BAD_REQUEST", "the assistant pane has no parameters");
   const moved = await admin.mutation(internal.layout.movePaneAs, { principal, paneId: "p2", place: { relativeTo: "p1", direction: "right" } });
   assert.equal(moved.layout.root.type === "split" && moved.layout.root.direction, "row");

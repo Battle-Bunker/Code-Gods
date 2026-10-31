@@ -61,10 +61,12 @@ export const PANELS = {
       limit: z.number().int().min(3).max(60).default(12),
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),
+      /** Mark what makes up each object's score: "mine" (your own utility, the default) or "none". */
+      annotate: z.enum(["mine", "none"]).default("mine"),
     }),
     summary: p => line([`Top ${p.limit} by ${{ payoff: "payoff", mine: "your bits", othersCare: "others' care" }[p.sortBy]}`,
       ...when(p.filter !== "all", ({ positive: "positive only", contested: "only ones both care about", chips: "only ones others care about" } as Record<string, string>)[p.filter] ?? p.filter),
-      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid")]),
+      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid"), ...when(p.annotate === "none", "no marks")]),
   }),
   "others-care": def({
     id: "others-care", title: "What others care about", blurb: "Where the others' interests lie, from totals only.", phases: LIVE,
@@ -131,8 +133,11 @@ export type PanelParams<K extends PanelId> = z.output<(typeof PANELS)[K]["params
 export const isPanelId = (value: unknown): value is PanelId => typeof value === "string" && (PANEL_IDS as readonly string[]).includes(value);
 export const panel = (id: PanelId): PanelDefinition => PANELS[id] as PanelDefinition;
 
-/** The panel a pane shows until a human or the assistant chooses one: overview, or results once the game has ended. */
-export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "overview");
+/**
+ * The panel a pane shows until a human or the assistant chooses one: the objects ranked by payoff (before the world
+ * runs, its empty state says what will appear there), or results once the game has ended.
+ */
+export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "objects");
 
 /**
  * Parse a panel's parameters: the defaults when none are given; the parsed output (defaults filled) when valid; else
