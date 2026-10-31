@@ -12,7 +12,7 @@
  */
 import { SETTINGS_DOCS, sameSettings, validateSettings, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instantiate, type TypeArgs } from "@workspace/game-types";
-import { publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
+import { familiesFor, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
@@ -136,6 +136,7 @@ export function settingsDomain(types: readonly OfferedTypes[]): SettingsDomain {
   return {
     offered: objectType => types.find(t => t.id === objectType)?.offered.map(o => o.args) ?? [],
     families: (objectType, typeArgs) => existingFamilies(objectType, typeArgs).map(e => e.id),
+    typeFamilies: objectType => familiesFor(objectType).map(f => f.id),
   };
 }
 

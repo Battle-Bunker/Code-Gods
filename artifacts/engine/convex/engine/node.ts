@@ -175,7 +175,7 @@ export function assertCompleteSettings(settings: unknown): GameSettings {
  */
 export function nextSettings(previous: GameSettings, input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
   let settings: GameSettings;
-  if (input.setup) settings = input.setup;
+  if (input.setup) return assertCompleteSettings(input.setup);   // stored setups are re-checked whole: a field added since fails loudly
   else if (input.settings) {
     try { settings = applySettingsChange(previous, input.settings as Partial<GameSettings>, SETTINGS_DOMAIN); } catch (error) {
       return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);

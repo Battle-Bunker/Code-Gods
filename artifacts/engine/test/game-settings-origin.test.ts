@@ -55,6 +55,11 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   }
   // Out-of-bounds numbers are the validator's refusal.
   assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { halfLifeSeconds: 0 } })), "BAD_REQUEST");
+  // The room's settings sent back whole with one field edited: the stale arguments follow the new world.
+  const whole = (await host.c.query(api.rooms.get, { room: roomId })).settings;
+  await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { ...whole, objectType: "Grid" } });
+  room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([room.settings.typeArgs, room.settings.startingObjectCount], [{ size: 4, symbols: "base10", colours: "rgb" }, before.startingObjectCount]);
 });
 
 test("owner.settings records the origin: a setup is unmodified, edits mark it modified, and the game snapshot keeps it", { timeout: 120_000 }, async () => {

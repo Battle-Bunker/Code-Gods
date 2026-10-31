@@ -9,7 +9,8 @@
  *   exist in it are dropped;
  * - typeArgs: only an offered instantiation is accepted, and excluded families that do not exist in it are dropped.
  * Constraints checked on the changed field: the grammar, goal dealing and summon price are among the choices of the
- * current language and object type (settingsOptionsFor); excluded families exist in the instantiation.
+ * current language and object type (settingsOptionsFor); excluded families are families of the object type, and
+ * the list keeps only those that exist in the instantiation (excluding one its board cannot deal means nothing).
  * Everything else (every number, the commit clause, act targeting) is free: `validateSettings` (the single
  * validator) says whether a value is within bounds. No field is retuned to "suit" another, and nothing is repaired.
  *
@@ -26,6 +27,8 @@ export interface SettingsDomain {
   offered(objectType: string): readonly TypeArgs[];
   /** The ids of the utility families that exist (can be dealt) in an instantiation, reward and defence families alike. */
   families(objectType: string, typeArgs: TypeArgs): readonly string[];
+  /** The ids of every utility family of an object type, whichever instantiation can deal it. */
+  typeFamilies(objectType: string): readonly string[];
 }
 
 /** A change outside the degrees of freedom; `field` names the setting it concerns. */
@@ -97,17 +100,19 @@ function withLanguage(s: GameSettings, language: unknown): GameSettings {
 }
 
 /**
- * The settings after an owner changes the fields in `patch`. Fields equal to their current value are no change, so a
- * whole settings object may be passed (the configuration page's draft). Changes apply in dependency order: object
- * type, then type arguments, then language, then every other field. Throws SettingsChangeError for an unknown field,
- * an instantiation that is not offered, an option the language and type do not offer, or an excluded family that
- * does not exist in the instantiation. Numbers are not range-checked here: `validateSettings` does that.
+ * The settings after an owner changes the fields in `patch`. A field equal to its value in `settings` is no change, so
+ * a whole settings object may be passed (the configuration page's draft, or the room's settings with one field
+ * edited: a stale grammar or type arguments then simply follow the changed language or type). Changes apply in
+ * dependency order: object type, then type arguments, then language, then every other field. Throws
+ * SettingsChangeError for an unknown field, an instantiation that is not offered, an option the language and type do
+ * not offer, or an excluded id that is no family of the object type. Numbers are not range-checked here:
+ * `validateSettings` does that.
  */
 export function applySettingsChange(settings: GameSettings, patch: Partial<GameSettings>, domain: SettingsDomain): GameSettings {
   for (const key of Object.keys(patch)) if (!FIELDS.has(key)) throw new SettingsChangeError(key, `Unknown setting ${key}`);
   const given = patch as Record<string, unknown>;
   let next: GameSettings = { ...settings };
-  const changed = (key: keyof GameSettings) => given[key] !== undefined && !sameSettings(given[key], next[key]);
+  const changed = (key: keyof GameSettings) => given[key] !== undefined && !sameSettings(given[key], settings[key]);
 
   if (changed("objectType")) next = withObjectType(next, given.objectType, domain);
   if (changed("typeArgs")) {
@@ -126,10 +131,10 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
   if (changed("excludedFamilies")) {
     const ids = given.excludedFamilies;
     if (!Array.isArray(ids) || ids.some(id => typeof id !== "string")) throw new SettingsChangeError("excludedFamilies", "excludedFamilies must be a list of family ids");
-    const exists = new Set(domain.families(next.objectType, next.typeArgs));
-    const unknown = ids.filter(id => !exists.has(id));
-    if (unknown.length) throw new SettingsChangeError("excludedFamilies", `Not a family of ${keyOf(next.objectType, next.typeArgs)}: ${unknown.join(", ")}`);
-    next = { ...next, excludedFamilies: [...new Set(ids as string[])] };
+    const known = new Set(domain.typeFamilies(next.objectType));
+    const unknown = ids.filter(id => !known.has(id));
+    if (unknown.length) throw new SettingsChangeError("excludedFamilies", `Not utility families of ${next.objectType}: ${unknown.join(", ")}`);
+    next = keepExisting({ ...next, excludedFamilies: [...new Set(ids as string[])] }, domain);
   }
   const handled = new Set<string>(["objectType", "typeArgs", "language", "excludedFamilies", ...OPTION_KEYS]);
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {

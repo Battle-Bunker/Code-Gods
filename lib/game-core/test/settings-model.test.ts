@@ -26,6 +26,7 @@ const key = (objectType: string, args: Record<string, unknown>) => `${objectType
 const domain: SettingsDomain = {
   offered: t => ({ Int: [INT_WIDE, INT_SMALL], string: [{ maxLength: 128 }], Grid: [GRID4, GRID5, GRID7] } as Record<string, object[]>)[t] as never ?? [],
   families: (t, args) => FAMILIES[key(t, args)] ?? [],
+  typeFamilies: t => [...new Set(Object.entries(FAMILIES).filter(([k]) => k.startsWith(`${t}(`)).flatMap(([, ids]) => ids))],
 };
 
 /** A Python Int room with some fields away from their defaults, so "nothing else moves" is visible. */
@@ -76,10 +77,22 @@ test("the grammar, goal dealing and summon price must be among the choices of th
   assert.throws(() => applySettingsChange(start, { language: "cobol" as never }, domain), /language/);
 });
 
-test("excluded families are any families of the instantiation", () => {
+test("excluded families are families of the object type; the list keeps only those the instantiation can deal", () => {
   assert.deepEqual(applySettingsChange(start, { excludedFamilies: ["parity", "digits"] }, domain), { ...start, excludedFamilies: ["parity", "digits"] });
   assert.deepEqual(applySettingsChange(start, { excludedFamilies: [] }, domain), { ...start, excludedFamilies: [] });
-  assert.throws(() => applySettingsChange(start, { excludedFamilies: ["small"] }, domain), /small/, "small exists only on Int(0,9999)");
+  assert.deepEqual(applySettingsChange(start, { excludedFamilies: ["parity", "small"] }, domain), { ...start, excludedFamilies: ["parity"] },
+    "small is an Int family this board cannot deal: excluding it means nothing");
+  assert.throws(() => applySettingsChange(start, { excludedFamilies: ["vowels"] }, domain), /Not utility families of Int: vowels/, "a string family");
+  // A list saved before this rule (an entry the board cannot deal) can still be edited; the meaningless entry goes.
+  const legacy = { ...start, excludedFamilies: ["digits", "small"] };
+  assert.deepEqual(applySettingsChange(legacy, { excludedFamilies: ["digits", "small", "parity"] }, domain), { ...start, excludedFamilies: ["digits", "parity"] });
+});
+
+test("the room's settings sent back with one field edited: the stale dependent fields follow the edit", () => {
+  // An assistant edits get_room_state's settings and sends them whole: the old grammar and arguments are no change.
+  assert.deepEqual(applySettingsChange(start, { ...start, language: "typescript" }, domain),
+    { ...start, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" });
+  assert.deepEqual(applySettingsChange(start, { ...start, objectType: "Grid" }, domain), { ...start, objectType: "Grid", typeArgs: GRID4, excludedFamilies: [] });
 });
 
 test("every numeric field, the commit clause and act targeting are free: only that field changes, bounds are validateSettings' job", () => {

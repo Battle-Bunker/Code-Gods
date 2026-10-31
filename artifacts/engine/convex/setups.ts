@@ -42,10 +42,14 @@ export async function seed(ctx: MutationCtx) {
 }
 export const ensureSeeded = internalMutation({ args: {}, handler: async (ctx) => { await seed(ctx); } });
 
-/** The seeded First steps setup a new room starts on (seeding first), or null when an admin removed it. */
+/**
+ * The seeded First steps setup a new room starts on, or null when an admin removed it. A deployment that was never
+ * seeded (a fresh local backend; deploys run ensureSeeded) is seeded here first.
+ */
 export async function firstSteps(ctx: MutationCtx): Promise<Doc<"gameSetups"> | null> {
-  await seed(ctx);
-  const doc = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", FIRST_STEPS_SEED_ID)).first();
+  const find = () => ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", FIRST_STEPS_SEED_ID)).first();
+  let doc = await find();
+  if (!doc) { await seed(ctx); doc = await find(); }
   return doc && !doc.deleted ? doc : null;
 }
 

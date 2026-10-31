@@ -6,7 +6,7 @@
  */
 import type { SettingsDomain } from "@workspace/game-core";
 import { instantiate, type TypeArgs } from "@workspace/game-types";
-import { offeredInstantiations, publicCatalog } from "@workspace/game-utilities";
+import { familiesFor, offeredInstantiations, publicCatalog } from "@workspace/game-utilities";
 
 const offeredArgs = new Map<string, readonly TypeArgs[]>();
 const familyIds = new Map<string, readonly string[]>();
@@ -23,4 +23,5 @@ export const SETTINGS_DOMAIN: SettingsDomain = {
     if (!found) familyIds.set(inst.key, found = publicCatalog(inst).filter(e => e.available).map(e => e.id));
     return found;
   },
+  typeFamilies: objectTypeId => familiesFor(objectTypeId).map(f => f.id),
 };

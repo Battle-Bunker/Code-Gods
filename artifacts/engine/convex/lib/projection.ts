@@ -79,7 +79,8 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
     revision: room.revision, settings,
-    // Which preset the next game is on, and whether the owner changed it since (null on rooms older than presets).
+    // Which game setup the next game was put on (only its id: a private setup stays its owner's), and whether the
+    // settings still equal it (null on rooms older than origins; "preset" on rooms stored before setups).
     settingsOrigin: room.settingsOrigin ?? null,
     members: members.map(m => ({
       id: m.godId, name: m.name, kind: m.kind, ready: m.ready, ...(m.status ? { status: m.status } : {}),
