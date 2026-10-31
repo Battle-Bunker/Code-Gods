@@ -450,6 +450,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 .cg-pane-header { cursor: grab; }
 .cg-pane-header button, .cg-pane-header [role=button] { cursor: pointer; }
 .cg-sheet { transition: height .12s ease-out; }
+/* The peeking sheet shows the header, the chips and the composer; a clipped last line of the conversation would only tease. */
+.cg-sheet[data-snap="peek"] [data-testid="assistant-timeline"] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .rise, .beat { animation: none !important; }

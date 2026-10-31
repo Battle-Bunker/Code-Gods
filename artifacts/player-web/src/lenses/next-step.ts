@@ -27,7 +27,7 @@ export function nextStep(s: NextStepContext): NextStep {
   }
   if (s.phase === "running") {
     return s.agents === 0
-      ? { label: "Write an agent", why: "without one, nothing in the world moves your way.", action: { kind: "forge" } }
+      ? { label: "Write an agent", why: "summon an agent; nothing in the world moves your way without one.", action: { kind: "forge" } }
       : { label: "See which objects pay", why: "push the objects that pay you, and talk about the ones the others care about.", action: { kind: "lens", lensId: "objects" } };
   }
   if (s.phase === "paused") return { label: "Make a public proposal", why: "the world is stopped: a good moment to negotiate.", action: { kind: "lens", lensId: "public-chat" } };
