@@ -9,7 +9,7 @@ import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, cname, full, gridFamily, range, symForValue, tsCard, pyCard, tuple, valueNote, wire,
 } from "./_util.ts";
-import { binomial, exactSurvival } from "../../analytic.ts";
+import { binomial, exactSurvival, maxOfEqualMultinomial, type AnalyticSurvival } from "../../analytic.ts";
 
 const COMPARATIVE_COLOUR: Readonly<Record<string, string>> = {
   red: "redder", green: "greener", blue: "bluer", yellow: "yellower", orange: "more orange", violet: "more violet",
@@ -152,6 +152,8 @@ const hateTakeover = gridFamily<Record<string, never>>({
       return most;
     }`),
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+  /** The largest colour count of N² iid uniform cells: max of multinomial(N²; 1/C, …, 1/C) (tail-toolkit.md §5). */
+  analytic: (_p, g): AnalyticSurvival => ({ id: "multinomial-max@1", kind: "exact", levels: maxOfEqualMultinomial(g.N * g.N, g.C) }),
 });
 
 // --- Big blobs ----------------------------------------------------------------------------------------

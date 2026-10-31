@@ -16,7 +16,7 @@ export type {
 } from "./annotations.ts";
 export { ANNOTATORS, annotatorFor, type Annotator, type FamilyId } from "./families/annotators.ts";
 export {
-  ANALYTIC_MAX_ERROR_BITS, assertAnalytic, addMass, binomial, cmpOrdinals, combine, distOf, exactSurvival, iidSum, lineChainCount,
+  ANALYTIC_MAX_ERROR_BITS, assertAnalytic, assertAnalyticHeader, lazySurvival, addMass, binomial, cmpOrdinals, combine, distOf, exactSurvival, iidSum, lineChainCount,
   logFactorial, mapDist, maxOfEqualMultinomial, multinomial, pairOrdinal, pointMass, poissonTail, rowTransferCount, sumOrdinals,
   survivalLevels, totalMass, type AnalyticLevels, type AnalyticSurvival, type Dist,
 } from "./analytic.ts";

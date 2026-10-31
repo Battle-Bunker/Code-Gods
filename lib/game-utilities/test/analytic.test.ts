@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { instantiate, objectType, type Instantiation } from "@workspace/game-types";
 import { FAMILIES, available, canonicalSupport, context, evaluator, family } from "../src/catalog.ts";
+import type { Ordinal } from "../src/types.ts";
 import { analyticFor, cmpOrdinal, instantiateKey, tableKey, tableKeyParts, type CalibrationBudget, type CalibrationTable } from "../src/calibration.ts";
 import { shippedInstanceKeys, shippedManifest } from "../src/calibration-data.ts";
 import {
@@ -32,8 +33,23 @@ const MANIFEST = shippedManifest();
 const instOf = (key: string): Instantiation => { const e = MANIFEST.instances[key]; return objectType(e.objectType).instantiate(e.args); };
 const ANALYTIC_FAMILIES = FAMILIES.filter(f => f.analytic);
 
-/** Tolerance on |table − analytic| by depth, from the measured behaviour of the estimator (tail-toolkit.md §8). */
-const MAX_ABS_DELTA = (bits: number) => (bits < 16 ? 1.2 : bits < 32 ? 2.5 : bits < 64 ? 5 : 10);
+/**
+ * Tolerance on |table − analytic| by depth, from the measured behaviour of the estimator over six families and 48 shapes
+ * (tail-toolkit.md §8): for families whose level sets the kernel can move through, the largest observed errors are 3.4
+ * bits below 48 bits, 4.8 below 64 and 7 above.
+ */
+const MAX_ABS_DELTA = (bits: number) => (bits < 16 ? 1.2 : bits < 32 ? 2.5 : bits < 48 ? 5 : bits < 64 ? 6 : 10);
+/**
+ * Families whose sampling tables are known to be biased above some depth (tail-toolkit.md §8.2): the analytic is the
+ * ground truth there, so the comparison only bounds the bias. Say why.
+ */
+const KNOWN_TABLE_BIAS: Record<string, { readonly fromBits: number; readonly maxAbsDelta: number; readonly why: string }> = {
+  rainbow_road: { fromBits: 32, maxAbsDelta: 10, why: "completing a second whole line needs coordinated multi-cell moves the kernel rarely makes" },
+};
+/** Shapes a formula declines (returns null) on purpose: the number of its 48 reference shapes it must cover. Default: all. */
+const EXPECTED_COVERAGE: Record<string, number> = {
+  best_friends: 24,   // C^N ≤ TRANSFER_STATES (1300): rgb up to 6×6, rgby up to 5×5, rainbow6 at 4×4
+};
 
 // ------------------------------------------------------------------------------------------------
 // the toolkit, against hand-derived laws
@@ -167,6 +183,34 @@ test("every family analytic is well formed, lists every spawned ordinal, matches
   assert.ok(checked >= 10, `only ${checked} analytic draws checked`);
 });
 
+test("hand-derived pins: exact tops and body values of the wired analytics", () => {
+  const close = (a: number, b: number, tol = 1e-9) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
+  const last = (a: AnalyticSurvival) => a.levels[a.levels.length - 1];
+  const at = (a: AnalyticSurvival, o: Ordinal) => a.levels.find(([l]) => cmpOrdinal(l, o) === 0)![1];
+  const g4 = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), g5 = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
+  // Best Friends: the maximum 2N(N−1) seams needs one of the two A/B checkerboards: G = 2 / C^n
+  const bf = analyticFor("best_friends", { A: 0, B: 1 }, g4)!;
+  assert.deepEqual(last(bf)[0], 24);
+  close(last(bf)[1], 1 - 16 * Math.log2(3));
+  // Hated colour: all cells my colour; Hated takeover: all cells one colour (C ways); first level ceil(n/C) has G = 1
+  close(last(analyticFor("hate_colour", { colour: 0 }, g5)!)[1], -25 * 2);
+  const tk = analyticFor("hate_takeover", {}, g5)!;
+  assert.deepEqual(tk.levels[0], [7, 0]);
+  close(last(tk)[1], 2 - 25 * 2);
+  // Green Ones: every cell perfect, probability (1/(S·C))^n
+  const go = analyticFor("seed3_green_ones", { colour: 0, value: 0 }, g5)!;
+  assert.deepEqual(last(go)[0], [25, 0]);
+  close(last(go)[1], 25 * Math.log2(1 / 40));
+  // Rainbow Road: P(at least one whole row) = 1 − (1 − C^(1−N))^N, and the top is every row a whole rainbow line
+  const rr = analyticFor("rainbow_road", { dir: "→" }, g5)!;
+  close(at(rr, [1, 4]), Math.log2(1 - (1 - 4 ** -4) ** 5), 1e-12);
+  close(last(rr)[1], 5 * 4 * Math.log2(1 / 4));
+  // Staircase Climber: all N−1 steps in every row needs a run of N consecutive values from S−N+1 starts
+  const sc = analyticFor("staircase_climber", { dir: "→" }, g4)!;
+  assert.deepEqual(last(sc)[0], 12);
+  close(last(sc)[1], 4 * Math.log2(7 / 10 ** 4), 1e-9);
+});
+
 test("tables built from an analytic carry its id in the key and the budget label; the estimator's key differs", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   const r = buildTable("picture_frame", { X: 0 }, inst);
@@ -174,7 +218,7 @@ test("tables built from an analytic carry its id in the key and the budget label
   assert.equal(r.table.key, tableKey("picture_frame", { X: 0 }, inst));
   assert.equal(tableKeyParts("picture_frame", { X: 0 }, inst).exact, "picture-frame@1");
   assert.notEqual(mcTableKey("picture_frame", { X: 0 }, inst), r.table.key);
-  assert.equal(tableKeyParts("seed3_green_ones", { colour: 0, value: 0 }, inst).exact, undefined);
+  assert.equal(tableKeyParts("snap", {}, inst).exact, undefined, "a family without an analytic has no id in its key");
   assert.deepEqual(r.table.levels, [[0, 1e-6], [1, 12 * Math.log2(3)]].map(([o, b]) => [o, Math.round(b * 1e9) / 1e9]));
   assert.equal(r.evaluations, 0, "no sampling");
 });
@@ -188,22 +232,26 @@ test("archived reference tables: every Monte Carlo table of a family with an ana
     assert.equal(`${ref.family}.json`, name);
     const f = family(ref.family);
     assert.ok(f.analytic, `${ref.family} has reference tables but no analytic`);
-    let sz2 = 0, nz = 0;
+    let sz2 = 0, nz = 0, notCovered = 0;
     for (const t of ref.tables) {
       const inst = instantiateKey(t.instance);
       const where = `${ref.family} ${JSON.stringify(t.canonicalParams)} on ${t.instance}`;
       assert.equal(t.key, mcTableKey(ref.family, t.canonicalParams, inst), `${where}: the reference table is stale (the card changed); rebuild it with ${REFERENCE_COMMAND}`);
       const a = analyticFor(ref.family, t.canonicalParams, inst);
-      assert.ok(a, `${where}: no analytic for this shape although a reference exists`);
-      const c = compareWithTable(a!, t);
+      if (!a) { notCovered++; continue; }   // the formula declines this shape (e.g. a transfer matrix too large): sampling serves it
+      const c = compareWithTable(a, t);
       if (c.unattainable.length) bad.push(`${where}: table levels the analytic calls unattainable: ${c.unattainable.map(o => JSON.stringify(o)).join(", ")}`);
+      const bias = KNOWN_TABLE_BIAS[ref.family];
       for (const [o, bits] of t.levels) {
-        const ab = -(a!.levels.find(([lo]) => cmpOrdinal(lo, o) === 0)?.[1] ?? NaN);
-        if (Number.isFinite(ab) && Math.abs(bits - ab) > MAX_ABS_DELTA(bits)) bad.push(`${where}: at ${JSON.stringify(o)} table ${bits.toFixed(2)} vs analytic ${ab.toFixed(2)} bits`);
+        const ab = -(a.levels.find(([lo]) => cmpOrdinal(lo, o) === 0)?.[1] ?? NaN);
+        const allowed = bias && bits >= bias.fromBits ? Math.max(bias.maxAbsDelta, MAX_ABS_DELTA(bits)) : MAX_ABS_DELTA(bits);
+        if (Number.isFinite(ab) && Math.abs(bits - ab) > allowed) bad.push(`${where}: at ${JSON.stringify(o)} table ${bits.toFixed(2)} vs analytic ${ab.toFixed(2)} bits`);
       }
       for (const b of c.bands) if (b.band[1] <= 32) { sz2 += b.rmsZ ** 2 * b.levels; nz += b.levels; }
     }
     if (nz && Math.sqrt(sz2 / nz) > 1.5) bad.push(`${ref.family}: RMS z over levels below 32 bits is ${Math.sqrt(sz2 / nz).toFixed(2)} > 1.5`);
+    const expected = EXPECTED_COVERAGE[ref.family] ?? ref.tables.length;
+    assert.equal(ref.tables.length - notCovered, expected, `${ref.family}: the analytic covers ${ref.tables.length - notCovered} of ${ref.tables.length} reference shapes, expected ${expected}`);
   }
   assert.deepEqual(bad, [], bad.join("\n"));
 });

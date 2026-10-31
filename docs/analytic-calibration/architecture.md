@@ -64,8 +64,11 @@ export interface UtilityFamily<P> {
 
 Rules of the contract:
 
-- **Deterministic and cheap.** Milliseconds to about a second; it is called at deal time and whenever a key is
-  computed (`coverage`, `tableKey`). It is memoised per process by (instance, family, params) in `analyticFor`.
+- **Deterministic and cheap to key.** The call itself must be instant: it is made whenever a key is computed
+  (`coverage`, `tableKey`, every `tableFor`). A law that takes longer than a few milliseconds is returned through
+  `lazySurvival(id, () => law)`: the key needs only the id, and the levels are computed once, when a table is built
+  (up to about a second is fine there). `analyticFor` memoises per process by (instance, family, params) and checks the
+  id, kind and bound; the estimator checks the levels (`assertAnalytic`) when it reads them.
 - **Canonical params only.** The engine canonicalises a draw (`family.canonical`) before asking.
 - **Partial coverage is fine.** Return null for shapes or params the formula does not cover (e.g. a transfer matrix
   whose state space is too large there); the fallback handles the rest. The key then carries no analytic id for that
@@ -77,7 +80,8 @@ Rules of the contract:
   sampling estimator's own error beyond 16 bits, §6). State the bound honestly; the harness measures it.
 - **The toolkit** (`analytic.ts`, second half) is the vocabulary: `Dist` (finite law over scalar or lexicographic
   tuple ordinals), `combine`, `mapDist`, `iidSum`, `binomial`, `multinomial`, `lineChainCount`,
-  `maxOfEqualMultinomial`, `rowTransferCount`, `poissonTail`, `survivalLevels` (refuses lost mass), `exactSurvival`.
+  `maxOfEqualMultinomial`, `rowTransferCount`, `poissonTail`, `survivalLevels` (refuses lost mass), `exactSurvival`,
+  `lazySurvival`.
   Grid helpers: `gridSpec(ctx)` gives N, S, C, the per-symbol value list, and `valueLaw(g)` the law of a cell's value.
 
 How the estimator consumes it (`scripts/estimator.ts buildTable`): analytic levels verbatim, no sampling, no thinning,
