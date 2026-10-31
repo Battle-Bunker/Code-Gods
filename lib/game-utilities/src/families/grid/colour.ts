@@ -1,5 +1,6 @@
 /** Colour & visual-pattern lens rules (lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import { exactSurvival, rowTransferCount, type AnalyticSurvival } from "../../analytic.ts";
 import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
   recipes, recolour, tsCard, tuple, wire,
@@ -393,7 +394,23 @@ const bestFriends = gridFamily<PairP>({
       return seams;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.A : p.B))),
+  /**
+   * Seams between the two colours are a 2-D pattern count: exact by a row-to-row transfer matrix whose state is a whole
+   * row colouring (C^N states; tail-toolkit.md §6). Shapes with more than TRANSFER_STATES states fall back to sampling.
+   */
+  analytic: (_p, g): AnalyticSurvival | null => {
+    const N = g.N, C = g.C, M = C ** N;
+    if (M > TRANSFER_STATES) return null;
+    const rows: number[][] = Array.from({ length: M }, (_, r) => { const out: number[] = []; for (let i = 0, x = r; i < N; i++, x = Math.floor(x / C)) out.push(x % C); return out; });
+    const friends = (a: number, b: number) => (a === 0 && b === 1) || (a === 1 && b === 0);
+    const h = (r: number) => { let s = 0; for (let i = 0; i + 1 < N; i++) if (friends(rows[r][i], rows[r][i + 1])) s++; return s; };
+    const v = new Uint8Array(M * M);
+    for (let a = 0; a < M; a++) for (let b = 0; b < M; b++) { let s = 0; for (let i = 0; i < N; i++) if (friends(rows[a][i], rows[b][i])) s++; v[a * M + b] = s; }
+    return exactSurvival("transfer-matrix-rows@1", rowTransferCount(N, M, h, (a, b) => v[a * M + b], 2 * N * (N - 1)));
+  },
 });
+/** Row states a transfer matrix may have before the analytic defers to sampling (≈ 1 s at 1024 states). */
+const TRANSFER_STATES = 1100;
 
 // --- Rainbow Steps ----------------------------------------------------------------------------------
 type DirP = { dir: Dir4 };

@@ -4,7 +4,7 @@ import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
   range, recolour, symForValue, thing, tsCard, tuple, valueLaw, wire,
 } from "./_util.ts";
-import type { AnalyticSurvival } from "../../analytic.ts";
+import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -69,6 +69,16 @@ const rainbowRoad = gridFamily<RoadP>({
     const col = fromFn(N, (r, c) => p.dir === "→" ? k(r + c) : p.dir === "←" ? k(r + N - 1 - c)
       : p.dir === "↓" ? k(c + r) : k(c + N - 1 - r));
     return wire(g, full(N, 0), col);
+  },
+  /**
+   * Along a line the N−1 "next colour" indicators are iid Bernoulli(1/C): given the shared cell, each needs one
+   * specific colour. So steps per line ~ Binomial(N−1, 1/C), a whole line iff all N−1; (wholeLines, steps) is the
+   * N-fold iid sum of the per-line pair (tail-toolkit.md §3, independence and the union bound; §8.2, the table's bias).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const steps = binomial(g.N - 1, 1 / g.C);
+    const line = mapDist(steps, o => [o === g.N - 1 ? 1 : 0, o as number]);
+    return exactSurvival("line-iid-tuple@1", iidSum(line, g.N));
   },
 });
 
@@ -590,6 +600,14 @@ const staircase = gridFamily<StairP>({
       return steps;
     }`),
   exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => symForValue(g, g.vmin + (p.dir === "→" ? c : r))), full(g.N, 0)),
+  /**
+   * Rows (or columns) are independent; within a line the count of "+1 steps" is a functional of the Markov chain of
+   * iid values: a dynamic programme over (last value, count), then the N-fold iid sum over lines (tail-toolkit.md §4).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const line = lineChainCount(g.N, valueLaw(g), (prev, v) => (prev !== null && v === prev + 1 ? 1 : 0));
+    return exactSurvival("line-chain-sum@1", iidSum(line, g.N));
+  },
 });
 
 // --- Lucky Token -------------------------------------------------------------------------------------

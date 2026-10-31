@@ -1,5 +1,7 @@
 /** The three seed rules (lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
 import type { GridSpec } from "./_util.ts";
+import { exactSurvival, multinomial } from "../../analytic.ts";
+import { valueLaw } from "./_util.ts";
 import {
   SCALAR, chance, cname, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
   thing, tsCard, tuple, valueNote, wire,
@@ -150,6 +152,17 @@ const greenOnes = gridFamily<GreenP>({
       return [perfect, halfway];
     }`),
   exemplar: (p, g) => wire(g, full(g.N, symForValue(g, p.value)), full(g.N, p.colour)),
+  /**
+   * Each cell is independently perfect (right colour and value, probability 1/C · p_v), halfway (one of the two,
+   * 1/C + p_v − 2/C · p_v) or neither: the pair (perfect, halfway) is trinomial over N² cells and the lexicographic
+   * survival follows from its law (tail-toolkit.md §2, lexicographic tuples).
+   */
+  analytic: (p, g) => {
+    const pc = 1 / g.C, pv = valueLaw(g)[p.value] ?? 0;
+    if (!(pv > 0)) return null;
+    const both = pc * pv, half = pc + pv - 2 * both;
+    return exactSurvival("trinomial-cells@1", multinomial(g.N * g.N, [both, half, 1 - both - half], c => [c[0], c[1]]));
+  },
 });
 function greenText(p: GreenP, g: GridSpec) {
   const what = g.cards && p.value === 1 ? "aces" : `${p.value}s`;
