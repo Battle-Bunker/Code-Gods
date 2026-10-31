@@ -93,12 +93,18 @@ Every table has the indexes its queries need. No query does a full scan over gro
 | `credentials` | `tokenHash`, `userId`, `roomId`, `permission` (`read`/`act`/`owner`), `label`, `expiresAt`, `revokedAt` | scoped player-app credentials |
 | `activity` | `lastHumanActivityAt` (singleton) | drives idle parking |
 | `runtimeAssets` | `name`, `sha256`, `storageId` | the CPython WASI bundle in file storage |
+| `calibrationFiles` | `instance`, `rank`, `sha256`, `storageId`, `entry` | one calibration file per instantiation in file storage |
 
-Calibration and synergy tables stay **in the code bundle** (`lib/game-utilities/data`, 4.5 MB of
-JSON). Only the Node tick action and the summon examination load them, and they load only the table
-of the game's instantiation. The default Convex runtime (64 MiB memory) never imports them. File
-storage remains an option if the tables outgrow the bundle (limit: 230 MB of code per deployment,
-[docs.convex.dev/functions/bundling](https://docs.convex.dev/functions/bundling)).
+Calibration tables live in **file storage**, not in any bundle (one JSON file per instantiation, 0.05 to 0.6 MB
+each; dozens of Grid shapes). Git stays the source of truth (`lib/game-utilities/data/calibration/v1/`, built by
+`pnpm --filter @workspace/game-utilities calibrate`); `pnpm --filter @workspace/engine upload-calibration` (a deploy
+step, and part of the local `dev` script) uploads the files whose bytes changed, records each file's manifest entry
+(its instantiation and every table key) in `calibrationFiles`, and removes instances no longer in git. Node actions
+load them lazily through `convex/engine/calibration.ts`: the manifest (what is offered: an instantiation whose every
+dealable draw has a stored table whose key is the current code's) is cached per process for at most a minute, and an
+instantiation's tables are fetched on first use and cached per process by content hash (a few at a time), so a game's
+start and its ticks read storage once per warm process, never per act. The player client gets its own tables from
+the engine (`calibration.node.tables`). Synergy tables stay in the code bundle.
 
 ## 3. Engine loop for Convex's execution model
 

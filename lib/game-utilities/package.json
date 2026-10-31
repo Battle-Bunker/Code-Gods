@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./calibration-data": "./src/calibration-data.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
@@ -12,7 +13,8 @@
     "calibrate": "node --experimental-strip-types scripts/calibrate.ts"
   },
   "devDependencies": {
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "@types/node": "catalog:"
   },
   "dependencies": {
     "@workspace/game-types": "workspace:*"

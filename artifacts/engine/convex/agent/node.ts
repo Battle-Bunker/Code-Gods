@@ -5,11 +5,12 @@
  * evaluator and calibration tables live behind "use node").
  */
 import { ConvexError, v } from "convex/values";
-import type { GameSettings, ObjectValue } from "@workspace/game-core";
+import { instantiationOf, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { runEnvelope } from "../commands";
+import { tablesFor } from "../engine/calibration";
 import { score } from "../engine/node";
 import { bindRuntime } from "../engine/runtime";
 import { fail, messageOf } from "../lib/errors";
@@ -41,9 +42,13 @@ export const evaluate = internalAction({
   handler: async (ctx, { principal, roomId, value }): Promise<Evaluation> => {
     const mine: Awaited<ReturnType<typeof myUtilityFor>> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId });
     if (!mine) return fail("CONFLICT", "You are not seated in a current game");
+    let tables;
+    try { tables = await tablesFor(ctx, instantiationOf(mine.settings as GameSettings)); } catch (error) {
+      return fail("UNAVAILABLE", `The calibration tables could not be loaded: ${messageOf(error).slice(0, 300)}`);
+    }
     let s;
     try {
-      s = score(mine.settings as GameSettings, mine.utility as UtilityDescriptor, value as ObjectValue);
+      s = score(tables, mine.settings as GameSettings, mine.utility as UtilityDescriptor, value as ObjectValue);
     } catch (error) {
       return fail("BAD_REQUEST", `Not a value of this game's object type: ${messageOf(error).slice(0, 300)}`);
     }

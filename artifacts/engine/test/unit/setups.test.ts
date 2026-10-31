@@ -7,7 +7,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
-import { SETTINGS_DOMAIN } from "../../convex/engine/settingsDomain.ts";
+import { shippedManifest } from "@workspace/game-utilities/calibration-data";
+import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
+
+const SETTINGS_DOMAIN = settingsDomain(shippedManifest());
 
 test("every seed setup is valid, offered and canonical for the settings model", () => {
   for (const s of SEED_SETUPS) {

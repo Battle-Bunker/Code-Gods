@@ -16,6 +16,7 @@ export type {
 } from "./annotations.ts";
 export { ANNOTATORS, annotatorFor, type Annotator, type FamilyId } from "./families/annotators.ts";
 export {
-  tableFor, hasTable, surprisal, penaltyMeanBits, offeredInstantiations, shippedPriors, UNIFORM_PRIOR, priorKey, canonicalJson,
-  type CalibrationTable, type PriorRef,
+  tableFor, hasTable, instanceTables, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
+  offeredInstantiations, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
+  type CalibrationFile, type CalibrationManifest, type CalibrationTable, type InstanceTables, type PriorRef,
 } from "./calibration.ts";

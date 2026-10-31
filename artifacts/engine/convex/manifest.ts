@@ -7,38 +7,43 @@ import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
  */
 import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, defaultSettingsFor } from "@workspace/game-core";
 import { OBJECT_TYPES, instanceInfo } from "@workspace/game-types";
-import { offeredInstantiations } from "@workspace/game-utilities";
+import { offeredInstantiations, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
-import { PRIORS } from "./engine/node";
+import { calibrationManifest } from "./engine/calibration";
+import { priorIds } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
 
-let objectTypes: unknown[] | undefined;
-function objectTypesManifest() {
-  return objectTypes ??= OBJECT_TYPES.map(T => ({
+/** Per calibration manifest (file storage's, cached ≤ 1 min by engine/calibration.ts): a new upload is listed. */
+const objectTypes = new WeakMap<CalibrationManifest, unknown[]>();
+function objectTypesManifest(calibration: CalibrationManifest) {
+  let found = objectTypes.get(calibration);
+  if (!found) objectTypes.set(calibration, found = OBJECT_TYPES.map(T => ({
     id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
     classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
-    // The same list the settings model is given on the server (engine/node.ts SETTINGS_DOMAIN).
-    offered: offeredInstantiations(T.id).map(inst => {
+    // The same list the settings model is given on the server (engine/settingsDomain.ts, from the same manifest).
+    offered: offeredInstantiations(calibration, T.id).map(inst => {
       const info = instanceInfo(inst);
       return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes };
     }),
-  }));
+  })));
+  return found;
 }
 
 export const get = action({
   args: {},
   handler: async (ctx) => {
     await bindRuntime(ctx);
+    const calibration = await calibrationManifest(ctx);
     const runtimes = [];
     for (const language of ["python", "typescript"] as const) {
       if (await languageAvailable(defaultSettingsFor("Int", language))) runtimes.push(language);
     }
     return {
       protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, maximumPlayers: 8, defaults: DEFAULT_SETTINGS,
-      runtimes, options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(),
-      priors: Object.keys(PRIORS),
+      runtimes, options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
+      priors: priorIds(calibration),
       aiFunding: {
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),
         configured: mockEnabled() || providerConfigured("anthropic") || providerConfigured("openai"), live: true,

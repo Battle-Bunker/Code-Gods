@@ -1,8 +1,10 @@
 "use node";
 /**
- * Node-only game helpers: the season salt, CSPRNG, scoring with the shipped calibration tables, dealing,
- * kid cards, catalogs, settings validation and spawns. Everything that imports @workspace/game-utilities
- * (4.5 MB of calibration JSON) lives behind "use node"; queries and mutations never load it.
+ * Node-only game helpers: the season salt, CSPRNG, scoring with the calibration tables, dealing, kid cards,
+ * catalogs, settings validation and spawns. Everything that imports @workspace/game-utilities lives behind
+ * "use node"; queries and mutations never load it. The tables themselves are not bundled: callers load them from
+ * file storage (engine/calibration.ts) and pass them in, `InstanceTables` for scoring and dealing, the
+ * `CalibrationManifest` for what is offered.
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
@@ -12,10 +14,11 @@ import {
 import { objectType, type Rng } from "@workspace/game-types";
 import {
   card, context, divineLottery, evaluator, familiesFor, hasTable, offeredInstantiations, penaltyMeanBits, publicCatalog, selector,
-  shippedPriors, surprisal, tableFor, type GodScore, type PriorRef, type UtilityDescriptor,
+  shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type GodScore, type InstanceTables, type PriorRef,
+  type UtilityDescriptor,
 } from "@workspace/game-utilities";
 import { fail } from "../lib/errors";
-import { SETTINGS_DOMAIN } from "./settingsDomain";
+import { settingsDomain } from "./settingsDomain";
 
 // ------------------------------------------------------------------------------------------------
 // season salt
@@ -71,24 +74,33 @@ export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 28147
 // ------------------------------------------------------------------------------------------------
 
 /** The priors a room may measure rarity against: every one with shipped calibration tables (game-utilities). */
-export const PRIORS: Readonly<Record<string, PriorRef>> = Object.freeze(Object.fromEntries(shippedPriors().map(p => [p.id, p])));
+/**
+ * The calibration priors this process knows: uniform, plus every prior a loaded calibration manifest has tables for
+ * (engine/calibration.ts remembers each manifest it reads; a prior's tables live in storage like the uniform ones).
+ */
+const PRIORS = new Map<string, PriorRef>([[UNIFORM_PRIOR.id, UNIFORM_PRIOR]]);
+export function rememberPriors(manifest: CalibrationManifest): void {
+  for (const p of shippedPriors(manifest)) PRIORS.set(p.id, p);
+}
+/** The prior ids a room may choose under `manifest` (uniform first). */
+export const priorIds = (manifest: CalibrationManifest): string[] => shippedPriors(manifest).map(p => p.id);
 export function priorOf(priorId: string): PriorRef {
-  return PRIORS[priorId] ?? fail("BAD_REQUEST", `Unknown prior ${priorId}: choose one of ${Object.keys(PRIORS).join(", ")}`);
+  return PRIORS.get(priorId) ?? fail("BAD_REQUEST", `Unknown prior ${priorId}: choose one of ${[...PRIORS.keys()].join(", ")}`);
 }
 /** Bits are compared and serialised: never let −0 through. */
 const bits = (x: number) => (x === 0 ? 0 : x);
-function table(draw: { familyId: string; params: UtilityDescriptor["params"] }, settings: GameSettings) {
-  const found = tableFor(draw, instantiationOf(settings), priorOf(settings.priorId));
+function table(tables: InstanceTables, draw: { familyId: string; params: UtilityDescriptor["params"] }, settings: GameSettings) {
+  const found = tableFor(tables, draw, instantiationOf(settings), priorOf(settings.priorId));
   if (!found) throw new Error(`No calibration table for ${draw.familyId} in ${instantiationOf(settings).key}`);
   return found;
 }
-/** One god's private score of one value: ordinal, surprisal bits and net bits. */
-export function score(settings: GameSettings, descriptor: UtilityDescriptor, value: ObjectValue): GodScore {
+/** One god's private score of one value: ordinal, surprisal bits and net bits (`tables`: the game's instantiation's). */
+export function score(tables: InstanceTables, settings: GameSettings, descriptor: UtilityDescriptor, value: ObjectValue): GodScore {
   const inst = instantiationOf(settings);
   const ordinal = evaluator(descriptor, inst)(value);
-  const rewardBits = bits(surprisal(table(descriptor, settings), ordinal));
+  const rewardBits = bits(surprisal(table(tables, descriptor, settings), ordinal));
   if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
-  const penaltyTable = table(descriptor.penalty, settings);
+  const penaltyTable = table(tables, descriptor.penalty, settings);
   const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);
   const penaltyBits = bits(softHinge(surprisal(penaltyTable, penaltyOrdinal)));
   return {
@@ -98,9 +110,9 @@ export function score(settings: GameSettings, descriptor: UtilityDescriptor, val
 }
 export type Deal = { godId: string; utility: UtilityDescriptor };
 /** Every roster god's score of a value, in the stored form. */
-export function scoresOf(settings: GameSettings, deities: readonly Deal[], value: ObjectValue) {
+export function scoresOf(tables: InstanceTables, settings: GameSettings, deities: readonly Deal[], value: ObjectValue) {
   return deities.map(d => {
-    const s = score(settings, d.utility, value);
+    const s = score(tables, settings, d.utility, value);
     return {
       god: d.godId, ordinal: s.ordinal as number | number[], rewardBits: s.rewardBits, netBits: s.netBits,
       ...(s.penaltyOrdinal !== undefined ? { penaltyOrdinal: s.penaltyOrdinal as number | number[] } : {}),
@@ -108,11 +120,12 @@ export function scoresOf(settings: GameSettings, deities: readonly Deal[], value
     };
   });
 }
-export function deal(settings: GameSettings, count: number): UtilityDescriptor[] {
+/** Deal `count` utility functions, only draws with a fresh table in `tables` (the game's instantiation's). */
+export function deal(tables: InstanceTables, settings: GameSettings, count: number): UtilityDescriptor[] {
   validateSettings(settings);
-  const inst = instantiationOf(settings);
+  const inst = instantiationOf(settings), prior = priorOf(settings.priorId);
   return selector(settings.utilitySelectorId ?? divineLottery.id).select(inst, count, cryptoRng, {
-    defenceGoals: settings.defenceGoals, hasTable: draw => hasTable(draw, inst, priorOf(settings.priorId)),
+    defenceGoals: settings.defenceGoals, hasTable: draw => hasTable(tables, draw, inst, prior),
     exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
   });
 }
@@ -140,16 +153,19 @@ export function catalogFor(settings: GameSettings) {
 // settings
 // ------------------------------------------------------------------------------------------------
 
-const isOffered = (settings: GameSettings) => {
+const isOffered = (manifest: CalibrationManifest, settings: GameSettings) => {
   const inst = instantiationOf(settings);
   const excludedFamilies = [...settings.excludedFamilies, ...settings.excludedDefenceFamilies];
-  return offeredInstantiations(settings.objectType, { excludedFamilies, prior: priorOf(settings.priorId) })
+  return offeredInstantiations(manifest, settings.objectType, { excludedFamilies, prior: priorOf(settings.priorId) })
     .some(offered => offered.key === inst.key);
 };
-/** Settings name an instantiation the engine offers (every dealable family calibrated) and known families. */
-export function assertOffered(settings: GameSettings) {
+/**
+ * Settings name an instantiation the engine offers (every dealable family has a fresh table in `manifest`, what file
+ * storage holds: engine/calibration.ts calibrationManifest) and known families.
+ */
+export function assertOffered(manifest: CalibrationManifest, settings: GameSettings) {
   priorOf(settings.priorId);
-  if (!isOffered(settings)) fail("BAD_REQUEST", `${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
+  if (!isOffered(manifest, settings)) fail("BAD_REQUEST", `${instantiationOf(settings).key} is not offered: choose one of the listed ${settings.objectType} settings`);
   for (const [ids, role, words] of [[settings.excludedFamilies, "reward", "reward"], [settings.excludedDefenceFamilies, "penalty", "defence"]] as const) {
     const known = new Set(familiesFor(settings.objectType, role).map(f => f.id));
     const unknown = ids.filter(id => !known.has(id));
@@ -157,21 +173,21 @@ export function assertOffered(settings: GameSettings) {
   }
 }
 /** Settings a game can be played with: valid, offered, and within the server's resource limits. Throws BAD_REQUEST. */
-export function assertPlayable(settings: GameSettings): void {
-  try { validateSettings(settings, SETTINGS_DOMAIN); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
-  assertOffered(settings);
+export function assertPlayable(manifest: CalibrationManifest, settings: GameSettings): void {
+  try { validateSettings(settings, settingsDomain(manifest)); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
+  assertOffered(manifest, settings);
   if (settings.startingObjectCount > 1000 || settings.interactionRateHz > 1000 || settings.spawnRateHz > 10 ||
       settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) fail("BAD_REQUEST", "Settings exceed server resource limits");
 }
 
 /** A complete settings object (a game setup): exactly the GameSettings fields, playable. */
-export function assertCompleteSettings(settings: unknown): GameSettings {
+export function assertCompleteSettings(manifest: CalibrationManifest, settings: unknown): GameSettings {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) return fail("BAD_REQUEST", "settings must be a settings object");
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
   const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
   if (missing.length) fail("BAD_REQUEST", `A setup has every setting; missing: ${missing.join(", ")}`);
-  assertPlayable(settings as GameSettings);
+  assertPlayable(manifest, settings as GameSettings);
   return settings as GameSettings;
 }
 
@@ -179,15 +195,16 @@ export function assertCompleteSettings(settings: unknown): GameSettings {
  * The next game's settings from an owner request: a setup's complete settings, or a change to the room's settings
  * applied through the settings model (only the game's own dependencies move; nothing is retuned).
  */
-export function nextSettings(previous: GameSettings, input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
+export function nextSettings(manifest: CalibrationManifest, previous: GameSettings,
+  input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
   let settings: GameSettings;
-  if (input.setup) return assertCompleteSettings(input.setup);   // stored setups are re-checked whole: a field added since fails loudly
+  if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly
   else if (input.settings) {
-    try { settings = applySettingsChange(previous, input.settings as Partial<GameSettings>, SETTINGS_DOMAIN); } catch (error) {
+    try { settings = applySettingsChange(previous, input.settings as Partial<GameSettings>, settingsDomain(manifest)); } catch (error) {
       return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);
     }
   } else return fail("BAD_REQUEST", "Settings or a setup are required");
-  assertPlayable(settings);
+  assertPlayable(manifest, settings);
   return settings;
 }
 

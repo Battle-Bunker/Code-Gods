@@ -1,13 +1,13 @@
 /**
  * Your own utility function, evaluated in the browser: the same TypeScript kid card the engine runs
- * and the same shipped calibration tables, so a local score of a value equals the engine's score of
+ * and the same calibration tables (served by the engine), so a local score of a value equals the engine's score of
  * that value for you. Use it for "what if": score a hypothetical value, or apply mutator calls to a
  * live object and see the change before an agent ever tries it.
  *
  * It knows only YOUR descriptor (from the server's own-utility query). Opponents' utility functions
  * are never available to a client, so peer aggregates of hypothetical values cannot be computed here.
  *
- * The calibration tables are large, so the scoring libraries load lazily, on first use.
+ * The scoring libraries load lazily, on first use; the tables come from the engine, once per game.
  */
 import type { GameSettings, ObjectValue } from "@workspace/game-core";
 import type { CalibrationTable, UtilityDescriptor } from "@workspace/game-utilities";
@@ -28,7 +28,7 @@ const bits = (x: number) => (x === 0 ? 0 : x);
 
 /**
  * Build an evaluator for a game's settings and your descriptor (loads the scoring libraries once). The
- * calibration tables come from the transport: the shipped data in the player client, or, in a stored panel's
+ * calibration tables come from the transport: the engine (calibration.node.tables) in the player client, or, in a stored panel's
  * sandboxed frame, from the host over the bridge, once per game.
  */
 export async function createEvaluator(settings: GameSettings, descriptor: UtilityDescriptor): Promise<Evaluator> {

@@ -9,13 +9,14 @@
  * endGame, addAi, removeAi (browser owner, or an `owner` credential of the room's current owner).
  */
 import { v } from "convex/values";
-import { lifetimeSeconds, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { instantiationOf, lifetimeSeconds, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
+import { calibrationManifest, tablesFor } from "./engine/calibration";
 import { assertOffered, catalogFor, deal, nextSettings, openUniform, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
-import { SETTINGS_DOMAIN } from "./engine/settingsDomain";
+import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
 import type { RoomSetupChange } from "./setups";
@@ -47,13 +48,13 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
     });
   if (args.setupId) {
     const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId });
-    return commit(nextSettings(previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
+    return commit(nextSettings(await calibrationManifest(ctx), previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
   }
   if (args.settings) {
     // The owner's own setup is changed as it is now (it may have been saved since the room took its snapshot).
     const owned: { settings: GameSettings; updatedAt: number } | null =
       await ctx.runQuery(internal.setups.ownedBase, { setupId: context.room.setupId, ownerId: context.ownerId });
-    return commit(nextSettings(owned?.settings ?? previous, { settings: args.settings }), { kind: "edit", ...(owned ? { baseUpdatedAt: owned.updatedAt } : {}) });
+    return commit(nextSettings(await calibrationManifest(ctx), owned?.settings ?? previous, { settings: args.settings }), { kind: "edit", ...(owned ? { baseUpdatedAt: owned.updatedAt } : {}) });
   }
   return commit(previous);
 }
@@ -95,10 +96,12 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   }
   if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
   const settings = room.settings as GameSettings;
-  try { validateSettings(settings, SETTINGS_DOMAIN); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
-  assertOffered(settings);
+  const manifest = await calibrationManifest(ctx);
+  try { validateSettings(settings, settingsDomain(manifest)); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
+  assertOffered(manifest, settings);
   if (!await languageAvailable(settings)) fail("UNAVAILABLE", "The selected isolated runtime is unavailable");
-  const dealt = deal(settings, members.length);
+  const tables = await tablesFor(ctx, instantiationOf(settings));   // once per game start (a process cache hit after the first)
+  const dealt = deal(tables, settings, members.length);
   const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
   const occupied = new Set<ObjectValue>();
   const objects = [];
@@ -106,7 +109,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     const value = uniqueSpawn(settings, occupied);
     if (value === undefined) break; // only a nearly full tiny domain gets here
     occupied.add(value);
-    const scores = scoresOf(settings, deals, value);
+    const scores = scoresOf(tables, settings, deals, value);
     objects.push({ value: value as number | string, scores, salience: salienceOf(scores) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
