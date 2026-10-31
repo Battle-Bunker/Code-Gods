@@ -15,7 +15,7 @@ import { instantiateKey } from "../src/calibration.ts";
 import { shippedFile, shippedInstanceKeys } from "../src/calibration-data.ts";
 import { ANALYTIC_FAMILIES, analyticLevels } from "../src/analytic/index.ts";
 import { compareTable } from "../src/analytic/compare.ts";
-import { cellAdditive } from "../src/analytic/grid.ts";
+import { NoSolution, cellAdditive } from "../src/analytic/grid.ts";
 import { add, levels, type Dist } from "../src/analytic/kit.ts";
 
 function exhaustiveLevels(familyId: string, params: object, inst: ReturnType<typeof instantiateKey>, values: Iterable<unknown>) {
@@ -55,7 +55,7 @@ test("string solutions equal exhaustive enumeration over every string of length 
 
 test("cellAdditive refuses a rule that is not a sum over cells", () => {
   const inst = instantiateKey("Grid(4,base10,rgb)");
-  assert.throws(() => cellAdditive("snap", {}, inst), /not cell-additive/);
+  assert.throws(() => cellAdditive("snap", {}, inst), (e: unknown) => e instanceof NoSolution && /not cell-additive/.test(String(e)));
 });
 
 test("every analytic solution agrees with every shipped table (Monte Carlo body within 5.5 se; exact tables exactly)", () => {

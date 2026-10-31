@@ -129,11 +129,26 @@ export function longestRun(n: number, q: number): Dist {
   return map(d, ([best]) => [best]);
 }
 
+/** Law of the number of distinct keys among n iid uniform keys out of K (occupancy): stays w.p. d/K, grows w.p. (K−d)/K. */
+export function occupancy(n: number, K: number): Dist {
+  let d: Dist = point([0]);
+  for (let i = 0; i < n; i++) {
+    const nd: Dist = new Map();
+    for (const e of d.values()) {
+      const k = e.v[0];
+      add(nd, [k], e.p * k / K);
+      add(nd, [k + 1], e.p * (K - k) / K);
+    }
+    d = nd;
+  }
+  return d;
+}
+
 /**
- * Law of the largest cell count when n balls fall iid into k equally likely boxes (the "takeover" maximum), as a
- * Dist over [max]. Exact: P(max ≤ m) = n!/k^n · [x^n] (Σ_{j≤m} x^j/j!)^k, evaluated in log-free floating point
- * with positive terms only, then differenced from the top as P(max ≥ m) = 1 − P(max ≤ m−1) computed directly as
- * the mass of occupancy vectors with some box ≥ m via the complementary DP over boxes.
+ * Law of the largest box count when n balls fall iid into k equally likely boxes (the "takeover" maximum, and the
+ * largest multiplicity among n iid uniform keys), as a Dist over [max]. Exact: a DP over boxes with state (balls used,
+ * max so far) and weight Π 1/c_i!, multiplied by n!/k^n at the end (the multinomial), positive terms only.
+ * Equivalently P(max ≤ m) = n!/k^n · [x^n] (Σ_{j≤m} x^j/j!)^k.
  */
 export function maxOccupancy(n: number, k: number): Dist {
   // DP over boxes: state (balls used so far, max so far), weight Π 1/c_i! ; multiply by n!/k^n at the end.

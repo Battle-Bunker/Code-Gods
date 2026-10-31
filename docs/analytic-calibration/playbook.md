@@ -103,7 +103,7 @@ vector (`mirrormancer`: [mirrors, pairs]; `colour_carousel`: [lap, moves, fine])
 - Max occupancy of n balls in K equal boxes (`maxOccupancy`): DP over boxes with weights Π 1/c_i!, times n!/K^n.
   P(max ≤ m) = n!/K^n · [x^n] (Σ_{j ≤ m} x^j/j!)^K. Distinct values (occupancy): a chain where the count stays w.p.
   d/K and grows w.p. (K − d)/K. Pairs Σ C(n_v, 2): the same box DP carrying the pair count.
-- Largest multiplicity among b iid keys (`maxMultiplicity` in grid.ts): enumerate K^b for b ≤ 4.
+- Largest multiplicity among b iid keys: the same law as max occupancy (`maxOccupancy(b, K)`).
 - Longest run of successes in n iid Bernoulli(q) (`longestRun`): chain over (run, best).
 - Truncated geometric: a column's bottom run of one colour has P(h ≥ k) = C^−k (`gravity`, `connect_four`).
 

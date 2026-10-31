@@ -47,13 +47,13 @@ export interface Comparison {
 /** Compare at every level of the table (the analytic side is evaluated at the same ordinals). */
 export function compareTable(table: CalibrationTable, analytic: Levels): Comparison {
   let maxAbsDelta = 0, maxZ = 0, bodyZ = 0, tailDelta = 0, worst: Comparison["worst"] = { ordinal: null, table: 0, analytic: 0, z: 0 };
+  // se floor: exact tables 1e-6 (rounding); estimates 1e-3 bits (the clean-up's MIN_STEP_BITS increments and p ≈ 1).
+  const exact = typeof table.estimator.budget === "string", body = bodyBits(table);
   for (const [o, bits] of table.levels) {
     const a = -log2SurvivalAt(analytic, o);
-    // Floor: exact tables 1e-6 (rounding); estimates 1e-3 bits (the clean-up's MIN_STEP_BITS increments and p ≈ 1).
-    const exact = typeof table.estimator.budget === "string";
     const d = bits - a, se = Math.max(levelSe(table, bits), exact ? 1e-6 : 1e-3), z = d / se;
     maxAbsDelta = Math.max(maxAbsDelta, Math.abs(d));
-    if (bits <= bodyBits(table)) bodyZ = Math.max(bodyZ, Math.abs(z)); else tailDelta = Math.max(tailDelta, Math.abs(d));
+    if (bits <= body) bodyZ = Math.max(bodyZ, Math.abs(z)); else tailDelta = Math.max(tailDelta, Math.abs(d));
     if (Math.abs(z) >= Math.abs(worst.z)) worst = { ordinal: o, table: bits, analytic: a, z };
     maxZ = Math.max(maxZ, Math.abs(z));
   }

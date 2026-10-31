@@ -11,9 +11,12 @@ import { evaluator } from "../catalog.ts";
 import { gridSpec, type GridSpec } from "../families/grid/_util.ts";
 import type { FamilyContext, Ordinal, Params } from "../types.ts";
 import {
-  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, point, power, sum, sumAll, uniform,
+  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, occupancy, point, power, sum, sumAll, uniform,
   type Dist, type Levels, type Vec,
 } from "./kit.ts";
+
+/** Thrown by a solver when this draw has no exact solution here (the caller falls back to the estimator). */
+export class NoSolution extends Error {}
 
 // ------------------------------------------------------------------------------------------------
 // letters
@@ -27,33 +30,6 @@ const valueLaw = (g: GridSpec): Dist => uniform(g.value.map(v => [v]));
 const matchProb = (g: GridSpec, layer: string): number => (layer === "colour" ? 1 / g.C : 1 / new Set(g.value).size);
 /** Number of distinct equally likely keys on a layer. */
 const keyCount = (g: GridSpec, layer: string): number => (layer === "colour" ? g.C : new Set(g.value).size);
-
-/** Law of the largest multiplicity among b iid uniform keys out of K (enumerates K^b; b ≤ 4 here). */
-function maxMultiplicity(b: number, K: number): Dist {
-  const out: Dist = new Map(), w = K ** -b, cnt = new Array<number>(K).fill(0);
-  const rec = (i: number, mx: number) => {
-    if (i === b) { add(out, [mx], w); return; }
-    for (let k = 0; k < K; k++) { cnt[k]++; rec(i + 1, Math.max(mx, cnt[k])); cnt[k]--; }
-  };
-  rec(0, 0);
-  return out;
-}
-
-/** Law of the number of distinct keys among n iid uniform keys out of K (occupancy). */
-function occupancy(n: number, K: number): Dist {
-  // P(d distinct after one more draw): stays d w.p. d/K, grows w.p. (K−d)/K.
-  let d: Dist = point([0]);
-  for (let i = 0; i < n; i++) {
-    const nd: Dist = new Map();
-    for (const e of d.values()) {
-      const k = e.v[0];
-      add(nd, [k], e.p * k / K);
-      add(nd, [k + 1], e.p * (K - k) / K);
-    }
-    d = nd;
-  }
-  return d;
-}
 
 // ------------------------------------------------------------------------------------------------
 // evaluator-derived: cell-additive rules
@@ -94,7 +70,7 @@ export function cellAdditive(familyId: string, params: Params, inst: Instantiati
       h[i][v.sym[i] * g.C + v.col[i]].forEach((x, k) => { pred[k] += x; });
     }
     const got = score(v);
-    if (got.some((x, k) => x !== pred[k])) throw new Error(`${familyId} is not cell-additive`);
+    if (got.some((x, k) => x !== pred[k])) throw new NoSolution(`${familyId} is not cell-additive`);
   }
   const pieces = h.map(row => uniform(row));
   return sumAll(pieces.concat([point(u0)]), u0.map(() => 0));
@@ -121,14 +97,14 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   /** Each row: matches ~ Binomial(⌊N/2⌋, q); (mirrors, pairs) summed over iid rows. */
   mirrormancer: (p, g) => wholeAndParts(binomial(Math.floor(g.N / 2), matchProb(g, p.layer)), Math.floor(g.N / 2), g.N),
   /** ⌊N²/4⌋ disjoint quarter-turn orbits of 4 iid keys (colour; symbol, or suit for cards): (full, most) = Σ ([max mult = 4], max mult). */
-  pinwheel: (p, g) => power(map(maxMultiplicity(4, p.attr === "colour" ? g.C : g.cards ? 4 : g.S), ([m]) => [m === 4 ? 1 : 0, m]), Math.floor(g.N * g.N / 4)),
+  pinwheel: (p, g) => power(map(maxOccupancy(4, p.attr === "colour" ? g.C : g.cards ? 4 : g.S), ([m]) => [m === 4 ? 1 : 0, m]), Math.floor(g.N * g.N / 4)),
   /** Next colour is cyclic, so each step indicator is Bernoulli(1/C), independent along and across rows. */
   rainbow_steps: (_p, g) => binomial(g.N * (g.N - 1), 1 / g.C),
   rainbow_road: (_p, g) => wholeAndParts(binomial(g.N - 1, 1 / g.C), g.N - 1, g.N),
   /** Column c's bottom run h_c is truncated geometric: P(h ≥ k) = C^−k; columns independent. */
   gravity: (_p, g) => power(bottomRun(g), g.N),
   /** Corner colours and corner values are independent: product of two max-multiplicity laws. */
-  hate_same_corners: (_p, g) => combine(maxMultiplicity(4, g.C), maxMultiplicity(4, keyCount(g, "symbol")), ([a], [b]) => [a, b]),
+  hate_same_corners: (_p, g) => combine(maxOccupancy(4, g.C), maxOccupancy(4, keyCount(g, "symbol")), ([a], [b]) => [a, b]),
   /** One row: DP over (seen-colour mask, last colour, repeats). */
   hate_repeat_row: (_p, g) => {
     let d: Dist = point([0, 0, -1]); // [mask, repeats, last]
@@ -188,7 +164,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
       return n;
     };
     // state: [fours, counters, h_{c-2}, h_{c-1}, h_c]
-    let d = map(power(map(H, ([h]) => [h]), 1), ([h]) => [Math.max(0, h - 3), h, -1, -1, h]);
+    let d = map(H, ([h]) => [Math.max(0, h - 3), h, -1, -1, h]);
     d = combine(d, H, ([f, s, , b, c], [h]) => [f + Math.max(0, h - 3), s + h, b, c, h]);
     d = combine(d, H, ([f, s, , b, c], [h]) => [f + Math.max(0, h - 3), s + h, b, c, h]);
     for (let col = 3; col < N; col++) {
@@ -327,8 +303,6 @@ export const CELL_ADDITIVE: readonly string[] = [
   "lucky_token", "seed3_green_ones", "hate_colour", "hate_value",
 ];
 
-export class NoSolution extends Error {}
-
 function popcount(x: number): number { let n = 0; while (x) { n += x & 1; x >>>= 1; } return n; }
 
 /** Law of a column's bottom run of colour 0: P(h = k) = C^−k (1 − 1/C) for k < N, P(h = N) = C^−N. */
@@ -400,13 +374,18 @@ function bingo(g: GridSpec, q: number): Dist {
  * marginal of each line, wrong only through the shared cells. Used to measure how far this nearest approximation is.
  */
 const lineApprox = (solver: Solver, rowParams: (p: any) => any): Solver => (p, g) => {
-  const rowsOnly = solver(rowParams(p), g); // law of the sum over N independent rows
+  const q = rowParams(p);
+  if (JSON.stringify(q) === JSON.stringify(p)) throw new NoSolution("already the exact rows variant");
+  const rowsOnly = solver(q, g); // law of the sum over N independent rows
   return sum(rowsOnly, rowsOnly); // columns: the same law, assumed independent of the rows
 };
 const APPROX: Readonly<Record<string, Solver>> = {
   magic_accountant: lineApprox(SOLVERS.magic_accountant, p => ({ ...p, axis: "rows" })),
   seesaw: lineApprox(SOLVERS.seesaw, p => ({ ...p, scope: "rows" })),
-  sudoku_scholar: lineApprox(SOLVERS.sudoku_scholar, p => ({ ...p, dir: "rows" })),
+  sudoku_scholar: (p, g) => {
+    if (g.N <= 4) throw new NoSolution("N ≤ 4 is a different, all-or-nothing rule");
+    return lineApprox(SOLVERS.sudoku_scholar, q => ({ ...q, dir: "rows" }))(p, g);
+  },
   round_numbers: lineApprox(SOLVERS.round_numbers, p => ({ ...p, axis: "rows" })),
   divisibility_detective: lineApprox(SOLVERS.divisibility_detective, p => ({ ...p, scope: "rows" })),
   /** Knight-move twins: Binomial(#knight edges, p) as if the knight graph were a forest (it has cycles). */
@@ -416,8 +395,13 @@ const APPROX: Readonly<Record<string, Solver>> = {
 /** Approximate levels for the "both"-axis variants and rare-pattern families (null when none). Not exact. */
 export function gridApproxLevels(familyId: string, params: Params, inst: Instantiation): Levels | null {
   const a = APPROX[familyId];
-  if (!a || gridLevels(familyId, params, inst)) return null;
-  return levels(a(params, gridSpec({ inst } as FamilyContext)));
+  if (!a) return null;
+  try {
+    return levels(a(params, gridSpec({ inst } as FamilyContext)));
+  } catch (e) {
+    if (e instanceof NoSolution) return null;
+    throw e;
+  }
 }
 
 /** Exact levels for a Grid draw, or null when this module has no solution for it. */

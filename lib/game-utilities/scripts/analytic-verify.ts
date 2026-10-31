@@ -1,9 +1,9 @@
 /**
  * Verify every analytic solution (src/analytic) against empirical calibration tables.
  *
- *   node --experimental-strip-types scripts/analytic-verify.ts [table dir …] [--family id] [--md]
+ *   node --experimental-strip-types scripts/analytic-verify.ts [table dir …] [--family id,…] [--md] [--verbose] [--approx]
  *
- * --approx compares the documented approximations (src/analytic/grid.ts APPROX) instead of the exact solutions.
+ * --verbose prints every table; --approx compares the documented approximations (src/analytic/grid.ts APPROX) instead of the exact solutions.
  * Default dir: data/calibration/v1. Prints one line per (family, canonical params, instance) and a per-family
  * summary (shapes, levels, max |Δbits|, max z); --md prints the summary as the Markdown table the docs use.
  */
@@ -16,7 +16,9 @@ import { compareTable } from "../src/analytic/compare.ts";
 
 const args = process.argv.slice(2);
 const md = args.includes("--md"), verbose = args.includes("--verbose"), approx = args.includes("--approx");
-const fi = args.indexOf("--family"), only = fi >= 0 ? args[fi + 1].split(",") : null;
+const fi = args.indexOf("--family");
+if (fi >= 0 && !args[fi + 1]) throw new Error("--family needs a comma-separated list of family ids");
+const only = fi >= 0 ? args[fi + 1].split(",") : null;
 const dirs = args.filter((a, i) => !a.startsWith("--") && (fi < 0 || i !== fi + 1));
 if (!dirs.length) dirs.push(new URL("../data/calibration/v1", import.meta.url).pathname);
 
