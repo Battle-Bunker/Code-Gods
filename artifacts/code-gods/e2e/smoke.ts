@@ -228,6 +228,17 @@ try {
       await a.getByTestId("button-exact-planningSeconds").click();
       await a.getByTestId("input-planningSeconds").fill("1");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
+      // Setups outlive a run on the same deployment: delete the ones earlier runs saved, or the room's settings would
+      // equal one of them and be named instead of "Custom".
+      await a.getByTestId("block-save-as-setup").locator("summary").click();
+      for (;;) {
+        const stale = a.getByTestId("list-your-setups").locator('[data-testid^="row-setup-"]').filter({ hasText: /E2E quick ints/ }).first();
+        if (!(await stale.count())) break;
+        const remove = stale.locator('[data-testid^="button-delete-setup-"]');
+        await remove.click(); await remove.click();   // arm, then delete
+        await stale.waitFor({ state: "detached", timeout: 15_000 });
+      }
+      await a.getByTestId("block-save-as-setup").locator("summary").click();
       assert.equal(await a.getByTestId("text-summary-setup").innerText(), "Custom");
       // Save as a setup: it changes no room and is listed under Your setups.
       await a.getByTestId("block-save-as-setup").locator("summary").click();
