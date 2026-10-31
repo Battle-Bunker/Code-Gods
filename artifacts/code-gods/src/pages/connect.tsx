@@ -6,13 +6,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { api, useLive } from "@/lib/convex";
 import { connectBlocker, permissionChoices, type Permission } from "@/lib/device-approval";
 import { errMsg } from "@/lib/errors";
+import { completionSecret } from "@/lib/connect-completion";
 
 /**
  * MCP connection approval (OAuth from Claude or another MCP client: GET /oauth/authorize sends the browser
  * here with `?request=…`). Like /device, the human reviews who asks (a self-reported name), where the
  * browser will return (the redirect host), picks ONE of their rooms and a permission no stronger than the
  * client asked for; an owner grant needs the room's owner and explicit consent. After deciding, the
- * browser goes to /oauth/authorize/complete, which returns it to the client.
+ * browser goes to /oauth/authorize/complete with a one-time completion secret generated here (so only this browser
+ * can collect the code), which returns it to the client.
  */
 export default function Connect() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -37,12 +39,14 @@ export default function Connect() {
   const room = d?.rooms.find(r => r.roomId === roomId);
   const chosen = permission ?? d?.permission ?? "read";
   const blocker = d ? connectBlocker({ status: d.status, expiresAt: d.expiresAt, now, roomId, permission: chosen, isRoomOwner: !!room?.isOwner, ownerConsent }) : null;
-  const finish = () => window.location.assign(`/oauth/authorize/complete?request=${encodeURIComponent(request)}`);
+  // The code is released only with this one-time secret, so only this browser can collect it (agent/connect.ts).
+  const [completion] = useState(() => completionSecret((() => { try { return window.sessionStorage; } catch { return null; } })(), request));
+  const finish = () => window.location.assign(`/oauth/authorize/complete?request=${encodeURIComponent(request)}&completion=${encodeURIComponent(completion)}`);
   const decide = (action: "approve" | "deny") => {
     if (!d || pending || (action === "approve" && blocker)) return;
     setPending(true); setError(null);
     const call = action === "approve"
-      ? approve({ request, roomId, permission: chosen, ...(chosen === "owner" ? { ownerConsent: true } : {}) })
+      ? approve({ request, roomId, permission: chosen, completion, ...(chosen === "owner" ? { ownerConsent: true } : {}) })
       : deny({ request });
     call.then(finish, e => { setError(e); setPending(false); });
   };

@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { credentialKind, credentialProblem } from "../../convex/auth/principal.ts";
 import {
-  CLAUDE_CALLBACKS, bearerFrom, cimdUrlProblem, isAllowedOrigin, parseScope, redirectAllowedForRegistration, redirectMatches,
+  CLAUDE_CALLBACKS, bearerFrom, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
 } from "../../convex/agent/rules.ts";
 import { bound } from "../../convex/agent/bound.ts";
 
@@ -94,4 +94,8 @@ test("bound: small results pass through; oversized arrays are trimmed and marked
   assert.ok(JSON.stringify(out.value).length <= 20_000);
   assert.equal((out.value as typeof big).keep, "yes");
   assert.ok((out.value as typeof big).items.length > 10 && (out.value as typeof big).items[0].i === 0, "keeps the head of the list");
+});
+
+test("receipt polling backs off: 250 ms doubling to a 2 s ceiling", () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 10].map(pollDelay), [250, 500, 1000, 2000, 2000, 2000]);
 });

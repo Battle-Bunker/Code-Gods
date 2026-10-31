@@ -90,7 +90,7 @@ export function requireReaderAs(viewer: Viewer, room: Doc<"rooms">): Viewer {
 export type Principal = { credentialId: string };
 export const principalV = v.object({ credentialId: v.string() });
 /** The caller's viewer: from a principal when given (internal twins), else from ctx.auth. */
-export async function viewerOf(ctx: Ctx, principal: Principal | undefined): Promise<Viewer> {
+export async function viewerOf(ctx: Ctx, principal?: Principal): Promise<Viewer> {
   return principal ? requireViewerFor(ctx, principal) : requireViewer(ctx);
 }
 

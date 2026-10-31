@@ -37,5 +37,5 @@ export const authTables = {
     createdAt: v.number(), expiresAt: v.number(), revokedAt: v.optional(v.number()), lastUsedAt: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("device"), v.literal("oauth"), v.literal("assistant"))),
     clientId: v.optional(v.string()), refreshHash: v.optional(v.string()), refreshExpiresAt: v.optional(v.number()),
-  }).index("by_token", ["tokenHash"]).index("by_subject", ["subject"]).index("by_refresh", ["refreshHash"]),
+  }).index("by_token", ["tokenHash"]).index("by_subject", ["subject"]).index("by_refresh", ["refreshHash"]).index("by_client", ["clientId"]),
 };

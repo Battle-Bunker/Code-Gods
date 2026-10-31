@@ -97,3 +97,9 @@ export function bearerFrom(headers: Headers): { kind: "credential" | "jwt"; valu
 
 /** Comma/space separated env list. */
 export const envList = (value: string | undefined) => (value ?? "").split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+
+/**
+ * How long a summon/validate call waits before checking its receipt again: 250 ms, doubling to at most 2 s, so a
+ * quick command answers fast and a slow one costs about one check (two function calls) per 2 s instead of four.
+ */
+export const pollDelay = (attempt: number): number => Math.min(2000, 250 * 2 ** Math.max(0, attempt));

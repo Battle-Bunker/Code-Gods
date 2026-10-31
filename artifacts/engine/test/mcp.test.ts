@@ -173,6 +173,25 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.equal((await modern(old.token, "tools/list")).status, 401);
 });
 
+test("get_chat pages through messages that share one timestamp without skipping or repeating any", async () => {
+  const { ada, roomId } = await lobby();
+  const { token } = await credential(ada, roomId, "read");
+  const texts = Array.from({ length: 7 }, (_, i) => `same-ms ${i}`);
+  // Older than anything the lobby posted: these seven are the last pages.
+  await admin.mutation(internal.testing.seedChat, { roomId, authorId: ada.subject, texts, timestamp: 1000 });
+  const seen: string[] = [];
+  let cursor: unknown;
+  for (let pages = 0; pages < 20; pages++) {
+    const page = await call(token, "get_chat", { limit: 3, ...(cursor !== undefined ? { cursor } : {}) });
+    assert.ok(!page.error, JSON.stringify(page.error));
+    seen.push(...page.data.messages.map((m: any) => m.text));
+    if (page.nextCursor === null) break;
+    cursor = page.nextCursor;
+  }
+  const mine = seen.filter(t => t.startsWith("same-ms "));
+  assert.deepEqual([...mine].sort(), texts, `each seeded message exactly once: ${JSON.stringify(mine)}`);
+});
+
 test("commands: summon is idempotent per commandId, a changed payload is a CONFLICT, pending completes through get_receipt", { timeout: 180000 }, async () => {
   const { host, ada, roomId } = await lobby();
   const owner = await credential(host, roomId, "owner");
@@ -284,8 +303,10 @@ async function connect(human: God, roomId: string, scope: string, redirect = "ht
   assert.equal(pending.clientName, "Test Connector");
   assert.equal(pending.redirectHost, "127.0.0.1");
   assert.ok(pending.rooms.some((r: any) => r.roomId === roomId));
-  await human.c.mutation(api.agent.connect.approve, { request, roomId, permission: pending.permission, ...(pending.permission === "owner" ? { ownerConsent: true } : {}) });
-  const complete = await fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}`, { redirect: "manual" });
+  // The /connect page generates the completion secret in the approving browser and passes it to /complete.
+  const completion = randomBytes(32).toString("base64url");
+  await human.c.mutation(api.agent.connect.approve, { request, roomId, permission: pending.permission, completion, ...(pending.permission === "owner" ? { ownerConsent: true } : {}) });
+  const complete = await fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}&completion=${encodeURIComponent(completion)}`, { redirect: "manual" });
   assert.equal(complete.status, 302);
   const back = new URL(complete.headers.get("location")!);
   assert.equal(back.origin + back.pathname, "http://127.0.0.1:51515/callback", "loopback redirect with the requested port");
@@ -367,6 +388,41 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   assert.ok((await listTools(ownerScope.tokens.access_token)).includes("start_game"));
 });
 
+test("OAuth: the code goes only to the browser that approved; whoever else holds the request key gets none", async () => {
+  const { ada, roomId } = await lobby();
+  // The attacker registers a client, starts an authorization with their own PKCE and reads the request key.
+  const redirect = "http://127.0.0.1:47001/cb";
+  const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Innocent Looking", redirect_uris: [redirect] }) })).json() as any;
+  const { verifier, challenge } = pkce();
+  const url = new URL(`${SITE}/oauth/authorize`);
+  for (const [k, v] of Object.entries({ response_type: "code", client_id: reg.client_id, redirect_uri: redirect, code_challenge: challenge,
+    code_challenge_method: "S256", scope: "act", resource: MCP })) url.searchParams.set(k, v);
+  const requestKey = async () => new URL((await fetch(url, { redirect: "manual" })).headers.get("location")!).searchParams.get("request")!;
+  const request = await requestKey();
+  const completeAs = (completion?: string) =>
+    fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(request)}${completion ? `&completion=${encodeURIComponent(completion)}` : ""}`, { redirect: "manual" });
+  const codeOf = (response: Response) => { const location = response.headers.get("location"); return location ? new URL(location).searchParams.get("code") : null; };
+  // Before the decision, polling only bounces back to /connect.
+  assert.equal(codeOf(await completeAs()), null);
+  // The victim approves on /connect; their browser holds the completion secret.
+  const completion = randomBytes(32).toString("base64url");
+  await ada.c.mutation(api.agent.connect.approve, { request, roomId, permission: "act", completion });
+  // The attacker polls /complete without cookies: no secret, or a guessed one, never yields a code.
+  for (const guess of [undefined, randomBytes(32).toString("base64url"), "x".repeat(43)]) {
+    const response = await completeAs(guess);
+    assert.equal(codeOf(response), null, `no code without the approver's secret (${guess ?? "none"})`);
+  }
+  // Approval refuses a completion secret too short to be one.
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: await requestKey(), roomId, permission: "act", completion: "short" }));
+  // The approving browser still completes (the refused attempts consumed nothing), once, and the code redeems.
+  const code = codeOf(await completeAs(completion));
+  assert.ok(code, "the approving browser gets the code");
+  assert.equal(codeOf(await completeAs(completion)), null, "the code is released once");
+  const token = await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "authorization_code", code: code!, code_verifier: verifier, client_id: reg.client_id, redirect_uri: redirect }));
+  assert.equal(token.status, 200, await token.clone().text());
+});
+
 test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PKCE and a foreign resource", async () => {
   const { ada, roomId } = await lobby();
   const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
@@ -400,5 +456,48 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
   assert.equal(new URL(denied.headers.get("location")!).searchParams.get("error"), "access_denied");
   // Approval may lower the requested permission, never raise it.
   const again = new URL((await go({ scope: "read" })).headers.get("location")!).searchParams.get("request")!;
-  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: again, roomId, permission: "act" }), /lower/);
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: again, roomId, permission: "act", completion: "c".repeat(43) }), /lower/);
+});
+
+test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used clients and old retired refresh tokens", { timeout: 120000 }, async () => {
+  const { ada, roomId } = await lobby();
+  const register = () => fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Flood", redirect_uris: ["http://127.0.0.1:1/cb"] }) });
+  // The sweep, run as if 31 days had passed. First it clears never-used clients of earlier runs from the window.
+  const later = Date.now() + 31 * 24 * 3600_000;
+  const sweep = () => admin.mutation(internal.agent.oauthStore.sweep, { now: later }) as Promise<Record<string, number>>;
+  while ((await sweep()).dcrClients > 0) { /* drain */ }
+  // A used connection (its client redeemed a code), rotated once so it has a retired refresh token.
+  const used = await connect(ada, roomId, "act");
+  const rotated = await (await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }))).json() as any;
+  assert.ok(rotated.refresh_token, JSON.stringify(rotated));
+  // A client that holds a grant but has no usedAt (registered before usedAt existed) is kept too.
+  const legacy = await connect(ada, roomId, "read");
+  await admin.mutation(internal.testing.forgetClientUse, { clientId: legacy.client.client_id });
+  // Unauthenticated registration is capped globally: a flood soon gets 429.
+  let limited: Response | undefined;
+  for (let i = 0; i < 200 && !limited; i++) {
+    const response = await register();
+    if (response.status === 429) limited = response;
+    else assert.equal(response.status, 201, await response.text());
+  }
+  assert.ok(limited, "DCR has a global rate limit");
+  assert.equal((await limited.json() as any).error, "temporarily_unavailable");
+  assert.ok(Number(limited.headers.get("retry-after")) > 0, "Retry-After");
+  const swept = await sweep();
+  assert.ok(swept.dcrClients > 0 && swept.retiredRefresh > 0, JSON.stringify(swept));
+  // The flood's clients are gone (and with them the rate limit); the used client still authorizes.
+  assert.equal((await register()).status, 201, "the sweep freed the registration window");
+  const authorizeWith = (clientId: string, redirectUri: string) => {
+    const url = new URL(`${SITE}/oauth/authorize`);
+    for (const [k, v] of Object.entries({ response_type: "code", client_id: clientId, redirect_uri: redirectUri, code_challenge: pkce().challenge,
+      code_challenge_method: "S256", scope: "act", resource: MCP })) url.searchParams.set(k, v);
+    return fetch(url, { redirect: "manual" });
+  };
+  assert.equal((await authorizeWith(used.client.client_id, "http://127.0.0.1:51515/callback")).status, 302, "a used client is kept");
+  assert.equal((await authorizeWith(legacy.client.client_id, "http://127.0.0.1:51515/callback")).status, 302, "a client holding a grant is kept");
+  // The retired refresh token's row is gone: presenting it now is just invalid, and the live grant keeps working.
+  const old = await fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: used.tokens.refresh_token, client_id: used.client.client_id }));
+  assert.equal(old.status, 400);
+  assert.equal((await call(rotated.access_token, "whoami", {})).data.permission, "act");
 });

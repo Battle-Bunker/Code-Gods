@@ -5,7 +5,7 @@ import { readFile } from 'fs/promises';
 import { build as viteBuild, defineConfig, type Plugin } from 'vite';
 import { devServerHosts, tokenHandler } from '@workspace/player-client/engine';
 import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
-import { frameHtml, injectPageCsp } from './vite/csp';
+import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
 // Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/player/".
@@ -98,12 +98,11 @@ function framePlugin(): Plugin {
   };
 }
 
-/** Production only: the hosted /player/ page's CSP as a meta tag (vite/csp.ts). No CSP in dev. */
-const pageCspPlugin = (): Plugin => ({
-  name: "code-gods-page-csp",
-  apply: "build",
-  transformIndexHtml: { order: "post", handler: html => injectPageCsp(html, process.env) },
-});
+/** The page's CSP as a meta tag (vite/csp.ts): the hosted /player/ policy in a build, frame-src 'self' in a dev server. */
+const pageCspPlugins = (): Plugin[] => [
+  { name: "code-gods-page-csp", apply: "build", transformIndexHtml: { order: "post", handler: html => injectPageCsp(html, process.env) } },
+  { name: "code-gods-dev-page-csp", apply: "serve", transformIndexHtml: { order: "post", handler: html => injectCsp(html, devPageCsp()) } },
+];
 
 export default defineConfig({
   base: basePath,
@@ -130,7 +129,7 @@ export default defineConfig({
       configurePreviewServer(server) { if (!hostedDev) mountToken(server); },
     },
     framePlugin(),
-    pageCspPlugin(),
+    ...pageCspPlugins(),
     react(),
     tailwindcss(),
   ],

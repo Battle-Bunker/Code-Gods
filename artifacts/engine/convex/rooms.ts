@@ -146,9 +146,22 @@ export const chatHistory = query({
   args: { roomId: v.id("rooms"), before: v.optional(v.number()) },
   handler: async (ctx, args) => chatFor(ctx, await requireViewer(ctx), args),
 });
+/**
+ * One page of the room's chat, newest page first and each page oldest-first (the get_chat tool). `cursor` is the
+ * previous page's `nextCursor`: Convex's own pagination cursor, so messages sharing a timestamp are never skipped
+ * or repeated. `nextCursor` is null on the last page.
+ */
 export const chatHistoryAs = internalQuery({
-  args: { principal: principalV, roomId: v.string(), before: v.optional(v.number()), limit: v.optional(v.number()) },
-  handler: async (ctx, { principal, ...args }) => chatFor(ctx, await viewerOf(ctx, principal), args),
+  args: { principal: principalV, roomId: v.string(), cursor: v.optional(v.string()), limit: v.optional(v.number()) },
+  handler: async (ctx, { principal, roomId, cursor, limit }) => {
+    const viewer = await viewerOf(ctx, principal);
+    const room = await requireRoom(ctx, roomId);
+    await requireMemberAs(ctx, viewer, room, "read");
+    const page = await ctx.db.query("chat").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc")
+      .paginate({ cursor: cursor ?? null, numItems: Math.max(1, Math.min(100, Math.floor(limit ?? 100))) });
+    const messages = page.page.reverse().map(m => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp }));
+    return { messages, nextCursor: page.isDone ? null : page.continueCursor };
+  },
 });
 
 /** The room's finished games, newest first: public results only. */

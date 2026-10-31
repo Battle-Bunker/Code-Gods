@@ -6,44 +6,16 @@
 import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { httpAction, type ActionCtx } from "../_generated/server";
+import { bounded as boundedString, guarded as guardedAs, json, printable, readBody } from "../lib/http";
 import { DEVICE_POLL_INTERVAL_S, DEVICE_TTL_MS, siteUrl } from "./config";
 import { formatUserCode, pkceChallenge, randomToken, randomUserCode, sha256Hex } from "./crypto";
 import { jwks, mintPlayerJwt } from "./jwt";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
-// ---------------------------------------------------------------------------------------------
-// Small HTTP helpers
-// ---------------------------------------------------------------------------------------------
-const noStore = { "Cache-Control": "no-store" };
-function json(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...noStore, ...headers } });
-}
-
-async function readJson(request: Request): Promise<Record<string, unknown> | null> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) return null;
-  const body = await request.text();
-  if (body.length > MAX_BODY_BYTES) return null;
-  try {
-    const value = JSON.parse(body || "{}");
-    return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-  } catch { return null; }
-}
-const boundedString = (value: unknown, min: number, max: number): value is string =>
-  typeof value === "string" && value.length >= min && value.length <= max;
-
-/** Wrap a handler so unexpected failures become a generic 500 (details only in the deployment log). */
-function guarded(handler: (ctx: ActionCtx, request: Request) => Promise<Response>) {
-  return httpAction(async (ctx, request) => {
-    try {
-      return await handler(ctx, request);
-    } catch (error) {
-      console.error("auth route failed", request.method, new URL(request.url).pathname, error instanceof Error ? error.message : "unknown");
-      return json({ error: "Internal error" }, 500);
-    }
-  });
-}
+const readJson = (request: Request) => readBody(request, MAX_BODY_BYTES);
+/** Unexpected failures become a generic 500 (details only in the deployment log). */
+const guarded = (handler: (ctx: ActionCtx, request: Request) => Promise<Response>) => guardedAs("auth route", () => json({ error: "Internal error" }, 500), handler);
 
 // ---------------------------------------------------------------------------------------------
 // Device approval and credentials
@@ -60,7 +32,7 @@ const deviceRequest = guarded(async (ctx, request) => {
   if (!boundedString(body.challenge, 43, 43) || !/^[A-Za-z0-9_-]{43}$/.test(body.challenge)) return json({ error: "challenge must be an S256 PKCE challenge (43 base64url characters)" }, 400);
   if (!boundedString(room, 1, 64)) return json({ error: "room (id or short code) required" }, 400);
   if (!PERMISSIONS.includes(permission)) return json({ error: "permission must be read, act or owner" }, 400);
-  if (!boundedString(label, 1, 120) || !label.trim() || /[\u0000-\u001f\u007f]/.test(label)) return json({ error: "label must be 1-120 printable characters (self-reported)" }, 400);
+  if (!boundedString(label, 1, 120) || !label.trim() || !printable(label)) return json({ error: "label must be 1-120 printable characters (self-reported)" }, 400);
   const deviceSecret = randomToken("cgd_");
   for (let attempt = 0; attempt < 3; attempt++) {
     const userCode = randomUserCode();

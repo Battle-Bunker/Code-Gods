@@ -9,7 +9,7 @@
  *
  * What it checks (each line printed as ok / FAIL):
  *   a panel saved with panels.save appears without a reload (a window marker survives), with live data over the
- *   bridge; an update and a rollback change it live; a render-throwing version stays inside its frame; a panel
+ *   bridge, also when the frame is served from another origin than its CSP names (a custom domain); an update and a rollback change it live; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
@@ -134,6 +134,34 @@ await check("an update and a rollback change the panel live", async () => {
   assert(await sameDocument(), "the page reloaded");
 });
 
+await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {
+  // Served from a custom domain, the frame's URL is not the deployment's .convex.site that its CSP names. A document
+  // served through route.fulfill has no address, so Chromium's local-network checks would block its loopback
+  // runtime: this browser runs without them (as in the no-CSP check below).
+  const lax = await chromium.launch({ args: ["--disable-features=LocalNetworkAccessChecks"] });
+  const laxContext = await lax.newContext();
+  await laxContext.addCookies(sessionCookies(session));
+  const custom = await laxContext.newPage();
+  const customLog: string[] = [];
+  custom.on("console", m => customLog.push(m.text().slice(0, 200)));
+  await custom.route(url => url.pathname === "/player/panel-frame.html", async route => {
+    const response = await route.fetch();
+    const body = (await response.text()).replaceAll(new URL(SITE).origin, "https://custom-domain.example");
+    assert(body.includes("https://custom-domain.example"), "the frame CSP names the site origin");
+    await route.fulfill({ response, body });
+  });
+  await custom.goto(`${SITE}/player/?room=${shortCode}`);
+  const end = Date.now() + 30_000;
+  for (;;) {
+    const text = await custom.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 }).catch(() => null);
+    if (text === "v1 with data") break;
+    if (Date.now() > end) throw new Error(`custom-domain frame shows ${JSON.stringify(text)}; state ${await custom.getAttribute('[data-testid="panel-frame-stored:e2e-live"]', "data-frame-state").catch(() => "none")}; log ${customLog.slice(0, 6).join(" | ")}`);
+    await sleep(250);
+  }
+  assert(!customLog.some(t => /Content Security Policy/i.test(t)), `CSP refused the runtime: ${customLog.join(" | ")}`);
+  await lax.close();
+});
+
 await check("a render-throwing version stays inside its frame", async () => {
   await save("e2e-throws", `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Throws", Component() { throw new Error("kaboom in render"); } });\n`);
   const end = Date.now() + 30_000;
@@ -179,8 +207,9 @@ export default definePanel({ title: "Hostile", Component() {
 
 await check("a panel that navigates its own frame away is stopped; the page it loads hears nothing from the bridge", async () => {
   // The frame's own CSP cannot stop it navigating itself; the hosted page's `frame-src 'self'` does (it governs
-  // navigations of its child frames), so the request never leaves. Without that CSP (a dev server), the page the
-  // frame loads must still hear nothing: it does not own the bridge's MessagePort.
+  // navigations of its child frames), so the request never leaves; a dev server's page has the same frame-src
+  // (vite/csp.ts devPageCsp). Without any page CSP, the page the frame loads must still hear nothing: it does not
+  // own the bridge's MessagePort (defence in depth).
   hits.length = 0;
   await save("e2e-navigates", `import { useEffect } from "react";
 import { definePanel } from "@sdk";
@@ -195,7 +224,7 @@ export default definePanel({ title: "Navigates", Component() {
   assert(!hits.some(h => h.startsWith("/nav")), "the navigation reached its target despite the page's frame-src");
   assert(!hits.some(h => h.startsWith("/got")), "the navigated page heard the bridge");
 
-  // The same page without its CSP, as in a dev server: the navigation happens, the new page still hears nothing.
+  // The same page with its CSP stripped: the navigation happens, the new page still hears nothing.
   // A page served through route.fulfill has no address, so Chromium's local-network checks would block its
   // WebSocket to the local engine: this one browser runs without them.
   const lax = await chromium.launch({ args: ["--disable-features=LocalNetworkAccessChecks"] });

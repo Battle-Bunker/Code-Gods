@@ -11,7 +11,7 @@ import path from "path";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
-import { frameHtml, siteOrigin } from "./vite/csp";
+import { frameHtml, frameOrigins } from "./vite/csp";
 
 const dir = import.meta.dirname;
 
@@ -25,9 +25,9 @@ export default defineConfig(({ mode }) => ({
       name: "code-gods-panel-frame-html",
       apply: "build",
       generateBundle() {
-        const origin = siteOrigin(process.env);
-        if (!origin) this.warn("Neither VITE_CONVEX_SITE_URL nor a *.convex.cloud VITE_CONVEX_URL is set: the frame CSP falls back to 'self'.");
-        this.emitFile({ type: "asset", fileName: "panel-frame.html", source: frameHtml(origin ?? "'self'") });
+        const origins = frameOrigins(process.env);
+        if (!origins.length) this.warn("Neither VITE_CONVEX_SITE_URL nor a *.convex.cloud VITE_CONVEX_URL is set: the frame CSP falls back to 'self'.");
+        this.emitFile({ type: "asset", fileName: "panel-frame.html", source: frameHtml(origins) });
       },
     },
   ],

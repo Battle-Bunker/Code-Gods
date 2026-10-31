@@ -230,7 +230,7 @@ test("device flow end to end, with wrong proofs, slow-down, replay, expiry and d
   const viewer = await client(exchanged.body.token).query("auth/testing:probe", {}) as Record<string, unknown>;
   assert.deepEqual(viewer, {
     subject: A.subject, name: "Alice Liddell", scope: "player", roomId: room.roomId, permission: "act",
-    credentialId: claimed.body.credentialId, label: "Replit Agent (self-reported)", isAdmin: false,
+    credentialId: claimed.body.credentialId, label: "Replit Agent (self-reported)", isAdmin: false, credentialKind: "device",
   });
   assert.equal((await post("/api/device/token", { credential: "cgc_" + "A".repeat(43) })).status, 401);
   assert.equal((await post("/api/device/token", { credential: "nope" })).status, 400);
@@ -342,6 +342,26 @@ test("an owner grant needs explicit consent from the room's CURRENT owner, re-ch
   assert.equal(refused.status, 403);
   assert.equal(refused.body.status, "forbidden");
   assert.equal(refused.body.credential, undefined);
+});
+
+test("a player JWT obeys the credential rules: an owner grant dies with ownership, every grant with its room", async () => {
+  const A = await login("alice"), alice = A.jwt;
+  const B = await login("bob");
+  const room = await newRoom(A.subject);
+  const ownerJwt = await playerJwt((await grant(alice, room.shortCode, "owner")).credential);
+  const actJwt = await playerJwt((await grant(alice, room.shortCode, "act")).credential);
+  const probe = (jwt: string, need: string) => errorCode(client(jwt).query("auth/testing:probe", { roomId: room.roomId, need }));
+  assert.equal(await probe(ownerJwt, "owner"), "no error");
+
+  // Ownership moves to bob: alice's unexpired owner JWT gets nothing at all, not even read; her act grant still works.
+  await fixtures.mutation("auth/testing:setRoomOwner", { roomId: room.roomId, ownerId: B.subject });
+  assert.equal(await probe(ownerJwt, "owner"), "UNAUTHENTICATED");
+  assert.equal(await probe(ownerJwt, "read"), "UNAUTHENTICATED");
+  assert.equal(await probe(actJwt, "act"), "no error");
+
+  // The room is deleted: its credentials are dead.
+  await fixtures.mutation("auth/testing:deleteRoom", { roomId: room.roomId });
+  assert.equal(await errorCode(client(actJwt).query("auth/testing:probe", {})), "UNAUTHENTICATED");
 });
 
 // ---------------------------------------------------------------------------------------------

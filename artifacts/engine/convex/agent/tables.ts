@@ -17,7 +17,10 @@ export const agentTables = {
     clientId: v.string(), kind: v.union(v.literal("dcr"), v.literal("cimd")),
     /** Self-reported by the client; shown as such on /connect. */
     clientName: v.string(), redirectUris: v.array(v.string()), createdAt: v.number(), fetchedAt: v.optional(v.number()),
-  }).index("by_client", ["clientId"]),
+    /** When the client last redeemed a code. A DCR client that never does is swept (oauthStore.sweep). */
+    usedAt: v.optional(v.number()),
+  }).index("by_client", ["clientId"]).index("by_kind_created", ["kind", "createdAt"])
+    .index("by_kind_used_created", ["kind", "usedAt", "createdAt"]).index("by_kind_fetched", ["kind", "fetchedAt"]),
 
   /**
    * One authorization request (10 minutes): created by GET /oauth/authorize, decided by the human on the
@@ -30,11 +33,13 @@ export const agentTables = {
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied"), v.literal("issued"), v.literal("redeemed")),
     subject: v.optional(v.string()), roomId: v.optional(v.string()), grantedPermission: v.optional(permission),
     codeHash: v.optional(v.string()), credentialId: v.optional(v.id("credentials")), expiresAt: v.number(),
+    /** sha256 of the completion secret the approving browser generated: /complete releases the code only with it. */
+    completionHash: v.optional(v.string()),
   }).index("by_key", ["keyHash"]).index("by_code", ["codeHash"]).index("by_expires", ["expiresAt"]),
 
   /** Refresh tokens already rotated out: presenting one again revokes its credential (OAuth 2.1 reuse detection). */
   oauthRetiredRefresh: defineTable({ hash: v.string(), credentialId: v.id("credentials"), retiredAt: v.number() })
-    .index("by_hash", ["hash"]).index("by_credential", ["credentialId"]),
+    .index("by_hash", ["hash"]).index("by_credential", ["credentialId"]).index("by_retired", ["retiredAt"]),
 
   /**
    * Summon/validate tool calls run as scheduled actions so they finish even when the caller stops waiting

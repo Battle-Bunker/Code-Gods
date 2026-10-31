@@ -57,6 +57,7 @@ import type * as games from "../games.js";
 import type * as http from "../http.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_http from "../lib/http.js";
 import type * as lib_load from "../lib/load.js";
 import type * as lib_projection from "../lib/projection.js";
 import type * as lib_rooms from "../lib/rooms.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/aiModels": typeof lib_aiModels;
   "lib/errors": typeof lib_errors;
+  "lib/http": typeof lib_http;
   "lib/load": typeof lib_load;
   "lib/projection": typeof lib_projection;
   "lib/rooms": typeof lib_rooms;

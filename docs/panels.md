@@ -240,8 +240,9 @@ in-client assistant). A `read` credential can list and read, not write. Nobody e
 panels: another player's call gets `NOT_FOUND`.
 
 **How it runs.** Each stored panel runs in a sandboxed frame (`/player/panel-frame.html`, `sandbox="allow-scripts"`,
-an opaque origin, its own CSP with `connect-src 'none'`). It cannot read the page, your cookies or storage,
-and cannot reach the network: every hook goes through the client over `postMessage`, which serves only the
+an opaque origin, its own CSP with `connect-src 'none'`), and the client page's CSP (`frame-src 'self'`, in the
+hosted client and in a dev server) stops it navigating itself to another site. It cannot read the page, your cookies
+or storage, and cannot reach the network: every hook goes through the client over `postMessage`, which serves only the
 SDK's own read queries, for the current room, at most `hz` times a second. A crash stays inside the frame.
 `useEvaluator()` works too: the client sends your calibration tables to the frame once per game.
 
