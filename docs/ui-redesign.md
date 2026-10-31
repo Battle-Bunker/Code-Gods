@@ -129,7 +129,8 @@ dockLayouts: defineTable({ subject: v.string(), roomId: v.id("rooms"), layout: v
 ```
 
 - `layout.current({roomId})` (requireMember read): the room's row, or the human's most recent row from another room
-  with lens params reset and `setBy: "default"`, or `DEFAULT_LAYOUT(phase)`. Internal twin `currentAs`.
+  with lens parameters reset (the lenses and who chose them stay; a never-chosen first pane follows the new room's
+  phase), or `DEFAULT_LAYOUT(phase)`. A new game in the room also resets lens parameters. Internal twin `currentAs`.
 - `layout.set({roomId, layout, ifUpdatedAt?})` (requireMember read): `parseLayout`, rate limit (`RATE_LIMITED`),
   `CONFLICT` when `ifUpdatedAt` is stale. Internal twin `setAs`. Executors read-modify-write in one mutation each.
 - `panelLayouts`, `panels.layout`, `panels.setLayout`, `panels.place`, their internal twins and the registry tool

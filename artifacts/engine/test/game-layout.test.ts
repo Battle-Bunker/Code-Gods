@@ -43,7 +43,7 @@ test("a layout is per human per room; the arrangement follows the human to a new
   const carried = await ada.c.query(api.layout.current, { roomId: other.roomId });
   assert.equal(carried.source, "carried");
   assert.equal(carried.layout.root.type === "split" && carried.layout.root.direction, "row");
-  assert.deepEqual(lensPane(carried.layout, "p1"), { id: "p1", kind: "lens", lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "default" });
+  assert.deepEqual(lensPane(carried.layout, "p1"), { id: "p1", kind: "lens", lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the lens and who chose it stay");
   // Compare-and-set: a stale write is refused; a broken layout is repaired, never stored broken.
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: side, ifUpdatedAt: written.updatedAt - 1 })), "CONFLICT");
   const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["x"], active: "x" }, panes: { x: { id: "x", kind: "lens", lensId: "nope" } } }, ifUpdatedAt: written.updatedAt });

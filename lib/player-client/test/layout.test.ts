@@ -29,11 +29,13 @@ test("the first lens pane follows the phase only while nobody chose it; a new ga
   assert.deepEqual([first.lensId, first.setBy], ["objects", "human"]);
   assert.notEqual((first.params as { limit?: number }).limit, 5, "parameters are back to the defaults");
   assert.deepEqual([second.lensId, second.setBy], ["overview", "assistant"]);
-  // Carried into another room, nobody has chosen anything yet: the first pane follows that room's phase and the
-  // what-if pane becomes the overview; it parses without warnings.
+  // Carried into another room: the chosen lens and who chose it stay, the what-if pane becomes the overview, and it
+  // parses without warnings whatever that room's phase.
   const carried = parseLayout(carryLayout(whatIf), { phase: "ended", storedSlugs: [] });
   assert.deepEqual(carried.warnings, []);
-  assert.deepEqual(lensPanesOf(carried.layout).map(p => [p.lensId, p.setBy]), [["results", "default"], ["overview", "default"]]);
+  assert.deepEqual(lensPanesOf(carried.layout).map(p => [p.lensId, p.setBy]), [["objects", "human"], ["overview", "assistant"]]);
+  // A never-chosen first pane carried into a lobby shows that lobby's default.
+  assert.equal(lensPanesOf(parseLayout(carryLayout(DEFAULT_LAYOUT("ended")), { phase: "lobby", storedSlugs: [] }).layout)[0].lensId, "overview");
 });
 
 const ctx = { phase: "running" as const, storedSlugs: ["mine"] };
@@ -195,7 +197,7 @@ test("presets keep every lens pane; carried layouts reset parameters; the briefi
   assert.equal(lensPanesOf(two).length, 2, "a second lens is opened when there is only one");
   assert.equal(assistantSide(two), "row");
   const carried = carryLayout(setPaneParams(base, "p3", { limit: 3, highlight: ["o1"] }, "assistant"));
-  assert.deepEqual(carried.panes.p3, { id: "p3", kind: "lens", lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "default" });
+  assert.deepEqual(carried.panes.p3, { id: "p3", kind: "lens", lensId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the lens and who chose it stay");
   assert.deepEqual(carried.root, base.root, "the arrangement is kept");
   const lines = describeLayout(setPaneParams(base, "p3", { limit: 3 }, "assistant"));
   assert.deepEqual(lines, ["[p1] overview — Situation, standing, next step (default)", "[p3] objects — Top 3 by payoff (set by you)", "[p2] this conversation (below the lenses)"]);

@@ -264,11 +264,13 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   }
   // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
   await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
-  const opened = await call(token, "open_lens", { lensId: "objects", params: { limit: 3, highlight: [objects[0].id] } });
+  // With `place`, open_lens adds a pane (without it, it would switch the never-chosen first pane instead).
+  const opened = await call(token, "open_lens", { lensId: "objects", params: { limit: 3, highlight: [objects[0].id] }, place: { relativeTo: "p1", direction: "right" } });
   assert.ok(!opened.error, JSON.stringify(opened).slice(0, 300));
   const layoutCalls: [string, Record<string, unknown>][] = [
     ["get_layout", {}], ["set_lens_params", { paneId: opened.data.paneId, params: { sortBy: "othersCare" } }], ["open_panel", { slug: "mcp-mine" }],
-    ["move_pane", { paneId: opened.data.paneId, place: { relativeTo: "p1", direction: "tab" } }], ["close_pane", { paneId: opened.data.paneId }],
+    // open_lens may have switched the never-chosen first pane (p1) rather than adding one, so place it next to the assistant pane.
+    ["move_pane", { paneId: opened.data.paneId, place: { relativeTo: "p2", direction: "above" } }], ["close_pane", { paneId: opened.data.paneId }],
   ];
   for (const [name, args] of layoutCalls) {
     const result = await call(token, name, args);

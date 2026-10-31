@@ -403,13 +403,13 @@ export function setPaneLens(layout: DockLayout, paneId: string, lensId: LensId, 
 }
 
 /**
- * The layout a human carries into another room: the same arrangement with every lens's parameters reset (they name
- * one game's objects) and `setBy: "default"` (so the first pane follows the new room's phase); stored panels stay
- * (they belong to the human across rooms). A lens that needs parameters (what-if) becomes the overview.
+ * The layout a human carries into another room: the same arrangement, the same lenses and who chose them, with every
+ * lens's parameters reset (they name one game's objects); stored panels stay (they belong to the human across rooms).
+ * A pane nobody ever chose keeps following the phase in the new room; a chosen one keeps its lens. A lens that needs
+ * parameters (what-if) becomes the overview.
  */
 export function carryLayout(layout: DockLayout): DockLayout {
-  const panes = Object.fromEntries(Object.entries(layout.panes).map(([id, pane]) => [id, pane.kind === "lens" ? lensPane(id, survivesReset(pane.lensId)) : pane]));
-  return { ...layout, panes };
+  return resetLensParams(layout);
 }
 
 /** A lens whose parameters can be reset to defaults keeps its lens; one that needs parameters (what-if) becomes the overview. */
