@@ -121,7 +121,8 @@ test("permissions: read/act/owner credentials are room-bound; spectators observe
   const wrongRoom = await playerClient(ada, elsewhere.roomId, "act");
   assert.match(await rejects(wrongRoom.query(api.player.observation, { roomId })), /different room/);
   const notOwner = await playerClient(ada, roomId, "owner");
-  assert.match(await rejects(notOwner.mutation(api.rooms.endActiveGame, { roomId })), /owner/i, "an owner grant still needs the current owner");
+  // An owner grant of someone who does not own the room is no credential at all (credentialProblem: not_owner).
+  assert.match(await rejects(notOwner.mutation(api.rooms.endActiveGame, { roomId })), /sign in|reconnect/i, "an owner grant still needs the current owner");
   const ownerApp = await playerClient(host, roomId, "owner");
   assert.equal((await ownerApp.query(api.rooms.get, { room: shortCode })).id, roomId);
 
