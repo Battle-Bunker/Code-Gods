@@ -445,12 +445,14 @@ try {
       }) as typeof window.addEventListener;
     });
     await page.goto(`${SITE}/`);
+    await page.getByTestId("button-login").waitFor();
+    // The Convex client registers its guard when it is constructed, so the count is final once the page is up.
+    assert.equal(await page.evaluate(() => (window as unknown as { __beforeunloadListeners: number }).__beforeunloadListeners), 0, "a beforeunload guard was registered; leaving for Google would prompt \"Leave site?\"");
     const google = page.waitForRequest(/^https:\/\/accounts\.google\.com\//);
     await page.getByTestId("button-login").click();
     const url = new URL((await google).url());
     assert.equal(url.searchParams.get("redirect_uri"), `${SITE}/api/auth/callback/google`);
     assert.equal(url.searchParams.get("prompt"), "select_account");
-    assert.equal(await page.evaluate(() => (window as unknown as { __beforeunloadListeners: number }).__beforeunloadListeners), 0, "a beforeunload guard was registered; leaving for Google would prompt \"Leave site?\"");
     await context.close();
 
     const carol = await signIn(browser, "carol", { width: 1280, height: 900 });
