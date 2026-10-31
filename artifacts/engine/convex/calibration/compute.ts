@@ -6,7 +6,7 @@
  */
 import { v } from "convex/values";
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
-import { instantiateKey, paramsKey, tableKey, type CalibrationTable } from "@workspace/game-utilities";
+import { instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 import { budgetFor, buildTable, tableJson } from "@workspace/game-utilities/estimator";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -25,11 +25,15 @@ export const run = internalAction({
       if (tableKey(familyId, params, inst) !== key) throw new Error(`${familyId} ${paramsKey(params)} on ${instance}: key is not the current code's`);
       const r = buildTable(familyId, params, inst, budgetFor(inst.objectType));
       if (r.table.key !== key) throw new Error("internal: built table key mismatch");
-      const table: CalibrationTable = JSON.parse(tableJson(r.table));
-      await ctx.runMutation(internal.calibration.cache.finished, { key, table: JSON.stringify(table), buildMs: performance.now() - started });
-      return { key, levels: table.levels.length, maxBits: table.meta.maxBits, seconds: r.seconds };
+      // tableJson: the same compact, stably ordered bytes as the shipped files.
+      await ctx.runMutation(internal.calibration.cache.finished, { key, table: tableJson(r.table), buildMs: performance.now() - started });
+      return { key, levels: r.table.levels.length, maxBits: r.table.meta.maxBits, seconds: r.seconds };
     } catch (error) {
-      await ctx.runMutation(internal.calibration.cache.finished, { key, error: (error as Error).message, buildMs: performance.now() - started });
+      try {
+        await ctx.runMutation(internal.calibration.cache.finished, { key, error: (error as Error).message, buildMs: performance.now() - started });
+      } catch (reportError) {
+        console.error(`calibration.compute.run ${key}: could not record the failure: ${(reportError as Error).message}`);
+      }
       throw error;
     }
   },

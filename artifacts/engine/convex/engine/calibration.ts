@@ -142,9 +142,10 @@ const MAX_ANALYTIC = 2048;
 /**
  * The tables of `draws` (reward draws and defence goals, raw params) in `inst` under `prior`: from the warm file, the
  * family's analytic survival function, or the computed cache; whatever is missing is claimed and scheduled as one
- * `calibration.compute.run` action per table (docs/analytic-calibration/architecture.md §3). Only the uniform prior is
- * computed on demand (other priors derive from pools the deployment does not hold); their missing tables stay pending
- * without being scheduled.
+ * `calibration.compute.run` action per table (docs/analytic-calibration/architecture.md §3). Throws (BAD_REQUEST-like
+ * errors for the caller to surface) when a draw cannot have a table here: a family of another object type, a table that
+ * failed to compute twice, or a non-uniform prior (its tables derive from pools the deployment does not hold, so they
+ * are shipped or nothing).
  */
 export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: readonly Draw[], prior: PriorRef = UNIFORM_PRIOR): Promise<Resolution> {
   const base = await tablesFor(ctx, inst), ctx_ = context(inst), uniform = priorKey(prior) === priorKey(UNIFORM_PRIOR);
@@ -152,6 +153,7 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
   const toCheck: { draw: Draw; canon: Draw["params"]; key: string }[] = [];
   for (const draw of draws) {
     const f = family(draw.familyId);
+    if (f.objectType !== inst.objectType) throw new Error(`${draw.familyId} is a ${f.objectType} family; ${inst.key} cannot deal it`);
     const canon = f.canonical(draw.params, ctx_), key = tableKey(draw.familyId, canon, inst, prior);
     if (tableFor(base, draw, inst, prior)) { ready.push({ draw, key, source: "file" }); continue; }
     if (uniform && analyticFor(draw.familyId, canon, inst)) {
@@ -169,25 +171,29 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
     toCheck.push({ draw, canon, key });
   }
   if (toCheck.length) {
-    const rows = new Map((await ctx.runQuery(internal.calibration.cache.getMany, { keys: toCheck.map(c => c.key) })).map(r => [r.key, r]));
-    for (const { draw, canon, key } of toCheck) {
-      const row = rows.get(key);
+    const rows = new Map((await ctx.runMutation(internal.calibration.cache.getMany, { keys: toCheck.map(c => c.key) })).map(r => [r.key, r]));
+    const missing: typeof toCheck = [];
+    for (const c of toCheck) {
+      const row = rows.get(c.key);
       if (row?.status === "ready" && row.table) {
         const t = JSON.parse(row.table) as CalibrationTable;
-        if (t.key === key) { extra.push(t); ready.push({ draw, key, source: "computed", buildMs: row.buildMs }); continue; }
+        if (t.key === c.key) { extra.push(t); ready.push({ draw: c.draw, key: c.key, source: "computed", buildMs: row.buildMs }); continue; }
       }
-      if (!uniform) { pending.push({ draw, key, scheduled: false }); continue; }
+      missing.push(c);
+    }
+    if (missing.length && !uniform) {
+      throw new Error(`No calibration tables for ${missing.map(c => c.draw.familyId).join(", ")} on ${inst.key} under prior ${priorKey(prior)}: tables for this prior are shipped, not computed on demand`);
+    }
+    // Independent per table: claim and schedule all of them at once.
+    const verdicts = await Promise.all(missing.map(async ({ draw, canon, key }) => {
       const verdict = await ctx.runMutation(internal.calibration.cache.claim, { key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior) });
-      if (verdict === "ready") {   // raced with a finishing action: read it on the next call
-        pending.push({ draw, key, scheduled: false });
-      } else if (verdict === "compute") {
-        await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance: inst.key, familyId: draw.familyId, params: canon });
-        pending.push({ draw, key, scheduled: true });
-      } else if (verdict === "wait") {
-        pending.push({ draw, key, scheduled: false });
-      } else {
-        throw new Error(`The calibration table of ${draw.familyId} ${paramsKey(canon)} on ${inst.key} could not be computed (${verdict}); see calibrationComputed`);
-      }
+      if (verdict === "compute") await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance: inst.key, familyId: draw.familyId, params: canon });
+      return { draw, canon, key, verdict };
+    }));
+    for (const { draw, canon, key, verdict } of verdicts) {
+      if (verdict === "failed") throw new Error(`The calibration table of ${draw.familyId} ${paramsKey(canon)} on ${inst.key} could not be computed; see calibrationComputed`);
+      // "ready" here means a race with a finishing action: it is read on the next call.
+      pending.push({ draw, key, scheduled: verdict === "compute" });
     }
   }
   const tables = extra.length

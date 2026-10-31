@@ -266,7 +266,7 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 | Phase | Lands | Touches | Size |
 |---|---|---|---|
 | A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
-| B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/game-ondemand.test.ts` | PR (this) |
+| B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR (this) |
 | B2 | two-half `start`, room `preparing`, lobby UI progress, `playableInstantiations`, settings badge | `owner.ts`, `game/lobby.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods` settings | medium |
 | B3 | within-draw replicates (estimator v4) after measuring fidelity with the harness | `scripts/estimator.ts`, compute action | small |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
@@ -277,7 +277,7 @@ overhead of a Node action in the dev deployment, cache hit latency, and the harn
 
 ## 9. Measured (Phase B1, local Convex backend, this container)
 
-`artifacts/engine/test/game-ondemand.test.ts` and an ad-hoc probe of `calibration.compute.prepare` on shapes with no
+`artifacts/engine/test/calibration-ondemand.test.ts` (`pnpm --filter @workspace/engine test:calibration`) and an ad-hoc probe of `calibration.compute.prepare` on shapes with no
 shipped tables, default budgets, polling every second:
 
 | shape | sampled tables | per-table build | wall to all ready | notes |
