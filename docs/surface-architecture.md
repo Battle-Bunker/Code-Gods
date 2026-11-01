@@ -222,6 +222,10 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
   thread (CONFLICT), so a new game begins with an empty context. An earlier game's threads stay readable by their human
   (`assistant.threads {gameId}`, `assistant.thread`); the assistant's own tools never reach that game's runs or
   objects. The player's choices stay: the summon auto-approve preference, the assistant credential, panels and layout.
+  The pane follows the game reactively: `assistant.status` names the current `game`, and the pane renders one
+  conversation component keyed by it, whose transcript is the query `assistant.transcript {roomId, gameId, threadId?}`
+  (that game's thread only, whatever id the client names) and whose `send` names the game (CONFLICT once another is
+  current). When the game changes, the query arguments change and the old game's state is gone, without a reload.
 
 **UI** (`artifacts/player-web/src/core/assistant/`): a core drawer behind the header's "Assistant" toggle, in hosted and
 dev-server modes: streaming messages, tool chips (expandable to the exact arguments and the outcome), confirmation cards

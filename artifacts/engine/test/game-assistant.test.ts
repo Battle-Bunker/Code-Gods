@@ -442,6 +442,35 @@ test("disclosure: threads are their human's only; stored tool results pass the d
   assert.equal(await errorCode(bob.c.mutation(api.assistant.cancel, { turnId: sent.turnId })), "NOT_FOUND");
 });
 
+test("the transcript is a query of (room, game): a new game's has no thread, whatever thread the client names; send refuses a game that is no longer current", { timeout: 240_000 }, async () => {
+  const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Script", "Bob Script", "Cyd Script"]);
+  const g1 = game!.gameId as string;
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).game, g1, "status names the current game");
+  assert.equal((await ann.c.query(api.assistant.transcript, { roomId, gameId: g1 })).thread, null, "no conversation yet");
+  const first = await ann.c.mutation(api.assistant.send, { roomId, gameId: g1, text: mock([{ text: "one" }]) });
+  await until(ann, first, DONE, "game 1's turn");
+  const t1 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g1 });
+  assert.deepEqual([t1.thread._id, t1.thread.gameId, t1.messages.at(-1).text], [first.threadId, g1, "one"], "the latest conversation of the game by default");
+  assert.equal((await ann.c.query(api.assistant.transcript, { roomId, gameId: g1, threadId: first.threadId })).thread._id, first.threadId);
+  assert.equal((await bob.c.query(api.assistant.transcript, { roomId, gameId: g1, threadId: first.threadId })).thread, null, "never another player's");
+
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const g2 = (await ann.c.action(api.owner.start, { roomId })).gameId as string;
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).game, g2);
+  for (const args of [{}, { threadId: first.threadId }]) {
+    const t2 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g2, ...args });
+    assert.deepEqual([t2.thread, t2.messages, t2.turns, t2.toolCalls], [null, [], [], []], `game 2's transcript is empty, even naming game 1's thread (${JSON.stringify(args)})`);
+  }
+  assert.equal((await ann.c.query(api.assistant.transcript, { roomId, gameId: g1 })).thread._id, first.threadId, "game 1's stays readable for game 1");
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, gameId: g1, text: "late" })), "CONFLICT", "a message meant for the last game is not sent");
+  const second = await ann.c.mutation(api.assistant.send, { roomId, gameId: g2, text: mock([{ text: "two" }]) });
+  await until(ann, second, DONE, "game 2's turn");
+  const t2 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g2 });
+  assert.deepEqual(t2.messages.map((m: any) => m.text).at(-1), "two");
+  assert.ok(!t2.messages.some((m: any) => m.text === "one"));
+  assert.equal(await errorCode(ann.c.query(api.assistant.transcript, { roomId, gameId: "not-a-game" })), "NOT_FOUND");
+});
+
 test("a new game starts the assistant afresh: no thread, card, run, note or allowance of the last game; that game's stay readable by its player only", { timeout: 300_000 }, async () => {
   const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Fresh", "Bob Fresh", "Cyd Fresh"]);
   // Game 1: a conversation that runs code keeping a note and saving the script, then a summon card left waiting.

@@ -12,6 +12,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { ArrowDown, ChevronDown, ChevronRight, Send, Square } from "lucide-react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Phase } from "@workspace/player-client/panels";
@@ -23,7 +24,7 @@ import { useNow, useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
 import { runPaletteCommand } from "@/core/palette/registry";
-import { composer, threadFor, useComposer, type Permission } from "./composer";
+import { composer, threadIn, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
   TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, stepView, userCount, withPending, withSteps,
@@ -41,19 +42,31 @@ const CARD_MS = 120_000;
 /** The pane grows to this while a card waits, and returns to its size after. */
 const CARD_ROOM = { height: 320, width: 360 };
 
+type Status = FunctionReturnType<typeof api.assistant.status>;
+
+/**
+ * The pane follows the room's game reactively (assistant.status game): everything below it is ONE game's conversation,
+ * keyed by that game. When the next game starts, the old conversation's component, its local state (a message being
+ * sent, an error, phase lines) and its transcript subscription end, and the new game's start empty: no reload, and no
+ * way for one game's transcript to show in another.
+ */
 export function AssistantPane({ paneId }: { paneId: string }) {
+  const { roomId } = useRoom();
+  const status = useQuery(api.assistant.status, { roomId: roomId as Id<"rooms"> });
+  return <Conversation key={status?.game ?? ""} paneId={paneId} status={status} />;
+}
+
+function Conversation({ paneId, status }: { paneId: string; status: Status | undefined }) {
   const { roomId } = useRoom();
   const room = roomId as Id<"rooms">;
   const situation = useSituation();
-  const status = useQuery(api.assistant.status, { roomId: room });
-  const threads = useQuery(api.assistant.threads, { roomId: room });
   const c = useComposer();
-  // The conversation is this game's: a thread chosen in the room's last game is never shown or continued here.
-  const game = status?.allowance.epoch ?? null;
-  useEffect(() => { if (game) composer.enterGame(game); }, [game]);
-  const chosen = threadFor(c, game);
-  const threadId = chosen === "new" ? null : chosen ?? status?.activeTurn?.threadId ?? threads?.[0]?._id ?? null;
-  const thread = useQuery(api.assistant.thread, threadId ? { threadId: threadId as Id<"assistantThreads"> } : "skip");
+  const game = status?.game ?? null;
+  const chosen = game ? threadIn(c, game) : null;
+  // The transcript is a query of (room, game): the server answers with that game's conversation only.
+  const thread = useQuery(api.assistant.transcript, game && chosen !== "new"
+    ? { roomId: room, gameId: game, ...(chosen ? { threadId: chosen as Id<"assistantThreads"> } : {}) } : "skip");
+  const threadId = thread?.thread?._id ?? null;
   const send = useMutation(api.assistant.send);
   const cancel = useMutation(api.assistant.cancel);
   /** The message just sent, and how many user messages the thread had then: shown until the server has it. */
@@ -98,9 +111,9 @@ export function AssistantPane({ paneId }: { paneId: string }) {
     setError(null); setPending({ text: message, users: threadId ? userCount(timeline) : 0 }); composer.setDraft("");
     try {
       const firstUse = !status.credential;
-      const sent = await send({ roomId: room, text: message, ...(threadId ? { threadId: threadId as Id<"assistantThreads"> } : {}),
+      const sent = await send({ roomId: room, gameId: status.game, text: message, ...(threadId ? { threadId } : {}),
         ...(firstUse || status.credential?.permission !== permission ? { permission } : {}), ...(permission === "owner" ? { ownerConsent: c.ownerConsent } : {}) });
-      composer.setThread(sent.threadId);
+      composer.setThread(status.game, sent.threadId);
     } catch (e) { setError(errorText(e)); setPending(null); composer.setDraft(message); }
   };
 
