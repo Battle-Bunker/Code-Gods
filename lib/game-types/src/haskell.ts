@@ -165,29 +165,37 @@ function hsParam(type: string, v: string): HsParam {
 const hsName = (name: string) => (HS_KEYWORDS.has(name) ? `${name}_` : name);
 
 interface HsFunction { readonly name: string; readonly signatures: readonly string[]; readonly text: string }
-/** Haskell definitions of the functions in `dts` that return `returns`: their signatures and their code. */
-function hsFunctions(dts: string, returns: "MutatorCall" | "AreaRef", seen = new Set<string>()): HsFunction[] {
+/**
+ * Haskell definitions of the functions in `dts` that return `returns`: their signatures and their code. `strict`
+ * (the Room module) throws on a declaration with no Haskell form; otherwise (the helper docs, which every language's
+ * rooms read) that function is left out.
+ */
+function hsFunctions(dts: string, returns: "MutatorCall" | "AreaRef", seen = new Set<string>(), strict = true): HsFunction[] {
   const out: HsFunction[] = [];
   for (const f of parseDtsFunctions(dts)) {
     if (f.returns !== returns || seen.has(f.name)) continue;
-    seen.add(f.name);
-    const result = returns === "MutatorCall" ? "Call" : "Area";
-    const build = (params: readonly DtsParam[], name: string) => {
-      const typed = params.map((p, i) => ({ p, h: hsParam(p.type, String.fromCharCode(97 + i)) }));
-      const constraints = typed.flatMap(({ h }) => (h.constraint ? [h.constraint] : []));
-      const context = constraints.length ? `${constraints.length > 1 ? `(${constraints.join(", ")})` : constraints[0]} => ` : "";
-      const args = typed.map(({ p }) => hsName(p.name));
-      const body = `[${typed.map(({ p, h }) => `${h.conv} ${hsName(p.name)}`).join(", ")}]`;
-      const value = returns === "MutatorCall" ? `Call ${JSON.stringify(f.name)} ${body}` : `Area (JCall ${JSON.stringify(f.name)} ${body})`;
-      const signature = `${name} :: ${context}${[...typed.map(({ h }) => h.type), result].join(" -> ")}`;
-      return { signature, text: `${signature}\n${[name, ...args].join(" ")} = ${value}\n` };
-    };
-    const required = f.params.filter(p => !p.optional);
-    if (f.params.slice(0, required.length).some(p => p.optional)) throw new Error(`${f.name}: optional parameters must come last`);
-    const variants = [build(required, f.name), ...(required.length < f.params.length ? [build(f.params, `${f.name}'`)] : [])];
-    out.push({ name: f.name, signatures: variants.map(v => v.signature), text: variants.map(v => v.text).join("\n") });
+    try { out.push(hsFunction(f, returns)); seen.add(f.name); }
+    catch (error) { if (strict) throw error; }
   }
   return out;
+}
+
+function hsFunction(f: DtsFunction, returns: "MutatorCall" | "AreaRef"): HsFunction {
+  const result = returns === "MutatorCall" ? "Call" : "Area";
+  const build = (params: readonly DtsParam[], name: string) => {
+    const typed = params.map((p, i) => ({ p, h: hsParam(p.type, String.fromCharCode(97 + i)) }));
+    const constraints = typed.flatMap(({ h }) => (h.constraint ? [h.constraint] : []));
+    const context = constraints.length ? `${constraints.length > 1 ? `(${constraints.join(", ")})` : constraints[0]} => ` : "";
+    const args = typed.map(({ p }) => hsName(p.name));
+    const body = `[${typed.map(({ p, h }) => `${h.conv} ${hsName(p.name)}`).join(", ")}]`;
+    const value = returns === "MutatorCall" ? `Call ${JSON.stringify(f.name)} ${body}` : `Area (JCall ${JSON.stringify(f.name)} ${body})`;
+    const signature = `${name} :: ${context}${[...typed.map(({ h }) => h.type), result].join(" -> ")}`;
+    return { signature, text: `${signature}\n${[name, ...args].join(" ")} = ${value}\n` };
+  };
+  const required = f.params.filter(p => !p.optional);
+  if (f.params.slice(0, required.length).some(p => p.optional)) throw new Error(`${f.name}: optional parameters must come last`);
+  const variants = [build(required, f.name), ...(required.length < f.params.length ? [build(f.params, `${f.name}'`)] : [])];
+  return { name: f.name, signatures: variants.map(v => v.signature), text: variants.map(v => v.text).join("\n") };
 }
 
 /** Haskell definitions of the functions in `dts` that return `returns` ("MutatorCall" or "AreaRef"). */
@@ -235,7 +243,8 @@ const HS_READ_HELPERS: Readonly<Record<string, readonly [string, string]>> = {
  * Haskell form is returned as it is.
  */
 export function withHaskellDocs(docs: readonly HelperDoc[], dts: string): HelperDoc[] {
-  const fns = new Map([...hsFunctions(dts, "MutatorCall"), ...hsFunctions(dts, "AreaRef")].map(f => [f.name, f.signatures.join("; ")]));
+  const fns = new Map([...hsFunctions(dts, "MutatorCall", new Set(), false), ...hsFunctions(dts, "AreaRef", new Set(), false)]
+    .map(f => [f.name, f.signatures.join("; ")]));
   return docs.map(doc => {
     const ts = doc.name.typescript;
     const read = HS_READ_HELPERS[ts];

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { OBJECT_TYPES, availableMutators, withCommitClause, objectType, instantiate } from "../src/index.ts";
 import { sha256 } from "../src/util.ts";
-import { HS_PRELUDE_NAMES, hs, hsConstructors, hsHiddenPrelude, parseDtsFunctions } from "../src/haskell.ts";
+import { HS_PRELUDE_NAMES, hs, hsConstructors, hsHiddenPrelude, parseDtsFunctions, withHaskellDocs } from "../src/haskell.ts";
 
 test("hsConstructors: required parameters, a primed variant with every parameter, typed by the TypeScript types", () => {
   const dts = `declare function slide(line: LineRef, steps?: number, what?: Layer): MutatorCall;
@@ -25,6 +25,9 @@ reflect = Call "reflect" []
 `);
   assert.equal(hsConstructors(dts, "AreaRef"), `row :: Int -> Area\nrow i = Area (JCall "row" [toJ i])\n`);
   assert.throws(() => hsConstructors("declare function f(x: Map<string, number>): MutatorCall;\n", "MutatorCall"), /No Haskell type/u);
+  // The helper docs (read by every language's rooms) leave such a function out instead of failing.
+  const doc = { name: { python: "f", typescript: "f" }, signature: { python: "f(x)", typescript: "f(x)" }, kid: "", group: "mutator" as const };
+  assert.deepEqual(withHaskellDocs([doc], "declare function f(x: Map<string, number>): MutatorCall;\n"), [doc]);
   assert.deepEqual(parseDtsFunctions("declare function f(a: number, b?: string | null): MutatorCall;\n")[0].params,
     [{ name: "a", type: "number", optional: false }, { name: "b", type: "string | null", optional: true }]);
 });

@@ -36,11 +36,9 @@ export const BUNDLES = [
     setup: [process.execPath, ["scripts/setup-haskell.mjs"]], build: [process.execPath, ["scripts/build-haskell-bundle.mjs"]] },
 ];
 const pathOf = bundle => `${RUNTIME}dist/${bundle.file}`;
-/** The Python bundle's path (callers from before the Haskell bundle). */
-export const BUNDLE = pathOf(BUNDLES[0]);
 
 /** "missing", "stale" (not the pinned bundle, or not gzip at all) or "current". */
-export function bundleStatus(path = BUNDLE, pin = PYTHON_BUNDLE_SHA256) {
+export function bundleStatus(path = pathOf(BUNDLES[0]), pin = BUNDLES[0].pin) {
   if (!existsSync(path)) return "missing";
   try { return sha256(gunzipSync(readFileSync(path))) === pin ? "current" : "stale"; } catch { return "stale"; }
 }

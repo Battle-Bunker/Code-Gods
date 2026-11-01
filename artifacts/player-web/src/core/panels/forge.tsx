@@ -82,9 +82,11 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
       )}
       <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
         aria-label="Agent source"
-        placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []` : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
+        placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
+          : language === "haskell" ? `agent :: Obj -> [Call]\nagent ${arg} = []  -- a list of moves, e.g. [swapCells (0, 0) (0, 1)]`
+          : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : language === "haskell" ? "agent :: Obj -> [Call]" : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
       {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim() || !!busy} onClick={() => void commands.run({ type: "validate", language, source })}>

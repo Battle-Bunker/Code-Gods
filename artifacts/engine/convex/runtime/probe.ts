@@ -26,7 +26,7 @@ function room(lang: Language): { settings: ActSettings; inputs: string[] } {
     settings: {
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, haskell: parts.haskell,
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, ...(lang === "haskell" ? { haskell: parts.haskell } : {}),
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     },
     inputs: Array.from({ length: 16 }, () => T.codec(inst).encode(T.spawn(inst, rng)) as string),

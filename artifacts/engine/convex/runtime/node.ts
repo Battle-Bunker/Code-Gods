@@ -5,7 +5,7 @@
  *   import { bindRuntime, runtimeFor } from "../runtime/node";
  *   export const tick = internalAction({ handler: async ctx => {
  *     await bindRuntime(ctx);                             // loads the Python and Haskell bundles from storage once
- *     const result = await runtimeFor(settings.language).act(source, input, actSettings(settings), seed);
+ *     const result = await runtimeFor(language).act(source, input, actSettings(settings, language), seed);
  *   } });
  *
  * Runtimes live at module scope, so a warm Node instance keeps its workers, compiled reactor,
