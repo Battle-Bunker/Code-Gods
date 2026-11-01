@@ -13,8 +13,8 @@
  * `playableInstantiations`, whatever is shipped).
  *
  * A table is **fresh** only while its key matches the current code (`tableKey`): the key hashes the family id, the
- * canonical params, the instantiation, the family's TypeScript card source for those params (the body the host
- * evaluates), the instantiation's prelude hash, the spawn function ("uniform"), the estimator and the id of the family's
+ * canonical params, the instantiation, the family's TypeScript card program for those params (`cardProgram`: the body
+ * the host evaluates, without its comments, so rewording a card's prose keeps its tables), the instantiation's prelude hash, the spawn function ("uniform"), the estimator and the id of the family's
  * analytic survival function when it has one (`analyticFor`; src/analytic.ts). `tableFor` and
  * `hasTable` serve fresh tables only, so a game can never be scored with a stale table; test/calibration.test.ts
  * fails (naming the regenerate command) whenever a shipped table is stale.
@@ -22,6 +22,7 @@
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
+import { cardProgram } from "./families/card.ts";
 import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
@@ -194,7 +195,7 @@ export interface TableKeyParts {
   readonly family: string;
   readonly params: Params;
   readonly instance: string;
-  /** sha256 of the family's TypeScript card source for these params (the evaluated body). */
+  /** sha256 of the family's TypeScript card program for these params (`cardProgram`: the evaluated body, comments removed). */
   readonly card: string;
   /** The family's entry point ("utility" or "penalty") and shape. */
   readonly entry: string;
@@ -221,7 +222,7 @@ export function tableKeyParts(familyId: string, canonicalParams: Params, inst: I
     family: familyId,
     params: canonicalParams,
     instance: inst.key,
-    card: sha256(f.card.typescript(canonicalParams, ctx)),
+    card: sha256(cardProgram(f.card.typescript(canonicalParams, ctx))),
     entry: entryPoint(f),
     shape: f.shape(ctx),
     prelude: utilityPreludeHash(inst),

@@ -209,6 +209,20 @@ test("cancel during a streaming delay: the turn is cancelled and runs no further
   assert.equal((await until(ann, next, DONE, "a new turn")).turn.status, "done");
 });
 
+test("a turn still streaming when the next game starts is stopped, and does not block the player's first message of the new game", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Next", "Bob Next", "Cyd Next"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: ["a", "b", "c", "d", "e", "f", "g", "h"], delayMs: 1500, tools: [{ name: "whoami" }] }, { text: "never" }]) });
+  await waitFor(async () => (await turnOf(ann, sent.threadId, sent.turnId)).messages.some((m: any) => m.role === "assistant" && m.text), "text streams", 30_000, 100);
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  await ann.c.action(api.owner.start, { roomId });
+  const next = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "new game" }]) });
+  assert.notEqual(next.threadId, sent.threadId);
+  const old = await until(ann, sent, DONE, "the last game's turn ends");
+  assert.equal(old.turn.status, "cancelled");
+  assert.deepEqual(old.calls, [], "it ran no tool call into the new game");
+  assert.equal((await until(ann, next, DONE, "the new game's turn")).turn.status, "done");
+});
+
 test("permissions: a read assistant cannot summon; act has no owner tools; owner needs the owner and consent", { timeout: 180_000 }, async () => {
   const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const sent = await bob.c.mutation(api.assistant.send, { roomId, permission: "read", text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "ok" }]) });
@@ -362,8 +376,71 @@ test("disclosure: threads are their human's only; stored tool results pass the d
   await check("assistant thread", t);
   assert.equal(await errorCode(bob.c.query(api.assistant.thread, { threadId: sent.threadId })), "NOT_FOUND");
   assert.deepEqual(await bob.c.query(api.assistant.threads, { roomId }), []);
+  assert.deepEqual(await bob.c.query(api.assistant.threads, { roomId, gameId: game!.gameId }), [], "nor by naming the game");
   assert.equal((await ann.c.query(api.assistant.threads, { roomId })).length, 1);
   assert.equal(await errorCode(bob.c.mutation(api.assistant.cancel, { turnId: sent.turnId })), "NOT_FOUND");
+});
+
+test("a new game starts the assistant afresh: no thread, card, run, note or allowance of the last game; that game's stay readable by its player only", { timeout: 300_000 }, async () => {
+  const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Fresh", "Bob Fresh", "Cyd Fresh"]);
+  // Game 1: a conversation that runs code keeping a note and saving the script, then a summon card left waiting.
+  const first = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "run_code", input: { language: "typescript", source: "function main(d) { store.put('notes/plan', 'game one plan'); return 1; }", datasets: [], saveAs: "plan" } }] },
+    { text: "game one answer" },
+  ]) });
+  const one = await until(ann, first, DONE, "game 1's turn");
+  assert.equal(one.turn.status, "done", JSON.stringify(one.turn.error));
+  const run1 = JSON.parse(one.calls[0].resultJson).data;
+  assert.deepEqual(run1.store, { written: ["notes/plan", "scripts/plan"], deleted: [] }, JSON.stringify(run1));
+  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "never" }]) });
+  const card = await until(ann, waiting, ["awaiting_confirmation"], "the card waits");
+  assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
+
+  // Game 2 in the same room: the waiting turn ends with game 1, its card denied; an approval afterwards runs nothing.
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const game2 = await ann.c.action(api.owner.start, { roomId });
+  const ended = await until(ann, waiting, DONE, "the waiting turn ends when the next game starts");
+  assert.equal(ended.turn.status, "cancelled");
+  assert.equal(ended.calls[0].status, "denied");
+  assert.equal((await ann.c.mutation(api.assistant.confirm, { toolCallId: card.calls[0]._id, decision: "approve" })).status, "denied");
+  assert.equal((await raw(game2.gameId)).agents.length, 0, "nothing was summoned");
+  const status = await ann.c.query(api.assistant.status, { roomId });
+  assert.equal(status.activeTurn, null);
+  assert.deepEqual([status.allowance.epoch, status.allowance.used], [game2.gameId, 0], "a fresh allowance for the new game");
+  assert.deepEqual(await ann.c.query(api.assistant.threads, { roomId }), [], "no conversation yet in this game");
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: "continue" })), "CONFLICT", "game 1's thread cannot be continued");
+
+  // A new conversation: nothing earlier in its history, no run or note of game 1; the saved script stays the player's.
+  const fresh = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [
+      { name: "list_code_runs", input: {} }, { name: "list_code_objects", input: {} }, { name: "get_code_run", input: { runId: run1.runId } },
+      { name: "run_code", input: { language: "typescript", source: "function main(d) { return store.get('notes/plan', 'none'); }", load: ["notes/*"], datasets: [] } },
+    ] },
+    { echo: true },
+  ]) });
+  const two = await until(ann, fresh, DONE, "game 2's turn");
+  assert.equal(two.turn.status, "done", JSON.stringify(two.turn.error));
+  const [runs, objects, oldRun, rerun] = [...two.calls].sort((a: any, b: any) => a.index - b.index).map((c: any) => JSON.parse(c.resultJson));
+  assert.deepEqual([runs.data.runs, runs.data.budget.used.runs], [[], 0], "no code run of game 1");
+  assert.deepEqual(objects.data.objects.map((o: any) => o.key), ["scripts/plan"], "game 1's note and run result are not in game 2's store");
+  assert.equal(oldRun.error?.code, "NOT_FOUND", JSON.stringify(oldRun));
+  assert.equal(rerun.data.result, "none", JSON.stringify(rerun));
+  assert.deepEqual(JSON.parse(finalText(two)).earlier, [], "the model sees no earlier conversation");
+  assert.deepEqual((await ann.c.query(api.assistant.threads, { roomId })).map((t: any) => t._id), [fresh.threadId]);
+
+  // Game 1's conversation and runs stay readable by Ann, for game 1.
+  const old = await ann.c.query(api.assistant.threads, { roomId, gameId: game!.gameId });
+  assert.deepEqual(old.map((t: any) => [t._id, t.gameId]), [[first.threadId, game!.gameId]]);
+  const kept = await thread(ann, first.threadId);
+  assert.equal(kept.thread.gameId, game!.gameId);
+  assert.ok(kept.messages.some((m: any) => m.text === "game one answer"));
+  assert.equal((await ann.c.query(api.code.runs.get, { roomId, runId: run1.runId })).status, "ok");
+  // Never another player's.
+  assert.deepEqual(await bob.c.query(api.assistant.threads, { roomId, gameId: game!.gameId }), []);
+  assert.equal(await errorCode(thread(bob, first.threadId)), "NOT_FOUND");
+  assert.equal(await errorCode(bob.c.query(api.code.runs.get, { roomId, runId: run1.runId })), "NOT_FOUND");
+  const elsewhere = await assistantRoom(["Ann Else", "Bob Else", "Cyd Else"]);
+  assert.equal(await errorCode(ann.c.query(api.assistant.threads, { roomId, gameId: elsewhere.game!.gameId })), "NOT_FOUND", "a game of another room");
 });
 
 test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {

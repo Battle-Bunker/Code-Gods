@@ -180,6 +180,12 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run migrations:aiSeatNames
 
+      - name: Key the assistant's stored state by (player, game) (idempotent; convex/migrations.ts assistant-per-game)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run migrations:assistantPerGame
+
       - name: Upload the Python runtime bundle
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

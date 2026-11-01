@@ -120,7 +120,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "assistant.send": {
     kind: "mutation", audience: "player",
     human: { title: "Ask the assistant", tooltip: "Sends your message; the assistant answers and acts as you with the rights you chose." },
-    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. FORBIDDEN while the owner's allowance is 0; CONFLICT while a turn is active." },
+    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. FORBIDDEN while the owner's allowance is 0; CONFLICT while a turn is active, or for a thread of an earlier game (each game starts a fresh conversation)." },
     tools: [], palette: { label: "Ask the assistant…", group: "help", keywords: ["ask", "assistant", "help", "ai"], surfaces: P }, why: NO_SELF_DRIVE,
   },
   "assistant.cancel": {
@@ -149,8 +149,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.threads": {
     kind: "query", audience: "player",
-    human: { title: "Switch conversation", tooltip: "Your assistant conversations in this room, newest first." },
-    ai: { description: "The human's assistant threads in a room (titles and times), for the conversation picker." },
+    human: { title: "Switch conversation", tooltip: "Your assistant conversations in this room's current game, newest first." },
+    ai: { description: "The human's assistant threads in a room's current game (titles and times), for the conversation picker; gameId reads an earlier game's (or \"lobby\")." },
     tools: [], palette: { label: "Switch assistant conversation…", group: "help", keywords: ["thread", "conversation", "history"], surfaces: P }, why: NO_SELF_DRIVE,
   },
   "assistant.thread": {
@@ -206,19 +206,19 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "code.objects.list": {
     kind: "query", audience: "player",
     human: { title: "Show my stored objects", tooltip: "What your assistant's scripts saved for you: keys, sizes and how much of your store is used." },
-    ai: { description: "The human's object store (the only persistence a run_code script has): keys under a prefix with sizes and times (never values), the store's usage and its limits." },
+    ai: { description: "The human's object store (the only persistence a run_code script has; this game's objects and the saved scripts/, which stay across games): keys under a prefix with sizes and times (never values), the store's usage and its limits." },
     tools: ["list_code_objects"], palette: null, why: "Objects are written and read by the assistant's scripts; there is nothing to run by hand.",
   },
   "code.runs.list": {
     kind: "query", audience: "player",
-    human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this room, newest first, with this game's budget." },
-    ai: { description: "The human's recent analytics code runs in this room (runId, title, language, status, datasets, CPU and timing), newest first, and this game's run budget (runs and CPU seconds used and left)." },
+    human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this game, newest first, with its budget." },
+    ai: { description: "The human's recent analytics code runs in this room's current game (runId, title, language, status, datasets, CPU and timing), newest first, and this game's run budget (runs and CPU seconds used and left)." },
     tools: ["list_code_runs"], palette: null, why: "The code-output panel lists and shows runs; the assistant starts them.",
   },
   "code.runs.get": {
     kind: "query", audience: "player",
     human: { title: "Show a code run", tooltip: "One analytics run's source, result table and printed output." },
-    ai: { description: "One of the human's code runs (default: the latest in this room): its source, datasets, status or error, CPU time, the result JSON and printed output (a prefix when large, with a URL of the whole)." },
+    ai: { description: "One of the human's code runs (default: the latest of this room's current game; the assistant reaches no earlier game's): its source, datasets, status or error, CPU time, the result JSON and printed output (a prefix when large, with a URL of the whole)." },
     tools: ["get_code_run"], palette: null, why: "Rendered by the code-output panel, which the assistant opens with open_panel.",
   },
   // ----- commands -----

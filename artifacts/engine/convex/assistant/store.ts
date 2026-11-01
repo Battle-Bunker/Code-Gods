@@ -371,6 +371,24 @@ export const sweep = internalMutation({
   },
 });
 
+/**
+ * A new game starts in the room (game/lobby.ts launch): every assistant turn still active there ends, so no step, tool
+ * call or confirmation card of the previous game's conversation runs in the new one. A running step is cancelled like
+ * the player's own stop (it exits at its next check, finalizeCancel after the grace); a turn waiting on a card ends
+ * now, its card denied.
+ */
+export async function endTurnsForNewGame(ctx: MutationCtx, roomId: Id<"rooms">) {
+  const now = Date.now();
+  for (const status of ["running", "awaiting_confirmation"] as const) {
+    for (const turn of await ctx.db.query("assistantTurns").withIndex("by_room_status", q => q.eq("roomId", roomId).eq("status", status)).take(200)) {
+      if (status === "awaiting_confirmation") { await finishTurn(ctx, turn, "cancelled"); continue; }
+      await ctx.db.patch(turn._id, { status: "cancelling", gen: turn.gen + 1, updatedAt: now });
+      await ctx.scheduler.runAfter(CANCEL_GRACE_MS, internal.assistant.store.finalizeCancel, { turnId: turn._id });
+      log("cancel.newGame", { turnId: turn._id });
+    }
+  }
+}
+
 /** A cancellation the step never acknowledged (it died or never ran): finish it. */
 export const finalizeCancel = internalMutation({
   args: { turnId: v.id("assistantTurns") },

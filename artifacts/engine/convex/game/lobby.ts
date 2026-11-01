@@ -10,6 +10,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
+import { endTurnsForNewGame } from "../assistant/store";
 import { nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
@@ -226,6 +227,8 @@ export const commitStart = internalMutation({
     });
     await ctx.db.patch(gameId, { nextBatch: 1 });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
+    // The assistant's conversation and working state are per (player, game): the last game's turns end here.
+    await endTurnsForNewGame(ctx, room._id);
     await ctx.db.patch(room._id, {
       activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined,
       aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],

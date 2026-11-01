@@ -7,8 +7,13 @@
  *   mutation assistant:confirm  ({toolCallId, decision: "approve" | "deny"})           → {status}
  *   mutation assistant:setPrefs ({roomId, autoApproveSummonBits})
  *   query    assistant:status   ({roomId})   → enabled, allowance, model, credential, active turn, prefs
- *   query    assistant:threads  ({roomId})   → the caller's threads in the room
+ *   query    assistant:threads  ({roomId, gameId?}) → the caller's threads in the room's current game (or that earlier one)
  *   query    assistant:thread   ({threadId}) → the thread's turns, messages and tool calls (its human only)
+ *
+ * Everything the assistant works from is per (human, game): threads (with their turns, briefings, messages, tool calls
+ * and cards), the allowance (ai/seats.ts) and code runs and stored objects (convex/code). Starting a game ends the last
+ * game's active turns (assistant/store.ts endTurnsForNewGame), and the new game lists no thread until the human starts
+ * one; an earlier game's thread can be read, never continued.
  *
  * Callers: browser sessions and player credentials of a room member (the hosted client and dev-server apps).
  * The first send creates (or reuses) the human's assistant credential for the room with the permission they chose
@@ -22,7 +27,7 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { touchActivity } from "./activity";
 import type { Permission, Viewer } from "./auth/access";
 import { credentialProblem } from "./auth/principal";
-import { allowanceOf } from "./ai/seats";
+import { ASSISTANT_LOBBY as LOBBY, allowanceOf, assistantEpoch } from "./ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { requireMember, requireRoom } from "./lib/rooms";
@@ -92,17 +97,20 @@ export const send = mutation({
     if (!(room.assistantBudget ?? 0)) {
       fail("FORBIDDEN", "The room owner has not enabled the assistant in this room (its allowance is 0 tokens). The owner approves an assistant allowance in the room's AI budget card.");
     }
+    const epoch = assistantEpoch(room);
     const latest = await latestTurn(ctx, room._id, viewer.subject);
-    if (latest && isActive(latest.status)) fail("CONFLICT", "Your assistant is still answering in this room: stop it or wait for it to finish");
-    const credentialId = await assistantCredential(ctx, viewer, room, args.permission, args.ownerConsent ?? false);
-    const now = Date.now();
+    // A turn of the last game being stopped because this one started (endTurnsForNewGame) acts no more: not a conflict.
+    const ending = latest?.status === "cancelling" && (await ctx.db.get(latest.threadId))?.epoch !== epoch;
+    if (latest && isActive(latest.status) && !ending) fail("CONFLICT", "Your assistant is still answering in this room: stop it or wait for it to finish");
     let threadId = args.threadId;
     if (threadId) {
       const thread = await ctx.db.get(threadId);
       if (!thread || thread.subject !== viewer.subject || thread.roomId !== room._id) fail("NOT_FOUND", "Thread not found");
-    } else {
-      threadId = await ctx.db.insert("assistantThreads", { roomId: room._id, subject: viewer.subject, title: text.slice(0, 60), createdAt: now, updatedAt: now });
+      if (thread.epoch !== epoch) fail("CONFLICT", "That conversation belongs to an earlier game: start a new one for this game");
     }
+    const credentialId = await assistantCredential(ctx, viewer, room, args.permission, args.ownerConsent ?? false);
+    const now = Date.now();
+    threadId ??= await ctx.db.insert("assistantThreads", { roomId: room._id, subject: viewer.subject, title: text.slice(0, 60), epoch, createdAt: now, updatedAt: now });
     const turnId = await ctx.db.insert("assistantTurns", {
       threadId, roomId: room._id, subject: viewer.subject, ...(room.activeGameId ? { gameId: room.activeGameId } : {}), credentialId,
       status: "running", gen: 0, step: 0, maxSteps: LIMITS.maxSteps, deadline: now + LIMITS.turnMs,
@@ -182,6 +190,8 @@ export const status = query({
     const allowance = await allowanceOf(ctx, room, viewer.subject);
     const [credential] = await activeAssistantCredential(ctx, viewer.subject, room);
     const latest = await latestTurn(ctx, room._id, viewer.subject);
+    // A turn of an earlier game (ending after the next game started) is not this game's active turn.
+    const latestThread = latest && isActive(latest.status) ? await ctx.db.get(latest.threadId) : null;
     const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", room._id).eq("subject", viewer.subject)).unique();
     const model = AI_MODEL_CATALOG.find(m => m.id === (room.assistantModel ?? DEFAULT_AGENT_MODEL));
     return {
@@ -189,20 +199,31 @@ export const status = query({
       allowance: { limit: allowance.limit, used: allowance.used, epoch: allowance.epoch },
       model: model ? { id: model.id, label: model.label, provider: model.provider } : null,
       credential: credential ? { credentialId: credential._id, permission: credential.permission, expiresAt: credential.expiresAt } : null,
-      activeTurn: latest && isActive(latest.status) ? { turnId: latest._id, threadId: latest.threadId, status: latest.status } : null,
+      activeTurn: latest && latestThread?.epoch === allowance.epoch ? { turnId: latest._id, threadId: latest.threadId, status: latest.status } : null,
       isOwner: room.ownerId === viewer.subject, maxPermission: maxPermission(viewer, room),
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
     };
   },
 });
 
+/** A thread's game as the client sees it: the game id, or null before the room's first game. */
+const gameOf = (epoch: string | undefined) => epoch && epoch !== LOBBY ? epoch : null;
+
 export const threads = query({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
+  args: { roomId: v.id("rooms"), gameId: v.optional(v.string()) },
+  handler: async (ctx, { roomId, gameId }) => {
     const room = await requireRoom(ctx, roomId);
     const { viewer } = await requireMember(ctx, room, "read");
-    const rows = await ctx.db.query("assistantThreads").withIndex("by_room_subject", q => q.eq("roomId", room._id).eq("subject", viewer.subject)).order("desc").take(20);
-    return rows.map(t => ({ _id: t._id, title: t.title, createdAt: t.createdAt, updatedAt: t.updatedAt, activeTurnId: t.activeTurnId ?? null }));
+    let epoch = assistantEpoch(room);
+    if (gameId !== undefined && gameId !== LOBBY) {
+      // An earlier game of this room (a replay reads its conversations); never another room's.
+      const id = ctx.db.normalizeId("games", gameId);
+      const game = id ? await ctx.db.get(id) : null;
+      if (!game || game.roomId !== room._id) fail("NOT_FOUND", "No such game in this room");
+      epoch = String(game._id);
+    } else if (gameId === LOBBY) epoch = LOBBY;
+    const rows = await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").take(20);
+    return rows.map(t => ({ _id: t._id, title: t.title, gameId: gameOf(t.epoch), createdAt: t.createdAt, updatedAt: t.updatedAt, activeTurnId: t.activeTurnId ?? null }));
   },
 });
 
@@ -218,7 +239,7 @@ export const thread = query({
     const messages = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId)).order("desc").take(100)).reverse();
     const toolCalls = (await Promise.all(turns.map(t => callsOf(ctx, t._id)))).flat();
     return {
-      thread: { _id: thread._id, title: thread.title, createdAt: thread.createdAt, updatedAt: thread.updatedAt, activeTurnId: thread.activeTurnId },
+      thread: { _id: thread._id, title: thread.title, gameId: gameOf(thread.epoch), createdAt: thread.createdAt, updatedAt: thread.updatedAt, activeTurnId: thread.activeTurnId },
       turns: turns.map(t => ({
         _id: t._id, status: t.status, step: t.step, maxSteps: t.maxSteps, deadline: t.deadline, usage: t.usage, tools: t.tools, credentialId: t.credentialId,
         error: t.error ?? null, createdAt: t.createdAt, finishedAt: t.finishedAt ?? null,
