@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, playerClient, rejects, roomWith, touch, TS } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, rejects, roomWith, startGame, touch, TS } from "./game-helpers.ts";
 
 const INT_TS = { languages: ["typescript"], language: "typescript", objectType: "Int", spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 3600 };
 const LIMIT = 30;
@@ -15,7 +15,7 @@ test("validate and summon examinations are capped per human per room per minute,
   const [host, ada, bo] = await gods("Limit Host", "Limit Ada", "Limit Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], INT_TS);
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const validate = () => envelope({ type: "validate", language: "typescript", source: TS.Int }, game.gameId);
 
   // Ada has used her minute: through her browser and through a player app alike, the next examination is refused.
