@@ -2,7 +2,7 @@
  * Limits of code runs (docs/assistant/code-execution.md §4): pure constants shared by the engine functions and the tests.
  */
 export const CODE_LIMITS = {
-  /** Per player per game ("lobby" before the first game): runs started, and CPU seconds used. */
+  /** Per player per game (per room before its first game): runs started, and CPU seconds used. */
   runsPerGame: 40,
   cpuMsPerGame: 120_000,
   /** One run's CPU budget (ms): default and maximum (the runtime's own maximum is 20 s). */

@@ -115,6 +115,13 @@ test("run_code: errors are stored and explained, large results go to storage, th
   assert.equal(JSON.parse(whole.result).length, 20000);
   assert.equal(whole.result.length, row.resultChars);
 
+  // A failed run is charged the time it took: a loop that then raises is not free.
+  const before = (await cy.c.query(api.code.runs.list, { roomId })).budget.used.cpuSeconds;
+  const spin = await run(cred, roomId, { language: "typescript", source: "function main(d) { const t = Date.now(); let n = 0; for (let i = 0; i < 3e7; i++) n += i; throw new Error('after ' + n); }" });
+  assert.equal(spin.error.code, "EXECUTION");
+  assert.ok(spin.cpuMs > 20, `charged ${spin.cpuMs} ms`);
+  assert.ok((await cy.c.query(api.code.runs.list, { roomId })).budget.used.cpuSeconds >= before + spin.cpuMs / 1000 - 1e-9);
+
   // The run budget: runsPerGame runs per game, then RATE_LIMITED (failed runs count).
   const used = (await cy.c.query(api.code.runs.list, { roomId })).budget.used.runs;
   for (let i = used; i < CODE_LIMITS.runsPerGame; i++) {
@@ -124,6 +131,16 @@ test("run_code: errors are stored and explained, large results go to storage, th
   assert.equal(await errorCode(run(cred, roomId, { language: "typescript", source: "function main(d) { return 0; }" })), "RATE_LIMITED");
   const budget = (await cy.c.query(api.code.runs.list, { roomId })).budget;
   assert.deepEqual(budget.left.runs, 0);
+});
+
+test("run_code: before a room's first game the budget is that room's own", { timeout: 120_000 }, async () => {
+  const [lu] = await gods("Lu Lobby");
+  const a = await roomWith([lu]), b = await roomWith([lu]);
+  const inA = await credential(lu, a.roomId), inB = await credential(lu, b.roomId);
+  assert.equal((await run(inA, a.roomId, { language: "python", source: "def main(d):\n    return 1\n" })).status, "ok");
+  assert.equal((await lu.c.query(api.code.runs.list, { roomId: a.roomId })).budget.used.runs, 1);
+  assert.equal((await lu.c.query(api.code.runs.list, { roomId: b.roomId })).budget.used.runs, 0, "another room's lobby runs do not count");
+  assert.equal((await run(inB, b.roomId, { language: "typescript", source: "function main(d) { return 2; }" })).result, 2);
 });
 
 test("the assistant loads the skill, runs code and shows the result in a code-output pane", { timeout: 240_000 }, async () => {

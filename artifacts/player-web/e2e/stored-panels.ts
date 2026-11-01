@@ -367,10 +367,23 @@ await check("after the game ends every built-in panel shows the frozen final sta
     overview: "[data-testid=panel-overview]", "my-card": "[data-testid=panel-utility]", objects: "[data-testid^=row-object-]", "others-care": "[data-testid=panel-others-care]",
     "bits-over-time": "[data-testid=panel-bits-over-time]", race: "[data-testid^=row-leader-]", agents: "[data-testid^=row-agent-]", feed: "[data-testid^=row-transformation-]",
     "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
+    "code-output": "[data-testid=table-code-result]",
   };
   const { PANEL_IDS } = await import("@workspace/player-client/panels");
-  assert(PANEL_IDS.length === 13 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
-  // layout:set allows 12 changes a minute: a sweep of 13 panels waits for the window instead of failing.
+  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
+  // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
+  // The AI seats keep the budget the evaluator check gave them (a later check starts another game with them).
+  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+  const rank = "def main(data):\n    rows = sorted(data['objects'], key=lambda o: -o['payoff'])[:5]\n    return [{'object': o['id'], 'payoff': round(o['payoff'], 2)} for o in rows]\n";
+  const sent = await carol.mutation(fn.m("assistant:send"), { roomId, text: `/mock ${JSON.stringify({ steps: [
+    { tools: [{ name: "run_code", input: { language: "python", source: rank, datasets: ["objects"], title: "Top 5 by payoff" } }] }, { text: "Done." }] })}` }) as { threadId: string; turnId: string };
+  await until(async () => {
+    const t = await carol.query(fn.q("assistant:thread"), { threadId: sent.threadId }) as { turns: { _id: string; status: string }[] };
+    const turn = t.turns.find(x => x._id === sent.turnId);
+    if (turn && turn.status !== "running") { assert(turn.status === "done", `the code turn ended ${turn.status}`); return true; }
+    return undefined;
+  }, "carol's code run", 90_000);
+  // layout:set allows 12 changes a minute: a sweep of 14 panels waits for the window instead of failing.
   const setLayout = (layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, (e: Error) => {
     if (/RATE_LIMITED/.test(e.message)) return sleep(4_000).then(() => undefined);
     throw e;

@@ -24,8 +24,8 @@ async function memberRoom(ctx: Ctx, viewer: Viewer, roomRef: string) {
   await requireMemberAs(ctx, viewer, room, "read");
   return room;
 }
-/** The budget epoch of a room now: its current game, or "lobby". */
-const epochOf = (room: Doc<"rooms">) => room.currentGameId ?? "lobby";
+/** The budget epoch of a room now: its current game, or this room's lobby (before its first game). */
+const epochOf = (room: Doc<"rooms">) => room.currentGameId ?? `lobby:${room._id}`;
 
 /** Runs of an epoch, with the budget they used (a run still "running" past staleMs counts as used, not as running). */
 async function budgetOf(ctx: Ctx, subject: string, epoch: string) {
@@ -93,9 +93,11 @@ export const getAs = internalQuery({ args: { principal: principalV, ...getArgs }
 export const fullOf = internalQuery({
   args: { principal: principalV, roomId: v.string(), runId: v.string() },
   handler: async (ctx, { principal, roomId, runId }): Promise<Id<"_storage"> | null> => {
-    const detail = await getImpl(ctx, await viewerOf(ctx, principal), { roomId, runId });
-    const id = ctx.db.normalizeId("codeRuns", detail!.runId);
-    return id ? (await ctx.db.get(id))?.fullId ?? null : null;
+    const viewer = await viewerOf(ctx, principal);
+    const room = await memberRoom(ctx, viewer, roomId);
+    const id = ctx.db.normalizeId("codeRuns", runId);
+    const row = id ? await ctx.db.get(id) : null;
+    return row && row.subject === viewer.subject && row.roomId === room._id ? row.fullId ?? null : null;
   },
 });
 

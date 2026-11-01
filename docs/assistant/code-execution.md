@@ -164,8 +164,9 @@ through the disclosure checker); nothing passes through the model's context. The
   - Up to 1,500 characters of printed text.
   - A first field `TRUNCATED` saying what was cut and how to page on.
   - The `runId`, and a line naming `open_panel {panelId: "code-output", params: {runId}}`.
-- **Budget** (convex/code/limits.ts): 40 runs and 120 CPU seconds per player per game ("lobby" before the first),
-  one run at a time; a run stopped at its budget is charged its whole budget.
+- **Budget** (convex/code/limits.ts): 40 runs and 120 CPU seconds per player per game (per room before its first
+  game), one run at a time. A finished run is charged its CPU; a failed one, which reports none, is charged the
+  sandbox's wall time on it (at most its budget).
 - **The panel.** Built-in `code-output` ("Code results"; params `runId?`, `view`, `showSource`) subscribes to
   `code.runs.get`. A list of flat rows, or `{summary, rows}`, renders as a table (12 columns, 200 rows); anything else
   as JSON. The printed text and the source follow. A clipped run fetches its whole result from storage.

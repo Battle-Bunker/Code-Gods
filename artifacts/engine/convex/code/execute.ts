@@ -67,13 +67,15 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: { room
   // Deterministic: the same script over the same data draws the same random numbers.
   const seed = "0x" + createHash("sha256").update(args.language).update("\0").update(args.source).update("\0").update(input).digest("hex").slice(0, 16);
   let run: ScriptResult;
+  if (args.language === "python") await bindRuntime(ctx);
+  const scriptStarted = performance.now();
   try {
-    if (args.language === "python") await bindRuntime(ctx);
     run = await scriptRuntimeFor(args.language).script(args.source, input, { cpuMs, seed });
   } catch (error) {
     const code = error instanceof RuntimeError ? error.code : "INTERNAL";
-    // A script stopped at its budget used all of it; any other failure is charged what it is known to have used (none).
-    return failed({ code, message: messageOf(error).slice(0, 1000) }, code === "LIMIT" && /Time limit/.test(messageOf(error)) ? cpuMs : 0);
+    // A failed run reports no CPU, so it is charged the time the sandbox spent on it (wall time, at most its budget):
+    // a script that loops and then raises still pays for the loop.
+    return failed({ code, message: messageOf(error).slice(0, 1000) }, Math.min(cpuMs, Math.round(performance.now() - scriptStarted)));
   }
   const wallMs = Math.round(performance.now() - started);
   const clipped = run.result.length > CODE_LIMITS.rowResultChars || run.output.length > CODE_LIMITS.rowOutputChars;

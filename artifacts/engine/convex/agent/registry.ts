@@ -175,7 +175,8 @@ const CODE_EXECUTORS = {
     const { resultJson, output, source, fullUrl: _, ...summary } = run;
     if (!part) return { data: { ...summary, resultPreview: (resultJson ?? "").slice(0, 1000), outputPreview: (output ?? "").slice(0, 500) } };
     let text = part === "source" ? source : part === "result" ? resultJson ?? "" : output ?? "";
-    if (part !== "source" && run.clipped) {
+    // The row holds a prefix of a clipped run; the whole is read from file storage only for a slice past it.
+    if (part !== "source" && run.clipped && offset + length > text.length) {
       const full: { result: string; output: string } | null = await ctx.runAction(internal.code.execute.fullText, { principal, roomId: who.roomId, runId });
       if (full) text = part === "result" ? full.result : full.output;
     }

@@ -11,7 +11,7 @@ import { v } from "convex/values";
 export const codeTables = {
   codeRuns: defineTable({
     subject: v.string(), roomId: v.id("rooms"),
-    /** The game the run's budget counts against: its id, or "lobby". */
+    /** The game the run's budget counts against: its id, or `lobby:<roomId>` before the room's first game. */
     epoch: v.string(),
     language: v.union(v.literal("python"), v.literal("typescript")),
     source: v.string(),
