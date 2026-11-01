@@ -6,7 +6,7 @@ The engine is one Convex deployment. Clients talk to it in two ways:
   `ConvexClient` or `ConvexHttpClient` and the generated `api` from
   `artifacts/engine/convex/_generated/api`.
 - **HTTP actions** at the site URL `https://<dep>.convex.site`, which also serves the engine UI at `/`
-  and the default player client at `/player/`.
+  and the default player client at `/client/`.
 
 Locally (`pnpm --filter @workspace/engine dev`) these are `http://127.0.0.1:3210` and
 `http://127.0.0.1:3211`.
@@ -20,7 +20,7 @@ Every function authenticates with a 10-minute RS256 JWT. There are two kinds, to
 
 - **`browser` scope.** A human signed in on the site with **Google**, through Better Auth served by the
   deployment (`/api/auth/*`). The session is an HttpOnly cookie on the site origin (24 h), shared by the
-  engine UI at `/` and the hosted player client at `/player/`. Convex JWTs come from
+  engine UI at `/` and the hosted player client at `/client/`. Convex JWTs come from
   `GET /api/auth/convex/token` (issuer `<site>`, audience `convex`). The human's god id is the Better
   Auth user id; signing out ends the session at once, even for an unexpired JWT.
 - **`player` scope.** A player app or room assistant holding a room credential (`cgc_…`). It
@@ -193,6 +193,11 @@ Each of these returns the caller's own projection only.
 - `player.observation({roomId, at?})` query → a v3 `Observation` (`lib/player-client` `observationSchema`): `languages` lists the languages the game allows and `language` is the default (the first); each own agent carries its own `language`. `at` is only a cache key; pass e.g. `Math.floor(Date.now()/1000)` when polling for fresh energy during planning or a pause. After the end it is the ended game's frozen final state (phase `ended`; objects, own agents, transformations, leaderboard, own card; god energy stops at `endedAt`) until the room's next game starts. Ended games are kept whole and are not deleted (no retention limit; a game is its objects ≤ 2,100, agents ≤ 2,000, deities and event batches).
 - `player.events({roomId, gameId?, after?, limit≤50})` query → `{gameId, events[{seq, type, …}], nextCursor, latestCursor, gap}`. Event types are `object.spawned`, `object.transformed` (calls and cost only when `mine`), `agent.failed` (own agents only) and `phase`. Object events carry own bits plus `peerNetBits`, `peerCare` and `payoff`.
 - `player.history({roomId, gameId, afterSeq?, limit?})` query: the same projection for any game of the room, ended games included
+  (a past game, one the room no longer runs, only for the gods who played in it and the room owner; the same rule holds
+  for `events` and `trajectories` with a `gameId`)
+- `player.game({roomId, gameId})` query: one game of the room by id or code, its public world (final once ended),
+  standings, winners and chat, with `current` (the room's active or current game) and `seated`; a past game only for
+  its players and the room owner (the player client's read-only `/rooms/:room/games/:game`)
 - `player.trajectories({roomId, gameId?, afterSeq?, limit≤200})` query → `{objects[{objectId, points[{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], nextCursor, latestCursor}`
 - `player.myUtility({roomId})` query → `{gameId, godId, utility{familyId, params, penalty?}, instantiationKey, objectType, typeArgs, priorId, penaltyWeight, language (the default), languages, settings}`, or null when the caller isn't seated (own descriptor only)
 - `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT.
@@ -262,8 +267,9 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `panels.remove` | mutation | player | Delete a panel | Deletes a panel and all its versions; this cannot be undone. | `delete_panel` |
 | `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation`, `load_skill` |
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
-| `player.history` | query | player | Replay a past game's log | The event log of any game of this room, finished ones included. | `get_game_history` |
+| `player.history` | query | player | Replay a past game's log | The event log of a game of this room; past games open for their players. | `get_game_history` |
 | `player.replay` | query | player | Replay a game I played | Everything needed to replay a game you were seated in, tick by tick, as you could see it. | — (Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.) |
+| `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |

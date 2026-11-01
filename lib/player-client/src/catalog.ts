@@ -342,8 +342,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.history": {
     kind: "query", audience: "player",
-    human: { title: "Replay a past game's log", tooltip: "The event log of any game of this room, finished ones included." },
-    ai: { description: "The same projected event log for any game of the room, finished games included, from a seq cursor." },
+    human: { title: "Replay a past game's log", tooltip: "The event log of a game of this room; past games open for their players." },
+    ai: { description: "The same projected event log for a game of the room, finished games included, from a seq cursor. A past game (not the room's current one) is readable only by the gods who played in it and the room owner." },
     tools: ["get_game_history"], palette: { label: "Replay a past game's log…", group: "view", keywords: ["replay", "history", "past game"], surfaces: P },
   },
   "player.replay": {
@@ -352,6 +352,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "One page of a game's replay for one of its players: the game's header, the human's own utility card, batches of projected events (spawns, transforms, agent summons and destructions, phases) with wall time, world window and leaderboard totals, and on the first page the game's chat. Page with afterSeq = nextCursor until done. Players of that game only." },
     tools: [], palette: null,
     why: "Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.",
+  },
+  "player.game": {
+    kind: "query", audience: "player",
+    human: { title: "Open a game of this room", tooltip: "One game of this room, live or as it ended; past games open for their players and the owner." },
+    ai: { description: "One game of the room by id or code: its public world (final once ended), standings, winners and chat, whether it is current and whether the human was seated." },
+    tools: [], palette: null, why: "The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.",
   },
   "player.trajectories": {
     kind: "query", audience: "player",

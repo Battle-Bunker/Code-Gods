@@ -60,11 +60,13 @@ const shadesOf = (set: GridColourSet, scheme: "light" | "dark") => COLOUR_COMPON
  * Floors per set and scheme: [min CIEDE2000, min OKLab ΔE×100 under protanopia/deuteranopia, under tritanopia]. Each
  * is above what the previous, per-letter shades reached (rgb light 42.9 / 6.9 / 5.0, rgby 25.5 / 4.3 / 5.0, rainbow6
  * 19.9 / 2.2 / 5.0; dark rgb 42.3 / 4.2 / 6.4, rgby 28.4 / 4.2 / 6.4, rainbow6 26.3 / 3.0 / 6.4), so a regression to
- * them fails.
+ * them fails. The light rgb and rgby floors were lowered slightly when those shades were hand-tuned for small text
+ * (blue no longer indigo, green no longer teal; see grid-display.ts): normal-vision hue reading wins, and the letter
+ * and pattern cues back up colour-blind players.
  */
 const FLOORS: Record<GridColourSet, Record<"light" | "dark", [number, number, number]>> = {
-  rgb: { light: [48, 8.5, 8.5], dark: [52, 22, 22] },
-  rgby: { light: [31, 6.5, 7.5], dark: [42, 14, 17] },
+  rgb: { light: [44, 8, 8.5], dark: [52, 22, 22] },
+  rgby: { light: [28.5, 4.5, 11], dark: [42, 14, 17] },
   rainbow6: { light: [22.5, 5, 7.5], dark: [30, 10.5, 11] },
 };
 
@@ -131,6 +133,11 @@ test("the shades of each set are far apart for normal vision and under protanopi
   // for a small-field (tritan) eye, where the old #147137 / #1d5bbd sat at 5.0, under the dataviz floor of 6.
   assert.ok(deltaEOk("#147137", "#1d5bbd", "tritan") < 5.5);
   assert.ok(deltaEOk(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B, "tritan") >= 8.5);
+  // Blue reads as blue at digit size: a vivid royal blue, not an indigo that looks black (#2900df: hue 270, L 0.42).
+  for (const set of ["rgb", "rgby"] as const) {
+    const [L, , h] = oklchOf(DIGIT_SHADES[set].light.B);
+    assert.ok(h <= 264 && L >= 0.48, `${set} light blue ${DIGIT_SHADES[set].light.B} reads as indigo or near-black`);
+  }
   assert.ok(deltaE2000(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B) > deltaE2000("#147137", "#1d5bbd"));
   // Yellow on a light page is a dark gold (L* well under 50), not a washed-out yellow.
   assert.ok(labOf(DIGIT_SHADES.rainbow6.light.Y)[0] < 50 && labOf(DIGIT_SHADES.rgby.light.Y)[0] < 50);

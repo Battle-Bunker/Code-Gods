@@ -1,7 +1,7 @@
 /**
  * Content Security Policies of the player client:
  *
- *   /player/ (a build)          pageCsp: connect-src only this origin and the Convex deployment (https + wss);
+ *   /client/ (a build)          pageCsp: connect-src only this origin and the Convex deployment (https + wss);
  *                               'unsafe-eval' because the utility evaluator compiles kid cards with new Function;
  *                               frame-src 'self', so a panel's frame cannot navigate itself to another origin.
  *   the dev server's page       devPageCsp: only frame-src 'self' (and object-src 'none'), so HMR keeps working.
@@ -75,7 +75,7 @@ export function frameCsp(origin: string | readonly string[]): string {
 
 const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
-/** The frame document. Relative URLs resolve against /player/panel-frame.html (or /panel-frame.html in dev). */
+/** The frame document. Relative URLs resolve against /client/panel-frame.html (or /panel-frame.html in dev). */
 export function frameHtml(origin: string | readonly string[]): string {
   return `<!doctype html>
 <html lang="en">

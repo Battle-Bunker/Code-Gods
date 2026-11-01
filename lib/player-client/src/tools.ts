@@ -137,7 +137,7 @@ export const READ_TOOLS = [
     note: "Paged by offset.",
     input: obj({ cursor: z.number().int().min(0).default(0).describe("Offset (nextCursor)."), limit: z.number().int().min(1).max(20).default(5) }),
     output: result(anyData) }),
-  def({ name: "get_game_history", short: "The event log of any game of the room, finished ones included.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
+  def({ name: "get_game_history", short: "The event log of a game of the room; past games only for their players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games) and pages by afterSeq.",
     input: obj({ gameId: id, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(50).default(20) }), output: result(anyData) }),
   def({ name: "get_my_utility", short: "The player's utility descriptor (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,

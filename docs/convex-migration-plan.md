@@ -30,7 +30,7 @@ summon pricing, two energy accounts, the 2-bit floor and information scoring.
 ```
                    ┌──────────────────────── Convex deployment ─────────────────────────┐
  Engine UI  ───────┤ https://<dep>.convex.site/          static: artifacts/code-gods       │
- (browser)         │ https://<dep>.convex.site/player/   static: artifacts/player-web      │
+ (browser)         │ https://<dep>.convex.site/client/   static: artifacts/player-web      │
                    │ https://<dep>.convex.site/api/*     HTTP actions: sign-in, device     │
                    │                                     flow, JWKS, token exchange        │
  Player app #1 ────┤ wss://<dep>.convex.cloud            queries / mutations / actions     │
@@ -305,13 +305,13 @@ actions, with SPA fallback and long-term caching of hashed assets. Two instances
 // convex/convex.config.ts
 const app = defineApp();
 app.use(staticHosting, { name: "engineSite" });   // engine UI at /
-app.use(staticHosting, { name: "playerSite" });   // default player client at /player/
-// convex/http.ts: /api/* routes first, then registerStaticRoutes for /player/ and /
+app.use(staticHosting, { name: "playerSite" });   // default player client at /client/ (was /player/, which now redirects)
+// convex/http.ts: /api/* routes first, then registerStaticRoutes for /client/ and /
 ```
 
 The "app-owned root routing" mode keeps `/api/*` (Better Auth, device flow, JWKS) at stable root
 URLs. Uploads use the component's CLI (`upload --component engineSite|playerSite --dist …`), wrapped
-by `pnpm engine:deploy`. The player client is built with `base: "/player/"`. The same build serves
+by `pnpm engine:deploy`. The player client is built with `base: "/client/"`. The same build serves
 the player-app dev mode (the `"devserver"` connection mode) with base `/`.
 
 ## 8. Many player apps, one engine
@@ -460,7 +460,7 @@ paused. The test provider `mock` is enabled only when the env var `AI_MOCK=1`.
   player's behalf. With `owner` it starts a game. With `read` it is refused. Revocation takes
   effect immediately.
 - **Static hosting:** both builds uploaded to the local deployment; `GET /`, `/rooms/X` (SPA
-  fallback), `/player/` and a hashed asset are served with the right types.
+  fallback), `/client/` and a hashed asset are served with the right types.
 - **Throughput:** `pnpm engine:bench` runs a game with N TS and N Python agents and records acts/s,
   commit latency and discarded windows.
 
@@ -564,7 +564,7 @@ Run these from the repository root unless noted. `PILOT.md` has the same steps i
    - `pnpm --filter @workspace/game-runtime build:python`;
    - `pnpm --filter @workspace/engine upload-runtime --prod` (the Python bundle into file storage);
    - `pnpm --filter @workspace/engine deploy-static --prod` (builds and uploads the engine UI at `/` and
-     the player client at `/player/`).
+     the player client at `/client/`).
 6. **Smoke test:**
    - `/` loads and a real Google sign-in works;
    - `/api/health` and `/api/config` answer;
