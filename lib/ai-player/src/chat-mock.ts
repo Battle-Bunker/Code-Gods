@@ -9,7 +9,8 @@
  *       "status": 400..599 (with fail: the HTTP status of a provider SDK error, as when the request is refused),
  *       "cutBelow": N (the answer is cut, ChatCutError, when the step's output ceiling is below N),
  *       "echo": true (answer with JSON {system, tools: the names in context (core and loaded), context: the prompt's other text blocks, earlier: earlier
- *       turns' user text without their briefings, maxOutputTokens}) }
+ *       turns' user text without their briefings, later: the text of the turn's later user messages (queued messages delivered after
+ *       tool results), maxOutputTokens}) }
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
  * the turn with no text. Usage is reported from the request and answer sizes (about four characters a token). An aborted
@@ -85,7 +86,9 @@ export function mockChatProvider(): ChatProvider {
       let text = "";
       // Earlier turns' user text (their briefings left out: the current one is in context, and they would crowd the echo).
       const earlier = request.messages.slice(0, Math.max(0, promptAt)).flatMap(m => m.role === "user" ? (typeof m.content === "string" ? [m.content] : m.content.flatMap(b => b.type === "text" && !b.text.startsWith("<briefing>") ? [b.text] : [])) : []);
-      const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: activeTools(request).map(t => t.name), context: blocks.slice(0, -1), earlier, maxOutputTokens: request.maxOutputTokens })] : current.text;
+      // Text the turn's later user messages carry (messages queued during the turn, after its steps' tool results).
+      const later = request.messages.slice(promptAt + 1).flatMap(m => m.role === "user" && typeof m.content !== "string" ? m.content.flatMap(b => b.type === "text" ? [b.text] : []) : []);
+      const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: activeTools(request).map(t => t.name), context: blocks.slice(0, -1), earlier, later, maxOutputTokens: request.maxOutputTokens })] : current.text;
       const aborted = () => new ChatAbortedError({ input: usage, outputChars: text.length, reasoningMs: 0 });
       for (const chunk of chunks) {
         if (current.delayMs) await sleep(current.delayMs, request.signal).catch(() => { throw aborted(); });
