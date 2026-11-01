@@ -1,19 +1,27 @@
 /**
- * The display shades of the Grid renderers, per colour SET (rgb, rgby, rainbow6) and scheme: every shade reads on the
- * apps' page, card, popover and muted backgrounds of its scheme (WCAG AA, 4.5:1); the shades of one set stay apart
- * for normal vision (CIEDE2000) and under protanopia, deuteranopia and tritanopia (OKLab ΔE×100, Machado 2009; the
- * dataviz method's target is 8, its floor 6 with a secondary cue, which the letter and pattern cues are); each stays
- * inside the hue window where it reads as its name. The CSS custom properties in both apps' index.css must carry
- * exactly these values.
+ * The display shades of the Grid renderers, per colour SET (rgb, rgby, rainbow6) and scheme, held to requirements
+ * that model how the digits are actually seen (see grid-display.ts above DIGIT_SHADES):
+ *
+ * - legible: the digits are WCAG large text (14 pt bold or more), so every light shade reaches 3:1 on every light
+ *   page, card, popover and muted surface of both apps; dark shades reach 4.5:1 on the dark surfaces and under the
+ *   tile glyph;
+ * - distinguishable as a digit stroke at a distance: the smallest pairwise S-CIELAB CIEDE2000 (src/colour-science.ts)
+ *   at DIGIT_TYPE seen at VIEW_PX_PER_DEGREE, for normal vision, with the fovea's tritanopia, and under deuteranopia
+ *   and protanopia, stays above each set's floor;
+ * - blue and green differ in L* by at least BLUE_GREEN_MIN_DL;
+ * - each shade sits in the OKLCH box where it reads as its name (SHADE_WINDOWS).
+ *
+ * The CSS custom properties in both apps' index.css must carry exactly these values.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { COLOUR_COMPONENTS, GRID_COLOUR_SETS, type GridColourSet } from "@workspace/game-types";
 import {
-  DIGIT_SHADES, NAME_HUES, TEXT_SHADES, TILE_INK, contrastRatio, deltaE76, gridModel, labHue, labOf, textShadeToken, textShadeVar,
+  BLUE_GREEN_MIN_DL, BLUE_GREEN_MIN_TRITAN, DIGIT_SHADES, DIGIT_TYPE, MIN_CONTRAST, PAGE, SHADE_WINDOWS, TEXT_SHADES, TILE_INK, contrastRatio, deltaE76,
+  digitStrokeDeg, gridModel, labHue, labOf, textShadeToken, textShadeVar,
 } from "../src/grid-display.ts";
-import { deltaE2000, deltaE2000Lab, deltaEOk, oklchOf, paletteMetrics, simulateHex } from "../src/colour-science.ts";
+import { deltaE2000, deltaE2000Lab, deltaEOk, oklchOf, simulateHex, smallFieldMetrics } from "../src/colour-science.ts";
 
 const css = (app: string) => readFileSync(new URL(`../../../artifacts/${app}/src/index.css`, import.meta.url), "utf8");
 const APPS = ["player-web", "code-gods"] as const;
@@ -57,18 +65,20 @@ function backgrounds(): { light: Map<string, string>; dark: Map<string, string> 
 const shadesOf = (set: GridColourSet, scheme: "light" | "dark") => COLOUR_COMPONENTS[set].letters.map(l => DIGIT_SHADES[set][scheme][l]);
 
 /**
- * Floors per set and scheme: [min CIEDE2000, min OKLab ΔE×100 under protanopia/deuteranopia, under tritanopia]. Each
- * is above what the previous, per-letter shades reached (rgb light 42.9 / 6.9 / 5.0, rgby 25.5 / 4.3 / 5.0, rainbow6
- * 19.9 / 2.2 / 5.0; dark rgb 42.3 / 4.2 / 6.4, rgby 28.4 / 4.2 / 6.4, rainbow6 26.3 / 3.0 / 6.4), so a regression to
- * them fails. The light rgb and rgby floors were lowered slightly when those shades were hand-tuned for small text
- * (blue no longer indigo, green no longer teal; see grid-display.ts): normal-vision hue reading wins, and the letter
- * and pattern cues back up colour-blind players.
+ * Floors per set and scheme on the smallest pairwise small-field CIEDE2000 (S-CIELAB at DIGIT_TYPE, 60 px per degree):
+ * [normal vision, foveal tritanopia, worst of deuteranopia and protanopia]. The shades before this derivation (PR #88:
+ * 12 px semibold, every shade at 4.5:1) reached, light: rgb 1.8 / 1.1 / 1.0, rgby 0.8 / 0.6 / 0.6, rainbow6 0.7 / 0.6 /
+ * 0.2 (blue and green 1.1 and 0.7 for the tritan eye), so a regression to them fails.
  */
 const FLOORS: Record<GridColourSet, Record<"light" | "dark", [number, number, number]>> = {
-  rgb: { light: [44, 8, 8.5], dark: [52, 22, 22] },
-  rgby: { light: [28.5, 4.5, 11], dark: [42, 14, 17] },
-  rainbow6: { light: [22.5, 5, 7.5], dark: [30, 10.5, 11] },
+  rgb: { light: [7, 2.9, 3.4], dark: [24, 24, 20] },
+  rgby: { light: [2.2, 2.2, 0.95], dark: [14, 13, 10.5] },
+  rainbow6: { light: [1.85, 1.7, 1.05], dark: [11, 12.5, 5.4] },
 };
+const PR88 = {
+  rgb: ["#bb061e", "#06641a", "#0555e7"], rgby: ["#9e0a1e", "#806000", "#0a5c1c", "#0555e7"],
+  rainbow6: ["#c20d39", "#773a0e", "#695f01", "#1d7242", "#0555e7", "#aa01bc"],
+} as const;
 
 test("hand-checked colour science: hsl, Lab, CIE76, CIEDE2000 and CVD simulation", () => {
   assert.equal(hslHex(40, 33, 94), "#f5f1eb");
@@ -92,55 +102,89 @@ test("hand-checked colour science: hsl, Lab, CIE76, CIEDE2000 and CVD simulation
   assert.ok(deltaEOk("#d33f2b", "#4b8a1a", "deutan") < deltaEOk("#d33f2b", "#4b8a1a") / 4);
 });
 
-test("every set has one shade per colour letter in both schemes, inside its name's hue window", () => {
+test("every set has one shade per colour letter in both schemes, inside its name's OKLCH box", () => {
   for (const set of GRID_COLOUR_SETS) {
     const { letters, names } = COLOUR_COMPONENTS[set];
     for (const scheme of ["light", "dark"] as const) {
       assert.deepEqual(Object.keys(DIGIT_SHADES[set][scheme]).sort(), [...letters].sort(), `${set} ${scheme} letters`);
       letters.forEach((l, i) => {
-        const [, C, h] = oklchOf(DIGIT_SHADES[set][scheme][l]);
-        const [lo, hi] = NAME_HUES[names[i]];
-        assert.ok(h >= lo - 0.5 && h <= hi + 0.5, `${set} ${scheme} ${names[i]} hue ${h.toFixed(1)} outside ${lo}–${hi}`);
-        assert.ok(C >= 0.095, `${set} ${scheme} ${names[i]} chroma ${C.toFixed(3)}: reads grey`);
+        const [L, C, h] = oklchOf(DIGIT_SHADES[set][scheme][l]);
+        const w = SHADE_WINDOWS[scheme][names[i]], where = `${set} ${scheme} ${names[i]} ${DIGIT_SHADES[set][scheme][l]}`;
+        // Hex rounding moves a grid point by up to about 1° of hue and 0.005 of lightness.
+        assert.ok(h >= w.hue[0] - 1 && h <= w.hue[1] + 1, `${where}: hue ${h.toFixed(1)} outside ${w.hue.join("–")}`);
+        assert.ok(L >= w.L[0] - 0.006 && L <= w.L[1] + 0.006, `${where}: lightness ${L.toFixed(3)} outside ${w.L.join("–")}`);
+        assert.ok(C >= w.minChroma - 0.005, `${where}: chroma ${C.toFixed(3)} under ${w.minChroma}`);
       });
     }
   }
   assert.equal(TEXT_SHADES, DIGIT_SHADES.rainbow6, "an unknown set uses rainbow6's shades, which name every letter");
 });
 
-test("every shade reads on every page, card, popover and muted background of its scheme (≥ 4.5:1)", () => {
+test("the owner's names: orange is orange not brown, red darker than the old crimson, blue a blue", () => {
+  // Orange vs brown is lightness: the old #773a0e (OKLCH L 0.42) read as brown; every light orange is now ≥ 0.62.
+  assert.ok(oklchOf("#773a0e")[0] < 0.45 && SHADE_WINDOWS.light.orange.L[0] >= 0.62);
+  // Red a little darker than #c20d39 (L* 41), still a red (L* ≥ 33, not a maroon).
+  for (const set of GRID_COLOUR_SETS) {
+    const L = labOf(DIGIT_SHADES[set].light.R)[0];
+    assert.ok(L < labOf("#c20d39")[0] && L >= 33, `${set} light red L* ${L.toFixed(1)}`);
+  }
+  // Blue is not an indigo that reads near-black: no bluer-violet than pure #0000ff (OKLCH hue 264), and lighter than
+  // the rejected #2900df (OKLCH L 0.42).
+  assert.ok(Math.abs(oklchOf("#0000ff")[2] - 264) < 0.5 && SHADE_WINDOWS.light.blue.hue[1] <= 264);
+  assert.ok(SHADE_WINDOWS.light.blue.L[0] > oklchOf("#2900df")[0] + 0.03);
+});
+
+test("the digits are WCAG large text, so light shades need 3:1; dark shades and tiles keep 4.5:1", () => {
+  // 14 pt bold: 14 × 4/3 = 18.67 CSS px at weight 700 or more.
+  assert.ok(DIGIT_TYPE.px >= 14 * 4 / 3 && DIGIT_TYPE.weight >= 700, "DIGIT_TYPE is large text");
+  assert.equal(MIN_CONTRAST.light, 3);
+  assert.equal(MIN_CONTRAST.dark, 4.5);
   const bg = backgrounds();
   assert.ok(bg.light.size >= 8 && bg.dark.size >= 4, "both apps' light surfaces and the engine UI's dark ones are checked");
   for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
     for (const [letter, shade] of Object.entries(DIGIT_SHADES[set][scheme])) for (const [where, hex] of bg[scheme]) {
       const ratio = contrastRatio(shade, hex);
-      assert.ok(ratio >= 4.5, `${set} ${scheme} ${letter} ${shade} on ${where} ${hex} is ${ratio.toFixed(2)}:1`);
+      assert.ok(ratio >= MIN_CONTRAST[scheme], `${set} ${scheme} ${letter} ${shade} on ${where} ${hex} is ${ratio.toFixed(2)}:1`);
     }
   }
 });
 
-test("the shades of each set are far apart for normal vision and under protanopia, deuteranopia and tritanopia", () => {
-  const bg = backgrounds();
+test("each set stays apart as a small, distant digit stroke for every eye (small-field CIEDE2000 floors)", () => {
+  const stroke = digitStrokeDeg();
+  // A 19 px bold stem (0.115 em) at 60 px per degree is 0.036°, about 2 arcminutes.
+  assert.ok(Math.abs(stroke - 19 * 0.115 / 60) < 1e-9);
   for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
-    const m = paletteMetrics(shadesOf(set, scheme), [...bg[scheme].values()]);
-    const [dE, cvd, tritan] = FLOORS[set][scheme];
-    const where = `${set} ${scheme}`;
-    assert.ok(m.minDeltaE2000 >= dE, `${where}: min ΔE2000 ${m.minDeltaE2000.toFixed(1)} < ${dE}`);
-    assert.ok(Math.min(m.minProtan, m.minDeutan) >= cvd, `${where}: min CVD ΔE ${Math.min(m.minProtan, m.minDeutan).toFixed(1)} < ${cvd}`);
-    assert.ok(m.minTritan >= tritan, `${where}: min tritan ΔE ${m.minTritan.toFixed(1)} < ${tritan}`);
+    const m = smallFieldMetrics(shadesOf(set, scheme), PAGE[scheme], stroke);
+    const [n, t, cvd] = FLOORS[set][scheme], where = `${set} ${scheme}`;
+    assert.ok(m.normal >= n, `${where}: normal ${m.normal.toFixed(2)} < ${n}`);
+    assert.ok(m.tritan >= t, `${where}: foveal tritan ${m.tritan.toFixed(2)} < ${t}`);
+    assert.ok(Math.min(m.deutan, m.protan) >= cvd, `${where}: deutan/protan ${Math.min(m.deutan, m.protan).toFixed(2)} < ${cvd}`);
   }
-  // The owner's complaint: blue and green were the hardest pair. In the three-colour set they are now far apart even
-  // for a small-field (tritan) eye, where the old #147137 / #1d5bbd sat at 5.0, under the dataviz floor of 6.
-  assert.ok(deltaEOk("#147137", "#1d5bbd", "tritan") < 5.5);
-  assert.ok(deltaEOk(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B, "tritan") >= 8.5);
-  // Blue reads as blue at digit size: a vivid royal blue, not an indigo that looks black (#2900df: hue 270, L 0.42).
-  for (const set of ["rgb", "rgby"] as const) {
-    const [L, , h] = oklchOf(DIGIT_SHADES[set].light.B);
-    assert.ok(h <= 264 && L >= 0.48, `${set} light blue ${DIGIT_SHADES[set].light.B} reads as indigo or near-black`);
+  // The floors exclude the shades they replace, even had those been drawn at the new size.
+  for (const set of GRID_COLOUR_SETS) {
+    const old = smallFieldMetrics(PR88[set], PAGE.light, stroke), [n, t, cvd] = FLOORS[set].light;
+    assert.ok(old.normal < n || old.tritan < t || Math.min(old.deutan, old.protan) < cvd, `${set}: the PR #88 shades would pass`);
   }
-  assert.ok(deltaE2000(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B) > deltaE2000("#147137", "#1d5bbd"));
-  // Yellow on a light page is a dark gold (L* well under 50), not a washed-out yellow.
-  assert.ok(labOf(DIGIT_SHADES.rainbow6.light.Y)[0] < 50 && labOf(DIGIT_SHADES.rgby.light.Y)[0] < 50);
+});
+
+test("blue and green never rely on blue–yellow: they differ in L* by at least BLUE_GREEN_MIN_DL", () => {
+  assert.ok(BLUE_GREEN_MIN_DL >= 15);
+  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+    const { G, B } = DIGIT_SHADES[set][scheme], dL = Math.abs(labOf(G)[0] - labOf(B)[0]);
+    assert.ok(dL >= BLUE_GREEN_MIN_DL, `${set} ${scheme} green ${G} / blue ${B}: ΔL* ${dL.toFixed(1)}`);
+  }
+  // The pair the owner could not tell apart. PR #88's greens and blues sat within 8 L* of each other, and as fixated
+  // strokes the tritan fovea kept almost nothing between them, even drawn at the new size; now every pair keeps at
+  // least BLUE_GREEN_MIN_TRITAN.
+  const stroke = digitStrokeDeg();
+  const tritan = (g: string, b: string) => smallFieldMetrics([g, b], PAGE.light, stroke).tritan;
+  for (const g of ["#06641a", "#0a5c1c", "#1d7242"]) assert.ok(tritan(g, "#0555e7") < 2.2 && Math.abs(labOf(g)[0] - labOf("#0555e7")[0]) < 9, g);
+  assert.ok(BLUE_GREEN_MIN_TRITAN >= 3);
+  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+    const { G, B } = DIGIT_SHADES[set][scheme];
+    const t = smallFieldMetrics([G, B], PAGE[scheme], stroke).tritan;
+    assert.ok(t >= BLUE_GREEN_MIN_TRITAN, `${set} ${scheme} green ${G} / blue ${B}: foveal tritan ${t.toFixed(2)}`);
+  }
 });
 
 test("tile fills are the set's bright shades with a dark glyph that reads on each (≥ 4.5:1)", () => {
@@ -153,6 +197,12 @@ test("tile fills are the set's bright shades with a dark glyph that reads on eac
   assert.deepEqual(m!.rows[0].map(c => [c.css, c.ink]), (["R", "G", "B"] as const).map(l => [DIGIT_SHADES.rgb.dark[l], TILE_INK]));
   assert.equal(m!.strict, true);
   assert.equal(gridModel("7R,3G,0B/1R,2R,9B/4G,4G,8R")!.colours, undefined, "no settings, no set");
+});
+
+test("the small-field model judges the shades on the apps' real pages", () => {
+  // The player client's page (both its themes keep the paper) and the engine UI's dark page.
+  assert.equal(hslToken(block(css("player-web"), ":root"), "background"), PAGE.light);
+  assert.equal(hslToken(block(css("code-gods"), ".dark"), "background"), PAGE.dark);
 });
 
 test("both apps define the shades as --cg-ink-* (light under :root; the engine UI's real dark theme under .dark)", () => {
