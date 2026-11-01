@@ -40,7 +40,7 @@ test("an agent that never changes an object is not a working agent", () => {
 test("a working, affordable agent: the price against the energy, and stop validating", () => {
   const a = assessValidation(receipt({ changeRate: 0.67, invalidRate: 0, energy: 565.1, affordable: true }));
   assert.equal(a.verdict, "works");
-  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 bits; the player has 565.1 bits of energy (affordable now). Each act costs about 3.48 bits.");
+  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 bits; the player had 565.1 bits of energy when it was validated (affordable). Each act costs about 3.48 bits.");
   assert.match(a.next, /^Stop validating/);
   assert.deepEqual([a.cost, a.energy, a.affordable], [147.74, 565.1, true]);
 });
@@ -49,7 +49,7 @@ test("a working agent the player cannot afford yet says so and suggests a cheape
   const a = assessValidation(receipt({ changeRate: 0.4, invalidRate: 0.1, energy: 100, affordable: false }));
   assert.equal(a.verdict, "works");
   assert.match(a.summary, /changes 40% of reference objects, 10% invalid or failing\. .*not affordable yet/);
-  assert.match(a.next, /cannot afford it yet \(100\.0 bits of 147\.7 bits/);
+  assert.match(a.next, /could not afford it when validated \(100\.0 bits of 147\.7 bits/);
 });
 
 test("a source that does not compile is rejected with the engine's message", () => {

@@ -39,8 +39,9 @@ export const LIMITS = {
   historyChars: 60_000,
   historyMessages: 60,
   /**
-   * The same tool with the same arguments and the same result as earlier in the turn: the first repeat is answered
-   * with an engine note, the `repeatStop`-th repeat ends the turn (the model is going round in circles).
+   * The same tool with the same arguments and the same result as the call just before it: the first repeat is answered
+   * with an engine note; at the `repeatStop`-th repeat in a row the next model step becomes the turn's last (the model
+   * is going round in circles), so it answers the player instead of calling again.
    */
   repeatStop: 2,
 } as const;
@@ -213,44 +214,68 @@ export function argsLimit(tool: string): number {
 export function resultLimit(tool: string): number {
   // Escaping at most doubles a body (every character a newline or a quote), plus the envelope.
   if (tool === "load_skill") return 2 * SKILL_LIMITS.body + 1_000;
-  if (tool === "get_rules") return 24_000;
+  if (tool === "get_rules") return 16_000;
   return LIMITS.resultChars;
 }
 
-/** A stored result with the engine's note in front (the model reads it first); notes accumulate. */
+/**
+ * A stored result with the engine's note in front (the model reads it first), after a TRUNCATED notice (the prompt
+ * says a cut result's first field is TRUNCATED); notes accumulate.
+ */
 export function withEngineNote(resultJson: string, note: string): string {
   let parsed: unknown;
   try { parsed = JSON.parse(resultJson); } catch { parsed = resultJson; }
   const body = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : { value: parsed };
-  const { ENGINE_NOTE: earlier, ...rest } = body;
-  return JSON.stringify({ ENGINE_NOTE: typeof earlier === "string" ? `${earlier} ${note}` : note, ...rest });
+  const { TRUNCATED, ENGINE_NOTE: earlier, ...rest } = body;
+  return JSON.stringify({ ...(TRUNCATED !== undefined ? { TRUNCATED } : {}), ENGINE_NOTE: typeof earlier === "string" ? `${earlier} ${note}` : note, ...rest });
 }
 
 /** The engine notes (not from the player or a tool). */
 export const ENGINE_NOTES = {
-  repeat: (tool: string, times: number) => `Engine note: you already called ${tool} with these exact arguments ${times === 1 ? "once" : `${times} times`} in this turn and got this same result. Repeating it will not change anything: use what you have, try something different, or answer the player.`,
+  repeat: (tool: string, times: number) => `Engine note: you just called ${tool} with these exact arguments ${times === 1 ? "once" : `${times} times`} in a row and got this same result. Repeating it will not change anything: use what you have, try something different, or answer the player.`,
+  repeatStop: "Engine note: you are going round in circles, so the engine ends this turn after your next step. Do not call tools: tell the player where you got stuck (what you tried, the result, the error) and what you suggest.",
   lastStep: "Engine note: your next step is the last of this turn. Do not call tools: answer the player now in text: what you did, what you found (with the numbers), and what you suggest next.",
 } as const;
 
-const DERIVED = new Set(["commandId", "requestId", "waitMs"]);
-/** Result fields that change with the clock alone (god energy grows every second), and the engine's own notes. */
-const VOLATILE = new Set(["ENGINE_NOTE", "energy", "affordable", "assessment"]);
-const withoutVolatile = (value: unknown): unknown => Array.isArray(value) ? value.map(withoutVolatile)
-  : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).filter(([k]) => !VOLATILE.has(k)).map(([k, v]) => [k, withoutVolatile(v)])) : value;
+/** The arguments the engine derives (prepareArgs), per tool: a command's id and wait, an owner request's id. */
+const derivedOf = (tool: string): string[] => isCommandTool(tool) ? ["commandId", "waitMs"] : OWNER.has(tool) && takesRequestId(tool) ? ["requestId"] : [];
+/**
+ * A result as compared for repeats: without the engine's note, and without what changes with the clock alone: a
+ * validation receipt's energy and affordability (god energy grows every second) and the assessment built on them.
+ */
+function stableResult(json: string | null | undefined): unknown {
+  const { ENGINE_NOTE: _, ...result } = parseObject(json ?? "{}");
+  const data = result.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return result;
+  const { assessment: _a, ...d } = data as Record<string, unknown>;
+  const receipt = d.receipt as { validation?: Record<string, unknown> } | undefined;
+  if (receipt?.validation) {
+    const { energy: _e, affordable: _f, ...validation } = receipt.validation;
+    d.receipt = { ...receipt, validation };
+  }
+  return { ...result, data: d };
+}
+/** A still-running command (pending): polling it again is the engine's advice, never a repeat. */
+const pendingResult = (json: string | null | undefined) => (parseObject(json ?? "{}").data as { status?: unknown } | undefined)?.status === "pending";
 /** A call's identity for repeat detection: the tool, its arguments without the ids the engine derives, its result without them. */
 function repeatKey(call: { tool: string; argsJson: string; resultJson?: string | null }): string {
   const args = parseObject(call.argsJson);
-  const ids = ["commandId", "requestId"].map(k => args[k]).filter((v): v is string => typeof v === "string" && v.length > 0);
-  // Compare what the tool found, not the clock: an earlier repeat's result carries the engine's note, and a
-  // validation's energy (and so its assessment) grows between two identical calls.
-  let result = JSON.stringify(withoutVolatile(parseObject(call.resultJson ?? "{}")));
+  const derived = derivedOf(call.tool);
+  const ids = derived.map(k => args[k]).filter((v): v is string => typeof v === "string" && v.length > 0);
+  let result = JSON.stringify(stableResult(call.resultJson));
   for (const id of ids) result = result.split(id).join("");
-  return JSON.stringify([call.tool, Object.entries(args).filter(([k]) => !DERIVED.has(k)).sort(([a], [b]) => a.localeCompare(b)), result]);
+  return JSON.stringify([call.tool, Object.entries(args).filter(([k]) => !derived.includes(k)).sort(([a], [b]) => a.localeCompare(b)), result]);
 }
-/** How many earlier successful calls of the turn were this same call with this same result. */
+/**
+ * How many calls in a row, just before this one (`earlier`, oldest first), were this same successful call with this
+ * same result. Any other call in between ends the run: re-reading unchanged state between other work is not a loop.
+ */
 export function repeatsOf(earlier: readonly { tool: string; argsJson: string; status: string; resultJson?: string | null }[], call: { tool: string; argsJson: string; resultJson?: string | null }): number {
+  if (pendingResult(call.resultJson)) return 0;
   const key = repeatKey(call);
-  return earlier.filter(c => c.status === "ok" && c.tool === call.tool && repeatKey(c) === key).length;
+  let n = 0;
+  for (let i = earlier.length - 1; i >= 0 && earlier[i].status === "ok" && repeatKey(earlier[i]) === key; i--) n++;
+  return n;
 }
 
 /** A tool result's one-line activity-chip summary (shown to the thread's human only; never logged). */

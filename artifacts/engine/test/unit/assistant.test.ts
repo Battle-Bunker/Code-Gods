@@ -223,6 +223,7 @@ test("an engine note goes first in a stored result, which stays JSON", async () 
   assert.equal(noted.ENGINE_NOTE, "Wrap up now.");
   assert.deepEqual(JSON.parse(withEngineNote("[1,2]", "n")), { ENGINE_NOTE: "n", value: [1, 2] });
   assert.equal(JSON.parse(withEngineNote(withEngineNote("{}", "first"), "second")).ENGINE_NOTE, "first second");
+  assert.deepEqual(Object.keys(JSON.parse(withEngineNote(JSON.stringify({ TRUNCATED: "cut", data: 1 }), "n"))), ["TRUNCATED", "ENGINE_NOTE", "data"], "a cut result still starts with TRUNCATED");
 });
 
 test("repeats: the same tool with the same arguments and the same result earlier in the turn, ignoring the derived ids", async () => {
@@ -232,11 +233,18 @@ test("repeats: the same tool with the same arguments and the same result earlier
     return { tool: "validate_agent", status: "ok", argsJson: JSON.stringify({ source, language: "python", commandId, waitMs: 60000 }),
       resultJson: JSON.stringify({ data: { status: "received", commandId, receipt: { commandId, accepted: true, message: result } } }) };
   };
-  const earlier = [call(1, "a", "Accepted"), call(2, "b", "Accepted"), call(3, "a", "Accepted"), { ...call(4, "a", "Accepted"), status: "error" }];
-  assert.equal(repeatsOf(earlier, call(5, "a", "Accepted")), 2, "two earlier identical calls (the failed one is not a repeat)");
+  const earlier = [call(1, "a", "Accepted"), call(2, "b", "Accepted"), call(3, "a", "Accepted"), call(4, "a", "Accepted")];
+  assert.equal(repeatsOf(earlier, call(5, "a", "Accepted")), 2, "the two identical calls just before (not the one before b)");
+  assert.equal(repeatsOf([...earlier, { ...call(5, "a", "Accepted"), status: "error" }], call(6, "a", "Accepted")), 0, "a failed call in between ends the run");
   assert.equal(repeatsOf(earlier, call(5, "a", "Rejected")), 0, "a different result is progress");
   assert.equal(repeatsOf(earlier, call(5, "c", "Accepted")), 0, "different arguments are progress");
   assert.equal(repeatsOf(earlier, { ...call(5, "a", "Accepted"), tool: "summon_agent" }), 0);
+  // get_receipt's commandId is the model's own argument: two different commands are different calls; polling one
+  // that is still running is never a repeat.
+  const receipt = (commandId: string, status: string) => ({ tool: "get_receipt", status: "ok", argsJson: JSON.stringify({ commandId }),
+    resultJson: JSON.stringify({ data: { status, commandId, message: "Still running" } }) });
+  assert.equal(repeatsOf([receipt("x", "not_found")], receipt("y", "not_found")), 0);
+  assert.equal(repeatsOf([receipt("x", "pending"), receipt("x", "pending")], receipt("x", "pending")), 0);
   // The player's energy grows between two identical validations: still a repeat.
   const withEnergy = (c: ReturnType<typeof call>, energy: number) => ({ ...c, resultJson: JSON.stringify({ ...JSON.parse(c.resultJson), ENGINE_NOTE: "x",
     data: { ...JSON.parse(c.resultJson).data, receipt: { ...JSON.parse(c.resultJson).data.receipt, validation: { energy, affordable: energy > 50 } }, assessment: { summary: `${energy}` } } }) });

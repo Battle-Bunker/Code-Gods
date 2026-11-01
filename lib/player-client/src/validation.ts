@@ -39,7 +39,7 @@ export function assessValidation(receipt: CommandResult): ValidationAssessment {
     return { verdict: "rejected", summary: `Rejected: ${why}`, next: "It does not compile or was refused: fix the error and validate again." };
   }
   const money = { cost: v.cost, expectedActCost: v.expectedActCost, ...(v.energy !== undefined ? { energy: v.energy } : {}), ...(v.affordable !== undefined ? { affordable: v.affordable } : {}) };
-  const price = `Summon price ${bits(v.cost)}${v.energy !== undefined ? `; the player has ${bits(v.energy)} of energy (${v.affordable ? "affordable now" : "not affordable yet"})` : ""}. Each act costs about ${v.expectedActCost.toFixed(2)} bits.`;
+  const price = `Summon price ${bits(v.cost)}${v.energy !== undefined ? `; the player had ${bits(v.energy)} of energy when it was validated (${v.affordable ? "affordable" : "not affordable yet"})` : ""}. Each act costs about ${v.expectedActCost.toFixed(2)} bits.`;
   const fixIt = "Do not summon it. Check the exact mutator and helper signatures (the writing-agents skill, or get_observation instance.helpers), fix the code, and validate again. After three failed attempts, show the player the draft and the error and ask how to go on.";
   if (v.invalidRate !== undefined && v.invalidRate >= FAILING_RATE) {
     const why = failureLine(v.diagnostics);
@@ -50,7 +50,7 @@ export function assessValidation(receipt: CommandResult): ValidationAssessment {
   }
   const measured = v.changeRate !== undefined ? `Works: changes ${pct(v.changeRate)} of reference objects${v.invalidRate ? `, ${pct(v.invalidRate)} invalid or failing` : ""}. ` : "Works. ";
   const next = v.affordable === false
-    ? `The player cannot afford it yet (${bits(v.energy ?? 0)} of ${bits(v.cost)}; energy grows over time). Tell them, and offer a shorter, cheaper version or to wait.`
+    ? `The player could not afford it when validated (${bits(v.energy ?? 0)} of ${bits(v.cost)}; energy grows over time). Tell them, and offer a shorter, cheaper version or to wait.`
     : "Stop validating: tell the player the agent (what it does), its summon price against their energy and its cost per act. If they asked you to summon, call summon_agent with the identical source and language (they confirm on a card); otherwise offer to.";
   return { verdict: "works", summary: `${measured}${price}`, next, ...money };
 }

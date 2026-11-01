@@ -141,22 +141,21 @@ const GRID = { languages: ["python"], objectType: "Grid", typeArgs: { colours: "
   startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9 };
 const FAILING_PY = "def agent(grid):\n    return [paint(cell_at(0, 0), \"red\")]";
 
-test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails, and repeating it stops the turn with a message", { timeout: 240_000 }, async () => {
+test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails, and repeating it makes the next step the last", { timeout: 300_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Loop", "Bob Loop", "Cyd Loop"], { roomSettings: GRID });
   const mine = await ann.c.query(api.player.observation, { roomId });
   const validate = { name: "validate_agent", input: { source: FAILING_PY, language: "python" } };
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "load_skill", input: { name: "writing-agents" } }] },
-    { tools: [validate] }, { tools: [validate] }, { tools: [validate] }, { tools: [validate] },
-    { text: "never reached" },
+    { tools: [validate] }, { tools: [validate] }, { tools: [validate] },
+    { text: "I got stuck: cell_at is not a helper." },
   ]) });
   const t = await until(ann, sent, DONE, "the turn finishes", 180_000);
-  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["load_skill", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"]],
-    "the third identical validation ends the turn: the fourth never runs");
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["load_skill", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"]]);
   assert.equal(t.turn.status, "done");
-  assert.equal(t.turn.error?.code, "REPEATING");
-  assert.match(t.turn.error.message, /same validate agent call 3 times/);
-  assert.ok(!finalText(t).includes("never reached"));
+  assert.equal(t.turn.error, null, "the model answered in its last step");
+  assert.equal(t.turn.maxSteps, 5, "the step after the second repeat was the turn's last");
+  assert.equal(finalText(t), "I got stuck: cell_at is not a helper.");
 
   const skill = JSON.parse(t.calls[0].resultJson);
   assert.equal(skill.TRUNCATED, undefined, "the skill is not cut");
@@ -172,12 +171,16 @@ test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails
   assert.match(first.data.assessment.summary, /^Fails or is invalid on 100% of reference objects: .*NameError: name 'cell_at' is not defined/);
   assert.match(t.calls[1].summary, /^Fails or is invalid on 100%/, "the chip says it fails, not Accepted");
   assert.equal(first.ENGINE_NOTE, undefined);
-  assert.match(second.ENGINE_NOTE, /already called validate_agent with these exact arguments once/);
-  assert.match(third.ENGINE_NOTE, /2 times/);
+  assert.match(second.ENGINE_NOTE, /just called validate_agent with these exact arguments once in a row/);
+  assert.match(third.ENGINE_NOTE, /2 times in a row.*ends this turn after your next step. Do not call tools/);
 
-  // The next turn's history says why the last one stopped.
-  const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "ok" }]) });
-  await until(ann, next, DONE, "the next turn finishes");
+  // A model that ignores the note and calls again: the turn stops, saying why.
+  const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ tools: [validate] }, { tools: [validate] }, { tools: [validate] }, { tools: [validate] }, { text: "never" }]) });
+  const a = await until(ann, again, DONE, "the ignoring turn finishes", 180_000);
+  assert.equal(a.calls.length, 4, "the last step's call still ran");
+  assert.equal(a.turn.error?.code, "REPEATING");
+  assert.match(a.turn.error.message, /kept repeating the same call/);
+  assert.ok(!finalText(a).includes("never"));
 });
 
 test("before the turn's last model step, the last result tells the model to answer the player now", { timeout: 240_000 }, async () => {
