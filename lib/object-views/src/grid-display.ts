@@ -142,6 +142,10 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
 // rename), vivid (OKLCH C ≥ 0.1) and in a lightness band that keeps it a colour. test/text-shades.test.ts holds the
 // floors. Both apps' index.css carry them as `--cg-ink-<set>-<letter>` (and rainbow6's, which covers every letter, as
 // `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
+// The light rgb and rgby shades were then hand-tuned for digit-size text: the optimiser had pushed blue to an indigo
+// (#2900df, #1707f9) that read as near-black and green to a teal, so the owner could not tell them apart. Blue is now
+// the vivid royal blue rainbow6 already used (#0555e7, OKLCH hue 262, lightness 0.51; anything bluer-green would
+// sit within 15° of the petrol-blue "yours" dimension colour) and green a darker leaf green (~145).
 
 export type ShadeScheme = "light" | "dark";
 
@@ -153,11 +157,11 @@ type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
 
 export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
   rgb: Object.freeze({
-    light: Object.freeze({ R: "#b73305", G: "#247148", B: "#2900df" }),
+    light: Object.freeze({ R: "#bb061e", G: "#06641a", B: "#0555e7" }),
     dark: Object.freeze({ R: "#fb5422", G: "#a9fb25", B: "#129fe7" }),
   }),
   rgby: Object.freeze({
-    light: Object.freeze({ R: "#900f21", Y: "#7c5a03", G: "#086f4e", B: "#1707f9" }),
+    light: Object.freeze({ R: "#9e0a1e", Y: "#806000", G: "#0a5c1c", B: "#0555e7" }),
     dark: Object.freeze({ R: "#f35868", Y: "#edae12", G: "#29fcb7", B: "#1c91fa" }),
   }),
   rainbow6: Object.freeze({
