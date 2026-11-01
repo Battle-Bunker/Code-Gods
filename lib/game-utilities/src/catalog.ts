@@ -10,6 +10,7 @@
 import { instanceInfo, objectType, resolve, type Badge, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { setHostEval } from "./families/define.ts";
+import { cardProgram } from "./families/card.ts";
 import { GRID_FAMILIES } from "./families/grid/index.ts";
 import { INT_FAMILIES } from "./families/int.ts";
 import { STRING_FAMILIES } from "./families/string.ts";
@@ -153,7 +154,8 @@ const compiled = new Map<string, (wire: ObjectValue) => Ordinal>();
 const MAX_COMPILED = 4096;
 
 /**
- * Trusted host evaluator for one draw in one instantiation: the TypeScript card compiled once with the
+ * Trusted host evaluator for one draw in one instantiation: the TypeScript card's program (`cardProgram`, exactly what
+ * table keys hash) compiled once with the
  * instantiation's JS prelude, returning `utility(__decode(wire))` (or `penalty(...)`) checked against the
  * family's shape. Cached by (inst.key, familyId, params).
  */
@@ -164,7 +166,7 @@ export function evaluator(draw: Draw, inst: Instantiation): (wire: ObjectValue) 
   const f = family(draw.familyId), ctx = context(inst);
   if (f.objectType !== inst.objectType) throw new Error(`${f.id} does not apply to ${inst.key}`);
   const prelude = objectType(inst.objectType).prelude(inst);
-  const body = `"use strict";\n${prelude.js}\n;\n${f.card.typescript(draw.params, ctx)}\n;\nreturn (wire) => ${entryPoint(f)}(__decode(wire));`;
+  const body = `"use strict";\n${prelude.js}\n;\n${cardProgram(f.card.typescript(draw.params, ctx))}\n;\nreturn (wire) => ${entryPoint(f)}(__decode(wire));`;
   const raw = new Function(body)() as (wire: ObjectValue) => unknown;
   const shape = f.shape(ctx);
   fn = (wire: ObjectValue) => assertOrdinal(shape, raw(wire));
