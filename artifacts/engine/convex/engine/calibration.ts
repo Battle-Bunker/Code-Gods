@@ -19,13 +19,14 @@ import {
   CALIBRATION_FORMAT, UNIFORM_PRIOR, analyticFor, context, family, instanceTables, manifestOf, paramsKey, priorKey, tableFor, tableKey,
   type CalibrationFile, type CalibrationManifest, type CalibrationTable, type Draw, type InstanceTables, type PriorRef, type UtilityDescriptor,
 } from "@workspace/game-utilities";
-import { buildTable } from "@workspace/game-utilities/estimator";
+import { budgetFor, buildTable, estimateCost, isSampled, planSplit } from "@workspace/game-utilities/estimator";
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
 import type { Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { priorOf, rememberPriors } from "./node";
+import { STALE_COMPUTING_MS } from "../calibration/cache";
 
 export const INDEX_TTL_MS = 60_000;
 export const MAX_INSTANCES = 8;
@@ -152,6 +153,33 @@ export interface ResolveOptions {
    * started game has already prepared.
    */
   readonly schedule?: boolean;
+  /** The owner whose start this is: new computation is rate limited per owner (calibration/cache.ts claimMany). */
+  readonly owner?: { readonly id: string; readonly roomId: Id<"rooms"> };
+}
+
+/**
+ * Each piece of a split table should take about this long where it runs (architecture.md §3.2, §9.2): the planning
+ * window is 60 s by default and a first use adds a few seconds of action starts, the merge and the game's launch.
+ */
+export const PIECE_TARGET_SECONDS = 20;
+
+export interface DrawPlan { readonly key: string; readonly familyId: string; readonly pieces: number; readonly seconds: number; readonly pieceSeconds: number; readonly usPerSpawn: number; readonly usPerProposal: number }
+
+/**
+ * The split plan of each missing table (architecture.md §3.2): its single-run cost measured here (`estimateCost`: a few
+ * hundred evaluations, tens of milliseconds, at this machine's speed, which is the compute actions'), then as many
+ * replicate pieces as keep each near PIECE_TARGET_SECONDS. Tables that are not sampled (an enumerable Int range) and
+ * cheap ones stay one action.
+ */
+export function planDraws(inst: Instantiation, draws: readonly { draw: Draw; canon: Draw["params"]; key: string }[]): DrawPlan[] {
+  const budget = budgetFor(inst.objectType), seen = new Map<string, DrawPlan>();
+  for (const { draw, canon, key } of draws) {
+    if (seen.has(key)) continue;
+    if (!isSampled(draw.familyId, canon, inst)) { seen.set(key, { key, familyId: draw.familyId, pieces: 1, seconds: 0, pieceSeconds: 0, usPerSpawn: 0, usPerProposal: 0 }); continue; }
+    const cost = estimateCost(draw.familyId, canon, inst, budget), plan = planSplit(cost, budget, PIECE_TARGET_SECONDS);
+    seen.set(key, { key, familyId: draw.familyId, pieces: plan.replicates, seconds: cost.seconds, pieceSeconds: cost.seconds / plan.replicates, usPerSpawn: cost.usPerSpawn, usPerProposal: cost.usPerProposal });
+  }
+  return [...seen.values()];
 }
 
 /**
@@ -210,21 +238,26 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
     if (missing.length && !uniform) {
       throw new Error(`No calibration tables for ${missing.map(c => c.draw.familyId).join(", ")} on ${inst.key} under prior ${priorKey(prior)}: tables for this prior are shipped, not computed on demand`);
     }
-    // Independent per table: claim and schedule all of them at once (each key once: two gods may share a defence goal).
-    const claims = new Map<string, Promise<"compute" | "wait" | "ready" | "failed">>();
-    const verdicts = await Promise.all(missing.map(async ({ draw, canon, key }) => {
-      const known = claims.get(key);
-      if (known) { const verdict = await known; return { draw, canon, key, verdict: verdict === "compute" ? "wait" as const : verdict }; }
-      const claimed = ctx.runMutation(internal.calibration.cache.claim, { key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior) });
-      claims.set(key, claimed);
-      const verdict = await claimed;
-      if (verdict === "compute") await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance: inst.key, familyId: draw.familyId, params: canon });
-      return { draw, canon, key, verdict };
-    }));
-    for (const { draw, canon, key, verdict } of verdicts) {
+    // Claim every missing key at once, each under its split plan; the claim schedules the work (costliest first) and
+    // applies the owner's rate limit (a refusal throws RATE_LIMITED and claims nothing).
+    // Keys computing elsewhere are only waited for: no need to measure them (the watchdog resolves again every minute).
+    const inFlight = (key: string) => { const r = rows.get(key); return r?.status === "computing" && Date.now() - r.startedAt < STALE_COMPUTING_MS; };
+    const plans = new Map(planDraws(inst, missing.filter(m => !inFlight(m.key))).map(p => [p.key, p]));
+    const planOf = (key: string) => plans.get(key) ?? { pieces: 1, pieceSeconds: 0 };
+    const verdicts = missing.length ? new Map((await ctx.runMutation(internal.calibration.cache.claimMany, {
+      items: missing.map(({ draw, canon, key }) => ({
+        key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior), params: canon,
+        pieces: planOf(key).pieces, pieceSeconds: planOf(key).pieceSeconds,
+      })),
+      ...(options.owner ? { owner: options.owner } : {}),
+    })).map(r => [r.key, r.verdict])) : new Map<string, string>();
+    const counted = new Set<string>();
+    for (const { draw, canon, key } of missing) {
+      const verdict = verdicts.get(key);
       if (verdict === "failed") throw new Error(`The calibration table of ${draw.familyId} ${paramsKey(canon)} on ${inst.key} could not be computed; see calibrationComputed`);
-      // "ready" here means a race with a finishing action: it is read on the next call.
-      pending.push({ draw, key, scheduled: verdict === "compute" });
+      // "ready" here means a race with a finishing action: it is read on the next call. A key two gods share is scheduled once.
+      pending.push({ draw, key, scheduled: verdict === "compute" && !counted.has(key) });
+      counted.add(key);
     }
   }
   const tables = extra.length

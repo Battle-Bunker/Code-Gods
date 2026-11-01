@@ -43,10 +43,46 @@ export const calibrationTables = {
     finishedAt: v.optional(v.number()),
     attempts: v.number(),
     error: v.optional(v.string()),
-    /** Build time of the last attempt (ms), for the latency record. */
+    /** Build time of the last attempt (ms), for the latency record: the whole table, or the merge of a split one. */
     buildMs: v.optional(v.number()),
     lastUsedAt: v.number(),
+    /**
+     * The split plan (architecture.md §3.2): the table is computed as `pieces` replicate pieces (calibrationPieces) and
+     * merged. Absent or 1: one action builds the whole table.
+     */
+    pieces: v.optional(v.number()),
+    /** Pieces ready so far (the progress a preparing room shows). */
+    piecesDone: v.optional(v.number()),
+    /** Build time of each piece (ms, by index), kept when the table is merged: the latency record. */
+    pieceMs: v.optional(v.array(v.number())),
   }).index("by_key", ["key"]).index("by_instance", ["instance"]).index("by_status_used", ["status", "lastUsedAt"]),
+  /**
+   * The pieces of a split computation (calibration/compute.ts piece): replicate `index` of the key's plan, its result
+   * (game-utilities ReplicateResult JSON, a few KB) once ready. Each piece is retried on its own; the merge reads them all,
+   * and the rows are dropped once the table is written.
+   */
+  calibrationPieces: defineTable({
+    key: v.string(),
+    index: v.number(),
+    status: v.union(v.literal("computing"), v.literal("ready"), v.literal("failed")),
+    result: v.optional(v.string()),
+    attempts: v.number(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    buildMs: v.optional(v.number()),
+    error: v.optional(v.string()),
+  }).index("by_key", ["key", "index"]),
+  /**
+   * The rate limit on computing new tables, per owner (calibration/cache.ts claimMany): a bucket of pieces refilled at
+   * PIECES_PER_MINUTE, and the rooms whose preparation the owner started (at most MAX_PREPARATIONS at a time).
+   */
+  calibrationQuotas: defineTable({
+    ownerId: v.string(),
+    tokens: v.number(),
+    updatedAt: v.number(),
+    /** Rooms the owner's admitted starts prepare, with when each was admitted. */
+    rooms: v.array(v.object({ roomId: v.id("rooms"), at: v.number() })),
+  }).index("by_owner", ["ownerId"]),
   /**
    * Rooms waiting for a computed table (owner.ts start, the preparing state): one row per (room start, key). The compute
    * action's `finished` (calibration/cache.ts) reads them to advance each room's progress and, when its last key lands,

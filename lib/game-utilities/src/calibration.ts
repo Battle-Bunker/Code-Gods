@@ -123,6 +123,12 @@ export interface CalibrationTable {
      * function with that id (src/analytic.ts).
      */
     readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}`;
+    /**
+     * Built as `replicates` independent runs on 1/R of the budget each, merged in probability (scripts/estimator.ts
+     * mergeReplicates; the engine's on-demand split, architecture.md §3.2). Absent: the single run. Same key, same
+     * statistics: the plan is how the estimate was computed, not what it estimates.
+     */
+    readonly split?: { readonly replicates: number };
   };
   readonly meta: {
     readonly mcLevels: number;

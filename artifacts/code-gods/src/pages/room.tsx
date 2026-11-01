@@ -117,17 +117,20 @@ function Preparing({ preparing: p }: { preparing: NonNullable<RoomState["prepari
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const elapsed = Math.max(0, Math.round((now - p.startedAt) / 1000));
-  const percent = p.total ? Math.round((100 * p.ready) / p.total) : 0;
+  // A split table is several pieces of computation (architecture.md §3.2): the bar follows them when there are more.
+  const [done, of] = p.pieces ? [p.pieces.done, p.pieces.total] : [p.ready, p.total];
+  const percent = of ? Math.round((100 * done) / of) : 0;
   return (
     <section className="border bg-card px-4 py-3 space-y-2 text-sm" data-testid="panel-preparing" aria-live="polite">
       {p.error ? (
         <p className="text-destructive" role="alert" data-testid="text-preparing-error">{p.error}</p>
       ) : (<>
         <p data-testid="text-preparing">
-          The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready.
+          The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready
+          {p.pieces && <> (<span data-testid="text-preparing-pieces">{p.pieces.done} of {p.pieces.total}</span> parts computed)</>}.
           {" "}<span className="text-muted-foreground">This is the first game on {p.instance} on this server (about {p.estimateSeconds} s; {elapsed} s so far). It starts by itself; later games on this shape start at once.</span>
         </p>
-        <div className="h-1.5 bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={p.total} aria-valuenow={p.ready} aria-label="Rule tables ready">
+        <div className="h-1.5 bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={of} aria-valuenow={done} aria-label={p.pieces ? "Rule table parts computed" : "Rule tables ready"}>
           <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
         </div>
       </>)}

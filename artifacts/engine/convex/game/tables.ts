@@ -85,6 +85,8 @@ export const gameTables = {
       deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
       error: v.optional(v.string()),
+      /** Progress in computation pieces (a split table is several, architecture.md §3.2): done of total, for the waited keys. */
+      pieces: v.optional(v.object({ done: v.number(), total: v.number() })),
     })),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),
 

@@ -117,16 +117,21 @@ export const beginPreparing = internalMutation({
     await forgetWaits(ctx, room._id);
     const pending: string[] = [];
     let failure: string | undefined;
+    // Progress at piece granularity: a split key is several pieces (those already ready count as done), others one.
+    const pieces = { done: 0, total: 0 };
     for (const key of args.pending) {
       const row = await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", key)).unique();
       if (row?.status === "ready") continue;
       if (row?.status === "failed") { failure ??= failureMessage(row, row.error ?? "unknown error"); continue; }
       pending.push(key);
+      pieces.total += row?.pieces ?? 1;
+      pieces.done += row?.piecesDone ?? 0;
       await ctx.db.insert("calibrationWaits", { key, roomId: room._id, requestId: args.requestId });
     }
     const preparing = {
       requestId: args.requestId, ownerId: viewer.subject, startedAt: Date.now(), revision: args.revision, memberIds: args.memberIds,
       instance: args.instance, total: args.total, pending, estimateSeconds: args.estimateSeconds, deals: args.deals, dealer: args.dealer,
+      ...(pieces.total > pending.length ? { pieces } : {}),
       ...(failure ? { error: failure } : {}),
     };
     await ctx.db.patch(room._id, { preparing, seq: room.seq + 1 });

@@ -19,7 +19,7 @@ import {
   poissonTail, rowTransferCount, survivalLevels, totalMass, type AnalyticSurvival,
 } from "../src/analytic.ts";
 import {
-  assertAnalyticAgainstSpawns, compareWithEnumeration, compareWithTable, nominalSe, keyOfOrdinal,
+  MAX_RMS_Z_BELOW_32, assertAnalyticAgainstSpawns, compareWithEnumeration, compareWithTable, nominalSe, keyOfOrdinal, tableViolations,
 } from "../src/analytic-verify.ts";
 import { DEFAULT_BUDGET, buildTable, mcTableKey } from "../scripts/estimator.ts";
 
@@ -33,19 +33,6 @@ const MANIFEST = shippedManifest();
 const instOf = (key: string): Instantiation => { const e = MANIFEST.instances[key]; return objectType(e.objectType).instantiate(e.args); };
 const ANALYTIC_FAMILIES = FAMILIES.filter(f => f.analytic);
 
-/**
- * Tolerance on |table − analytic| by depth, from the measured behaviour of the estimator over six families and 48 shapes
- * (tail-toolkit.md §8): for families whose level sets the kernel can move through, the largest observed errors are 3.4
- * bits below 48 bits, 4.8 below 64 and 7 above.
- */
-const MAX_ABS_DELTA = (bits: number) => (bits < 16 ? 1.2 : bits < 32 ? 2.5 : bits < 48 ? 5 : bits < 64 ? 6 : 10);
-/**
- * Families whose sampling tables are known to be biased above some depth (tail-toolkit.md §8.2): the analytic is the
- * ground truth there, so the comparison only bounds the bias. Say why.
- */
-const KNOWN_TABLE_BIAS: Record<string, { readonly fromBits: number; readonly maxAbsDelta: number; readonly why: string }> = {
-  rainbow_road: { fromBits: 32, maxAbsDelta: 10, why: "completing a second whole line needs coordinated multi-cell moves the kernel rarely makes" },
-};
 /** Shapes a formula declines (returns null) on purpose: the number of its 48 reference shapes it must cover. Default: all. */
 const EXPECTED_COVERAGE: Record<string, number> = {
   best_friends: 24,   // C^N ≤ TRANSFER_STATES (1300): rgb up to 6×6, rgby up to 5×5, rainbow6 at 4×4
@@ -240,16 +227,10 @@ test("archived reference tables: every Monte Carlo table of a family with an ana
       const a = analyticFor(ref.family, t.canonicalParams, inst);
       if (!a) { notCovered++; continue; }   // the formula declines this shape (e.g. a transfer matrix too large): sampling serves it
       const c = compareWithTable(a, t);
-      if (c.unattainable.length) bad.push(`${where}: table levels the analytic calls unattainable: ${c.unattainable.map(o => JSON.stringify(o)).join(", ")}`);
-      const bias = KNOWN_TABLE_BIAS[ref.family];
-      for (const [o, bits] of t.levels) {
-        const ab = -(a.levels.find(([lo]) => cmpOrdinal(lo, o) === 0)?.[1] ?? NaN);
-        const allowed = bias && bits >= bias.fromBits ? Math.max(bias.maxAbsDelta, MAX_ABS_DELTA(bits)) : MAX_ABS_DELTA(bits);
-        if (Number.isFinite(ab) && Math.abs(bits - ab) > allowed) bad.push(`${where}: at ${JSON.stringify(o)} table ${bits.toFixed(2)} vs analytic ${ab.toFixed(2)} bits`);
-      }
+      bad.push(...tableViolations(a, t, c).map(v => `${where}: ${v}`));
       for (const b of c.bands) if (b.band[1] <= 32) { sz2 += b.rmsZ ** 2 * b.levels; nz += b.levels; }
     }
-    if (nz && Math.sqrt(sz2 / nz) > 1.5) bad.push(`${ref.family}: RMS z over levels below 32 bits is ${Math.sqrt(sz2 / nz).toFixed(2)} > 1.5`);
+    if (nz && Math.sqrt(sz2 / nz) > MAX_RMS_Z_BELOW_32) bad.push(`${ref.family}: RMS z over levels below 32 bits is ${Math.sqrt(sz2 / nz).toFixed(2)} > 1.5`);
     const expected = EXPECTED_COVERAGE[ref.family] ?? ref.tables.length;
     assert.equal(ref.tables.length - notCovered, expected, `${ref.family}: the analytic covers ${ref.tables.length - notCovered} of ${ref.tables.length} reference shapes, expected ${expected}`);
   }
