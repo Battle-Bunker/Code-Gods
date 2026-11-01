@@ -25,22 +25,11 @@ The chosen renderer's id reaches the component as `renderer`, so one component c
 
 `objectContext(instance)` turns the API's `InstanceInfo` into the context (`objectType`, Grid args).
 
-### Annotations
-
-`ObjectView` takes `annotations` (`src/annotations.ts`; the types come from `@workspace/game-utilities`, which produces
-them): marks that show which parts of an object make up a utility's score, as quiet cues in the page's ink that never
-fight the digits' colours (no washes, glyphs or tone hues). Grid `cells` (weighted) are underlined in digits and outlined
-in tiles; a grid `region` is one outline around the group; string `spans` and Int `digits` (positions from the left, past
-the sign) are underlined; `badge`s are chips after the object. Tones differ by the line's style (`TONE_DECORATION`): good
-solid, bad dotted, neutral dashed. Weight sets its thickness (`underlinePx`) and opacity (`cueOpacity`). The labels make
-the legend, each after its cue drawn inline (`ToneCue`): the grid detail view (`grid-object-legend`), the trigger's
-tooltip and the accessible label ("solid underline: …"), and `AnnotationLegend` for lists. Helpers: `mergeAnnotations`,
-`annotationLegend`, `legendText`, `annotationBadges`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`,
-`cueColour`.
+Object annotations are being rebuilt; see docs/annotations-design.md.
 
 The payoff's two dimensions and its strength have fixed colours (`src/dimensions.ts`): `DIMENSION_COLOURS` (yours,
 others; `dimensionVar`, `--cg-yours` / `--cg-others`) and `SCORE_RAMP` (`rampVar`, `rampHex`, `relativeStrength`;
-`--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`). Who produces annotations: docs/panels.md "Annotations".
+`--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`).
 `TransformationView` shows before → after; on grids the changed cells are outlined. When the type is
 unknown, numbers render as Int, strings that parse as a grid of at least 2×2 as Grid, others as string.
 
@@ -83,11 +72,12 @@ letters; the choice is remembered in `localStorage` (guarded). Tiles are filled 
 shades (`DIGIT_SHADES[set].dark`) under a dark glyph (`TILE_INK`, 4.5:1 or better on each). In digits, the
 glyphs are coloured per colour SET with `DIGIT_SHADES` (`--cg-ink-<set>-<letter>`, rainbow6 and unknown sets
 `--cg-ink-<letter>`, in both apps' `index.css`, the light shade as fallback). Each set's shades were derived
-together (`scripts/derive-palettes.ts`, `src/colour-science.ts`): the smallest pairwise CIEDE2000 plus the
-smallest OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (the last standing in for small-field
-tritanopia at digit size, where a blue and a green of one lightness collapse) is maximised, subject to 4.5:1 on
-the page, card, popover and muted surfaces of the scheme, a hue that still reads as the colour's name
-(`NAME_HUES`), OKLCH chroma ≥ 0.1, and a dark gold for yellow on light pages. The Letter cue appends the colour letter to each digit; changed cells are
+together (`scripts/derive-palettes.ts`, `src/colour-science.ts`) for small digits seen at a distance: the digits
+are 14 pt bold (`DIGIT_TYPE`, WCAG large text, 3:1 on light pages), and the smallest pairwise CIEDE2000 between
+digit strokes as the eye resolves them (S-CIELAB at `VIEW_PX_PER_DEGREE`) is maximised for normal vision, the
+fovea's tritanopia, and deuteranopia or protanopia, with blue and green kept apart in lightness
+(`BLUE_GREEN_MIN_DL`, `BLUE_GREEN_MIN_TRITAN`) and every shade inside the OKLCH box where it reads as its name
+(`SHADE_WINDOWS`). The rationale and sources are above `DIGIT_SHADES` in `src/grid-display.ts`. The Letter cue appends the colour letter to each digit; changed cells are
 underlined and bold. Compact grids are `role="img"` with a row-by-row text summary, and the detail view
 always names every cell's colour.
 
@@ -100,8 +90,7 @@ app's `src/index.css` has `@source "../../../lib/object-views/src";`.
 
 - `pnpm --filter @workspace/object-views test`: rarity and penalty wording, locked reasons, catalog
   grouping, settings snapping and badges, dispatch, renderers and the viewer's choice, grid display model,
-  digit lines, the annotation helpers (merging, legend, cell and character marks, region outlines, weight encodings),
-  contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
+  digit lines, contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
   floors, name hues, and that both `index.css` files carry the same values), and the payoff colours and ramp.
 - The Playwright smoke tests of both apps (`pnpm --filter @workspace/code-gods run e2e`, see
   `artifacts/code-gods/e2e/smoke.ts`) exercise these components in the real pages at desktop and phone width.

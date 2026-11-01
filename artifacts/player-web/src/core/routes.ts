@@ -69,3 +69,12 @@ export function enginePageHref(site: string | undefined, page: { room: string; g
   const room = `/rooms/${encodeURIComponent(page.room)}`;
   return `${root}${room}${page.game ? `/games/${encodeURIComponent(page.game)}` : ""}`;
 }
+
+/** A replay's position parameters (src/core/replay/model.ts): they belong to one game's page, never carried elsewhere. */
+const PAGE_PARAMS = ["e", "t", "speed", "play", "as"];
+/** The query string carried across navigation: the page's own parameters (?panels=off), without a replay's position. */
+export function carriedSearch(search: string): string {
+  const q = new URLSearchParams(search);
+  for (const k of PAGE_PARAMS) q.delete(k);
+  return q.size ? `?${q}` : "";
+}

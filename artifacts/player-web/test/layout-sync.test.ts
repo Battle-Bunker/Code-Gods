@@ -124,11 +124,11 @@ test("history: an assistant change can be undone (‹) and reset (↺); a human 
   assert.ok(canUndo(h, assisted.panes.p1));
   const undone = back(h, "p1");
   assert.ok(undone);
-  assert.deepEqual(undone.view, { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "default" });
+  assert.deepEqual(undone.view, { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "default" });
   assert.ok(!canUndo(undone.history, assisted.panes.p1), "one step of history");
   const human = setPanePanel(base, "p1", "race", "human");
   assert.ok(!canUndo(observe(emptyHistory, base, human), human.panes.p1), "the player's own choices have no ‹");
-  assert.deepEqual(resetView(assisted.panes.p1), { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list", annotate: "mine" }, setBy: "human" });
+  assert.deepEqual(resetView(assisted.panes.p1), { panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "human" });
 });
 
 test("history: the dropdown restores the parameters last used for a panel in that pane", () => {
@@ -136,7 +136,7 @@ test("history: the dropdown restores the parameters last used for a panel in tha
   let h = observe(observe(emptyHistory, null, base), base, assisted);
   const away = setPanePanel(assisted, "p1", "race", "human");
   h = observe(h, assisted, away);
-  assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "mine" });
+  assert.deepEqual(lastParams(h, "p1", "objects"), { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" });
   assert.equal(lastParams(h, "p1", "feed"), undefined);
   assert.equal(lastParams(h, "p9", "objects"), undefined);
 });

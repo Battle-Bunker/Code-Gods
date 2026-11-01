@@ -8,12 +8,15 @@
  *   mutation assistant:setPrefs ({roomId, autoApproveSummonBits})
  *   query    assistant:status   ({roomId})   → enabled, allowance, model, credential, active turn, prefs
  *   query    assistant:threads  ({roomId, gameId?}) → the caller's threads in the room's current game (or that earlier one)
+ *   query    assistant:transcript ({roomId, gameId, threadId?}) → the caller's conversation in that game (the pane's)
  *   query    assistant:thread   ({threadId}) → the thread's turns, messages and tool calls (its human only)
  *
  * Everything the assistant works from is per (human, game): threads (with their turns, briefings, messages, tool calls
  * and cards), the allowance (ai/seats.ts) and code runs and stored objects (convex/code). Starting a game ends the last
  * game's active turns (assistant/store.ts endTurnsForNewGame), and the new game lists no thread until the human starts
- * one; an earlier game's thread can be read, never continued.
+ * one; an earlier game's thread can be read, never continued. The pane reads `transcript` with the game `status` names,
+ * so its query's arguments change with the game, and a transcript of one game is never another's: the server answers
+ * with that game's thread only, whatever thread id the client holds, and `send` refuses a game that is no longer current.
  *
  * Callers: browser sessions and player credentials of a room member (the hosted client and dev-server apps).
  * The first send creates (or reuses) the human's assistant credential for the room with the permission they chose
@@ -88,7 +91,11 @@ async function latestTurn(ctx: Ctx, roomId: Id<"rooms">, subject: string) {
 }
 
 export const send = mutation({
-  args: { roomId: v.id("rooms"), text: v.string(), threadId: v.optional(v.id("assistantThreads")), permission: v.optional(permissionV), ownerConsent: v.optional(v.boolean()) },
+  args: {
+    roomId: v.id("rooms"), text: v.string(), threadId: v.optional(v.id("assistantThreads")), permission: v.optional(permissionV), ownerConsent: v.optional(v.boolean()),
+    /** The game the message is for (status.game, as the pane showed it): refused once another game is current. */
+    gameId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
     const { viewer } = await requireMember(ctx, room, "read");
@@ -98,6 +105,7 @@ export const send = mutation({
       fail("FORBIDDEN", "The room owner has not enabled the assistant in this room (its allowance is 0 tokens). The owner approves an assistant allowance in the room's AI budget card.");
     }
     const epoch = assistantEpoch(room);
+    if (args.gameId !== undefined && args.gameId !== epoch) fail("CONFLICT", "A new game has started: your message was not sent. Send it again to start this game's conversation");
     const latest = await latestTurn(ctx, room._id, viewer.subject);
     // A turn of the last game being stopped because this one started (endTurnsForNewGame) acts no more: not a conflict.
     const ending = latest?.status === "cancelling" && (await ctx.db.get(latest.threadId))?.epoch !== epoch;
@@ -196,6 +204,8 @@ export const status = query({
     const model = AI_MODEL_CATALOG.find(m => m.id === (room.assistantModel ?? DEFAULT_AGENT_MODEL));
     return {
       enabled: allowance.limit > 0,
+      /** The game the assistant works in now: the room's current game id, or "lobby" (transcript's and send's gameId). */
+      game: allowance.epoch,
       allowance: { limit: allowance.limit, used: allowance.used, epoch: allowance.epoch },
       model: model ? { id: model.id, label: model.label, provider: model.provider } : null,
       credential: credential ? { credentialId: credential._id, permission: credential.permission, expiresAt: credential.expiresAt } : null,
@@ -209,19 +219,22 @@ export const status = query({
 /** A thread's game as the client sees it: the game id, or null before the room's first game. */
 const gameOf = (epoch: string | undefined) => epoch && epoch !== LOBBY ? epoch : null;
 
+/** The thread key of a game of this room named by a client: "lobby", or a game of this room (never another room's). */
+async function gameKey(ctx: QueryCtx, room: Doc<"rooms">, gameId: string) {
+  if (gameId === LOBBY) return LOBBY;
+  const id = ctx.db.normalizeId("games", gameId);
+  const game = id ? await ctx.db.get(id) : null;
+  if (!game || game.roomId !== room._id) fail("NOT_FOUND", "No such game in this room");
+  return String(game._id);
+}
+
 export const threads = query({
   args: { roomId: v.id("rooms"), gameId: v.optional(v.string()) },
   handler: async (ctx, { roomId, gameId }) => {
     const room = await requireRoom(ctx, roomId);
     const { viewer } = await requireMember(ctx, room, "read");
-    let epoch = assistantEpoch(room);
-    if (gameId !== undefined && gameId !== LOBBY) {
-      // An earlier game of this room (a replay reads its conversations); never another room's.
-      const id = ctx.db.normalizeId("games", gameId);
-      const game = id ? await ctx.db.get(id) : null;
-      if (!game || game.roomId !== room._id) fail("NOT_FOUND", "No such game in this room");
-      epoch = String(game._id);
-    } else if (gameId === LOBBY) epoch = LOBBY;
+    // Default: the current game. An earlier game of this room: a replay reads its conversations.
+    const epoch = gameId === undefined ? assistantEpoch(room) : await gameKey(ctx, room, gameId);
     const rows = await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").take(20);
     return rows.map(t => ({ _id: t._id, title: t.title, gameId: gameOf(t.epoch), createdAt: t.createdAt, updatedAt: t.updatedAt, activeTurnId: t.activeTurnId ?? null }));
   },
@@ -235,25 +248,51 @@ export const thread = query({
     if (!thread || !room) return fail("NOT_FOUND", "Thread not found");
     const { viewer } = await requireMember(ctx, room, "read").catch(() => fail("NOT_FOUND", "Thread not found"));
     if (thread.subject !== viewer.subject) fail("NOT_FOUND", "Thread not found");
-    const turns = (await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", threadId)).order("desc").take(20)).reverse();
-    const messages = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId)).order("desc").take(100)).reverse();
-    const toolCalls = (await Promise.all(turns.map(t => callsOf(ctx, t._id)))).flat();
-    return {
-      thread: { _id: thread._id, title: thread.title, gameId: gameOf(thread.epoch), createdAt: thread.createdAt, updatedAt: thread.updatedAt, activeTurnId: thread.activeTurnId },
-      turns: turns.map(t => ({
-        _id: t._id, status: t.status, step: t.step, maxSteps: t.maxSteps, deadline: t.deadline, usage: t.usage, tools: t.tools, credentialId: t.credentialId,
-        error: t.error ?? null, createdAt: t.createdAt, finishedAt: t.finishedAt ?? null,
-      })),
-      messages: messages.map(m => ({
-        _id: m._id, turnId: m.turnId, seq: m.seq, role: m.role, text: m.text, status: m.status,
-        reservedTokens: m.reservedTokens ?? null, inputTokens: m.inputTokens ?? null, outputTokens: m.outputTokens ?? null,
-        cacheReadTokens: m.cacheReadTokens ?? null, cacheWriteTokens: m.cacheWriteTokens ?? null, billedTokens: m.billedTokens ?? null,
-        inputEstimate: m.inputEstimate ?? null, usageEstimated: m.usageEstimated ?? false, createdAt: m.createdAt,
-      })),
-      toolCalls: toolCalls.map(c => ({
-        _id: c._id, turnId: c.turnId, messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status,
-        summary: c.summary, resultJson: c.resultJson ?? null, commandId: c.commandId ?? null, confirmDeadline: c.confirmDeadline ?? null,
-      })),
-    };
+    return threadView(ctx, thread);
   },
 });
+
+/**
+ * The caller's conversation in one game of the room (the assistant pane's subscription, with status.game): `threadId`
+ * when it is theirs in that game, else that game's thread with the caller's active turn, else its latest; `thread: null`
+ * and no rows when the game has none. A thread of another game is never answered: a client still naming the last
+ * game's thread gets this game's (or none).
+ */
+export const transcript = query({
+  args: { roomId: v.id("rooms"), gameId: v.string(), threadId: v.optional(v.id("assistantThreads")) },
+  handler: async (ctx, { roomId, gameId, threadId }) => {
+    const room = await requireRoom(ctx, roomId);
+    const { viewer } = await requireMember(ctx, room, "read");
+    const epoch = await gameKey(ctx, room, gameId);
+    const mine = (t: Doc<"assistantThreads"> | null) => t && t.subject === viewer.subject && t.roomId === room._id && t.epoch === epoch ? t : null;
+    const named = threadId ? mine(await ctx.db.get(threadId)) : null;
+    const latest = named ? null : await latestTurn(ctx, room._id, viewer.subject);
+    const active = latest && isActive(latest.status) ? mine(await ctx.db.get(latest.threadId)) : null;
+    const thread = named ?? active ?? (await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").first());
+    return thread ? threadView(ctx, thread) : { thread: null, turns: [], messages: [], toolCalls: [] };
+  },
+});
+
+async function threadView(ctx: QueryCtx, thread: Doc<"assistantThreads">) {
+  const threadId = thread._id;
+  const turns = (await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", threadId)).order("desc").take(20)).reverse();
+  const messages = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId)).order("desc").take(100)).reverse();
+  const toolCalls = (await Promise.all(turns.map(t => callsOf(ctx, t._id)))).flat();
+  return {
+    thread: { _id: thread._id, title: thread.title, gameId: gameOf(thread.epoch), createdAt: thread.createdAt, updatedAt: thread.updatedAt, activeTurnId: thread.activeTurnId },
+    turns: turns.map(t => ({
+      _id: t._id, status: t.status, step: t.step, maxSteps: t.maxSteps, deadline: t.deadline, usage: t.usage, tools: t.tools, credentialId: t.credentialId,
+      error: t.error ?? null, createdAt: t.createdAt, finishedAt: t.finishedAt ?? null,
+    })),
+    messages: messages.map(m => ({
+      _id: m._id, turnId: m.turnId, seq: m.seq, role: m.role, text: m.text, status: m.status,
+      reservedTokens: m.reservedTokens ?? null, inputTokens: m.inputTokens ?? null, outputTokens: m.outputTokens ?? null,
+      cacheReadTokens: m.cacheReadTokens ?? null, cacheWriteTokens: m.cacheWriteTokens ?? null, billedTokens: m.billedTokens ?? null,
+      inputEstimate: m.inputEstimate ?? null, usageEstimated: m.usageEstimated ?? false, createdAt: m.createdAt,
+    })),
+    toolCalls: toolCalls.map(c => ({
+      _id: c._id, turnId: c.turnId, messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status,
+      summary: c.summary, resultJson: c.resultJson ?? null, commandId: c.commandId ?? null, confirmDeadline: c.confirmDeadline ?? null,
+    })),
+  };
+}

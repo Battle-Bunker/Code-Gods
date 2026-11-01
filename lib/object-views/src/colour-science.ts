@@ -3,6 +3,8 @@
  * and the CIEDE2000 colour difference, OKLab / OKLCH, and colour-vision-deficiency simulation (Machado, Oliveira and
  * Fernandes 2009, severity 1.0, in linear sRGB: the model the dataviz palette validator is calibrated to).
  *
+ * Also S-CIELAB (Zhang and Wandell 1996), the spatial extension of CIELAB, for colours seen as thin strokes.
+ *
  * The digit palettes (grid-display.ts) and the objects panel's dimension colours and score ramp are derived and
  * checked with these (scripts/derive-palettes.ts re-derives them; test/text-shades.test.ts and
  * test/palette-metrics.test.ts hold them to their floors).
@@ -144,29 +146,73 @@ export function deltaEOk(a: string, b: string, vision: Vision = "normal"): numbe
 export const deltaE2000Seen = (a: string, b: string, vision: Vision): number =>
   deltaE2000Lab(labOfLinear(simulateLinear(a, vision)), labOfLinear(simulateLinear(b, vision)));
 
-// --- palette summaries --------------------------------------------------------------------------------------------
-export interface PaletteMetrics {
-  /** Smallest pairwise CIEDE2000, normal vision. */
-  minDeltaE2000: number;
-  /** Smallest pairwise OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (small-field: digit-size text). */
-  minProtan: number;
-  minDeutan: number;
-  minTritan: number;
-  /** Smallest WCAG contrast of any colour against any of the surfaces. */
-  minContrast: number;
-  /** The closest pair (normal vision). */
-  closest: [number, number];
+// --- small-field colour: S-CIELAB (Zhang and Wandell 1996) ------------------------------------------------------
+// CIELAB and CIEDE2000 describe large uniform patches. A digit's stroke is a stripe a few arcminutes wide, and the
+// eye's spatial resolution differs per opponent channel: luminance is resolved finely, red–green less so, and
+// blue–yellow (the S cones) worst of all, which is small-field tritanopia. S-CIELAB models this by converting to
+// Poirson–Wandell opponent channels, blurring each with its own sum of Gaussians (spreads in degrees of visual angle),
+// and converting back to CIELAB. For a stripe of width w on a page, the colour seen inside the stripe is the page
+// plus, per channel, the share of the stripe's difference that survives the blur (stripeRetention).
+
+/** Abramowitz and Stegun 7.1.26 (absolute error ≤ 1.5e-7). */
+export function erf(x: number): number {
+  const t = 1 / (1 + 0.3275911 * Math.abs(x));
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return x < 0 ? -y : y;
 }
-export function paletteMetrics(colours: readonly string[], surfaces: readonly string[]): PaletteMetrics {
-  let minDeltaE2000 = Infinity, minProtan = Infinity, minDeutan = Infinity, minTritan = Infinity, closest: [number, number] = [0, 0];
+/**
+ * The mean, across a stripe `w` degrees wide, of that stripe blurred by the normalised Gaussian exp(−x²/s²) (`s` in
+ * degrees): (s/w)·∫₀^{w/s} erf(u) du, in closed form. 1 for a wide stripe, toward 0 for a thin one.
+ */
+export function stripeRetention(w: number, s: number): number {
+  const r = w / s;
+  return r < 1e-9 ? 0 : (r * erf(r) + (Math.exp(-r * r) - 1) / Math.sqrt(Math.PI)) / r;
+}
+/** S-CIELAB's filters per opponent channel: [spread in degrees, weight] (Zhang and Wandell's reference scielab.m). */
+export const SCIELAB_FILTERS: Readonly<Record<"lum" | "rg" | "by", readonly (readonly [number, number])[]>> = Object.freeze({
+  lum: [[0.05, 1.00327], [0.225, 0.114416], [7.0, -0.117686]],
+  rg: [[0.0685, 0.616725], [0.826, 0.383275]],
+  by: [[0.0920, 0.567885], [0.6451, 0.432115]],
+});
+const RGB_XYZ: readonly Rgb[] = [[0.4124564, 0.3575761, 0.1804375], [0.2126729, 0.7151522, 0.0721750], [0.0193339, 0.1191920, 0.9503041]];
+const XYZ_OPP: readonly Rgb[] = [[0.279, 0.72, -0.107], [-0.449, 0.29, -0.077], [0.086, -0.59, 0.501]];
+type M3 = readonly Rgb[];
+const mul = (A: M3, B: M3): Rgb[] => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]) as Rgb);
+const apply = (A: M3, v: Rgb): Rgb => A.map(r => r[0] * v[0] + r[1] * v[1] + r[2] * v[2]) as Rgb;
+function inverse(m: M3): Rgb[] {
+  const [[a, b, c], [d, e, f], [g, h, i]] = m;
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g, det = a * A + b * B + c * C;
+  return [[A, -(b * i - c * h), b * f - c * e], [B, a * i - c * g, -(a * f - c * d)], [C, -(a * h - b * g), a * e - b * d]]
+    .map(r => r.map(x => x / det) as Rgb);
+}
+const RGB_OPP = mul(XYZ_OPP, RGB_XYZ), OPP_RGB = inverse(RGB_OPP);
+/** Poirson–Wandell opponent channels [luminance, red–green, blue–yellow] of a colour (linear, from XYZ with white Y 1). */
+export const opponentOf = (hex: string, vision: Vision = "normal"): Rgb => apply(RGB_OPP, simulateLinear(hex, vision));
+/** The share of each opponent channel's signal that a stripe `strokeDeg` degrees wide keeps after S-CIELAB's blur. */
+export function channelRetention(strokeDeg: number): Rgb {
+  const k = (f: readonly (readonly [number, number])[]) => f.reduce((sum, [s, w]) => sum + w * stripeRetention(strokeDeg, s), 0);
+  return [k(SCIELAB_FILTERS.lum), k(SCIELAB_FILTERS.rg), k(SCIELAB_FILTERS.by)];
+}
+/**
+ * CIELAB of a stroke of colour `hex`, `strokeDeg` degrees wide, on `page`, as seen (S-CIELAB) with `vision`: the
+ * colour deficiency is simulated first (in the cones), then the spatial blur (in the opponent pathways).
+ */
+export function smallFieldLab(hex: string, page: string, strokeDeg: number, vision: Vision = "normal"): Rgb {
+  const k = channelRetention(strokeDeg), c = opponentOf(hex, vision), p = opponentOf(page, vision);
+  return labOfLinear(apply(OPP_RGB, [0, 1, 2].map(i => p[i] + k[i] * (c[i] - p[i])) as Rgb));
+}
+/** CIEDE2000 between two strokes on `page` at `strokeDeg`, as seen with `vision`: the small-field colour difference. */
+export const deltaE2000Small = (a: string, b: string, page: string, strokeDeg: number, vision: Vision = "normal"): number =>
+  deltaE2000Lab(smallFieldLab(a, page, strokeDeg, vision), smallFieldLab(b, page, strokeDeg, vision));
+
+// --- palette summaries ------------------------------------------------------------------------------------------
+/** The small-field view of a palette: the smallest pairwise small-field CIEDE2000 per eye, and the smallest ΔL*. */
+export interface SmallFieldMetrics { normal: number; deutan: number; protan: number; tritan: number; minDeltaL: number }
+export function smallFieldMetrics(colours: readonly string[], page: string, strokeDeg: number): SmallFieldMetrics {
+  const m: SmallFieldMetrics = { normal: Infinity, deutan: Infinity, protan: Infinity, tritan: Infinity, minDeltaL: Infinity };
   for (let i = 0; i < colours.length; i++) for (let j = i + 1; j < colours.length; j++) {
-    const d = deltaE2000(colours[i], colours[j]);
-    if (d < minDeltaE2000) { minDeltaE2000 = d; closest = [i, j]; }
-    minProtan = Math.min(minProtan, deltaEOk(colours[i], colours[j], "protan"));
-    minDeutan = Math.min(minDeutan, deltaEOk(colours[i], colours[j], "deutan"));
-    minTritan = Math.min(minTritan, deltaEOk(colours[i], colours[j], "tritan"));
+    for (const v of ["normal", "deutan", "protan", "tritan"] as const) m[v] = Math.min(m[v], deltaE2000Small(colours[i], colours[j], page, strokeDeg, v));
+    m.minDeltaL = Math.min(m.minDeltaL, Math.abs(labOf(colours[i])[0] - labOf(colours[j])[0]));
   }
-  let minContrast = Infinity;
-  for (const c of colours) for (const s of surfaces) minContrast = Math.min(minContrast, contrastRatio(c, s));
-  return { minDeltaE2000, minProtan, minDeutan, minTritan, minContrast, closest };
+  return m;
 }

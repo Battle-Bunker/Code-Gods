@@ -22,7 +22,8 @@
  * auth.config.ts with both JWKS; (6) once that push has finished, uploads the Python runtime bundle
  * (scripts/upload-runtime.mjs: built first if missing or stale, skipped if the deployment has it) and the
  * calibration tables (scripts/upload-calibration.mjs; unchanged files are skipped) to the local deployment's
- * file storage, then prints "[dev] READY".
+ * file storage, and seeds the system setups (`setups:ensureSeeded`, idempotent, as every deploy does), then
+ * prints "[dev] READY".
  *
  * Deployment env vars set here (LOCAL ONLY; production must not set FAKE_OIDC_URL,
  * AI_MOCK or TEST_FIXTURES):
@@ -32,7 +33,8 @@
  *   FAKE_OIDC_URL   → the fake OIDC server (enables Better Auth's provider "fake" with fixtures on)
  *   ADMIN_EMAILS    admin@example.test (the fake "admin") and unverified@example.test (never verified)
  *   SEASON_SALT, AI_MOCK=1, TEST_FIXTURES=1 (enables convex/auth/testing.ts)
- * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY, OPENAI_API_KEY (scripts/assistant-provider.mjs; the assistant starts mocked)
+ * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY, OPENAI_API_KEY (scripts/assistant-provider.mjs; the assistant starts mocked),
+ *   and DEV (a leftover DEV=1 turns test fixtures on behind TEST_FIXTURES' back; convex/auth/identity.ts fixturesOn)
  */
 import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { spawnSync, spawn } from "node:child_process";
@@ -93,7 +95,9 @@ setEnv(vars);
 console.log(`[dev] env: ${Object.keys(vars).join(", ")}`);
 // Back to the mock assistant on every start (scripts/assistant-provider.mjs `live` sets these), so the
 // mock-scripted suites (test/game-assistant.test.ts) never reach a real provider and spend money by accident.
-for (const name of ["ASSISTANT_LIVE", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"]) {
+// DEV goes too: TEST_FIXTURES is the one switch for fixtures here, and a stray DEV=1 would keep them on when a
+// test turns TEST_FIXTURES off (test/auth.test.ts "the fake provider does not exist once test fixtures are off").
+for (const name of ["ASSISTANT_LIVE", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEV"]) {
   if (current(name) && convex(["env", "remove", name], { stdio: ["ignore", "ignore", "inherit"] }).status !== 0) {
     console.error(`[dev] removing ${name} failed`); process.exit(1);
   }
@@ -117,13 +121,16 @@ const watch = (stream, out) => stream.on("data", chunk => {
   // The CLI logs progress on stderr; the first "functions ready" after the env change is the signal.
   if (!ready && /Convex functions ready/.test(String(chunk))) {
     ready = true;
-    // 5. The Python runtime bundle and the calibration tables → file storage (each skips what is already there).
+    // 5. The Python runtime bundle and the calibration tables → file storage (each skips what is already there),
+    //    and the system setups (game-core SEED_SETUPS), which deploys seed with the same idempotent mutation.
     const runner = convexRunner([], root, env), log = line => console.log(`[dev] ${line}`);
     Promise.all([
       uploadRuntime(runner, { log })
         .catch(error => console.error(`[dev] uploading the Python runtime failed (Python games will fail): ${error.message}`)),
       uploadCalibration(runner, { log })
         .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
+      runner("setups:ensureSeeded").then(() => log("Seeded the system setups."))
+        .catch(error => console.error(`[dev] seeding the system setups failed (setup tests will fail): ${error.message}`)),
     ]).finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });

@@ -252,6 +252,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `assistant.setPrefs` | mutation | player | Set assistant preferences | Lets summons the assistant validated run without a card up to this many bits (0 asks every time). | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.status` | query | player | Show assistant status | Whether the assistant is on, its allowance, model, credential and active turn. | — (A live subscription a page renders; there is nothing to run.) |
 | `assistant.threads` | query | player | Switch conversation | Your assistant conversations in this room's current game, newest first. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.transcript` | query | player | Show this game's conversation | Your assistant conversation in this game: a new game starts with none. | — (A live subscription a page renders; there is nothing to run.) |
 | `assistant.thread` | query | player | Show a conversation | One conversation's messages, tool calls and confirmation cards. | — (A live subscription a page renders; there is nothing to run.) |
 | `auth.credentials.list` | query | infrastructure | Show connected apps | Every app, connector and assistant acting as you, with its room, rights and expiry. | — |
 | `auth.credentials.revoke` | mutation | infrastructure | Revoke a connected app | Cuts that app's access on its next call; you can reconnect it later. | — |

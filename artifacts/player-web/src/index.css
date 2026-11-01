@@ -76,14 +76,14 @@
   /* Grid digits: one text colour per colour letter, per colour set (lib/object-views DIGIT_SHADES.light: rainbow6 as
      --cg-ink-<letter>, the others as --cg-ink-<set>-<letter>; tested for contrast on these
      surfaces and for distinguishability). This app's .dark keeps the light paper, so it inherits these. */
-  --cg-ink-R: #c20d39;
-  --cg-ink-O: #773a0e;
-  --cg-ink-Y: #695f01;
-  --cg-ink-G: #1d7242;
-  --cg-ink-B: #0555e7;
-  --cg-ink-V: #aa01bc;
-  --cg-ink-rgb-R: #bb061e; --cg-ink-rgb-G: #06641a; --cg-ink-rgb-B: #0555e7;
-  --cg-ink-rgby-R: #9e0a1e; --cg-ink-rgby-Y: #806000; --cg-ink-rgby-G: #0a5c1c; --cg-ink-rgby-B: #0555e7;
+  --cg-ink-R: #ba0329;
+  --cg-ink-O: #d55d0d;
+  --cg-ink-Y: #987e0c;
+  --cg-ink-G: #159425;
+  --cg-ink-B: #0237e5;
+  --cg-ink-V: #bc30fb;
+  --cg-ink-rgb-R: #a50b25; --cg-ink-rgb-G: #3d9406; --cg-ink-rgb-B: #033ffe;
+  --cg-ink-rgby-R: #ba0329; --cg-ink-rgby-Y: #9d7703; --cg-ink-rgby-G: #2a9446; --cg-ink-rgby-B: #0137ee;
   /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.light). */
   --cg-yours: #0b6aa0;
   --cg-others: #b52d6e;

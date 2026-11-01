@@ -257,16 +257,17 @@ function RoomGate({ route, mode, meId, credentialRoomId, children }: { route: Ro
 }
 
 /**
- * {base}rooms/:room/games/:game. The room's current game is played on the room's own screen, so its URL becomes the
- * room's (and the screen follows the room into its next game, as {base}rooms/:room does). A past game opens
- * read-only; the engine refuses it to anyone but its players and the room owner, and that refusal is shown here.
+ * {base}rooms/:room/games/:game. The room's current game is played on the room's own screen while it is live, so its
+ * URL becomes the room's (and the screen follows the room into its next game, as {base}rooms/:room does). An ended
+ * game, the room's latest included, opens as its replay, read-only; the engine refuses it to anyone but its players and the room owner, and that refusal is shown here.
  * games.resolve decides (one game and its room), so a live game's world is not loaded twice.
  */
 function GameRoute({ room, code, meId }: { room: RoomState; code: string; meId?: string }) {
   const queries = useMemo((): Record<string, { query: typeof api.games.resolve; args: { code: string } }> => ({ game: { query: api.games.resolve, args: { code } } }), [code]);
   const result = useQueries(queries).game as FunctionReturnType<typeof api.games.resolve> | Error | undefined;
   const elsewhere = result && !(result instanceof Error) && result.roomId !== room.id;
-  const current = result && !(result instanceof Error) && !elsewhere && result.status === "current";
+  // The room's current game is played on the room's screen, unless it has ended: then this page is its replay.
+  const current = result && !(result instanceof Error) && !elsewhere && result.status === "current" && !result.ended;
   useEffect(() => { if (current) navigate(hrefTo({ kind: "room", room: room.shortCode }), { replace: true }); }, [current, room.shortCode]);
   if (result instanceof Error || elsewhere) return <GameError room={room} code={code} message={elsewhere ? `Game ${code} is not a game of room ${room.shortCode}.` : errorText(result as Error)} />;
   if (!result || current) return <Screen title="Connecting…" testId="status-connecting" />;
@@ -280,7 +281,7 @@ function PastGame({ room, game, requested, meId }: { room: RoomState; game: stri
   useEffect(() => { if (game !== requested) navigate(hrefTo({ kind: "game", room: room.shortCode, game }), { replace: true }); }, [game, requested, room.shortCode]);
   if (result instanceof Error) return <GameError room={room} code={game} message={errorText(result)} />;
   if (!result) return <Screen title="Connecting…" testId="status-connecting" />;
-  return <HistoricGame game={result} roomCode={room.shortCode} meId={meId} />;
+  return <HistoricGame game={result} roomId={room.id} roomCode={room.shortCode} meId={meId} />;
 }
 
 function GameError({ room, code, message }: { room: RoomState; code: string; message: string }) {
