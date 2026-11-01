@@ -294,6 +294,12 @@ is a fixed function of v, so repeated or cleverer probing never gets past the no
 the act commits: probing is equivalent to observing values, which the σ = 8 rows already measure. (An agent's
 behaviour itself cannot be blinded; it never discloses another god's individual bits.)
 
+Measured (`inference-experiment.ts --probes N`, σ = 8, 6 trials): giving the viewer N of its values exactly, as the
+old clause's probing would, lifts the same single-σ fit from 33% to 50% exact for three gods at ~50 values (N = 10 or
+30) and leaves six gods at 17–33%; but an attacker would fit the probed values on their own, and §5.1's σ = 0 rows
+show 20 exact values identify a three-god game 90–100% of the time. The leak was nearly complete; with the clause on
+disclosed values, N = 0 by construction.
+
 ## 6. Every object is an independent universe
 
 Owner's rule: an object's utility depends only on that object's own state, and a transformation changes only its
