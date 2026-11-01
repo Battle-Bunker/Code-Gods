@@ -2,7 +2,7 @@
  * A panel in a sandboxed frame: stored panels always, file panels when the player turns on "run sandboxed".
  *
  * The iframe (`sandbox="allow-scripts"`: an opaque origin, no same-origin access, no popups, forms or top
- * navigation) loads /player/panel-frame.html, which has its own CSP (connect-src 'none'); the page's CSP (frame-src
+ * navigation) loads {base}panel-frame.html (/client/ hosted), which has its own CSP (connect-src 'none'); the page's CSP (frame-src
  * 'self', in a build and in a dev server: vite/csp.ts) stops the frame navigating itself off-origin. The host serves it over
  * a BridgeHost: the SDK's read queries for this room, throttled per hz; commands, with a host-rendered
  * confirmation for chat, summon, destroy and pause; and the evaluator's calibration tables once.

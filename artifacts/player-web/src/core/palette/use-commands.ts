@@ -114,7 +114,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     },
     links: {
       roomPage: () => `/rooms/${encodeURIComponent(state.roomCode ?? "")}`,
-      gamePage: () => (state.gameCode ? `/games/${encodeURIComponent(state.gameCode)}` : null),
+      gamePage: () => (state.gameCode && state.roomCode ? `/rooms/${encodeURIComponent(state.roomCode)}/games/${encodeURIComponent(state.gameCode)}` : null),
       copyRoomLink: () => { if (state.roomCode) void copy(roomUrl(state.roomCode), "Copied the room link."); },
       safeMode: on => {
         const params = new URLSearchParams(location.search);

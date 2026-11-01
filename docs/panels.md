@@ -94,7 +94,7 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useAnnotations(objects, {utility: "mine" \| "none"})` | `Map<objectId, Annotation[]>`: what makes up your score on each object, for `ObjectView`'s `annotations` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
-| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/player/`) |
+| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/client/`) |
 
 `TrajectoryPoint` is `{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}`.
 
@@ -279,7 +279,7 @@ Copy one into `src/panels/` to enable it, then adapt it.
 ## Stored panels
 
 A panel can also live in the engine instead of a file. A **stored panel** is the same TSX, saved to Convex
-for your human (across all your rooms). Every open client of yours (the hosted client at `/player/`, your
+for your human (across all your rooms). Every open client of yours (the hosted client at `/client/`, your
 dev server, another device) re-renders it live through its subscription: no dev server, no reload. Any of
 your agents can write one; the file workflow above keeps working beside it.
 
@@ -316,7 +316,7 @@ version).
 in-client assistant). A `read` credential can list and read, not write. Nobody else can see or address your
 panels: another player's call gets `NOT_FOUND`.
 
-**How it runs.** Each stored panel runs in a sandboxed frame (`/player/panel-frame.html`, `sandbox="allow-scripts"`,
+**How it runs.** Each stored panel runs in a sandboxed frame (`/client/panel-frame.html`, `sandbox="allow-scripts"`,
 an opaque origin, its own CSP with `connect-src 'none'`), and the client page's CSP (`frame-src 'self'`, in the
 hosted client and in a dev server) stops it navigating itself to another site. It cannot read the page, your cookies
 or storage, and cannot reach the network: every hook goes through the client over `postMessage`, which serves only the

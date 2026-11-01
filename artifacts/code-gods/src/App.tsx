@@ -12,7 +12,9 @@ import Device from '@/pages/device';
 import Connect from '@/pages/connect';
 import AdminAgents from '@/pages/admin-agents';
 import Configure from '@/pages/configure';
+import { roomPath } from '@/lib/routes';
 import {
+  Redirect,
   Route,
   Switch,
   useLocation,
@@ -26,7 +28,10 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Home} />
+        {/* Rooms contain games (lib/routes.ts); /games/:code is the old game link, redirected by the game page. */}
         <Route path="/rooms/:id/configure" component={Configure} />
+        <Route path="/rooms/:roomId/games/:gameId" component={Game} />
+        <Route path="/rooms/:id/games">{(p: { id: string }) => <Redirect to={roomPath(p.id)} replace />}</Route>
         <Route path="/rooms/:id" component={Room} />
         <Route path="/games/:code" component={Game} />
         <Route path="/device" component={Device} />

@@ -27,7 +27,7 @@ const actions: Actions = {
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
-  links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
+  links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/rooms/ABCD/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
   objects: { setGridRenderer: rec("gridRenderer") },
   notify: rec("notify"),
 };

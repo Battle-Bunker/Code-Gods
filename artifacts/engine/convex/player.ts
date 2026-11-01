@@ -10,12 +10,13 @@ import type { GameSettings } from "@workspace/game-core";
 import { allowedLanguages, instantiationOf } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
-import { requireViewer, type Viewer } from "./auth/access";
+import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf } from "./lib/load";
 import { objectInstance, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
 import { EVENT_LOG_SCHEMA } from "./lib/world";
-import { findGame, principalV, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
+import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
+import { publicGameView } from "./games";
 
 /*
  * Each projection is a function of (ctx, viewer, args). The public query resolves the viewer from ctx.auth;
@@ -41,16 +42,42 @@ export const observationAs = internalQuery({
   handler: async (ctx, { principal, ...args }) => observationFor(ctx, await viewerOf(ctx, principal), args),
 });
 
-/** The game a request is about (current slot by default, or an explicit game of this room) and the caller's roster index. */
+/**
+ * The game a request is about (current slot by default, or an explicit game of this room) and the caller's roster index.
+ * The room's active or current game is for its members; a historic one (lib/rooms isHistoric) only for the gods who
+ * played in it and the room owner.
+ */
 async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?: string) {
   const room = await requireRoom(ctx, roomRef);
-  await requireMemberAs(ctx, viewer, room, "read");
   let game: Doc<"games"> | null;
   if (gameRef) {
+    requireRoomPermission(viewer, room._id, "read");   // before the lookup: a credential never probes another room
     game = await findGame(ctx, gameRef);
     if (!game || game.roomId !== room._id) fail("NOT_FOUND", "Game not found in this room");
-  } else game = await currentGame(ctx, room);
+    if (isHistoric(room, game)) requireHistoricReaderAs(viewer, room, game);
+    else await requireMemberAs(ctx, viewer, room, "read");
+  } else {
+    await requireMemberAs(ctx, viewer, room, "read");
+    game = await currentGame(ctx, room);
+  }
   return { room, viewer, game, index: game ? game.roster.findIndex(m => m.id === viewer.subject) : -1 };
+}
+
+/**
+ * One game of the room as the caller may see it, by id, GUID or short code: its public world (live, or final once
+ * ended: the recorded standings, winners, last objects) and its chat, with whether it is the room's current game and
+ * whether the caller was seated. The player client's /rooms/:room/games/:game page; a historic game is read-only
+ * and readable only by its participants and the room owner (gameFor).
+ */
+const gameArgs = { roomId: v.string(), gameId: v.string() };
+export const game = query({ args: gameArgs, handler: async (ctx, args) => gameViewFor(ctx, await requireViewer(ctx), args) });
+export const gameAs = internalQuery({
+  args: { principal: principalV, ...gameArgs },
+  handler: async (ctx, { principal, ...args }) => gameViewFor(ctx, await viewerOf(ctx, principal), args),
+});
+export async function gameViewFor(ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId: string }) {
+  const { room, game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
+  return { ...await publicGameView(ctx, game!, room), current: !isHistoric(room, game!), seated: index >= 0 };
 }
 
 /**

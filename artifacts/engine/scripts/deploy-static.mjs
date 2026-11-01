@@ -13,7 +13,8 @@
  *                                                            STATIC_SHA256_ENGINE / _PLAYER, set on every upload)
  *
  *   engine UI       artifacts/code-gods   → instance engineSite, served at /         (Vite base "/")
- *   player client   artifacts/player-web  → instance playerSite, served at /player/  (Vite base "/player/")
+ *   player client   artifacts/player-web  → instance playerSite, served at /client/  (Vite base "/client/";
+ *                                                            the old /player/ prefix redirects there, convex/http.ts)
  *
  * Both builds get VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud) and VITE_CONVEX_SITE_URL
  * (its site URL, where the stored-panel frame loads its runtime from: the frame CSP names it), read
@@ -35,7 +36,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const artifacts = resolve(root, "..");
 export const SITES = {
   engine: { component: "engineSite", pkg: "@workspace/code-gods", dir: resolve(artifacts, "code-gods"), base: "/" },
-  player: { component: "playerSite", pkg: "@workspace/player-web", dir: resolve(artifacts, "player-web"), base: "/player/" },
+  player: { component: "playerSite", pkg: "@workspace/player-web", dir: resolve(artifacts, "player-web"), base: "/client/" },
 };
 // With a deploy key the key picks the deployment; otherwise the configured one (.env.local), else the local anonymous one.
 const env = process.env.CONVEX_DEPLOY_KEY ? { ...process.env } : { ...process.env, CONVEX_AGENT_MODE: process.env.CONVEX_AGENT_MODE ?? "anonymous" };

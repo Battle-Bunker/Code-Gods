@@ -2,7 +2,8 @@
 
 The engine is one Convex deployment (`artifacts/engine`; routes and functions in
 [`engine-api.md`](engine-api.md), design in [`convex-migration-plan.md`](convex-migration-plan.md)).
-A player client is either the hosted default client the engine serves at `/player/`, or a player's own
+A player client is either the hosted reference client the engine serves at `/client/` (the old `/player/` prefix
+redirects there), or a player's own
 copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment. Both read the same
 disclosure-filtered Convex queries and act through the same server functions, so a modified client can
 do no more than its human could.
@@ -104,13 +105,36 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
 It is not mounted when player-web runs in hosted-mode development (`CODE_GODS_SITE_URL` set), where
 the client signs in on the engine site instead.
 
-### Hosted client (`/player/`)
+### Hosted client (`/client/`)
 
-The engine serves the same player-web build at `https://<dep>.convex.site/player/`. There the human
+The engine serves the same player-web build at `https://<dep>.convex.site/client/`. There the human
 signs in on the site with Google (the same Better Auth session as the engine UI; `browser`-scope JWTs from
-`GET /api/auth/convex/token`) and enters a room
-code (or opens `/player/?room=CODE`). No credential is involved. This is the fallback for a player who
-does not duplicate the repository.
+`GET /api/auth/convex/token`) and opens a room from their list or by code. No credential is involved. This is the
+fallback for a player who does not duplicate the repository. `/player` and `/player/*` answer 308 to the same path
+under `/client/`, so old links and bookmarks keep working (`convex/http.ts`).
+
+### URL scheme (both modes)
+
+player-web is a reference implementation of a separate app: it never assumes where it is hosted. Its base path is
+Vite's `base` (`BASE_PATH`; `/client/` in the engine's build, `/` on a dev server), read at runtime from
+`import.meta.env.BASE_URL`, and it finds the engine from its dev server's token endpoint, `VITE_CONVEX_URL` or the
+engine site's `/api/config`. Under that base it mirrors the engine UI's scheme (`src/core/routes.ts`; the engine UI's
+is `artifacts/code-gods/src/lib/routes.ts`):
+
+| Path (under the base) | Engine UI equivalent | What |
+|---|---|---|
+| `/` | `/` | hosted: your rooms and a room code form; dev server: redirects to the credential's room |
+| `/rooms/:room` | `/rooms/:room` | play in the room: its current or next game |
+| `/rooms/:room/games` | (the room page's past games) | the room's finished games; the ones you can open are linked |
+| `/rooms/:room/games/:game` | `/rooms/:room/games/:game` | the room's current game: redirects to the room, where it is played; a past game: read-only, its final state (`player.game`) |
+| `/games/:game` | `/games/:game` | the old game link: redirects to the nested one |
+| `/?room=CODE`, `/rooms/:room/configure` | `/rooms/:room?game=CODE` | old links: canonicalise to the room |
+
+Rooms and games are named by their short codes (rooms have no names). A dev-server app plays only in its
+credential's room; another room's URL says so. **Past games are for their players:** the engine serves a game the
+room no longer runs (neither its active nor its current game) only to the gods who played in it and the room's
+owner, on every per-game read (`player.game`, `player.history`, `player.events`, `player.trajectories`; see
+`convex/lib/rooms.ts` `requireHistoricReaderAs`), whatever the client shows.
 
 ## The `pnpm player` CLI
 

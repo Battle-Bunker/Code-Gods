@@ -5,6 +5,7 @@
  * button and its palette row never disagree. Pure: the app passes its state and actions in.
  */
 import { CATALOG, paletteEntries, type PublicFunctionPath } from "@workspace/player-client/catalog";
+import { gamePath, playerClientPath } from "./routes.ts";
 import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
@@ -137,7 +138,6 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const roomCode = room?.shortCode ?? game?.roomShortCode ?? null;
   const aiOff = scope.aiConfigured === false;
   const ais = room?.members.filter(m => m.kind === "ai") ?? [];
-  const playerUrl = (code: string) => `/player/?room=${encodeURIComponent(code)}`;
 
   // State checks layered over the catalogue's audience rule (which stays first: "Only the room owner…").
   const needRoom = (a: Availability) => (!room ? no("Open a room first.", { hidden: true }) : a);
@@ -220,11 +220,11 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
-    ui("ui.nav.game", { kind: "navigate", to: `/games/${running?.shortCode ?? ""}` }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
+    ui("ui.nav.game", { kind: "navigate", to: gamePath(roomCode ?? "", running?.shortCode ?? "") }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
     ui("ui.nav.pastGame", { kind: "form", page: { kind: "pick", title: "Open a past game", empty: "No games have finished in this room yet.",
       options: async () => (await act.pastGames()).map(g => ({ id: g.shortCode, label: `Game ${g.shortCode}`, detail: g.winners.length ? `won by ${g.winners.map(w => w.name).join(", ")}` : "no winner recorded" })),
-      onPick: code => act.navigate(`/games/${encodeURIComponent(code)}`) } }, inRoom),
-    ui("ui.nav.playerClient", { kind: "local", run: () => roomCode && act.openTab(playerUrl(roomCode)) }, () => (!roomCode ? no("Open a room first.", { hidden: true }) : room && !me ? no("Join the room first.", { fix: "rooms.join" }) : ok)),
+      onPick: code => act.navigate(gamePath(roomCode ?? "", code)) } }, inRoom),
+    ui("ui.nav.playerClient", { kind: "local", run: () => roomCode && act.openTab(playerClientPath(roomCode)) }, () => (!roomCode ? no("Open a room first.", { hidden: true }) : room && !me ? no("Join the room first.", { fix: "rooms.join" }) : ok)),
     ui("ui.nav.configure", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
     ui("ui.newSetup", { kind: "submit", run: () => act.duplicateSetup(scope.currentSetup!) },
       () => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.") : !scope.currentSetup ? no("The room's setup was deleted: open Configure the room's setup to keep its settings as yours.", { fix: "ui.nav.configure" }) : ok)),

@@ -405,16 +405,25 @@ test("health, /api 404s and both static sites with SPA fallback and asset cachin
     assert.match(result.body, /id="engine-fixture"|<div id="root"|<html/i, path);
     assert.doesNotMatch(result.body, /player-fixture/, path);
   }
-  for (const path of ["/player/", "/player", "/player/rooms/ABCD"]) {
+  for (const path of ["/client/", "/client", "/client/rooms/ABCD", "/client/rooms/ABCD/games/EFGH"]) {
     const result = await page(path);
     assert.equal(result.status, 200, path);
     assert.match(result.type, /text\/html/, path);
-    assert.doesNotMatch(result.body, /engine-fixture/, path);
+    assert.match(result.body, /player-fixture/, path);
   }
+  // The old /player/ prefix redirects permanently to /client/, keeping the rest of the path and the query.
+  for (const [from, to] of [["/player", "/client"], ["/player/", "/client/"], ["/player/?room=ABCD", "/client/?room=ABCD"],
+    ["/player/rooms/ABCD/games/EFGH?panels=off", "/client/rooms/ABCD/games/EFGH?panels=off"], ["/player/panel-frame.html", "/client/panel-frame.html"]]) {
+    const response = await fetch(`${SITE}${from}`, { redirect: "manual" });
+    assert.equal(response.status, 308, from);
+    assert.equal(new URL(response.headers.get("location")!, SITE).href, `${SITE}${to}`, from);
+  }
+  // Only the exact segment: /players is the engine UI's (SPA fallback), not a redirect.
+  assert.match((await page("/players")).body, /engine-fixture/);
   const engineIndex = (await page("/")).body;
-  const playerIndex = (await page("/player/")).body;
+  const playerIndex = (await page("/client/")).body;
   const engineAsset = engineIndex.match(/src="(\/assets\/[^"]+\.js)"/)![1];
-  const playerAsset = playerIndex.match(/src="(\/player\/assets\/[^"]+\.js)"/)![1];
+  const playerAsset = playerIndex.match(/src="(\/client\/assets\/[^"]+\.js)"/)![1];
   for (const asset of [engineAsset, playerAsset]) {
     const result = await page(asset);
     assert.equal(result.status, 200, asset);

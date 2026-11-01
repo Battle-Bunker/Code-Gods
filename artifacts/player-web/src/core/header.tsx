@@ -14,6 +14,7 @@ import { composer } from "@/core/chat/composer";
 import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
+import { Link } from "./navigation";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -44,6 +45,7 @@ export function Header() {
   const wide = useWide();
   const self = s.obs?.self;
   const live = s.obs?.phase === "planning" || s.obs?.phase === "running" || s.obs?.phase === "paused";
+  const roomCode = s.obs?.roomShortCode ?? s.room?.shortCode;
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-[hsl(var(--card-border))] bg-background px-3 md:gap-4 md:px-4">
       <div className="flex min-w-0 items-center gap-2">
@@ -58,7 +60,8 @@ export function Header() {
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>
       </span>
       <span className="hidden min-w-0 truncate font-mono text-[11px] text-muted-foreground lg:inline">
-        room <span data-testid="text-room">{s.obs?.roomShortCode ?? s.room?.shortCode ?? roomId}</span> · <span data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
+        room <span data-testid="text-room">{roomCode ?? roomId}</span> · <span data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
+        {roomCode && <> · <Link to={{ kind: "games", room: roomCode }} className="underline" data-testid="link-past-games">past games</Link></>}
       </span>
       {SAFE_MODE && <span className="shrink-0 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: panels are off</span>}
       <div className="ml-auto shrink-0">

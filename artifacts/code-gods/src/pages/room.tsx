@@ -25,6 +25,7 @@ import { errMsg, fmt } from "@/lib/errors";
 import { fmtWhen, isoWhen } from "@/lib/time";
 import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
 import type { GameRecord } from "@/lib/types";
+import { canOpenGame, gamePath, legacyGameCode } from "@/lib/routes";
 
 function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; minPlayers: number }) {
   const { act, manifest } = usePage();
@@ -174,7 +175,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
       <NextGame room={room} isOwner={isOwner} />
       <Section title="Past games" count={games?.length ?? 0} collapsible defaultOpen={false} testId="section-past-games"
         summary={games?.[0] ? `last: ${games[0].shortCode}` : undefined}>
-        {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="divide-y">{games.map(g => <PastGameRow key={g.id} g={g} />)}</ul>}
+        {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="divide-y">{games.map((g, i) => <PastGameRow key={g.id} g={g} roomCode={room.shortCode} canOpen={canOpenGame(g, i, { meId: user?.id, ownerId: room.ownerId, roomLive: !!room.activeGame })} />)}</ul>}
       </Section>
     </div>
   );
@@ -183,7 +184,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
 export default function Room() {
   const { id = "" } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const requestedGame = new URLSearchParams(useSearch()).get("game");
+  const requestedGame = legacyGameCode(useSearch());
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const live = !!id && isAuthenticated && !requestedGame;
   const q = useLive(api.rooms.get, live ? { room: id } : "skip");
@@ -191,8 +192,8 @@ export default function Room() {
   const history = useLive(api.rooms.history, live && room ? { room: room.id } : "skip");
   const games = history.data?.filter((g): g is GameRecord => !!g);
   const manifest = useManifest().data;
-  // Legacy links: /rooms/:id?game=CODE now belong to the game's own page.
-  useEffect(() => { if (requestedGame) navigate(`/games/${encodeURIComponent(requestedGame)}`, { replace: true }); }, [requestedGame, navigate]);
+  // Legacy links: /rooms/:id?game=CODE now belong to the game's own page, nested in its room.
+  useEffect(() => { if (requestedGame) navigate(gamePath(id, requestedGame), { replace: true }); }, [requestedGame, id, navigate]);
   useEffect(() => {
     if (room && id !== room.shortCode) navigate(`/rooms/${room.shortCode}${window.location.search}${window.location.hash}`, { replace: true });
   }, [id, room?.shortCode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -204,7 +205,7 @@ export default function Room() {
     const prev = seenActive.current;
     seenActive.current = { room: room.id, game: activeId };
     if (!prev || prev.room !== room.id || prev.game === activeId) return;
-    if (activeId && room.activeGame) navigate(`/games/${room.activeGame.shortCode}`);
+    if (activeId && room.activeGame) navigate(gamePath(room.shortCode, room.activeGame.shortCode));
   }, [activeId, room, navigate]);
   useEffect(() => { document.title = `Room ${room?.shortCode ?? id} · Code Gods`; }, [room?.shortCode, id]);
   const code = room?.shortCode ?? id.toUpperCase();

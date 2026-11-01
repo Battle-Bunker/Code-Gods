@@ -5,6 +5,7 @@
  * checkbox here; the palette never approves money.
  */
 import { useState } from "react";
+import { canOpenGame, gamePath } from "@/lib/routes";
 import { Link } from "wouter";
 import { useMutation } from "convex/react";
 import { HowScoringWorks, objectNoun } from "@workspace/object-views";
@@ -164,11 +165,14 @@ export function ScoringSheet({ open, onOpenChange, objectType }: { open: boolean
 }
 
 /** One finished game: code, date, length, how it ended and who won. */
-export function PastGameRow({ g }: { g: GameRecord }) {
+/** `canOpen`: whether the viewer may open its page (lib/routes canOpenGame); otherwise the code is shown without a link. */
+export function PastGameRow({ g, roomCode, canOpen = true }: { g: GameRecord; roomCode?: string | null; canOpen?: boolean }) {
   return (
     <li className="px-4 py-3 space-y-1" data-testid={`row-game-${g.id}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        <Link href={`/games/${g.shortCode}`} className="font-mono font-semibold underline underline-offset-4" data-testid={`link-game-${g.shortCode}`}>{g.shortCode}</Link>
+        {canOpen
+          ? <Link href={roomCode ? gamePath(roomCode, g.shortCode) : `/games/${g.shortCode}`} className="font-mono font-semibold underline underline-offset-4" data-testid={`link-game-${g.shortCode}`}>{g.shortCode}</Link>
+          : <span className="font-mono font-semibold text-muted-foreground" title="Only the gods who played in it and the room owner can open it" data-testid={`text-game-${g.shortCode}`}>{g.shortCode}</span>}
         <time dateTime={isoWhen(g.startedAt)}>{fmtWhen(g.startedAt)}</time>
         {g.endedAt !== null && <span className="text-muted-foreground">{fmtDuration(toMs(g.endedAt) - toMs(g.startedAt))}</span>}
         <span className="text-muted-foreground">{endReasonLabel(g.endReason)}</span>
@@ -178,12 +182,12 @@ export function PastGameRow({ g }: { g: GameRecord }) {
   );
 }
 
-export function PastGamesSheet({ open, onOpenChange, games }: { open: boolean; onOpenChange(o: boolean): void; games?: readonly GameRecord[] }) {
+export function PastGamesSheet({ open, onOpenChange, games, roomCode, viewer }: { open: boolean; onOpenChange(o: boolean): void; games?: readonly GameRecord[]; roomCode?: string | null; viewer: Parameters<typeof canOpenGame>[2] }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader><SheetTitle>Past games</SheetTitle><SheetDescription>Finished games of this room, newest first.</SheetDescription></SheetHeader>
-        {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="mt-4 divide-y -mx-4">{games.map(g => <PastGameRow key={g.id} g={g} />)}</ul>}
+        {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="mt-4 divide-y -mx-4">{games.map((g, i) => <PastGameRow key={g.id} g={g} roomCode={roomCode} canOpen={canOpenGame(g, i, viewer)} />)}</ul>}
       </SheetContent>
     </Sheet>
   );

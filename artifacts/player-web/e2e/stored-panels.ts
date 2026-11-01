@@ -1,5 +1,5 @@
 /**
- * Stored panels in the hosted player client (/player/ on the engine's site), in a real browser.
+ * Stored panels in the hosted player client (/client/ on the engine's site), in a real browser.
  *
  *   pnpm --filter @workspace/player-web e2e:panels
  *
@@ -123,7 +123,7 @@ page.on("pageerror", e => pageErrors.push(e.message));
 page.on("console", m => { if (/Content Security Policy/i.test(m.text()) && !/panel-(runtime|frame)|^panel:/.test(m.location().url)) cspReports.push(`${m.location().url}: ${m.text()}`); });
 let navigations = 0;
 page.on("framenavigated", f => { if (f === page.mainFrame()) navigations++; });
-await page.goto(`${SITE}/player/?room=${shortCode}`);
+await page.goto(`${SITE}/client/rooms/${shortCode}`);
 await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
 await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
 const sameDocument = async () => navigations === 1 && await page.evaluate(() => (window as unknown as { __cgMarker?: number }).__cgMarker === 42);
@@ -183,13 +183,13 @@ await check("a panel still runs when its frame CSP names another site origin (a 
   const custom = await laxContext.newPage();
   const customLog: string[] = [];
   custom.on("console", m => customLog.push(m.text().slice(0, 200)));
-  await custom.route(url => url.pathname === "/player/panel-frame.html", async route => {
+  await custom.route(url => url.pathname === "/client/panel-frame.html", async route => {
     const response = await route.fetch();
     const body = (await response.text()).replaceAll(new URL(SITE).origin, "https://custom-domain.example");
     assert(body.includes("https://custom-domain.example"), "the frame CSP names the site origin");
     await route.fulfill({ response, body });
   });
-  await custom.goto(`${SITE}/player/?room=${shortCode}`);
+  await custom.goto(`${SITE}/client/rooms/${shortCode}`);
   const end = Date.now() + 30_000;
   for (;;) {
     const text = await custom.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 }).catch(() => null);
@@ -273,11 +273,11 @@ export default definePanel({ title: "Navigates", Component() {
   const bareLog: string[] = [];
   bare.on("console", m => bareLog.push(m.text().slice(0, 150)));
   bare.on("pageerror", e => bareLog.push("pageerror " + e.message.slice(0, 150)));
-  await bare.route(url => url.pathname === "/player/", async route => {
+  await bare.route(url => url.pathname.startsWith("/client/rooms/"), async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()).replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "") });
   });
-  await bare.goto(`${SITE}/player/?room=${shortCode}`);
+  await bare.goto(`${SITE}/client/rooms/${shortCode}`);
   await bare.waitForSelector('[data-testid="panel-error-stored:e2e-navigates"]', { timeout: 60_000 }).catch(async error => {
     throw new Error(`no CSP: ${(error as Error).message.split("\n")[0]}; hits ${hits.join(", ")}; frame ${await bare.getAttribute('[data-testid="panel-frame-stored:e2e-navigates"]', "data-frame-state").catch(() => "none")}; csp ${await bare.locator('meta[http-equiv="Content-Security-Policy"]').count()}; text ${(await bare.innerText("body")).slice(0, 300).replace(/\s+/g, " ")}; log ${bareLog.slice(0, 5).join(" | ")}`);
   });
@@ -414,7 +414,7 @@ await check("after the game ends every built-in panel shows the frozen final sta
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await phone.addCookies(sessionCookies(session));
     const shot = await phone.newPage();
-    await shot.goto(`${SITE}/player/?room=${shortCode}`);
+    await shot.goto(`${SITE}/client/rooms/${shortCode}`);
     await shot.waitForSelector("[data-testid=dock-stacked]", { state: "attached", timeout: 60_000 });
     for (const id of ["agents", "objects", "feed"]) {
       await show(id);
@@ -457,7 +457,7 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
   await phoneContext.addCookies(sessionCookies(session));
   const phone = await phoneContext.newPage();
   phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.goto(`${SITE}/client/rooms/${shortCode}`);
   await phone.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached", timeout: 60_000 });
   const text = await phone.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 });
   assert(text === "v1 with data", `phone frame: ${text}`);
@@ -478,7 +478,7 @@ await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, recta
   await phoneContext.addCookies(sessionCookies(session));
   const phone = await phoneContext.newPage();
   phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.goto(`${SITE}/client/rooms/${shortCode}`);
   await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
   const panel = await phone.evaluate(() => {
     const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
@@ -514,7 +514,7 @@ await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, recta
 
 await check("?panels=off loads only the built-in panels and the assistant", async () => {
   const safe = await context.newPage();
-  await safe.goto(`${SITE}/player/?room=${shortCode}&panels=off`);
+  await safe.goto(`${SITE}/client/rooms/${shortCode}?panels=off`);
   await safe.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await safe.waitForSelector("[data-testid=text-safe-mode]");
   await safe.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
@@ -537,9 +537,9 @@ await check("sign-in still works under the page CSP: the signed-out page offers 
   const out = await fresh.newPage();
   const reports: string[] = [];
   out.on("console", m => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
-  await out.goto(`${SITE}/player/?room=${shortCode}`);
+  await out.goto(`${SITE}/client/rooms/${shortCode}`);
   await out.waitForSelector("[data-testid=link-login]", { timeout: 60_000 });
-  await Promise.all([out.waitForURL(url => !url.href.startsWith(`${SITE}/player/`), { timeout: 30_000 }), out.click("[data-testid=link-login]")]);
+  await Promise.all([out.waitForURL(url => !url.href.startsWith(`${SITE}/client/`), { timeout: 30_000 }), out.click("[data-testid=link-login]")]);
   assert(reports.length === 0, reports.slice(0, 2).join(" | "));
   await fresh.close();
 });
@@ -552,7 +552,7 @@ await check("the assistant timeline stays at the bottom when the suggestion chip
   await chat.addCookies(sessionCookies(session));
   const p = await chat.newPage();
   p.on("pageerror", e => pageErrors.push(`timeline: ${e.message}`));
-  await p.goto(`${SITE}/player/?room=${other.shortCode}`);
+  await p.goto(`${SITE}/client/rooms/${other.shortCode}`);
   await p.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
   const lines = Array.from({ length: 40 }, (_, i) => `line ${i + 1}\n`);
   await p.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ text: [...lines, "THE END"] }] })}`);

@@ -5,9 +5,10 @@
  *               room credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local)
  *               and answers GET /__codegods/token with a 10-minute player JWT; the browser never sees the
  *               credential. The room is the credential's room.
- *  "hosted"   : the default client served by the engine at /player/. The human signs in with Google through
- *               Better Auth on that site (the same session cookie as the engine UI at /), which the Convex
- *               client turns into JWTs at /api/auth/convex/token. The room comes from ?room=.
+ *  "hosted"   : the reference client served by the engine at /client/ (or this app's dev server pointed at an engine
+ *               with CODE_GODS_SITE_URL). The human signs in with Google through Better Auth on that site (the same
+ *               session cookie as the engine UI at /), which the Convex client turns into JWTs at
+ *               /api/auth/convex/token. The room comes from the URL (core/routes.ts).
  *
  * The Convex client is kept on globalThis, so hot updates of any module (core included) never open a
  * second connection or drop subscriptions.

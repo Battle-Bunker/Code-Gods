@@ -8,7 +8,8 @@ import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
 import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
-// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/player/".
+// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/client/". The app never assumes
+// its prefix (src/core/routes.ts reads Vite's base), so BASE_PATH can mount it anywhere, a dev server at "/" included.
 const rawPort = process.env.PORT || "22772";
 const port = Number(rawPort);
 
@@ -16,7 +17,7 @@ if (!Number.isInteger(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH || (isBuild ? "/player/" : "/");
+const basePath = process.env.BASE_PATH || (isBuild ? "/client/" : "/");
 
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
@@ -58,7 +59,7 @@ function framePlugin(): Plugin {
       server.watcher.on("change", file => { if (file.startsWith(src) && !file.startsWith(panelsDir)) built = undefined; });
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://x");
-        // Paths relative to the app's base ("/" by default, "/player/" with BASE_PATH), as the client requests them.
+        // Paths relative to the app's base ("/" by default, "/client/" in a build, or BASE_PATH), as the client requests them.
         const base = server.config.base;
         if (!url.pathname.startsWith(base)) { next(); return; }
         const name = url.pathname.slice(base.length);
@@ -98,7 +99,7 @@ function framePlugin(): Plugin {
   };
 }
 
-/** The page's CSP as a meta tag (vite/csp.ts): the hosted /player/ policy in a build, frame-src 'self' in a dev server. */
+/** The page's CSP as a meta tag (vite/csp.ts): the hosted /client/ policy in a build, frame-src 'self' in a dev server. */
 const pageCspPlugins = (): Plugin[] => [
   { name: "code-gods-page-csp", apply: "build", transformIndexHtml: { order: "post", handler: html => injectPageCsp(html, process.env) } },
   { name: "code-gods-dev-page-csp", apply: "serve", transformIndexHtml: { order: "post", handler: html => injectCsp(html, devPageCsp()) } },
