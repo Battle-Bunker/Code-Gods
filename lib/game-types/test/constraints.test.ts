@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  atLeast, has, instantiate, lockedReason, minColours, minSize, not, odd, resolve, satisfied, unlock, type Constraint,
+  atLeast, badgesFor, explain, has, instantiate, lockedReason, minColours, minSize, not, odd, resolve, satisfied, unlock, type Constraint,
 } from "../src/index.ts";
 
 const grid = (size: number, symbols: string, colours: string) => instantiate("Grid", { size, symbols, colours });
@@ -49,4 +49,11 @@ test("available: badges are maximal", () => {
   if (r.ok) assert.deepEqual(r.badges.map(b => b.label), ["Place value", "Big board", "Middle square"]);
   assert.deepEqual(unlock([has("Suited")], grid(5, "cards", "rgb")), {});
   assert.equal(lockedReason([], grid(3, "base10", "rgb")), null);
+});
+
+test("count parity reads as a count, and only a demand for 4+ colours earns the More colours badge", () => {
+  const rgb = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgb" });
+  assert.equal(explain({ term: "colours.count", parity: "even" }, rgb).split(":")[0], "needs an even number of colours");
+  assert.deepEqual(badgesFor([{ term: "colours.count", op: ">=", value: 3 }]).map(b => b.id), []);
+  assert.deepEqual(badgesFor([{ term: "colours.count", op: ">=", value: 4 }]).map(b => b.id), ["colours>=4"]);
 });

@@ -40,7 +40,10 @@ export interface UtilityFamily<P extends Params = Params> {
   readonly objectType: string;
   /** Public, parameter-free description. */
   readonly theme: string;
+  /** What the family needs from every shape it is dealt on (docs/rules-design.md §4). `applicable` checks it. */
   readonly requires: readonly Constraint[];
+  /** Optional: what one draw additionally needs from the shape (params-dependent needs). `applicable` checks it. */
+  needs?(params: P, ctx: FamilyContext): readonly Constraint[];
   /** Fixed per (family, instantiation): a few families change arity with the board (Sudoku Scholar at N ≤ 4). */
   shape(ctx: FamilyContext): ScoreShape;
   /** "reward" families are dealt as utilities; "penalty" families only as defence goals (badness, higher = worse). */
@@ -59,6 +62,10 @@ export interface UtilityFamily<P extends Params = Params> {
   };
   /** Optional: a legal value reaching the family's best ordinal (reachability tests; penalties: the worst value). */
   exemplar?(params: P, ctx: FamilyContext): ObjectValue;
+  /** Optional: the best ordinal these params can reach here, in closed form; the exemplar must reach it (test/rules.test.ts). */
+  top?(params: P, ctx: FamilyContext): Ordinal;
+  /** Optional: a tiny example board (its own size) for the goal card, with a caption saying what it scores. */
+  example?(params: P, ctx: FamilyContext): CardExample;
   /** Penalties only: the word before "than 90% of grids" on the ⚠️ line ("redder", "blobbier"). */
   comparative?(params: P, ctx: FamilyContext): string;
   /**
@@ -68,6 +75,13 @@ export interface UtilityFamily<P extends Params = Params> {
    * src/analytic.ts and docs/analytic-calibration/architecture.md.
    */
   analytic?(params: P, ctx: FamilyContext): AnalyticSurvival | null;
+}
+
+/** A tiny board shown on a goal card: a grid wire value of `size`×`size` cells and one plain caption. */
+export interface CardExample {
+  readonly value: ObjectValue;
+  readonly size: number;
+  readonly caption: string;
 }
 
 /** Persisted, server-private description of one god's utility function (and optional defence goal). */
@@ -86,6 +100,7 @@ export interface UtilityCard {
   readonly summary: string;
   readonly shape: ScoreShape;
   readonly source: Readonly<Record<Language, string>>;
+  readonly example?: CardExample;
   readonly penalty?: {
     readonly familyId: string; readonly emoji: string; readonly name: string; readonly summary: string;
     /** "redder", "blobbier": the ⚠️ line reads "⚠️ redder than 90% of grids". */

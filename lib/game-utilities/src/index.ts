@@ -1,6 +1,6 @@
 export * from "./types.ts";
 export {
-  FAMILIES, family, familiesFor, context, available, canonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
+  FAMILIES, family, familiesFor, context, applicable, available, canonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
   compareOrdinals, assertOrdinal, evaluator, ordinal, entryPoint, type CatalogEntry, type Draw,
 } from "./catalog.ts";
 export {

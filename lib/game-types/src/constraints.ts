@@ -166,7 +166,7 @@ function needs(c: Constraint): string {
   const word = TERM_WORDS[c.term] ?? c.term;
   if ("parity" in c) {
     if (c.term === "size") return c.parity === "odd" ? "needs a middle square" : "needs an even board size";
-    return `needs an ${c.parity} ${word}`;
+    return c.term.endsWith(".count") ? `needs an ${c.parity} number of ${word}` : `needs an ${c.parity} ${word}`;
   }
   if (c.term === "size") {
     return c.op === ">=" ? `needs a bigger board: size ${c.value} or more`
@@ -195,7 +195,8 @@ export function badgesFor(constraints: readonly Constraint[]): Badge[] {
       out.push({ id: "size:odd", emoji: "🎯", label: "Middle square", kid: "The board has a middle square" });
     else if (c.term === "size" && "op" in c && c.op === ">=")
       out.push({ id: `size>=${c.value}`, emoji: "📏", label: "Big board", kid: `Needs a board of size ${c.value} or more` });
-    else if (c.term === "colours.count" && "op" in c && c.op === ">=")
+    // Every colour set has at least 3 colours, so only a demand for 4 or more is worth a badge.
+    else if (c.term === "colours.count" && "op" in c && c.op === ">=" && c.value > 3)
       out.push({ id: `colours>=${c.value}`, emoji: "🌈", label: "More colours", kid: `Needs at least ${c.value} colours` });
   }
   return out;

@@ -117,9 +117,9 @@ The owner leans to specific symbols; so does this design, with one principled ex
 string of its own size) and a caption, e.g. Go Fish on base 12, rgb: a 2×2 of `A` tiles in red, green, blue, red, captioned
 "A perfect book: four As using all 3 colours. 2 points." The card carries it as `example: { value, size, caption }`;
 `UtilityCardView` draws it with the same grid renderer as the board. It is optional, cheap (no search) and validated
-by the tests: it must decode in the shape and score what its caption says on a board that contains it. First wave:
-families whose scoring pattern fits in 2×2 or a line of three (Go Fish, Chessmaster, Quilt Maker, Odds & Evens,
-Number Sandwich, Best Friends, Twin Friends, Lucky Token, Snap).
+by the tests: it must decode in the shape's symbols and colours, and its caption passes the same lint as the summary.
+Go Fish Books has one now (the owner's case); any family whose scoring pattern fits in 2×2 or a line of three can add
+one the same way.
 
 ## 4. Declared needs and the one applicability checker
 
@@ -141,7 +141,8 @@ lotteries) and calibration coverage. That part was sound. The gaps:
 ### 4.2 The design
 
 - **Family needs** stay in the constraint language (`requires`), extended in the grid `Requires` helper with
-  `minSuits`, `minFaces`, `minRanks`, `evenColours` and `minColours`, so every family can say what it uses.
+  `minSuits`, `minFaces` and `evenColours` (beside `minColours`, `minSymbols`, sizes and classes), so every family can
+  say what it uses.
 - **Param needs**: `needs?(params, ctx): Constraint[]` on `UtilityFamily` for requirements that depend on the draw.
 - **Text needs**: the phrasebook's `distinct(k, …)` and friends assert at render time (§3).
 - **Adaptation is explicit**: when a rule scales a count to the shape (Go Fish `PERFECT = min(4, C)`, Quilt Maker),
@@ -199,9 +200,10 @@ flush_royale, fillomino, number_sandwich, magic_window, times_table_territory, r
 **Promises the shape can't keep (P5).** go_fish_books "all different colours" on rgb (program: 3). warm_hearts on rgb
 calls green "warm". Fix: text from the program's own counts; warm_hearts names the colour teams instead of "warm/cool".
 
-**Undeclared needs (§4).** go_fish (adapted count, now explicit), rummy_melder and set_spotter (3 different colours:
-`minColours 3`), quilt_maker (adapted, explicit), card_windmill (`minSuits 4`), court_parade (`minFaces 3`),
-colour_wheel_harmony (`evenColours`), number_painter (`minSymbols ≥ C` values), and the grid colour tables (§4.2).
+**Undeclared needs (§4).** go_fish (adapted count, now explicit), rummy_melder, set_spotter, quilt_maker and sunset_sky
+(3 different colours: `minColours 3`), card_windmill (`minSuits 4`), court_parade (`minFaces 3`), colour_wheel_harmony
+(`evenColours`), and the grid colour tables (§4.2). Every colour set today has at least 3 colours, so these lock
+nothing now; they keep a future 2-colour set honest.
 
 **Grammar.** best_friends, twin_friends: "a orange". Fix: `an()`.
 

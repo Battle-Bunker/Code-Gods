@@ -1,7 +1,7 @@
 import type { Instantiation, Rng } from "@workspace/game-types";
 import { MATRICES } from "../data/synergy/index.js";
 import type { UtilityDescriptor, UtilityFamily } from "./types.ts";
-import { available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
+import { applicable, available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
 
 export interface SelectOptions {
   /**
@@ -35,14 +35,14 @@ export interface UtilitySelector {
 
 const ATTEMPTS = 1000;
 
-/** A uniform family among `candidates`, then its sampler; redrawn until it has a table. */
+/** A uniform family among `candidates`, then its sampler; redrawn until the draw is applicable (its needs) and has a table. */
 function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean): Draw | null {
   if (!candidates.length) return null;
   const ctx = context(inst);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const f = candidates[rng.int(candidates.length)];
     const d = { familyId: f.id, params: f.sample(rng, ctx) };
-    if (hasTable(d)) return d;
+    if ((!f.needs || applicable(f, inst, d.params).ok) && hasTable(d)) return d;
   }
   return null;
 }

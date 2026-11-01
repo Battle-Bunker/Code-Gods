@@ -3,32 +3,33 @@ import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import { roundHalfEven } from "./arithmetic.ts";
 import {
   RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product,
-  pyCard, range, recolour, symForValue, thing, tsCard, tuple, wire,
+  pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const lineWord = (dir: "rows" | "cols") => (dir === "rows" ? "row" : "column");
 const pyLines = (dir: "rows" | "cols") => (dir === "rows" ? "grid.rows" : "grid.columns");
+/** Join sentences, dropping the empty ones (the value key is "" on base 10). */
 
 // --- Rummy Melder ------------------------------------------------------------------------------------
 type RummyP = { dir: "rows" | "cols" };
 const rummyText = (p: RummyP, g: GridSpec): CardText => {
-  const suit = g.cards ? "suit" : "colour";
+  const suit = g.cards ? "suit" : "colour", three = g.cards ? g.say.distinctSuits(3) : g.say.distinctColours(3);
   return {
     emoji: "🃏", name: "Rummy Melder", consts: [],
-    about: `Look along each ${lineWord(p.dir)} at 3 cells in a row. They are a meld if they are a set (same `
-      + `${thing(g)}, 3 different ${suit}s) or a run (counting up by one, all the same ${suit}). Every cell in a meld `
-      + "scores its value. If that's a tie, count touching pairs that could start a meld.",
+    about: sentences(`Look at every 3 touching cells in a ${lineWord(p.dir)}.`,
+      `A set has the same ${g.cards ? "rank" : "number"} in ${three}.`,
+      `A run counts up by 1, all in one ${suit}.`,
+      "Every cell in a set or run scores its value in points, once.", g.say.valueKey(),
+      "Most points wins. If that's a tie, count touching pairs that could grow into a set or run."),
   };
 };
 const rummyMelder = gridFamily<RummyP>({
   id: "rummy_melder", name: "Rummy Melder", emoji: "🃏", theme: "Sets and runs, like rummy",
-  requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2), tags: ["shortlist"],
+  requires: { classes: ["Valued", "Ranked"], minColours: 3 }, shape: tuple(2), tags: ["shortlist"],
   support: () => [{ dir: "rows" }, { dir: "cols" }],
   canonical: () => ({ dir: "rows" }),
-  summary: (p, g) => `Look at every 3 cells in a ${lineWord(p.dir)}. Three of the same `
-    + `number in three different ${g.cards ? "suits" : "colours"} is a set; three counting up in one `
-    + `${g.cards ? "suit" : "colour"} is a run. Every cell in a set or run scores its number.`,
+  summary: (p, g) => rummyText(p, g).about,
   python: (p, g) => pyCard(rummyText(p, g), `
     def suit(cell):
         return ${g.cards ? "cell.suit" : "cell.colour"}
@@ -106,9 +107,9 @@ const rummyMelder = gridFamily<RummyP>({
 type SandP = { X: number; diag: boolean };
 const sandText = (p: SandP, g: GridSpec): CardText => ({
   emoji: "🥪", name: "Sandwich Maker", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: "A cell is sandwiched when the cells on both sides of it ("
-    + (p.diag ? "left and right, or above and below, or the two corners on either diagonal" : "left and right, or above and below")
-    + `) are ${cname(g, p.X)} and it isn't. Each sandwich is a point.`,
+  about: `A cell is sandwiched when ${cname(g, p.X)} cells are on both sides of it, and it isn't ${cname(g, p.X)} itself. `
+    + "Both sides means " + (p.diag ? "left and right, above and below, or opposite corners" : "left and right, or above and below")
+    + ". Each sandwich scores 1 point.",
 });
 const othello = gridFamily<SandP>({
   id: "othello_sandwich", name: "Othello Sandwich", emoji: "🥪", theme: "Capture cells between two of yours",
@@ -116,8 +117,7 @@ const othello = gridFamily<SandP>({
   support: g => product<SandP>({ X: range(g.C), diag: [false, true] }),
   sample: (rng, g) => ({ X: rng.int(g.C), diag: chance(rng, 1, 2) }),
   canonical: p => recolour(p, ["X"]),
-  summary: (p, g) => `Every single cell of another colour trapped between two ${cname(g, p.X)} cells in a line `
-    + `(across or down${p.diag ? ", or diagonally" : ""}) is captured: one point each.`,
+  summary: (p, g) => sandText(p, g).about,
   python: (p, g) => pyCard(sandText(p, g), `
     def is_mine(cell):
         return cell is not None and cell.colour == MY_COLOUR
@@ -167,8 +167,9 @@ const othello = gridFamily<SandP>({
 type MineP = { X: number };
 const mineText = (p: MineP, g: GridSpec): CardText => ({
   emoji: "💣", name: "Honest Minesweeper", consts: [["MINE", cname(g, p.X)]],
-  about: `${cname(g, p.X)[0].toUpperCase()}${cname(g, p.X).slice(1)} cells are mines. Any other cell is honest when its `
-    + `${thing(g)} equals how many mines surround it (corners count). Each honest cell scores its value.`,
+  about: sentences(`${cap(cname(g, p.X))} cells are mines.`,
+    `Any other cell is honest when its ${g.cards ? "value" : "number"} equals how many mines touch it (corners count).`,
+    "Each honest cell scores its value in points.", g.say.valueKey()),
 });
 function count8(mine: boolean[][]): Layer {
   const N = mine.length;
@@ -185,8 +186,7 @@ const minesweeper = gridFamily<MineP>({
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
-  summary: (p, g) => `Your ${cname(g, p.X)} cells are mines. Every other cell whose number says exactly how many `
-    + "mines touch it (corners too) scores that number.",
+  summary: (p, g) => mineText(p, g).about,
   python: (p, g) => pyCard(mineText(p, g), `
     def utility(grid):
         points = 0
@@ -242,8 +242,9 @@ const bingoText = (p: BingoP, g: GridSpec): CardText => {
   return {
     emoji: "🎱", name: "Bingo Caller",
     consts: [["CALLED", called, g.cards ? called.map(v => RANK_NAMES[v] ?? String(v)).join(", ") : ""]],
-    about: `Dab every cell showing a called ${thing(g)}${g.cards ? " (any suit)" : ""}.${free ? " The middle cell is a free space." : ""} `
-      + `Each dab is a point, and every complete row, column or long diagonal is BINGO: ${g.N} more points.`,
+    about: sentences(`Your called ${thing(g)}s are ${g.say.values(called)}.`, "Dab every cell showing one of them.",
+      free ? "The middle cell is a free space." : "", "Each dab scores 1 point.",
+      `A complete row, column or long diagonal is BINGO and scores ${g.N} more points.`),
   };
 };
 const bingoCaller = gridFamily<BingoP>({
@@ -253,10 +254,7 @@ const bingoCaller = gridFamily<BingoP>({
   support: g => [...combinations(g.ranks, calledCount(g))].map(called => ({ called })),
   sample: (rng, g) => ({ called: choose(rng, range(g.ranks), calledCount(g)).sort((a, b) => a - b) }),
   canonical: p => ({ called: range(p.called.length) }),
-  summary: (p, g) => "Your called numbers are "
-    + p.called.map(r => (g.cards ? ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"][r] : "0123456789ABCDEF"[r])).join(", ")
-    + (g.cards ? " (any suit)" : "") + ". Dab every cell showing one" + (g.N % 2 ? " (the centre is a free space)" : "")
-    + `. Each dab is a point; a full row, column or long diagonal is BINGO for ${g.N} more.`,
+  summary: (p, g) => bingoText(p, g).about,
   python: (p, g) => pyCard(bingoText(p, g), `
     def dabbed(grid, cell):
         return ${g.N % 2 === 1 ? "cell.value in CALLED or cell is grid.cell(grid.size // 2, grid.size // 2)" : "cell.value in CALLED"}
@@ -298,10 +296,11 @@ const sudokuText = (p: SudokuP, g: GridSpec): CardText => {
   const word = g.cards ? "rank" : "number";
   return {
     emoji: "🔢", name: "Sudoku Scholar", consts: [],
-    about: g.N <= 4
-      ? `All or nothing: you score only if no ${word} appears twice in any row, column or long diagonal.`
-      : `Every ${SUDOKU_AXIS[p.dir][2]} where no ${word} appears twice scores a point. If that's a tie, more `
-        + `different ${word}s in each line is better.`,
+    about: sentences(g.N <= 4
+      ? `All or nothing: you score 1 point only if no ${word} appears twice in any row, column or long diagonal.`
+      : `Every ${SUDOKU_AXIS[p.dir][2]} where no ${word} appears twice scores 1 point. Most points wins. `
+        + `If that's a tie, add up the different ${word}s in each of those lines: more is better.`,
+      g.cards ? "Cards compare rank only, so suits don't matter." : ""),
   };
 };
 const sudoku = gridFamily<SudokuP>({
@@ -311,10 +310,7 @@ const sudoku = gridFamily<SudokuP>({
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],
   support: () => (["rows", "cols", "both"] as const).map(dir => ({ dir })),
   canonical: (p, g) => ({ dir: g.N <= 4 || p.dir === "both" ? "both" : "rows" }),
-  summary: (p, g) => (g.N <= 4
-    ? "All or nothing: you score only if no number appears twice in any row, column or long diagonal."
-    : `Score a point for every ${SUDOKU_AXIS[p.dir][2]} where no number appears twice; more different numbers is better.`)
-    + (g.cards ? " Cards compare rank only." : ""),
+  summary: (p, g) => sudokuText(p, g).about,
   python: (p, g) => pyCard(sudokuText(p, g), g.N <= 4 ? `
     def all_different(line):
         seen = []
@@ -391,8 +387,8 @@ const sudoku = gridFamily<SudokuP>({
 type HouseP = { dir: "rows" | "cols" };
 const houseText = (p: HouseP, g: GridSpec): CardText => ({
   emoji: "🏠", name: "Full House", consts: [],
-  about: `In each ${lineWord(p.dir)}, every pair of cells showing the same ${g.cards ? "rank" : "number"} scores a point `
-    + "(three of a kind makes 3 pairs, four makes 6).",
+  about: `Look along each ${lineWord(p.dir)}. Every pair of cells showing the same ${g.cards ? "rank" : "number"} scores 1 point. `
+    + "Three of a kind makes 3 pairs, and four of a kind makes 6.",
 });
 const fullHouse = gridFamily<HouseP>({
   id: "full_house", name: "Full House", emoji: "🏠", theme: "Rows read like poker hands",
@@ -400,8 +396,7 @@ const fullHouse = gridFamily<HouseP>({
   shape: SCALAR, tags: ["shortlist"],
   support: () => [{ dir: "rows" }, { dir: "cols" }],
   canonical: () => ({ dir: "rows" }),
-  summary: p => `Read each ${lineWord(p.dir)} like a poker hand. Every pair of `
-    + "matching numbers in it scores a point (three of a kind = 3, four of a kind = 6).",
+  summary: (p, g) => houseText(p, g).about,
   python: (p, g) => pyCard(houseText(p, g), `
     def utility(grid):
         pairs = 0
@@ -438,16 +433,16 @@ type MaybeColour = number | null;
 // --- Flush Royale -------------------------------------------------------------------------------------
 const flushText = (g: GridSpec): CardText => ({
   emoji: "♣️", name: "Flush Royale", consts: [],
-  about: `A row or column whose cells are all one ${suitWord(g)} is a flush and scores the total of its numbers; if its `
-    + "numbers are also a straight (all in a run, any order) it scores triple. If that's a tie, count the commonest "
-    + `${suitWord(g)} in each line.`,
+  about: sentences(`A row or column that is all one ${suitWord(g)} is a flush.`,
+    "A flush scores its total value in points.", g.say.valueKey(),
+    "If its values are also a straight (all different, counting up in any order), it scores triple.",
+    `Most points wins. If that's a tie, add up the cells of the commonest ${suitWord(g)} in each row and column.`),
 });
 const flushRoyale = gridFamily<Record<string, never>>({
   id: "flush_royale", name: "Flush Royale", emoji: "♣️", theme: "Lines all in one suit",
   requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2),
   support: () => [{}],
-  summary: (_, g) => `A row or column whose cells are all one ${suitWord(g)} is a flush and scores the total of its `
-    + "numbers; if its numbers are also a straight (all in a run, any order) it scores triple.",
+  summary: (_, g) => flushText(g).about,
   python: (_, g) => pyCard(flushText(g), `
     def suit(cell):
         return ${suitOf(g)}
@@ -513,17 +508,15 @@ function targets(g: GridSpec): number[] {
 }
 const twentyText = (p: TwentyP, g: GridSpec): CardText => ({
   emoji: "🃏", name: "Twenty-One", consts: [["TARGET", p.T]],
-  about: "Each row and column is a blackjack hand: add it up"
-    + (g.cards ? " (J, Q and K count 10; an ace counts 11 unless that would go bust)" : "")
-    + `. A hand of ${p.T} or less scores its total, exactly ${p.T} scores ${p.T} more, and going over scores nothing.`,
+  about: sentences("Each row and column is a blackjack hand: add it up"
+    + (g.cards ? " (J, Q and K count 10; an ace counts 11 unless that would go bust)." : "."), g.cards ? "" : g.say.valueKey(),
+    `A hand of ${p.T} or less scores its total in points. Exactly ${p.T} scores ${p.T} more. Going over scores nothing.`),
 });
 const twentyOne = gridFamily<TwentyP>({
   id: "twenty_one", name: "Twenty-One", emoji: "🃏", theme: "Get close to your target without going bust",
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => targets(g).map(T => ({ T })),
-  summary: (p, g) => "Each row and column is a blackjack hand: add it up"
-    + (g.cards ? " (J, Q, K count 10; an ace counts 11 unless that busts)" : "")
-    + `. A hand of ${p.T} or less scores its total, exactly ${p.T} scores ${p.T} more, and going over scores nothing.`,
+  summary: (p, g) => twentyText(p, g).about,
   python: (p, g) => pyCard(twentyText(p, g), `
     def utility(grid):
         score = 0
@@ -561,20 +554,33 @@ const twentyOne = gridFamily<TwentyP>({
 });
 
 // --- Go Fish Books ------------------------------------------------------------------------------------------
+// Cards keep the rank (any suit): a book IS four of a rank, and a perfect book needs four suits (rules-design.md §3.1).
 type FishP = { r: number };
-const fishText = (p: FishP, g: GridSpec): CardText => ({
-  emoji: "🐟", name: "Go Fish Books",
-  consts: [["MY_FISH", rankValue(g, p.r), g.cards ? RANK_NAMES[rankValue(g, p.r)] ?? "" : ""], ["PERFECT", g.cards ? 4 : Math.min(4, g.C)]],
-  about: `Your fish is the ${thing(g)} worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""}. Every 2×2 block of four `
-    + `of them is a book (1 point), or a perfect book (2 points) with PERFECT different ${suitWord(g)}s. If that's a tie, `
-    + "count your fish in every 2×2 block.",
-});
+/** Distinct colours (digits) or suits (cards) a perfect book needs: four, or every colour when the set has fewer. */
+const fishPerfect = (g: GridSpec) => (g.cards ? 4 : Math.min(4, g.C));
+const fishText = (p: FishP, g: GridSpec): CardText => {
+  const fish = g.say.rank(p.r), perfect = fishPerfect(g);
+  return {
+    emoji: "🐟", name: "Go Fish Books",
+    consts: [["MY_FISH", rankValue(g, p.r), g.cards ? `${RANK_NAMES[rankValue(g, p.r)] ?? rankValue(g, p.r)} of any suit` : g.say.tile(p.r)],
+      ["PERFECT", perfect, `different ${g.cards ? "suits" : "colours"} for a perfect book`]],
+    about: `Your fish is ${fish}. A book is a 2×2 block of four cells that all show your fish. Each book scores `
+      + `1 point. A perfect book scores 2 points instead: its four cells use ${g.cards ? g.say.distinctSuits(perfect) : g.say.distinctColours(perfect)}. `
+      + "Most points wins. If that's a tie, count your fish in every 2×2 block (a fish in two blocks counts twice).",
+  };
+};
 const goFish = gridFamily<FishP>({
   id: "go_fish_books", name: "Go Fish Books", emoji: "🐟", theme: "2×2 blocks of your fish", shape: tuple(2),
   support: g => range(g.ranks).map(r => ({ r })),
   canonical: () => ({ r: 0 }),
-  summary: (p, g) => `Your fish is the ${thing(g)} worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""}. Every 2×2 `
-    + `block of four of them is a book (1 point), or a perfect book (2 points) if they are all different ${suitWord(g)}s.`,
+  summary: (p, g) => fishText(p, g).about,
+  top: (_p, g) => [2 * (g.N - 1) ** 2, 4 * (g.N - 1) ** 2],
+  example: (p, g) => {
+    const perfect = fishPerfect(g), mine = g.say.rankPlural(p.r);
+    if (g.cards) return { sym: [[p.r, 13 + p.r], [26 + p.r, 39 + p.r]], col: full(2, 0), caption: `A perfect book: four ${mine}, one of each suit. 2 points.` };
+    return { sym: full(2, p.r), col: [[0, 1], [2, perfect >= 4 ? 3 : 0]],
+      caption: `A perfect book: four ${g.say.tile(p.r)} cells using ${g.say.distinctColours(perfect)}. 2 points.` };
+  },
   python: (p, g) => pyCard(fishText(p, g), `
     def utility(grid):
         books = 0
@@ -611,24 +617,26 @@ const goFish = gridFamily<FishP>({
   exemplar: (p, g) => {
     const N = g.N;
     if (g.cards) return wire(g, fromFn(N, (r, c) => (2 * (r % 2) + (c % 2)) * 13 + p.r), full(N, 0));
-    return wire(g, full(N, p.r), fromFn(N, (r, c) => (g.C >= 4 ? 2 * (r % 2) + (c % 2) : (r + c) % 3)));
+    return wire(g, full(N, p.r), fromFn(N, (r, c) => (g.C >= 4 ? 2 * (r % 2) + (c % 2) : (r + c) % g.C)));
   },
 });
 
 // --- Set Spotter --------------------------------------------------------------------------------------------
 type SetP = { diag: boolean };
-const setText = (p: SetP): CardText => ({
+const setText = (p: SetP, g: GridSpec): CardText => ({
   emoji: "🔺", name: "Set Spotter", consts: [],
-  about: `Three cells in a line (across or down${p.diag ? ", or diagonally" : ""}) are a SET if their colours are all the `
-    + "same or all different AND their numbers are all the same or evenly spaced (like 2, 5, 8). Each SET scores a point.",
+  about: sentences(`Look at 3 cells in a line (across or down${p.diag ? ", or diagonally" : ""}).`,
+    `They are a SET when both of these are true. Their colours are all the same, or ${g.say.distinctColours(3)} are used.`,
+    `Their ${g.cards ? "values" : "numbers"} are all the same or evenly spaced (like 2, 5, 8).`, g.say.valueKey(),
+    "Each SET scores 1 point."),
 });
 const setSpotter = gridFamily<SetP>({
   id: "set_spotter", name: "Set Spotter", emoji: "🔺", theme: "Three in a line that make a SET",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 3 }, shape: SCALAR,
   support: () => [{ diag: false }, { diag: true }],
   sample: rng => ({ diag: chance(rng, 1, 2) }),
-  summary: p => setText(p).about,
-  python: p => pyCard(setText(p), `
+  summary: (p, g) => setText(p, g).about,
+  python: (p, g) => pyCard(setText(p, g), `
     def is_set(a, b, c):
         if b is None or c is None:
             return False
@@ -647,7 +655,7 @@ const setSpotter = gridFamily<SetP>({
             if cell.down_left is not None and is_set(cell, cell.down_left, cell.down_left.down_left):
                 sets += 1` : ""}
         return sets`),
-  typescript: p => tsCard(setText(p), `
+  typescript: (p, g) => tsCard(setText(p, g), `
     function isSet(a, b, c) {
       if (b === null || c === null) return false;
       const colours = new Set([a.colour, b.colour, c.colour]);
@@ -671,8 +679,9 @@ const setSpotter = gridFamily<SetP>({
 type KnightP = { X: MaybeColour };
 const knightText = (p: KnightP, g: GridSpec): CardText => ({
   emoji: "🐴", name: "Knight Riders", consts: p.X === null ? [] : [["MY_COLOUR", cname(g, p.X)]],
-  about: "Every pair of cells a chess knight's jump apart that are exact twins (same symbol and same colour"
-    + (p.X === null ? "" : `, and ${cname(g, p.X)}`) + ") scores a point.",
+  about: "A chess knight jumps 2 cells one way and 1 cell the other. Two cells a knight's jump apart are twins when they show "
+    + `the same ${g.cards ? "card (rank and suit)" : "number"} in the same colour${p.X === null ? "" : `, and that colour is ${cname(g, p.X)}`}. `
+    + "Each pair of twins scores 1 point.",
 });
 const knightRiders = gridFamily<KnightP>({
   id: "knight_riders", name: "Knight Riders", emoji: "🐴", theme: "Twins a knight's jump apart", shape: SCALAR,
@@ -715,19 +724,20 @@ const knightRiders = gridFamily<KnightP>({
 
 // --- Uno Snake ---------------------------------------------------------------------------------------------------
 type UnoP = { axis: "rows" | "cols" };
-const unoText = (p: UnoP): CardText => ({
+const unoText = (p: UnoP, g: GridSpec): CardText => ({
   emoji: "🐍", name: "Uno Snake", consts: [],
   about: "Walk the grid like a Snakes & Ladders board ("
     + (p.axis === "rows" ? "along the first row, back along the next, and so on" : "down the first column, back up the next, and so on")
-    + "). Each step must match the colour or the number, like Uno. Score your longest unbroken walk.",
+    + `). A step is good when the two cells match in colour or ${g.cards ? "rank" : "number"}, like Uno. `
+    + "Your longest unbroken walk of good steps scores 1 point per cell.",
 });
 const unoSnake = gridFamily<UnoP>({
   id: "uno_snake", name: "Uno Snake", emoji: "🐍", theme: "A zig-zag walk where every step matches", shape: SCALAR,
   analytic: solvedAnalytic("uno_snake"),
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
-  summary: p => unoText(p).about,
-  python: p => pyCard(unoText(p), `
+  summary: (p, g) => unoText(p, g).about,
+  python: (p, g) => pyCard(unoText(p, g), `
     def walk(grid):
         path = []
         for i, line in enumerate(${p.axis === "rows" ? "grid.rows" : "grid.columns"}):
@@ -748,7 +758,7 @@ const unoSnake = gridFamily<UnoP>({
                 run = 1
             best = max(best, run)
         return best`),
-  typescript: p => tsCard(unoText(p), `
+  typescript: (p, g) => tsCard(unoText(p, g), `
     function walk(grid) {
       const path = [];
       ${p.axis === "rows" ? "grid.rows" : "grid.columns"}.forEach((line, i) => path.push(...(i % 2 === 1 ? [...line].reverse() : line)));
@@ -772,22 +782,24 @@ const unoSnake = gridFamily<UnoP>({
 
 // --- Court Parade -------------------------------------------------------------------------------------------------
 type ParadeP = { suit: number | null; match: boolean };
-const paradeText = (p: ParadeP): CardText => ({
-  emoji: "🎺", name: "Court Parade", consts: p.suit === null ? [] : [["MY_SUIT", SUIT_NAMES[p.suit]]],
-  about: `A Jack, Queen and King of the same suit${p.suit === null ? "" : " (your suit)"} standing in that order (left to `
-    + `right or top to bottom)${p.match ? " and all one colour" : ""} is a parade; with its Ace just before the Jack it `
-    + "scores double. If that's a tie, count Jack-Queen and Queen-King pairs in a row.",
-});
+const paradeText = (p: ParadeP, g: GridSpec): CardText => {
+  const suit = p.suit === null ? "the same suit" : g.say.suit(p.suit);
+  return {
+    emoji: "🎺", name: "Court Parade", consts: p.suit === null ? [] : [["MY_SUIT", SUIT_NAMES[p.suit]]],
+    about: `A parade is a Jack, Queen and King of ${suit}, side by side in that order along a row or column`
+      + `${p.match ? ", all in one colour" : ""}. A parade scores 1 point. `
+      + `With ${p.suit === null ? "the Ace of that suit" : "your Ace"} just before the Jack, it scores 2 points. Most points wins. `
+      + `If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of ${p.suit === null ? "one suit" : "your suit"}.`,
+  };
+};
 const courtParade = gridFamily<ParadeP>({
   id: "court_parade", name: "Court Parade", emoji: "🎺", theme: "J, Q, K of one suit marching in a line",
-  requires: { classes: ["Suited", "Faced"] }, shape: tuple(2),
+  requires: { classes: ["Suited", "Faced"], minFaces: 3 }, shape: tuple(2),
   support: () => product<ParadeP>({ suit: [null, 0, 1, 2, 3], match: [false, true] }),
   sample: rng => ({ suit: chance(rng, 1, 2) ? null : rng.int(4), match: chance(rng, 3, 10) }),
   canonical: p => ({ suit: p.suit === null ? null : 0, match: p.match }),
-  summary: p => "A Jack, Queen and King of the same suit" + (p.suit === null ? "" : ` (${"♠♥♦♣"[p.suit]})`)
-    + " standing in that order (left to right or top to bottom)" + (p.match ? " and all one colour" : "")
-    + " is a parade; with its Ace just before the Jack it's a grand parade worth double.",
-  python: p => pyCard(paradeText(p), `
+  summary: (p, g) => paradeText(p, g).about,
+  python: (p, g) => pyCard(paradeText(p, g), `
     def one_suit(cells):
         for cell in cells:
             if cell.suit != cells[0].suit${p.suit === null ? "" : " or cell.suit != MY_SUIT"}:
@@ -811,7 +823,7 @@ const courtParade = gridFamily<ParadeP>({
                     if i > 0 and line[i - 1].value == 1 and line[i - 1].suit == jack.suit:
                         parades += 1
         return (parades, pairs)`),
-  typescript: p => tsCard(paradeText(p), `
+  typescript: (p, g) => tsCard(paradeText(p, g), `
     function oneSuit(cells) {
       return cells.every(cell => cell.suit === cells[0].suit${p.suit === null ? "" : " && cell.suit === MY_SUIT"});
     }
@@ -844,8 +856,8 @@ type CourtRankP = { r: number };
 const kingsText = (p: CourtRankP, g: GridSpec): CardText => ({
   emoji: "🤴", name: "King's Court",
   consts: [["MY_VALUE", rankValue(g, p.r), g.cards ? RANK_NAMES[rankValue(g, p.r)] ?? "" : ""]],
-  about: `Every cell worth ${rankValue(g, p.r)}${g.cards ? " (any suit)" : ""} scores a point for each of the cells around `
-    + "it (corners too) that is a different colour from it.",
+  about: `Your target is ${g.say.rank(p.r)}. Each cell showing it scores 1 point for every cell around it `
+    + "(corners too) that is a different colour from it.",
 });
 const kingsCourt = gridFamily<CourtRankP>({
   id: "kings_court", name: "King's Court", emoji: "🤴", theme: "Your symbol surrounded by every other colour",
@@ -885,9 +897,9 @@ const kingsCourt = gridFamily<CourtRankP>({
 type FourP = { X: number };
 const fourText = (p: FourP, g: GridSpec): CardText => ({
   emoji: "🔴", name: "Connect Four", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: `Your counters are ${cname(g, p.X)} and they fall to the bottom: a counter only stands if everything below it is `
-    + `${cname(g, p.X)} too. Score every four-in-a-row of standing counters (across, down or diagonal); if that's a tie, `
-    + "count standing counters.",
+  about: `Your counters are ${cname(g, p.X)}. They fall to the bottom, so a counter only stands if every cell below it is `
+    + `${cname(g, p.X)} too. Every group of 4 standing counters in a row (across, down or diagonal) scores 1 point. A longer line `
+    + "counts every group of 4 in it. Most points wins. If that's a tie, more standing counters wins.",
 });
 const connectFour = gridFamily<FourP>({
   id: "connect_four", name: "Connect Four", emoji: "🔴", theme: "Four in a row, stacked from the bottom",
@@ -895,8 +907,7 @@ const connectFour = gridFamily<FourP>({
   requires: { minSize: 4 }, shape: tuple(2),
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
-  summary: (p, g) => `Your counters are ${cname(g, p.X)} and they fall to the bottom: a counter only stands if everything `
-    + `below it is ${cname(g, p.X)} too. Score every four-in-a-row of standing counters (across, down or diagonal).`,
+  summary: (p, g) => fourText(p, g).about,
   python: (p, g) => pyCard(fourText(p, g), `
     def standing(grid, row, col):
         if not (0 <= row < grid.size and 0 <= col < grid.size):
