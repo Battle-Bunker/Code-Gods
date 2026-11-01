@@ -54,7 +54,8 @@ http.route({
   }),
 });
 
-// Same origin as both SPAs, so no CORS. Registers /api/auth/* and /.well-known/openid-configuration.
+// The engine UI's cookie session: same origin only, no CORS (player clients use room tokens: docs/external-clients.md).
+// Registers /api/auth/* and /.well-known/openid-configuration.
 authComponent.registerRoutes(http, createAuth);
 // MCP (convex/agent/mcp.ts) and its OAuth authorization server (convex/agent/oauth.ts).
 http.route({ path: "/mcp", method: "POST", handler: mcp });

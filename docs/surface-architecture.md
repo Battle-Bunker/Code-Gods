@@ -20,7 +20,8 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 
 | Surface | Reactive data | Acting | Live UI changes | Assistant |
 |---|---|---|---|---|
-| **Hosted client** (`/client/` on the deployment) | Convex WebSocket, browser session | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **Hosted client** (`/client/` on the deployment) | Convex WebSocket, a room's OAuth connection (player JWT; never the site session: docs/external-clients.md) | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **Any browser client** (any origin: a Replit dev URL, localhost, a static host; `clients/hello`) | Convex WebSocket, a room's OAuth connection or device credential (`@workspace/player-client/browser`) | public Convex functions | whatever it renders | the player's own |
 | **Dev container** (any Vite environment: local, Codespaces, Gitpod, Replit, …) | Convex WebSocket, JWTs from the dev server's `/__codegods/token` after the private launch link | same | file panels (HMR, in-process) **and** stored panels | the environment's coding agent through MCP or the CLI, plus the in-client assistant |
 | **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the hosted client | Claude itself |
 | **Claude artifact** (claude.ai page; `clients/claude-artifact/`) | the Code Gods connector through the page's `mcp` capability: `watchTool` on `get_observation` and `whoami` (about 30 s polling floor, paused while hidden) | `callTool` on a click: `send_chat` (confirmed in the page), `validate_agent`, `summon_agent`, `set_ready`; ambiguous failures check `get_receipt` and resend with the same `commandId` | Claude republishes the page; whether it could render stored panels is what `probe.html` checks | Claude, plus the page's `sample` ("Ask Claude") |
@@ -233,7 +234,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 ## 7. Decisions
 
 1. **Auth library: Better Auth served by Convex** (`@convex-dev/better-auth` 0.12.x with `better-auth` 1.6.x, exact pins). Convex Auth is still beta, has a v1→v2 migration ahead, and keeps tokens in localStorage.
-   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin. Both SPAs share it with no cross-domain plugin, and get Convex JWTs from `/api/auth/convex/token`.
+   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin, and the engine UI gets Convex JWTs from `/api/auth/convex/token`. Player clients, the hosted one included, never use it: they hold room-scoped player JWTs (docs/external-clients.md, 2026-11-01).
    - **Identity:** the god id is the Better Auth user id. A `users` row is kept by component triggers and stores the Google `sub` for audit.
    - **Player JWTs:** they move to their own issuer, `<site>/api/device`, so the two token kinds are told apart by issuer.
    - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `TEST_FIXTURES`.

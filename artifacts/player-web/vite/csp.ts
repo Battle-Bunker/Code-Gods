@@ -39,6 +39,11 @@ export function convexSources(env: Env): string[] {
   return [url.origin, `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`];
 }
 
+/** A build served from another origin than its engine (VITE_CODE_GODS_ENGINE_URL): the engine's site origin. */
+export function engineSources(env: Env): string[] {
+  return env.VITE_CODE_GODS_ENGINE_URL ? [new URL(env.VITE_CODE_GODS_ENGINE_URL).origin] : [];
+}
+
 export function pageCsp(env: Env): string {
   return [
     "default-src 'none'",
@@ -47,7 +52,7 @@ export function pageCsp(env: Env): string {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `connect-src 'self' ${convexSources(env).join(" ")}`,
+    `connect-src 'self' ${[...convexSources(env), ...engineSources(env)].join(" ")}`,
     "frame-src 'self'",
     "worker-src 'self' blob:",
     "object-src 'none'",

@@ -19,7 +19,13 @@ export const agentTables = {
     clientName: v.string(), redirectUris: v.array(v.string()), createdAt: v.number(), fetchedAt: v.optional(v.number()),
     /** When the client last redeemed a code. A DCR client that never does is swept (oauthStore.sweep). */
     usedAt: v.optional(v.number()),
-  }).index("by_client", ["clientId"]).index("by_kind_created", ["kind", "createdAt"])
+    /**
+     * DCR: sha256 of the client's name and redirect URIs. A registration with the same metadata gets the same
+     * client_id back (a public client's id is no secret), so every browser of one player app shares one client
+     * and the deployment-wide registration limit counts apps, not page loads.
+     */
+    metadataHash: v.optional(v.string()),
+  }).index("by_client", ["clientId"]).index("by_metadata", ["metadataHash"]).index("by_kind_created", ["kind", "createdAt"])
     .index("by_kind_used_created", ["kind", "usedAt", "createdAt"]).index("by_kind_fetched", ["kind", "fetchedAt"]),
 
   /**
@@ -35,6 +41,8 @@ export const agentTables = {
     codeHash: v.optional(v.string()), credentialId: v.optional(v.id("credentials")), expiresAt: v.number(),
     /** sha256 of the completion secret the approving browser generated: /complete releases the code only with it. */
     completionHash: v.optional(v.string()),
+    /** The `room` the client asked for (a Code Gods extension): /connect preselects it and offers to join it. */
+    roomHint: v.optional(v.string()),
   }).index("by_key", ["keyHash"]).index("by_code", ["codeHash"]).index("by_expires", ["expiresAt"]),
 
   /** Refresh tokens already rotated out: presenting one again revokes its credential (OAuth 2.1 reuse detection). */

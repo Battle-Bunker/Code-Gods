@@ -18,13 +18,14 @@
     "./primer": "./src/primer.ts",
     "./datasets": "./src/datasets.ts",
     "./start": "./src/start.ts",
-    "./replay": "./src/replay.ts"
+    "./replay": "./src/replay.ts",
+    "./browser": "./src/browser.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",
     "assistant": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts assistant",
     "test": "node scripts/test.mjs",
-    "test:unit": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test --test-concurrency=1 test/unit.test.ts test/tools.test.ts test/catalog.test.ts test/panels.test.ts test/layout.test.ts test/rules.test.ts test/skills.test.ts test/start.test.ts test/replay.test.ts",
+    "test:unit": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test --test-concurrency=1 test/unit.test.ts test/tools.test.ts test/catalog.test.ts test/panels.test.ts test/layout.test.ts test/rules.test.ts test/skills.test.ts test/start.test.ts test/replay.test.ts test/browser.test.ts",
     "gen:tools": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-tools.ts",
     "gen:catalog": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-catalog-doc.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json"

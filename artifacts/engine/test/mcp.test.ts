@@ -361,8 +361,10 @@ const form = (body: Record<string, string>) => ({ method: "POST", headers: { "co
 
 /** DCR → authorize → /connect approval as `human` → complete → token. Returns tokens and the request id. */
 async function connect(human: God, roomId: string, scope: string, redirect = "http://127.0.0.1:43123/callback") {
+  // A distinct name per connection: the same metadata would get the same client back (oauthStore.registerClient).
+  const name = `Test Connector ${randomUUID().slice(0, 8)}`;
   const registered = await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Test Connector", redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }) });
+    body: JSON.stringify({ client_name: name, redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }) });
   assert.equal(registered.status, 201, await registered.clone().text());
   const client = await registered.json() as any;
   const { verifier, challenge } = pkce();
@@ -376,7 +378,7 @@ async function connect(human: God, roomId: string, scope: string, redirect = "ht
   assert.equal(connectUrl.pathname, "/connect");
   const request = connectUrl.searchParams.get("request")!;
   const pending = await human.c.query(api.agent.connect.pending, { request });
-  assert.equal(pending.clientName, "Test Connector");
+  assert.equal(pending.clientName, name);
   assert.equal(pending.redirectHost, "127.0.0.1");
   assert.ok(pending.rooms.some((r: any) => r.roomId === roomId));
   // The /connect page generates the completion secret in the approving browser and passes it to /complete.
@@ -426,7 +428,7 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   // The connection is listed on the engine UI's credential list, with its client.
   const listed = (await ada.c.query(api.auth.credentials.list, {})).find((c: any) => c.credentialId === who.data.credentialId);
   assert.equal(listed?.kind, "oauth");
-  assert.equal(listed?.label, "Test Connector");
+  assert.match(listed?.label ?? "", /^Test Connector /);
 
   // Refresh rotates; the old refresh token is dead, and reusing it revokes the whole grant.
   const refresh = (token: string) => fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: token, client_id: client.client_id }));
@@ -504,7 +506,7 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
   const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ client_name: "Neg", redirect_uris: ["http://127.0.0.1:1/cb"] }) })).json() as any;
   const badRedirect = await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Evil", redirect_uris: ["https://evil.example/cb"] }) });
+    body: JSON.stringify({ client_name: "Evil", redirect_uris: ["http://evil.example/cb"] }) });
   assert.equal(badRedirect.status, 400);
   assert.equal((await badRedirect.json() as any).error, "invalid_redirect_uri");
   const { challenge } = pkce();
@@ -538,7 +540,7 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
 test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used clients and old retired refresh tokens", { timeout: 120000 }, async () => {
   const { ada, roomId } = await lobby();
   const register = () => fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Flood", redirect_uris: ["http://127.0.0.1:1/cb"] }) });
+    body: JSON.stringify({ client_name: `Flood ${randomUUID()}`, redirect_uris: ["http://127.0.0.1:1/cb"] }) });
   // The sweep, run as if 31 days had passed. First it clears never-used clients of earlier runs from the window.
   const later = Date.now() + 31 * 24 * 3600_000;
   const sweep = () => admin.mutation(internal.agent.oauthStore.sweep, { now: later }) as Promise<Record<string, number>>;
@@ -550,7 +552,12 @@ test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used
   // A client that holds a grant but has no usedAt (registered before usedAt existed) is kept too.
   const legacy = await connect(ada, roomId, "read");
   await admin.mutation(internal.testing.forgetClientUse, { clientId: legacy.client.client_id });
-  // Unauthenticated registration is capped globally: a flood soon gets 429.
+  // One app's browsers share one registration: the same metadata gets the same client_id, outside the limit.
+  const twice = async () => (await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Same app", redirect_uris: ["https://same.example/"] }) })).json() as any).client_id;
+  const first = await twice();
+  assert.equal(await twice(), first, "same metadata, same client");
+  // Unauthenticated registration is capped globally: a flood of distinct clients soon gets 429.
   let limited: Response | undefined;
   for (let i = 0; i < 200 && !limited; i++) {
     const response = await register();

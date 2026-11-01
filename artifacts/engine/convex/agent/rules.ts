@@ -17,16 +17,54 @@ function parse(uri: string): URL | null {
 const isLoopbackHttp = (url: URL) => url.protocol === "http:" && LOOPBACK.has(url.hostname);
 
 /**
- * May a client register (DCR) or declare (CIMD) this redirect URI? Claude's callbacks, loopback http on any
- * port (native apps, Claude Code, the CLI: RFC 8252), or an exact URI the operator allowlisted
- * (OAUTH_REDIRECT_URIS). Never a fragment, credentials or another scheme.
+ * May a client register (DCR) or declare (CIMD) this redirect URI? Claude's callbacks, loopback http on any port
+ * (native apps, Claude Code, the CLI: RFC 8252), any https URI (player apps on any origin: a Replit dev URL, a
+ * static host; docs/external-clients.md §2: the /connect page names the exact return origin, the code reaches only
+ * the approving browser, and only with the PKCE verifier), or an exact URI the operator allowlisted
+ * (OAUTH_REDIRECT_URIS, which may use another scheme). Never a fragment, credentials or plain http elsewhere.
  */
 export function redirectAllowedForRegistration(uri: string, extra: readonly string[]): boolean {
   if (typeof uri !== "string" || uri.length > 512) return false;
+  if (extra.includes(uri)) return true;
   const url = parse(uri);
   if (!url || url.hash || url.username || url.password || uri.includes("#")) return false;
-  if ((CLAUDE_CALLBACKS as readonly string[]).includes(uri) || extra.includes(uri)) return true;
-  return isLoopbackHttp(url);
+  return url.protocol === "https:" || isLoopbackHttp(url);
+}
+
+/**
+ * RFC 8707 `resource`: absent, a site URL of this deployment (Convex functions) or its MCP endpoint; one kind of
+ * token serves both. `sites`: the public site (SITE_URL) and the deployment's own .convex.site URL, which a client
+ * may use when a custom domain is set.
+ */
+export function resourceAllowed(resource: string | null | undefined, sites: string | readonly string[]): boolean {
+  if (resource === undefined || resource === null) return true;
+  return [sites].flat().filter(Boolean).some(site => {
+    const base = site.replace(/\/+$/, "");
+    return resource === base || resource === `${base}/` || resource === `${base}/mcp`;
+  });
+}
+
+/** Where the engine serves its own player client (`/player/` today; `/client/` after the URL-scheme move). */
+export const HOSTED_CLIENT_PATHS = ["/player/", "/client/"] as const;
+/**
+ * Is this redirect URI the engine's own hosted player client: the site's origin AND the client's path? Any other
+ * page of the site is not, so a code can never be auto-approved to a page that might expose its query string.
+ */
+export function isFirstParty(redirectUri: string, siteOrigin: string): boolean {
+  const url = parse(redirectUri);
+  return !!url && url.origin === siteOrigin && HOSTED_CLIENT_PATHS.some(p => url.pathname.startsWith(p));
+}
+
+/**
+ * The grant /connect may approve without a click, or null when the human decides (docs/external-clients.md
+ * decision 5): only for a redirect to the site's own origin (the code can reach only the engine's own page), a
+ * human already in the room, and at most `act`. A non-owner's `owner` request is lowered to `act`; an owner grant
+ * always needs the owner's explicit consent.
+ */
+export function firstPartyGrant(input: { redirectUri: string; siteOrigin: string; member: boolean; isOwner: boolean; requested: Permission }): Permission | null {
+  if (!isFirstParty(input.redirectUri, input.siteOrigin) || !input.member) return null;
+  if (input.requested !== "owner") return input.requested;
+  return input.isOwner ? null : "act";
 }
 
 /** Does an authorization request's redirect_uri match a registered one? Exact, except a loopback port may vary. */

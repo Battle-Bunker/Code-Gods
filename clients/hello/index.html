@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hello, Code Gods</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+      label, button, input { font: inherit; } input { padding: .3rem; } button { padding: .3rem .8rem; }
+      [hidden] { display: none !important; } .muted { color: #666; } #error { color: #b00; }
+      ul { padding-left: 1.2rem; } code { background: #f3f3f3; padding: 0 .2rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Hello, Code Gods</h1>
+    <p class="muted">The smallest player client: it signs in to an engine from this origin, watches your room live and chats.</p>
+    <form id="setup">
+      <p><label>Engine URL <input id="engine" size="34" placeholder="https://&lt;dep&gt;.convex.site" required /></label></p>
+      <p><label>Room code <input id="room" size="12" required /></label></p>
+      <p><button id="connect" type="submit">Sign in and connect</button> <button id="connect-code" type="button">Connect with a code</button></p>
+    </form>
+    <p id="device" hidden>Open <a id="device-link" target="_blank" rel="noreferrer"></a> and check the code <code id="device-code"></code>. Waiting…</p>
+    <p id="error" role="alert"></p>
+    <section id="game" hidden>
+      <p id="who"></p>
+      <p id="status"></p>
+      <form id="chat-form"><input id="say" placeholder="Public chat" maxlength="2000" /> <button id="send">Send</button></form>
+      <ul id="chat"></ul>
+      <p><button id="disconnect" type="button">Disconnect</button></p>
+    </section>
+  </body>
+  <script type="module" src="/src/main.ts"></script>
+</html>

@@ -20,6 +20,9 @@ if (!Number.isInteger(port) || port <= 0) {
 const basePath = process.env.BASE_PATH || (isBuild ? "/client/" : "/");
 
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
+// The engine a browser-mode client talks to (src/core/connection.ts engineUrl): CODE_GODS_SITE_URL in hosted-mode
+// development, else VITE_CODE_GODS_ENGINE_URL (a build served from another origin), else the page's own origin.
+if (hostedDev && !process.env.VITE_CODE_GODS_ENGINE_URL) process.env.VITE_CODE_GODS_ENGINE_URL = process.env.CODE_GODS_SITE_URL;
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
   // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
   // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
@@ -154,14 +157,8 @@ export default defineConfig({
     allowedHosts: true,
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
-    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211
-    // Better Auth trusts only the engine's origin, so the proxy presents it (as artifacts/code-gods does).
-    ...(process.env.CODE_GODS_SITE_URL ? { proxy: { '/api': {
-      target: process.env.CODE_GODS_SITE_URL, changeOrigin: true,
-      configure: (proxy: { on(event: 'proxyReq', fn: (req: { getHeader(n: string): unknown; setHeader(n: string, v: string): void }) => void): void }) => {
-        proxy.on('proxyReq', req => { if (req.getHeader('origin')) req.setHeader('origin', new URL(process.env.CODE_GODS_SITE_URL!).origin); });
-      },
-    } } } : {}),
+    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211. The client is then an
+    // OAuth client of that engine from this origin (src/core/connection.ts), exactly like a client on any other origin.
     fs: {
       strict: true,
     },

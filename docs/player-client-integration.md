@@ -2,9 +2,10 @@
 
 The engine is one Convex deployment (`artifacts/engine`; routes and functions in
 [`engine-api.md`](engine-api.md), design in [`convex-migration-plan.md`](convex-migration-plan.md)).
-A player client is either the hosted reference client the engine serves at `/client/` (the old `/player/` prefix
-redirects there), or a player's own
-copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment. Both read the same
+A player client is the hosted reference client the engine serves at `/client/` (the old `/player/` prefix
+redirects there), a player's own
+copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment, or any other
+app on any origin ([`external-clients.md`](external-clients.md); the smallest is `clients/hello`). Both read the same
 disclosure-filtered Convex queries and act through the same server functions, so a modified client can
 do no more than its human could.
 
@@ -12,12 +13,12 @@ do no more than its human could.
 
 | Package | Owns |
 |---|---|
-| `lib/player-client` | the v3 protocol types and Zod schemas (`src/protocol.ts`), `PlayerClient` (`src/client.ts`), the Node-side engine connection and `tokenHandler` (`src/engine.ts`), the device flow (`src/connect.ts`), the `pnpm player` CLI and the room assistant (`src/cli.ts`, `src/assistant.ts`, `src/state.ts`) |
+| `lib/player-client` | the v3 protocol types and Zod schemas (`src/protocol.ts`), `PlayerClient` (`src/client.ts`), browser sign-in on any origin (`src/browser.ts`: OAuth + PKCE, the device flow, token refresh), the Node-side engine connection and `tokenHandler` (`src/engine.ts`), the device flow for the CLI (`src/connect.ts`), the `pnpm player` CLI and the room assistant (`src/cli.ts`, `src/assistant.ts`, `src/state.ts`) |
 | `artifacts/player-web` | the customizable player client: core game UI, live panels and the Panel SDK ([`panels.md`](panels.md)) |
 | `lib/ai-player` | the AI-seat policy, decision schema, budgets and provider adapters, run **inside the engine** (below) |
 
 `@workspace/player-client` (the package root) exports only browser-safe and Convex-bundle-safe code:
-the protocol and `PlayerClient`. The Node tooling is `@workspace/player-client/engine`
+the protocol and `PlayerClient`; `/browser` is browser sign-in. The Node tooling is `@workspace/player-client/engine`
 (also `/assistant`, `/state`, `/connect`).
 
 ## The room credential and the secret store
@@ -103,15 +104,24 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
   (`RECONNECT`), 502 (`UNREACHABLE`) or 503 (not configured or malformed).
 
 It is not mounted when player-web runs in hosted-mode development (`CODE_GODS_SITE_URL` set), where
-the client signs in on the engine site instead.
+the client connects to that engine as a browser client (below) instead.
 
-### Hosted client (`/client/`)
+### Browser clients on any origin, the hosted client (`/client/`) included
 
-The engine serves the same player-web build at `https://<dep>.convex.site/client/`. There the human
-signs in on the site with Google (the same Better Auth session as the engine UI; `browser`-scope JWTs from
-`GET /api/auth/convex/token`) and opens a room from their list or by code. No credential is involved. This is the
-fallback for a player who does not duplicate the repository. `/player` and `/player/*` answer 308 to the same path
-under `/client/`, so old links and bookmarks keep working (`convex/http.ts`).
+A client that runs in a browser without a dev server of its own uses `@workspace/player-client/browser`
+(`createPlayerAuth`, [`external-clients.md`](external-clients.md)). That covers the default client the engine
+serves at `https://<dep>.convex.site/client/`, a build of player-web on another origin
+(`VITE_CODE_GODS_ENGINE_URL`), `clients/hello`, or anything else. It is an OAuth client of the engine:
+
+1. It registers itself once per browser and sends the human to `/oauth/authorize?…&room=CODE`.
+2. On the engine's `/connect` page, the human signs in with Google, joins the room if needed and approves.
+   The engine's own client is approved without a click for a member, at most `act`.
+3. Back on the client, the code becomes a 60-minute player JWT and a rotating refresh token, stored per room.
+
+Inside an iframe (Replit's webview) it uses the device flow instead: it shows a code to approve on `/device`. The
+hosted client connects with `act`. An owner action asks for an owner connection, which the owner approves with
+explicit consent. It never uses the engine site's session cookie, so it can do exactly what any external client can.
+`/player` and `/player/*` answer 308 to the same path under `/client/`, so old links and bookmarks keep working (`convex/http.ts`).
 
 ### URL scheme (both modes)
 

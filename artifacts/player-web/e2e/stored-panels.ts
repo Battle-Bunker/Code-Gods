@@ -125,6 +125,9 @@ let navigations = 0;
 page.on("framenavigated", f => { if (f === page.mainFrame()) navigations++; });
 await page.goto(`${SITE}/client/rooms/${shortCode}`);
 await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
+// The first visit connected the room through the engine's OAuth flow (/oauth/authorize → /connect, approved
+// without a click for the engine's own client → back with a code): count navigations from the settled page.
+navigations = 1;
 await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
 const sameDocument = async () => navigations === 1 && await page.evaluate(() => (window as unknown as { __cgMarker?: number }).__cgMarker === 42);
 const frame = (slug: string) => page.frameLocator(`[data-testid="panel-frame-stored:${slug}"] iframe`);
@@ -277,6 +280,10 @@ export default definePanel({ title: "Navigates", Component() {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()).replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "") });
   });
+  // Connect the room first (the OAuth round trip ends in a redirect, which the route above does not see), then
+  // load the page directly: it uses the stored connection and is served without its CSP.
+  await bare.goto(`${SITE}/client/rooms/${shortCode}`);
+  await bare.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await bare.goto(`${SITE}/client/rooms/${shortCode}`);
   await bare.waitForSelector('[data-testid="panel-error-stored:e2e-navigates"]', { timeout: 60_000 }).catch(async error => {
     throw new Error(`no CSP: ${(error as Error).message.split("\n")[0]}; hits ${hits.join(", ")}; frame ${await bare.getAttribute('[data-testid="panel-frame-stored:e2e-navigates"]', "data-frame-state").catch(() => "none")}; csp ${await bare.locator('meta[http-equiv="Content-Security-Policy"]').count()}; text ${(await bare.innerText("body")).slice(0, 300).replace(/\s+/g, " ")}; log ${bareLog.slice(0, 5).join(" | ")}`);
@@ -532,14 +539,15 @@ await check("the hosted page runs under its CSP without violations of its own", 
   assert(own.length === 0, own.slice(0, 2).join(" | "));
 });
 
-await check("sign-in still works under the page CSP: the signed-out page offers it and the link reaches the provider", async () => {
+await check("a signed-out visit goes to the engine's /connect page, whose sign-in reaches the provider; no CSP reports", async () => {
   const fresh = await browser.newContext();
   const out = await fresh.newPage();
   const reports: string[] = [];
   out.on("console", m => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
   await out.goto(`${SITE}/client/rooms/${shortCode}`);
-  await out.waitForSelector("[data-testid=link-login]", { timeout: 60_000 });
-  await Promise.all([out.waitForURL(url => !url.href.startsWith(`${SITE}/client/`), { timeout: 30_000 }), out.click("[data-testid=link-login]")]);
+  await out.waitForURL(url => url.pathname === "/connect", { timeout: 60_000 });
+  await out.waitForSelector("[data-testid=button-login-connect]", { timeout: 60_000 });
+  await Promise.all([out.waitForURL(url => !url.href.startsWith(SITE), { timeout: 30_000 }), out.click("[data-testid=button-login-connect]")]);
   assert(reports.length === 0, reports.slice(0, 2).join(" | "));
   await fresh.close();
 });
