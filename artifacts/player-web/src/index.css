@@ -82,8 +82,8 @@
   --cg-ink-G: #1d7242;
   --cg-ink-B: #0555e7;
   --cg-ink-V: #aa01bc;
-  --cg-ink-rgb-R: #b73305; --cg-ink-rgb-G: #247148; --cg-ink-rgb-B: #2900df;
-  --cg-ink-rgby-R: #900f21; --cg-ink-rgby-Y: #7c5a03; --cg-ink-rgby-G: #086f4e; --cg-ink-rgby-B: #1707f9;
+  --cg-ink-rgb-R: #bb061e; --cg-ink-rgb-G: #06641a; --cg-ink-rgb-B: #0555e7;
+  --cg-ink-rgby-R: #9e0a1e; --cg-ink-rgby-Y: #806000; --cg-ink-rgby-G: #0a5c1c; --cg-ink-rgby-B: #0555e7;
   /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.light). */
   --cg-yours: #0b6aa0;
   --cg-others: #b52d6e;
