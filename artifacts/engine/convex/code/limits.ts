@@ -29,5 +29,5 @@ export const CODE_LIMITS = {
   inlineValueChars: 64 * 1024,
   /** Scopes a run may load, and the loaded objects' JSON (the runtime's storeBytes). */
   scopesPerRun: 20,
-  loadBytes: 4 * 1024 * 1024,
+  loadBytes: 4_000_000,
 } as const;

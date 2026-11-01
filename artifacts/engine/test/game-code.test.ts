@@ -252,3 +252,22 @@ test("the object store: the per-user object quota refuses the write that would e
   assert.deepEqual((await run(cred, roomId, { language: "python", source: "def main(d):\n    store.put('q0/0', 'new')\n    return 1\n" })).store, { written: ["q0/0"], deleted: [] });
   assert.deepEqual((await run(cred, roomId, { language: "python", source: "def main(d):\n    store.delete('q0/1')\n    store.put('one-more', 1)\n    return 1\n" })).store, { written: ["one-more"], deleted: ["q0/1"] });
 });
+
+test("run_code: a clipped non-ASCII result pages exactly; a tampered store export is refused, never a stuck run", { timeout: 240_000 }, async () => {
+  const { members: [mo], roomId } = await startedRoom(["Mo Pages", "Mo Two", "Mo Three"]);
+  const cred = await credential(mo, roomId);
+  const big = await run(cred, roomId, { language: "python", source: "def main(d):\n    return ['café %d' % i for i in range(30000)]\n" });
+  assert.equal(big.status, "ok", JSON.stringify(big.error));
+  const row = await mo.c.query(api.code.runs.get, { roomId, runId: big.runId });
+  assert.equal(row.clipped, true);
+  const whole = await admin.action(internal.code.execute.fullText, { principal: { credentialId: cred }, roomId, runId: big.runId });
+  assert.equal(whole.result.length, row.resultChars, "the whole text is the run's own (ASCII-escaped) JSON");
+  assert.ok(whole.result.startsWith(row.resultJson), "the row's prefix is a prefix of the whole");
+  assert.equal(JSON.parse(whole.result)[29999], "café 29999");
+  const tampered = await run(cred, roomId, { language: "typescript",
+    source: "function main(d) { store.put('k', 1); Array.prototype.join = function () { return '}}{'; }; Object.fromEntries = null; return 1; }" });
+  assert.equal(tampered.status, "ok");
+  assert.match(tampered.store.refused, /malformed/);
+  assert.equal((await mo.c.query(api.code.runs.get, { roomId, runId: tampered.runId })).status, "ok", "the run finished");
+  assert.deepEqual((await mo.c.query(api.code.objects.list, {})).objects.filter((o: any) => !o.key.startsWith("runs/")), []);
+});

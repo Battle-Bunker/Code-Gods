@@ -52,6 +52,9 @@ export const codeTables = {
     updatedAt: v.number(),
   }).index("by_subject_key", ["subject", "key"]),
 
+  /** Each human's store usage (runs/ results excluded), kept by commitAs so a quota check never reads the values. */
+  codeObjectUsage: defineTable({ subject: v.string(), objects: v.number(), bytes: v.number() }).index("by_subject", ["subject"]),
+
   codeObjectEvents: defineTable({
     subject: v.string(), roomId: v.optional(v.id("rooms")), runId: v.optional(v.id("codeRuns")),
     op: v.union(v.literal("put"), v.literal("delete"), v.literal("refused")),

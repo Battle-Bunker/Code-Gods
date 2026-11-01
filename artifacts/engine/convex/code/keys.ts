@@ -33,3 +33,14 @@ export function scopeRange(scope: string): [string, string] {
   return [prefix, `${prefix}￿`];
 }
 export const runResultKey = (runId: string) => `${RUNS_PREFIX}${runId}`;
+
+/**
+ * A run-result object's text, {"result":<the run's exact JSON>,"output":"..."}, split back into the two texts. An
+ * unescaped `,"output":` cannot occur inside the output's JSON string, so its last occurrence is where they were joined.
+ * A run from before the object store kept {"result": "<JSON text>", "output": "..."} instead (`legacy`).
+ */
+export function splitRunResult(text: string, legacy = false): { result: string; output: string } {
+  if (legacy) return JSON.parse(text) as { result: string; output: string };
+  const at = text.lastIndexOf(',"output":');
+  return { result: text.slice('{"result":'.length, at), output: JSON.parse(text.slice(at + ',"output":'.length, -1)) as string };
+}

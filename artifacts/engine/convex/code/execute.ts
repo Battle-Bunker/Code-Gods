@@ -7,7 +7,7 @@
  */
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
-import { RuntimeError, type ScriptResult } from "@workspace/game-runtime";
+import { RuntimeError, SCRIPT_LIMITS, type ScriptResult } from "@workspace/game-runtime";
 import type { DatasetRequest } from "@workspace/player-client/datasets";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -17,6 +17,7 @@ import { principalV, type Principal } from "../lib/rooms";
 import { bindRuntime, scriptRuntimeFor } from "../runtime/node";
 import { resolveDatasets } from "./datasets";
 import { CODE_LIMITS } from "./limits";
+import { splitRunResult } from "./keys";
 
 const language = v.union(v.literal("python"), v.literal("typescript"));
 export const runArgs = {
@@ -109,6 +110,9 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   }
   try { store = (await loadStore(ctx, principal, scopes)).text; }
   catch (error) { return failed({ code: "OBJECTS", message: `Loading the objects failed: ${messageOf(error)}`.slice(0, 500) }, 0); }
+  if (Buffer.byteLength(store) > SCRIPT_LIMITS.storeBytes) {
+    return failed({ code: "OBJECTS", message: `The objects loaded are ${(Buffer.byteLength(store) / 1048576).toFixed(2)} MiB of JSON; a run loads at most ${SCRIPT_LIMITS.storeBytes / 1048576} MiB: name fewer keys or a narrower prefix` }, 0);
+  }
   // Deterministic: the same script over the same data and objects draws the same random numbers.
   const seed = "0x" + createHash("sha256").update(lang).update("\0").update(source).update("\0").update(input).update("\0").update(store).digest("hex").slice(0, 16);
   let run: ScriptResult;
@@ -122,23 +126,36 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
     // a script that loops and then raises still pays for the loop. Its store writes are discarded.
     return failed({ code, message: messageOf(error).slice(0, 1000) }, Math.min(cpuMs, Math.round(performance.now() - scriptStarted)));
   }
-  // The run's store writes (UNTRUSTED guest output): the engine checks every key, size and the quota in commitAs.
+  // The run's store writes (UNTRUSTED guest output: the guest can tamper with its own store): parsed defensively here,
+  // and every key, size and the quota checked in commitAs. Blobs uploaded for a set that is not committed are deleted.
   let storeOutcome: RunOutcome["store"];
-  {
-    const writes = JSON.parse(run.writes) as { put?: Record<string, unknown>; delete?: unknown[] };
-    const putEntries = Object.entries(writes.put ?? {});
-    if (args.saveAs !== undefined) putEntries.push([`scripts/${args.saveAs}`, { language: lang, source, ...(title ? { title } : {}) }]);
-    const deletes = (writes.delete ?? []).map(String);
-    if (putEntries.length || deletes.length) {
-      const texts = putEntries.map(([key, value]) => [key, JSON.stringify(value)] as const);
-      // A write set commitAs will refuse anyway (too many keys, a value too large) is sent as sizes only: nothing is
-      // uploaded, and the refusal is still checked and recorded in one place.
-      const doomed = texts.length + deletes.length > CODE_LIMITS.writesPerRun || texts.some(([, t]) => Buffer.byteLength(t) > CODE_LIMITS.valueBytes);
-      const puts = doomed ? texts.map(([key, t]) => ({ key, valueJson: "null", bytes: Buffer.byteLength(t) }))
-        : await Promise.all(texts.map(([key, t]) => stored(ctx, key, t)));
-      const committed = await ctx.runMutation(internal.code.objects.commitAs, { principal, roomId, runId, puts, deletes });
-      storeOutcome = committed.ok ? { written: committed.written, deleted: committed.deleted } : { refused: committed.reason };
+  const uploaded: Id<"_storage">[] = [];
+  try {
+    let writes: { put: Map<string, unknown>; delete: string[] } | null = null;
+    try {
+      const raw = JSON.parse(run.writes) as { put?: unknown; delete?: unknown };
+      const put = raw.put && typeof raw.put === "object" && !Array.isArray(raw.put) ? raw.put as Record<string, unknown> : null;
+      if (put && Array.isArray(raw.delete) && raw.delete.every(k => typeof k === "string")) writes = { put: new Map(Object.entries(put)), delete: raw.delete as string[] };
+    } catch { /* malformed: refused below */ }
+    if (!writes) storeOutcome = { refused: "The script's store writes were malformed (did it replace the store's internals?); nothing was written" };
+    else {
+      // saveAs wins over a write of the same key by the script.
+      if (args.saveAs !== undefined) writes.put.set(`scripts/${args.saveAs}`, { language: lang, source, ...(title ? { title } : {}) });
+      if (writes.put.size || writes.delete.length) {
+        const texts = [...writes.put].map(([key, value]) => [key, JSON.stringify(value)] as const);
+        // A write set commitAs will refuse anyway (too many keys, a value too large) is sent as sizes only: nothing is
+        // uploaded, and the refusal is still checked and recorded in one place.
+        const doomed = texts.length + writes.delete.length > CODE_LIMITS.writesPerRun || texts.some(([, t]) => Buffer.byteLength(t) > CODE_LIMITS.valueBytes);
+        const puts = doomed ? texts.map(([key, t]) => ({ key, valueJson: "null", bytes: Buffer.byteLength(t) }))
+          : await Promise.all(texts.map(async ([key, t]) => { const p = await stored(ctx, key, t); if (p.storageId) uploaded.push(p.storageId); return p; }));
+        const committed = await ctx.runMutation(internal.code.objects.commitAs, { principal, roomId, runId, puts, deletes: writes.delete });
+        uploaded.length = 0;   // commitAs owns them now: kept when applied, deleted when refused
+        storeOutcome = committed.ok ? { written: committed.written, deleted: committed.deleted } : { refused: committed.reason };
+      }
     }
+  } catch (error) {
+    for (const id of uploaded) await ctx.storage.delete(id).catch(() => {});
+    return failed({ code: "OBJECTS", message: `Saving the script's store writes failed; nothing was written: ${messageOf(error)}`.slice(0, 500) }, run.cpuMs);
   }
   const wallMs = Math.round(performance.now() - started);
   const clipped = run.result.length > CODE_LIMITS.rowResultChars || run.output.length > CODE_LIMITS.rowOutputChars;
@@ -171,14 +188,17 @@ export const runAs = internalAction({
   handler: (ctx, { principal, ...args }): Promise<RunOutcome> => runCode(ctx, principal, args),
 });
 
-/** A run's whole result and output, from its object runs/<runId> (get_code_run past the row's prefix). */
+/**
+ * A run's whole result and output, from its object runs/<runId> (get_code_run past the row's prefix). The result is
+ * cut out of the stored text exactly as the run produced it, so offsets match the row's prefix. Runs from before the
+ * object store kept {result, output} as text in `fullId`.
+ */
 export const fullText = internalAction({
   args: { principal: principalV, roomId: v.string(), runId: v.string() },
   handler: async (ctx, args): Promise<{ result: string; output: string } | null> => {
-    const full: { valueJson: string | null; storageId: Id<"_storage"> | null } | null = await ctx.runQuery(internal.code.runs.fullOf, args);
+    const full: { valueJson: string | null; storageId: Id<"_storage"> | null; legacy: boolean } | null = await ctx.runQuery(internal.code.runs.fullOf, args);
     const text = full?.valueJson ?? (full?.storageId ? await (await ctx.storage.get(full.storageId))?.text() : undefined);
     if (!text) return null;
-    const value = JSON.parse(text) as { result: unknown; output: string };
-    return { result: JSON.stringify(value.result), output: value.output };
+    return splitRunResult(text, full!.legacy);
   },
 });

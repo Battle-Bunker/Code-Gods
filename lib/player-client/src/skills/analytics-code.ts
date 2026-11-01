@@ -30,7 +30,8 @@ TypeScript no fs or require). The only way to keep anything between runs is the 
 - Read: name the keys or prefixes in run_code's load (e.g. load: ["notes/*", "watchlist"]; not the objects dataset); the engine loads
   them before the run, and store.get(key, default) reads them. A key not named there raises StoreError.
 - Write: store.put(key, value) and store.delete(key); store.list(prefix) lists the loaded and written keys. Values
-  are JSON data (Python bytes / a TypeScript Uint8Array also work). Writes are committed after a successful run, all
+  are JSON data (Python bytes / a TypeScript Uint8Array also work; numbers are stored as 64-bit floats, so keep
+  integers past 2^53 as strings). Writes are committed after a successful run, all
   or nothing; the result's store field lists them, or says why the engine refused them.
 - Keys: 1-128 of letters, digits, _ - . / (like "notes/day-3"). The store is the player's alone; another player's keys
   can never be named. Keys under runs/ are past run results (runs/<runId> = {result, output}), read-only. Limits: 500

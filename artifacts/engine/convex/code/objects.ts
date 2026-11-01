@@ -11,18 +11,20 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { fail } from "../lib/errors";
 import { principalV, viewerOf } from "../lib/rooms";
-import { RUNS_PREFIX, runResultKey, scopeProblem, scopeRange, writeProblem } from "./keys";
+import { runResultKey, scopeProblem, scopeRange, writeProblem } from "./keys";
 import { CODE_LIMITS } from "./limits";
 
 type Ctx = QueryCtx | MutationCtx;
-const rowsOf = (ctx: Ctx, subject: string) => ctx.db.query("codeObjects").withIndex("by_subject_key", q => q.eq("subject", subject));
 async function rowOf(ctx: Ctx, subject: string, key: string) {
   return ctx.db.query("codeObjects").withIndex("by_subject_key", q => q.eq("subject", subject).eq("key", key)).unique();
 }
-/** The human's usage, run results excluded (they are pruned with their runs). */
+/** The human's usage, run results excluded (they are pruned with their runs): a counter row, never the values. */
+async function usageRow(ctx: Ctx, subject: string) {
+  return ctx.db.query("codeObjectUsage").withIndex("by_subject", q => q.eq("subject", subject)).unique();
+}
 async function usageOf(ctx: Ctx, subject: string) {
-  const rows = (await rowsOf(ctx, subject).collect()).filter(r => !r.key.startsWith(RUNS_PREFIX));
-  return { objects: rows.length, bytes: rows.reduce((n, r) => n + r.bytes, 0), rows };
+  const row = await usageRow(ctx, subject);
+  return { objects: row?.objects ?? 0, bytes: row?.bytes ?? 0 };
 }
 const quota = { objects: CODE_LIMITS.objectsPerUser, bytes: CODE_LIMITS.objectBytesPerUser, valueBytes: CODE_LIMITS.valueBytes, writesPerRun: CODE_LIMITS.writesPerRun };
 
@@ -71,11 +73,14 @@ export const commitAs = internalMutation({
       if (p.bytes > quota.valueBytes) return refuse(`${JSON.stringify(p.key)} is ${(p.bytes / 1048576).toFixed(2)} MiB; one value is at most ${quota.valueBytes / 1048576} MiB`);
       if (!!p.valueJson === !!p.storageId) return refuse(`${JSON.stringify(p.key)}: a value is inline or a blob`);
     }
+    // The usage after the writes, from the counter and only the rows the writes touch (deletes first, then puts).
     const usage = await usageOf(ctx, viewer.subject);
-    const current = new Map(usage.rows.map(r => [r.key, r]));
+    const touched = new Map<string, Doc<"codeObjects"> | null>();
+    for (const k of new Set([...deletes, ...puts.map(p => p.key)])) touched.set(k, await rowOf(ctx, viewer.subject, k));
+    const present = new Map([...touched].filter(([, r]) => r).map(([k, r]) => [k, r!.bytes]));
     let objects = usage.objects, bytes = usage.bytes;
-    for (const k of deletes) { const r = current.get(k); if (r) { objects--; bytes -= r.bytes; current.delete(k); } }
-    for (const p of puts) { const r = current.get(p.key); if (r) bytes -= r.bytes; else objects++; bytes += p.bytes; }
+    for (const k of deletes) { const b = present.get(k); if (b !== undefined) { objects--; bytes -= b; present.delete(k); } }
+    for (const p of puts) { const b = present.get(p.key); if (b !== undefined) bytes -= b; else objects++; bytes += p.bytes; present.set(p.key, p.bytes); }
     if (objects > quota.objects) return refuse(`Your object store would hold ${objects} objects; the limit is ${quota.objects}: delete some (store.delete) first`);
     if (bytes > quota.bytes) return refuse(`Your object store would hold ${(bytes / 1048576).toFixed(1)} MiB; the limit is ${quota.bytes / 1048576} MiB: delete some (store.delete) first`);
     for (const k of deletes) {
@@ -90,6 +95,9 @@ export const commitAs = internalMutation({
       else await ctx.db.insert("codeObjects", { subject: viewer.subject, key: p.key, ...fields });
       await ctx.db.insert("codeObjectEvents", { subject: viewer.subject, roomId, runId, op: "put", key: p.key, bytes: p.bytes, at: now });
     }
+    const counter = await usageRow(ctx, viewer.subject);
+    if (counter) await ctx.db.patch(counter._id, { objects, bytes });
+    else await ctx.db.insert("codeObjectUsage", { subject: viewer.subject, objects, bytes });
     return { ok: true as const, written: puts.map(p => p.key), deleted: deletes };
   },
 });

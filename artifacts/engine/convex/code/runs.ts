@@ -80,12 +80,15 @@ async function getImpl(ctx: QueryCtx, viewer: Viewer, { roomId, runId }: { roomI
     resultJson: row.resultJson ?? null, output: row.output ?? null,
     /** The whole {result, output} JSON (the object runs/<runId>) when the row holds only a prefix: fetch it (the URL is the human's own). */
     fullUrl: row.clipped ? await fullUrlOf(ctx, row) : null,
+    /** The URL's text is a run from before the object store: {"result": "<JSON text>", "output"} (keys.ts splitRunResult). */
+    fullLegacy: row.clipped && !(await runResultOf(ctx, row.subject, row._id)) && !!row.fullId,
   };
 }
 export type RunDetail = NonNullable<Awaited<ReturnType<typeof getImpl>>>;
 async function fullUrlOf(ctx: QueryCtx, row: Doc<"codeRuns">) {
   const full = await runResultOf(ctx, row.subject, row._id);
-  return full?.storageId ? await ctx.storage.getUrl(full.storageId) : null;
+  const id = full?.storageId ?? row.fullId;   // fullId: a run from before the object store ({result: text, output})
+  return id ? await ctx.storage.getUrl(id) : null;
 }
 
 /** The caller's recent code runs in this room (newest first) and this game's budget. */
@@ -98,12 +101,15 @@ export const getAs = internalQuery({ args: { principal: principalV, ...getArgs }
 /** A run's whole result object, runs/<runId> (the registry pages through it): inline JSON or a storage id. */
 export const fullOf = internalQuery({
   args: { principal: principalV, roomId: v.string(), runId: v.string() },
-  handler: async (ctx, { principal, roomId, runId }): Promise<{ valueJson: string | null; storageId: Id<"_storage"> | null } | null> => {
+  handler: async (ctx, { principal, roomId, runId }): Promise<{ valueJson: string | null; storageId: Id<"_storage"> | null; legacy: boolean } | null> => {
     const viewer = await viewerOf(ctx, principal);
     const room = await memberRoom(ctx, viewer, roomId);
     const id = ctx.db.normalizeId("codeRuns", runId);
     const row = id ? await ctx.db.get(id) : null;
-    return row && row.subject === viewer.subject && row.roomId === room._id ? await runResultOf(ctx, viewer.subject, row._id) : null;
+    if (!row || row.subject !== viewer.subject || row.roomId !== room._id) return null;
+    const full = await runResultOf(ctx, viewer.subject, row._id);
+    if (full) return { ...full, legacy: false };
+    return row.fullId ? { valueJson: null, storageId: row.fullId, legacy: true } : null;
   },
 });
 

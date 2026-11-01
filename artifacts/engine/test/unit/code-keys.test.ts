@@ -26,3 +26,12 @@ test("scopes: an exact key or a prefix with *; the range covers exactly the pref
   const [a, b] = scopeRange("k");
   assert.ok("k" >= a && "k" < b && !("k2" < b));
 });
+
+test("a run-result object splits back into the run's exact result text and its output", async () => {
+  const { splitRunResult } = await import("../../convex/code/keys.ts");
+  const result = '{"a":[1,18446744073709551616],"s":"caf\\u00e9","output":"x","n":{"output":1}}';
+  const output = 'line,"output":"\n"tricky"';
+  const text = `{"result":${result},"output":${JSON.stringify(output)}}`;
+  assert.deepEqual(splitRunResult(text), { result, output });
+  assert.deepEqual(splitRunResult(JSON.stringify({ result, output }), true), { result, output });
+});
