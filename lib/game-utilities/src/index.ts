@@ -7,6 +7,7 @@ export {
   SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,
   type UtilitySelector, type SelectOptions, type SynergyMatrix,
 } from "./selectors.ts";
+export { cardProgram } from "./families/card.ts";
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
 export { INT_FAMILIES } from "./families/int.ts";
 export { STRING_FAMILIES } from "./families/string.ts";
