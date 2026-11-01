@@ -100,6 +100,18 @@ export async function rejects(promise: Promise<unknown>): Promise<string> {
 
 export const raw = (gameId: string) => admin.query(internal.testing.rawGame, { gameId });
 
+/**
+ * Start the room's game and return its id. A start whose random deal draws a table this deployment has not
+ * computed yet returns `{ status: "preparing" }` with no gameId (convex/owner.ts startGame); the game then
+ * begins by itself once the tables land, so wait for it.
+ */
+export async function startGame(owner: God, roomId: string, ms = 120_000): Promise<{ gameId: string }> {
+  const started = await owner.c.action(api.owner.start, { roomId });
+  if (started.status !== "preparing") return { gameId: started.gameId };
+  const game = await waitFor(async () => (await owner.c.query(api.rooms.get, { room: roomId })).activeGame, `the prepared game in ${roomId} starts`, ms, 500);
+  return { gameId: game.id };
+}
+
 export const TS = {
   Int: "function agent(x) { return [add(1)]; }",
   string: "function agent(s) { return [rotate(1)]; }",

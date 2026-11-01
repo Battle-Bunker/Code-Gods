@@ -91,6 +91,11 @@ export function checkPrices(model: string, prices: Prices) {
 const readPrice = (p: Prices) => p.cacheReadUsdPerMillion ?? p.inputUsdPerMillion;
 const writePrice = (p: Prices) => p.cacheWriteUsdPerMillion ?? p.inputUsdPerMillion;
 const dearestInput = (p: Prices) => Math.max(p.inputUsdPerMillion, writePrice(p));
+/**
+ * `tokens` at `price`, counted in input-price tokens and rounded up. The quotient is rounded to 1e-6 first, so
+ * floating-point noise (70 * 0.001 / 0.01 = 7.000000000000001) never adds a whole token.
+ */
+const inputEquivalent = (p: Prices, tokens: number, price: number) => Math.ceil(Math.round(tokens * price / p.inputUsdPerMillion * 1e6) / 1e6);
 
 /**
  * What one call costs: USD at the provider's prices, and the allowance tokens it uses. Allowance tokens are
@@ -101,12 +106,11 @@ export function usageCost(prices: Prices, u: ChatUsage): { usd: number; tokens: 
   const uncached = Math.max(0, u.inputTokens - u.cacheReadTokens - u.cacheWriteTokens);
   const usd = (uncached * prices.inputUsdPerMillion + u.cacheReadTokens * readPrice(prices) + u.cacheWriteTokens * writePrice(prices) +
     u.outputTokens * prices.outputUsdPerMillion) / 1_000_000;
-  const relative = (tokens: number, price: number) => Math.ceil(tokens * price / prices.inputUsdPerMillion);
-  return { usd, tokens: uncached + relative(u.cacheReadTokens, readPrice(prices)) + relative(u.cacheWriteTokens, writePrice(prices)) + u.outputTokens };
+  return { usd, tokens: uncached + inputEquivalent(prices, u.cacheReadTokens, readPrice(prices)) + inputEquivalent(prices, u.cacheWriteTokens, writePrice(prices)) + u.outputTokens };
 }
 /** The worst case of a call (every input token written to the cache, if that is dearer; the whole output ceiling). */
 export function worstCaseCost(prices: Prices, inputTokens: number, outputTokens: number): { usd: number; tokens: number } {
-  return { usd: (inputTokens * dearestInput(prices) + outputTokens * prices.outputUsdPerMillion) / 1_000_000, tokens: Math.ceil(inputTokens * dearestInput(prices) / prices.inputUsdPerMillion) + outputTokens };
+  return { usd: (inputTokens * dearestInput(prices) + outputTokens * prices.outputUsdPerMillion) / 1_000_000, tokens: inputEquivalent(prices, inputTokens, dearestInput(prices)) + outputTokens };
 }
 
 /** The assistant's tool loader (run by the engine, not a registry tool): its results load index tools' definitions. */
