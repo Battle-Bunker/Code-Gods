@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LIMITS, UNANSWERED_NOTES, buildHistory, historyStart, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
+import { LIMITS, QUEUED_NOTE, UNANSWERED_NOTES, buildHistory, historyStart, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
 
 const think = (signature: string) => ({ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature } });
 const user = (id: string, turnId: string, text: string): HistoryRow => ({ id, turnId, role: "user", text });
@@ -120,4 +120,39 @@ test("the history window's start moves only when the earlier turns outgrow the l
   assert.ok(historyStart(turns(11), moved, limits) > moved, "until the kept turns outgrow the limit again");
   assert.equal(historyStart(turns(7, 10, 3), 0, limits), turns(7)[4].seq, "the message limit moves it the same way (21 messages)");
   assert.equal(historyStart([{ seq: 1, chars: 5000, messages: 2 }], 0, limits), Infinity, "a single oversized earlier turn leaves no earlier history");
+});
+
+test("a message queued during a turn joins it after the step's tool results (one user message: results, then a note and the texts, in order), append-only", () => {
+  const rows = [
+    user("u1", "A", "summon something"),
+    step("m1", "A", [think("a1"), { type: "tool_use", id: "toolu_1", name: "get_observation", input: {} }, { type: "tool_use", id: "toolu_2", name: "whoami", input: {} }]),
+  ];
+  const calls = [call("m1", "toolu_1", "get_observation", {}, '{"o":1}'), call("m1", "toolu_2", "whoami", {}, '{"w":1}', 1)];
+  const before = buildHistory(rows, calls, { turnId: "A", briefings: { A: "<briefing/>" } });
+  rows.push(user("q1", "A", "actually, use add(2)"), user("q2", "A", "and keep it cheap"));
+  const after = buildHistory(rows, calls, { turnId: "A", briefings: { A: "<briefing/>" } });
+  assert.deepEqual(after.at(-1), { role: "user", content: [
+    { type: "tool_result", toolUseId: "toolu_1", content: '{"o":1}' },
+    { type: "tool_result", toolUseId: "toolu_2", content: '{"w":1}' },
+    { type: "text", text: QUEUED_NOTE },
+    { type: "text", text: "actually, use add(2)" },
+    { type: "text", text: "and keep it cheap" },
+  ] }, "the tool results first (the API requires it), then the queued texts in the order sent");
+  assert.equal(after.length, before.length, "no new message: the texts join the results' user message");
+  assert.deepEqual(after.slice(0, -1), before.slice(0, -1), "everything before is unchanged");
+  // The next step's history extends this one exactly (the step after the delivery sees the same blocks).
+  rows.push(step("m2", "A", [think("a2"), { type: "text", text: "Switching to add(2)." }]));
+  const later = buildHistory(rows, calls, { turnId: "A", briefings: { A: "<briefing/>" } });
+  assert.deepEqual(later.slice(0, after.length), after);
+  // As an earlier turn, it replays identically.
+  rows.push(user("u3", "B", "thanks"));
+  assert.deepEqual(buildHistory(rows, calls, { turnId: "B", endings: { A: "done" }, briefings: { A: "<briefing/>" } }).slice(0, later.length), later);
+});
+
+test("several queued messages that start a turn are its prompt, in order, after the briefing, without the mid-turn note", () => {
+  const rows = [user("q1", "A", "first"), user("q2", "A", "second")];
+  assert.deepEqual(buildHistory(rows, [], { turnId: "A", briefings: { A: "<briefing/>" } }), [
+    { role: "user", content: [{ type: "text", text: "<briefing/>" }, { type: "text", text: "first" }, { type: "text", text: "second" }] },
+  ]);
+  assert.deepEqual(buildHistory(rows, [], { turnId: "A" }), [{ role: "user", content: [{ type: "text", text: "first" }, { type: "text", text: "second" }] }]);
 });

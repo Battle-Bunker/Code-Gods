@@ -44,6 +44,8 @@ export const LIMITS = {
    * is going round in circles), so it answers the player instead of calling again.
    */
   repeatStop: 2,
+  /** Messages a player may have queued at once (each ≤ userTextChars). */
+  queued: 5,
 } as const;
 
 export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
@@ -346,6 +348,9 @@ export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
   cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",
 };
 
+/** The note in front of messages the player queued while the turn worked, delivered after a step's tool results. */
+export const QUEUED_NOTE = "Engine note (not from the player): the player sent the message(s) below while you were working; they arrive after the tool results above. Read them before you continue, and change course if they ask you to.";
+
 /**
  * The thread as model messages. Rules (Claude 5 thinking blocks are valid only while everything before them is
  * byte-identical, and the provider's prompt cache is a prefix match, so the history is append-only, across turns too):
@@ -354,7 +359,9 @@ export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
  *     earlier ones from the prompt cache instead of rewriting them);
  *   - earlier turns are cut whole, oldest first, by their own size only, so the cut never moves during a turn;
  *   - every tool use gets a result (an error when its call never finished);
- *   - an earlier turn that ended without its answer (allowance, failure, cancellation) closes with UNANSWERED_NOTES.
+ *   - an earlier turn that ended without its answer (allowance, failure, cancellation) closes with UNANSWERED_NOTES;
+ *   - a later user row of the same turn (a queued message, delivered at a step boundary) joins the user message of
+ *     the step's tool results, after them and QUEUED_NOTE, so the next step sees it in the same turn.
  * Rows from before stored blocks existed are rebuilt from their text and calls.
  */
 type HistoryContext = { turnId: string; briefings?: Record<string, string | null | undefined>; endings?: Record<string, TurnEnding> };
@@ -376,6 +383,20 @@ function historyGroups(rows: HistoryRow[], calls: HistoryCall[], current: Histor
   const groups: { turnId: string; messages: ChatMessage[] }[] = [];
   for (const m of rows) {
     if (m.role === "user") {
+      const open = groups.at(-1);
+      if (open && open.turnId === m.turnId) {
+        // A message the player queued while this turn worked, delivered at a step boundary: it joins the user
+        // message that carries the step's tool results (after them; the API requires results first), or follows the
+        // turn's prompt when it was delivered with it.
+        const last = open.messages.at(-1)!;
+        const text = { type: "text" as const, text: m.text };
+        if (last.role === "user") {
+          const blocks = typeof last.content === "string" ? [{ type: "text" as const, text: last.content }] : last.content;
+          const afterResults = blocks.at(-1)?.type === "tool_result";
+          last.content = [...blocks, ...(afterResults ? [{ type: "text" as const, text: QUEUED_NOTE }] : []), text];
+        } else open.messages.push({ role: "user", content: [{ type: "text", text: QUEUED_NOTE }, text] });
+        continue;
+      }
       const briefing = current.briefings?.[m.turnId];
       const content = briefing ? [{ type: "text" as const, text: briefing }, { type: "text" as const, text: m.text }] : m.text;
       groups.push({ turnId: m.turnId, messages: [{ role: "user", content }] });

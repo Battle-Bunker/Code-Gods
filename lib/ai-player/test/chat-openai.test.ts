@@ -169,3 +169,23 @@ test("provider failures become a player-facing reason; an HTTP rejection is know
   assert.equal(cut.unbilled, false);
   assert.equal(cut.message, "The model call failed: Incomplete model answer (stop: length)");
 });
+
+test("queued player text after a step's tool results: every tool message right after the assistant's tool_calls, then one user message with the texts in order", async () => {
+  let body: any;
+  await provider(async (_u, init) => { body = JSON.parse(String(init!.body)); return stream([chunk({ content: "ok" }), chunk({}, "stop"), usage(1, 1)]); }).stream(request({ messages: [
+    { role: "user", content: "Go" },
+    { role: "assistant", content: [{ type: "tool_use", id: "call_a", name: "get_observation", input: {} }, { type: "tool_use", id: "call_b", name: "get_observation", input: {} }] },
+    { role: "user", content: [
+      { type: "tool_result", toolUseId: "call_a", content: "{}" }, { type: "tool_result", toolUseId: "call_b", content: "{}" },
+      { type: "text", text: "Engine note" }, { type: "text", text: "use add(2)" }, { type: "text", text: "keep it cheap" },
+    ] },
+  ] }));
+  assert.deepEqual(body.messages.slice(2), [
+    { role: "assistant", content: null, tool_calls: [
+      { id: "call_a", type: "function", function: { name: "get_observation", arguments: "{}" } },
+      { id: "call_b", type: "function", function: { name: "get_observation", arguments: "{}" } }] },
+    { role: "tool", tool_call_id: "call_a", content: "{}" },
+    { role: "tool", tool_call_id: "call_b", content: "{}" },
+    { role: "user", content: [{ type: "text", text: "Engine note" }, { type: "text", text: "use add(2)" }, { type: "text", text: "keep it cheap" }] },
+  ]);
+});

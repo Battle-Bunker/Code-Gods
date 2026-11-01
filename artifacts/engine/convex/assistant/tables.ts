@@ -99,6 +99,25 @@ export const assistantTables = {
     reservedUsd: v.optional(v.number()),
   }).index("by_key", ["roomId", "subject", "epoch"]),
 
+  /**
+   * Messages the player sent while their assistant was working (docs/surface-architecture.md §6 "Queued messages"), per
+   * (room, human, game epoch) like the threads. `queued` until delivered at the turn's next step boundary (after a
+   * step's tool results, assistant/store.ts deliverQueued) or as the start of the next turn, then `delivered` with
+   * the message it became; `removed` by the player. `held`: kept through a Stop, sent only when the player sends again.
+   * `clientId` makes a retried send the same message (the commandId pattern). Its text is private like a message's.
+   */
+  assistantQueue: defineTable({
+    roomId: v.id("rooms"), subject: v.string(), epoch: v.string(), threadId: v.id("assistantThreads"),
+    clientId: v.optional(v.string()), text: v.string(),
+    status: v.union(v.literal("queued"), v.literal("delivered"), v.literal("removed")),
+    held: v.optional(v.boolean()),
+    turnId: v.optional(v.id("assistantTurns")), messageId: v.optional(v.id("assistantMessages")),
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_key_status", ["roomId", "subject", "epoch", "status", "createdAt"])
+    .index("by_thread_status", ["threadId", "status", "createdAt"])
+    .index("by_room_status", ["roomId", "status"])
+    .index("by_client", ["subject", "clientId"]),
+
   /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). A choice of
    * the player's, like their layout, not the assistant's working state, so it is kept across the room's games. */
   assistantPrefs: defineTable({ roomId: v.id("rooms"), subject: v.string(), autoApproveSummonBits: v.number() })

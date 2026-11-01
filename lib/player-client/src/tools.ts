@@ -374,7 +374,7 @@ export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TO
  * Tools the in-client assistant reaches only through their skill (load_skill loads a skill's tools): kept out of its
  * always-on index to hold the system prompt's budget. Every other surface (MCP, the CLI) lists them like any tool.
  */
-export const SKILL_LOADED_TOOLS: readonly string[] = [...INFERENCE_TOOLS.map(t => t.name), "get_replay"];
+export const SKILL_LOADED_TOOLS: readonly string[] = INFERENCE_TOOLS.map(t => t.name);
 /**
  * The tools an assistant keeps loaded at every step (the cached prefix): the reads and screen changes nearly every
  * question uses, public chat, and the skill loader. Every other tool is a line of the index, loaded on demand.

@@ -247,7 +247,10 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `aiTemplates.update` | mutation | admin | Edit an AI player template | Changes a template's name, model or prompt; send its current revision. | — |
 | `aiTemplates.remove` | mutation | admin | Delete an AI player template | Removes a template from the library; seated copies keep playing. | — |
 | `assistant.send` | mutation | player | Ask the assistant | Sends your message; the assistant answers and acts as you with the rights you chose. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
-| `assistant.cancel` | mutation | player | Stop the assistant | Stops the current answer; a card waiting for you is cancelled at once. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.editQueued` | mutation | player | Edit a queued message | Changes a message waiting for your assistant before it reads it. | — (Edited on the queued message in the assistant pane.) |
+| `assistant.removeQueued` | mutation | player | Remove a queued message | Takes back a message your assistant has not read yet. | — (Removed on the queued message in the assistant pane.) |
+| `assistant.sendQueued` | mutation | player | Send held messages | Sends the messages you queued before you stopped the assistant. | — (Sent from the held messages in the assistant pane.) |
+| `assistant.cancel` | mutation | player | Stop the assistant | Stops the current answer and cancels a waiting card; messages you queued stay held until you send. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.confirm` | mutation | player | Decide a confirmation | Approves or denies an action the assistant asked permission for. | — (Decided on the confirmation card in the assistant pane, never elsewhere.) |
 | `assistant.setPrefs` | mutation | player | Set assistant preferences | Lets summons the assistant validated run without a card up to this many bits (0 asks every time). | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.status` | query | player | Show assistant status | Whether the assistant is on, its allowance, model, credential and active turn. | — (A live subscription a page renders; there is nothing to run.) |
@@ -314,13 +317,23 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 The assistant drawer of the player client (`docs/surface-architecture.md` §6). Callers: browser sessions and player
 credentials of a room member. Threads, messages and tool calls are visible to their human only (another human gets
 NOT_FOUND).
-- `assistant.send({roomId, text ≤ 4000, threadId?, permission?: read|act|owner, ownerConsent?})` mutation → `{threadId, turnId}`.
+- `assistant.send({roomId, text ≤ 4000, threadId?, permission?: read|act|owner, ownerConsent?, clientId? ≤ 64})` mutation →
+  `{threadId, turnId|null, queueId, queued}`.
   The first send creates (or reuses) the caller's `kind: "assistant"` credential for the room (default `act`; never
   above the caller's own; `owner` only for the current owner with `ownerConsent: true`); a different `permission`
-  replaces it. FORBIDDEN when the owner has not enabled the assistant (allowance 0); CONFLICT while the caller's
-  previous turn in the room is still active.
+  replaces it. FORBIDDEN when the owner has not enabled the assistant (allowance 0). While the caller's turn in this
+  game is active the message is **queued** (`queued: true`, `turnId: null`): it joins that turn after its current
+  step's tool results, or starts the next turn when it ends with none; a card waiting for the player is declined by it
+  (never approved). A turn that fails or runs out of allowance holds its queued messages. At most 5 queued (BAD_REQUEST
+  beyond); CONFLICT for another conversation than the busy one, or a `permission` other than the busy turn's. The
+  same `clientId` again returns the same message (even after an edit). Messages a Stop held go first in the
+  next send's turn (`docs/surface-architecture.md` §6 "Queued messages").
+- `assistant.editQueued({queueId, text ≤ 4000})` / `assistant.removeQueued({queueId})` mutations → `{status}`: change or
+  take back a queued message; a delivered one changes nothing (`{status: "delivered"}`).
+- `assistant.sendQueued({roomId, threadId?})` mutation → `{threadId, turnId}`: start a turn with the held messages of
+  that conversation (else the oldest one's); CONFLICT while a turn is active, NOT_FOUND with none.
 - `assistant.cancel({turnId})` mutation → `{status}`: `cancelling` (the running step stops at its next flush or between
-  tool calls) or `cancelled`.
+  tool calls) or `cancelled`. Messages queued so far stay queued, `held`, until the next send or `sendQueued`.
 - `assistant.confirm({toolCallId, decision: approve|deny})` mutation → `{status}`: decides a call waiting for
   confirmation (summons unless auto-approved, public chat, pauses, panel deletion, owner tools). A decision on a call
   that no longer waits changes nothing. Unanswered cards are denied after 2 minutes.
@@ -328,7 +341,7 @@ NOT_FOUND).
   the same turn, run without a card (0 = always ask).
 - `assistant.status({roomId})` query → `{enabled, allowance{limit, used, epoch}, model{id, label, provider}|null,
   credential{credentialId, permission, expiresAt}|null, activeTurn{turnId, threadId, status}|null, isOwner, maxPermission,
-  autoApproveSummonBits}`. `allowance.used` counts billed tokens: input-price equivalents, so a prompt-cache read counts
+  autoApproveSummonBits, queued[{_id, threadId, text, held, createdAt}]}` (queued: the caller's waiting messages in this game, oldest first). `allowance.used` counts billed tokens: input-price equivalents, so a prompt-cache read counts
   its price relative to input (0.1 at Anthropic, 0.25 at OpenAI), an Anthropic cache write 1.25, uncached input and
   output 1 (`lib/ai-player` `usageCost`). A step reserves its worst case (estimated input at its dearest price plus the
   output ceiling) and settles to what it cost; a cancelled step is billed from what was known (its reported input and
