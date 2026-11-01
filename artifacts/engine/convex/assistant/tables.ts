@@ -3,7 +3,8 @@ import { v } from "convex/values";
 
 /**
  * The in-client assistant (owned by convex/assistant; docs/surface-architecture.md §6). A thread is one human's
- * conversation in one room; a turn is one answer to one user message, run as a chain of scheduled model steps; each
+ * conversation in one room during one game (its `epoch`, the same key as the allowance's): a new game starts with no
+ * thread, and an earlier game's threads stay readable by their human for that game only (assistant.threads gameId). A turn is one answer to one user message, run as a chain of scheduled model steps; each
  * step writes one assistant message (its streamed text) and the tool calls the model asked for. Allowances are the
  * assistant pool per (room, human, epoch); the epoch is the room's current game id, or "lobby" before the first game.
  * One more row per (room, epoch), with subject "", counts the room's assistant USD and call rate.
@@ -28,7 +29,11 @@ export const assistantTables = {
   assistantThreads: defineTable({
     roomId: v.id("rooms"), subject: v.string(), title: v.string(), createdAt: v.number(), updatedAt: v.number(),
     activeTurnId: v.optional(v.id("assistantTurns")),
-  }).index("by_room_subject", ["roomId", "subject", "updatedAt"]),
+    /** The game the conversation belongs to: the room's current game id when it started, or "lobby" before the room's
+     * first game (ai/seats.ts assistantEpoch). Absent only on rows from before games scoped threads, until the
+     * assistant-per-game migration (convex/migrations.ts) gives them theirs; no scoped read returns such a row. */
+    epoch: v.optional(v.string()),
+  }).index("by_room_subject_epoch", ["roomId", "subject", "epoch", "updatedAt"]),
 
   assistantTurns: defineTable({
     threadId: v.id("assistantThreads"), roomId: v.id("rooms"), subject: v.string(), gameId: v.optional(v.string()),
@@ -50,7 +55,8 @@ export const assistantTables = {
     /** The output ceiling of the turn's later steps, raised after a step was cut (rules.ts outputCeiling). */
     outputCeiling: v.optional(v.number()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
-  }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"]),
+  }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"])
+    .index("by_room_status", ["roomId", "status"]),
 
   assistantMessages: defineTable({
     threadId: v.id("assistantThreads"), turnId: v.id("assistantTurns"), seq: v.number(),
@@ -93,7 +99,8 @@ export const assistantTables = {
     reservedUsd: v.optional(v.number()),
   }).index("by_key", ["roomId", "subject", "epoch"]),
 
-  /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). */
+  /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). A choice of
+   * the player's, like their layout, not the assistant's working state, so it is kept across the room's games. */
   assistantPrefs: defineTable({ roomId: v.id("rooms"), subject: v.string(), autoApproveSummonBits: v.number() })
     .index("by_key", ["roomId", "subject"]),
 };

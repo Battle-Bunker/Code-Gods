@@ -145,7 +145,8 @@ A model served by Convex that answers one human in the player client's **Assista
 through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.
 
 **Data** (`convex/assistant/tables.ts`):
-- `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
+- `assistantThreads {roomId, subject, title, epoch, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a
+  room during one game (`epoch`: the room's current game id when it started, or `lobby`; the allowance's key).
 - `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
   status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
 - `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?,
@@ -213,6 +214,13 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
 - Logs record ids, tools, outcomes and usage, never message text or tool arguments.
 - Threads, messages and tool calls are readable only by their human (`assistant.thread(s)` check `subject`, and a
   player credential reaches its own room only); stored tool results are the human's own projections.
+- **Per (player, game).** Everything the assistant works from is keyed by human and game: threads (with their turns,
+  briefings, history window, messages, tool calls and cards), the allowance, code runs and the stored objects other
+  than saved scripts (`docs/assistant/code-execution.md` §5). Starting a game ends the room's active turns (a waiting
+  card is denied), `assistant.threads` lists only the current game's, and `assistant.send` refuses an earlier game's
+  thread (CONFLICT), so a new game begins with an empty context. An earlier game's threads stay readable by their human
+  (`assistant.threads {gameId}`, `assistant.thread`); the assistant's own tools never reach that game's runs or
+  objects. The player's choices stay: the summon auto-approve preference, the assistant credential, panels and layout.
 
 **UI** (`artifacts/player-web/src/core/assistant/`): a core drawer behind the header's "Assistant" toggle, in hosted and
 dev-server modes: streaming messages, tool chips (expandable to the exact arguments and the outcome), confirmation cards

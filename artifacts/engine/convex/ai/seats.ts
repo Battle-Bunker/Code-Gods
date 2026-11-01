@@ -111,7 +111,9 @@ export const reserve = internalMutation({
 });
 
 /** The assistant allowance's epoch: the room's current game (active, or the latest until the next launch), else "lobby". */
-export const assistantEpoch = (room: Doc<"rooms">) => room.currentGameId ? String(room.currentGameId) : "lobby";
+export const assistantEpoch = (room: Doc<"rooms">) => room.currentGameId ? String(room.currentGameId) : ASSISTANT_LOBBY;
+/** The assistant epoch before a room's first game. */
+export const ASSISTANT_LOBBY = "lobby";
 /**
  * The room-wide assistant counters (USD reserved this epoch, calls in the last minute) live in the allowance row of
  * this subject, which no human has, so the hot `rooms` document is not rewritten on every model step.

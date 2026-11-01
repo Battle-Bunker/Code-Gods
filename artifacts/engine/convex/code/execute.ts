@@ -58,8 +58,8 @@ async function stored(ctx: ActionCtx, key: string, valueJson: string) {
 }
 
 /** The loaded objects as the runtime's store text {scope, objects}, fetching blobs from storage. */
-async function loadStore(ctx: ActionCtx, principal: Principal, scopes: string[]): Promise<{ text: string; values: Map<string, unknown> }> {
-  const rows: { key: string; valueJson: string | null; storageId: Id<"_storage"> | null }[] = scopes.length ? await ctx.runQuery(internal.code.objects.loadAs, { principal, scopes }) : [];
+async function loadStore(ctx: ActionCtx, principal: Principal, roomId: string, scopes: string[], epoch?: string): Promise<{ text: string; values: Map<string, unknown> }> {
+  const rows: { key: string; valueJson: string | null; storageId: Id<"_storage"> | null }[] = scopes.length ? await ctx.runQuery(internal.code.objects.loadAs, { principal, roomId, scopes, ...(epoch ? { epoch } : {}) }) : [];
   const values = new Map<string, unknown>();
   for (const r of rows) {
     const text = r.valueJson ?? (r.storageId ? await (await ctx.storage.get(r.storageId))?.text() : undefined);
@@ -75,7 +75,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   let source = args.source, lang = args.language, title = args.title;
   if (args.script !== undefined) {
     if (source !== undefined) return fail("BAD_REQUEST", "Give source or script, not both");
-    const { values } = await loadStore(ctx, principal, [args.script]);
+    const { values } = await loadStore(ctx, principal, args.roomId, [args.script]);
     const saved = values.get(args.script) as { language?: string; source?: string; title?: string } | undefined;
     if (!saved || typeof saved.source !== "string" || (saved.language !== "python" && saved.language !== "typescript")) {
       return fail("NOT_FOUND", `No saved script ${JSON.stringify(args.script)} (save one with run_code saveAs)`);
@@ -84,7 +84,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   }
   if (source === undefined || lang === undefined) return fail("BAD_REQUEST", "run_code needs a language and a source, or a saved script");
   const scopes = args.load ?? [];
-  const { runId, cpuMs, roomId } = await ctx.runMutation(internal.code.runs.start, {
+  const { runId, cpuMs, roomId, epoch } = await ctx.runMutation(internal.code.runs.start, {
     principal, roomId: args.roomId, language: lang, source, ...(title ? { title } : {}),
     datasetsJson: args.datasetsJson, ...(args.paramsJson ? { paramsJson: args.paramsJson } : {}), objectsJson: JSON.stringify(scopes),
     cpuMs: args.cpuMs ?? CODE_LIMITS.cpuMsDefault,
@@ -108,7 +108,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   if (inputBytes > CODE_LIMITS.inputBytes) {
     return failed({ code: "DATASETS", message: `The datasets are ${(inputBytes / 1048576).toFixed(1)} MiB of JSON; the limit is ${CODE_LIMITS.inputBytes / 1048576} MiB: ask for fewer datasets or a smaller limit` }, 0);
   }
-  try { store = (await loadStore(ctx, principal, scopes)).text; }
+  try { store = (await loadStore(ctx, principal, args.roomId, scopes, epoch)).text; }
   catch (error) { return failed({ code: "OBJECTS", message: `Loading the objects failed: ${messageOf(error)}`.slice(0, 500) }, 0); }
   if (Buffer.byteLength(store) > SCRIPT_LIMITS.storeBytes) {
     return failed({ code: "OBJECTS", message: `The objects loaded are ${(Buffer.byteLength(store) / 1048576).toFixed(2)} MiB of JSON; a run loads at most ${SCRIPT_LIMITS.storeBytes / 1048576} MiB: name fewer keys or a narrower prefix` }, 0);
