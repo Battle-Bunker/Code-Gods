@@ -5,7 +5,7 @@ import {
   FAMILIES, GRID_LENSES, assertOrdinal, available, availableFamilies, canonicalSupport, card, compareOrdinals, context, divineLottery,
   evaluator, fairAligned, family, familiesFor, paramsKey, publicCatalog, readDescriptor, selector, type UtilityFamily,
 } from "../src/index.ts";
-import { shippedFile, shippedInstanceKeys, shippedManifest } from "../src/calibration-data.ts";
+import { packTetrominoes } from "../src/families/grid/geometry.ts";
 import type { Ordinal } from "../src/types.ts";
 import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
 
@@ -105,30 +105,33 @@ test("exemplars are legal and reach the top of every sampled ordinal", () => {
 
 // A greedy first-fit packing is not a maximum (on 4×4 it puts a Z in the corner and has no room for a second S), and a
 // random board then out-scores the "best" one. Only which cells are MY_COLOUR matters, so on small boards every
-// two-colour board can be scored with the real card; on the shipped shapes the exemplar must reach every level the
-// estimator's splitting found.
-test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 4×4, at least every calibrated level)", () => {
+// two-colour board can be scored with the real card, one per class of the 8 turns and flips (the rule is invariant
+// under them). On larger boards the search's memo key (the next 4N cells) must give the value of keying on the whole
+// remaining board. (calibration.test.ts checks the exemplar against every calibrated level.)
+test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 4×4, memo window exact on 5×5 to 7×7)", () => {
   const f = family("tetromino_tamer");
   for (const size of [3, 4]) {
+    const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst), n = size - 1;
+    const cells = Array.from({ length: size * size }, (_, i) => i);
+    const perms = [(r: number, c: number) => [c, n - r], (r: number, c: number) => [n - r, n - c], (r: number, c: number) => [n - c, r],
+      (r: number, c: number) => [r, n - c], (r: number, c: number) => [n - r, c], (r: number, c: number) => [c, r],
+      (r: number, c: number) => [n - c, n - r]].map(g => cells.map(i => { const [r, c] = g(Math.floor(i / size), i % size); return r * size + c; }));
+    const smallest = (m: number) => perms.every(p => cells.reduce((t, i) => t | (((m >> i) & 1) << p[i]), 0) >= m);
+    const boards = Array.from({ length: 2 ** (size * size) }, (_, m) => m).filter(smallest)
+      .map(m => cells.map(i => (i === 0 ? "" : i % size === 0 ? "/" : ",") + ((m >> i) & 1 ? "0R" : "0G")).join(""));
+    const pieces = f.support(ctx).filter(p => p.C === 0)
+      .map(p => ({ p, u: evaluator({ familyId: f.id, params: p }, inst), best: [0, 0] as Ordinal }));
+    for (const w of boards) for (const x of pieces) {
+      const v = x.u(w);
+      if (compareOrdinals(v, x.best) > 0) x.best = v;
+    }
+    for (const { p, u, best } of pieces) assert.deepEqual(u(f.exemplar!(p, ctx)), best, `${size}×${size} ${paramsKey(p)}`);
+  }
+  for (const size of [5, 6, 7]) {
     const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst);
     for (const p of f.support(ctx).filter(p => p.C === 0)) {
-      const u = evaluator({ familyId: f.id, params: p }, inst);
-      let best: Ordinal = [0, 0];
-      for (let m = 0; m < 2 ** (size * size); m++) {
-        const row = (r: number) => Array.from({ length: size }, (_, c) => ((m >> (r * size + c)) & 1 ? "0R" : "0G")).join(",");
-        const v = u(Array.from({ length: size }, (_, r) => row(r)).join("/"));
-        if (compareOrdinals(v, best) > 0) best = v;
-      }
-      assert.deepEqual(u(f.exemplar!(p, ctx)), best, `${size}×${size} ${paramsKey(p)}`);
-    }
-  }
-  for (const key of shippedInstanceKeys().filter(k => k.startsWith("Grid"))) {
-    const inst = objectType("Grid").instantiate(shippedManifest().instances[key].args), ctx = context(inst);
-    for (const t of shippedFile(key)!.tables.filter(t => t.family === f.id)) {
-      const ex = evaluator({ familyId: f.id, params: t.canonicalParams }, inst)(f.exemplar!(t.canonicalParams, ctx));
-      const top = t.levels[t.levels.length - 1][0];
-      assert.ok(compareOrdinals(ex, top) >= 0,
-        `${key} ${paramsKey(t.canonicalParams)}: exemplar ${JSON.stringify(ex)} below the calibrated ${JSON.stringify(top)}`);
+      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, p.P, size * size).value,
+        `${size}×${size} ${paramsKey(p)}: the exemplar (memo window 4N) is not the maximum of the full-state search`);
     }
   }
 });

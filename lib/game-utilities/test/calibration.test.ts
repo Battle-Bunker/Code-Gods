@@ -158,6 +158,8 @@ test("penaltyMeanBits = E_μ[softHinge(s)] and matches the stored value; softHin
 // ------------------------------------------------------------------------------------------------
 
 const FRESH = 400;
+/** Families whose exemplar is computed exactly, so no calibrated level can be above it. */
+const EXACT_EXEMPLARS = new Set(["tetromino_tamer"]);
 
 test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance, exemplars reach high bits", () => {
   const pooled = new Array(9).fill(0);
@@ -180,8 +182,15 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
       }
       const f = family(t.family);
       if (f.exemplar) {
-        const ex = surprisal(t, ev(f.exemplar(t.canonicalParams, ctx)));
+        const best = ev(f.exemplar(t.canonicalParams, ctx)), ex = surprisal(t, best), top = t.levels[t.levels.length - 1][0];
         assert.ok(ex >= s[FRESH - 1], `${where}: exemplar ${ex} bits below a random spawn's ${s[FRESH - 1]}`);
+        // The estimator records whether the exemplar's ordinal is among the levels; the key does not cover the
+        // exemplar, so a changed exemplar can leave the flag stale without making the table stale. (Mixture tables
+        // copy the uniform table's meta, so only uniform tables are checked.)
+        if (!t.prior) assert.equal(t.meta.topReached, cmpOrdinal(best, top) <= 0, `${where}: stale meta.topReached`);
+        if (EXACT_EXEMPLARS.has(t.family)) {
+          assert.ok(cmpOrdinal(best, top) >= 0, `${where}: exact exemplar ${JSON.stringify(best)} below the level ${JSON.stringify(top)}`);
+        }
         if (ex < 8) lowExemplars.push(`${where}: ${ex.toFixed(1)}`);
       }
     }

@@ -709,16 +709,22 @@ function pieceForms(P: PieceP["P"]): [number, number][][] {
   return [...seen.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
 }
 const packings = new Map<string, boolean[][]>();
+/** Tetromino Tamer's best board (packTetrominoes), cached per size and piece. */
+function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
+  const key = `${N}:${P}`;
+  let occ = packings.get(key);
+  if (!occ) packings.set(key, occ = packTetrominoes(N, P).occ);
+  return occ;
+}
 /**
  * Tetromino Tamer's best board: the cells to paint MY_COLOUR so that no two islands touch and there are as many
  * islands shaped like P as possible, then as many 4-cell islands of any shape. Exact (a greedy first fit is not: on
  * 4×4 it puts a Z in the corner and leaves no room for a second S). A memoised search over cells in reading order,
- * where each island is placed at its first cell; the state is the cursor and which of the next 4N cells are taken
- * or touched, since an island placed before the cursor reaches no further. About 11k states on 7×7.
+ * where each island is placed at its first cell; the state is the cursor and which of the next `window` cells are
+ * taken or touched. 4N is enough, since an island placed before the cursor reaches no further: about 11k states on
+ * 7×7. Exported so a test can check it against the full state (window N²).
  */
-function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
-  const cached = packings.get(`${N}:${P}`);
-  if (cached) return cached;
+export function packTetrominoes(N: number, P: PieceP["P"], window = 4 * N): { occ: boolean[][]; value: [number, number] } {
   const shapes = (["I", "O", "T", "L", "S"] as const).flatMap(q => pieceForms(q).map(f => ({
     mine: q === P, cells: f.map(([r, c]) => [r - f[0][0], c - f[0][1]] as [number, number]),
   })));
@@ -737,7 +743,7 @@ function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
     return changed;
   };
   const next = (i: number) => { while (i < NN && blocked[i]) i++; return i; };
-  const keyOf = (i: number) => `${i}:${blocked.subarray(i + 1, Math.min(NN, i + 4 * N + 1)).join("")}`;
+  const keyOf = (i: number) => `${i}:${blocked.subarray(i + 1, Math.min(NN, i + window + 1)).join("")}`;
   /** Best value (islands like P × W + 4-cell islands) from cursor i on, which must be a free cell or NN. */
   const best = (i: number): number => {
     if (i >= NN) return 0;
@@ -756,7 +762,7 @@ function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
     memo.set(key, [value, choice]);
     return value;
   };
-  best(0);
+  const value = best(0);
   const occ = range(N).map(() => Array<boolean>(N).fill(false));
   for (let i = next(0); i < NN; i = next(i + 1)) {
     const choice = memo.get(keyOf(i))![1];
@@ -765,8 +771,7 @@ function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
     take(cells);
     for (const [x, y] of cells) occ[x][y] = true;
   }
-  packings.set(`${N}:${P}`, occ);
-  return occ;
+  return { occ, value: [Math.floor(value / W), value % W] };
 }
 const tetText = (p: PieceP, g: GridSpec): CardText => ({
   emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", cname(g, p.C)], ["MY_PIECE", p.P]],
