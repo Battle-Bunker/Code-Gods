@@ -4,10 +4,10 @@
  * per-cell rules, and a headline. Hover (mouse, pen) or tap moves the focus; the board is one keyboard stop and arrow
  * keys move the focus; the headline and callouts are an aria-live region. Geometry lives in ./layout.ts.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
 import { toneOf, type Cell, type Explanation, type FocusView, type GoalExplainer, type OutcomeTable, type Part, type Tone } from "@workspace/game-utilities";
-import { gridModel, patternStyle, type GridCellModel } from "../grid-display.ts";
+import { getColourCue, gridModel, patternStyle, subscribeColourCue, type ColourCue, type GridCellModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
 import {
   TONE_COLOUR, TONE_DASH, TONE_MARK, arrowPath, badgePoints, boardPx, calloutOrder, cellX, cellY, centre, isStroke, litCells,
@@ -24,24 +24,31 @@ export interface GoalBoardProps {
   initialFocus?: Cell;
   /** A sentence above the board (the example's caption). */
   caption?: string;
+  /** Cells that changed since a compared board, outlined as the grid's detail view does. */
+  changed?: boolean[][] | null;
   testId?: string;
 }
 
+const NO_PARTS: readonly Part[] = [];
 const cellPx = (n: number) => (n <= 4 ? 44 : n <= 5 ? 38 : n <= 6 ? 32 : n <= 7 ? 28 : 22);
 
-const pointsText = (e: Explanation, points: readonly number[]) => {
+const pointsText = (points: readonly number[]) => {
   const chips = points.map((p, k) => (p === 0 ? null : k === 0 ? `${signed(p)} point${Math.abs(p) === 1 ? "" : "s"}` : `${signed(p)} tie-break`)).filter(Boolean);
-  return chips.length ? chips.join(" · ") : e.components.length > 1 ? "0 points" : "0 points";
+  return chips.length ? chips.join(" · ") : "0 points";
 };
 
-function Tile({ cell, px, dim, style }: { cell: GridCellModel; px: number; dim?: boolean; style?: CSSProperties }) {
+/** A tile as the grid's detail view draws it: the colour, the viewer's colour cue (pattern), the colour letter in a corner. */
+function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
+  const pattern = cue === "pattern";
   return (
-    <span className="flex items-center justify-center font-mono font-semibold leading-none select-none"
+    <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none"
       style={{
-        width: px, height: px, backgroundColor: cell.css, ...patternStyle(cell.letter, cell.ink, px > 30 ? 7 : 5),
-        fontSize: Math.round(px * (cell.glyph.length > 2 ? 0.34 : 0.44)), opacity: dim ? 0.32 : 1, transition: "opacity 120ms", ...style,
-      }}>
-      <span style={{ color: cell.ink, textShadow: `0 0 2px ${cell.css}` }}>{cell.glyph}</span>
+        width: px, height: px, backgroundColor: cell.css, ...(pattern ? patternStyle(cell.letter, cell.ink, px > 30 ? 7 : 5) : {}),
+        fontSize: Math.round(px * (cell.glyph.length > 2 ? 0.34 : 0.44)), opacity: dim ? 0.32 : 1, transition: "opacity 120ms",
+        ...(changed ? { outline: "2px solid currentColor", outlineOffset: -2 } : {}),
+      }} data-changed={changed || undefined}>
+      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined }}>{cell.glyph}</span>
+      {px > 24 && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );
 }
@@ -64,7 +71,7 @@ function Callout({ part, index, explanation, model, setRef }: {
       <div className="flex items-center gap-1.5">
         <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: TONE_COLOUR[tone] }}>{index + 1}</span>
         <span className="font-semibold">{part.title}</span>
-        <span className="ml-auto whitespace-nowrap font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }}>{pointsText(explanation, part.points)}</span>
+        <span className="ml-auto whitespace-nowrap font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }}>{pointsText(part.points)}</span>
       </div>
       {small && model && (
         <div className="mt-1 flex gap-0.5" aria-hidden>
@@ -85,7 +92,7 @@ function Callout({ part, index, explanation, model, setRef }: {
   );
 }
 
-function Table({ table, grid, setAt }: { table: OutcomeTable; grid: GridSettings; setAt: (el: HTMLElement | null) => void }) {
+function Table({ table, grid }: { table: OutcomeTable; grid: GridSettings }) {
   return (
     <figure className="border bg-background px-2.5 py-2 text-xs" data-testid="goal-outcome-table">
       <figcaption className="mb-1 font-semibold">{table.title}</figcaption>
@@ -99,7 +106,7 @@ function Table({ table, grid, setAt }: { table: OutcomeTable; grid: GridSettings
                 const here = table.at?.[0] === r && table.at?.[1] === c, tone = toneOf([e.points]);
                 return (
                   <td key={c} className="text-center">
-                    <span ref={here ? setAt : undefined} className="inline-flex flex-col items-center gap-0.5 p-0.5"
+                    <span className="inline-flex flex-col items-center gap-0.5 p-0.5"
                       style={{ outline: here ? "2.5px solid currentColor" : undefined, outlineOffset: 1 }} data-here={here || undefined}>
                       <SampleTile sym={e.sample.sym} col={e.sample.col} grid={grid} px={22} />
                       <span className="font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }}>{signed(e.points)}</span>
@@ -116,33 +123,34 @@ function Table({ table, grid, setAt }: { table: OutcomeTable; grid: GridSettings
   );
 }
 
-interface Arrow { d: string; tone: Tone | "focus" }
+interface Arrow { d: string; tone: Tone }
 
 /**
  * A board explained for one focus cell at a time. Without a rich explanation (a family without a lens, or an
  * explanation that does not add up to the card's score) it draws the board and its score only.
  */
-export function GoalBoard({ goal, value, grid, initialFocus, caption, testId = "goal-board" }: GoalBoardProps) {
+export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, testId = "goal-board" }: GoalBoardProps) {
+  const cue = useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
   const model = useMemo(() => gridModel(value, grid), [value, grid.size, grid.symbols, grid.colours]);
   const size = model?.size ?? 0;
   const geo: BoardGeometry = useMemo(() => ({ cell: cellPx(size), gap: 2, size }), [size]);
   const explanation = useMemo(() => goal.explain(value), [goal, value]);
   const [focus, setFocus] = useState<Cell>(initialFocus ?? { r: 0, c: 0 });
-  useEffect(() => { if (initialFocus) setFocus(initialFocus); }, [initialFocus?.r, initialFocus?.c, value]);
+  // A new starting cell (another example) moves the focus; a live board update does not, so a reader keeps their cell.
+  useEffect(() => { if (initialFocus) setFocus(initialFocus); }, [initialFocus?.r, initialFocus?.c]);
   const rich = !!explanation?.verified;
   const view: FocusView | null = useMemo(() => (rich && explanation ? goal.focus(value, explanation, focus) : null), [rich, explanation, goal, value, focus]);
 
-  const parts = view?.parts ?? [];
+  const parts = view?.parts ?? NO_PARTS;
   const badges = useMemo(() => badgePoints(geo, parts, focus), [geo, parts, focus]);
   const order = useMemo(() => calloutOrder(badges), [badges]);
   // A piece's number is its callout's place in the column, so the numbers read 1, 2, 3 down the side.
   const number = useMemo(() => { const n: number[] = []; order.forEach((i, k) => { n[i] = k + 1; }); return n; }, [order]);
   const lit = useMemo(() => (view ? litCells(focus, parts, size) : null), [view, focus, parts, size]);
 
-  // Arrows: measured after layout, from each badge to its callout (and from the focus to its outcome table entry).
+  // Arrows: measured after layout, from each badge to its callout.
   const root = useRef<HTMLDivElement>(null), board = useRef<HTMLDivElement>(null);
   const callouts = useRef<(HTMLDivElement | null)[]>([]);
-  const tableAt = useRef<HTMLElement | null>(null);
   const [arrows, setArrows] = useState<Arrow[]>([]);
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -154,7 +162,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, testId = "
   }, []);
   useLayoutEffect(() => {
     const r = root.current?.getBoundingClientRect(), b = board.current?.getBoundingClientRect();
-    if (!r || !b || !view) { setArrows([]); return; }
+    if (!r || !b || !view) { setArrows(a => (a.length ? [] : a)); return; }
     const ox = b.left - r.left, oy = b.top - r.top, out: Arrow[] = [];
     parts.forEach((p, i) => {
       const c = callouts.current[i]?.getBoundingClientRect();
@@ -198,7 +206,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, testId = "
             <span key={`${r}-${c}`} role="gridcell" aria-selected={focus.r === r && focus.c === c} aria-label={`${cell.name}`}
               onPointerEnter={onPointer({ r, c })} onPointerMove={onPointer({ r, c })} onPointerDown={onDown({ r, c })}
               className="absolute" style={{ left: cellX(geo, c), top: cellY(geo, r) }} data-cell={`${r},${c}`}>
-              <Tile cell={cell} px={geo.cell} dim={!!lit && !lit[r][c]} />
+              <Tile cell={cell} px={geo.cell} dim={!!lit && !lit[r][c]} cue={cue} changed={!!changed?.[r]?.[c]} />
             </span>
           )))}
           <svg className="pointer-events-none absolute inset-0 overflow-visible" width={px} height={px} aria-hidden>
@@ -238,24 +246,24 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, testId = "
               <Callout key={parts[i].id} part={parts[i]} index={number[i] - 1} explanation={explanation!} model={model}
                 setRef={el => { callouts.current[i] = el; }} />
             ))}
-            {view.table && <Table table={view.table} grid={grid} setAt={el => { tableAt.current = el; }} />}
+            {view.table && <Table table={view.table} grid={grid} />}
           </div>
         )}
       </div>
       <svg className="pointer-events-none absolute inset-0 overflow-visible" width="100%" height="100%" aria-hidden>
         <defs>
-          {(["gain", "loss", "zero", "focus"] as const).map(t => (
+          {(["gain", "loss", "zero"] as const).map(t => (
             <marker key={t} id={`goal-arrow-${t}`} viewBox="0 0 8 8" refX={7} refY={4} markerWidth={7} markerHeight={7} orient="auto-start-reverse">
-              <path d="M0 0 L8 4 L0 8 z" fill={t === "focus" ? "currentColor" : TONE_COLOUR[t]} />
+              <path d="M0 0 L8 4 L0 8 z" fill={TONE_COLOUR[t]} />
             </marker>
           ))}
         </defs>
         {arrows.map((a, i) => (
-          <path key={i} d={a.d} fill="none" stroke={a.tone === "focus" ? "currentColor" : TONE_COLOUR[a.tone]} strokeOpacity={0.8} strokeWidth={1.75}
+          <path key={i} d={a.d} fill="none" stroke={TONE_COLOUR[a.tone]} strokeOpacity={0.8} strokeWidth={1.75}
             markerEnd={`url(#goal-arrow-${a.tone})`} />
         ))}
       </svg>
-      <span className="sr-only">{view ? order.map(i => parts[i]).map((p, i) => `${i + 1}. ${p.title}, ${pointsText(explanation!, p.points)}. ${p.facts.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(" ") : ""}</span>
+      <span className="sr-only">{view ? order.map(i => parts[i]).map((p, i) => `${i + 1}. ${p.title}, ${pointsText(p.points)}. ${p.facts.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(" ") : ""}</span>
     </div>
   );
 }

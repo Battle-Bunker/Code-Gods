@@ -161,9 +161,10 @@ function focusScore(sel: readonly Part[]): number {
 function illumination(l: Lens, p: Draw["params"], b: Board): { score: number; focus: Cell } {
   const parts = l.parts(p, b);
   let best = -1, focus = b.cells[0];
+  const tableBonus = l.table ? new Set(parts.map(t => toneOf(t.points))).size : 0;
   for (const x of b.cells) {
     const sel = l.select ? l.select(parts, x, p, b) : containing(parts, x);
-    const s = focusScore(sel) + (l.table ? new Set(parts.map(t => toneOf(t.points))).size : 0);
+    const s = focusScore(sel) + tableBonus;
     if (s > best) { best = s; focus = x; }
   }
   const gains = parts.filter(t => toneOf(t.points) === "gain").length, rest = parts.length - gains;
@@ -191,8 +192,10 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
   const pool: Candidate[] = [];
   let exemplar: Candidate | null = null;
   try { if (f.exemplar) exemplar = fromWire(g, inst, f.exemplar(p, ctx)); } catch { exemplar = null; }
-  for (let k = 0; k < 160; k++) pool.push(randomBoard(rng, g));
-  if (exemplar) for (let k = 0; k < 160; k++) pool.push(mutate(rng, g, exemplar, 2 + rng.int(g.N + 2)));
+  // The search shrinks on bigger boards (a rating looks at every cell's pieces), so it stays well under a second.
+  const budget = g.N <= 4 ? 160 : g.N <= 5 ? 100 : 60;
+  for (let k = 0; k < budget; k++) pool.push(randomBoard(rng, g));
+  if (exemplar) for (let k = 0; k < budget; k++) pool.push(mutate(rng, g, exemplar, 2 + rng.int(g.N + 2)));
   if (l?.seeds) {
     const b0 = boardOf(g, pool[0].sym, pool[0].col);
     for (const s of l.seeds(p, b0)) { const c = fromWire(g, inst, s); if (c) pool.push(c); }
@@ -210,9 +213,9 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
   const rate = (x: Candidate) => illumination(l, p, boardOf(g, x.sym, x.col));
   const ranked = pool.map(x => ({ x, r: rate(x) })).sort((a, b) => b.r.score - a.r.score);
   // Hill-climb the best few: single-cell changes that do not make the board teach worse.
-  const climbed = ranked.slice(0, 4).map(({ x, r }) => {
+  const climbed = ranked.slice(0, g.N <= 5 ? 4 : 2).map(({ x, r }) => {
     let cur = x, curR = r;
-    for (let k = 0; k < 120; k++) {
+    for (let k = 0; k < (g.N <= 5 ? 120 : 60); k++) {
       const next = mutate(rng, g, cur, 1), nr = rate(next);
       if (nr.score >= curR.score) { cur = next; curR = nr; }
     }

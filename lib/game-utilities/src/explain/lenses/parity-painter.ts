@@ -20,7 +20,11 @@ function otherKindSymbol(p: P, b: Board, sym: number): number {
   const S = b.spec.S;
   const kindOfSym = (s: number) => (p.key === "suit" ? ([1, 2].includes(Math.floor(s / 13)) ? 0 : 1) : (b.spec.value[s] % 2 === 0 ? 0 : 1));
   const mine = kindOfSym(sym);
-  if (p.key === "suit") return (sym + 13) % S;
+  if (p.key === "suit") {
+    // Same rank in the next suit of the other kind (suits: spades, hearts, diamonds, clubs; hearts and diamonds are kind 0).
+    for (let k = 1; k < 4; k++) { const s = (sym + 13 * k) % S; if (kindOfSym(s) !== mine) return s; }
+    return sym;
+  }
   for (let d = 1; d < S; d++) {
     for (const s of [sym + d, sym - d]) if (s >= 0 && s < S && kindOfSym(s) !== mine) return s;
   }

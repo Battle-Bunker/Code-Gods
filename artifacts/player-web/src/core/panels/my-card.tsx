@@ -1,6 +1,6 @@
 /** Your secret goal: the utility card in plain words, how scoring works, and live objects that score best (or worst) for you. */
-import { HowScoringWorks, ScoreBreakdown, UtilityCardView } from "@workspace/object-views";
-import { Obj, useMyCard, useMyGoal, useObjectContext, useObjects } from "@/sdk";
+import { HowScoringWorks, ScoreBreakdown, UtilityCardView, useGoalExplainer } from "@workspace/object-views";
+import { Obj, useMyCard, useObjectContext, useObjects } from "@/sdk";
 import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 export default function MyCard({ params, phase }: PanelProps<"my-card">) {
@@ -8,7 +8,8 @@ export default function MyCard({ params, phase }: PanelProps<"my-card">) {
   const objects = useObjects({ hz: 1 });
   const ranks = useObjectRanks(objects);
   const { noun, ctx } = useObjectContext();
-  const goal = useMyGoal();
+  // Your own goal, as MyGoalProvider gives it to every grid (one explainer per game).
+  const goal = useGoalExplainer();
   if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   const examples = [...objects].sort((a, b) => (params.exampleSort === "best" ? b.own.netBits - a.own.netBits : a.own.netBits - b.own.netBits)).slice(0, params.examples);
   return (

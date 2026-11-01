@@ -232,7 +232,7 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
             {typeLabel && <span className="font-mono text-xs text-muted-foreground truncate">{typeLabel}</span>}
           </div>
           {explained
-            ? <GoalBoard goal={goal!} value={model.canonical} grid={grid!} initialFocus={TOP_LEFT} testId="grid-object-goal" />
+            ? <GoalBoard goal={goal!} value={model.canonical} grid={grid!} initialFocus={TOP_LEFT} changed={changes} testId="grid-object-goal" />
             : <div className="flex justify-center"><Cells model={model} px={detailPx(model.size)} cue={cue} changes={changes} detail /></div>}
           {changes && <p className="text-xs text-muted-foreground">{nChanged ? `${nChanged} cell${nChanged === 1 ? "" : "s"} changed (outlined).` : "No cells changed."}</p>}
           <code className="block font-mono text-xs break-all bg-muted px-2 py-1 select-all" data-testid="grid-object-canonical">{model.canonical}</code>

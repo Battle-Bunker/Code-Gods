@@ -38,6 +38,13 @@ try {
     assert.ok(await board.locator("[data-testid=goal-callout], [data-testid=goal-outcome-table]").count() > 0, `${f}: the default focus expands something`);
   }
 
+  // A family without a lens: the board and its score, no breakdown, no crash.
+  const plain = page.locator("[data-testid=example-plain]");
+  assert.equal(await plain.getAttribute("data-rich"), null);
+  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \d+ points?/);
+  await plain.locator('[data-cell="1,1"]').hover();
+  assert.equal(await plain.locator("[data-testid=goal-callout]").count(), 0);
+
   // Set Spotter: hover each cell; every trio shown has the hovered cell at one END.
   const set = page.locator("[data-testid=example-set_spotter]");
   for (const [r, c] of [[0, 0], [1, 1], [2, 3], [3, 2]]) {

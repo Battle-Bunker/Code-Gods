@@ -71,7 +71,10 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
  */
 export function UtilityCardView({ card, uses, grid, goal }: {
   card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
-  /** The player's own goal explainer: the card then shows its annotated example board instead of the tiny one. */
+  /**
+   * The player's own goal explainer: the card then shows its annotated example board (a family without a lens keeps its
+   * hand-made tiny example when it has one, else shows a searched example board with its score).
+   */
   goal?: GoalExplainer | null;
 }) {
   const badges = useMemo(() => uses ?? familyUses(card.familyId), [uses, card.familyId]);
@@ -82,7 +85,7 @@ export function UtilityCardView({ card, uses, grid, goal }: {
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
         <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
-        {goal && grid ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
+        {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" />
       </div>

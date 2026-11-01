@@ -112,6 +112,21 @@ test("Parity Painter (even red, odd green): one piece per cell, and the outcome 
   assert.equal(toneOf(at(1, 1).parts[0].points), "zero", "4B: blue is neither kind's colour");
 });
 
+test("Parity Painter by suit (cards): the other kind's sample is the same rank in a suit of the other kind", () => {
+  const cards = instantiate("Grid", { size: 4, symbols: "cards", colours: "rgb" });
+  // Rows of hearts, clubs, diamonds, spades (all 7s): 7H 7C / 7D 7S ...
+  const value = "7HR,7CR,7DR,7SR/7HG,7CG,7DG,7SG/7HB,7CB,7DB,7SB/7HR,7CR,7DR,7SR";
+  const goal = explainer({ familyId: "parity_painter", params: { P: 0, Q: 1, key: "suit" } }, cards)!;
+  const e = goal.explain(value)!;
+  assert.ok(e.verified);
+  const redSuit = (s: number) => [1, 2].includes(Math.floor(s / 13));
+  for (const c of [0, 1, 2, 3]) {
+    const t = goal.focus(value, e, { r: 0, c })!.table!;
+    assert.ok(t.entries[0].every(x => redSuit(x.sample.sym)), `focus column ${c}: the hearts-and-diamonds row shows red suits`);
+    assert.ok(t.entries[1].every(x => !redSuit(x.sample.sym)), `focus column ${c}: the spades-and-clubs row shows black suits`);
+  }
+});
+
 test("Set Spotter: a focus expands the trios that END at it, never ones where it is the middle", () => {
   const { e, at } = look("set_spotter", { diag: false });
   // SETs: 2R 5R 8R (row 1: same colour, +3 steps), 4G 4B 4R (row 2: all colours, same number),

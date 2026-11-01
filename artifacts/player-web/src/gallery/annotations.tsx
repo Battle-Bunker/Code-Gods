@@ -26,6 +26,9 @@ export const SHOWCASE = [
   { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } },
 ] as const;
 
+/** A family without a lens: its example board shows the score only (no breakdown). */
+const PLAIN = { familyId: "rainbow_steps" } as const;
+
 /** Some live-looking boards for the compact list. */
 const LIVE = ["2R,5R,8R,1G/4G,4B,4R,7G/6B,3G,9R,0B/1R,7B,3B,5G", "7G,3B,0R,9R/1R,1G,1B,4G/5B,8R,2G,6B/0G,3R,6G,9B"];
 
@@ -49,6 +52,18 @@ function Family({ familyId, params }: { familyId: string; params: Record<string,
   );
 }
 
+function PlainFamily() {
+  const params = family(PLAIN.familyId).support(context(INST))[0];
+  const goal = useMemo(() => explainer({ familyId: PLAIN.familyId, params }, INST)!, []);
+  const example = useMemo(() => goal.example(), [goal]);
+  return (
+    <section className="space-y-2 border bg-card p-5" data-plain-family={PLAIN.familyId}>
+      <h2 className="text-lg font-semibold">Without a lens: {family(PLAIN.familyId).name}</h2>
+      {example && <GoalBoard goal={goal} value={example.value} grid={GRID} caption={example.caption} testId="example-plain" />}
+    </section>
+  );
+}
+
 function Gallery() {
   const q = new URLSearchParams(location.search), only = q.get("family");
   const shown = SHOWCASE.filter(s => !only || s.familyId === only);
@@ -56,6 +71,7 @@ function Gallery() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       {!only && <h1 className="text-2xl font-semibold">Goal annotations: First Steps</h1>}
       {shown.map(s => <Family key={s.familyId} familyId={s.familyId} params={s.params} />)}
+      {!only && <PlainFamily />}
     </main>
   );
 }
