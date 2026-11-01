@@ -25,8 +25,9 @@ test("the index lists every tool the grant offers beyond the core set, one short
     assert.ok(!text.includes(GAME_PRIMER), "the primer is no longer re-sent: the game-rules skill has the rules");
     assert.match(text, /briefing/i);
     assert.match(text, /load_tools \{names\}/);
-    // 9.5 KB: the owner grant's prompt, with the agent-writing flow that ends a validate loop (the 1WB8 turn).
-    assert.ok(text.length < 9_500, `${permission}: the prompt stays small (${text.length})`);
+    // The always-on prompt stays lean (task how-tos are skills); the owner grant's is kept near 8 KB for headroom.
+    assert.ok(text.length < 9_000, `${permission}: the prompt stays small (${text.length})`);
+    if (permission === "owner") assert.ok(text.length <= 8_000, `owner: room for other workers' lines (${text.length})`);
   }
   assert.equal(toolLine(prompt("read"), "summon_agent"), undefined);
   assert.ok(toolLine(prompt("act"), "summon_agent"));
