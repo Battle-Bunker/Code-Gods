@@ -19,8 +19,10 @@
  * What it does: (1) starts the fake OIDC server; (2) `convex dev --once` creates/pushes the local
  * deployment; (3) sets the deployment env vars below; (4) generates Better Auth's static JWKS once
  * (`convex run auth/betterAuth:rotateKeys`); (5) runs `convex dev` (watch), whose first push re-evaluates
- * auth.config.ts with both JWKS; (6) once that push has finished, uploads the calibration tables to the local
- * deployment's file storage (scripts/upload-calibration.mjs; unchanged files are skipped) and prints "[dev] READY".
+ * auth.config.ts with both JWKS; (6) once that push has finished, uploads the Python runtime bundle
+ * (scripts/upload-runtime.mjs: built first if missing or stale, skipped if the deployment has it) and the
+ * calibration tables (scripts/upload-calibration.mjs; unchanged files are skipped) to the local deployment's
+ * file storage, then prints "[dev] READY".
  *
  * Deployment env vars set here (LOCAL ONLY; production must not set FAKE_OIDC_URL,
  * AI_MOCK or TEST_FIXTURES):
@@ -42,6 +44,7 @@ import { fileURLToPath } from "node:url";
 import { startFakeOidc } from "./fake-oidc.mjs";
 import { generateJwtKey } from "./gen-jwt-key.mjs";
 import { convexRunner, uploadCalibration } from "./upload-calibration.mjs";
+import { uploadRuntime } from "./upload-runtime.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cloudPort = process.env.CONVEX_LOCAL_CLOUD_PORT ?? "3210";
@@ -114,10 +117,14 @@ const watch = (stream, out) => stream.on("data", chunk => {
   // The CLI logs progress on stderr; the first "functions ready" after the env change is the signal.
   if (!ready && /Convex functions ready/.test(String(chunk))) {
     ready = true;
-    // 5. The calibration tables → file storage (the engine loads them lazily from there).
-    uploadCalibration(convexRunner([], root, env), { log: line => console.log(`[dev] ${line}`) })
-      .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`))
-      .finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
+    // 5. The Python runtime bundle and the calibration tables → file storage (each skips what is already there).
+    const runner = convexRunner([], root, env), log = line => console.log(`[dev] ${line}`);
+    Promise.all([
+      uploadRuntime(runner, { log })
+        .catch(error => console.error(`[dev] uploading the Python runtime failed (Python games will fail): ${error.message}`)),
+      uploadCalibration(runner, { log })
+        .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
+    ]).finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });
 watch(child.stdout, process.stdout);

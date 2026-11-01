@@ -219,8 +219,7 @@ public message, and try one pause. Then revoke and reconnect a player app.
 
 ```sh
 pnpm install
-pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399); uploads the calibration tables
-pnpm --filter @workspace/engine upload-runtime    # Python runtime bundle → the local deployment
+pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399); uploads the Python runtime and the calibration tables
 pnpm --filter @workspace/engine deploy-static     # engine UI at http://127.0.0.1:3211/, player client at /player/
 ```
 
@@ -231,6 +230,9 @@ Google (dummy client id locally); sign in as a test identity with `POST /api/aut
 {"providerId":"fake","callbackURL":"/"}` from the page, as `artifacts/code-gods/e2e/smoke.ts` does.
 Signing in offers the test identities alice, bob, carol, admin and unverified. It also sets a random
 season salt, JWT keys, a Better Auth secret and JWKS, and `AI_MOCK=1` (an offline mock AI provider).
+Before it prints `[dev] READY` it uploads the Python runtime bundle (`upload-runtime`: it runs `setup:python`
+and `build:python` first when the bundle is missing or no longer matches its pin, and skips the upload when
+the deployment already has it), so Python games work on a fresh local deployment with no manual step.
 A local deployment created before Google sign-in (its `users` rows have `issuer`) refuses the new schema:
 there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again.
 

@@ -223,10 +223,13 @@ const sameDocument = async (p: Player) => navigations[p] === 1 && await pages[p]
 
 await check("each app is connected to the shared engine as its own player, with full names", async () => {
   const names = { alice: "Alice Liddell", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
+  // The header fills in once each app's identity and room have loaded: poll, don't read once.
+  const shows = (p: Player, testId: string, text: string) =>
+    until(async () => await pages[p].textContent(`[data-testid=${testId}]`) === text, `${p} ${testId} = ${JSON.stringify(text)}`, 30_000);
   for (const p of PLAYERS) {
-    assert(await pages[p].textContent("[data-testid=text-self-label]") === names[p], `${p} label`);
-    assert(await pages[p].textContent("[data-testid=text-room]") === shortCode, `${p} room`);
-    assert(await pages[p].textContent("[data-testid=text-mode]") === "your player app", `${p} mode`);
+    await shows(p, "text-self-label", names[p]);
+    await shows(p, "text-room", shortCode);
+    await shows(p, "text-mode", "your player app");
   }
 });
 
