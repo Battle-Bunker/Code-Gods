@@ -9,6 +9,8 @@ import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, cname, full, gridFamily, range, symForValue, tsCard, pyCard, tuple, valueNote, wire,
 } from "./_util.ts";
+import { binomial, exactSurvival, maxOfEqualMultinomial, type AnalyticSurvival } from "../../analytic.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const COMPARATIVE_COLOUR: Readonly<Record<string, string>> = {
   red: "redder", green: "greener", blue: "bluer", yellow: "yellower", orange: "more orange", violet: "more violet",
@@ -44,6 +46,8 @@ const hateColour = gridFamily<ColourP>({
       return bad;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.colour)),
+  /** Cells are iid, each the hated colour with probability 1/C: the count is Binomial(N², 1/C) (tail-toolkit.md §2). */
+  analytic: (_p, g) => exactSurvival("binomial-cells@1", binomial(g.N * g.N, 1 / g.C)),
 });
 
 // --- Hated number ---------------------------------------------------------------------------------
@@ -55,6 +59,7 @@ const hateValueText = (p: ValueP, g: GridSpec): CardText => ({
 });
 const hateValue = gridFamily<ValueP>({
   id: "hate_value", name: "Hated number", emoji: "🙅", theme: "Hates one number", ...PENALTY, shape: SCALAR,
+  analytic: solvedAnalytic("hate_value"),
   comparative: (p, g) => `fuller of ${valueName(g, p.value)}s`,
   support: g => [...new Set(g.value)].sort((a, b) => a - b).map(value => ({ value })),
   // every value has the same share of the symbol set (digits 1/S, cards 4/52), so all values are one orbit
@@ -149,6 +154,8 @@ const hateTakeover = gridFamily<Record<string, never>>({
       return most;
     }`),
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+  /** The largest colour count of N² iid uniform cells: max of multinomial(N²; 1/C, …, 1/C) (tail-toolkit.md §5). */
+  analytic: (_p, g): AnalyticSurvival => ({ id: "multinomial-max@1", kind: "exact", levels: maxOfEqualMultinomial(g.N * g.N, g.C) }),
 });
 
 // --- Big blobs ----------------------------------------------------------------------------------------
@@ -192,6 +199,7 @@ const cornersText = (g: GridSpec): CardText => ({
 });
 const hateSameCorners = gridFamily<Record<string, never>>({
   id: "hate_same_corners", name: "Matching corners", emoji: "📐", theme: "Hates matching corners", ...PENALTY,
+  analytic: solvedAnalytic("hate_same_corners"),
   comparative: () => "more alike in the corners",
   shape: tuple(2),
   support: () => [{}],
@@ -235,6 +243,7 @@ const repeatText = (p: RowP): CardText => ({
 });
 const hateRepeatRow = gridFamily<RowP>({
   id: "hate_repeat_row", name: "Repeats in the row", emoji: "🔁", theme: "Hates repeats in one row", ...PENALTY,
+  analytic: solvedAnalytic("hate_repeat_row"),
   comparative: () => "more repetitive in that row",
   shape: tuple(2),
   support: g => range(g.N).map(row => ({ row })),
@@ -277,6 +286,7 @@ const crowdText = (g: GridSpec): CardText => ({
 });
 const hateSymbolTakeover = gridFamily<Record<string, never>>({
   id: "hate_symbol_takeover", name: "Number crowd", emoji: "👥", theme: "Hates one number taking over", ...PENALTY,
+  analytic: solvedAnalytic("hate_symbol_takeover"),
   comparative: () => "more crowded with one number",
   shape: SCALAR,
   support: () => [{}],

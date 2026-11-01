@@ -16,7 +16,16 @@ export type {
 } from "./annotations.ts";
 export { ANNOTATORS, annotatorFor, type Annotator, type FamilyId } from "./families/annotators.ts";
 export {
-  tableFor, hasTable, instanceTables, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
+  ANALYTIC_MAX_ERROR_BITS, assertAnalytic, assertAnalyticHeader, lazySurvival, addMass, binomial, cmpOrdinals, combine, distOf, exactSurvival, iidSum, lineChainCount,
+  logFactorial, mapDist, maxOfEqualMultinomial, multinomial, pairOrdinal, pointMass, poissonTail, rowTransferCount, sumOrdinals,
+  survivalLevels, totalMass, type AnalyticLevels, type AnalyticSurvival, type Dist,
+} from "./analytic.ts";
+export {
+  compareWithEnumeration, compareWithSpawns, compareWithTable, assertAnalyticAgainstSpawns, comparisonMarkdown, bandSummaryMarkdown,
+  nominalSe, DEPTH_BANDS, type TableComparison, type SpawnComparison, type EnumerationComparison,
+} from "./analytic-verify.ts";
+export {
+  tableFor, hasTable, instanceTables, analyticFor, tableKey, tableKeyParts, keyFromParts, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
   offeredInstantiations, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
   type CalibrationFile, type CalibrationManifest, type CalibrationTable, type InstanceTables, type PriorRef,
 } from "./calibration.ts";

@@ -13,13 +13,15 @@
  *
  * A table is **fresh** only while its key matches the current code (`tableKey`): the key hashes the family id, the
  * canonical params, the instantiation, the family's TypeScript card source for those params (the body the host
- * evaluates), the instantiation's prelude hash, the spawn function ("uniform") and the estimator. `tableFor` and
+ * evaluates), the instantiation's prelude hash, the spawn function ("uniform"), the estimator and the id of the family's
+ * analytic survival function when it has one (`analyticFor`; src/analytic.ts). `tableFor` and
  * `hasTable` serve fresh tables only, so a game can never be scored with a stale table; test/calibration.test.ts
  * fails (naming the regenerate command) whenever a shipped table is stale.
  */
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
+import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // format
@@ -34,14 +36,29 @@ import type { Ordinal, Params, ScoreShape } from "./types.ts";
  *  are enumerated exactly instead.
  */
 export const ESTIMATOR = Object.freeze({ id: "mc-ams", version: 3 });
+const analyticMemo = new Map<string, AnalyticSurvival | null>();
 /**
- * Families calibrated from an exact tail instead of splitting (scripts/exact.ts implements each id). The id is
- * part of the table key, so changing a formula (bump its version) regenerates exactly those tables.
+ * The family's analytic survival function for (canonical params, instantiation), validated, or null when the family
+ * has none there, or offers only an approximation whose error bound exceeds ANALYTIC_MAX_ERROR_BITS. Its id is part of
+ * the table key (`tableKeyParts.exact`), so a changed formula regenerates exactly the tables built from it. Memoised
+ * per process by (instance, family, params). Cheap: the levels are not read here (they may be lazy; the estimator
+ * validates them with `assertAnalytic` when it builds the table).
  */
-export const EXACT_TAILS: Readonly<Record<string, string>> = Object.freeze({
-  picture_frame: "picture-frame@1",
-  lone_peak: "lone-peak@1",
-});
+export function analyticFor(familyId: string, canonicalParams: Params, inst: Instantiation): AnalyticSurvival | null {
+  const m = `${inst.key}\0${familyId}\0${paramsKey(canonicalParams)}`;
+  let a = analyticMemo.get(m);
+  if (a === undefined) {
+    const f = family(familyId);
+    a = f.analytic && f.objectType === inst.objectType ? f.analytic(canonicalParams, context(inst)) : null;
+    if (a) {
+      // The id and kind are checked here (they key tables); the levels, which may be lazy, when a table is built.
+      assertAnalyticHeader(a, `${familyId} ${paramsKey(canonicalParams)} on ${inst.key}`);
+      if (a.kind === "approx" && a.maxErrorBits! > ANALYTIC_MAX_ERROR_BITS) a = null;
+    }
+    analyticMemo.set(m, a);
+  }
+  return a;
+}
 
 /** Data layout version: data/calibration/<FORMAT>/. */
 export const CALIBRATION_FORMAT = "v1";
@@ -100,8 +117,11 @@ export interface CalibrationTable {
     readonly version: number;
     /** Hex seed of the estimator's Rng (derived from the key). */
     readonly seed: string;
-    /** "exact": the whole domain was enumerated; "exact:<id>": an exact tail (EXACT_TAILS). */
-    readonly budget: CalibrationBudget | "exact" | `exact:${string}`;
+    /**
+     * "exact": the whole domain was enumerated; "exact:<id>" / "approx:<id>": built from the family's analytic survival
+     * function with that id (src/analytic.ts).
+     */
+    readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}`;
   };
   readonly meta: {
     readonly mcLevels: number;
@@ -176,7 +196,7 @@ export interface TableKeyParts {
   readonly prelude: string;
   readonly spawn: "uniform";
   readonly estimator: { readonly id: string; readonly version: number };
-  /** EXACT_TAILS id, for families calibrated exactly (absent otherwise). */
+  /** The family's analytic survival id (`analyticFor`), absent when the table comes from the estimator. */
   readonly exact?: string;
   /**
    * The prior, when it is not uniform v1. Uniform v1 is the implicit default (`spawn: "uniform"` and no `prior`
@@ -189,7 +209,7 @@ export const keyFromParts = (parts: TableKeyParts): string => sha256(canonicalJs
 
 /** The parts of the current code's key for (family, canonical params, instantiation). */
 export function tableKeyParts(familyId: string, canonicalParams: Params, inst: Instantiation, prior: PriorRef = UNIFORM_PRIOR): TableKeyParts {
-  const f = family(familyId), ctx = context(inst);
+  const f = family(familyId), ctx = context(inst), analytic = analyticFor(familyId, canonicalParams, inst);
   return {
     family: familyId,
     params: canonicalParams,
@@ -200,7 +220,7 @@ export function tableKeyParts(familyId: string, canonicalParams: Params, inst: I
     prelude: utilityPreludeHash(inst),
     spawn: "uniform",
     estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version },
-    ...(EXACT_TAILS[familyId] && inst.objectType === "Grid" ? { exact: EXACT_TAILS[familyId] } : {}),
+    ...(analytic ? { exact: analytic.id } : {}),
     ...(isUniform(prior) ? {} : { prior: { id: prior.id, version: prior.version } }),
   };
 }
@@ -236,14 +256,8 @@ export function tableKey(familyId: string, canonicalParams: Params, inst: Instan
 
 const tupleOf = (o: Ordinal): readonly number[] => (typeof o === "number" ? [o] : o);
 
-/** Lexicographic comparison; scalars as 1-tuples. */
-export function cmpOrdinal(a: Ordinal, b: Ordinal): number {
-  if (typeof a === "number" && typeof b === "number") return a < b ? -1 : a > b ? 1 : 0;
-  const x = tupleOf(a), y = tupleOf(b);
-  if (x.length !== y.length) throw new Error(`Cannot compare ordinals of arity ${x.length} and ${y.length}`);
-  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
-  return 0;
-}
+/** Lexicographic comparison; scalars as 1-tuples (analytic.ts `cmpOrdinals`). */
+export const cmpOrdinal = cmpOrdinals;
 
 /** Strictly increasing squash of any real into (0, 1). */
 const sq = (x: number) => 0.5 + 0.5 * x / (1 + Math.abs(x));

@@ -2,8 +2,10 @@
 import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
-  range, recolour, symForValue, thing, tsCard, tuple, wire,
+  range, recolour, symForValue, thing, tsCard, tuple, valueLaw, wire,
 } from "./_util.ts";
+import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -68,6 +70,16 @@ const rainbowRoad = gridFamily<RoadP>({
     const col = fromFn(N, (r, c) => p.dir === "→" ? k(r + c) : p.dir === "←" ? k(r + N - 1 - c)
       : p.dir === "↓" ? k(c + r) : k(c + N - 1 - r));
     return wire(g, full(N, 0), col);
+  },
+  /**
+   * Along a line the N−1 "next colour" indicators are iid Bernoulli(1/C): given the shared cell, each needs one
+   * specific colour. So steps per line ~ Binomial(N−1, 1/C), a whole line iff all N−1; (wholeLines, steps) is the
+   * N-fold iid sum of the per-line pair (tail-toolkit.md §3, independence and the union bound; §8.2, the table's bias).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const steps = binomial(g.N - 1, 1 / g.C);
+    const line = mapDist(steps, o => [o === g.N - 1 ? 1 : 0, o as number]);
+    return exactSurvival("line-iid-tuple@1", iidSum(line, g.N));
   },
 });
 
@@ -149,6 +161,7 @@ const conqText = (p: ConqP, g: GridSpec): CardText => {
 };
 const conqueror = gridFamily<ConqP>({
   id: "conqueror", name: "Conqueror", emoji: "⚔️", theme: "Your army against your enemy",
+  analytic: solvedAnalytic("conqueror"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => colourPairs(g).flatMap(([A, B]) => (["one", "value"] as const).map(weight => ({ A, B, weight }))),
   canonical: p => recolour(p, ["A", "B"]),
@@ -200,6 +213,7 @@ const parityText = (p: ParityP, g: GridSpec): CardText => {
 };
 const parityPainter = gridFamily<ParityP>({
   id: "parity_painter", name: "Parity Painter", emoji: "🎭", theme: "Numbers wear the colour of their kind",
+  analytic: solvedAnalytic("parity_painter"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: g => colourPairs(g).flatMap(([P, Q]) =>
     (g.cards ? ["parity", "suit"] as const : ["parity"] as const).map(key => ({ P, Q, key }))),
@@ -280,6 +294,7 @@ const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
 };
 const mirrormancer = gridFamily<MirrorP>({
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
+  analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
   support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
   canonical: p => ({ ...p, axis: "LR" }),
@@ -332,6 +347,7 @@ const homeText = (p: HomeP, g: GridSpec): CardText => ({
 });
 const homebody = gridFamily<HomeP>({
   id: "homebody", name: "Homebody", emoji: "🏡", theme: "Your colour belongs at home",
+  analytic: solvedAnalytic("homebody"),
   shape: SCALAR, tags: ["shortlist"],
   support: g => product<HomeP>({ X: range(g.C), zone: ["core", "rim"] }),
   canonical: p => recolour(p, ["X"]),
@@ -409,6 +425,24 @@ const lonePeak = gridFamily<PeakP>({
     const N = g.N, m = Math.floor(N / 2);
     const sym = fromFn(N, (r, c) => symForValue(g, r === m && c === m ? g.vmax : g.vmin));
     return wire(g, sym, fromFn(N, (r, c) => (r === m && c === m ? p.X : (p.X + 1) % g.C)));
+  },
+  /**
+   * (gap, mine), with F the value cdf, q = 1/C and p_m the mass of value m (tail-toolkit.md §1, exact maxima):
+   *  μ{≥ (0,1)} = Σ_m [(F(m−1) + p_m)^n − (F(m−1) + p_m(1 − q))^n]   (the top value's cells include one of mine);
+   *  μ{≥ (g,1)} = Σ_m n·q·p_m·F(m−g)^(n−1)   for g ≥ 1  (a unique peak of mine, everything else ≤ m − g).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const n = g.N * g.N, q = 1 / g.C, pv = valueLaw(g);
+    const values = pv.map((p, v) => [v, p] as const).filter(([, p]) => p > 0);
+    const F = (x: number) => values.reduce((a, [v, p]) => a + (v <= x ? p : 0), 0);
+    const levels: [readonly number[], number][] = [[[0, 0], 0]];
+    const has = values.reduce((a, [m, p]) => a + (F(m - 1) + p) ** n - (F(m - 1) + p * (1 - q)) ** n, 0);
+    levels.push([[0, 1], Math.log2(has)]);
+    for (let gap = 1; gap <= g.vmax - g.vmin; gap++) {
+      const tot = values.reduce((a, [m, p]) => a + n * q * p * F(m - gap) ** (n - 1), 0);
+      if (tot > 0) levels.push([[gap, 1], Math.log2(tot)]);
+    }
+    return { id: "lone-peak@1", kind: "exact", levels };
   },
 });
 
@@ -537,6 +571,8 @@ const pictureFrame = gridFamily<ColourP>({
       return 1;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+  /** All or nothing: μ{u ≥ 1} = C^−(4N−4), the 4N−4 edge cells all my colour (tail-toolkit.md §1). */
+  analytic: (_p, g): AnalyticSurvival => ({ id: "picture-frame@1", kind: "exact", levels: [[0, 0], [1, -(4 * g.N - 4) * Math.log2(g.C)]] }),
 });
 
 // --- Staircase Climber -------------------------------------------------------------------------------
@@ -569,6 +605,14 @@ const staircase = gridFamily<StairP>({
       return steps;
     }`),
   exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => symForValue(g, g.vmin + (p.dir === "→" ? c : r))), full(g.N, 0)),
+  /**
+   * Rows (or columns) are independent; within a line the count of "+1 steps" is a functional of the Markov chain of
+   * iid values: a dynamic programme over (last value, count), then the N-fold iid sum over lines (tail-toolkit.md §4).
+   */
+  analytic: (_p, g): AnalyticSurvival => {
+    const line = lineChainCount(g.N, valueLaw(g), (prev, v) => (prev !== null && v === prev + 1 ? 1 : 0));
+    return exactSurvival("line-chain-sum@1", iidSum(line, g.N));
+  },
 });
 
 // --- Lucky Token -------------------------------------------------------------------------------------
@@ -579,6 +623,7 @@ const luckyText = (p: TokenP, g: GridSpec): CardText => ({
 });
 const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
+  analytic: solvedAnalytic("lucky_token"),
   tags: ["generalised-seed"],
   support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
   canonical: () => ({ S: 0, X: 0 }),

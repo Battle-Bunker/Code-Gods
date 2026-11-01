@@ -42,6 +42,8 @@ import type * as auth_routes from "../auth/routes.js";
 import type * as auth_tables from "../auth/tables.js";
 import type * as auth_testing from "../auth/testing.js";
 import type * as auth_user from "../auth/user.js";
+import type * as calibration_cache from "../calibration/cache.js";
+import type * as calibration_compute from "../calibration/compute.js";
 import type * as calibration_files from "../calibration/files.js";
 import type * as calibration_node from "../calibration/node.js";
 import type * as calibration_tables from "../calibration/tables.js";
@@ -133,6 +135,8 @@ declare const fullApi: ApiFromModules<{
   "auth/tables": typeof auth_tables;
   "auth/testing": typeof auth_testing;
   "auth/user": typeof auth_user;
+  "calibration/cache": typeof calibration_cache;
+  "calibration/compute": typeof calibration_compute;
   "calibration/files": typeof calibration_files;
   "calibration/node": typeof calibration_node;
   "calibration/tables": typeof calibration_tables;

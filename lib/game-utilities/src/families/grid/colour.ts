@@ -1,9 +1,11 @@
 /** Colour & visual-pattern lens rules (lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import { lazySurvival, rowTransferCount, type AnalyticSurvival } from "../../analytic.ts";
 import {
   SCALAR, an, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
   recipes, recolour, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 // --- Stripe Painter --------------------------------------------------------------------------------
 type StripeP = { axis: "rows" | "cols" };
@@ -17,6 +19,7 @@ const stripeText = (p: StripeP): CardText => {
 };
 const stripePainter = gridFamily<StripeP>({
   id: "stripe_painter", name: "Stripe Painter", emoji: "🦓", theme: "A striped flag",
+  analytic: solvedAnalytic("stripe_painter"),
   shape: tuple(2), tags: ["shortlist"],
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
@@ -369,6 +372,8 @@ const OPPOSITE_TS = `
       return (a.colour === COLOUR_A && b.colour === COLOUR_B) || (a.colour === COLOUR_B && b.colour === COLOUR_A);
     }
 `;
+/** Row states a transfer matrix may have before the analytic defers to sampling (≈ 0.6 s at 1024 states, 1 s at 1296). */
+const TRANSFER_STATES = 1300;
 const bestFriends = gridFamily<PairP>({
   id: "best_friends", name: "Best Friends", emoji: "🤗", theme: "Your two colours side by side", shape: SCALAR,
   support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
@@ -393,6 +398,23 @@ const bestFriends = gridFamily<PairP>({
       return seams;
     }`),
   exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.A : p.B))),
+  /**
+   * Seams between the two colours are a 2-D pattern count: exact by a row-to-row transfer matrix whose state is a whole
+   * row colouring (C^N states; tail-toolkit.md §6). Shapes with more than TRANSFER_STATES states fall back to sampling.
+   * The law is computed lazily (about a second), so keying a table costs nothing.
+   */
+  analytic: (_p, g): AnalyticSurvival | null => {
+    const N = g.N, C = g.C, M = C ** N;
+    if (M > TRANSFER_STATES) return null;
+    return lazySurvival("transfer-matrix-rows@1", () => {
+    const rows: number[][] = Array.from({ length: M }, (_, r) => { const out: number[] = []; for (let i = 0, x = r; i < N; i++, x = Math.floor(x / C)) out.push(x % C); return out; });
+    const friends = (a: number, b: number) => (a === 0 && b === 1) || (a === 1 && b === 0);
+    const h = (r: number) => { let s = 0; for (let i = 0; i + 1 < N; i++) if (friends(rows[r][i], rows[r][i + 1])) s++; return s; };
+    const v = new Uint8Array(M * M);
+    for (let a = 0; a < M; a++) for (let b = 0; b < M; b++) { let s = 0; for (let i = 0; i < N; i++) if (friends(rows[a][i], rows[b][i])) s++; v[a * M + b] = s; }
+    return rowTransferCount(N, M, h, (a, b) => v[a * M + b], 2 * N * (N - 1));
+    });
+  },
 });
 
 // --- Rainbow Steps ----------------------------------------------------------------------------------
@@ -404,6 +426,7 @@ const stepsText = (p: DirP, g: GridSpec): CardText => ({
 });
 const rainbowSteps = gridFamily<DirP>({
   id: "rainbow_steps", name: "Rainbow Steps", emoji: "👣", theme: "Next-door colours step round the rainbow",
+  analytic: solvedAnalytic("rainbow_steps"),
   requires: { classes: ["Spectral"] }, shape: SCALAR,
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "→" }),
@@ -482,6 +505,7 @@ const flagText = (p: FlagP, g: GridSpec): CardText => ({
 });
 const flagBearer = gridFamily<FlagP>({
   id: "flag_bearer", name: "Flag Bearer", emoji: "🚩", theme: "Your colour wins the vote in every row", shape: tuple(2),
+  analytic: solvedAnalytic("flag_bearer"),
   support: g => product<FlagP>({ C: range(g.C), axis: ["rows", "cols"] }),
   canonical: () => ({ C: 0, axis: "rows" }),
   summary: (p, g) => `A ${p.axis === "rows" ? "row" : "column"} is yours if it has more ${cname(g, p.C)} `
@@ -535,6 +559,7 @@ const keyText = (p: ShiftP, g: GridSpec): CardText => ({
 });
 const colourByNumber = gridFamily<ShiftP>({
   id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has its own colour",
+  analytic: solvedAnalytic("colour_by_number"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => range(g.C).map(t => ({ t })),
   canonical: () => ({ t: 0 }), // cyclic colour relabelling shifts t
@@ -603,6 +628,7 @@ const paperText = (p: PaperP): CardText => ({
 });
 const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
+  analytic: solvedAnalytic("wallpaper_weaver"),
   support: g => product<PaperP>({ p: g.N >= 4 ? [2, 3] : [2], dir: ["right", "down"] }),
   canonical: p => ({ p: p.p, dir: "right" }),
   summary: p => `Every cell whose colour matches the cell ${p.p} steps ${p.dir === "right" ? "to its right" : "below it"} scores a point.`,
@@ -638,6 +664,7 @@ const sunsetText = (p: DirP, g: GridSpec): CardText => ({
 });
 const sunsetSky = gridFamily<DirP>({
   id: "sunset_sky", name: "Sunset Sky", emoji: "🌅", theme: "Lines that fade smoothly along the rainbow",
+  analytic: solvedAnalytic("sunset_sky"),
   requires: { classes: ["Spectral"] }, shape: tuple(2),
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "↓" }),

@@ -9,7 +9,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import type { ChatMessage } from "@workspace/ai-player";
-import { LIMITS, buildHistory, isActive, type TurnStatus } from "./rules";
+import { LIMITS, buildHistory, isActive, turnEnding, type TurnStatus } from "./rules";
 
 type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
@@ -55,6 +55,11 @@ export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<T
   log("finish", { turnId: turn._id, status, code: error?.code, steps: turn.step, inputTokens: turn.usage.inputTokens, outputTokens: turn.usage.outputTokens });
 }
 
+const addUsage = (usage: Turn["usage"], step: { inputTokens: number; outputTokens: number; billedTokens: number }): Turn["usage"] => ({
+  ...usage, inputTokens: usage.inputTokens + step.inputTokens, outputTokens: usage.outputTokens + step.outputTokens,
+  billedTokens: (usage.billedTokens ?? usage.inputTokens + usage.outputTokens) + step.billedTokens,
+});
+
 /** The live turn this step may write to, or null (stale generation, cancelled or finished). */
 async function liveTurn(ctx: Ctx, turnId: Id<"assistantTurns">, gen: number) {
   const turn = await ctx.db.get(turnId);
@@ -77,10 +82,12 @@ async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
   const rows = [...before, ...mine.sort((a, b) => a.seq - b.seq)];
   const turnIds = [...new Set(rows.map(m => m.turnId))];
   const calls = (await Promise.all(turnIds.map(id => callsOf(ctx, id)))).flat();
+  const earlier = await Promise.all(turnIds.filter(id => id !== turn._id).map(id => ctx.db.get(id)));
+  const endings = Object.fromEntries(earlier.flatMap(t => t ? [[t._id, turnEnding(t.status, t.error?.code)]] : []));
   return buildHistory(
     rows.map(m => ({ id: m._id, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
     calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
-    { turnId: turn._id, briefing: turn.briefing ?? null },
+    { turnId: turn._id, briefing: turn.briefing ?? null, endings },
   );
 }
 
@@ -97,7 +104,7 @@ export const context = internalQuery({
     const calls = await callsOf(ctx, turnId);
     return {
       turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject },
-      roomId: turn.roomId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
+      roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
       calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null })),
       hasBriefing: turn.briefing !== undefined,
@@ -123,14 +130,14 @@ export const setBriefing = internalMutation({
 
 /** After a successful reservation: the step's (streaming) assistant message, and the tools offered. */
 export const openStep = internalMutation({
-  args: { turnId: v.id("assistantTurns"), gen: v.number(), tools: v.array(v.string()), reservedTokens: v.number(), reservedUsd: v.number() },
-  handler: async (ctx, { turnId, gen, tools, reservedTokens, reservedUsd }) => {
+  args: { turnId: v.id("assistantTurns"), gen: v.number(), tools: v.array(v.string()), reservedTokens: v.number(), reservedUsd: v.number(), inputEstimate: v.number() },
+  handler: async (ctx, { turnId, gen, tools, reservedTokens, reservedUsd, inputEstimate }) => {
     const turn = await liveTurn(ctx, turnId, gen);
     if (!turn) return null;
     const now = Date.now();
     const last = await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId)).order("desc").first();
     const messageId = await ctx.db.insert("assistantMessages", {
-      threadId: turn.threadId, turnId, seq: (last?.seq ?? 0) + 1, role: "assistant", text: "", status: "streaming", reservedTokens, createdAt: now, updatedAt: now,
+      threadId: turn.threadId, turnId, seq: (last?.seq ?? 0) + 1, role: "assistant", text: "", status: "streaming", reservedTokens, inputEstimate, createdAt: now, updatedAt: now,
     });
     await ctx.db.patch(turnId, {
       tools, updatedAt: now,
@@ -162,24 +169,44 @@ const newCall = v.object({ callId: v.string(), tool: v.string(), argsJson: v.str
 export const completeStep = internalMutation({
   args: {
     turnId: v.id("assistantTurns"), gen: v.number(), messageId: v.id("assistantMessages"), text: v.string(), contentJson: v.optional(v.string()),
-    inputTokens: v.number(), outputTokens: v.number(), stop: v.union(v.literal("end_turn"), v.literal("tool_use")), calls: v.array(newCall),
+    inputTokens: v.number(), outputTokens: v.number(), cacheReadTokens: v.number(), cacheWriteTokens: v.number(), billedTokens: v.number(),
+    stop: v.union(v.literal("end_turn"), v.literal("tool_use")), calls: v.array(newCall),
   },
   handler: async (ctx, args) => {
     const turn = await liveTurn(ctx, args.turnId, args.gen);
     if (!turn) return { cancelled: true };
     const now = Date.now();
     await ctx.db.patch(args.messageId, {
-      text: clipText(args.text), status: "done", inputTokens: args.inputTokens, outputTokens: args.outputTokens, updatedAt: now,
+      text: clipText(args.text), status: "done", inputTokens: args.inputTokens, outputTokens: args.outputTokens,
+      cacheReadTokens: args.cacheReadTokens, cacheWriteTokens: args.cacheWriteTokens, billedTokens: args.billedTokens, updatedAt: now,
       ...(args.contentJson ? { contentJson: args.contentJson } : {}),
     });
     await ctx.db.patch(turn._id, {
       step: turn.step + 1, lastStop: args.calls.length ? "tool_use" : "end_turn", updatedAt: now,
-      usage: { ...turn.usage, inputTokens: turn.usage.inputTokens + args.inputTokens, outputTokens: turn.usage.outputTokens + args.outputTokens },
+      usage: addUsage(turn.usage, args),
     });
     for (const [index, c] of args.calls.entries()) {
       await ctx.db.insert("assistantToolCalls", { turnId: turn._id, threadId: turn.threadId, messageId: args.messageId, index, ...c, createdAt: now, updatedAt: now });
     }
     return { cancelled: false };
+  },
+});
+
+/**
+ * A cancelled step's usage, billed from what was known when its stream was aborted (step.ts): recorded on the step's
+ * message and the turn even though the turn is no longer live (the call did happen).
+ */
+export const recordAbortedUsage = internalMutation({
+  args: {
+    turnId: v.id("assistantTurns"), messageId: v.id("assistantMessages"), inputTokens: v.number(), outputTokens: v.number(),
+    cacheReadTokens: v.number(), cacheWriteTokens: v.number(), billedTokens: v.number(),
+  },
+  handler: async (ctx, { turnId, messageId, ...usage }) => {
+    const turn = await ctx.db.get(turnId);
+    const message = await ctx.db.get(messageId);
+    if (!turn || !message || message.turnId !== turnId || message.billedTokens !== undefined) return;
+    await ctx.db.patch(messageId, { ...usage, usageEstimated: true, updatedAt: Date.now() });
+    await ctx.db.patch(turnId, { usage: addUsage(turn.usage, usage) });
   },
 });
 

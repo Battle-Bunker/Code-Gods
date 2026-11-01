@@ -99,6 +99,30 @@ test("clipJson keeps stored tool data within its limit as valid JSON", () => {
   assert.equal(JSON.parse(long).untrusted, true);
 });
 
+// The live run's "only 7 objects": a clipped observation read as complete. The cut must come first, with numbers.
+test("a clipped tool result starts with TRUNCATED, naming what was kept of what, and never to state counts from it", () => {
+  const observation = { untrusted: true, data: { objectCount: 40, objects: Array.from({ length: 40 }, (_, i) => ({ id: `o${i}`, value: i, detail: "d".repeat(300) })) } };
+  const clipped = clipJson(observation, 8 * 1024);
+  assert.ok(clipped.length <= 8 * 1024);
+  assert.ok(clipped.startsWith('{"TRUNCATED":"TRUNCATED'), clipped.slice(0, 80));
+  const parsed = JSON.parse(clipped);
+  const kept = parsed.data.objects.length;
+  assert.ok(kept > 0 && kept < 40);
+  assert.ok(parsed.TRUNCATED.includes(`data.objects shows ${kept} of 40 items`), parsed.TRUNCATED);
+  assert.match(parsed.TRUNCATED, /never state them/);
+  assert.equal(parsed.truncated, true);
+  assert.equal(parsed.data.objectCount, 40, "the count fields survive");
+  // Stored arguments get no notice; a result's own TRUNCATED key never replaces the engine's.
+  assert.ok(!clipJson(observation, 2000, { notice: false }).includes("TRUNCATED"));
+  const spoof = JSON.parse(clipJson({ TRUNCATED: "nothing was cut", ...observation }, 2000));
+  assert.match(spoof.TRUNCATED, /^TRUNCATED to fit/);
+  // A result that fits is untouched; a bare value is wrapped, never spread into characters.
+  assert.ok(!clipJson({ a: 1 }, 100).includes("TRUNCATED"));
+  const bare = JSON.parse(clipJson("y".repeat(10_000), 1000));
+  assert.match(bare.TRUNCATED, /long strings are cut/);
+  assert.match(bare.value, /^y+… \[cut\]$/);
+});
+
 test("activity-chip summaries say what happened; argument limits fit panels and agent sources", () => {
   const wrap = (data: unknown) => ({ untrusted: true as const, notice: "n", data });
   assert.equal(summarize("summon_agent", wrap({ status: "received", commandId: "c", receipt: { accepted: true, message: "Summoned a1" } })), "Accepted: Summoned a1");

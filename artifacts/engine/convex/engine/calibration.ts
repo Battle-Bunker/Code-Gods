@@ -16,8 +16,10 @@
  */
 import { createHash } from "node:crypto";
 import {
-  instanceTables, manifestOf, type CalibrationFile, type CalibrationManifest, type InstanceTables,
+  CALIBRATION_FORMAT, UNIFORM_PRIOR, analyticFor, context, family, instanceTables, manifestOf, paramsKey, priorKey, tableFor, tableKey,
+  type CalibrationFile, type CalibrationManifest, type CalibrationTable, type Draw, type InstanceTables, type PriorRef,
 } from "@workspace/game-utilities";
+import { buildTable } from "@workspace/game-utilities/estimator";
 import type { Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -117,4 +119,85 @@ async function tablesFrom(ctx: ActionCtx, inst: Instantiation): Promise<Instance
     while (files.size > MAX_INSTANCES) files.delete(files.keys().next().value!);
   }
   return (await load).tables;
+}
+
+// ------------------------------------------------------------------------------------------------
+// on demand: analytic first, then the warm file, then the computed cache, then a fan-out of compute actions
+// ------------------------------------------------------------------------------------------------
+
+export type TableSource = "file" | "analytic" | "computed";
+export interface ResolvedDraw { readonly draw: Draw; readonly key: string; readonly source: TableSource; readonly buildMs?: number }
+export interface PendingDraw { readonly draw: Draw; readonly key: string; /** This call claimed the key and scheduled its computation. */ readonly scheduled: boolean }
+export interface Resolution {
+  /** The instantiation's tables including every resolved draw's: pass to score / scoresOf. */
+  readonly tables: InstanceTables;
+  readonly ready: readonly ResolvedDraw[];
+  readonly pending: readonly PendingDraw[];
+}
+
+/** Analytic tables, built once per process (milliseconds each; never stored). */
+const analyticTables = new Map<string, CalibrationTable>();
+const MAX_ANALYTIC = 2048;
+
+/**
+ * The tables of `draws` (reward draws and defence goals, raw params) in `inst` under `prior`: from the warm file, the
+ * family's analytic survival function, or the computed cache; whatever is missing is claimed and scheduled as one
+ * `calibration.compute.run` action per table (docs/analytic-calibration/architecture.md §3). Throws (BAD_REQUEST-like
+ * errors for the caller to surface) when a draw cannot have a table here: a family of another object type, a table that
+ * failed to compute twice, or a non-uniform prior (its tables derive from pools the deployment does not hold, so they
+ * are shipped or nothing).
+ */
+export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: readonly Draw[], prior: PriorRef = UNIFORM_PRIOR): Promise<Resolution> {
+  const base = await tablesFor(ctx, inst), ctx_ = context(inst), uniform = priorKey(prior) === priorKey(UNIFORM_PRIOR);
+  const ready: ResolvedDraw[] = [], pending: PendingDraw[] = [], extra: CalibrationTable[] = [];
+  const toCheck: { draw: Draw; canon: Draw["params"]; key: string }[] = [];
+  for (const draw of draws) {
+    const f = family(draw.familyId);
+    if (f.objectType !== inst.objectType) throw new Error(`${draw.familyId} is a ${f.objectType} family; ${inst.key} cannot deal it`);
+    const canon = f.canonical(draw.params, ctx_), key = tableKey(draw.familyId, canon, inst, prior);
+    if (tableFor(base, draw, inst, prior)) { ready.push({ draw, key, source: "file" }); continue; }
+    if (uniform && analyticFor(draw.familyId, canon, inst)) {
+      let t = analyticTables.get(key);
+      if (!t) {
+        const started = performance.now();
+        t = buildTable(draw.familyId, canon, inst).table;
+        if (analyticTables.size >= MAX_ANALYTIC) analyticTables.delete(analyticTables.keys().next().value!);
+        analyticTables.set(key, t);
+        ready.push({ draw, key, source: "analytic", buildMs: performance.now() - started });
+      } else ready.push({ draw, key, source: "analytic" });
+      extra.push(t);
+      continue;
+    }
+    toCheck.push({ draw, canon, key });
+  }
+  if (toCheck.length) {
+    const rows = new Map((await ctx.runMutation(internal.calibration.cache.getMany, { keys: toCheck.map(c => c.key) })).map(r => [r.key, r]));
+    const missing: typeof toCheck = [];
+    for (const c of toCheck) {
+      const row = rows.get(c.key);
+      if (row?.status === "ready" && row.table) {
+        const t = JSON.parse(row.table) as CalibrationTable;
+        if (t.key === c.key) { extra.push(t); ready.push({ draw: c.draw, key: c.key, source: "computed", buildMs: row.buildMs }); continue; }
+      }
+      missing.push(c);
+    }
+    if (missing.length && !uniform) {
+      throw new Error(`No calibration tables for ${missing.map(c => c.draw.familyId).join(", ")} on ${inst.key} under prior ${priorKey(prior)}: tables for this prior are shipped, not computed on demand`);
+    }
+    // Independent per table: claim and schedule all of them at once.
+    const verdicts = await Promise.all(missing.map(async ({ draw, canon, key }) => {
+      const verdict = await ctx.runMutation(internal.calibration.cache.claim, { key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior) });
+      if (verdict === "compute") await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance: inst.key, familyId: draw.familyId, params: canon });
+      return { draw, canon, key, verdict };
+    }));
+    for (const { draw, canon, key, verdict } of verdicts) {
+      if (verdict === "failed") throw new Error(`The calibration table of ${draw.familyId} ${paramsKey(canon)} on ${inst.key} could not be computed; see calibrationComputed`);
+      // "ready" here means a race with a finishing action: it is read on the next call.
+      pending.push({ draw, key, scheduled: verdict === "compute" });
+    }
+  }
+  const tables = extra.length
+    ? instanceTables(inst.key, { format: CALIBRATION_FORMAT, instance: inst.key, tables: [...base.bySlot.values(), ...extra] } satisfies CalibrationFile)
+    : base;
+  return { tables, ready, pending };
 }

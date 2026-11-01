@@ -250,11 +250,14 @@ The local deployment's assistant normally uses the mock (`AI_MOCK=1`). To try it
 seats stay mocked, put a Console API key in your shell as `CODE_GODS_ANTHROPIC_API_KEY` and run
 `pnpm --filter @workspace/engine assistant:live`: it copies the key into the **local** deployment as
 `ANTHROPIC_API_KEY` (through a private temp file, never printed) and sets `ASSISTANT_LIVE=1`, which takes effect
-without a restart. `assistant:status` reports the mode without the key, and `assistant:mock` removes both; every
+without a restart. If the shell also has `CODE_GODS_OPENAI_API_KEY` (or `OPENAI_API_KEY`), it is copied as
+`OPENAI_API_KEY` for rooms on an OpenAI model. `assistant:status` reports the mode without the key, and `assistant:mock` removes both; every
 `dev` start also removes them, so the mock-scripted suites never spend money. The script refuses anything but the
 anonymous loopback deployment; the cloud deployments keep their own keys (`npx convex env set`, above).
-`pnpm --filter @workspace/engine test:assistant-live` then runs two real turns (about USD 0.10 with the cheapest
-catalogued Anthropic model; it skips while the assistant is mocked). After a tool result the Messages API has been
+`pnpm --filter @workspace/engine test:assistant-live` then runs four real turns (a streamed answer, a tool call, a
+clipped tool result, a cancellation) and prints each step's reservation, input estimate, cache reads and writes and
+billed tokens: about USD 0.15 with the cheapest catalogued Anthropic model (`CG_ASSISTANT_MODEL=gpt-4.1-mini` runs
+OpenAI for about USD 0.01); it skips while the assistant is mocked. After a tool result the Messages API has been
 seen to send the whole answer in one burst, so streamed text then appears all at once; that is the provider, not
 the engine.
 
