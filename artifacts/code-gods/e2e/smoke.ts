@@ -16,7 +16,7 @@
  * CONVEX_LOCAL_CLOUD_PORT, CONVEX_LOCAL_SITE_PORT, FAKE_OIDC_PORT) and stops it at the end.
  *
  * Scenario, at desktop and phone widths: alice, bob and carol sign in (three browser contexts). Alice
- * creates a room and turns the assistant on in the creation dialog; the page's one primary follows nextStep
+ * creates a room in one click (no dialog) and turns the assistant on from the room page; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
  * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
@@ -193,24 +193,28 @@ try {
     const a = alice.page, b = bob.page, c = carol.page;
     let code = "";
 
-    await check(`${name}: alice creates a room, turning the assistant on; it shows its code, owner and creation date (no name)`, async () => {
+    await check(`${name}: alice creates a room in one click, then turns the assistant on; it shows its code, owner and creation date (no name)`, async () => {
+      // One click makes the room and opens it, ready to share: nothing is asked first, even with AI configured (mock).
       await a.getByTestId("button-create-room").click();
-      // The mock AI provider counts as configured, so creation asks once to turn on the assistant (pre-filled).
-      await a.getByTestId("dialog-create-room").waitFor();
-      assert.equal(await a.getByTestId("input-create-assistant-budget").inputValue(), "200000");
-      assert.ok(await a.getByTestId("button-assistant-turn-on").isDisabled(), "consent first");
-      await a.getByTestId("checkbox-create-assistant").check();
-      await a.getByTestId("button-assistant-turn-on").click();
       await a.waitForURL(/\/rooms\/[0-9A-Z]+$/);
+      await a.getByTestId("button-copy-link").waitFor();
+      // The assistant is off until the owner turns it on from the room page (pre-filled, with consent).
+      await a.getByTestId("text-ai-spending").filter({ hasText: /Assistant: off/ }).waitFor();
+      await a.getByTestId("button-ai-spending").filter({ hasText: "Turn on…" }).click();
+      await a.getByTestId("sheet-ai-spending").waitFor();
+      assert.equal(await a.getByTestId("input-assistant-budget").inputValue(), "200000");
+      assert.ok(await a.getByTestId("button-save-assistant-budget").isDisabled(), "consent first");
+      await a.getByTestId("checkbox-approve-assistant").check();
+      await a.getByTestId("button-save-assistant-budget").click();
+      await a.getByTestId("text-ai-spending").filter({ hasText: /Assistant: 200,000 per player/ }).waitFor();
+      await a.keyboard.press("Escape");
+      await a.getByTestId("sheet-ai-spending").waitFor({ state: "hidden" });
       code = (await a.getByTestId("text-room-code").innerText()).trim();
       assert.match(code, /^[0-9A-Z]{4,}$/);
       assert.match(await a.getByTestId("text-room-owner").innerText(), /Alice Liddell/);
       assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
       // nextStep: alone, the owner's one primary is the invite link; AI players count.
       assert.match(await a.getByTestId("text-viewer-seat").innerText(), /2 more players needed\. AI players count\./);
-      await a.getByTestId("button-copy-link").waitFor();
-      await expand(a, "details-next-game");
-      await a.getByTestId("text-ai-spending").filter({ hasText: /Assistant: 200,000 per player/ }).waitFor();
       await a.goto(`${SITE}/`);
       const row = a.locator('[data-testid^="row-room-"]', { hasText: code });
       await row.waitFor();

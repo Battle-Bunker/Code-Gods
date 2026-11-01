@@ -1,7 +1,7 @@
 /**
- * Secondary surfaces reached from the palette and Details (palette-and-pages.md §3.3, onboarding §0, S2a/S3a):
- * the AI spending sheet, connected apps, scoring, past games; the room-creation "turn on the assistant" dialog and
- * the AI budget approval that comes with the first AI player. Spending approvals always keep their consent text and
+ * Secondary surfaces reached from the palette and Details (palette-and-pages.md §3.3, onboarding §0, S3a):
+ * the AI spending sheet (where the owner turns the assistant on, from the room page's "Turn on…"), connected apps,
+ * scoring, past games, and the AI budget approval that comes with the first AI player. Spending approvals always keep their consent text and
  * checkbox here; the palette never approves money.
  */
 import { useState } from "react";
@@ -186,52 +186,6 @@ export function PastGamesSheet({ open, onOpenChange, games }: { open: boolean; o
         {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="mt-4 divide-y -mx-4">{games.map(g => <PastGameRow key={g.id} g={g} />)}</ul>}
       </SheetContent>
     </Sheet>
-  );
-}
-
-/**
- * S2a: right after "Create room", once: turn on the assistant for everyone in the room, pre-filled, with the cost and
- * a consent checkbox. "Not now" keeps it off (0 tokens).
- */
-export function CreateRoomDialog({ open, onOpenChange, manifest, pending, onCreate }: {
-  open: boolean; onOpenChange(o: boolean): void; manifest?: Manifest; pending: boolean;
-  onCreate(assistant: { assistantBudget: number; assistantModel: string } | null): void;
-}) {
-  const models = (manifest?.aiFunding.models ?? []).filter(m => m.configured);
-  const [tokens, setTokens] = useState(String(DEFAULT_ASSISTANT_TOKENS));
-  const [model, setModel] = useState(models[0]?.id ?? manifest?.aiFunding.model ?? "claude-sonnet-5-5");
-  const [agree, setAgree] = useState(false);
-  const max = manifest?.aiFunding.assistantBudgetMax ?? 2_000_000;
-  const t = whole(tokens, max);
-  const chosen = models.find(m => m.id === model) ?? models[0];
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="dialog-create-room">
-        <DialogHeader>
-          <DialogTitle>Turn on the assistant for everyone in this room</DialogTitle>
-          <DialogDescription>Each player gets their own assistant in the player client: it explains the game, writes agents and drafts messages.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 text-sm">
-          <label className="block space-y-1"><span>Tokens per player per game</span>
-            <input type="number" min={0} max={max} step={1000} value={tokens} onChange={e => { setTokens(e.target.value); setAgree(false); }} className={field} data-testid="input-create-assistant-budget" /></label>
-          {t === null && <p role="alert" className="text-xs text-destructive">Enter a whole number from 0 to {fmt(max)} tokens.</p>}
-          <label className="block space-y-1"><span>Model</span>
-            <select value={chosen?.id ?? model} onChange={e => { setModel(e.target.value); setAgree(false); }} className={field} data-testid="select-create-assistant-model">
-              {models.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select></label>
-          <p className="text-xs text-muted-foreground" data-testid="text-create-cost">{costLine(t ?? 0, chosen, "per player per game")}</p>
-          <label className="flex items-start gap-2 text-muted-foreground">
-            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-create-assistant" />
-            I approve each player's assistant in this room using up to {t !== null ? fmt(t) : "?"} tokens per game, billed to the server owner's provider accounts.
-          </label>
-        </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <button type="button" disabled={pending} onClick={() => onCreate(null)} className="px-3 py-2 text-sm underline underline-offset-4 disabled:opacity-40" data-testid="button-assistant-not-now">Not now</button>
-          <button type="button" disabled={pending || t === null || !agree || !chosen} onClick={() => onCreate({ assistantBudget: t!, assistantModel: chosen!.id })}
-            className="bg-primary text-primary-foreground px-4 py-2 text-sm disabled:opacity-40" data-testid="button-assistant-turn-on">{pending ? "Creating…" : "Turn on"}</button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
