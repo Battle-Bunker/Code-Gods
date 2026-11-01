@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, HS, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
   agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
@@ -44,6 +44,43 @@ test("each agent is written in one of the game's languages, priced and run in it
   const events = batches.flatMap((b: any) => b.events);
   const failedBy = new Set(events.filter((e: any) => e.t === "fail" && !/already has this value|no change/.test(e.reason)).map((e: any) => e.agentId));
   assert.equal(failedBy.size, 0, "no agent fails for running in the wrong language");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts like the others", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("Hs Host", "Hs Ada", "Hs Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["haskell", "typescript"] });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof host, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  // The sandbox boots on first use (a warming answer is retried, as the forge does).
+  const validate = async (source: string) => {
+    for (;;) {
+      const reply = await send(ada, { type: "validate", language: "haskell", source });
+      if (reply.accepted || !/warming/i.test(String(reply.message))) return reply;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  };
+  const validated = await validate(HS.Int);
+  assert.equal(validated.accepted, true, validated.message);
+  assert.equal(validated.validation.valid, true, JSON.stringify(validated));
+  assert.match(validated.validation.diagnostics[0], /\(hs-token-bits-v1-uniform:/);
+  // TypeScript source sent as Haskell does not compile.
+  assert.equal((await validate(TS.Int)).validation.valid, false);
+
+  const summoned = await send(ada, { type: "summon", language: "haskell", source: HS.Int });
+  assert.equal(summoned.accepted, true, summoned.message);
+  assert.equal((await send(bo, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  await waitFor(async () => {
+    const { agents } = await raw(game.gameId);
+    return agents.length === 2 && agents.every((a: any) => a.acts >= 2) || undefined;
+  }, "both agents act", 120_000);
+  const { batches, agents } = await raw(game.gameId);
+  const haskell = agents.find((a: any) => a.language === "haskell");
+  const failed = batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "fail" && e.agentId === haskell._id
+    && !/already has this value|no change/.test(e.reason));
+  assert.deepEqual(failed, [], "the Haskell agent's moves apply");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 

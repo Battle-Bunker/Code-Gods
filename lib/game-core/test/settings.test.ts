@@ -147,8 +147,8 @@ test("a game allows a non-empty set of supported languages, each listed once", (
 
 test("each language has exactly one grammar and one summon-price function, read from its one table entry", () => {
   assert.deepEqual([...LANGUAGES], Object.keys(LANGUAGE_SPECS));
-  assert.deepEqual(LANGUAGES.map(grammarFor), ["python-agent-v1", "typescript-agent-v1"]);
-  assert.deepEqual(LANGUAGES.map(complexityFor), ["ast-bits-v1", "ts-ast-bits-v1-uniform"]);
+  assert.deepEqual(LANGUAGES.map(grammarFor), ["python-agent-v1", "typescript-agent-v1", "haskell-agent-v1"]);
+  assert.deepEqual(LANGUAGES.map(complexityFor), ["ast-bits-v1", "ts-ast-bits-v1-uniform", "hs-token-bits-v1-uniform"]);
 });
 
 test("allowedLanguages reads the set, and a stored single language still works", () => {

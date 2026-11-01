@@ -1,6 +1,6 @@
 import type { GameRuntime, ActSettings, WireValue } from "./index.js";
 
-export const GRID_AGENTS: Readonly<{ python: string; typescript: string }>;
+export const GRID_AGENTS: Readonly<{ python: string; typescript: string; haskell: string }>;
 export interface LatencyStats { n: number; p50Ms: number; p95Ms: number; maxMs: number; meanMs: number }
 export interface MemoryStats { rssMiB: number; heapUsedMiB: number; externalMiB: number; arrayBuffersMiB: number }
 export interface Measurement {

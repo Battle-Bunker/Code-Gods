@@ -841,7 +841,8 @@
           "type": "string",
           "enum": [
             "python",
-            "typescript"
+            "typescript",
+            "haskell"
           ]
         },
         "commandId": {
@@ -996,7 +997,8 @@
           "type": "string",
           "enum": [
             "python",
-            "typescript"
+            "typescript",
+            "haskell"
           ]
         },
         "commandId": {

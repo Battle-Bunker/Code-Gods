@@ -56,7 +56,7 @@ test("dependencies point at real fields; penalty weight hides while no defence g
   assert.deepEqual(SETTINGS_DOCS.penaltyWeight.hiddenWhen, { defenceGoals: false });
   assert.deepEqual(SETTINGS_DOCS.excludedDefenceFamilies.hiddenWhen, { defenceGoals: false }, "the checklist belongs to the switch");
   assert.equal(SETTINGS_DOCS.languages.control, "multiselect", "a game allows a set of languages");
-  assert.deepEqual(SETTINGS_DOCS.languages.suggested, ["python", "typescript"], "pre-authored: the supported languages, no free text");
+  assert.deepEqual(SETTINGS_DOCS.languages.suggested, ["python", "typescript", "haskell"], "pre-authored: the supported languages, no free text");
 });
 
 test("every field is a control: asked or under More, never a fixed fact, with a control that fits its value", () => {

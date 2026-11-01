@@ -36,7 +36,7 @@ export function actSettings(settings: GameSettings): ActSettings {
     cached = Object.freeze({
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, haskell: parts.haskell,
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     }) as ActSettings;
     if (actSettingsCache.size >= 64) actSettingsCache.delete(actSettingsCache.keys().next().value!);

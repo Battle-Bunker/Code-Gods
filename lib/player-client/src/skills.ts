@@ -101,6 +101,8 @@ const WRITING_AGENTS = `WRITING AN AGENT.
 7. Once it works, stop validating and report: the code, what it does, price against energy, cost per act. Summon (summon_agent with the identical source and language; the in-client assistant's calls are confirmed by the player on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
 Running agents: watch bits-over-time and the feed; destroy_agent an agent that loses bits; energy already spent is not refunded.`;
 
+const HASKELL_AGENTS = `HASKELL AGENTS. The source is a module body without a module header: optional imports (Data.List, Data.Char, ...), then definitions including agent :: Obj -> [Call] (Obj is the room's object: Int, String, or Grid). Move helpers take their arguments positionally and fill in the defaults: slide (row 0); the primed name takes every argument: slide' (row 0) 2 "colour". A cell is a Cell or a (row, col) pair; an area is row i, column i, square r c, ... or a list of cells. Read a Grid with functions: cells g, cell g r c, colour x, neighbours x. Wrap moves with onlyIfBetter [..] where the room offers it.`;
+
 const SCREEN = `THE PLAYER'S SCREEN. The client is a dock of panes: built-in panels (with parameters), the player's own stored panels, and the in-client assistant's conversation (one pane, never closable; when you are that assistant, "the chat", "this chat" or "you" about the screen means it; move_pane moves it). The public chat is the public-chat panel.
 - The player picks a pane's panel from a menu but cannot set its parameters: you do. open_panel {panelId, params} shows a built-in panel with parameters you choose; open_panel {slug} shows a stored panel; set_panel_params {paneId, params} replaces one pane's parameters.
 - Without place, open_panel adds no pane: it reuses an open pane of that panel, else switches a built-in panel the player did not choose; a new pane opens only when every built-in panel on screen is the player's. Give place only when the player asks for another pane; at most four built-in panels are open (a fifth is refused: change one instead).
@@ -132,6 +134,7 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Allowed languages: ${allowed.join(", ")} (pass the agent's language to validate_agent and summon_agent; default ${allowed[0]}). agent(obj) receives the object's value itself (a number for Int, a string for string, a grid for Grid), never a wrapper with fields.`);
     // Each allowed language's helper names, sharing the helpers budget.
     const share = { ...SKILL_LIMITS, helpers: Math.floor(SKILL_LIMITS.helpers / allowed.length) };
+    if (allowed.includes("haskell")) parts.push(HASKELL_AGENTS);
     for (const language of allowed) parts.push(`Helpers in ${language}:`, ...helperLines(o.instance, language, share));
     const source = str(utility.source);
     if (source) parts.push(`The player's utility (private): ${[str(utility.emoji), str(utility.name)].filter(Boolean).join(" ")}${utility.summary ? ` — ${str(utility.summary)}` : ""}`, "Source:", cut(source, SKILL_LIMITS.source));

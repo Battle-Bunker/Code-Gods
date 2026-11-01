@@ -15,7 +15,7 @@ import { GRID_AGENTS, measure } from "@workspace/game-runtime/benchmark";
 import { assetLoad, bindRuntime, pythonBundle, runtimeFor, RUNTIME_OPTIONS } from "./node";
 
 const moduleLoadedAt = Date.now();
-const language = v.union(v.literal("python"), v.literal("typescript"));
+const language = v.union(v.literal("python"), v.literal("typescript"), v.literal("haskell"));
 
 /** The runtime's view of a room's settings (as the engine's adapter builds it). */
 function room(lang: Language): { settings: ActSettings; inputs: string[] } {
@@ -26,7 +26,7 @@ function room(lang: Language): { settings: ActSettings; inputs: string[] } {
     settings: {
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, haskell: parts.haskell,
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     },
     inputs: Array.from({ length: 16 }, () => T.codec(inst).encode(T.spawn(inst, rng)) as string),
@@ -71,7 +71,7 @@ export const smoke = internalAction({
   handler: async ctx => {
     await bindRuntime(ctx);
     const out: Record<string, unknown> = {};
-    for (const lang of ["python", "typescript"] as const) {
+    for (const lang of ["python", "typescript", "haskell"] as const) {
       const { settings, inputs } = room(lang);
       const runtime = runtimeFor(lang);
       const inspection = await runtime.inspect(GRID_AGENTS[lang], settings);
@@ -79,7 +79,9 @@ export const smoke = internalAction({
       const again = await runtime.act(GRID_AGENTS[lang], inputs[0], settings, "0");
       if (again.calls !== acts[0].calls) throw new Error(`${lang}: the same act differed`);
       let limit = "";
-      try { await runtime.act(lang === "python" ? "def agent(g):\n    while True:\n        pass\n" : "function agent(g) { while (true) {} return []; }", inputs[0], settings, "1"); }
+      const endless = { python: "def agent(g):\n    while True:\n        pass\n", typescript: "function agent(g) { while (true) {} return []; }",
+        haskell: "agent :: Obj -> [Call]\nagent g = let loop n = loop (n + 1) in [paint (row (loop 0)) \"red\"]" };
+      try { await runtime.act(endless[lang], inputs[0], settings, "1"); }
       catch (error) { limit = (error as Error).message; }
       out[lang] = { cost: inspection.cost, calls: acts.map(a => a.calls), steps: acts.map(a => a.steps), limit };
     }

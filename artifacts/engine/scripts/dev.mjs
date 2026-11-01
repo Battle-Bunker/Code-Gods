@@ -19,7 +19,7 @@
  * What it does: (1) starts the fake OIDC server; (2) `convex dev --once` creates/pushes the local
  * deployment; (3) sets the deployment env vars below; (4) generates Better Auth's static JWKS once
  * (`convex run auth/betterAuth:rotateKeys`); (5) runs `convex dev` (watch), whose first push re-evaluates
- * auth.config.ts with both JWKS; (6) once that push has finished, uploads the Python runtime bundle
+ * auth.config.ts with both JWKS; (6) once that push has finished, uploads the runtime bundles (Python, Haskell)
  * (scripts/upload-runtime.mjs: built first if missing or stale, skipped if the deployment has it) and the
  * calibration tables (scripts/upload-calibration.mjs; unchanged files are skipped) to the local deployment's
  * file storage, and seeds the system setups (`setups:ensureSeeded`, idempotent, as every deploy does), then
@@ -121,12 +121,12 @@ const watch = (stream, out) => stream.on("data", chunk => {
   // The CLI logs progress on stderr; the first "functions ready" after the env change is the signal.
   if (!ready && /Convex functions ready/.test(String(chunk))) {
     ready = true;
-    // 5. The Python runtime bundle and the calibration tables → file storage (each skips what is already there),
+    // 5. The runtime bundles (Python, Haskell) and the calibration tables → file storage (each skips what is already there),
     //    and the system setups (game-core SEED_SETUPS), which deploys seed with the same idempotent mutation.
     const runner = convexRunner([], root, env), log = line => console.log(`[dev] ${line}`);
     Promise.all([
       uploadRuntime(runner, { log })
-        .catch(error => console.error(`[dev] uploading the Python runtime failed (Python games will fail): ${error.message}`)),
+        .catch(error => console.error(`[dev] uploading a runtime bundle failed: ${error.message}`)),
       uploadCalibration(runner, { log })
         .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
       runner("setups:ensureSeeded").then(() => log("Seeded the system setups."))
