@@ -29,10 +29,13 @@ test("the index: kebab-case names, one-line descriptions, every skill loadable b
 
 test("bodies carry their guidance and live parts, within the limit, and survive missing or odd data", () => {
   const writing = skillBody("writing-agents", { observation });
-  for (const expected of ["validate_agent", "swapDigits(i, j) — Swap two digits", "digits(x): number[]", "def u(x): return x % 3", "Defence goal", "Room language: typescript"]) {
+  for (const expected of ["validate_agent", "swapDigits(i, j) — Swap two digits", "digits(x): number[]", "def u(x): return x % 3", "Defence goal", "Allowed languages: typescript", "Helpers in typescript:"]) {
     assert.ok(writing.includes(expected), `writing-agents has ${expected}`);
   }
-  assert.ok(!writing.includes("swap_digits"), "only the room language's helper names");
+  assert.ok(!writing.includes("swap_digits"), "only the allowed language's helper names");
+  const both = skillBody("writing-agents", { observation: { ...observation, languages: ["typescript", "python"] } });
+  assert.ok(both.includes("Allowed languages: typescript, python"), "every language the game allows");
+  assert.ok(both.includes("swapDigits(i, j)") && both.includes("swap_digits(i, j)"), "with each allowed language's helper names");
   const screen = skillBody("screen", { layout });
   assert.ok(screen.includes("objects — Objects by payoff (Ranked objects): params sortBy(payoff|mine), limit; phases running"), screen);
   assert.ok(screen.includes("Stored panels of the player (open_panel {slug}): mine"));

@@ -27,8 +27,7 @@ for (const spec of SPECS) for (const language of languages) {
     const source = (language === "python" ? PY : TS)[spec.objectType];
     const other = language === "python" ? "typescript" : "python";
     const settings = {
-      objectType: spec.objectType, typeArgs: spec.typeArgs, language, grammarId: `${language}-agent-v1`,
-      complexityFunctionId: language === "python" ? "ast-bits-v1" : "ts-ast-bits-v1-uniform",
+      objectType: spec.objectType, typeArgs: spec.typeArgs, languages: [language],
       startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 50,
     };
     const { roomId } = await roomWith([host, ada, bo], settings);

@@ -133,7 +133,8 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
   const o = rec(observation);
   const self = rec(o.self);
   const utility = rec(self.utility);
-  const language = str(o.language) ?? "python";
+  const languages = Array.isArray(o.languages) && o.languages.length && o.languages.every(l => typeof l === "string")
+    ? (o.languages as string[]).join(" or ") : str(o.language) ?? "python";
   const lines: string[] = ["<briefing>", "Untrusted game data fetched by the engine when the player sent this message (it may have changed since)."];
   if (o.phase && o.phase !== "lobby") {
     const agents = typeof o.agentCount === "number" ? o.agentCount : Array.isArray(o.agents) ? o.agents.length : undefined;
@@ -145,7 +146,7 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
         + "the objects, your agents, scores and the leaderboard as they were at the end. Every panel and read tool still shows it. No more summons, destroys or pauses; public chat and the player's panels still work.");
     }
     lines.push(
-      `Game ${str(o.gameShortCode) ?? ""} — phase: ${str(o.phase)}; language: ${language}; objects: ${str(o.objectCount) ?? "?"}; your ${live}agents: ${agents === undefined ? "?" : `${agents} ${live}agent${agents === 1 ? "" : "s"}`}${ended ? " (at the end)" : ""}.`,
+      `Game ${str(o.gameShortCode) ?? ""} — phase: ${str(o.phase)}; agent languages: ${languages}; objects: ${str(o.objectCount) ?? "?"}; your ${live}agents: ${agents === undefined ? "?" : `${agents} ${live}agent${agents === 1 ? "" : "s"}`}${ended ? " (at the end)" : ""}.`,
       `Your energy${ended ? " at the end" : ""}: ${num(self.energy) ?? "?"} bits${self.pauseUsed ? "; your pause is used" : ""}. Economy: ${cut(JSON.stringify(rec(o.economy)), 400)}.`,
       ...utilityLine("Your utility (private; its source is in the writing-agents skill)", utility),
       ...utilityLine("Your defence goal (penalty)", rec(utility.penalty)),
@@ -160,7 +161,7 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
   } else if (observation === undefined || observation === null) {
     lines.push("The engine could not read your observation when this message was sent: call get_observation before answering anything about the current game.");
   } else {
-    lines.push(`No game is running in this room (lobby): there is no utility or energy yet. The next game's language: ${language}; the game-rules skill has its rules.`);
+    lines.push(`No game is running in this room (lobby): there is no utility or energy yet. The next game's agent languages: ${languages}; the game-rules skill has its rules.`);
   }
   // Only with no game running (lobby, or after one ended): the next game computing its rule tables (get_rules `preparing`).
   lines.push(...preparingLines(preparing));

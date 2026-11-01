@@ -8,8 +8,8 @@
  * - Only the setup's owner edits it. Anyone else (and everyone, for a system setup) reads the same form with every
  *   control disabled and one primary action, "Duplicate and edit", which makes their own copy and opens it here.
  * - Every control changes the draft through the settings model (game-core applySettingsChange, with the manifest's
- *   playable instantiations and the shipped family catalogue as its domain): a language moves its grammar and summon
- *   price, a new world takes its default instantiation and drops the families it lacks, and nothing else moves. The
+ *   playable instantiations and the shipped family catalogue as its domain): the allowed languages are a multi-select
+ *   (at least one; each agent's grammar and summon price follow its own language), a new world takes its default instantiation and drops the families it lacks, and nothing else moves. The
  *   board shape is one control per type argument; every playable combination is enabled (only a retired one, 3×3, is
  *   not), and a shape whose first game computes rule tables says so in a light note with the measured time.
  * - Defence goals are a switch plus a checklist of the defence goals that may be dealt: on, every player gets one.
@@ -22,7 +22,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useAction, useMutation } from "convex/react";
 import {
-  LANGUAGES, ROOM_BUDGET_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, applySettingsChange, settingsOptionsFor, type FieldDoc, type OptionKey, type SettingsSection,
+  LANGUAGES, LANGUAGE_SPECS, ROOM_BUDGET_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, allowedLanguages, applySettingsChange, settingsOptionsFor, type FieldDoc, type Language, type OptionKey,
+  type SettingsSection,
 } from "@workspace/game-core";
 import { BadgeChips, RuleShelf, sameArgs } from "@workspace/object-views";
 import { api, useLive } from "@/lib/convex";
@@ -38,7 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt } from "@/lib/errors";
 import {
   BUDGET_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
-  dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, type PlayableTypes, type Settings, type SettingsKey,
+  dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
 } from "@/lib/settings-form";
 import { freeName, ownerLabel } from "@/lib/setup-words";
 
@@ -52,7 +53,6 @@ const saveDraft = (key: string, s: Stored | null) => { try { if (s) window.local
 const budgetsOf = (room: RoomState): Budgets => ({ aiBudget: room.aiBudget, assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel });
 const tidyName = (raw: string) => raw.trim().replace(/\s+/g, " ");
 const PRIOR_LABELS: Record<string, string> = { uniform: "Uniformly random objects (the spawn prior)" };
-const LANGUAGE_LABELS: Record<string, string> = { python: "Python", typescript: "TypeScript" };
 
 export default function Configure() {
   const { id = "" } = useParams<{ id: string }>();
@@ -297,7 +297,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
             <p data-testid="text-summary-setup">{trimmed || setup.name}</p>
             <p className="text-muted-foreground">{owner}</p>
             <p>{currentType ? `${currentType.emoji} ${currentType.label}` : draft.objectType} · {playable?.label ?? Object.values(draft.typeArgs).join(" · ")}</p>
-            <p>{draft.language === "python" ? "Python" : "TypeScript"}</p>
+            <p data-testid="text-summary-languages">{formatValue("languages", allowedLanguages(draft))}</p>
             <p>Defence goals: {draft.defenceGoals ? "every player" : "off"}</p>
             <p>{fmt(draft.startingObjectCount)} objects, +{draft.spawnRateHz}/s</p>
             <p>{lengthLine(draft)} · {paceWord(draft.interactionRateHz)} pace</p>
@@ -442,7 +442,7 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
           </Question>
         );
       }
-      const choices = k === "utilitySelectorId" ? settingsOptionsFor("utilitySelectorId", draft.language, draft.objectType).map(o => o.id) : stepChoices(k, draft[k]);
+      const choices = k === "utilitySelectorId" ? settingsOptionsFor("utilitySelectorId", draft.objectType).map(o => o.id) : stepChoices(k, draft[k]);
       const note = k === "utilitySelectorId" ? dealerNote(type as unknown as PlayableTypes | undefined, draft) : null;
       return (
         <Question k={k} error={error}>
@@ -451,6 +451,12 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
         </Question>
       );
     }
+    case "multiselect":
+      return (
+        <Question k={k} error={error}>
+          <LanguageChoices k={k} value={allowedLanguages(draft)} editable={editable} manifest={manifest} onChange={languages => change({ languages })} />
+        </Question>
+      );
     case "select": {
       const options = selectOptions(k, draft, manifest);
       return (
@@ -466,11 +472,36 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
   }
 }
 
-/** The choices of a select: the pre-authored options of this language and type, the shipped priors, the languages. */
+/** The choices of a select: the pre-authored options of this object type, or the shipped priors. */
 function selectOptions(k: SettingsKey, draft: Settings, manifest?: Manifest): { id: string; label: string }[] {
-  if (k === "language") return LANGUAGES.map(id => ({ id, label: `${LANGUAGE_LABELS[id] ?? id}${manifest && !manifest.runtimes.includes(id) ? " (runtime unavailable now)" : ""}` }));
   if (k === "priorId") return (manifest?.priors ?? [draft.priorId]).map(id => ({ id, label: PRIOR_LABELS[id] ?? id }));
-  return settingsOptionsFor(k as OptionKey, draft.language, draft.objectType).map(o => ({ id: o.id, label: o.label }));
+  return settingsOptionsFor(k as OptionKey, draft.objectType).map(o => ({ id: o.id, label: o.label }));
+}
+
+/**
+ * The allowed languages: one checkbox per supported language (pre-authored, game-core LANGUAGES), at least one ticked,
+ * so the last ticked one cannot be unticked. A language whose runtime is down now says so but stays choosable.
+ */
+function LanguageChoices({ k, value, editable, manifest, onChange }: {
+  k: SettingsKey; value: readonly Language[]; editable: boolean; manifest?: Manifest; onChange: (languages: Language[]) => void;
+}) {
+  return (
+    <div role="group" aria-label={LABELS[k]} className="flex flex-wrap gap-1.5">
+      {LANGUAGES.map(id => {
+        const on = value.includes(id), last = on && value.length === 1;
+        const down = manifest && !manifest.runtimes.includes(id);
+        return (
+          <button key={id} type="button" role="checkbox" aria-checked={on} disabled={!editable || last} onClick={() => onChange(toggleLanguage(value, id, !on))}
+            data-testid={`choice-${k}-${id}`} title={last ? "At least one language must stay allowed" : undefined}
+            className={`border px-3 py-1.5 text-sm ${on ? "border-primary bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"} disabled:cursor-default`}>
+            {on ? "☑" : "☐"} {LANGUAGE_SPECS[id].label}{down ? " (runtime unavailable now)" : ""}
+          </button>
+        );
+      })}
+      {value.length > 1 && <p className="basis-full text-xs text-muted-foreground" data-testid="note-default-language">
+        Default for new agents and utility cards: {LANGUAGE_SPECS[value[0]!].label} (the first ticked).</p>}
+    </div>
+  );
 }
 
 /**

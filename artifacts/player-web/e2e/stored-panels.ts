@@ -439,7 +439,7 @@ await check("while the next game prepares its rule tables (a shape with no shipp
     convex("calibration/cache:claim", { key: tableKey(smooth.id, p, inst), instance: inst.key, family: smooth.id, paramsKey: paramsKey(p), prior: "uniform" });
   }
   const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
-  await owner("settings", { revision, settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, language: "typescript",
+  await owner("settings", { revision, settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, languages: ["typescript"],
     excludedFamilies: familiesFor("Int", "reward").map(f => f.id).filter(id => id !== smooth.id) } });
   const started = await owner("start") as { status?: string; message?: string };
   assert(started.status === "preparing" && /preparing its rule tables: 0 of 3 ready/.test(started.message ?? ""), `start: ${JSON.stringify(started)}`);
@@ -470,7 +470,7 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
 await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, rectangles to scale with labelled edges, the top bar at the ramp's strong end, no sideways scroll", async () => {
   const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
   const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
-  await owner("settings", { revision, settings: { objectType: "Grid", language: "typescript", planningSeconds: 2, halfLifeSeconds: 3600 } });
+  await owner("settings", { revision, settings: { objectType: "Grid", languages: ["typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
   await owner("start");
   const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
   await carol.mutation(fn.m("layout:set"), { roomId, layout: { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "human" } } } });

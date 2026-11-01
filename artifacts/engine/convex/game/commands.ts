@@ -6,7 +6,7 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { newAgentAccount, type GameSettings } from "@workspace/game-core";
+import { allowedLanguages, newAgentAccount, upgradeLegacyLanguage, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -15,6 +15,7 @@ import { appendEvents } from "../engine/loop";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
+import { languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
 
@@ -49,17 +50,18 @@ export const prepare = internalQuery({
     const command = envelope.command;
     let examine: null | { settings: GameSettings; live: (number | string)[] } = null;
     if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
-        command.language === (game.settings as GameSettings).language && game.phase !== "ended" && game.phase !== "recovery" &&
+        allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
-      examine = { settings: game.settings as GameSettings, live: live.map(o => o.value) };
+      // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
+      examine = { settings: (upgradeLegacyLanguage(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
 });
 
 const examinedV = v.object({
-  gameId: v.string(), source: v.string(),
+  gameId: v.string(), source: v.string(), language: languageV,
   error: v.optional(v.string()),
   result: v.optional(v.object({
     cost: v.number(), parts: v.any(), decisionBits: v.number(), expectedActCost: v.number(),
@@ -99,7 +101,7 @@ export const apply = internalMutation({
   },
 });
 
-type Examined = { gameId: string; source: string; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
+type Examined = { gameId: string; source: string; language: Language; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
   breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[] } };
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
@@ -107,7 +109,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
   const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
   if (GAME_COMMANDS.includes(command.type) && !envelope.gameId) fail("BAD_REQUEST", "Game ID is required");
   if (envelope.gameId && envelope.gameId !== game?._id) fail("CONFLICT", "Stale game");
-  if ("language" in command && command.language !== (game?.settings as GameSettings | undefined)?.language) fail("BAD_REQUEST", "Wrong game language");
+  if ("language" in command && !(game && allowedLanguages(game.settings as GameSettings).includes(command.language))) {
+    fail("BAD_REQUEST", `This game does not allow ${command.language} agents${game ? ` (allowed: ${allowedLanguages(game.settings as GameSettings).join(", ")})` : ""}`);
+  }
 
   if (command.type === "chat") {
     const text = command.text;
@@ -141,7 +145,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     return { pauseEndsAt };
   }
   if (command.type === "validate" || command.type === "summon") {
-    if (!examined || examined.gameId !== game._id || examined.source !== command.source) fail("UNAVAILABLE", "The agent could not be examined; retry");
+    if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     const e = examined.result;
     if (command.type === "validate") {
@@ -152,7 +156,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     const agentId = await ctx.db.insert("agents", {
-      gameId: game._id, ownerId: member.godId, source: command.source, createdAt: now,
+      gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now,
       summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, perActFloorBits: settings.perActFloorBits,
       breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(worldNow(game, now)), acts: 0, spent: 0,
     });

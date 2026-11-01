@@ -7,7 +7,7 @@ import { DEFAULT_LAYOUT, PRESET_LAYOUTS, closePane, type DockLayout } from "@wor
 import { PANELS, type PanelId } from "@workspace/player-client/panels";
 import { notify, notifyError } from "@/core/notices";
 import { composer } from "@/core/chat/composer";
-import { runner } from "@/core/game/runner";
+import { runner, type Lang } from "@/core/game/runner";
 import { lastParams } from "./history";
 import { addPanelNextTo, changePanel, dockAssistant, showPanel, showOwnPanel } from "./operations";
 import { useDockStore, type DockStore } from "./store";
@@ -41,7 +41,7 @@ export function dockActions(store: DockStore) {
     openPanel(slug: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "stored-panel", slug }).layout); },
     openFile(fileId: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "file-panel", fileId }).layout); },
     /** The forge panel in edit mode (the palette's "Write agent code…", the overview's next step, "Edit a copy"). */
-    forgeEdit(source?: string, language?: "python" | "typescript") {
+    forgeEdit(source?: string, language?: Lang) {
       if (source !== undefined) runner.edit(source, language); else runner.setEditing(true);
       this.show("forge");
     },

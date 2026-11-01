@@ -7,7 +7,7 @@
  * decisionBits and expectedActCost are measured by RUNNING the agent on the season's reference mixture
  * plus up to 16 live objects; randomized agents are replicated. The agent is never read.
  */
-import { instantiationOf, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
   availableMutators, measureAgent, parseAct, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
@@ -63,10 +63,10 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
 export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
-export async function examineAgent(settings: GameSettings, source: string, live: readonly ObjectValue[]): Promise<Examination> {
+export async function examineAgent(settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
   const inst = instantiationOf(settings);
   let inspection: Inspection;
-  try { inspection = await inspect(source, settings); }
+  try { inspection = await inspect(source, language, settings); }
   catch (error) {
     if (!isAgentFault(error)) throw error;
     throw new AgentFault((error as Error).message.slice(0, 1000));
@@ -80,7 +80,7 @@ export async function examineAgent(settings: GameSettings, source: string, live:
   const measured = await measureAgent(async (value, seed, at) => {
     runs++;
     try {
-      const result = await act(source, value, settings, seed);
+      const result = await act(source, language, value, settings, seed);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps };

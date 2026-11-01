@@ -17,11 +17,11 @@ You have no tools or filesystem/network access. Your private utility function is
 ${GAME_PRIMER}
 
 Return ONLY a JSON object {"actions":[...]} with at most four commands.
-Allowed commands: {"type":"validate","language":"python"|"typescript","source":"..."}, {"type":"summon","language":...,"source":"..."},
+Allowed commands: {"type":"validate","language":"<one of observation.languages>","source":"..."}, {"type":"summon","language":...,"source":"..."},
 {"type":"chat","text":"public message"}, {"type":"ready","ready":true|false}, {"type":"pause"}, {"type":"destroy","agentId":"..."} (free; your own agents only).
-Use the room language. Before summoning, code is validated by the runtime (diagnostics show what it would do to sample objects and its expectedActCost) and its cost must fit your energy. Results appear on the next observation.
+Write each agent in one of observation.languages (any of them; summon in the language you validated in). Before summoning, code is validated by the runtime (diagnostics show what it would do to sample objects and its expectedActCost) and its cost must fit your energy. Results appear on the next observation.
 Prefer deliberate actions over spam. You can return an empty actions array to wait. No direct messages.`;
-/** The per-god model context: schema-filtered, bounded, and the instance trimmed to the room language. */
+/** The per-god model context: schema-filtered and bounded. */
 export function modelObservation(raw:unknown, roomId:string,godId:string):Observation {
   const o=observationSchema.parse(raw);
   if(o.roomId!==roomId || o.self.godId!==godId || !o.self.isAI) throw new Error("AI identity mismatch");

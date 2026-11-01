@@ -5,7 +5,7 @@
  *   on the field ("Must be between 1 and 200 agents.");
  * - the settings model's domain from the manifest (`settingsDomain`): every control changes the draft through
  *   game-core's `applySettingsChange`, exactly as the engine applies a change, so the only dependencies are the
- *   game's own (a language moves its grammar and summon price, a world its default instantiation and the families
+ *   game's own (a world moves its default instantiation and the families
  *   that no longer exist); penalty weight and the defence checklist hide while defence goals are off;
  * - one control per type argument (`argChoices`): every value of each argument, never moving another argument; only a
  *   combination the type refuses (or a retired one, 3×3) is disabled. Calibration is never a condition: a shape whose
@@ -13,7 +13,7 @@
  * - the family shelves of an instantiation (reward rules and defence goals);
  * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
-import { SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { LANGUAGES, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
 import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
@@ -21,7 +21,7 @@ export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
 
 export const SECTIONS: readonly { id: SettingsSection | "review"; title: string; intro: string }[] = [
-  { id: "world", title: "World", intro: "What the objects are and which language agents are written in." },
+  { id: "world", title: "World", intro: "What the objects are and which languages agents may be written in." },
   { id: "goals", title: "Goals", intro: "How secret goals are dealt, and whether every player also defends something." },
   { id: "agents", title: "Agents", intro: "How many agents each player may keep and how much they may compute." },
   { id: "energy", title: "Energy", intro: "How players and their agents earn and spend bits." },
@@ -40,8 +40,8 @@ export function fieldsOf(section: SettingsSection): SettingsKey[] {
 
 /** Short labels for summaries and diffs ("World speed: 100 → 25 acts/s"). */
 export const LABELS: Readonly<Record<SettingsKey, string>> = {
-  language: "Language", objectType: "Objects", typeArgs: "Object shape", grammarId: "Agent code shape", utilitySelectorId: "Goal dealing",
-  complexityFunctionId: "Summon price", spawnFunctionId: "New objects", planningSeconds: "Planning", halfLifeSeconds: "Game length (half-life)",
+  languages: "Languages", objectType: "Objects", typeArgs: "Object shape", utilitySelectorId: "Goal dealing",
+  spawnFunctionId: "New objects", planningSeconds: "Planning", halfLifeSeconds: "Game length (half-life)",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", perActFloorBits: "Minimum act price", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
   energyPerSecond: "Energy refill", agentEnergyPerSecond: "Agent charging", agentBatteryActs: "Agent battery", maxAgentsPerGod: "Agents per player",
@@ -93,6 +93,7 @@ export const fieldError = (key: SettingsKey, value: unknown) => limitError(LIMIT
  */
 export function draftErrors(s: Settings, domain?: SettingsDomain): Partial<Record<SettingsKey | "_form", string>> {
   const out: Partial<Record<SettingsKey | "_form", string>> = {};
+  if (!Array.isArray(s.languages) || !s.languages.length) out.languages = "Allow at least one language";
   for (const key of Object.keys(LIMITS) as SettingsKey[]) {
     const e = fieldError(key, s[key]);
     if (e) out[key] = e;
@@ -101,6 +102,15 @@ export function draftErrors(s: Settings, domain?: SettingsDomain): Partial<Recor
     try { validateSettings(s, domain); } catch (e) { out._form = e instanceof Error ? e.message : String(e); }
   }
   return out;
+}
+
+/**
+ * The allowed languages after ticking (`on`) or unticking one. The order is kept (its first is the game's default) and
+ * a newly ticked language goes last; the set never empties, so unticking the last one changes nothing.
+ */
+export function toggleLanguage(current: readonly Language[], language: Language, on: boolean): Language[] {
+  const next = on ? (current.includes(language) ? [...current] : [...current, language]) : current.filter(l => l !== language);
+  return next.length ? next : [...current];
 }
 
 /** Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off). */
@@ -237,7 +247,8 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "excludedDefenceFamilies" && Array.isArray(v)) return v.length ? `${v.length} defence goal${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
-  if ((key === "language" || key === "utilitySelectorId" || key === "objectSelection") && typeof v === "string") return choiceLabel(key, v);
+  if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
+  if ((key === "utilitySelectorId" || key === "objectSelection") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
@@ -247,7 +258,7 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   halfLifeSeconds: { 120: "Short", 300: "Normal", 600: "Long", 1200: "Marathon" },
   utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
   objectSelection: { uniform: "Uniform", shelter: "Shelter" },
-  language: { python: "Python", typescript: "TypeScript" },
+  languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);
 /** A stepped choice's label: "Slow (25/s)", "2 min", "50%", "500,000 steps". */

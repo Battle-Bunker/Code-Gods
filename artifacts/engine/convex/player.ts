@@ -7,7 +7,7 @@
  */
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
-import { instantiationOf } from "@workspace/game-core";
+import { allowedLanguages, instantiationOf } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireViewer, type Viewer } from "./auth/access";
@@ -137,6 +137,6 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
       utility: { familyId: utility.familyId, params: utility.params, ...(utility.penalty ? { penalty: { familyId: utility.penalty.familyId, params: utility.penalty.params } } : {}) },
       instantiationKey: instantiationOf(settings).key,
       objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId, penaltyWeight: settings.penaltyWeight,
-      language: settings.language, settings,
+      language: allowedLanguages(settings)[0], languages: allowedLanguages(settings), settings,
     };
 }

@@ -14,10 +14,19 @@ test("rules text explains every documented setting with its value, meaning and c
   assert.ok(text.includes(`- halfLifeSeconds = ${DEFAULT_SETTINGS.halfLifeSeconds} s:`), "units follow the value");
 });
 
+test("the rules name every allowed language and each one's agent shape; an old single language still reads", () => {
+  const both = rulesText({ ...DEFAULT_SETTINGS, languages: ["typescript", "python"] } as unknown as Record<string, unknown>);
+  assert.match(both, /one of this game's languages \(TypeScript, Python\), chosen per agent/);
+  assert.ok(both.includes("`function agent(obj)` (TypeScript) or `def agent(obj)` (Python)"), both);
+  assert.ok(both.includes("- languages = typescript, python:"));
+  const { languages: _l, ...rest } = DEFAULT_SETTINGS;
+  assert.match(rulesText({ ...rest, language: "typescript" }), /languages \(TypeScript\)/);
+});
+
 test("settings explained: lists and missing values read as words, never as [object Object]", () => {
   const lines = settingsExplained({ excludedFamilies: [], typeArgs: { size: 4 } });
   assert.ok(lines.includes("- excludedFamilies = none:"));
   assert.ok(lines.includes('- typeArgs = {"size":4}:'));
-  assert.ok(lines.includes("- language = ?:"));
+  assert.ok(lines.includes("- languages = ?:"));
   assert.equal(lines.includes("[object Object]"), false);
 });

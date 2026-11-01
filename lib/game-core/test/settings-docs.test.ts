@@ -55,20 +55,21 @@ test("dependencies point at real fields; penalty weight hides while no defence g
   }
   assert.deepEqual(SETTINGS_DOCS.penaltyWeight.hiddenWhen, { defenceGoals: false });
   assert.deepEqual(SETTINGS_DOCS.excludedDefenceFamilies.hiddenWhen, { defenceGoals: false }, "the checklist belongs to the switch");
-  assert.deepEqual(SETTINGS_DOCS.grammarId.dependsOn, ["language"]);
+  assert.equal(SETTINGS_DOCS.languages.control, "multiselect", "a game allows a set of languages");
+  assert.deepEqual(SETTINGS_DOCS.languages.suggested, ["python", "typescript"], "pre-authored: the supported languages, no free text");
 });
 
 test("every field is a control: asked or under More, never a fixed fact, with a control that fits its value", () => {
   const kinds: Record<string, (v: unknown) => boolean> = {
     number: v => typeof v === "number", switch: v => typeof v === "boolean", checklist: Array.isArray,
-    select: v => typeof v === "string", segmented: v => typeof v === "string", typeArgs: v => !!v && typeof v === "object" && !Array.isArray(v),
+    select: v => typeof v === "string", multiselect: v => Array.isArray(v) && v.length > 0, segmented: v => typeof v === "string", typeArgs: v => !!v && typeof v === "object" && !Array.isArray(v),
   };
   for (const [key, doc] of Object.entries(SETTINGS_DOCS) as [keyof GameSettings, FieldDoc][]) {
     assert.ok(doc.tier === "ask" || doc.tier === "more", `${key}: tier ${doc.tier}`);
     assert.ok(doc.control in kinds, `${key}: a known control kind (${doc.control})`);
     assert.ok(kinds[doc.control]!(DEFAULT_SETTINGS[key]), `${key}: a ${doc.control} control fits its value`);
   }
-  for (const key of ["grammarId", "complexityFunctionId", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause"] as const) {
+  for (const key of ["languages", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause"] as const) {
     assert.notEqual(SETTINGS_DOCS[key].control, undefined, `${key} is edited, not asserted`);
   }
 });

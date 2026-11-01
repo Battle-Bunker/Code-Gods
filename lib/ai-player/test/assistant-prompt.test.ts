@@ -121,6 +121,8 @@ test("the briefing is bounded and survives a lobby (no game), a failed read or u
   const lobbyView = assistantBriefing({ observation: { ...observation, phase: "lobby", self: { energy: 0, utility: null } } });
   assert.match(lobbyView, /no game is running/i);
   assert.ok(lobbyView.includes("typescript") && !lobbyView.includes("Your energy"), "the next game's language, no energy yet");
+  const both = assistantBriefing({ observation: { ...observation, languages: ["typescript", "python"] } });
+  assert.match(both, /agent languages: typescript or python/, "every allowed language, not only the default");
   const huge = { ...observation, economy: Object.fromEntries(Array.from({ length: 500 }, (_, i) => [`k${i}`, i])), self: { ...observation.self, utility: { name: "n".repeat(5000), summary: "s".repeat(5000) } } };
   assert.ok(assistantBriefing({ observation: huge, layout }).length <= BRIEFING_LIMITS.total);
   assert.doesNotThrow(() => assistantBriefing({ observation: { self: "nope", instance: { helpers: "nope" } } }));

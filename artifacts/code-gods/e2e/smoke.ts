@@ -22,7 +22,7 @@
  * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
- * note shows, with its grammar and summon price, 1 s planning), saves it for
+ * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
  * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player, which asks for the AI budget in the
  * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game, the room shows its rule tables being
@@ -303,7 +303,7 @@ try {
       assert.equal(await a.getByTestId("select-spawnFunctionId").isDisabled(), false);
       await expand(a, "more-agents");
       await a.getByTestId("switch-commitClause").click();
-      // Int / TypeScript: Int's own arguments; the language moves its grammar and summon price, both real selects.
+      // Int / TypeScript: Int's own arguments; the languages are a multi-select that never empties.
       await a.getByTestId("choice-objectType-Int").click();
       await a.getByTestId("arg-min").waitFor();
       await a.getByTestId("arg-max").waitFor();
@@ -320,11 +320,12 @@ try {
       await a.getByTestId("switch-defenceGoals").click();
       await a.getByTestId("reason-defenceGoals").waitFor();
       assert.equal(await a.getByTestId("switch-defenceGoals").isDisabled(), true);
-      await a.getByTestId("select-language").selectOption("typescript");
-      await expand(a, "more-world");
-      assert.equal(await a.getByTestId("select-grammarId").inputValue(), "typescript-agent-v1");
-      assert.equal(await a.getByTestId("select-complexityFunctionId").inputValue(), "ts-ast-bits-v1-uniform");
-      assert.equal(await a.getByTestId("select-grammarId").isDisabled(), false);
+      assert.equal(await a.getByTestId("choice-languages-python").isDisabled(), true, "the only allowed language cannot be unticked");
+      await a.getByTestId("choice-languages-typescript").click();
+      await a.getByTestId("text-summary-languages").filter({ hasText: "Python, TypeScript" }).waitFor();
+      await a.getByTestId("choice-languages-python").click();
+      assert.equal(await a.getByTestId("choice-languages-typescript").getAttribute("aria-checked"), "true");
+      assert.equal(await a.getByTestId("choice-languages-python").getAttribute("aria-checked"), "false");
       await a.getByTestId("button-exact-planningSeconds").click();
       await a.getByTestId("input-planningSeconds").fill("1");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();

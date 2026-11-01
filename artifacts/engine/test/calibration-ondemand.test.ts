@@ -70,7 +70,7 @@ test("a game started on a shape with no shipped file deals, prepares its tables 
   await touch(members[0]);
   // Only smooth-operator may be dealt: three gods, its three sampled tables, none ready.
   const excludedFamilies = familiesFor("Int", "reward").map(f => f.id).filter(id => id !== "smooth-operator");
-  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: settings.typeArgs, language: "typescript", excludedFamilies, halfLifeSeconds: 100000 });
+  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: settings.typeArgs, languages: ["typescript"], excludedFamilies, halfLifeSeconds: 100000 });
   const started = performance.now();
   const first = await members[0].c.action(api.owner.start, { roomId, requestId: crypto.randomUUID() });
   assert.deepEqual([first.status, first.ready, first.total], ["preparing", 0, 3]);

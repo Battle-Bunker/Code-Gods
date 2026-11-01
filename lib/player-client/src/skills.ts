@@ -9,6 +9,7 @@
  * Adding a skill: an entry in SKILLS (name, description ≤ 160 characters, reads, tools) and its text in `skillBody`;
  * test/skills.test.ts checks every skill renders within SKILL_LIMITS from empty and from realistic data.
  */
+import { allowedLanguages } from "@workspace/game-core";
 import { PRIMER_AGENTS, PRIMER_SCORING } from "./primer.ts";
 import { ANALYTICS_CODE_SKILL } from "./skills/analytics-code.ts";
 
@@ -18,7 +19,7 @@ export interface SkillEntry { name: string; description: string; reads: readonly
 
 export const SKILLS = [
   { name: "game-rules", description: "The full rules of this room: scoring in bits, agents, energy, timing and phases. Load for rules questions the briefing does not answer.", reads: ["rules"], tools: [] },
-  { name: "writing-agents", description: "Writing, validating and summoning an agent: the workflow, the room language's mutators and read helpers, and your utility's source.", reads: ["observation"],
+  { name: "writing-agents", description: "Writing, validating and summoning an agent: the workflow, the allowed languages' mutators and read helpers, and your utility's source.", reads: ["observation"],
     tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent"] },
   { name: "screen", description: "The player's screen: panes, every built-in panel with its parameters, and when to open, change, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: listing, copying, saving and switching the room's setup (owners), and what each choice changes.", reads: [],
@@ -41,7 +42,7 @@ const rec = (v: unknown): Json => v && typeof v === "object" && !Array.isArray(v
 const str = (v: unknown): string | undefined => typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : undefined;
 const cut = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}… [cut]` : text;
 
-/** The room language's mutators and read helpers, one signature a line, bounded. */
+/** A language's mutators and read helpers, one signature a line, bounded. */
 export function helperLines(instance: unknown, language: string, limits: { helpers: number; helper: number } = SKILL_LIMITS): string[] {
   const helpers = Array.isArray(rec(instance).helpers) ? (rec(instance).helpers as unknown[]).map(rec) : [];
   const lines: string[] = [];
@@ -87,7 +88,7 @@ export function panelCatalogLines(layout: unknown, max: number = SKILL_LIMITS.pa
 const WRITING_AGENTS = `WRITING AN AGENT.
 1. Decide what to aim for from the player's utility (its source is below; evaluate_value scores a candidate value).
 2. Read a few objects (get_observation) to see what the agent will meet.
-3. Write ordinary code in the room language that defines agent(obj) and returns a LIST of at most 16 mutator calls (only the helper names below; never a new object). Every object value is unique: a change onto an existing value fails.
+3. Write ordinary code in one of the allowed languages (pass it as language to validate_agent and summon_agent) that defines agent(obj) and returns a LIST of at most 16 mutator calls (only the helper names below; never a new object). Every object value is unique: a change onto an existing value fails.
 4. Keep it cheap: simple code costs fewer summon bits and fewer decision bits per act.
 5. Show the draft in the forge panel: open_panel {panelId: "forge", params: {source}}.
 6. validate_agent (free, takes seconds): report whether it compiles, its summon cost and cost per act against the player's energy.
@@ -105,7 +106,7 @@ const SCREEN = `THE PLAYER'S SCREEN. The client is a dock of panes: built-in pan
 const SETUPS = `GAME SETUPS. A room always runs one game setup: a named, complete set of settings in one shared collection (list_setups), each owned by its creator or by the system; there is no "custom" state.
 - get_setup shows one setup's settings. Only a setup's owner may change it (save_setup, complete settings); anyone may copy one (duplicate_setup) and edit the copy.
 - For the room owner (owner grant), update_settings with a setupId puts the room on any setup; with settings it edits the room's setup if the player owns it, else makes their own copy and switches the room to it: tell the player which (the result's setup.note). It needs the room's current revision (get_room_state) and the player's confirmation.
-- A language change moves the grammar and the summon price; an object type change moves its default instantiation. A running game keeps the settings it started with: settings change the next game.`;
+- languages is the set agents may be written in (at least one): each agent's grammar and summon price follow its own language. An object type change moves its default instantiation. A running game keeps the settings it started with: settings change the next game.`;
 
 /**
  * A skill's body: its guidance, then the live parts it reads (missing reads say so instead of failing). Player-written
@@ -120,9 +121,12 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
       : "The room's rules could not be read: call get_rules.");
   } else if (name === "writing-agents") {
     const o = rec(data.observation);
-    const language = str(o.language) ?? "python";
+    const allowed = allowedLanguages(o).length ? allowedLanguages(o) : ["python"];
     const utility = rec(rec(o.self).utility);
-    parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Room language: ${language}. agent(obj) receives the object's value itself (a number for Int, a string for string, a grid for Grid), never a wrapper with fields.`, ...helperLines(o.instance, language));
+    parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Allowed languages: ${allowed.join(", ")} (pass the agent's language to validate_agent and summon_agent; default ${allowed[0]}). agent(obj) receives the object's value itself (a number for Int, a string for string, a grid for Grid), never a wrapper with fields.`);
+    // Each allowed language's helper names, sharing the helpers budget.
+    const share = { ...SKILL_LIMITS, helpers: Math.floor(SKILL_LIMITS.helpers / allowed.length) };
+    for (const language of allowed) parts.push(`Helpers in ${language}:`, ...helperLines(o.instance, language, share));
     const source = str(utility.source);
     if (source) parts.push(`The player's utility (private): ${[str(utility.emoji), str(utility.name)].filter(Boolean).join(" ")}${utility.summary ? ` — ${str(utility.summary)}` : ""}`, "Source:", cut(source, SKILL_LIMITS.source));
     const penalty = rec(utility.penalty);

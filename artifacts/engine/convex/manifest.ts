@@ -9,7 +9,7 @@ import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
  * diagnostics. Also the pre-authored dropdown options, available runtimes and AI funding status. Game setups are a
  * table of their own (convex/setups.ts).
  */
-import { DEFAULT_SETTINGS, SETTINGS_OPTIONS, defaultSettingsFor } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS, defaultSettingsFor } from "@workspace/game-core";
 import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-types";
 import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
@@ -50,12 +50,12 @@ export const get = action({
     await bindRuntime(ctx);
     const calibration = await calibrationManifest(ctx);
     const runtimes = [];
-    for (const language of ["python", "typescript"] as const) {
-      if (await languageAvailable(defaultSettingsFor("Int", language))) runtimes.push(language);
+    for (const language of LANGUAGES) {
+      if (await languageAvailable(language, defaultSettingsFor("Int", [language]))) runtimes.push(language);
     }
     return {
       protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, maximumPlayers: 8, defaults: DEFAULT_SETTINGS,
-      runtimes, options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
+      runtimes, languages: LANGUAGES.map(id => ({ id, ...LANGUAGE_SPECS[id] })), options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
       priors: priorIds(calibration),
       aiFunding: {
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),

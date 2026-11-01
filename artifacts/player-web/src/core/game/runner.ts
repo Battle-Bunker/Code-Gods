@@ -8,11 +8,12 @@
  * code…" and the agents panel's "Edit a copy" reach the same editor. State survives hot updates of the panels.
  */
 import { useCallback, useMemo, useSyncExternalStore } from "react";
+import type { Language } from "@workspace/game-core";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useActions, useObservation } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 
-export type Lang = "python" | "typescript";
+export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
 export type Validation = { source: string; language: Lang; result: CommandResult };
 export type RunnerState = {
@@ -20,7 +21,10 @@ export type RunnerState = {
   notice: { ok: boolean; text: string } | null;
   unknown: Unknown | null;
   validation: Validation | null;
-  /** The forge editor's draft. `language` is null until the player picks one (the room's language is shown). */
+  /**
+   * The forge editor's draft. `language` is null until the player picks one or edits an agent; the forge shows it when
+   * the game allows it, else the game's first allowed language (core/game/language.ts).
+   */
   draft: { source: string; language: Lang | null };
   editing: boolean;
 };

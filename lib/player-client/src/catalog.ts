@@ -273,7 +273,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "owner.settings": {
     kind: "action", audience: "owner",
     human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a game setup, or changes the room's setup; running games keep theirs." },
-    ai: { description: "Owner: the next game's setup and AI token budget, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; a language moves the grammar and summon price, an object type its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
+    ai: { description: "Owner: the next game's setup and AI token budget, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; languages lists the languages agents may be written in, an object type moves its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
     tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["setup", "configuration", "settings", "world"], surfaces: BOTH },
   },
   "owner.start": {

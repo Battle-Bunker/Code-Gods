@@ -271,7 +271,10 @@ async function summonThroughUi(p: Player, language: string, source: string) {
   const page = pages[p];
   // The forge is the Agent code panel; with nothing drafted it opens as the editor.
   await choosePanel(p, "p1", "forge");
-  await page.click(`[data-testid=button-lang-${language}]`);
+  // The game allows both languages: the forge's dropdown lists them, and this agent is written in one.
+  const offered = await page.$$eval("[data-testid=select-language] option", os => os.map(o => (o as HTMLOptionElement).value));
+  assert(offered.join() === "python,typescript", `${p} forge offers the allowed languages, got ${offered.join()}`);
+  await page.selectOption("[data-testid=select-language]", language);
   await page.fill("[data-testid=input-source]", source);
   await page.click("[data-testid=button-validate]");
   // The validation panel starts with VALID or INVALID (followed directly by the cost breakdown).
@@ -285,7 +288,7 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
   const { language, source } = AGENTS[type];
   await check(`${type} game (${language}): owner configures and starts it`, async () => {
     // A long half-life: the game must not end by its (random) lifetime in the middle of the checks.
-    await owner("settings", { settings: { objectType: type, language, planningSeconds: 2, halfLifeSeconds: 3600 } });
+    await owner("settings", { settings: { objectType: type, languages: ["python", "typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
     await start();
     for (const p of PLAYERS) await pages[p].waitForFunction(t => document.querySelector("[data-testid=text-phase]")?.textContent?.match(/planning|running/i), type, { timeout: 30_000 });
   });

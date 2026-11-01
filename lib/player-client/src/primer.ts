@@ -6,7 +6,7 @@
 export const PRIMER_SCORING = `SCORING (in bits). For each object your utility function gives an ordinal (a number or a tuple; bigger is better). Its rarity under random spawning becomes rewardBits (surprisal: rare good objects are worth many bits). A defence goal adds penaltyBits for objects that are bad for you, centred on the average. objects[].own.netBits = rewardBits − penaltyWeight × (penaltyBits − its average).
 peerNetBits is the SUM of all other gods' net bits (never an individual's); peerCare = max(0, peerNetBits); payoff = own.netBits × peerCare. Your leaderboard total is the sum of payoffs over live objects, so an object pays only if you AND the others, overall, value it. Every object value is unique: a change onto any existing value fails.`;
 
-export const PRIMER_AGENTS = `AGENTS. An agent is ordinary code in the room language that defines agent(obj) and returns a LIST of mutator calls (at most 16); it never returns a new object. Examples:
+export const PRIMER_AGENTS = `AGENTS. An agent is ordinary code in one of the game's allowed languages (observation.languages; each agent picks one) that defines agent(obj) and returns a LIST of mutator calls (at most 16); it never returns a new object. Examples:
   Python Int:    def agent(x):\n    return [add(1)]
   Python Grid:   def agent(grid):\n    return [paint(row(2), "red")]
   TypeScript:    function agent(grid) { return [paint(row(2), "red")]; }

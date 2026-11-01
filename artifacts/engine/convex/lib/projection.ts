@@ -5,12 +5,13 @@
  * opponents' scores and descriptors, seeds, other gods' agent sources, AI prompts and the end deadline
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
-import { instantiationOf, leaderboard, type GameSettings } from "@workspace/game-core";
+import { allowedLanguages, instantiationOf, leaderboard, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { agentStatus, godEnergy, viewOf, viewOfNet, worldNow } from "./world";
+import { agentLanguage } from "./language";
 
 export const SCORING = "information-v1" as const;
 
@@ -139,7 +140,7 @@ export function personalObject(o: Obj, godId: string) {
 export function agentView(game: Game, agent: Doc<"agents">, nowMs = Date.now()) {
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
   return {
-    id: agent._id as string, source: agent.source, language: (game.settings as GameSettings).language, createdAt: agent.createdAt,
+    id: agent._id as string, source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
     summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost,
     breakdown: agent.breakdown, randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
     acts: agent.acts, spent: agent.spent,
@@ -220,7 +221,7 @@ export function observation(input: ObservationInput): Observation {
     roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
-    language: settings.language,
+    language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
     instance: objectInstance(settings),
     economy: {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,

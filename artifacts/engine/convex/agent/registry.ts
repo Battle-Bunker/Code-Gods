@@ -13,6 +13,7 @@ import { ConvexError } from "convex/values";
 import {
   DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
+import type { Language } from "@workspace/game-core";
 import { rulesText } from "@workspace/player-client/rules";
 import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
 import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
@@ -51,7 +52,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const observe = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<Observation> =>
   ctx.runQuery(internal.player.observationAs, { principal, roomId });
-const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<{ gameId?: string; language?: "python" | "typescript" }> => {
+/** The current game and its default agent language (the first allowed one: validate and summon without a language use it). */
+const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<{ gameId?: string; language?: Language }> => {
   const o = await observe(ctx, principal, roomId);
   return { gameId: o.gameId, language: o.language };
 };

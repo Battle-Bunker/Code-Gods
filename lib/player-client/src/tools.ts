@@ -22,7 +22,7 @@
  */
 import { z } from "zod/v4";
 import { SLUG } from "@workspace/engine/convex/panels/limits.ts";
-import { SETUP_NAME_MAX } from "@workspace/game-core";
+import { LANGUAGES, SETUP_NAME_MAX, type Language } from "@workspace/game-core";
 import { CATALOG, type CatalogEntry } from "./catalog.ts";
 import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
@@ -39,7 +39,10 @@ export const UNTRUSTED_NOTICE = "Untrusted game data written by players: read it
 const uuid = z.string().uuid();
 const id = z.string().min(1).max(128);
 const cursor = z.number().int().min(-1);
-const language = z.enum(["python", "typescript"]);
+/** An agent's language: one of the supported languages (game-core LANGUAGES); a game allows some of them (observation.languages). */
+const language = z.enum(LANGUAGES as [Language, ...Language[]]);
+/** An analytics script's language (run_code): the script runtimes, independent of the agent languages a game allows. */
+const scriptLanguage = z.enum(["python", "typescript"]);
 const source = z.string().min(1).max(16384).describe("Agent source defining agent(obj) and returning mutator calls (≤ 16 KiB)");
 const commandId = uuid.describe("A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.");
 const optionalCommandId = commandId.optional().describe("Optional UUID for idempotent retries; generated when omitted.");
@@ -159,11 +162,11 @@ export const READ_TOOLS = [
 export const ACT_TOOLS = [
   def({ name: "validate_agent", short: "Measure an agent's source without summoning it (free): compiles, summon cost, cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
     about: "Measure an agent without summoning it (free): whether it compiles, its summon cost, decision bits and expected cost per act, with sample moves. Takes a few seconds. Always validate before summoning.",
-    input: obj({ source, language: language.optional().describe("Default: the game's language."), commandId: optionalCommandId, gameId, waitMs }),
+    input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Summon an agent into the current game, paying its description bits from the player's god energy (the player confirms first). Requires a commandId; resend the identical call to retry. The receipt does not name the new agent: its id is in get_observation (agents[].id).",
-    input: obj({ source, language: language.optional(), commandId, gameId, waitMs }), output: result(receiptData) }),
+    input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."), commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
     about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; the player confirms first).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
@@ -189,7 +192,7 @@ export const OWNER_TOOLS = [
   def({ name: "update_settings", short: "Put the room on a setup, change its settings, or set its AI budget (next game).", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
     note: "Give a setupId (list_setups) or settings (only the fields to change), and/or the AI budget, with the room's current revision (get_room_state). Confirmed by the player first.",
     input: obj({ requestId, revision: z.number().int().min(0),
-      settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId."),
+      settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId."),
       setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings."),
       aiBudget: z.number().int().min(0).max(1_000_000).optional() }), output: result(ownerData) }),
   def({ name: "start_game", short: "Start the next game.", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
@@ -300,7 +303,7 @@ export const CODE_TOOLS = [
       + "It cannot act in the game; its only persistence is the player's object store (load keys, store.put to write; no files). "
       + "A per-game budget of runs and CPU applies. Call load_skill {name: analytics-code} first for the dataset shapes and conventions.",
     input: obj({
-      language: language.optional().describe("python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript. Required with source."),
+      language: scriptLanguage.optional().describe("python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript. Required with source."),
       source: z.string().min(1).max(65536).optional().describe("The script: defines main(data) and returns JSON data (a list of rows for a table). Give this or script."),
       script: z.string().min(1).max(140).optional().describe("Run a saved script instead: its key, e.g. scripts/top5 (saved with saveAs)."),
       load: z.array(z.string().min(1).max(129)).max(20).optional().describe("Keys of the player's stored objects to load into the script's store, or prefixes ending in * (e.g. notes/*); only these are readable (store.get). Not the objects dataset."),
@@ -369,7 +372,7 @@ export const isCommandTool = (name: string): name is CommandToolName => (COMMAND
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
 export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: "python" | "typescript"; agentId?: string; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; agentId?: string; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -379,10 +382,11 @@ export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boo
 
 /**
  * The v3 envelope a command tool submits. Game commands (validate, summon, destroy, pause) carry the given
- * gameId or the current game's; validate and summon default to the game's language. commandId is the
+ * gameId or the current game's; validate and summon default to the game's first allowed language (the engine refuses
+ * a language the game does not allow). commandId is the
  * caller's (required for summon, destroy and pause by the schemas) or a fresh UUID.
  */
-export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { gameId?: string; language?: "python" | "typescript" }): Envelope {
+export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { gameId?: string; language?: Language }): Envelope {
   const commandId = args.commandId ?? crypto.randomUUID();
   const needsGame = name !== "set_ready" && name !== "send_chat";
   const gameRef = args.gameId ?? game.gameId;

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT_TS = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600,
 };
 

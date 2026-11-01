@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LANGUAGES, type Language } from "@workspace/game-core";
 
 /**
  * Player protocol v3 (docs/player-client-integration.md has the migration note from v2).
@@ -8,7 +9,8 @@ import { z } from "zod";
 export const VERSION = "code-gods.player.v3" as const;
 const id = z.string().min(1).max(128);
 const finite = z.number().finite();
-const language = z.enum(["python", "typescript"]);
+/** An agent language (game-core LANGUAGES). */
+const language = z.enum(LANGUAGES as [Language, ...Language[]]);
 const wire = z.union([finite, z.string().max(1024)]);
 const program = { language, source: z.string().min(1).max(16384).refine(source=>new TextEncoder().encode(source).length<=16384,"Source exceeds 16384 UTF-8 bytes") };
 export const commandSchema = z.discriminatedUnion("type", [
@@ -53,7 +55,7 @@ export const instanceSchema = z.object({
   helpers: z.array(helper).max(128),
 });
 export type InstanceView = z.infer<typeof instanceSchema>;
-/** Your kid card: plain-language incentives, then `def utility(...)` source; a defence goal adds `penalty`. */
+/** Your kid card: plain-language incentives, then `def utility(...)` source in the game's default language; a defence goal adds `penalty`. */
 export const utilityCardSchema = z.object({
   familyId: z.string().max(128), emoji: z.string().max(16), name: z.string().max(128), theme: z.string().max(500),
   summary: z.string().max(2000), language, source: z.string().max(16384), shape: shape.optional(),
@@ -70,7 +72,8 @@ export const observationSchema = z.object({
   version: z.literal(VERSION), roomId: id, revision: z.number().int().nonnegative(),
   gameId: id.optional(), planningEndsAt: finite.optional(), pauseEndsAt: finite.optional(),
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
-  language,
+  // The languages agents may be written in (each agent picks one; validate/summon carry it), and the default: the first.
+  language, languages: z.array(language).min(1).max(LANGUAGES.length),
   // `seated` is false for a member who joined after this game launched: they spectate and play in the next one.
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   instance: instanceSchema.optional(),
