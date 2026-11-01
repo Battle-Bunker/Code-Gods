@@ -136,39 +136,101 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
 }
 
 // ---------------------------------------------------------------------------------------------
-// Display shades. Each colour SET has its own shades, derived together (scripts/derive-palettes.ts) so the set's
-// colours are as far apart as text can make them: the smallest pairwise CIEDE2000 plus the smallest OKLab ΔE×100
-// under protanopia, deuteranopia and tritanopia (small-field tritanopia stands in for digit-size text, where a blue
-// and a green of one lightness collapse) is maximised, with every shade at 4.5:1 or better on both apps' page, card,
-// popover and muted surfaces of its scheme, inside the hue window where it still reads as its name (no set needed a
-// rename), vivid (OKLCH C ≥ 0.1) and in a lightness band that keeps it a colour. test/text-shades.test.ts holds the
-// floors. Both apps' index.css carry them as `--cg-ink-<set>-<letter>` (and rainbow6's, which covers every letter, as
-// `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
-// The light rgb and rgby shades were then hand-tuned for digit-size text: the optimiser had pushed blue to an indigo
-// (#2900df, #1707f9) that read as near-black and green to a teal, so the owner could not tell them apart. Blue is now
-// the vivid royal blue rainbow6 already used (#0555e7, OKLCH hue 262, lightness 0.51; anything bluer-green would
-// sit within 15° of the petrol-blue "yours" dimension colour) and green a darker leaf green (~145).
+// Display shades. Each colour SET has its own shades per scheme, derived together by scripts/derive-palettes.ts
+// from established perception science, for the real viewing condition: small digits on a monitor, seen at a distance.
+//
+// - Small-field colour (S-CIELAB, Zhang and Wandell 1996; colour-science.ts). A 19 px bold stem is about 2 arcminutes
+//   at 60 px per degree. The eye's blur keeps about 0.39 of a luminance difference there, 0.19 of a red–green one and
+//   0.14 of a blue–yellow one, so colours must differ in luminance and along red–green, not along blue–yellow alone.
+//   Shades are scored by CIEDE2000 between the S-CIELAB-filtered strokes on the page, not between large patches.
+// - Foveal tritanopia (König 1894; Willmer and Wright 1945). The central ~20 arcminutes of the fovea has no S cones;
+//   a fixated digit falls inside it, so every viewer is a tritanope for it. The objective therefore includes the
+//   tritan simulation (Machado, Oliveira and Fernandes 2009) before the blur, with deuteranopia and protanopia. This is
+//   what made the old greens and blues merge: they sat within 8 L* of each other and differed mostly blue–yellow.
+// - Blue vs green. They differ by ≥ BLUE_GREEN_MIN_DL in L* and keep ≥ BLUE_GREEN_MIN_TRITAN as fixated strokes:
+//   green is a light leaf green, blue a deep pure blue (no bluer than #0000ff, so not an indigo).
+// - Size and weight first (Ware, Information Visualization, ch. 4: colour codes for small symbols need size, high
+//   saturation and luminance contrast with the background; use few codes). The digits are 14 pt bold (DIGIT_TYPE),
+//   which nearly doubles the stroke and is WCAG 2's large text, so the light shades need 3:1 rather than 4.5:1. That
+//   frees the L* 43–54 band, which a light orange (not brown), a gold yellow and a light green need; the letter and
+//   pattern cues remain the accessibility backstop for colour-blind players.
+// - Names: each shade stays inside its SHADE_WINDOWS box, so red, orange, yellow, green, blue and violet read as
+//   themselves (orange light enough not to be brown, red a deep red).
+// - Search like Glasbey et al. (2007): maximise the smallest pairwise difference, here the small-field one. The
+//   established qualitative palettes were the yardstick: Tol's bright, vibrant, high-contrast and muted schemes,
+//   Okabe–Ito, Kelly's colours of maximum contrast and Trubetskoy's are designed for areas and lines, and none
+//   reaches even 3:1 for text on this paper; Tol's high-contrast scheme shows the principle used here, separating
+//   colours in luminance as well as in hue.
+//
+// test/text-shades.test.ts holds the floors. Both apps' index.css carry the shades as `--cg-ink-<set>-<letter>` (and
+// rainbow6's, which covers every letter, as `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
 
 export type ShadeScheme = "light" | "dark";
 
-/** OKLCH hue windows (degrees) inside which each colour still reads as its name; the shades stay inside them. */
-export const NAME_HUES: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
-  red: [18, 38], orange: [45, 68], yellow: [82, 108], green: [130, 165], blue: [240, 272], violet: [295, 330],
+/**
+ * The digits' type: 14 pt (18.67 CSS px) bold or larger is WCAG 2's "large text", which needs 3:1 rather than 4.5:1.
+ * `stemEm` is JetBrains Mono Bold's vertical stem width in em, measured from the font (semibold is 0.11).
+ */
+export const DIGIT_TYPE = Object.freeze({ px: 19, weight: 700, stemEm: 0.115 });
+/**
+ * The viewing condition the shades are designed for: 60 CSS px per degree of visual angle, a 96 dpi monitor seen from
+ * about 90 cm (or a denser laptop panel nearer): "small and distant".
+ */
+export const VIEW_PX_PER_DEGREE = 60;
+/** A digit stroke's width in degrees of visual angle under that condition. */
+export const digitStrokeDeg = (px: number = DIGIT_TYPE.px, stemEm: number = DIGIT_TYPE.stemEm, pxPerDegree = VIEW_PX_PER_DEGREE): number =>
+  (px * stemEm) / pxPerDegree;
+/** Each scheme's main page, on which the small-field model judges the shades. */
+export const PAGE: Readonly<Record<ShadeScheme, string>> = Object.freeze({ light: "#f5f1eb", dark: "#11131d" });
+/** Contrast floors on every surface: light pages, WCAG large text (DIGIT_TYPE); dark pages and tiles, 4.5:1. */
+export const MIN_CONTRAST: Readonly<Record<ShadeScheme, number>> = Object.freeze({ light: 3, dark: 4.5 });
+/** Blue and green differ by at least this much CIE L*, so the pair never depends on the blue–yellow channel. */
+export const BLUE_GREEN_MIN_DL = 15;
+/**
+ * …and, seen as a digit stroke by the tritanopic fovea (small-field CIEDE2000, tritan), by at least this much. L* alone
+ * is not enough: the eye's blur acts in linear light, so two dark shades 15 L* apart still merge into the page alike.
+ */
+export const BLUE_GREEN_MIN_TRITAN = 3;
+
+export interface ShadeWindow { hue: readonly [number, number]; L: readonly [number, number]; minChroma: number }
+/**
+ * The OKLCH box inside which each colour still reads as its name, per scheme: hue window, lightness range and a
+ * chroma floor (vivid, not dusty). On a light page orange must be light (a dark orange is brown), red a deep red
+ * (darker than the old crimson #c20d39, L 0.52), blue a blue not an indigo (hue ≤ 264, pure #0000ff, and OKLCH L ≥ 0.46:
+ * the rejected #2900df was 0.42 and read near-black), yellow a gold (a light yellow cannot reach 3:1).
+ */
+export const SHADE_WINDOWS: Readonly<Record<ShadeScheme, Readonly<Record<string, ShadeWindow>>>> = Object.freeze({
+  light: Object.freeze<Record<string, ShadeWindow>>({
+    red: { hue: [22, 34], L: [0.46, 0.5], minChroma: 0.15 },
+    orange: { hue: [46, 62], L: [0.62, 0.72], minChroma: 0.14 },
+    yellow: { hue: [86, 96], L: [0.58, 0.66], minChroma: 0.1 },
+    green: { hue: [134, 150], L: [0.4, 0.66], minChroma: 0.12 },
+    blue: { hue: [250, 264], L: [0.46, 0.56], minChroma: 0.15 },
+    violet: { hue: [300, 328], L: [0.4, 0.62], minChroma: 0.15 },
+  }),
+  dark: Object.freeze<Record<string, ShadeWindow>>({
+    red: { hue: [22, 34], L: [0.62, 0.72], minChroma: 0.15 },
+    orange: { hue: [46, 62], L: [0.68, 0.82], minChroma: 0.14 },
+    yellow: { hue: [88, 108], L: [0.82, 0.96], minChroma: 0.12 },
+    green: { hue: [134, 160], L: [0.7, 0.92], minChroma: 0.14 },
+    blue: { hue: [240, 262], L: [0.6, 0.8], minChroma: 0.1 },
+    violet: { hue: [298, 326], L: [0.62, 0.8], minChroma: 0.15 },
+  }),
 });
 type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
 
 export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
   rgb: Object.freeze({
-    light: Object.freeze({ R: "#bb061e", G: "#06641a", B: "#0555e7" }),
-    dark: Object.freeze({ R: "#fb5422", G: "#a9fb25", B: "#129fe7" }),
+    light: Object.freeze({ R: "#a50b25", G: "#3d9406", B: "#033ffe" }),
+    dark: Object.freeze({ R: "#f7502a", G: "#b5fd83", B: "#4886fe" }),
   }),
   rgby: Object.freeze({
-    light: Object.freeze({ R: "#9e0a1e", Y: "#806000", G: "#0a5c1c", B: "#0555e7" }),
-    dark: Object.freeze({ R: "#f35868", Y: "#edae12", G: "#29fcb7", B: "#1c91fa" }),
+    light: Object.freeze({ R: "#ba0329", Y: "#9d7703", G: "#2a9446", B: "#0137ee" }),
+    dark: Object.freeze({ R: "#dc6561", Y: "#fffa41", G: "#5fd598", B: "#4087fd" }),
   }),
   rainbow6: Object.freeze({
-    light: Object.freeze({ R: "#c20d39", O: "#773a0e", Y: "#695f01", G: "#1d7242", B: "#0555e7", V: "#aa01bc" }),
-    dark: Object.freeze({ R: "#fb4d63", O: "#fe8c1a", Y: "#ecdc1e", G: "#31f9a9", B: "#5cbefe", V: "#cb56f9" }),
+    light: Object.freeze({ R: "#ba0329", O: "#d55d0d", Y: "#987e0c", G: "#159425", B: "#0237e5", V: "#bc30fb" }),
+    dark: Object.freeze({ R: "#fc463c", O: "#fea247", Y: "#f9f416", G: "#1ad48e", B: "#4886fe", V: "#d645fd" }),
   }),
 });
 

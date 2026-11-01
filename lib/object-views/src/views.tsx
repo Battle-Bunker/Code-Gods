@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useSyncExternalStore, type ComponentType, ty
 import * as Popover from "@radix-ui/react-popover";
 import { createObjectTypeRegistry, type GridSettings, type ObjectContext, type ObjectRendererOf, type ObjectValue } from "./registry.ts";
 import {
-  changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
+  DIGIT_TYPE, changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 export interface ObjectViewProps extends ObjectContext {
@@ -118,19 +118,19 @@ function Cells({ model, px, cue, changes, detail, label }: {
   );
 }
 
-const digitsPx = (n: number) => (n <= 4 ? 13 : n <= 6 ? 12 : n <= 8 ? 11 : 10);
-
 /**
  * The digits renderer's compact form: one monospace line per row, each glyph in its colour's text shade
- * (`--cg-ink-<set>-<letter>`), no tiles. Changed cells are underlined and bold, never marked by colour alone.
+ * (`--cg-ink-<set>-<letter>`), no tiles. Every grid size draws its digits as DIGIT_TYPE (14 pt bold, WCAG large text):
+ * the light shades are only 3:1 on the paper, and their thick strokes are what keep the colours apart at a distance.
+ * Changed cells are underlined and bold, never marked by colour alone.
  * Laid out as a CSS grid with right-aligned columns (not the helper's space padding), so columns stay
  * aligned even when a font draws the suit symbols wider than a digit.
  */
 function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
   return (
-    <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono font-semibold leading-[1.1] select-none"
-      style={{ fontSize: digitsPx(model.size), gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
+    <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono leading-[1.1] select-none"
+      style={{ fontSize: DIGIT_TYPE.px, fontWeight: DIGIT_TYPE.weight, gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
       {lines.flatMap((line, r) => line.cells.map((c, k) => (
           <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}
             style={{

@@ -72,11 +72,12 @@ letters; the choice is remembered in `localStorage` (guarded). Tiles are filled 
 shades (`DIGIT_SHADES[set].dark`) under a dark glyph (`TILE_INK`, 4.5:1 or better on each). In digits, the
 glyphs are coloured per colour SET with `DIGIT_SHADES` (`--cg-ink-<set>-<letter>`, rainbow6 and unknown sets
 `--cg-ink-<letter>`, in both apps' `index.css`, the light shade as fallback). Each set's shades were derived
-together (`scripts/derive-palettes.ts`, `src/colour-science.ts`): the smallest pairwise CIEDE2000 plus the
-smallest OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (the last standing in for small-field
-tritanopia at digit size, where a blue and a green of one lightness collapse) is maximised, subject to 4.5:1 on
-the page, card, popover and muted surfaces of the scheme, a hue that still reads as the colour's name
-(`NAME_HUES`), OKLCH chroma ≥ 0.1, and a dark gold for yellow on light pages. The Letter cue appends the colour letter to each digit; changed cells are
+together (`scripts/derive-palettes.ts`, `src/colour-science.ts`) for small digits seen at a distance: the digits
+are 14 pt bold (`DIGIT_TYPE`, WCAG large text, 3:1 on light pages), and the smallest pairwise CIEDE2000 between
+digit strokes as the eye resolves them (S-CIELAB at `VIEW_PX_PER_DEGREE`) is maximised for normal vision, the
+fovea's tritanopia, and deuteranopia or protanopia, with blue and green kept apart in lightness
+(`BLUE_GREEN_MIN_DL`, `BLUE_GREEN_MIN_TRITAN`) and every shade inside the OKLCH box where it reads as its name
+(`SHADE_WINDOWS`). The rationale and sources are above `DIGIT_SHADES` in `src/grid-display.ts`. The Letter cue appends the colour letter to each digit; changed cells are
 underlined and bold. Compact grids are `role="img"` with a row-by-row text summary, and the detail view
 always names every cell's colour.
 
