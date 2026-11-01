@@ -429,7 +429,7 @@ await check("after the game ends every built-in panel shows the frozen final sta
 
 await check("while the next game prepares its rule tables (a shape with no shipped file), the overview and results panels say so with the progress", async () => {
   const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
-  const { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
+  const { canonicalSupport, context, familiesFor, firstUseSeconds, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
   const inst = instantiateKey("Int(0,2147483647)");
   const smooth = familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!;
   const convex = (fnName: string, args: unknown) => execFileSync("npx", ["convex", "run", fnName, JSON.stringify(args)], { cwd: ENGINE, encoding: "utf8" });
@@ -446,7 +446,7 @@ await check("while the next game prepares its rule tables (a shape with no shipp
   const note = page.locator("[data-testid=note-preparing]").first();
   await note.waitFor({ timeout: 30_000 });
   const text = await note.innerText();
-  assert(/The game is preparing its rule tables, 0 of 3 ready\. It is the first game on Int\(0,2147483647\) on this server \(about 250 s\)/.test(text), `note: ${text}`);
+  assert(new RegExp(`The game is preparing its rule tables, 0 of 3 ready\\. It is the first game on Int\\(0,2147483647\\) on this server \\(about ${firstUseSeconds(inst)} s\\)`).test(text), `note: ${text}`);
   await owner("endGame");   // ends the preparation
   await page.locator("[data-testid=note-preparing]").first().waitFor({ state: "detached", timeout: 30_000 });
   convex("calibration/cache:forget", { instance: inst.key });

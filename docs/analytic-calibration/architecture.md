@@ -333,7 +333,7 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 | A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
 | B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR #56 |
 | B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods`, `artifacts/player-web` panels, the briefing | PRs #63, #66 |
-| B3 (done) | within-draw split: replicate pieces with pilot-fixed levels and an unbiased merge (same key, `estimator.split` recorded), cost-measured planner, piece coordinator with per-piece retries, per-owner rate limit, progress by pieces, fidelity and cloud latencies (§9.2) | `scripts/estimator.ts`, `scripts/verify-split.ts`, `calibration/{cache,compute,tables}.ts`, `engine/calibration.ts`, `owner.ts`, `game/lobby.ts`, room and panel progress | this PR |
+| B3 (done) | within-draw split: replicate pieces with pilot-fixed levels and an unbiased merge (same key, `estimator.split` recorded), cost-measured planner, piece coordinator with per-piece retries, per-owner rate limit, progress by pieces, fidelity and cloud latencies (§9.2) | `scripts/estimator.ts`, `scripts/verify-split.ts`, `calibration/{cache,compute,tables}.ts`, `engine/calibration.ts`, `owner.ts`, `game/lobby.ts`, room and panel progress | PRs #69, #70 |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
 | D | `export-cache.ts`; docs and README say "warm cache" | scripts | small |
 
@@ -391,8 +391,8 @@ What this says:
   5×5, ≈ 2 min on a 6×6 and ≈ 4–5 min on a 7×7 shape; one slow family dominates (`straight_shooter` 67 s on 5×5,
   `swiss_cheese` 258 s on 7×7). That is acceptable as a one-off with the preparing state, and every Grid shape is
   shipped today (PR #57), so it only applies to new rules, a changed card, or a new type's shapes. **B3** (the
-  within-draw replicate split of §3.2) is what brings 6×6 and 7×7 first use under a minute; the slowest table is the
-  one to split. `FIRST_USE_SECONDS` (game-utilities calibration.ts) holds these walls for the UI's estimate.
+  within-draw replicate split of §3.2) splits the slowest tables: 5×5, 6×6 and Int now prepare in 20–35 s, 7×7 in
+  70–95 s (§9.2). `FIRST_USE_SECONDS` (game-utilities calibration.ts) holds these walls for the UI's estimate.
 
 ## 9.2 Phase B3: the split estimator, measured
 
@@ -417,6 +417,40 @@ against the single run directly, on 7×7 (common ordinals, z with both nominal s
 bits and RMS z 0.62 / 0.66 / 0.90 / 1.17 in the four bands, max |Δ| 1.0 / 1.6 / 4.0 / 5.7. The merged top is on
 average 1.9 bits shallower (a replicate that goes extinct at a fixed level ends early, and the merge stops at the
 shallowest replicate that did not); the extrapolation slope covers the rest, as for any table.
+
+**Cloud latency** (`artifacts/engine/scripts/first-use-probe.ts` on the dev deployment after the B3 deploy,
+2026-11-01, same protocol as §9.1: a 6-god Divine Lottery deal, seeded per shape, defence goals on for Grid, no cached
+tables; the deployment plans each table (`calibration/compute:plan`), every piece runs at once as its own action, the
+probe merges; "ready" includes the client round trip). Before = §9.1 (one action per table).
+
+| shape | sampled tables | actions (pieces + merges) | per piece | wall to all ready | before (B2) |
+|---|---|---|---|---|---|
+| Grid(4,base10,rgby) | 4 (8 analytic) | 16 | 3.4–30.4 s | 32.6 s (twin_friends, planned at 14 s and left whole, took 30 s) | 34.2 s |
+| Grid(5,base12,rgb) | 3 | 16 | 3.0–23.9 s | 24.5 s | 70.1 s |
+| Grid(6,base10,rgb) | 6 | 49 | 2.4–18.6 s | 20.7 s | 128.1 s |
+| Grid(7,base16,rgby) | 5 | 45 | 11.6–92.0 s | 93.4 s (magic_window; 69–71 s in two reruns of it alone) | 260.4 s |
+| Int(0,2147483647), slowest family | truncation-saint, 8 pieces | 9 | 17.5–31.3 s | 31.7 s | 236.7 s |
+| Int(0,2147483647), many-faced | 8 pieces | 9 | 11.7–12.5 s | 13.0 s | 89.2 s |
+| string(16) | 5 | 10 | 2.2–9.2 s | 9.7 s | 11.7 s |
+
+What this says:
+
+- **The split works where the wall was one slow table**: 6×6 128 → 21 s, 5×5 70 → 25 s, Int 237 → 32 s.
+- **Cloud actions are slow and uneven.** One magic_window piece is 5–7 s in this container and 28–93 s on the
+  cloud, 69 s when run alone, so the 7×7 floor is about an eighth of its slowest table's cloud single run (~450 s
+  estimated for magic_window): 70–95 s. Going below needs pieces smaller than 62 particles, which §9.2's fidelity
+  rules out at 500 particles; 7×7 first use stays over the 60 s window for such deals (it is shipped warm today).
+- **The planner's estimate is good to about a factor of two either way** (timed evaluations against the budget's
+  expected work): twin_friends on 4×4 was estimated at 14 s and took 30 s whole; palette-keeper on string(16) at 86 s
+  and took 5 × 3 s. `PIECE_TARGET_SECONDS` is therefore 10 s, not 20 (this table was measured at 20).
+- **Merged against the shipped single run** (`vs single` in the probe, common ordinals up to 64 bits), 18 of 21 split
+  tables agree within their nominal se (RMS z ≤ 1.1, max |Δ| ≤ 1.5 bits). Three do not: bullseye on 6×6 (max |Δ| 3.9,
+  RMS z 1.6), palette-keeper on string(16) (6.4 at its last levels near 49 bits) and magic_window on 7×7 (6.0, RMS z
+  2.2: the split reads 4–6 bits deeper from 30 bits down). None has a formula. For magic_window a 2000-particle single
+  run agrees with the shipped 500-particle one, so the gap is not the single run's O(1/particles) bias; but its ordinal
+  is a tuple whose first component is a rigid event, the class where the adaptive single run is known to read too few
+  bits (§6, Rainbow Road; there the split is closer to the formula: 6×6 max |Δ| 0.36 split, 1.64 single). Which is
+  right stays open until the family has an analytic.
 
 What did not work, for the record. *Plain replicates* (each an adaptive single run on 1/R of the budget, merged the
 same way) read low: on 6×6 at R = 6, −0.12 / −0.30 / −0.41 / −0.70 bits in the four bands (one family's RMS z 1.53

@@ -158,10 +158,12 @@ export interface ResolveOptions {
 }
 
 /**
- * Each piece of a split table should take about this long where it runs (architecture.md §3.2, §9.2): the planning
- * window is 60 s by default and a first use adds a few seconds of action starts, the merge and the game's launch.
+ * Each piece of a split table should take about this long where it runs (architecture.md §3.2, §9.2). Measured on the
+ * cloud, the estimate is good to a factor of two either way and one action's speed varies twofold, so the target is a
+ * third of the 60 s planning window less the action starts, the merge and the launch; a table estimated under it is one
+ * action.
  */
-export const PIECE_TARGET_SECONDS = 20;
+export const PIECE_TARGET_SECONDS = 10;
 
 export interface DrawPlan { readonly key: string; readonly familyId: string; readonly pieces: number; readonly seconds: number; readonly pieceSeconds: number; readonly usPerSpawn: number; readonly usPerProposal: number }
 

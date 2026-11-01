@@ -378,6 +378,6 @@ test("every shape the type can instantiate is playable, shipped tables or not; o
   const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
   assert.ok(!shipped.has("Int(0,2147483647)") && isPlayableInstantiation(instantiate("Int", { min: 0, max: 2147483647 })));
   // The first-use estimate is the measured cloud wall time (architecture.md §9): per Grid size, nearest size otherwise.
-  assert.deepEqual([4, 5, 6, 7].map(size => firstUseSeconds(instantiate("Grid", { size, symbols: "base10", colours: "rgb" }))), [35, 70, 130, 260]);
+  assert.deepEqual([4, 5, 6, 7].map(size => firstUseSeconds(instantiate("Grid", { size, symbols: "base10", colours: "rgb" }))), [35, 30, 30, 95]);
   assert.equal(firstUseSeconds(instantiate("string", { maxLength: 20 })), 15);
 });

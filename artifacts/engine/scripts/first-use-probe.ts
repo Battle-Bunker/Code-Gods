@@ -7,24 +7,30 @@
  * `piece` write nothing without one), so the probe is repeatable on shapes whose tables are shipped. Where the shipped
  * single-run table of a key exists, the merged table is compared with it (max |Δ bits|, RMS z with both nominal se).
  *
- *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Int(0,2147483647)" [--gods 6] [--plan-only]
+ *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Int(0,2147483647)" [--gods 6] [--plan-only] [--only family] [--family family]
  */
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
 import { seededRng } from "@workspace/game-types";
-import { analyticFor, context, divineLottery, family, instantiateKey, nominalSe, paramsKey, tableKey, type CalibrationFile, type CalibrationTable } from "@workspace/game-utilities";
+import { analyticFor, canonicalSupport, context, divineLottery, family, instantiateKey, nominalSe, paramsKey, tableKey, type CalibrationFile, type CalibrationTable } from "@workspace/game-utilities";
 import { budgetFor, mergeReplicates, type ReplicateResult } from "@workspace/game-utilities/estimator";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; };
 const option = (name: string) => { const i = args.indexOf(name); return i < 0 ? undefined : args.splice(i, 2)[1]; };
-const gods = Number(option("--gods") ?? 6), planOnly = flag("--plan-only");
+const gods = Number(option("--gods") ?? 6), planOnly = flag("--plan-only"), only = option("--only"), forced = option("--family");
 
 const deployKey = process.env.CONVEX_DEPLOY_KEY;
 if (!deployKey) throw new Error("CONVEX_DEPLOY_KEY is required (the deployment to probe)");
-const name = deployKey.split("|")[0]!.split(":")[1];
-const client = new ConvexHttpClient(process.env.CONVEX_URL ?? `https://${name}.convex.cloud`);
+/** The deployment's client URL, as the static-hosting component reports it (scripts/deploy-static.mjs deploymentUrls). */
+function cloudUrl(): string {
+  const r = spawnSync("npx", ["convex", "run", "--component", "engineSite", "lib:getUrls", "{}"], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`Could not read the deployment's URLs\n${r.stderr}`);
+  return (JSON.parse(r.stdout) as { cloudUrl: string }).cloudUrl;
+}
+const client = new ConvexHttpClient(process.env.CONVEX_URL ?? cloudUrl());
 (client as unknown as { setAdminAuth(key: string): void }).setAdminAuth(deployKey);
 const action = <T>(fn: string, payload: Record<string, unknown>) => client.action(makeFunctionReference<"action">(fn), payload) as Promise<T>;
 
@@ -52,12 +58,16 @@ function agreement(split: CalibrationTable, single: CalibrationTable) {
 for (const key of args) {
   const inst = instantiateKey(key), ctx = context(inst);
   const rng = seededRng(`first-use-probe:${inst.key}`);
-  const dealt = divineLottery.select(inst, gods, rng, { defenceGoals: inst.objectType === "Grid" });
+  // --family: that family's every canonical params instead of a deal (a family the deal may miss, e.g. Int's slowest).
+  const dealt = forced
+    ? canonicalSupport(family(forced), ctx).map(params => ({ familyId: forced, params }) as { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } })
+    : divineLottery.select(inst, gods, rng, { defenceGoals: inst.objectType === "Grid" });
   const draws = new Map<string, { familyId: string; params: unknown }>();
   let analytic = 0;
   for (const d of dealt.flatMap(u => [u, ...(u.penalty ? [u.penalty] : [])])) {
     const f = family(d.familyId), canon = f.canonical(d.params as never, ctx);
     if (analyticFor(d.familyId, canon, inst)) { analytic++; continue; }
+    if (only && d.familyId !== only) continue;
     draws.set(tableKey(d.familyId, canon, inst), { familyId: d.familyId, params: canon });
   }
   const plans = await action<Plan[]>("calibration/compute:plan", { instance: inst.key, draws: [...draws.values()] });
@@ -84,6 +94,7 @@ for (const key of args) {
     instance: inst.key, draws: dealt.length * (inst.objectType === "Grid" ? 2 : 1), analytic, sampled: draws.size,
     actions: tables.reduce((n, t) => n + t.pieces + (t.pieces > 1 ? 1 : 0), 0), wallSeconds: +wall.toFixed(1),
     pieceSeconds: { min: +Math.min(...all).toFixed(1), max: +Math.max(...all).toFixed(1) },
+    perPiece: tables.map(t => t.pieceSeconds.map(x => +x.toFixed(1))),
     tables: tables.map(t => `${t.family}: ${t.pieces} piece${t.pieces > 1 ? "s" : ""} ${Math.min(...t.pieceSeconds).toFixed(1)}–${Math.max(...t.pieceSeconds).toFixed(1)} s, ready ${t.readySeconds.toFixed(1)} s${t.agree ? `, vs single ${t.agree.levels} levels max|Δ| ${t.agree.maxAbsDelta} RMS z ${t.agree.rmsZ}` : ""}`),
     plans: plans.map(p => `${p.familyId}: est ${p.seconds.toFixed(0)} s → ${p.pieces}`),
   }, null, 1));
