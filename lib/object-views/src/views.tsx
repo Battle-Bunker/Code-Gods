@@ -26,6 +26,8 @@ export interface ObjectViewProps extends ObjectContext {
    * as chips after the object.
    */
   annotations?: readonly Annotation[];
+  /** Grids drawn as tiles: the cell size in pixels, for a board shown on its own (a goal card's example) rather than in a list. */
+  cellPx?: number;
 }
 
 export type ObjectComponent = ComponentType<ObjectViewProps>;
@@ -289,8 +291,9 @@ export function useGridRenderer(): GridRendererId {
   return asGridRenderer(useObjectRenderer("Grid"));
 }
 
-function GridView({ model, previous, typeLabel, className, mode, annotations }: {
+function GridView({ model, previous, typeLabel, className, mode, annotations, cellPx }: {
   model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; annotations?: readonly Annotation[];
+  cellPx?: number;
 }) {
   const cue = useColourCue();
   const [open, setOpen] = useState(false);
@@ -323,7 +326,7 @@ function GridView({ model, previous, typeLabel, className, mode, annotations }: 
           }}>
           {mode === "digits"
             ? <Digits model={model} cue={cue} changes={changes} label={label} marks={marks} />
-            : <Cells model={model} px={compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} marks={marks} />}
+            : <Cells model={model} px={cellPx ?? compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} marks={marks} />}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
@@ -366,14 +369,14 @@ function GridView({ model, previous, typeLabel, className, mode, annotations }: 
  * an open detail view stays open when the viewer switches the display from inside it.
  */
 export function GridObject(props: ObjectViewProps) {
-  const { value, compareTo, grid, className, annotations } = props;
+  const { value, compareTo, grid, className, annotations, cellPx } = props;
   const mode = asGridRenderer(props.renderer);
   const key = `${grid?.size}|${grid?.symbols}|${grid?.colours}`;
   const model = useMemo(() => gridModel(value, grid), [value, key]);
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
   if (!model) return <StringObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
-  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} annotations={annotations} />;
+  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} annotations={annotations} cellPx={cellPx} />;
 }
 
 // Built-in types. Later registrations are tried first when inferring, so Grid wins over string.

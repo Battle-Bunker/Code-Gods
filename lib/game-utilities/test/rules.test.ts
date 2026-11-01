@@ -97,17 +97,62 @@ test("declared tops are reached by the exemplar", () => {
   }
 });
 
-test("example boards decode in their shape's symbols and colours", () => {
+/**
+ * Reward families with no example board, and why (docs/rules-design.md §3.2). Every other Grid reward family must have
+ * one. Int and string worlds have none: their goals are about one number or one string, which the card already shows.
+ */
+const NO_EXAMPLE: Readonly<Record<string, string>> = {
+  border_baron: "countries must reach a size set by the room (up to 2N − 2 cells), which a tiny board cannot hold",
+  far_apart: "the score is a distance between two middles, scaled by 64, so a tiny board misstates how points grow",
+  magic_accountant: "the magic number is sized for the room's full lines, so a short line cannot reach it",
+  divisibility_detective: "a pure number goal: rows read as one big number, which a tiny board would only make shorter",
+  robin_hood: "a pure number goal about colour totals; no pattern to show",
+  column_addition: "the written sum sits on rows chosen for the room's size",
+  ladder_of_numbers: "a pure number goal: rows read as big numbers compared with each other",
+  bingo_caller: "the BINGO bonus is the board's size, so a tiny board would contradict the card's own bonus",
+  twenty_one: "the target is sized for the room's full lines, so a short line cannot show going bust or hitting it",
+};
+
+/** Example draws for one family on one shape: the canonical params plus a few sampled ones (examples follow params). */
+function exampleParams(f: UtilityFamily<any>, inst: Instantiation): Params[] {
+  const ctx = context(inst), out = new Map<string, Params>();
+  for (const p of canonicalSupport(f, ctx)) out.set(paramsKey(p), p);
+  const rng = seededRng(`example:${f.id}:${inst.key}`);
+  for (let i = 0; i < 6; i++) { const p = f.sample(rng, ctx); out.set(paramsKey(p), p); }
+  return [...out.values()];
+}
+
+test("every Grid reward family has an example board, or a stated reason not to", () => {
+  const wrong = familiesFor("Grid", "reward").filter(f => !f.example === !(f.id in NO_EXAMPLE)).map(f => f.id);
+  assert.deepEqual(wrong, [], "each needs exactly one of an example board or a reason in NO_EXAMPLE");
+});
+
+test("example boards render on every shape in its own tiles, and their captions state the card's own score", async () => {
+  const problems: string[] = [];
   for (const inst of SHAPES.filter(i => i.objectType === "Grid")) {
-    const ctx = context(inst);
-    for (const f of familiesFor("Grid")) {
+    const ctx = context(inst), args = inst.args as unknown as GridTypeArgs;
+    for (const f of familiesFor("Grid", "reward")) {
       if (!f.example || !applicable(f, inst).ok) continue;
-      for (const p of canonicalSupport(f, ctx)) {
-        const e = f.example(p, ctx);
-        assert.ok(e.size >= 1 && e.size <= 3, `${f.id}: example of size ${e.size}`);
-        assert.doesNotThrow(() => decodeGrid(String(e.value), { ...(inst.args as unknown as GridTypeArgs), size: e.size }), `${f.id} on ${inst.key}: example ${String(e.value)} does not decode`);
-        assert.ok(e.caption.length > 0 && e.caption.length <= 160, `${f.id}: caption`);
+      for (const p of exampleParams(f, inst)) {
+        const where = `${f.id} ${paramsKey(p)} on ${inst.key}`;
+        let e;
+        try { e = f.example(p, ctx); } catch (err) { problems.push(`${where}: example fails: ${(err as Error).message}`); continue; }
+        if (!e) { problems.push(`${where}: no example`); continue; }
+        if (!(e.size >= 2 && e.size <= 4)) problems.push(`${where}: example of size ${e.size}`);
+        // The player client's protocol bounds (lib/player-client/src/protocol.ts utilityCardSchema).
+        if (String(e.value).length > 256 || e.caption.length > 300) problems.push(`${where}: example too long for the card protocol`);
+        // Decoding in the room's own symbols and colours (at the example's size) is what "uses only this shape's tiles" means.
+        try { decodeGrid(String(e.value), { ...args, size: e.size }); } catch { problems.push(`${where}: ${String(e.value)} is not in this room's tiles`); continue; }
+        const stated = [...e.caption.matchAll(/\b(\d+) points?\b/g)].map(m => Number(m[1]));
+        const o = evaluator({ familyId: f.id, params: p }, inst, e.size)(e.value), scored = typeof o === "number" ? o : o[0]!;
+        if (stated.length !== 1) problems.push(`${where}: caption should state its points once: "${e.caption}"`);
+        else if (stated[0] !== scored) problems.push(`${where}: caption says ${stated[0]} points, the card scores ${scored}: "${e.caption}"`);
+        if (!(scored > 0)) problems.push(`${where}: the example scores ${scored}, so it shows nothing: "${e.caption}"`);
+        if (e.caption.split(/(?<=[.!?])\s+(?=[A-Z"(])/).length > 2) problems.push(`${where}: caption is more than one short sentence: "${e.caption}"`);
+        for (const msg of lintRuleText(e.caption, String(args.symbols), String(args.colours))) problems.push(`${where}: caption ${msg}`);
       }
     }
   }
+  if (process.env.RULES_DUMP) (await import("node:fs")).writeFileSync(`${process.env.RULES_DUMP}.examples`, problems.join("\n") + "\n");
+  assert.deepEqual(problems.slice(0, 40), [], `${problems.length} problems`);
 });

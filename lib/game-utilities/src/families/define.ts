@@ -6,12 +6,13 @@ import type { Constraint, ObjectValue, Rng } from "@workspace/game-types";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../types.ts";
 import type { AnalyticSurvival } from "../analytic.ts";
 
-type HostEval = (familyId: string, params: Params, ctx: FamilyContext) => (wire: ObjectValue) => Ordinal;
+/** `boardSize`: run the room's program on a board of that size (a goal card's example; catalog.ts `evaluator`). */
+type HostEval = (familyId: string, params: Params, ctx: FamilyContext, boardSize?: number) => (wire: ObjectValue) => Ordinal;
 let host: HostEval | null = null;
 export function setHostEval(f: HostEval): void { host = f; }
-export function hostEval(familyId: string, params: Params, ctx: FamilyContext): (wire: ObjectValue) => Ordinal {
+export function hostEval(familyId: string, params: Params, ctx: FamilyContext, boardSize?: number): (wire: ObjectValue) => Ordinal {
   if (!host) throw new Error("host evaluator not installed (import the catalog)");
-  return host(familyId, params, ctx);
+  return host(familyId, params, ctx, boardSize);
 }
 export function cmp(a: Ordinal, b: Ordinal): number {
   const x = typeof a === "number" ? [a] : a, y = typeof b === "number" ? [b] : b;

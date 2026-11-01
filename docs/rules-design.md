@@ -113,13 +113,24 @@ The owner leans to specific symbols; so does this design, with one principled ex
 
 ### 3.2 Examples on the card
 
-`UtilityFamily.example?(params, ctx)` returns a tiny board (a few cells, real glyphs and colours, as a grid wire
-string of its own size) and a caption, e.g. Go Fish on base 12, rgb: a 2×2 of `A` tiles in red, green, blue, red, captioned
-"A perfect book: four As using all 3 colours. 2 points." The card carries it as `example: { value, size, caption }`;
-`UtilityCardView` draws it with the same grid renderer as the board. It is optional, cheap (no search) and validated
-by the tests: it must decode in the shape's symbols and colours, and its caption passes the same lint as the summary.
-Go Fish Books has one now (the owner's case); any family whose scoring pattern fits in 2×2 or a line of three can add
-one the same way.
+`UtilityFamily.example?(params, ctx)` returns a tiny board (2×2 to 4×4, real glyphs and colours, as a grid wire string
+of its own size) and a one-sentence caption, e.g. Go Fish on base 12, rgb: a 2×2 of `A` tiles in red, green, blue, red,
+captioned "A perfect book: four A (10) cells using all 3 colours. 2 points." The card carries it as
+`example: { value, size, caption }`; `UtilityCardView` draws it with the board's tile renderer at a readable cell size.
+
+- **Built for the draw.** Each family's `example(p, g)` builds its layers from the draw's own symbols and colours
+  (`p.X`, `p.S`, the room's colour count), so it always uses tiles that exist in the room.
+- **Points are computed, never written.** The caption is a function of its points: the card's own program, written for
+  the room, is run on the example board (`evaluator(draw, inst, boardSize)`: the room's prelude at the example's
+  size) and the first number of its score fills the caption.
+- **Tested** (`test/rules.test.ts`), on every playable shape, for the canonical params plus samples: the example decodes
+  in the room's symbols and colours, scores more than 0, states its points exactly once and they equal the card's own
+  score on that board, is one short sentence, and passes the lint.
+- **Coverage.** Every Grid reward family has an example except those listed, with the reason, in the test's
+  `NO_EXAMPLE`: goals whose numbers are sized for the room (Border Baron, Magic Accountant, Twenty-One, Column Addition,
+  Bingo Caller's bonus) or that are pure number goals with no pattern to show (Far Apart, Robin Hood, Divisibility
+  Detective, Ladder of Numbers). Int and string worlds have none: their goal is about one number or one string, which
+  the card already shows. Defence goals have none: they are one-line penalties and the card does not draw them.
 
 ## 4. Declared needs and the one applicability checker
 

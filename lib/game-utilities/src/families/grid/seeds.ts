@@ -2,8 +2,7 @@
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
 import {
-  SCALAR, article, chance, cname, cap, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
-  tsCard, tuple, valueNote, valueLaw, wire,
+  SCALAR, article, chance, cname, cap, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue, tsCard, tuple, valueNote, valueLaw, wire, example,
 } from "./_util.ts";
 
 // --- Seed 1: Line Painter ---------------------------------------------------------------------
@@ -15,6 +14,11 @@ const linePainter = gridFamily<LineP>({
   sample: (rng, g) => ({ colour: rng.int(g.C), diag: chance(rng, 1, 4) }),
   canonical: p => recolour(p, ["colour"]),
   summary: (p, g) => text(p, g).about,
+  example: (p, g) => {
+    const s = symForValue(g, 3), away = (p.colour + 1) % g.C;
+    return example([[s, s], [symForValue(g, 1), symForValue(g, 1)]], [[p.colour, p.colour], [away, away]],
+      pts => `Two ${cname(g, p.colour)} cells showing ${g.say.tile(s)}, side by side: ${pts}.`);
+  },
   python: (p, g) => pyCard(text(p, g), `
     def is_mine(cell):
         return cell is not None and cell.colour == MY_COLOUR
@@ -70,6 +74,10 @@ const patchwork = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
   support: () => [{}],
   summary: (_, g) => patchText(g).about,
+  example: (_p, g) => {
+    const s = symForValue(g, 2);
+    return example(full(2, s), [[0, 1], [1, 0]], pts => `Four touching ${g.say.tile(s)} cells, no two touching ones the same colour: ${pts}.`);
+  },
   python: (_, g) => pyCard(patchText(g), `
     def same_value(a, b):
         return a.value == b.value
@@ -129,6 +137,11 @@ const greenOnes = gridFamily<GreenP>({
   support: g => [{ colour: colourIndex(g, "green"), value: 1 }],
   canonical: (_, g) => ({ colour: 0, value: g.vmin }),
   summary: (p, g) => greenText(p, g).about,
+  example: (p, g) => {
+    const s = symForValue(g, p.value), blank = symForValue(g, p.value + 1), away = (p.colour + 1) % g.C;
+    return example([[s, blank], [blank, s]], [[p.colour, away], [away, p.colour]],
+      pts => `Two ${cname(g, p.colour)} cells showing ${g.say.tile(s)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(greenText(p, g), `
     def utility(grid):
         perfect = 0

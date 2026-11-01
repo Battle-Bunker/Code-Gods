@@ -2,8 +2,7 @@
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import { roundHalfEven } from "./arithmetic.ts";
 import {
-  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product,
-  pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
+  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, wire, example, article, list,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -30,6 +29,13 @@ const rummyMelder = gridFamily<RummyP>({
   support: () => [{ dir: "rows" }, { dir: "cols" }],
   canonical: () => ({ dir: "rows" }),
   summary: (p, g) => rummyText(p, g).about,
+  example: (p, g) => {
+    const run = [3, 4, 5].map(v => symForValue(g, v)), h = symForValue(g, 9);
+    const sym = fromFn(3, (r, c) => (p.dir === "rows" ? (r === 0 ? run[c]! : h) : (c === 0 ? run[r]! : h)));
+    return example(sym, full(3, 0), pts => g.cards
+      ? `A run of ${list(run.map(s => g.say.tile(s)))}, all one suit: ${pts}.`
+      : `A ${cname(g, 0)} run of 3, 4 and 5: ${pts}.`);
+  },
   python: (p, g) => pyCard(rummyText(p, g), `
     def suit(cell):
         return ${g.cards ? "cell.suit" : "cell.colour"}
@@ -118,6 +124,11 @@ const othello = gridFamily<SandP>({
   sample: (rng, g) => ({ X: rng.int(g.C), diag: chance(rng, 1, 2) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => sandText(p, g).about,
+  example: (p, g) => {
+    const Y = (p.X + 1) % g.C, Z = (p.X + 2) % g.C;
+    return example(full(3, symForValue(g, 1)), fromFn(3, (r, c) => (r === 1 ? (c === 1 ? Y : p.X) : Z)),
+      pts => `${cap(article(cname(g, Y)))} cell with ${cname(g, p.X)} on both sides: ${pts}.`);
+  },
   python: (p, g) => pyCard(sandText(p, g), `
     def is_mine(cell):
         return cell is not None and cell.colour == MY_COLOUR
@@ -187,6 +198,11 @@ const minesweeper = gridFamily<MineP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => mineText(p, g).about,
+  example: (p, g) => {
+    const one = symForValue(g, 1), away = (p.X + 1) % g.C;
+    return example([[symForValue(g, 9), one], [one, one]], [[p.X, away], [away, away]],
+      pts => `One ${cname(g, p.X)} mine, and three cells showing ${g.say.tile(one)} that touch it: ${pts}.`);
+  },
   python: (p, g) => pyCard(mineText(p, g), `
     def utility(grid):
         points = 0
@@ -311,6 +327,14 @@ const sudoku = gridFamily<SudokuP>({
   support: () => (["rows", "cols", "both"] as const).map(dir => ({ dir })),
   canonical: (p, g) => ({ dir: g.N <= 4 || p.dir === "both" ? "both" : "rows" }),
   summary: (p, g) => sudokuText(p, g).about,
+  example: (p, g) => {
+    const word = g.cards ? "rank" : "number";
+    // At N <= 4 the card also checks the long diagonals, which a 3×3 board cannot keep apart: show a 4×4.
+    if (g.N <= 4) return example([[1, 2, 3, 4], [3, 4, 1, 2], [4, 3, 2, 1], [2, 1, 4, 3]].map(row => row.map(v => symForValue(g, v))), full(4, 0),
+      pts => `No ${word} appears twice in any row, column or long diagonal: ${pts}.`);
+    return example(fromFn(3, (r, c) => symForValue(g, 1 + ((r + c) % 3))), full(3, 0),
+      pts => `No ${word} appears twice in any ${{ rows: "row", cols: "column", both: "row or column" }[p.dir]}: ${pts}.`);
+  },
   python: (p, g) => pyCard(sudokuText(p, g), g.N <= 4 ? `
     def all_different(line):
         seen = []
@@ -397,6 +421,12 @@ const fullHouse = gridFamily<HouseP>({
   support: () => [{ dir: "rows" }, { dir: "cols" }],
   canonical: () => ({ dir: "rows" }),
   summary: (p, g) => houseText(p, g).about,
+  example: (p, g) => {
+    const kind = [0, 1, 2].map(i => symForValue(g, 5, g.cards ? i : 0)), rest = [[1, 2, 3], [4, 6, 7]];
+    const sym = fromFn(3, (r, c) => (r === 0 ? kind[c]! : symForValue(g, rest[r - 1]![c]!)));
+    return example(p.dir === "rows" ? sym : fromFn(3, (r, c) => sym[c]![r]!), full(3, 0),
+      pts => `Three of a kind in one ${lineWord(p.dir)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(houseText(p, g), `
     def utility(grid):
         pairs = 0
@@ -443,6 +473,13 @@ const flushRoyale = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2),
   support: () => [{}],
   summary: (_, g) => flushText(g).about,
+  example: (_p, g) => {
+    const vs = [2, 3, 4];
+    if (g.cards) return example(fromFn(3, (r, c) => (r === 0 ? symForValue(g, vs[c]!) : symForValue(g, 9, (r + c) % 3 + 1))), full(3, 0),
+      pts => `${g.say.tile(symForValue(g, 2))}, ${g.say.tile(symForValue(g, 3))} and ${g.say.tile(symForValue(g, 4))} are a flush and a straight, so triple: ${pts}.`);
+    return example(fromFn(3, (r, c) => symForValue(g, r === 0 ? vs[c]! : 9)), fromFn(3, (r, c) => (r === 0 ? 0 : 1 + ((r + c) % 2))),
+      pts => `A ${cname(g, 0)} 2, 3 and 4 is a flush and a straight, so triple: ${pts}.`);
+  },
   python: (_, g) => pyCard(flushText(g), `
     def suit(cell):
         return ${suitOf(g)}
@@ -577,9 +614,9 @@ const goFish = gridFamily<FishP>({
   top: (_p, g) => [2 * (g.N - 1) ** 2, 4 * (g.N - 1) ** 2],
   example: (p, g) => {
     const perfect = fishPerfect(g), mine = g.say.rankPlural(p.r);
-    if (g.cards) return { sym: [[p.r, 13 + p.r], [26 + p.r, 39 + p.r]], col: full(2, 0), caption: `A perfect book: four ${mine}, one of each suit. 2 points.` };
+    if (g.cards) return { sym: [[p.r, 13 + p.r], [26 + p.r, 39 + p.r]], col: full(2, 0), caption: pts => `A perfect book: four ${mine}, one of each suit. ${pts}.` };
     return { sym: full(2, p.r), col: [[0, 1], [2, perfect >= 4 ? 3 : 0]],
-      caption: `A perfect book: four ${g.say.tile(p.r)} cells using ${g.say.distinctColours(perfect)}. 2 points.` };
+      caption: pts => `A perfect book: four ${g.say.tile(p.r)} cells using ${g.say.distinctColours(perfect)}. ${pts}.` };
   },
   python: (p, g) => pyCard(fishText(p, g), `
     def utility(grid):
@@ -636,6 +673,8 @@ const setSpotter = gridFamily<SetP>({
   support: () => [{ diag: false }, { diag: true }],
   sample: rng => ({ diag: chance(rng, 1, 2) }),
   summary: (p, g) => setText(p, g).about,
+  example: (_p, g) => example(fromFn(3, (r, c) => symForValue(g, [[2, 5, 8], [1, 1, 4], [9, 3, 3]][r]![c]!)),
+    [[0, 1, 2], [0, 0, 1], [2, 1, 1]], pts => `The top row is a SET: ${g.say.values([2, 5, 8])} in ${g.say.distinctColours(3)}: ${pts}.`),
   python: (p, g) => pyCard(setText(p, g), `
     def is_set(a, b, c):
         if b is None or c is None:
@@ -689,6 +728,12 @@ const knightRiders = gridFamily<KnightP>({
   sample: (rng, g) => ({ X: chance(rng, 1, 2) ? rng.int(g.C) : null }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => knightText(p, g).about,
+  example: (p, g) => {
+    const twin = symForValue(g, 9), others = [1, 2, 3, 4, 5, 6, 7];
+    let i = 0;
+    const sym = fromFn(3, (r, c) => ((r === 0 && c === 0) || (r === 1 && c === 2) ? twin : symForValue(g, others[i++]!)));
+    return example(sym, full(3, p.X ?? 0), pts => `Two ${cname(g, p.X ?? 0)} ${g.say.tile(twin)} cells a knight's jump apart: ${pts}.`);
+  },
   python: (p, g) => pyCard(knightText(p, g), `
     JUMPS = [(1, 2), (2, 1), (2, -1), (1, -2)]  # each pair once: the jumps that land lower down
 
@@ -737,6 +782,13 @@ const unoSnake = gridFamily<UnoP>({
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
   summary: (p, g) => unoText(p, g).about,
+  example: (p, g) => {
+    const walk: [number, number][] = [[3, 0], [3, 1], [5, 1], [5, 2], [7, 2], [7, 0], [2, 0], [2, 1], [4, 1]];
+    const at = (r: number, c: number) => walk[3 * r + (r % 2 === 0 ? c : 2 - c)]!;
+    const cell = (r: number, c: number) => (p.axis === "rows" ? at(r, c) : at(c, r));
+    return example(fromFn(3, (r, c) => symForValue(g, cell(r, c)[0])), fromFn(3, (r, c) => cell(r, c)[1]),
+      pts => `Every step matches in colour or ${g.cards ? "value" : "number"}, so the whole walk counts: ${pts}.`);
+  },
   python: (p, g) => pyCard(unoText(p, g), `
     def walk(grid):
         path = []
@@ -799,6 +851,11 @@ const courtParade = gridFamily<ParadeP>({
   sample: rng => ({ suit: chance(rng, 1, 2) ? null : rng.int(4), match: chance(rng, 3, 10) }),
   canonical: p => ({ suit: p.suit === null ? null : 0, match: p.match }),
   summary: (p, g) => paradeText(p, g).about,
+  example: (p, g) => {
+    const s = 13 * (p.suit ?? 0), parade = [s + 10, s + 11, s + 12];
+    return example(fromFn(3, (r, c) => (r === 0 ? parade[c]! : s + 1)), full(3, 0),
+      pts => `${list(parade.map(x => g.say.tile(x)))} side by side in order: ${pts}.`);
+  },
   python: (p, g) => pyCard(paradeText(p, g), `
     def one_suit(cells):
         for cell in cells:
@@ -865,6 +922,11 @@ const kingsCourt = gridFamily<CourtRankP>({
   support: g => range(g.ranks).map(r => ({ r })),
   canonical: () => ({ r: 0 }),
   summary: (p, g) => kingsText(p, g).about,
+  example: (p, g) => {
+    const target = p.r, dull = (p.r + 1) % (g.cards ? 13 : g.S);
+    return example([[target, dull], [dull, dull]], [[0, 1], [2, 1]],
+      pts => `${cap(article(g.say.tile(target)))} with three cells of other colours around it: ${pts}.`);
+  },
   python: (p, g) => pyCard(kingsText(p, g), `
     def utility(grid):
         points = 0
@@ -908,6 +970,8 @@ const connectFour = gridFamily<FourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => fourText(p, g).about,
+  example: (p, g) => example(full(4, symForValue(g, 1)), fromFn(4, r => (r === 3 ? p.X : (p.X + 1) % g.C)),
+    pts => `Four ${cname(g, p.X)} counters in a row along the bottom: ${pts}.`),
   python: (p, g) => pyCard(fourText(p, g), `
     def standing(grid, row, col):
         if not (0 <= row < grid.size and 0 <= col < grid.size):

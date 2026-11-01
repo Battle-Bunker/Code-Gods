@@ -1,8 +1,7 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
-  range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, example, plainSymbols, paint, mark,
 } from "./_util.ts";
 import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
@@ -42,6 +41,8 @@ const rainbowRoad = gridFamily<RoadP>({
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "→" }),
   summary: (p, g) => roadText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => (p.dir === "→" ? c : p.dir === "←" ? 2 - c : p.dir === "↓" ? r : 2 - r) % g.C),
+    pts => `Along ${READ_LINES[p.dir]}, every step moves to the next colour: ${pts}.`),
   python: (p, g) => pyCard(roadText(p, g), `
     def utility(grid):
         whole_lines = 0
@@ -170,6 +171,12 @@ const conqueror = gridFamily<ConqP>({
   support: g => colourPairs(g).flatMap(([A, B]) => (["one", "value"] as const).map(weight => ({ A, B, weight }))),
   canonical: p => recolour(p, ["A", "B"]),
   summary: (p, g) => conqText(p, g).about,
+  example: (p, g) => {
+    const s = symForValue(g, 2);
+    return example(full(2, s), [[p.A, p.A], [p.A, p.B]], pts => p.weight === "one"
+      ? `Three ${cname(g, p.A)} cells and one ${cname(g, p.B)}: ${pts}.`
+      : `Three ${cname(g, p.A)} ${g.say.tile(s)} cells and one ${cname(g, p.B)} ${g.say.tile(s)}: ${pts}.`);
+  },
   python: (p, g) => {
     const pts = p.weight === "value" ? "cell.value" : "1";
     return pyCard(conqText(p, g), `
@@ -225,6 +232,13 @@ const parityPainter = gridFamily<ParityP>({
   },
   canonical: p => recolour(p, ["P", "Q"]),
   summary: (p, g) => parityText(p, g).about,
+  example: (p, g) => {
+    if (p.key === "suit") return example([[13 + 4, 4], [39 + 4, 26 + 4]], [[p.P, p.Q], [p.Q, p.P]],
+      pts => `Hearts and diamonds in ${cname(g, p.P)}, spades and clubs in ${cname(g, p.Q)}: ${pts}.`);
+    const vs = [[2, 3], [5, 4]];
+    return example(vs.map(row => row.map(v => symForValue(g, v))), vs.map(row => row.map(v => (v % 2 === 0 ? p.P : p.Q))),
+      pts => `Even ${g.cards ? "cards" : "numbers"} in ${cname(g, p.P)}, odd ones in ${cname(g, p.Q)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(parityText(p, g), p.key === "suit" ? `
     def utility(grid):
         points = 0
@@ -299,6 +313,13 @@ const mirrormancer = gridFamily<MirrorP>({
   support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
   canonical: p => ({ ...p, axis: "LR" }),
   summary: (p, g) => mirrorText(p, g).about,
+  example: (p, g) => {
+    const line = fromFn(3, (r, c) => 3 * r + Math.min(c, 2 - c));
+    const layer = p.axis === "LR" ? line : fromFn(3, (r, c) => line[c]![r]!);
+    return p.layer === "colour"
+      ? example(plainSymbols(g, 3), layer.map(row => row.map(k => k % g.C)), pts => `Every ${p.axis === "LR" ? "row" : "column"}'s colours read the same both ways: ${pts}.`)
+      : example(layer.map(row => row.map(k => symForValue(g, 1 + k))), paint(3, 0), pts => `Every ${p.axis === "LR" ? "row" : "column"} reads the same both ways: ${pts}.`);
+  },
   python: (p, g) => {
     const what = p.layer === "colour" ? "colour" : "value";
     return pyCard(mirrorText(p, g), `
@@ -352,6 +373,12 @@ const homebody = gridFamily<HomeP>({
   support: g => product<HomeP>({ X: range(g.C), zone: ["core", "rim"] }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => homeText(p, g).about,
+  example: (p, g) => {
+    const away = (p.X + 1) % g.C;
+    return p.zone === "core"
+      ? example(plainSymbols(g, 3), mark(3, [[1, 1]], p.X, away), pts => `One ${cname(g, p.X)} cell at home in the middle: ${pts}.`)
+      : example(plainSymbols(g, 3), mark(3, [[1, 1]], away, p.X), pts => `${cap(cname(g, p.X))} all round the edge, at home: ${pts}.`);
+  },
   python: (p, g) => pyCard(homeText(p, g), `
     def utility(grid):
         points = 0
@@ -392,6 +419,11 @@ const lonePeak = gridFamily<PeakP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => peakText(p, g).about,
+  example: (p, g) => {
+    const vs = [[9, 5], [3, g.vmin + 1]], away = (p.X + 1) % g.C;
+    return example(vs.map(row => row.map(v => symForValue(g, v))), [[p.X, away], [away, away]],
+      pts => `${cap(article(cname(g, p.X)))} ${g.say.tile(symForValue(g, 9))} towers over the next highest, ${g.say.tile(symForValue(g, 5))}: ${pts}.`);
+  },
   python: (p, g) => pyCard(peakText(p, g), `
     def utility(grid):
         top = max(cell.value for cell in grid.cells)
@@ -463,6 +495,10 @@ const islander = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => islanderText(p, g).about,
+  example: (p, g) => {
+    const sea = (p.X + 1) % g.C;
+    return example(plainSymbols(g, 3), mark(3, [[1, 1]], p.X, sea), pts => `${cap(article(cname(g, p.X)))} island with only ${cname(g, sea)} touching it: ${pts}.`);
+  },
   python: (p, g) => pyCard(islanderText(p, g), `
     def utility(grid):
         islands = 0
@@ -506,6 +542,11 @@ const rooksWatch = gridFamily<TokenP>({
   support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
   canonical: () => ({ S: 0, X: 0 }),
   summary: (p, g) => rookText(p, g).about,
+  example: (p, g) => {
+    const blank = (p.S + 1) % g.S, away = (p.X + 1) % g.C;
+    return example(fromFn(3, (r, c) => (r === c ? p.S : blank)), fromFn(3, (r, c) => (r === c ? p.X : away)),
+      pts => `Three ${cname(g, p.X)} ${g.say.tile(p.S)} tokens watch all 3 rows and all 3 columns: ${pts}.`);
+  },
   python: (p, g) => pyCard(rookText(p, g), `
     def watched(lines, check):
         count = 0
@@ -558,6 +599,7 @@ const pictureFrame = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => frameText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), mark(3, [[1, 1]], (p.X + 1) % g.C, p.X), pts => `Every edge cell is ${cname(g, p.X)}: ${pts}.`),
   python: (p, g) => pyCard(frameText(p, g), `
     def utility(grid):
         for cell in grid.edge_cells:
@@ -589,6 +631,10 @@ const staircase = gridFamily<StairP>({
   support: () => [{ dir: "→" }, { dir: "↓" }],
   canonical: () => ({ dir: "→" }),
   summary: (p, g) => stairText(p, g).about,
+  example: (p, g) => {
+    const v = g.vmin + 1, stairs = fromFn(3, (r, c) => symForValue(g, v + (p.dir === "→" ? c : r)));
+    return example(stairs, paint(3, 0), pts => `${p.dir === "→" ? "Every row" : "Every column"} climbs ${g.say.values([v, v + 1, v + 2])}: ${pts}.`);
+  },
   python: (p, g) => pyCard(stairText(p, g), `
     def utility(grid):
         steps = 0
@@ -630,6 +676,10 @@ const luckyToken = gridFamily<TokenP>({
   support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
   canonical: () => ({ S: 0, X: 0 }),
   summary: (p, g) => luckyText(p, g).about,
+  example: (p, g) => {
+    const blank = (p.S + 1) % g.S, away = (p.X + 1) % g.C;
+    return example([[p.S, blank], [blank, p.S]], [[p.X, away], [away, p.X]], pts => `Two ${cname(g, p.X)} ${g.say.tile(p.S)} tokens: ${pts}.`);
+  },
   python: (p, g) => pyCard(luckyText(p, g), `
     def utility(grid):
         tokens = 0
@@ -669,6 +719,10 @@ const neighbourhoodVote = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => voteText(p, g).about,
+  example: (p, g) => {
+    const Y = (p.X + 1) % g.C;
+    return example(plainSymbols(g, 2), [[p.X, p.X], [p.X, Y]], pts => `Two cells see only ${cname(g, p.X)} next to them, so they vote ${cname(g, p.X)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(voteText(p, g), `
     def seen(cell, colour):
         n = 0

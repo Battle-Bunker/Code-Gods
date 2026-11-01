@@ -64,8 +64,11 @@ export interface UtilityFamily<P extends Params = Params> {
   exemplar?(params: P, ctx: FamilyContext): ObjectValue;
   /** Optional: the best ordinal these params can reach here, in closed form; the exemplar must reach it (test/rules.test.ts). */
   top?(params: P, ctx: FamilyContext): Ordinal;
-  /** Optional: a tiny example board (its own size) for the goal card, with a caption saying what it scores. */
-  example?(params: P, ctx: FamilyContext): CardExample;
+  /**
+   * Optional: a tiny example board (its own size) for the goal card, with a caption saying what it scores (scored by
+   * the card's own program, never hand-written). null where no example would help this draw.
+   */
+  example?(params: P, ctx: FamilyContext): CardExample | null;
   /** Penalties only: the word before "than 90% of grids" on the ⚠️ line ("redder", "blobbier"). */
   comparative?(params: P, ctx: FamilyContext): string;
   /**

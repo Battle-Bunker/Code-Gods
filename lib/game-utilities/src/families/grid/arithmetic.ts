@@ -1,8 +1,7 @@
 /** Arithmetic & number-pattern lens rules (lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import {
-  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
-  list, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
+  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolour, sentences, symForValue, thing, tsCard, tuple, wire, example, paint, mark,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -45,6 +44,11 @@ const straightShooter = gridFamily<ShootP>({
   sample: (rng, g) => ({ step: pick(rng, [1, -1] as const), flush: chance(rng, 1, 2), ace_high: g.cards && chance(rng, 1, 2) }),
   canonical: p => ({ ...p, step: 1 }),
   summary: (p, g) => shootText(p, g).about,
+  example: (p, g) => {
+    const vs = p.step === 1 ? [2, 3, 4] : [4, 3, 2];
+    const sym = fromFn(3, (r, c) => symForValue(g, r === 0 ? vs[c]! : g.vmax));
+    return example(sym, paint(3, 0), pts => `The run ${g.say.values(vs)} along the top row${p.flush ? ", all one colour" : ""}: ${pts}.`);
+  },
   python: (p, g) => pyCard(shootText(p, g), `
     def number(cell):
         return ${p.ace_high ? "14 if cell.value == 1 else cell.value" : "cell.value"}
@@ -147,6 +151,11 @@ const numberBonds = gridFamily<BondsP>({
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   support: () => (["any", "same", "different"] as const).map(mode => ({ mode })),
   summary: (p, g) => bondsText(p, g).about,
+  example: (p, g) => {
+    const T = g.vmax + 1, [a, b] = [3, T - 3], X = 0, Y = 1, Z = 2;
+    return example(symGrid(g, [[a, b], [1, 1]]), [[X, p.mode === "same" ? X : Y], [Z, Z]],
+      pts => `Touching cells showing ${g.say.values([a, b])} add up to ${T}: ${pts}.`);
+  },
   python: (p, g) => pyCard(bondsText(p, g), `
     def utility(grid):
         bonds = 0
@@ -255,6 +264,12 @@ const kingOfTheHill = gridFamily<KingP>({
   sample: (rng, g) => ({ X: rng.int(g.C), valley: chance(rng, 3, 10) }),
   canonical: () => ({ X: 0, valley: false }), // value reflection maps valleys to peaks
   summary: (p, g) => kingText(p, g).about,
+  example: (p, g) => {
+    const top = p.valley ? g.vmin : 9, around = p.valley ? [3, 4, 5, 6] : [1, 2, 3, 4], away = (p.X + 1) % g.C;
+    const vs = fromFn(3, (r, c) => (r === 1 && c === 1 ? top : around[(r + c) % 4]!));
+    return example(symGrid(g, vs), mark(3, [[1, 1]], p.X, away),
+      pts => `${cap(article(cname(g, p.X)))} ${g.say.tile(symForValue(g, top))} ${p.valley ? "smaller" : "bigger"} than every cell touching it: ${pts}.`);
+  },
   python: (p, g) => pyCard(kingText(p, g), `
     def utility(grid):
         kings = 0
@@ -349,6 +364,10 @@ const roundNumbers = gridFamily<RoundP>({
   support: () => (["rows", "cols", "both"] as const).map(axis => ({ axis })),
   canonical: p => ({ axis: p.axis === "cols" ? "rows" : p.axis }),
   summary: (p, g) => roundText(p, g).about,
+  example: (p, g) => {
+    const B = g.base!, vs = [[1, 2, B - 3], [2, B - 3, 1], [B - 3, 1, 2]];
+    return example(symGrid(g, vs), paint(3, 0), pts => `Every ${AXIS_WORD[p.axis]} adds up to ${B}, a round number: ${pts}.`);
+  },
   python: (p, g) => pyCard(roundText(p, g), `
     def utility(grid):
         round_lines = 0
@@ -400,6 +419,11 @@ const numberSandwich = gridFamily<SandP>({
   sample: (rng, g) => ({ mode: pick(rng, ["sandwich", "fibonacci"] as const), X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => sandText(p, g).about,
+  example: (p, g) => {
+    const top = p.mode === "sandwich" ? [2, 5, 3] : [2, 3, 5];
+    return example(symGrid(g, fromFn(3, (r, c) => (r === 0 ? top[c]! : g.vmax))), paint(3, p.X ?? 0),
+      pts => `In ${g.say.values(top)}, the ${p.mode === "sandwich" ? "middle" : "last"} ${num(g)} is the other two added: ${pts}.`);
+  },
   python: (p, g) => {
     const test = p.mode === "sandwich" ? "a.value > 0 and c.value > 0 and b.value == a.value + c.value"
       : "a.value > 0 and b.value > 0 and c.value == a.value + b.value";
@@ -458,6 +482,8 @@ const magicWindow = gridFamily<WindowP>({
   sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => windowText(p, g).about,
+  example: (p, g) => example(symGrid(g, [[2, 7, 6], [9, 5, 1], [4, 3, 8]]), paint(3, p.X ?? 0),
+    pts => `A perfect magic square: all 8 lines add up to 3 times the middle: ${pts}.`),
   python: (p, g) => pyCard(windowText(p, g), `
     def window_lines(grid, top, left):
         rows = [[grid.cell(top + i, left + j) for j in range(3)] for i in range(3)]
@@ -545,6 +571,15 @@ const timesTable = gridFamily<TimesP>({
   sample: (rng, g) => ({ m: pick(rng, [...TT_M[g.symbols], "prime" as const]), X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => timesText(p, g).about,
+  example: (p, g) => {
+    const prime = (v: number) => v > 1 && range(v).every(d => d < 2 || v % d !== 0);
+    const member = (v: number) => (p.m === "prime" ? prime(v) : v % p.m === 0);
+    const values = [...new Set(g.value)].sort((a, b) => a - b), ins = values.filter(member).slice(0, 3), out = values.find(v => !member(v))!;
+    const away = p.X === null ? 0 : (p.X + 1) % g.C, X = p.X ?? 0;
+    const third = ins[2] ?? out;
+    return example(symGrid(g, [[ins[0]!, ins[1]!], [third, out]]), [[X, X], [ins[2] === undefined ? away : X, away]],
+      pts => `Touching cells showing ${g.say.values(ins)}, all ${p.m === "prime" ? "prime" : `in the ${p.m} times table`}: ${pts}.`);
+  },
   python: (p, g) => pyCard(timesText(p, g), `
     def good(cell):
         return ${p.m === "prime" ? "cell.value in PRIMES" : "cell.value % TIMES == 0"}${p.X === null ? "" : " and cell.colour == MY_COLOUR"}
@@ -597,6 +632,7 @@ const oddsEvens = gridFamily<OddP>({
   sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => oddText(p, g).about,
+  example: (p, g) => example(symGrid(g, [[1, 2], [2, 1]]), paint(2, p.X ?? 0), pts => `Odd and even ${nums(g)} take turns like a chessboard: ${pts}.`),
   python: (p, g) => pyCard(oddText(p, g), `
     def odd(cell):
         return cell.value % 2 == 1
@@ -654,6 +690,10 @@ const numberPainter = gridFamily<PaintP>({
   support: g => offsets(g).map(o => ({ o })),
   canonical: (_, g) => ({ o: offsets(g)[0] }),
   summary: (p, g) => paintText(p, g).about,
+  example: (p, g) => {
+    const col = [[0, 1], [2, g.C > 3 ? 3 : 0]];
+    return example(col.map(row => row.map(k => symForValue(g, k + 1 + p.o))), col, pts => `Every cell shows its colour's ${num(g)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(paintText(p, g), `
     def utility(grid):
         points = 0
@@ -753,6 +793,13 @@ const seesaw = gridFamily<SeesawP>({
   },
   canonical: p => recolour({ ...p, scope: p.scope === "cols" ? "rows" : p.scope }, ["X", "Y"]),
   summary: (p, g) => seesawText(p, g).about,
+  example: (p, g) => {
+    if (p.mode === "halves") return example(symGrid(g, [[2, 7, 2], [5, 1, 5], [2, 7, 2]]), paint(3, 0),
+      pts => `Every ${AXIS_WORD[p.scope]} balances, its two halves adding up the same: ${pts}.`);
+    const Z = range(g.C).find(k => k !== p.X && k !== p.Y)!, order = [p.X!, p.Y!, Z];
+    return example(symGrid(g, full(3, 4)), fromFn(3, (r, c) => order[(r + c) % 3]!),
+      pts => `In every ${AXIS_WORD[p.scope]}, the ${cname(g, p.X!)} and ${cname(g, p.Y!)} cells add up the same: ${pts}.`);
+  },
   python: (p, g) => pyCard(seesawText(p, g), `
     def lean(line):${p.mode === "halves" ? `
         half = len(line) // 2
@@ -819,6 +866,10 @@ const steppingStones = gridFamily<HopP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => hopMenu(g).map(d => ({ d })),
   summary: (p, g) => hopText(p, g).about,
+  example: (p, g) => {
+    const a = g.cards ? 2 : g.vmin, b = a + p.d;
+    return example(symGrid(g, [[a, b], [b, a]]), paint(2, 0), pts => `Cells showing ${g.say.values([a, b])} differ by ${p.d}, so you can hop round all four: ${pts}.`);
+  },
   python: (p, g) => pyCard(hopText(p, g), `
     def hop(a, b):
         return abs(a.value - b.value) == HOP
@@ -973,6 +1024,10 @@ const snap = gridFamily<Record<string, never>>({
   id: "snap", name: "Snap!", emoji: "🫰", theme: "Touching twins", shape: SCALAR,
   support: () => [{}],
   summary: (_, g) => snapText(g).about,
+  example: (_p, g) => {
+    const s = symForValue(g, 3), t = symForValue(g, 3, g.cards ? 1 : 0);
+    return example([[s, t], [symForValue(g, 5), symForValue(g, 7)]], paint(2, 0), pts => `${g.say.tile(s)} and ${g.say.tile(t)} touch: Snap! ${pts}.`);
+  },
   python: (_, g) => pyCard(snapText(g), `
     def utility(grid):
         snaps = 0
@@ -1017,6 +1072,11 @@ const youngTableau = gridFamily<CornerP>({
   support: () => (["TL", "TR", "BL", "BR"] as const).map(K => ({ K })),
   canonical: () => ({ K: "BR" }),
   summary: (p, g) => uphillText(p, g).about,
+  example: (p, g) => {
+    const up = (r: number, c: number) => (p.K[0] === "B" ? r : 2 - r) + (p.K[1] === "R" ? c : 2 - c);
+    return example(symGrid(g, fromFn(3, (r, c) => g.vmin + up(r, c))), paint(3, 0),
+      pts => `Every row and column gets bigger toward the ${p.K[0] === "T" ? "top" : "bottom"}-${p.K[1] === "L" ? "left" : "right"} corner: ${pts}.`);
+  },
   python: (p, g) => pyCard(uphillText(p, g), `
     def utility(grid):
         whole = 0
@@ -1068,6 +1128,8 @@ const fillomino = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: () => [{}],
   summary: (_, g) => fillText(g).about,
+  example: (_p, g) => example(symGrid(g, [[2, 2], [1, 4]]), paint(2, 0),
+    pts => `Two ${g.say.rankPlural(g.cards ? 1 : 2)} side by side, and ${g.cards ? "an Ace" : "a 1"} on its own, are right: ${pts}.`),
   python: (_, g) => pyCard(fillText(g), `
     def same_value(a, b):
         return a.value == b.value
@@ -1113,6 +1175,10 @@ const colourValueLadder = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued", "Spectral"] }, shape: SCALAR,
   support: () => [{}],
   summary: (_, g) => ladderColourText(g).about,
+  example: (_p, g) => {
+    const v = g.vmin + 1;
+    return example(symGrid(g, [[v, v + 1], [v + 1, v + 2]]), [[0, 1], [1, 2]], pts => `Bigger ${nums(g)} wear later rainbow colours: ${pts}.`);
+  },
   python: (_, g) => pyCard(ladderColourText(g), `
     def sign(x):
         if x > 0:

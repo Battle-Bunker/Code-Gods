@@ -38,11 +38,12 @@ function Source({ text, language, testId }: { text: string; language: string; te
   );
 }
 
-/** A goal card's example board: the room's tiles at the example's own size, with its caption. */
+/** A goal card's example board: the room's tiles at the example's own size, big enough to read, with its caption. */
+const EXAMPLE_CELL_PX = 26;
 export function CardExample({ example, grid }: { example: NonNullable<UtilityCardLike["example"]>; grid?: GridSettings }) {
   return (
     <figure className="mt-2 flex items-center gap-3" data-testid="utility-card-example">
-      <GridObject value={example.value} grid={grid ? { ...grid, size: example.size } : undefined} renderer="tiles" />
+      <GridObject value={example.value} grid={grid ? { ...grid, size: example.size } : undefined} renderer="tiles" cellPx={EXAMPLE_CELL_PX} />
       <figcaption className="text-xs leading-snug text-muted-foreground"><span className="font-medium text-foreground">For example: </span>{example.caption}</figcaption>
     </figure>
   );

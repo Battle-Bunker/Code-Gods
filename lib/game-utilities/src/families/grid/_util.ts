@@ -8,7 +8,7 @@
  */
 import { COLOUR_COMPONENTS, type Constraint, type GridColourSet, type ObjectValue, type Rng } from "@workspace/game-types";
 import type { CardExample, FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
-import { phrasebook, type Phrasebook } from "../say.ts";
+import { phrasebook, points as sayPoints, type Phrasebook } from "../say.ts";
 export { RuleTextError, an as article, count, list, points, type Phrasebook } from "../say.ts";
 import type { AnalyticSurvival } from "../../analytic.ts";
 
@@ -185,11 +185,28 @@ export const RANK_NAMES: Readonly<Record<number, string>> = { 1: "Ace", 11: "Jac
 export const valueNote = (g: GridSpec, v: number) => (g.cards ? RANK_NAMES[v] ?? "" : "");
 
 // ------------------------------------------------------------------------------------------------
+// example boards (docs/rules-design.md §3.2): built from the draw's own symbols and colours
+// ------------------------------------------------------------------------------------------------
+
+export const example = (sym: Layer, col: Layer, caption: (points: string) => string): GridExample => ({ sym, col, caption });
+/** Symbols for a colour-only example: every cell shows the same plain tile (1, or A♠). */
+export const plainSymbols = (g: GridSpec, k: number): Layer => full(k, symForValue(g, 1));
+/** One colour layer for a colour-only example. */
+export const paint = (k: number, colour: number): Layer => full(k, colour);
+/** The colour `step` places after `c` in the room's order. */
+export const nextColour = (g: GridSpec, c: number, step = 1) => (c + step) % g.C;
+/** k×k cells, `on` where `cells` lists [row, col], else `off`. */
+export const mark = (k: number, cells: readonly (readonly [number, number])[], on: number, off: number): Layer =>
+  fromFn(k, (r, c) => (cells.some(([a, b]) => a === r && b === c) ? on : off));
+
+// ------------------------------------------------------------------------------------------------
 // family constructor
 // ------------------------------------------------------------------------------------------------
 
 export const SCALAR: ScoreShape = { kind: "scalar" };
 export const tuple = (arity: number): ScoreShape => ({ kind: "tuple", arity });
+
+export interface GridExample { readonly sym: Layer; readonly col: Layer; readonly caption: (points: string) => string }
 
 export interface GridFamilyDef<P extends Params> {
   readonly id: string;
@@ -213,8 +230,13 @@ export interface GridFamilyDef<P extends Params> {
   readonly exemplar?: (p: P, g: GridSpec, ctx: FamilyContext) => ObjectValue;
   /** The best ordinal in closed form; the exemplar must reach it (test/rules.test.ts). */
   readonly top?: (p: P, g: GridSpec) => Ordinal;
-  /** A tiny example board for the goal card: symbol and colour layers (k×k) and a caption. */
-  readonly example?: (p: P, g: GridSpec) => { readonly sym: Layer; readonly col: Layer; readonly caption: string };
+  /**
+   * A tiny example board for the goal card (docs/rules-design.md §3.2): symbol and colour layers (k×k, built from this
+   * draw's own symbols and colours) and a one-sentence caption. The caption never writes its points by hand: the card's
+   * own program scores the example board and `caption` receives them ("2 points", the first number of a tuple).
+   * null where no example would help this draw.
+   */
+  readonly example?: (p: P, g: GridSpec) => GridExample | null;
   /** Penalties: "redder", "blobbier" (the ⚠️ line). */
   readonly comparative?: (p: P, g: GridSpec) => string;
   /** The analytic survival function (src/analytic.ts), or null for params/shapes it does not cover. */
@@ -238,9 +260,11 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
     ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, gridSpec(ctx), ctx) } : {}),
     ...(d.needs ? { needs: (p: P, ctx: FamilyContext) => req(d.needs!(p, gridSpec(ctx))) } : {}),
     ...(d.top ? { top: (p: P, ctx: FamilyContext) => d.top!(p, gridSpec(ctx)) } : {}),
-    ...(d.example ? { example: (p: P, ctx: FamilyContext): CardExample => {
+    ...(d.example ? { example: (p: P, ctx: FamilyContext): CardExample | null => {
       const g = gridSpec(ctx), e = d.example!(p, g);
-      return { value: wire(g, e.sym, e.col), size: e.sym.length, caption: e.caption };
+      if (!e) return null;
+      const value = wire(g, e.sym, e.col), size = e.sym.length, scored = host(d.id, p, ctx, size)(value);
+      return { value, size, caption: e.caption(sayPoints(typeof scored === "number" ? scored : scored[0]!)) };
     } } : {}),
     ...(d.comparative ? { comparative: (p: P, ctx: FamilyContext) => d.comparative!(p, gridSpec(ctx)) } : {}),
     ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, gridSpec(ctx), ctx) } : {}),

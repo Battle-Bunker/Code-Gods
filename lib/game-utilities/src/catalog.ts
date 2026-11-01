@@ -111,10 +111,11 @@ export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): Utility
   const f = family(descriptor.familyId), p = descriptor.params;
   const pen = descriptor.penalty;
   const pf = pen ? family(pen.familyId) : null;
+  const example = f.example?.(p, ctx) ?? null;
   return {
     familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
-    ...(f.example ? { example: f.example(p, ctx) } : {}),
+    ...(example ? { example } : {}),
     ...(pen && pf ? {
       penalty: {
         familyId: pf.id, emoji: pf.emoji, name: pf.name, summary: pf.summary(pen.params, ctx),
@@ -167,14 +168,18 @@ const MAX_COMPILED = 4096;
  * table keys hash) compiled once with the
  * instantiation's JS prelude, returning `utility(__decode(wire))` (or `penalty(...)`) checked against the
  * family's shape. Cached by (inst.key, familyId, params).
+ *
+ * `boardSize` (Grid only) runs that same program, written for this room, on a smaller board: how a goal card's example
+ * board is scored (docs/rules-design.md §3.2). The prelude is the room's, at the example's size.
  */
-export function evaluator(draw: Draw, inst: Instantiation): (wire: ObjectValue) => Ordinal {
-  const key = `${inst.key}\0${draw.familyId}\0${paramsKey(draw.params)}`;
+export function evaluator(draw: Draw, inst: Instantiation, boardSize?: number): (wire: ObjectValue) => Ordinal {
+  const board = boardSize === undefined ? inst : resized(inst, boardSize);
+  const key = `${board.key}\0${draw.familyId}\0${paramsKey(draw.params)}`;
   let fn = compiled.get(key);
   if (fn) return fn;
   const f = family(draw.familyId), ctx = context(inst);
   if (f.objectType !== inst.objectType) throw new Error(`${f.id} does not apply to ${inst.key}`);
-  const prelude = objectType(inst.objectType).prelude(inst);
+  const prelude = objectType(inst.objectType).prelude(board);
   const body = `"use strict";\n${prelude.js}\n;\n${cardProgram(f.card.typescript(draw.params, ctx))}\n;\nreturn (wire) => ${entryPoint(f)}(__decode(wire));`;
   const raw = new Function(body)() as (wire: ObjectValue) => unknown;
   const shape = f.shape(ctx);
@@ -184,7 +189,14 @@ export function evaluator(draw: Draw, inst: Instantiation): (wire: ObjectValue) 
   return fn;
 }
 
+/** A Grid instantiation at another board size, for running its programs on an example board (never dealt or listed). */
+function resized(inst: Instantiation, size: number): Instantiation {
+  if (inst.objectType !== "Grid") throw new Error(`only Grid examples have their own size, not ${inst.key}`);
+  if (!(Number.isInteger(size) && size >= 1)) throw new Error(`bad example size ${size}`);
+  return { ...inst, key: `${inst.key}#example${size}`, args: { ...inst.args, size }, terms: { ...inst.terms, size, cells: size * size } };
+}
+
 /** One draw's ordinal for one object. */
 export const ordinal = (draw: Draw, inst: Instantiation, wire: ObjectValue): Ordinal => evaluator(draw, inst)(wire);
 
-setHostEval((familyId, params, ctx) => evaluator({ familyId, params }, ctx.inst));
+setHostEval((familyId, params, ctx, boardSize) => evaluator({ familyId, params }, ctx.inst, boardSize));

@@ -2,8 +2,7 @@
 import type { CardText, GridSpec } from "./_util.ts";
 import { lazySurvival, rowTransferCount, type AnalyticSurvival } from "../../analytic.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range,
-  recipes, recolour, tsCard, tuple, wire,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range, recipes, recolour, tsCard, tuple, wire, example, plainSymbols, symForValue,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { MIXER_OPTIMA, mixerOptimum } from "../../analytic/maxima.ts";
@@ -26,6 +25,11 @@ const stripePainter = gridFamily<StripeP>({
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
   summary: p => stripeText(p).about,
+  example: (p, g) => {
+    const rows = fromFn(3, r => (r % 2 === 0 ? 0 : 1));
+    return example(plainSymbols(g, 3), p.axis === "rows" ? rows : fromFn(3, (_, c) => (c % 2 === 0 ? 0 : 1)),
+      pts => `Three ${p.axis === "rows" ? "rows" : "columns"}, each all one colour: ${pts}.`);
+  },
   python: p => pyCard(stripeText(p), `
     def most_common(line):
         best = 0
@@ -100,6 +104,11 @@ const feudingFamilies = gridFamily<FeudP>({
   support: g => colourPairs(g).map(([X, Y]) => ({ X, Y })),
   canonical: p => recolour(p, ["X", "Y"]),
   summary: (p, g) => feudText(p, g).about,
+  example: (p, g) => {
+    const Z = range(g.C).find(k => k !== p.X && k !== p.Y)!;
+    return example(plainSymbols(g, 3), fromFn(3, (_, c) => (c === 0 ? p.X : c === 2 ? p.Y : Z)),
+      pts => `${cap(cname(g, p.X))} and ${cname(g, p.Y)} kept apart by ${article(cname(g, Z))} wall: ${pts}.`);
+  },
   python: (p, g) => pyCard(feudText(p, g), `
     def safe(cell, enemy):
         for other in cell.neighbours:
@@ -169,6 +178,11 @@ const colourMixer = gridFamily<MixP>({
     return { P1, M, P2, strict: p.strict };
   },
   summary: (p, g) => mixText(p, g).about,
+  example: (p, g) => {
+    const Z = range(g.C).find(k => k !== p.P1 && k !== p.M && k !== p.P2)!;
+    return example(plainSymbols(g, 3), fromFn(3, (r, c) => (r === 1 ? [p.P1, p.M, p.P2][c]! : Z)),
+      pts => `${cap(article(cname(g, p.M)))} cell between ${cname(g, p.P1)} and ${cname(g, p.P2)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(mixText(p, g), `
     MIXED = mix(PAINT_1, PAINT_2)
 
@@ -241,6 +255,8 @@ const fairWeaver = gridFamily<Record<string, never>>({
   shape: tuple(2), tags: ["shortlist"],
   support: () => [{}],
   summary: (_, g) => weaverText(g).about,
+  example: (_p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => (r + c) % 3),
+    pts => `Every row and column shares its colours fairly: ${pts}.`),
   python: (_, g) => pyCard(weaverText(g), `
     def unfairness(line, palette):
         counts = []
@@ -300,6 +316,8 @@ const lanternLighter = gridFamily<LanternP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => lanternText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => (r === c ? p.X : (p.X + 1) % g.C)),
+    pts => `Three ${cname(g, p.X)} lanterns, each alone in its row and column: ${pts}.`),
   python: (p, g) => pyCard(lanternText(p, g), `
     def count_mine(line):
         n = 0
@@ -384,6 +402,8 @@ const bestFriends = gridFamily<PairP>({
   support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
   canonical: p => recolour(p, ["A", "B"]),
   summary: (p, g) => friendsText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 2), [[p.A, p.B], [p.B, p.A]],
+    pts => `${cap(cname(g, p.A))} and ${cname(g, p.B)} cells touch four times: ${pts}.`),
   python: (p, g) => pyCard(friendsText(p, g), `${OPPOSITE_PY}
     def utility(grid):
         seams = 0
@@ -436,6 +456,8 @@ const rainbowSteps = gridFamily<DirP>({
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "→" }),
   summary: (p, g) => stepsText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), unorient(3, p.dir, i => i % g.C),
+    pts => `Along ${READ_LINES[p.dir]}, each colour is followed by the next: ${pts}.`),
   python: (p, g) => pyCard(stepsText(p, g), `
     def utility(grid):
         steps = 0
@@ -470,6 +492,8 @@ const quiltMaker = gridFamily<Record<string, never>>({
   requires: { minColours: 3 },
   support: () => [{}],
   summary: (_, g) => quiltText(g).about,
+  example: (_p, g) => example(plainSymbols(g, 2), [[0, 1], [2, g.C >= 4 ? 3 : 0]],
+    pts => (g.C >= 4 ? `A 2×2 square showing ${g.say.distinctColours(4)}: ${pts}.` : `A square of ${g.say.distinctColours(3)} with no two touching cells alike: ${pts}.`)),
   python: (_, g) => pyCard(quiltText(g), `
     def utility(grid):
         squares = 0
@@ -518,6 +542,11 @@ const flagBearer = gridFamily<FlagP>({
   support: g => product<FlagP>({ C: range(g.C), axis: ["rows", "cols"] }),
   canonical: () => ({ C: 0, axis: "rows" }),
   summary: (p, g) => flagText(p, g).about,
+  example: (p, g) => {
+    const Y = (p.C + 1) % g.C, wins = fromFn(3, (r, c) => ((r + c) % 3 === 2 ? Y : p.C));
+    return example(plainSymbols(g, 3), p.axis === "rows" ? wins : fromFn(3, (r, c) => wins[c]![r]!),
+      pts => `${cap(cname(g, p.C))} has the most cells in every ${p.axis === "rows" ? "row" : "column"}: ${pts}.`);
+  },
   python: (p, g) => pyCard(flagText(p, g), `
     def count(line, colour):
         n = 0
@@ -578,6 +607,12 @@ const colourByNumber = gridFamily<ShiftP>({
   support: g => range(g.C).map(t => ({ t })),
   canonical: () => ({ t: 0 }), // cyclic colour relabelling shifts t
   summary: (p, g) => keyText(p, g).about,
+  example: (p, g) => {
+    const vs = [g.vmin, g.vmin + 1, g.vmin + 2, g.vmin + 3];
+    return example([[vs[0]!, vs[1]!], [vs[2]!, vs[3]!]].map(row => row.map(v => symForValue(g, v))),
+      [[vs[0]!, vs[1]!], [vs[2]!, vs[3]!]].map(row => row.map(v => (v + p.t) % g.C)),
+      pts => `Every cell painted the right colour for its ${g.cards ? "rank" : "number"}: ${pts}.`);
+  },
   python: (p, g) => pyCard(keyText(p, g), `
     def utility(grid):
         right = 0
@@ -608,6 +643,8 @@ const kingdom = gridFamily<KingdomP>({
   support: g => range(g.C).map(C => ({ C })),
   canonical: p => recolour(p, ["C"]),
   summary: (p, g) => kingdomText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => (r === 1 || c === 1 ? p.C : (p.C + 1) % g.C)),
+    pts => `${cap(article(cname(g, p.C)))} patch of five joined cells: ${pts}.`),
   python: (p, g) => pyCard(kingdomText(p, g), `
     def same_colour(a, b):
         return a.colour == b.colour
@@ -646,6 +683,11 @@ const wallpaper = gridFamily<PaperP>({
   support: g => product<PaperP>({ p: g.N >= 4 ? [2, 3] : [2], dir: ["right", "down"] }),
   canonical: p => ({ p: p.p, dir: "right" }),
   summary: p => paperText(p).about,
+  example: (p, g) => {
+    const k = p.p + 1, stripes = fromFn(k, (_, c) => c % p.p);
+    return example(plainSymbols(g, k), p.dir === "right" ? stripes : fromFn(k, (r, c) => stripes[c]![r]!),
+      pts => `The colours repeat every ${p.p} cells ${p.dir === "right" ? "across" : "down"}: ${pts}.`);
+  },
   python: p => pyCard(paperText(p), `
     def utility(grid):
         repeats = 0
@@ -683,6 +725,8 @@ const sunsetSky = gridFamily<DirP>({
   support: () => DIRS4.map(dir => ({ dir })),
   canonical: () => ({ dir: "↓" }),
   summary: (p, g) => sunsetText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), unorient(3, p.dir, i => i),
+    pts => `Along ${READ_LINES[p.dir]}, the colours move one step along the rainbow: ${pts}.`),
   python: (p, g) => pyCard(sunsetText(p, g), `
     def utility(grid):
         sunsets = 0
@@ -734,6 +778,10 @@ const harmony = gridFamily<HarmonyP>({
   sample: (rng, g) => ({ fav: chance(rng, 1, 2) ? null : rng.int(Math.floor(g.C / 2)) }),
   canonical: p => ({ fav: p.fav === null ? null : 0 }),
   summary: (p, g) => harmonyText(p, g).about,
+  example: (p, g) => {
+    const a = p.fav ?? 0, b = a + g.C / 2;
+    return example(plainSymbols(g, 2), [[a, b], [b, a]], pts => `Opposite colours ${cname(g, a)} and ${cname(g, b)} touch four times: ${pts}.`);
+  },
   python: (p, g) => pyCard(harmonyText(p, g), `
     def opposite(grid, a, b):
         return abs(grid.palette.index(a.colour) - grid.palette.index(b.colour)) == len(grid.palette) // 2
@@ -790,6 +838,11 @@ const warmHearts = gridFamily<WarmP>({
   support: () => [{ flip: false }, { flip: true }],
   canonical: () => ({ flip: false }), // swapping red and black suits maps flip
   summary: (p, g) => warmText(p, g).about,
+  example: (p, g) => {
+    const warm = 0, cool = g.C - 1, [reds, blacks] = p.flip ? [cool, warm] : [warm, cool];
+    return example([[13 + 6, 13 + 6], [6, 39 + 6]], [[reds, reds], [blacks, blacks]],
+      pts => `Hearts dressed in ${cname(g, reds)}, spades and clubs in ${cname(g, blacks)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(warmText(p, g), `
     def dressed(grid, cell):
         red = cell.suit == "hearts" or cell.suit == "diamonds"
@@ -842,6 +895,11 @@ const twinFriends = gridFamily<PairP>({
   support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
   canonical: p => recolour(p, ["A", "B"]),
   summary: (p, g) => twinText(p, g).about,
+  example: (p, g) => {
+    const Z = range(g.C).find(k => k !== p.A && k !== p.B)!, s = symForValue(g, 3), t = symForValue(g, 3, g.cards ? 1 : 0);
+    return example([[s, t], [symForValue(g, 5), symForValue(g, 7)]], [[p.A, p.B], [Z, Z]],
+      pts => `${cap(article(cname(g, p.A)))} ${g.say.tile(s)} touching ${article(cname(g, p.B))} ${g.say.tile(t)}: ${pts}.`);
+  },
   python: (p, g) => pyCard(twinText(p, g), `${OPPOSITE_PY}
     def utility(grid):
         twins = 0

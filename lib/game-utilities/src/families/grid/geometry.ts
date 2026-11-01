@@ -2,7 +2,7 @@
 import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product,
-  pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire,
+  pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire, example, plainSymbols, paint, mark,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { LONGEST_SNAKES, longestSnake } from "../../analytic/maxima.ts";
@@ -43,6 +43,11 @@ const castleKeeper = gridFamily<CastleP>({
   },
   canonical: p => recolour(p, ["W", "T"]),
   summary: (p, g) => castleText(p, g).about,
+  example: (p, g) => {
+    const T = p.mode === "treasure" ? p.T! : other(g, p.W), ring = `A ring of ${cname(g, p.W)} walls shuts in`;
+    return example(plainSymbols(g, 3), mark(3, [[1, 1]], T, p.W), pts =>
+      p.mode === "treasure" ? `${ring} ${an(cname(g, T))} cell: ${pts}.` : p.mode === "eyes" ? `${ring} one pocket of one cell: ${pts}.` : `${ring} the middle cell: ${pts}.`);
+  },
   python: (p, g) => {
     const count = p.mode === "treasure" ? `
         treasure = 0
@@ -149,6 +154,7 @@ const chessmaster = gridFamily<ChessP>({
   support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
   canonical: p => recolour(p, ["A", "B"]),
   summary: (p, g) => chessText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 2), [[p.A, p.B], [p.B, p.A]], pts => `${cap(cname(g, p.A))} and ${cname(g, p.B)} take turns like a chessboard: ${pts}.`),
   python: (p, g) => pyCard(chessText(p, g), `
     def opposite(a, b):
         return (a.colour == COLOUR_A and b.colour == COLOUR_B) or (a.colour == COLOUR_B and b.colour == COLOUR_A)
@@ -203,6 +209,8 @@ const bridgeBuilder = gridFamily<BridgeP>({
   support: g => product<BridgeP>({ C: range(g.C), D: ["LR", "TB"] }),
   canonical: () => ({ C: 0, D: "LR" }),
   summary: (p, g) => bridgeText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => ((p.D === "LR" ? r : c) === 1 ? p.C : other(g, p.C))),
+    pts => `${cap(an(cname(g, p.C)))} bridge from the ${p.D === "LR" ? "left edge to the right" : "top edge to the bottom"}: ${pts}.`),
   python: (p, g) => {
     const [across, attr] = p.D === "LR" ? ["columns", "col"] : ["rows", "row"];
     return pyCard(bridgeText(p, g), `
@@ -267,6 +275,7 @@ const cardWindmill = gridFamily<Record<string, never>>({
   requires: { classes: ["Suited"], minSuits: 4 }, shape: tuple(2), tags: ["shortlist"],
   support: () => [{}],
   summary: (_, g) => windmillText(g).about,
+  example: () => example([[6, 13 + 6], [39 + 6, 26 + 6]], paint(2, 0), pts => `The four suits in order round a square: ${pts}.`),
   python: (_, g) => pyCard(windmillText(g), `
     SUITS = ["spades", "hearts", "diamonds", "clubs"]
 
@@ -343,6 +352,11 @@ const royalCourt = gridFamily<CourtP>({
   sample: rng => ({ suit: rng.int(2) === 0 ? null : rng.int(4) }),
   canonical: p => ({ suit: p.suit === null ? null : 0 }),
   summary: (p, g) => courtText(p, g).about,
+  example: (p, g) => {
+    const s = (p.suit ?? 1) * 13;
+    return example(mark(3, [[1, 1]], s + 11, s + 1).map((row, r) => row.map((x, c) => (r === 0 && c === 1 ? s + 10 : x))), paint(3, 0),
+      pts => `The ${g.say.tile(s + 11)} in the middle and the ${g.say.tile(s + 10)} touching it: ${pts}.`);
+  },
   python: (p, g) => pyCard(courtText(p, g), `
     def royal(cell):
         return ${p.suit === null ? "cell.is_picture" : "cell.is_picture and cell.suit == MY_SUIT"}
@@ -425,6 +439,8 @@ const archipelago = gridFamily<IslandsP>({
   support: g => range(g.C).map(C => ({ C })),
   canonical: p => recolour(p, ["C"]),
   summary: (p, g) => archText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => ((r + c) % 2 === 0 ? p.C : other(g, p.C))),
+    pts => `Five ${cname(g, p.C)} islands that meet only at corners: ${pts}.`),
   python: (p, g) => pyCard(archText(p, g), `${SAME_COLOUR_PY}
     def utility(grid):
         islands = 0
@@ -462,6 +478,15 @@ const lookingGlass = gridFamily<GlassP>({
   support: () => product<GlassP>({ axis: ["V", "H", "D", "A", "half"], layer: ["colour", "symbol"] }),
   canonical: p => ({ ...p, axis: p.axis === "H" ? "V" : p.axis === "A" ? "D" : p.axis }),
   summary: (p, g) => glassText(p, g).about,
+  example: (p, g) => {
+    // Every cell the same as its twin: number each fold pair (or fixed cell) and paint pairs alike.
+    const twin = (r: number, c: number): [number, number] => p.axis === "V" ? [r, 2 - c] : p.axis === "H" ? [2 - r, c]
+      : p.axis === "D" ? [c, r] : p.axis === "A" ? [2 - c, 2 - r] : [2 - r, 2 - c];
+    const key = fromFn(3, (r, c) => { const [a, b] = twin(r, c); return Math.min(3 * r + c, 3 * a + b); });
+    const layer = key.map(row => row.map(k => (p.layer === "colour" ? k % g.C : symForValue(g, 1 + (k % 9)))));
+    return example(p.layer === "colour" ? plainSymbols(g, 3) : layer, p.layer === "colour" ? layer : paint(3, 0),
+      pts => `Every cell has the same ${p.layer === "colour" ? "colour" : g.cards ? "rank" : "number"} as its twin: ${pts}.`);
+  },
   python: (p, g) => {
     const what = p.layer === "colour" ? "colour" : "value";
     return pyCard(glassText(p, g), `
@@ -518,6 +543,12 @@ const pinwheel = gridFamily<PinP>({
   id: "pinwheel", name: "Pinwheel", emoji: "🎡", theme: "Looks the same after a quarter turn", shape: tuple(2),
   support: () => [{ attr: "colour" }, { attr: "symbol" }],
   summary: (p, g) => pinText(p, g).about,
+  example: (p, g) => {
+    const ring = fromFn(3, (r, c) => (r === 1 && c === 1 ? 2 : (r + c) % 2));
+    return p.attr === "colour"
+      ? example(plainSymbols(g, 3), ring, pts => `The corners share a colour and so do the edges: ${pts}.`)
+      : example(ring.map(row => row.map(k => symForValue(g, 2 + k))), paint(3, 0), pts => `The corners match and so do the edges: ${pts}.`);
+  },
   python: (p, g) => pyCard(pinText(p, g), `
     def place(grid, cell):
         return cell.row * grid.size + cell.col
@@ -580,6 +611,7 @@ const bullseye = gridFamily<Record<string, never>>({
   id: "bullseye", name: "Bullseye", emoji: "🎯", theme: "Rings like an archery target", shape: tuple(2),
   support: () => [{}],
   summary: () => bullText.about,
+  example: (_p, g) => example(plainSymbols(g, 3), mark(3, [[1, 1]], 1, 0), pts => `A ${cname(g, 0)} ring round ${an(cname(g, 1))} middle: ${pts}.`),
   python: () => pyCard(bullText, `
     def ring_of(grid, cell):
         n = grid.size - 1
@@ -639,6 +671,8 @@ const snakeCharmer = gridFamily<IslandsP>({
   support: g => range(g.C).map(C => ({ C })),
   canonical: p => recolour(p, ["C"]),
   summary: (p, g) => snakeText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), mark(3, [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0]], p.C, other(g, p.C)),
+    pts => `${cap(an(cname(g, p.C)))} snake that winds round the board: ${pts}.`),
   python: (p, g) => pyCard(snakeText(p, g), `${SAME_COLOUR_PY}
     def utility(grid):
         best = 0
@@ -783,6 +817,14 @@ const tetrominoTamer = gridFamily<PieceP>({
   sample: (rng, g) => ({ C: rng.int(g.C), P: pick(rng, ["O", "T", "L", "S", ...(g.N >= 4 ? ["I" as const] : [])]) }),
   canonical: p => recolour(p, ["C"]),
   summary: (p, g) => tetText(p, g).about,
+  example: (p, g) => {
+    const cells: Record<PieceP["P"], [number, number][]> = {
+      O: [[0, 0], [0, 1], [1, 0], [1, 1]], T: [[0, 0], [0, 1], [0, 2], [1, 1]], L: [[0, 0], [1, 0], [2, 0], [2, 1]],
+      S: [[0, 1], [0, 2], [1, 0], [1, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3]],
+    };
+    const k = p.P === "I" ? 4 : 3;
+    return example(plainSymbols(g, k), mark(k, cells[p.P], p.C, other(g, p.C)), pts => `${cap(an(cname(g, p.C)))} island shaped like the ${p.P} piece: ${pts}.`);
+  },
   python: (p, g) => pyCard(tetText(p, g), `${SAME_COLOUR_PY}
     def inside(cell, piece):
         return cell is not None and cell in piece
@@ -864,6 +906,8 @@ const rainbowBands = gridFamily<BandP>({
   support: () => (["TL", "TR", "BL", "BR"] as const).map(K => ({ K })),
   canonical: () => ({ K: "TL" }),
   summary: (p, g) => bandText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), fromFn(3, (r, c) => bandDist(p, 3, r, c) % g.C),
+    pts => `Every stripe from the ${p.K[0] === "T" ? "top" : "bottom"}-${p.K[1] === "L" ? "left" : "right"} corner in its right colour: ${pts}.`),
   python: (p, g) => pyCard(bandText(p, g), `
     def stripe(grid, cell):
         n = grid.size - 1
@@ -912,6 +956,10 @@ const constellation = gridFamily<RankP>({
   support: g => range(g.ranks).map(S => ({ S })),
   canonical: () => ({ S: 0 }),
   summary: (p, g) => starText(p, g).about,
+  example: (p, g) => {
+    const star = (i: number) => (g.cards ? 13 * (i % 4) + p.S : p.S), dull = g.cards ? (p.S + 1) % 13 : (p.S + 1) % g.S;
+    return example(fromFn(3, (r, c) => (r === c ? star(r) : dull)), paint(3, 0), pts => `Three ${g.say.rankPlural(p.S)} touching at corners make one cluster: ${pts}.`);
+  },
   python: (p, g) => pyCard(starText(p, g), `
     def utility(grid):
         best = 0
@@ -962,6 +1010,12 @@ const rainbowRoads = gridFamily<Record<string, never>>({
   requires: { classes: ["Spectral"], minColours: 4 }, shape: SCALAR,
   support: () => [{}],
   summary: (_, g) => roadsText(g).about,
+  example: (_p, g) => {
+    const path: [number, number][] = [[0, 0], [0, 1], [0, 2], [1, 2], [1, 1], [1, 0], [2, 0], [2, 1], [2, 2]];
+    const col = paint(3, 1);
+    path.slice(0, g.C).forEach(([r, c], i) => { col[r][c] = i; });
+    return example(plainSymbols(g, 3), col, pts => `One road through every colour in order: ${pts}.`);
+  },
   python: (_, g) => pyCard(roadsText(g), `
     def utility(grid):
         roads = {}  # roads[cell]: how many roads so far end on this cell
@@ -1016,6 +1070,11 @@ const paintMixer = gridFamily<Record<string, never>>({
   requires: { classes: ["Mixable"] }, shape: tuple(2),
   support: () => [{}],
   summary: (_, g) => mixerText(g).about,
+  example: (_p, g) => {
+    const [P1, P2, M] = recipes(g)[0];
+    const col = fromFn(3, (r, c) => (r === 1 && c === 1 ? M : r === 1 ? (c === 0 ? P1 : P2) : c === 1 ? (r === 0 ? P1 : P2) : P1));
+    return example(plainSymbols(g, 3), col, pts => `${cap(an(cname(g, M)))} cell with ${cname(g, P1)} and ${cname(g, P2)} on both sides: ${pts}.`);
+  },
   python: (_, g) => pyCard(mixerText(g), `
     def paints(grid, colour):
         out = []
@@ -1097,6 +1156,11 @@ const carousel = gridFamily<TurnP>({
   support: () => [{ dir: "cw" }, { dir: "ccw" }],
   canonical: () => ({ dir: "cw" }),
   summary: (p, g) => carouselText(p, g).about,
+  example: (p, g) => {
+    const ring = ringCells(3), col = paint(3, 0);
+    (p.dir === "cw" ? ring : ring.slice().reverse()).forEach(([r, c], i) => { col[r][c] = i < g.C ? i : 0; });
+    return example(plainSymbols(g, 3), col, pts => `The edge goes once round the colour wheel: ${pts}.`);
+  },
   python: (p, g) => pyCard(carouselText(p, g), `
     def border(grid):
         n = grid.size - 1
@@ -1163,6 +1227,8 @@ const gravity = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => sandText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), mark(3, [[2, 0], [2, 1], [2, 2], [1, 0]], p.X, other(g, p.X)),
+    pts => `${cap(cname(g, p.X))} sand piled up from the bottom: ${pts}.`),
   python: (p, g) => pyCard(sandText(p, g), `
     def utility(grid):
         sand = 0
@@ -1198,6 +1264,8 @@ const swissCheese = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => cheeseText(p, g).about,
+  example: (p, g) => example(plainSymbols(g, 3), mark(3, [[1, 1]], other(g, p.X), p.X),
+    pts => `${cap(an(cname(g, other(g, p.X))))} hole with ${cname(g, p.X)} all round it: ${pts}.`),
   python: (p, g) => pyCard(cheeseText(p, g), `
     def cheese(cell):
         return cell.colour == MY_COLOUR
@@ -1253,6 +1321,12 @@ const mountainClimb = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued"] }, shape: tuple(2),
   support: () => [{}],
   summary: (_, g) => climbText(g).about,
+  example: (_p, g) => {
+    const vs = range(5).map(i => g.vmin + i);
+    const sym = full(3, symForValue(g, g.vmax));
+    ([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]] as const).forEach(([r, c], i) => { sym[r][c] = symForValue(g, vs[i]); });
+    return example(sym, paint(3, 0), pts => `The climb ${g.say.values(vs)} reaches the far corner: ${pts}.`);
+  },
   python: (_, g) => pyCard(climbText(g), `
     def utility(grid):
         goal = grid.cell(grid.size - 1, grid.size - 1)
@@ -1310,6 +1384,8 @@ const treasureMap = gridFamily<ColourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => mapText(p, g).about,
+  example: (p, g) => example(mark(3, [[1, 1]], symForValue(g, 9), symForValue(g, 1)), mark(3, [[1, 1]], p.X, other(g, p.X)),
+    pts => `${cap(an(cname(g, p.X)))} ${g.say.tile(symForValue(g, 9))} in the middle: ${pts}.`),
   python: (p, g) => pyCard(mapText(p, g), `
     def closeness(grid, cell):
         n = grid.size - 1
