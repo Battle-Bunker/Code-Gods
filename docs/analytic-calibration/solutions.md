@@ -307,3 +307,27 @@ tables pass through the estimator's clean-up (MIN_STEP_BITS = 1e-6 bits between 
 with thousands of close levels by up to 1e-3 bits (`tallykeeper`). This is harmless, and the test bounds it at 0.01.
 
 Until then these 15 keep their Monte Carlo tables, and so keep tail errors of up to 14 bits.
+
+## 6. Proven maxima (exemplars)
+
+An exemplar claims the top of its family's ordinal (playbook §5). These are proven, in src/analytic/maxima.ts, and
+listed in `EXACT_EXEMPLARS`:
+
+- `snake_charmer`: the longest snake is the longest induced path of the N×N grid graph. Exact branch and bound gives
+  **7, 11, 17, 24, 33** cells for N = 3..7 (N = 7 in about a minute). The old serpentine exemplar gave 10 on 4×4.
+- `colour_mixer`: a max-plus row transfer matrix over P1/P2/M (5^N states). Brute force over all 3^16 4×4 grids
+  confirms it. The exact (mixes, near) optima:
+
+  | N | 3 | 4 | 5 | 6 | 7 |
+  |---|---|---|---|---|---|
+  | touching both parents | (5, 5) | (8, 8) | (14, 14) | (20, 20) | (28, 28) |
+  | strict (parents on opposite sides) | (4, 4) | (6, 8) | (12, 12) | (16, 18) | (24, 24) |
+
+Still not proven (exemplars below their sampled tops):
+- `magic_window`: each window has at most 8 magic lines, but the equations of all windows together (every line of
+  every window sums to 3 × its centre) have rank N² − 1 for N = 4..7. So only constant grids make every window
+  magic, and constant lines do not count. The maximum total is therefore an optimisation over which windows to
+  sacrifice, with no closed form: a search over one exact magic window plus the free cells is the next step.
+- `border_baron`, `number_sandwich`, `rainbow_roads`, `court_parade` involve connectivity, rows plus columns, or
+  global paths. Proving their maxima needs a dedicated search per family; their tables' tops are the best known lower
+  bounds.

@@ -159,7 +159,7 @@ test("penaltyMeanBits = E_μ[softHinge(s)] and matches the stored value; softHin
 
 const FRESH = 400;
 /** Families whose exemplar is computed exactly, so no calibrated level can be above it. */
-const EXACT_EXEMPLARS = new Set(["tetromino_tamer"]);
+const EXACT_EXEMPLARS = new Set(["tetromino_tamer", "snake_charmer", "colour_mixer"]);
 
 test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance, exemplars reach high bits", () => {
   const pooled = new Array(9).fill(0);

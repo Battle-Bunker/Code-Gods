@@ -6,6 +6,7 @@ import {
   recipes, recolour, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { MIXER_OPTIMA, mixerOptimum } from "../../analytic/maxima.ts";
 
 // --- Stripe Painter --------------------------------------------------------------------------------
 type StripeP = { axis: "rows" | "cols" };
@@ -221,9 +222,11 @@ ${p.strict ? `
       }
       return [mixes, near];
     }`),
-  exemplar: (p, g, ctx) => {
-    const seq = [p.P1, p.M, p.P2, p.M];
-    return climb("colour_mixer", p, ctx, [{ sym: full(g.N, 0), col: fromFn(g.N, (_, c) => seq[c % 4]) }], 2);
+  // The exact optimum of a max-plus transfer matrix over the letters P1/P2/M (src/analytic/maxima.ts): a proven maximum.
+  exemplar: (p, g) => {
+    const rows = MIXER_OPTIMA[g.N]?.[p.strict ? "strict" : "loose"] ?? mixerOptimum(g.N, p.strict).rows; // tabulated for every GRID_SIZES
+    const colour = { A: p.P1, B: p.P2, M: p.M } as const;
+    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => colour[rows[r][c] as "A" | "B" | "M"]));
   },
 });
 

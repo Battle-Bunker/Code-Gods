@@ -12,7 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { objectType } from "@workspace/game-types";
-import { canonicalSupport, context, evaluator, family } from "../src/catalog.ts";
+import { available, canonicalSupport, context, evaluator, family } from "../src/catalog.ts";
 import { instantiateKey } from "../src/calibration.ts";
 import { shippedFile, shippedInstanceKeys } from "../src/calibration-data.ts";
 import { ANALYTIC_FAMILIES, analyticLevels, hasSolution } from "../src/analytic/index.ts";
@@ -106,4 +106,24 @@ test("every solved family is either wired to its own solution or listed as unwir
     }
   }
   for (const f of FAMILIES) if (f.analytic && !Object.values(ANALYTIC_FAMILIES).flat().includes(f.id)) assert.ok(OWN_HOOKS.includes(f.id), `${f.id} has a hook but is neither solved here nor listed in OWN_HOOKS`);
+});
+
+test("proven maxima: the search reproduces the constants, and each exemplar scores exactly the proven maximum", async () => {
+  const { LONGEST_SNAKES, MIXER_OPTIMA, longestSnake, mixerOptimum, mixerScore } = await import("../src/analytic/maxima.ts");
+  for (const N of [3, 4, 5, 6]) assert.equal(longestSnake(N).length, LONGEST_SNAKES[N].length, `longest snake ${N}`);
+  for (const N of [3, 4]) for (const strict of [false, true]) {
+    assert.deepEqual(mixerOptimum(N, strict).score, mixerScore(MIXER_OPTIMA[N][strict ? "strict" : "loose"], strict), `mixer ${N} ${strict}`);
+  }
+  for (const key of shippedInstanceKeys().filter(k => k.startsWith("Grid("))) {
+    const inst = instantiateKey(key), ctx = context(inst), N = Number(inst.args.size);
+    for (const id of ["snake_charmer", "colour_mixer"]) {
+      const f = family(id);
+      if (!available(f, inst).ok) continue;
+      for (const p of canonicalSupport(f, ctx)) {
+        const got = evaluator({ familyId: id, params: p }, inst)(f.exemplar!(p, ctx));
+        const want = id === "snake_charmer" ? LONGEST_SNAKES[N].length : mixerScore(MIXER_OPTIMA[N][(p as { strict: boolean }).strict ? "strict" : "loose"], (p as { strict: boolean }).strict);
+        assert.deepEqual(got, want, `${id} ${JSON.stringify(p)} on ${key}`);
+      }
+    }
+  }
 });
