@@ -7,7 +7,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, raw, rejects, roomWith, sandboxesWarm, touch, PY, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, rejects, roomWith, sandboxesWarm, startGame, touch, PY, waitFor } from "./game-helpers.ts";
 
 const INT = { languages: ["python"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600,
   startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 20, halfLifeSeconds: 1e9 };
@@ -31,7 +31,7 @@ test("a start never waits for a cold sandbox; validate, summon and AI seats wait
     // A boot in flight (as on a fresh deployment): nothing will finish it for a minute.
     await admin.mutation(internal.testing.setSandbox, { language: "python", patch: { state: "warming", attemptAt: Date.now() } });
     const started = Date.now();
-    const game = await host.c.action(api.owner.start, { roomId });
+    const game = await startGame(host, roomId);
     const startMs = Date.now() - started;
     assert.ok(game.gameId, "the game starts");
     assert.equal((await pythonRow()).state, "warming", "the start returned without booting or waiting for the sandbox");
@@ -88,7 +88,7 @@ test("a sandbox that fails to boot says why: in the observation, at validate, an
   const [host, ada, bo] = await gods("Fail Host", "Fail Ada", "Fail Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], INT);
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   try {
     // A boot is scheduled, then reports a failure (the warm-up action's own report path).
     const token = Date.now();
@@ -116,7 +116,7 @@ test("a sandbox that fails to boot says why: in the observation, at validate, an
   assert.equal(refresh.applied, true);
   assert.equal((await pythonRow()).state, "ready");
   // Past the backoff the boot is retried, and starts work again.
-  const again = await host.c.action(api.owner.start, { roomId });
+  const again = await startGame(host, roomId);
   assert.ok(again.gameId);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
