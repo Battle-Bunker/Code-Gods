@@ -53,7 +53,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       replayLater: await client.query(api.player.replay, { roomId, gameId: game.gameId, afterSeq: 2, limit: 100 }),
     };
   };
-  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
 
   const live = await collect(ada);
   for (const [label, result] of Object.entries(live)) await check(`live ${label}`, result);
@@ -70,9 +70,9 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const summons = [...batches.values()].flatMap((b: any) => b.events).filter((e: any) => e.type === "agent.summoned");
   assert.deepEqual(summons.map((e: any) => [e.mine, "source" in e]), [[true, true]], "only the viewer's own summon, with its source");
   // A live replay shows the leaderboard only as published: totals on the scoreboard's publication batches only.
-  const publishedSeqs = new Set(secret.batches.filter((b: any) => b.published).map((b: any) => b.seq));
+  const publishedSeqs = new Set(secret.batches.filter((b: any) => b.scoreboard).map((b: any) => b.seq));
   for (const b of batches.values()) if ((b as any).totals) assert.ok(publishedSeqs.has((b as any).seq), `live replay batch ${(b as any).seq}: totals only when published`);
-  assert.ok(secret.batches.some((b: any) => b.totals && !b.published && !(batches.get(b.seq) as any)?.totals && batches.has(b.seq)) || ![...batches.values()].length,
+  assert.ok(secret.batches.some((b: any) => b.totals && !b.scoreboard && !(batches.get(b.seq) as any)?.totals && batches.has(b.seq)) || ![...batches.values()].length,
     "an unpublished scoring batch's exact totals are withheld while live");
   // Every transformation is public and unattributed: another god's carries no agent, owner, calls or charge, and no
   // agent id in any result points at another god's agent.
@@ -119,7 +119,15 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   // Historical: after the game ends, history and events stay projected.
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const after = await collect(ada);
-  for (const [label, result] of Object.entries(after)) await check(`ended ${label}`, result);
+  const ended = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  for (const [label, result] of Object.entries(after)) await ended(`ended ${label}`, result);
+  // After the end the disclosure is exact: the observation's others' sums are the private ones, without noise.
+  const final = await raw(game.gameId);
+  for (const o of after.observation.objects) {
+    const secretObject = final.objects.find((x: any) => x._id === o.id);
+    const others = secretObject.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
+    assert.ok(Math.abs(o.peerNetBits - others) < 1e-9, "ended: exact others' sums");
+  }
 });
 
 test("other gods' scores move only when the scoreboard is published; the own score is live", { timeout: 180000 }, async () => {

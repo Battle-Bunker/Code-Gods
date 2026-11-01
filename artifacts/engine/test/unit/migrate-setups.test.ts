@@ -13,7 +13,7 @@ const legacy = { language: "python", penaltyWeight: 2, excludedFamilies: ["sudok
 test("a positive defence rate turns defence goals on for everyone; excluded defence ids move to their own list", () => {
   assert.deepEqual(migrateSettings({ ...legacy, defenceRate: 0.25 }, DEFENCE), {
     languages: ["python"], penaltyWeight: 2, defenceGoals: true,
-    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10,
+    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10, peerNoiseBits: 8,
   });
   assert.equal(migrateSettings({ ...legacy, defenceRate: 1 }, DEFENCE)!.defenceGoals, true);
 });
@@ -27,17 +27,18 @@ test("a zero rate is off; the conversion is idempotent", () => {
 });
 
 test("a single stored language becomes the allowed set of that one language; its derived grammar and price ids go", () => {
-  const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10 };
+  const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8 };
   const single = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
-    defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10 };
+    defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8 };
   const migrated = migrateSettings(single, DEFENCE)!;
   assert.deepEqual(migrated, { ...current, languages: ["typescript"] });
   assert.equal(migrateSettings(migrated, DEFENCE), null, "idempotent");
   assert.equal(migrateSettings(current, DEFENCE), null, "settings in the current shape are left alone");
 });
 
-test("settings stored before the scoreboard interval existed get the default 10 s; a chosen interval is kept", () => {
+test("settings stored before the scoreboard interval and disclosure noise existed get their defaults; chosen values are kept", () => {
   const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [] };
-  assert.deepEqual(migrateSettings(current, DEFENCE), { ...current, scoreIntervalSeconds: 10 });
-  assert.equal(migrateSettings({ ...current, scoreIntervalSeconds: 30 }, DEFENCE), null, "nothing to change: idempotent");
+  assert.deepEqual(migrateSettings(current, DEFENCE), { ...current, scoreIntervalSeconds: 10, peerNoiseBits: 8 });
+  assert.deepEqual(migrateSettings({ ...current, scoreIntervalSeconds: 30 }, DEFENCE), { ...current, scoreIntervalSeconds: 30, peerNoiseBits: 8 });
+  assert.equal(migrateSettings({ ...current, scoreIntervalSeconds: 30, peerNoiseBits: 0 }, DEFENCE), null, "nothing to change: idempotent");
 });

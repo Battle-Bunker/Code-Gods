@@ -37,14 +37,15 @@ const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.n
  * god's net bits of the object AFTER the event, in roster order: server-private, projected per viewer to its own bits
  * and the peer aggregate. Together with the game document's fixed header (settings, roster, createdAt, planningEndsAt)
  * and the chat rows stamped with the game, the log replays the game exactly by playing back recorded outcomes:
- * nothing is re-run. `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
+ * nothing is re-run. `noise` (PRIVATE, settings.peerNoiseBits) is the disclosure noise on the peers' sum of this version
+ * of the object while the game is live. `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
  * then follows from its acts' charges (lib/player-client replay.ts).
  */
 export const eventV = v.union(
-  v.object({ t: v.literal("spawn"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()) }),
+  v.object({ t: v.literal("spawn"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   v.object({
     t: v.literal("transform"), objectId: v.string(), before: wire, value: wire, version: v.number(), world: v.number(),
-    agentId: v.string(), ownerId: v.string(), calls: v.any(), cost: charge, net: v.array(v.number()),
+    agentId: v.string(), ownerId: v.string(), calls: v.any(), cost: charge, net: v.array(v.number()), noise: v.optional(v.number()),
   }),
   v.object({
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
@@ -158,8 +159,10 @@ export const gameTables = {
     gameId: v.id("games"), value: wire, version: v.number(),
     /** PRIVATE: every god's score of the current value. */
     scores: v.array(scoreV),
-    /** Public: Σ net bits. */
+    /** Public: Σ net bits (disclosed live with `noise` added). */
     salience: v.number(),
+    /** PRIVATE: the live disclosure noise on this version's peers' sums and salience (settings.peerNoiseBits). */
+    noise: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]),
 
   agents: defineTable({
@@ -180,12 +183,15 @@ export const gameTables = {
     schema: v.optional(v.number()),
     /**
      * Every roster god's exact total payoff after this batch, in roster order, on batches that change scores (spawns,
-     * transforms) and on batches that publish the scoreboard. Server-exact: a LIVE game projects it only on `published`
-     * batches (the scoreboard players saw, docs/public-log-design.md §3); an ended game's replay shows every one.
+     * transforms) and on batches that publish the scoreboard. Server-exact: a LIVE game never projects it (a live replay
+     * shows `scoreboard` on the publishing batches instead, docs/public-log-design.md §3); an ended game's replay shows it.
      */
     totals: v.optional(v.array(v.number())),
-    /** Schema 3: this batch's commit published the live scoreboard (games.scoreboard = its totals). */
-    published: v.optional(v.literal(true)),
+    /**
+     * Schema 3: this batch's commit published the live scoreboard, as disclosed (every god's total from the noisy peers'
+     * sums, settings.peerNoiseBits): games.scoreboard.totals. A live replay shows these, never the exact `totals`.
+     */
+    scoreboard: v.optional(v.array(v.number())),
     /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
     perf: v.optional(v.object({ acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()) })),
   }).index("by_game_seq", ["gameId", "seq"]),
@@ -203,6 +209,8 @@ export const gameTables = {
     before: v.optional(wire), value: wire, version: v.number(),
     calls: v.optional(v.any()), agentId: v.optional(v.string()), ownerId: v.optional(v.string()),
     net: v.array(v.number()),
+    /** PRIVATE: the live disclosure noise on this version's others' sums (settings.peerNoiseBits). */
+    noise: v.optional(v.number()),
   }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
     .index("by_game_object_version", ["gameId", "objectId", "version"]),
 

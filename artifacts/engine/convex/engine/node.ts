@@ -68,6 +68,15 @@ export const cryptoRng: Rng = {
 export const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
 /** Uniform in (0, 1). */
 export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
+/**
+ * One draw of the live disclosure noise on an object version's peers' sums (settings.peerNoiseBits, Gaussian σ in bits;
+ * docs/public-log-design.md §5), from the CSPRNG; stored with the version so it never changes. 0 when off.
+ */
+export function disclosureNoise(settings: Pick<GameSettings, "peerNoiseBits">): number {
+  const sigma = settings.peerNoiseBits ?? 0;
+  if (!(sigma > 0)) return 0;
+  return sigma * Math.sqrt(-2 * Math.log(openUniform())) * Math.cos(2 * Math.PI * openUniform());
+}
 
 // ------------------------------------------------------------------------------------------------
 // scoring and dealing (calibration tables)

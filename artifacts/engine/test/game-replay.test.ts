@@ -70,7 +70,7 @@ test("each player's replay, cut at any snapshot, rebuilds that player's view of 
   // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
   // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
   // exact on every scoring batch, so this ended game's replay below steps per event.
-  const published = final.batches.filter((b: any) => b.published);
+  const published = final.batches.filter((b: any) => b.scoreboard);
   assert.equal(published[0].seq, 0, "the starting scoreboard");
   assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
   const periodic = published.slice(1, -1);

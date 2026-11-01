@@ -25,7 +25,7 @@ export const isSmallInteger = (n: number) => Number.isInteger(n) && Math.abs(n) 
  * A checker for one viewer of one game: `check(label, result)` fails if `result` discloses anything private
  * to another god. `secrets` are marker strings planted in other gods' agent sources.
  */
-export function disclosureChecker(gameId: string, viewerSubject: string, secrets: string[]) {
+export function disclosureChecker(gameId: string, viewerSubject: string, secrets: string[], scope: { live?: boolean } = {}) {
   /**
    * `publicParams`: the result enumerates the public candidates (every parameter set any god might hold), so other gods'
    * parameters appear in it by design; callers then prove the result is the same for every viewer instead.
@@ -55,6 +55,18 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
       if (s.god === viewerSubject) continue;
       const distinctive = Math.abs(s.netBits) > 1e-6 && !isSmallInteger(s.netBits) && !allowed.has(JSON.stringify(s.netBits));
       if (distinctive) assert.ok(!seen.has(JSON.stringify(s.netBits)), `${label}: ${s.god}'s net bits ${s.netBits} on ${o._id}`);
+    }
+    // Live with disclosure noise (settings.peerNoiseBits, docs/public-log-design.md §5): the viewer's EXACT others' sum of
+    // any object version, and the exact payoff built on it, never appear; only the noisy ones do.
+    if (scope.live && (secret.game.settings.peerNoiseBits ?? 0) > 0) {
+      const index = secret.game.roster.findIndex((m: any) => m.id === viewerSubject);
+      for (const r of secret.objectEvents) {
+        if (index < 0 || !r.noise) continue;
+        const own = r.net[index], others = r.net.reduce((n: number, x: number, i: number) => (i === index ? n : n + x), 0);
+        for (const [what, x] of [["others' sum", others], ["payoff", own * Math.max(0, others)]] as const) {
+          if (Math.abs(x) > 1e-6 && !isSmallInteger(x)) assert.ok(!seen.has(JSON.stringify(x)), `${label}: the exact ${what} ${x} of ${r.objectId} v${r.version}`);
+        }
+      }
     }
     // Other gods' descriptors never appear.
     const own = secret.deities.find((x: any) => x.godId === viewerSubject)?.utility;

@@ -45,11 +45,11 @@ export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: num
 
 /**
  * Append events to the game's log as one (or more) tickBatches docs. `totals` (the leaderboard after these events)
- * goes on the last doc, so a reader that has it has every event it sums; `published` marks that doc as the live
- * scoreboard's publication. Every spawn and transform also gets its objectEvents row (docs/public-log-design.md §2).
+ * goes on the last doc, so a reader that has it has every event it sums; `scoreboard` (the live scoreboard as
+ * published, disclosed totals) marks that doc as its publication. Every spawn and transform also gets its objectEvents row (docs/public-log-design.md §2).
  */
 export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number,
-  perf?: Doc<"tickBatches">["perf"], totals?: number[], published = false): Promise<number> {
+  perf?: Doc<"tickBatches">["perf"], totals?: number[], scoreboard?: number[]): Promise<number> {
   let next = game.nextBatch;
   const docs = Math.max(1, Math.ceil(events.length / EVENTS_PER_BATCH));
   if (!events.length && !perf && !totals) return next;
@@ -57,7 +57,7 @@ export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events:
     const seq = next++, slice = events.slice(k * EVENTS_PER_BATCH, (k + 1) * EVENTS_PER_BATCH);
     await ctx.db.insert("tickBatches", {
       gameId: game._id, seq, at: Date.now(), worldFrom, worldTo, schema: EVENT_LOG_SCHEMA, events: slice,
-      ...(k === 0 && perf ? { perf } : {}), ...(k === docs - 1 && totals ? { totals } : {}), ...(k === docs - 1 && published ? { published: true as const } : {}),
+      ...(k === 0 && perf ? { perf } : {}), ...(k === docs - 1 && totals ? { totals } : {}), ...(k === docs - 1 && scoreboard ? { scoreboard } : {}),
     });
     await insertObjectEvents(ctx, game._id, seq, slice);
   }
@@ -68,11 +68,11 @@ export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events:
 export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[]) {
   for (const e of events) {
     if (e.t === "spawn") {
-      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net });
+      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
     } else if (e.t === "transform") {
       await ctx.db.insert("objectEvents", {
         gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
-        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, net: e.net,
+        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
       });
     }
   }
@@ -97,7 +97,7 @@ export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lif
   const ended = { ...game, ...patch, phase: "ended" as const, endedAt: now, endReason: reason, executionEpoch: game.executionEpoch + 1, autoResume: undefined, scoreboard };
   const summary = gameRecord(ended, objects);
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
-    undefined, scoreboard.totals, true);
+    undefined, scoreboard.totals, scoreboard.totals);
   await ctx.db.patch(game._id, {
     ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
@@ -148,7 +148,7 @@ export const snapshot = internalQuery({
     ]);
     return {
       game, lastActivity: await lastHumanActivity(ctx),
-      objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience })),
+      objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
         expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
@@ -179,13 +179,15 @@ export const commit = internalMutation({
     gameId: v.id("games"), seq: v.number(), epoch: v.number(), phaseBefore: v.string(), lastTickBefore: v.number(),
     kind: v.union(v.literal("window"), v.literal("wait"), v.literal("park")),
     clock: v.optional(clockV),
-    objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number() })),
-    spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number() })),
+    objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
-    /** The leaderboard after the window (every roster god's total payoff, roster order); published when due. */
+    /** The leaderboard after the window (every roster god's exact total payoff, roster order), stored on scoring batches. */
     totals: v.optional(v.array(v.number())),
+    /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
+    disclosedTotals: v.optional(v.array(v.number())),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -238,11 +240,11 @@ export const commit = internalMutation({
 
     // Apply.
     for (const change of args.objects) {
-      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience });
+      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise });
     }
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
-      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience }));
+      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}) }));
     }
     for (const state of args.agents) {
       if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
@@ -254,14 +256,14 @@ export const commit = internalMutation({
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
     // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before
     // scoreboards) keeps its live leaderboard.
-    const publish = !!game.scoreboard && !!args.totals && clock.phase !== "ended" &&
+    const publish = !!game.scoreboard && !!args.disclosedTotals && clock.phase !== "ended" &&
       scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
-    const scoreboard = publish ? { totals: args.totals!, world: clock.worldSeconds, at: now } : undefined;
+    const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
     // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
-    // projection shows them only on the batch marked `published`.
+    // projection shows only the disclosed scoreboard, on the batch that published it.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
     const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
-      scored || publish ? args.totals : undefined, publish);
+      scored || publish ? args.totals : undefined, scoreboard?.totals);
     const patch: Partial<Doc<"games">> = {
       ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,

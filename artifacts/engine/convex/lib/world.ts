@@ -71,16 +71,30 @@ export function godEnergy(game: Pick<Clock, "settings" | "createdAt"> & { endedA
   return game.settings.startingEnergy + Math.max(0, at - game.createdAt) / 1000 * game.settings.energyPerSecond - spent;
 }
 
-/** A god's own view of one object from the private score list: own score and peer aggregates only. */
-export function viewOf(scores: readonly { god: string; netBits: number }[], godId: string) {
-  return personalView(new Map(scores.map(s => [s.god, s.netBits])), godId);
+/**
+ * A god's own view of one object from the private score list: own score and peer aggregates only. `noise` is added to
+ * the peers' sum before care and payoff (the live disclosure, settings.peerNoiseBits; 0 for the exact view).
+ */
+export function viewOf(scores: readonly { god: string; netBits: number }[], godId: string, noise = 0) {
+  const view = personalView(new Map(scores.map(s => [s.god, s.netBits])), godId);
+  return noise === 0 ? view : withPeers(view.netBits, view.peerNetBits + noise);
 }
-/** The same from a roster-ordered net-bits vector (event log). */
-export function viewOfNet(net: readonly number[], index: number) {
+const withPeers = (own: number, peer: number) => {
+  const peerCare = Math.max(0, peer);
+  return { netBits: own, peerNetBits: peer, peerCare, payoff: peerCare === 0 ? 0 : own * peerCare };
+};
+/** The same from a roster-ordered net-bits vector (event log), with the disclosure `noise` on the peers' sum. */
+export function viewOfNet(net: readonly number[], index: number, noise = 0) {
   let peer = 0;
   for (let i = 0; i < net.length; i++) if (i !== index) peer += net[i];
-  const own = net[index], peerCare = Math.max(0, peer);
-  return { netBits: own, peerNetBits: peer, peerCare, payoff: peerCare === 0 ? 0 : own * peerCare };
+  return withPeers(net[index], peer + noise);
+}
+/**
+ * Every roster god's total payoff as disclosed live (the published scoreboard): each object's payoff computed from its
+ * noisy peers' sum (the object's stored `noise`), so a god's published total is consistent with what that god sees.
+ */
+export function disclosedTotalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[]; noise?: number }[]): number[] {
+  return roster.map(id => objects.reduce((sum, o) => sum + (o.scores.some(s => s.god === id) ? viewOf(o.scores, id, o.noise ?? 0).payoff : 0), 0));
 }
 /** Every roster god's total payoff over these objects (the leaderboard's numbers), in roster order. */
 export function totalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[] }[]): number[] {

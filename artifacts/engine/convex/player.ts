@@ -212,7 +212,7 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
 };
 
 /**
@@ -251,7 +251,8 @@ export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000;
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
-const viewAt = (net: readonly number[], index: number) => { const v = viewOfNet(net, index); return { own: v.netBits, others: v.peerNetBits, payoff: v.payoff }; };
+/** Live (`noise` given), the others' sum carries the version's disclosure noise; ended, it is exact. */
+const viewAt = (net: readonly number[], index: number, noise = 0) => { const v = viewOfNet(net, index, noise); return { own: v.netBits, others: v.peerNetBits, payoff: v.payoff }; };
 
 async function seatedGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameRef?: string) {
   const { game, index, viewer } = await gameFor(ctx, caller, roomId, gameRef);
@@ -295,13 +296,16 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
     : ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", game._id));
   const page = await rowsOf.paginate({ cursor: args.cursor ?? null, numItems: limit });
   // Each row's "before" is the same object's previous row (version − 1): in this page, or one indexed read per object.
-  const last = new Map<string, readonly number[]>();
+  const live = game.phase !== "ended";
+  // A row as the caller sees it: live, the others' sum with that version's disclosure noise (settings.peerNoiseBits).
+  const seen = (r: Pick<Doc<"objectEvents">, "net" | "noise">) => viewAt(r.net, index, live ? r.noise ?? 0 : 0);
+  const last = new Map<string, Pick<Doc<"objectEvents">, "net" | "noise">>();
   const previous = async (row: Doc<"objectEvents">) => {
     if (row.version === 0) return null;
     const known = last.get(row.objectId);
     if (known) return known;
     const prior = await ctx.db.query("objectEvents").withIndex("by_game_object_version", q => q.eq("gameId", game._id).eq("objectId", row.objectId).eq("version", row.version - 1)).first();
-    return prior?.net ?? null;
+    return prior ?? null;
   };
   const c = {
     world: [] as number[], seq: [] as number[], objectId: [] as string[], kind: [] as ("spawn" | "transform")[], version: [] as number[],
@@ -309,8 +313,8 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
     own: [] as number[], others: [] as number[], payoff: [] as number[], mine: [] as boolean[],
   };
   for (const row of page.page) {
-    const before = await previous(row), after = viewAt(row.net, index), was = before ? viewAt(before, index) : null;
-    last.set(row.objectId, row.net);
+    const before = await previous(row), after = seen(row), was = before ? seen(before) : null;
+    last.set(row.objectId, row);
     c.world.push(row.world); c.seq.push(row.seq); c.objectId.push(row.objectId); c.kind.push(row.kind); c.version.push(row.version);
     c.before.push(row.before ?? null); c.value.push(row.value); c.ownBefore.push(was?.own ?? null); c.othersBefore.push(was?.others ?? null);
     c.own.push(after.own); c.others.push(after.others); c.payoff.push(after.payoff); c.mine.push(row.ownerId === viewer.subject);
@@ -341,6 +345,6 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
     .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", o._id).lte("world", world)).order("desc").first()));
   return {
     gameId: game._id, world, partial: await partialSeries(ctx, game._id),
-    objects: rows.flatMap(r => (r ? [{ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.world, ...viewAt(r.net, index) }] : [])),
+    objects: rows.flatMap(r => (r ? [{ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.world, ...viewAt(r.net, index, game.phase !== "ended" ? r.noise ?? 0 : 0) }] : [])),
   };
 }

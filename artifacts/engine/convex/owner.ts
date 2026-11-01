@@ -15,7 +15,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
-import { assertShape, catalogFor, deal, dealerOf, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
@@ -99,7 +99,7 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
     if (value === undefined) break; // only a nearly full tiny domain gets here
     occupied.add(value);
     const scores = scoresOf(tables, settings, deals, value);
-    objects.push({ value: value as number | string, scores, salience: salienceOf(scores) });
+    objects.push({ value: value as number | string, scores, salience: salienceOf(scores), noise: disclosureNoise(settings) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
   return ctx.runMutation(internal.game.lobby.commitStart, {

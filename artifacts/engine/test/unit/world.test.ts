@@ -76,3 +76,15 @@ test("the scoreboard publishes once per interval: at the first commit reaching t
   assert.equal(scoreboardDue(0.1 + 0.2, 30 * (0.1 + 0.2) / 0.3, 30), true, "floating-point marks still count");
 });
 
+
+test("the live disclosure adds an object version's noise to the peers' sum; care, payoff and every god's total follow it", async () => {
+  const { viewOfNet, viewOf, disclosedTotalsOf, totalsOf } = await import("../../convex/lib/world.ts");
+  // Roster [a, b, c]; net bits 2, 3, −1; the viewer is a (index 0): others 3 + (−1) = 2, with noise −2.5 → −0.5.
+  assert.deepEqual(viewOfNet([2, 3, -1], 0), { netBits: 2, peerNetBits: 2, peerCare: 2, payoff: 4 });
+  assert.deepEqual(viewOfNet([2, 3, -1], 0, -2.5), { netBits: 2, peerNetBits: -0.5, peerCare: 0, payoff: 0 });
+  const scores = [{ god: "a", netBits: 2 }, { god: "b", netBits: 3 }, { god: "c", netBits: -1 }];
+  assert.deepEqual(viewOf(scores, "b", 1), { netBits: 3, peerNetBits: 2, peerCare: 2, payoff: 6 }, "b: others 2 − 1 = 1, +1 noise");
+  // Disclosed totals: a 2·max(0, 2 + 1) = 6, b 3·max(0, 1 + 1) = 6, c −1·max(0, 5 + 1) = −6 (one object, noise +1).
+  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores, noise: 1 }]), [6, 6, -6]);
+  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores }]), totalsOf(["a", "b", "c"], [{ scores }]), "without noise: the exact totals");
+});

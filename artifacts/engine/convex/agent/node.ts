@@ -137,7 +137,9 @@ export const fit = internalAction({
       const column = candidateColumn(candidate, values, tables, inst, settings.penaltyWeight, prior);
       if (column) columns.push({ candidate, column }); else skipped++;
     }
-    const result = fitMixture({ y, columns, others: series.others, defenceGoals: settings.defenceGoals, hints, top });
+    // While live the others' sums carry the disclosure noise; after the end they are exact.
+    const noiseBits = series.live ? settings.peerNoiseBits ?? 0 : 0;
+    const result = fitMixture({ y, columns, others: series.others, defenceGoals: settings.defenceGoals, hints, top, noiseBits });
     return { ...result, skippedWithoutTables: skipped, gameId: series.gameId, ...(series.partial ? { partial: true } : {}) };
   },
 });

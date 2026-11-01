@@ -294,7 +294,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   await waitFor(async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).some((e: any) => e.t === "transform" && e.ownerId === bo.subject),
     "others' transforms", 90000);
-  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
   const { token } = await credential(ada, roomId, "act");
   const objects = (await call(token, "get_observation", { objectsLimit: 200 })).data.objects;
   const reads: [string, Record<string, unknown>][] = [
@@ -345,7 +345,8 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await check("mcp list_setups (own setup saved)", listed);
   await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
-  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum), by hand.
+  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum plus the
+  // version's live disclosure noise, settings.peerNoiseBits), by hand.
   const snap = await raw(game.gameId);
   const roster: string[] = snap.game.roster.map((m: any) => m.id), me = roster.indexOf(ada.subject);
   const ownOf = (net: number[]) => net[me], othersOf = (net: number[]) => net.reduce((x, n, i) => (i === me ? x : x + n), 0);
@@ -366,10 +367,11 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const row: any = byKey.get(`${cols.objectId[i]}:${cols.version[i]}`);
     assert.ok(row, "every series row is a stored event");
     assert.deepEqual([cols.value[i], cols.kind[i], cols.world[i]], [row.value, row.kind, row.world]);
-    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - othersOf(row.net)) < 1e-12, "own and others' sum after");
+    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - (othersOf(row.net) + row.noise)) < 1e-9, "own and the noisy others' sum after");
+    assert.notEqual(row.noise, 0, "the default disclosure is noisy");
     const prior: any = byKey.get(`${cols.objectId[i]}:${cols.version[i] - 1}`);
     if (!prior) { assert.equal(cols.dOthers[i], null); continue; }
-    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) - othersOf(prior.net))) < 1e-12, "dOthers is the exact change of the others' sum");
+    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) + row.noise - othersOf(prior.net) - prior.noise)) < 1e-9, "dOthers is the change of the disclosed others' sum");
     assert.ok(Math.abs(cols.dOwn[i] - (ownOf(row.net) - ownOf(prior.net))) < 1e-12);
     assert.equal(cols.mine[i], row.ownerId === ada.subject);
     assert.equal(cols.before[i], row.before);
@@ -379,7 +381,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const b = board.objects.find((x: any) => x.objectId === o._id);
     if (!b || b.version !== o.version) continue; // moved on since the snapshot
     const own = o.scores.find((x: any) => x.god === ada.subject).netBits, others = o.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
-    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - others) < 1e-12, "the board's own and others' bits are the object's");
+    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - (others + o.noise)) < 1e-9, "the board's own and (noisy) others' bits are the object's");
   }
   const atStart = (await call(token, "get_board_at", { world: 0 })).data;
   assert.equal(atStart.objects.length, 12, "the board at world 0 is the starting objects");
@@ -399,8 +401,9 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     assert.ok(Math.abs(value.data.netBits - own.netBits) < 1e-9, "evaluate_value = own net bits");
   }
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  await check("mcp ended list_games", await call(token, "list_games", {}));
-  await check("mcp ended history", await call(token, "get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }));
+  const ended = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  await ended("mcp ended list_games", await call(token, "list_games", {}));
+  await ended("mcp ended history", await call(token, "get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }));
 });
 
 // ---------------------------------------------------------------------------------------------
