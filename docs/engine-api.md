@@ -171,7 +171,7 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 - `join({room})`, `leave({roomId})`, `setReady({roomId, ready})` mutations
 - `chatHistory({roomId, before?})` query
 - `history({room})` query → ended games, newest first: `{id, guid, shortCode, roomId, startedAt, endedAt, endReason, settings, setup {id, name}|null, roster, leaderboard, winners, worldSeconds, objectCount, scoring, seasonCommitment}`
-- Owner-only mutations: `approveAiBudget({roomId, aiBudget, assistantBudget?, assistantModel?})` → `{aiBudget, assistantBudget, assistantModel}` (the seats' budget is frozen during games; the assistant allowance per human per game, 0 = off, and its catalog model may change any time), `addAi({roomId, templateId})` → `{godId}`, `removeAi({roomId, godId})`, `endActiveGame({roomId})` (with no game running, it ends a preparation: `{cancelled: "preparing"}`), `resume({roomId})`
+- Owner-only mutations: `approveAiBudget({roomId, aiBudget, assistantBudget?, assistantModel?})` → `{aiBudget, assistantBudget, assistantModel}` (the seats' budget is frozen during games; the assistant allowance per human per game, 0 = off, and its catalog model may change any time), `addAi({roomId, templateId})` → `{godId, name}` (the seat's own name, unique in the room and fixed for its life: an alliterative title such as "Vector Vizier", convex/lib/aiNames.ts), `removeAi({roomId, godId})`, `endActiveGame({roomId})` (with no game running, it ends a preparation: `{cancelled: "preparing"}`), `resume({roomId})`
 
 ### Owner actions (`owner`)
 Browser owner, or an `owner` credential held by the current owner.
