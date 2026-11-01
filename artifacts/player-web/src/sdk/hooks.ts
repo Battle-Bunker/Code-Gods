@@ -140,11 +140,18 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
 // ------------------------------------------------------------------------------------------------
 
 const MAX_POINTS = 600;
-type Series = { gameId: string; cursor: number; latest: number; byObject: Map<string, TrajectoryPoint[]>; version: number };
+type Series = { gameId: string; cursor: number; latest: number; byObject: Map<string, TrajectoryPoint[]>; version: number; epoch?: string };
 const stores = new Map<string, Series>();
 const listeners = new Set<() => void>();
 
-function merge(series: Series, page: { objects: { objectId: string; points: TrajectoryPoint[] }[]; nextCursor: number; latestCursor: number }) {
+function merge(series: Series, page: { objects: { objectId: string; points: TrajectoryPoint[] }[]; nextCursor: number; latestCursor: number; epoch?: string }) {
+  // A replay (core/replay) moves its playhead back or switches its point of view (`epoch`): start over from the
+  // beginning (this page was asked from the old cursor, so it is dropped and the next one asks from -1).
+  if (page.epoch !== series.epoch || page.latestCursor < series.latest) {
+    stores.set(series.gameId, { gameId: series.gameId, cursor: -1, latest: -1, byObject: new Map(), version: series.version + 1, epoch: page.epoch });
+    for (const listener of listeners) listener();
+    return;
+  }
   if (page.nextCursor <= series.cursor && page.latestCursor === series.latest) return;
   const byObject = new Map(series.byObject);
   for (const { objectId, points } of page.objects) {

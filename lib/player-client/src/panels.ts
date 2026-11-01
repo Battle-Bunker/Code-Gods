@@ -17,7 +17,7 @@ const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"
 const WORLD: readonly Phase[] = ["running", "paused", "ended"];
 const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
 
-export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output"] as const;
+export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output", "timeline"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
 
 export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
@@ -139,6 +139,17 @@ export const PANELS = {
       showSource: bool(false),
     }),
     summary: p => line([p.runId ? "One run" : "Your latest run", ...when(p.view !== "auto", p.view), ...when(p.showSource, "with source")]),
+  }),
+  timeline: def({
+    id: "timeline", title: "Replay timeline",
+    blurb: "An ended game's every event: play it at any speed or step through it, with every player's score over time.", phases: GAME,
+    params: z.strictObject({
+      /** What the panel shows: the score curves with their markers, the event list, or both. */
+      show: z.enum(["both", "scores", "events"]).default("both"),
+      /** Mark this many of the largest single-event score changes. */
+      swings: z.number().int().min(0).max(30).default(8),
+    }),
+    summary: p => line([{ both: "Scores and events", scores: "Scores", events: "Events" }[p.show], ...when(p.swings !== 8, `${p.swings} swings marked`)]),
   }),
 } satisfies { readonly [K in PanelId]: PanelDefinition };
 

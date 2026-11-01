@@ -20,6 +20,7 @@ import { useRoom } from "@/sdk/context";
 import { QUERY_REFS, loadTables } from "@/sdk/transport";
 import { isFrameMessage, type BridgePanel, type HostMessage } from "@/sdk/bridge-protocol";
 import { acceptMessage, BridgeHost } from "./bridge-host";
+import { useReplaySource } from "@/sdk/replay-source";
 import { policyStore } from "./policy-store";
 import type { PanelInfo } from "./action-policy";
 import { PanelError } from "./panel-frame";
@@ -69,6 +70,7 @@ const dark = () => document.documentElement.classList.contains("dark");
 
 function SandboxedPanel({ file, title, panel, info }: { file: string; title: string; panel: BridgePanel | undefined; info: PanelInfo }) {
   const room = useRoom();
+  const replay = useReplaySource();
   const convex = useConvex();
   const iframe = useRef<HTMLIFrameElement>(null);
   // One nonce per bridge. The iframe is keyed on it: when the bridge restarts (another room or client, or a Fast
@@ -90,6 +92,13 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
       roomId: room.roomId,
       post: message => port?.postMessage(message),
       watch(name, args, onValue, onError) {
+        // The dock's replay mode: the replay answers at the playhead, as for the built-in panels.
+        if (replay?.serves(name)) {
+          const send = () => { const value = replay.answer(name, args); if (value !== undefined && value !== null) onValue(value); };
+          const stop = replay.subscribe(send);
+          send();
+          return stop;
+        }
         const watch = convex.watchQuery(QUERY_REFS[name], args as never);
         const read = () => {
           try { const value = watch.localQueryResult(); if (value !== undefined) onValue(value); }
@@ -103,6 +112,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
         const parsed = envelopeSchema.safeParse(raw);
         if (!parsed.success) throw new Error("Invalid command envelope");
         const envelope: Envelope = parsed.data;
+        if (replay) throw new Error(replay.refusal);
         if (room.permission === "read") throw new Error("Read-only authorization cannot submit commands");
         const approved = await policyStore.ask(latest.current.info, envelope.command as { type: string } & Record<string, unknown>);
         if (!approved) throw new Error("The player declined this action");
@@ -162,7 +172,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
     loads.current = 0;
     setState(s => s.kind === "navigated" ? s : { kind: "booting" });
     return () => { window.removeEventListener("message", onWindowMessage); stop(false); };
-  }, [convex, room, nonce]);
+  }, [convex, room, nonce, replay]);
 
   // Code arrives (or a new version): boot the waiting frame, or swap the module in the running one.
   useEffect(() => {

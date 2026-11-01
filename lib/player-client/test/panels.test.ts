@@ -1,5 +1,5 @@
 /**
- * The panel catalogue (src/panels.ts): the 14 ids, parameters that always default (so a panel is useful with the
+ * The panel catalogue (src/panels.ts): the 15 ids, parameters that always default (so a panel is useful with the
  * assistant off) except what-if's required ones, strict schemas, the pane captions, the default panel per phase and
  * the JSON-Schema catalogue the layout tools hand to the model.
  */
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { PANELS, PANEL_IDS, defaultPanelFor, defaultPanelParams, isPanelId, panelCatalog, panelSummary, parsePanelParams } from "../src/panels.ts";
 
 test("fourteen panels, each with a title, a blurb, phases and a strict parameter schema", () => {
-  assert.equal(PANEL_IDS.length, 14);
+  assert.equal(PANEL_IDS.length, 15);
   assert.deepEqual([...PANEL_IDS].sort(), Object.keys(PANELS).sort());
   for (const id of PANEL_IDS) {
     const l = PANELS[id];

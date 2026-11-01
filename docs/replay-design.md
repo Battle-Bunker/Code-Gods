@@ -155,9 +155,9 @@ own panels. Everything else about an ended game is in its replay.
 
 ## 4a. What shipped first: the replay page (Phase 3)
 
-| The middle of a real game | An agent's code from the timeline | Phone |
+| The dock in replay mode, mid-game | An agent's code from the timeline | Phone |
 |---|---|---|
-| ![Replay](screenshots/replay/replay-mid.png) | ![Agent code](screenshots/replay/replay-agent-code.png) | ![Phone](screenshots/replay/replay-phone.png) |
+| ![Replay](screenshots/replay/replay-dock-step.png) | ![Agent code](screenshots/replay/replay-agent-code.png) | ![Phone](screenshots/replay/replay-phone.png) |
 
 The first build is the replay **page** of an ended game, `{base}rooms/:room/games/:game` (`artifacts/player-web/src/core/replay/`),
 above its final state. An ended game opens there, the room's latest one included (`games.resolve` reports `ended`); a
@@ -189,10 +189,18 @@ Checked in a browser on a real local game by `artifacts/player-web/e2e/replay-sh
 end with every goal card; `?e=` reopens that event; next steps one; the URL follows; an agent's code opens from the
 timeline; play moves the playhead), which also renders the screenshots above.
 
-**Not yet:** the replay mode of the dock (§4 below: the built-in and stored panels served from the replay through
-`useSdkQuery`), the Timeline as a dock panel, animated board changes (§6; changes are highlighted, not animated), and
-the assistant's playhead context (§8). The page uses the same reducer and API the dock mode will, so these are
-additions, not rewrites.
+**Then the dock (PR after #105):** the page became the player client's own dock in replay mode, as designed in §4
+below. `core/replay/replay-game.tsx` loads the replay, a `ReplayController` (`core/replay/controller.ts`) holds the
+playhead, the point of view and the playback loop, and its answers reach every panel through the SDK transport
+(`sdk/replay-source.ts`: `useSdkQuery` for built-in panels, the bridge's `watch` for stored panels; commands are
+refused). The answers are the reference reducer's (`replayObservation`, `replayEvents`, `replayTrajectories`,
+`replayMyUtility` in `@workspace/player-client/replay`), for any god, published at most every 125 ms while playing.
+The transport strip replaces the live header ("seen as" switches every panel to that player's view); the **Timeline
+panel** (`timeline`, a built-in panel; opened when the replay opens) holds the score chart and the event list; the
+objects panel **animates** each change the playhead crosses (the row flashes and slides, a grid outlines the cells
+that moved). The layout is the human's own arrangement; changes in a replay stay in that tab. The log records net
+bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits. Still to come: the assistant's
+playhead context (§8).
 
 ## 4. The view: a replay mode of the dock, not a separate app
 
