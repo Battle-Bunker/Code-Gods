@@ -446,7 +446,7 @@ await check("while the next game prepares its rule tables (a shape with no shipp
   const note = page.locator("[data-testid=note-preparing]").first();
   await note.waitFor({ timeout: 30_000 });
   const text = await note.innerText();
-  assert(/The game is preparing its rule tables, 0 of 3 ready\. It is the first game on Int\(0,2147483647\) on this server \(about 100 s\)/.test(text), `note: ${text}`);
+  assert(/The game is preparing its rule tables, 0 of 3 ready\. It is the first game on Int\(0,2147483647\) on this server \(about 250 s\)/.test(text), `note: ${text}`);
   await owner("endGame");   // ends the preparation
   await page.locator("[data-testid=note-preparing]").first().waitFor({ state: "detached", timeout: 30_000 });
   convex("calibration/cache:forget", { instance: inst.key });
