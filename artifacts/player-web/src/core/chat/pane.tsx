@@ -370,7 +370,7 @@ function QueueList({ queued, active, card, roomId, threadId, onError }: {
       <div className="flex items-center gap-2">
         <p className="text-[11px] text-muted-foreground" data-testid="text-assistant-queue-note">{note}</p>
         {!active && (
-          <button type="button" data-testid="button-queue-send" onClick={() => void sendQueued({ roomId, ...(threadId ? { threadId } : {}) }).then(r => composer.setThread(r.threadId), e => onError(errorText(e)))}
+          <button type="button" data-testid="button-queue-send" onClick={() => void sendQueued({ roomId, ...(threadId ? { threadId } : {}) }).catch(e => onError(errorText(e)))}
             className="ml-auto border border-[hsl(var(--input))] px-2 py-0.5 text-[11px] font-semibold">Send now</button>
         )}
       </div>
