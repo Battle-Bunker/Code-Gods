@@ -103,9 +103,10 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     assistant: {
       cancel: () => (status?.activeTurn ? cancel({ turnId: status.activeTurn.turnId }).catch(notifyError) : Promise.resolve()),
       setAutoApprove: bits => setPrefs({ roomId: room, autoApproveSummonBits: bits }).then(() => notify(bits > 0 ? `Summons up to ${bits} bits run without a card.` : "Every summon asks you first."), notifyError),
-      threads: async () => (await convex.query(api.assistant.threads, { roomId: room })).map(t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() })),
-      openThread: id => { composer.setThread(id); composer.focus(); },
-      newThread: () => { composer.setThread("new"); composer.focus(); },
+      // The current game's conversations only; a choice is kept for that game (composer.threadIn).
+      threads: async () => status ? (await convex.query(api.assistant.threads, { roomId: room, gameId: status.game })).map(t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() })) : [],
+      openThread: id => { if (status) composer.setThread(status.game, id); composer.focus(); },
+      newThread: () => { if (status) composer.setThread(status.game, "new"); composer.focus(); },
       setPermission: p => { composer.setPermission(p); notify(p === "read" ? "Your assistant will only look, from your next message." : "Your assistant may act for you from your next message; it asks before anything public or costly."); },
       focus: () => composer.focus(),
       handoff: draft => composer.fill(draft),

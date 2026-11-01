@@ -153,6 +153,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The human's assistant threads in a room's current game (titles and times), for the conversation picker; gameId reads an earlier game's (or \"lobby\")." },
     tools: [], palette: { label: "Switch assistant conversation…", group: "help", keywords: ["thread", "conversation", "history"], surfaces: P }, why: NO_SELF_DRIVE,
   },
+  "assistant.transcript": {
+    kind: "query", audience: "player",
+    human: { title: "Show this game's conversation", tooltip: "Your assistant conversation in this game: a new game starts with none." },
+    ai: { description: "The assistant pane's subscription: the human's conversation in one game of the room (the named thread when it is theirs in that game, else the game's active or latest one; none when the game has none), with its turns, messages and tool calls. A thread of another game is never returned." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
   "assistant.thread": {
     kind: "query", audience: "player",
     human: { title: "Show a conversation", tooltip: "One conversation's messages, tool calls and confirmation cards." },
