@@ -26,6 +26,16 @@ export interface GoalBoardProps {
   caption?: string;
   /** Cells that changed since a compared board, outlined as the grid's detail view does. */
   changed?: boolean[][] | null;
+  /**
+   * A view chosen by the caller instead of the focus cell's (the part scrubber steps through pieces this way): drawn
+   * without a focus ring, and pointing at cells does not change it.
+   */
+  view?: FocusView | null;
+  /**
+   * Reserve room for several callouts, so the board's height barely changes as the focus moves (a popover positioned
+   * against the viewport would otherwise jump, and slip out from under the pointer).
+   */
+  steady?: boolean;
   testId?: string;
 }
 
@@ -38,6 +48,10 @@ const pointsText = (points: readonly number[]) => {
 };
 
 /** A tile as the grid's detail view draws it: the colour, the viewer's colour cue (pattern), the colour letter in a corner. */
+export function GoalTile(props: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
+  return <Tile {...props} />;
+}
+
 function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
   const pattern = cue === "pattern";
   return (
@@ -129,7 +143,7 @@ interface Arrow { d: string; tone: Tone }
  * A board explained for one focus cell at a time. Without a rich explanation (a family without a lens, or an
  * explanation that does not add up to the card's score) it draws the board and its score only.
  */
-export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, testId = "goal-board" }: GoalBoardProps) {
+export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, view: chosen, steady, testId = "goal-board" }: GoalBoardProps) {
   const cue = useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
   const model = useMemo(() => gridModel(value, grid), [value, grid.size, grid.symbols, grid.colours]);
   const size = model?.size ?? 0;
@@ -139,14 +153,16 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, t
   // A new starting cell (another example) moves the focus; a live board update does not, so a reader keeps their cell.
   useEffect(() => { if (initialFocus) setFocus(initialFocus); }, [initialFocus?.r, initialFocus?.c]);
   const rich = !!explanation?.verified;
-  const view: FocusView | null = useMemo(() => (rich && explanation ? goal.focus(value, explanation, focus) : null), [rich, explanation, goal, value, focus]);
+  const controlled = chosen !== undefined;
+  const focused: FocusView | null = useMemo(() => (!controlled && rich && explanation ? goal.focus(value, explanation, focus) : null), [controlled, rich, explanation, goal, value, focus]);
+  const view = controlled ? (rich ? chosen : null) : focused;
 
   const parts = view?.parts ?? NO_PARTS;
-  const badges = useMemo(() => badgePoints(geo, parts, focus), [geo, parts, focus]);
+  const badges = useMemo(() => badgePoints(geo, parts, view?.focus), [geo, parts, view?.focus]);
   const order = useMemo(() => calloutOrder(badges), [badges]);
   // A piece's number is its callout's place in the column, so the numbers read 1, 2, 3 down the side.
   const number = useMemo(() => { const n: number[] = []; order.forEach((i, k) => { n[i] = k + 1; }); return n; }, [order]);
-  const lit = useMemo(() => (view ? litCells(focus, parts, size) : null), [view, focus, parts, size]);
+  const lit = useMemo(() => (view ? litCells(view.focus, parts, size) : null), [view, parts, size]);
 
   // Arrows: measured after layout, from each badge to its callout.
   const root = useRef<HTMLDivElement>(null), board = useRef<HTMLDivElement>(null);
@@ -177,7 +193,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, t
 
   if (!model) return null;
   const px = boardPx(geo);
-  const pick = (x: Cell) => setFocus(f => (f.r === x.r && f.c === x.c ? f : x));
+  const pick = (x: Cell) => { if (!controlled) setFocus(f => (f.r === x.r && f.c === x.c ? f : x)); };
   const onPointer = (x: Cell) => (e: PointerEvent) => { if (e.pointerType !== "touch") pick(x); };
   const onDown = (x: Cell) => (e: PointerEvent) => { if (e.pointerType === "touch") pick(x); };
   const onKey = (e: KeyboardEvent) => {
@@ -227,7 +243,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, t
               const c = centre(geo, s.cell);
               return <circle key={`${p.id}:${k}`} cx={c.x} cy={c.y} r={geo.cell * 0.36} fill="none" stroke="#0f172a" strokeOpacity={0.75} strokeWidth={2} strokeDasharray="3 3" />;
             }))}
-            {view && <rect x={cellX(geo, focus.c) - 3} y={cellY(geo, focus.r) - 3} width={geo.cell + 6} height={geo.cell + 6} rx={5} fill="none" stroke="currentColor" strokeWidth={3} data-focus="" />}
+            {view && !controlled && <rect x={cellX(geo, focus.c) - 3} y={cellY(geo, focus.r) - 3} width={geo.cell + 6} height={geo.cell + 6} rx={5} fill="none" stroke="currentColor" strokeWidth={3} data-focus="" />}
             {parts.map((p, i) => {
               const tone = toneOf(p.points);
               return (
@@ -240,7 +256,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, t
           </svg>
         </div>
         {view && (
-          <div className="min-w-[13rem] max-w-[22rem] flex-1 space-y-2" data-testid="goal-board-callouts">
+          <div className={`min-w-[13rem] max-w-[22rem] flex-1 space-y-2 ${steady ? "min-h-[24rem]" : ""}`} data-testid="goal-board-callouts">
             {view.note && <p className="text-xs leading-snug" data-testid="goal-board-note">{view.note}</p>}
             {order.map(i => (
               <Callout key={parts[i].id} part={parts[i]} index={number[i] - 1} explanation={explanation!} model={model}

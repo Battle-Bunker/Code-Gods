@@ -1,7 +1,7 @@
 /** The goal annotation's drawing geometry (src/explain/layout.ts), with expectations worked out by hand. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { arrowPath, badgePoints, boardPx, calloutOrder, litCells, moveFocus, linkPath, outlinePath, pillPath, signed, strokePath } from "../src/explain/layout.ts";
+import { arrowPath, badgePoints, boardPx, calloutOrder, litCells, moveFocus, groupRows, linkPath, outlinePath, pillPath, signed, strokePath } from "../src/explain/layout.ts";
 
 const g = { cell: 40, gap: 2, size: 4 };
 
@@ -74,4 +74,13 @@ test("lit cells: the focus and its pieces' cells; everything else is dimmed", ()
 
 test("points read with a sign and a real minus", () => {
   assert.deepEqual([signed(2), signed(-3), signed(0)], ["+2", "−3", "0"]);
+});
+
+test("what-if rows that score alike merge, and the cell's own entry stays visible", () => {
+  const e = (sym: number, col: number, delta: number, current = false) =>
+    ({ sym, col, value: "", ordinal: delta, delta, verdict: Math.sign(delta) as -1 | 0 | 1, current });
+  const rows = [[e(0, 0, 0), e(0, 1, -2)], [e(1, 0, 0, true), e(1, 1, -2)], [e(2, 0, 1), e(2, 1, -2)], [e(3, 0, 1), e(3, 1, -2)]];
+  const g = groupRows(rows);
+  assert.deepEqual(g.map(x => x.syms), [[0, 1], [2, 3]], "runs of identical rows only");
+  assert.equal(g[0].row[0].current, true, "the merged row shows 'now'");
 });
