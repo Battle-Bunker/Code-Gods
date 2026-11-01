@@ -518,7 +518,7 @@ export function playableInstantiations(objectTypeId: string): readonly Instantia
  * its tables" note and the room's preparing estimate quote.
  */
 export const FIRST_USE_SECONDS: Readonly<Record<string, number | Readonly<Record<number, number>>>> = Object.freeze({
-  Int: 100, string: 15, Grid: Object.freeze({ 4: 35, 5: 70, 6: 130, 7: 260 }),
+  Int: 250, string: 15, Grid: Object.freeze({ 4: 35, 5: 70, 6: 130, 7: 260 }),
 });
 /** The expected wall time of preparing a first game's missing tables on `inst` (seconds, `FIRST_USE_SECONDS`). */
 export function firstUseSeconds(inst: Instantiation): number {
