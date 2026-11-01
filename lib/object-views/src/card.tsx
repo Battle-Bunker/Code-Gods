@@ -3,7 +3,9 @@ import { useMemo, useState } from "react";
 import { capabilityClass } from "@workspace/game-types";
 import { familyUses, type BadgeLike } from "./catalog.ts";
 import type { GridSettings } from "./registry.ts";
+import type { GoalExplainer } from "@workspace/game-utilities";
 import { GridObject } from "./views.tsx";
+import { GoalBoard } from "./explain/GoalBoard.tsx";
 
 export interface UtilityCardLike {
   familyId: string;
@@ -49,10 +51,29 @@ export function CardExample({ example, grid }: { example: NonNullable<UtilityCar
 }
 
 /**
- * Emoji and name, plain summary, an example board when the rule has one, a "uses" chip row, then the source; a defence
- * goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ * The goal card's worked example (docs/annotations-design.md §3): a board of the room's own shape, searched to show
+ * scoring and non-scoring pieces, with its most illuminating cell focused and the annotations always shown.
  */
-export function UtilityCardView({ card, uses, grid }: { card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings }) {
+export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: GridSettings }) {
+  const example = useMemo(() => goal.example(), [goal]);
+  if (!example) return null;
+  return (
+    <figure className="mt-3 border-t pt-3" data-testid="utility-card-goal-example">
+      <figcaption className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Example</figcaption>
+      <GoalBoard goal={goal} value={example.value} grid={grid} initialFocus={example.focus} caption={example.caption} testId="goal-example-board" />
+    </figure>
+  );
+}
+
+/**
+ * Emoji and name, plain summary, an example board (the annotated one with `goal`, else the card's tiny one when the rule
+ * has one), a "uses" chip row, then the source; a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ */
+export function UtilityCardView({ card, uses, grid, goal }: {
+  card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
+  /** The player's own goal explainer: the card then shows its annotated example board instead of the tiny one. */
+  goal?: GoalExplainer | null;
+}) {
   const badges = useMemo(() => uses ?? familyUses(card.familyId), [uses, card.familyId]);
   const penaltyUses = useMemo(() => (card.penalty ? familyUses(card.penalty.familyId) : []), [card.penalty?.familyId]);
   return (
@@ -61,7 +82,7 @@ export function UtilityCardView({ card, uses, grid }: { card: UtilityCardLike; u
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
         <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
-        {card.example && <CardExample example={card.example} grid={grid} />}
+        {goal && grid ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" />
       </div>

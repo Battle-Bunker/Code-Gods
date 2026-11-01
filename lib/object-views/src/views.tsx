@@ -5,6 +5,8 @@ import {
   DIGIT_TYPE, changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
+import { GoalBoard } from "./explain/GoalBoard.tsx";
+import { useGoalExplainer } from "./explain/context.tsx";
 export interface ObjectViewProps extends ObjectContext {
   /** The object's value as the public API carries it. */
   value: ObjectValue;
@@ -74,6 +76,7 @@ function useColourCue(): ColourCue {
   return useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern");
 }
 
+const TOP_LEFT = { r: 0, c: 0 } as const;
 const compactPx = (n: number) => (n <= 5 ? 14 : n <= 7 ? 12 : 10);
 const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 7 ? 28 : 20);
 
@@ -181,10 +184,13 @@ export function useGridRenderer(): GridRendererId {
   return asGridRenderer(useObjectRenderer("Grid"));
 }
 
-function GridView({ model, previous, typeLabel, className, mode }: {
-  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId;
+function GridView({ model, previous, typeLabel, className, mode, grid }: {
+  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; grid?: GridSettings;
 }) {
   const cue = useColourCue();
+  // The viewer's own goal, when the app provides it: the rich view explains this grid with it (annotations-design.md §3).
+  const goal = useGoalExplainer();
+  const explained = !!goal?.rich && model.strict && !!grid;
   const [open, setOpen] = useState(false);
   const pinned = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -219,13 +225,15 @@ function GridView({ model, previous, typeLabel, className, mode }: {
           onOpenAutoFocus={(e) => { if (!pinned.current) e.preventDefault(); }}
           onPointerEnter={clear} onPointerLeave={hoverOut}
           aria-label={`Grid ${model.size} by ${model.size} details`}
-          className="z-50 w-[min(calc(100vw-16px),22rem)] max-h-[min(80vh,36rem)] overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans"
+          className={`z-50 ${explained ? "w-[min(calc(100vw-16px),46rem)] max-h-[min(90vh,48rem)]" : "w-[min(calc(100vw-16px),22rem)] max-h-[min(80vh,36rem)]"} overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans`}
           data-testid="grid-object-detail">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-semibold">Grid {model.size}×{model.size}</span>
             {typeLabel && <span className="font-mono text-xs text-muted-foreground truncate">{typeLabel}</span>}
           </div>
-          <div className="flex justify-center"><Cells model={model} px={detailPx(model.size)} cue={cue} changes={changes} detail /></div>
+          {explained
+            ? <GoalBoard goal={goal!} value={model.canonical} grid={grid!} initialFocus={TOP_LEFT} testId="grid-object-goal" />
+            : <div className="flex justify-center"><Cells model={model} px={detailPx(model.size)} cue={cue} changes={changes} detail /></div>}
           {changes && <p className="text-xs text-muted-foreground">{nChanged ? `${nChanged} cell${nChanged === 1 ? "" : "s"} changed (outlined).` : "No cells changed."}</p>}
           <code className="block font-mono text-xs break-all bg-muted px-2 py-1 select-all" data-testid="grid-object-canonical">{model.canonical}</code>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -258,7 +266,7 @@ export function GridObject(props: ObjectViewProps) {
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
   if (!model) return <StringObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
-  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} />;
+  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} />;
 }
 
 // Built-in types. Later registrations are tried first when inferring, so Grid wins over string.
