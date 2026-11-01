@@ -43,7 +43,7 @@ Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lif
 ## Information and politics
 You receive your own utility card (and defence goal), your own bits for each object, the SUM of all OTHER gods' net bits for it, the floored peer care and your payoff.
 Every transformation and spawn is public to every player as it happens (object, value before and after, world time), without saying whose agent made it.
-Individual opponents' utilities and bits are not disclosed. Public standings show total payoffs, updated for everyone at once every ${s.scoreIntervalSeconds ?? 10} seconds of world time (your own score is live); while the game runs, the other gods' summed bits carry random noise of about ${s.peerNoiseBits ?? 8} bits (fixed per change; exact after the end); the shared object table shows salience, the sum of ALL gods' net bits.
+Individual opponents' utilities and bits are not disclosed. Public standings show total payoffs, updated for everyone at once every ${s.scoreIntervalSeconds ?? 10} seconds of world time (your own score is live); while the game runs, the other gods' summed bits carry random noise of about ${s.peerNoiseBits ?? 0} bits (fixed per change; exact after the end); the shared object table shows salience, the sum of ALL gods' net bits.
 Chat is global and public to every human and AI player; there are no private chats.
 Utility assignment uses ${s.utilitySelectorId}; the public catalog of possible utility functions is listed in the room.
 The room owner configures settings between games and starts each game; every game uses a snapshot of the room's settings taken at launch. At least three players are required, and AI players can fill seats.

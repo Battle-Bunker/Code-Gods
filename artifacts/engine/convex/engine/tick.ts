@@ -25,7 +25,7 @@ import { isIdle } from "../lib/rooms";
 import { gameTables } from "./calibration";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, disclosedTotalsOf, totalsOf } from "../lib/world";
+import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -119,8 +119,8 @@ export const run = internalAction({
         object.value = outcome.value; object.version++; object.changed = true;
         object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
-        // A new version gets its own live disclosure noise (settings.peerNoiseBits), fixed with it.
-        object.noise = disclosureNoise(settings);
+        // The new value's live disclosure noise (settings.peerNoiseBits): a function of the value, stored with the version.
+        object.noise = disclosureNoise(settings, game.noiseKey, object.value);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
           agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise });
       } else {
@@ -173,7 +173,7 @@ export const run = internalAction({
         if (value === undefined) return false;
         occupied.add(value);
         const scores = scoresOf(tables, settings, deals, value), tmp = `tmp:${spawns.length}`;
-        const noise = disclosureNoise(settings);
+        const noise = disclosureNoise(settings, game.noiseKey, value);
         spawns.push({ tmp, value, scores, salience: salienceOf(scores), noise });
         events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world, net: net(scores, roster), noise });
         return true;
@@ -197,6 +197,7 @@ export const run = internalAction({
       wakeAt = now + Math.max(MIN_TICK_MS, Math.max(0, soonest) * 1000);
     }
     const simulateMs = performance.now() - started;
+    const due = !!game.scoreboard && phase !== "ended" && scoreboardDue(game.scoreboard.world, until, scoreIntervalOf(game));
     const changed = objects.filter(o => o.changed);
     const commitStarted = Date.now();
     const committed = await ctx.runMutation(internal.engine.loop.commit, {
@@ -208,7 +209,10 @@ export const run = internalAction({
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
       // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
-      totals: totalsOf(roster, [...objects, ...spawns]), disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]),
+      // Exact totals for the log when scores changed; the disclosed ones only when the scoreboard is due (the commit
+      // re-checks), so an ordinary tick does not pay for them.
+      ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
+      ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

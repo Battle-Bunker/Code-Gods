@@ -99,7 +99,7 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
     limit: { default: 5000, max: 12000 }, limitUnit: "rows", gameId: true,
     about: "The game's public transformation log as columns (one index per event, oldest first; `limit` is rows): every spawn and transformation, "
       + "unattributed while live (mine: your own), with the value before and after and YOUR bits and the OTHER gods' summed bits before and after "
-      + "(dOwn, dOthers: exact changes). others is how many other gods there are. Use it to infer what the other gods want: which values raise "
+      + "(dOwn, dOthers: the changes). While live the others' sums carry the game's disclosure noise (peerNoiseBits, fixed per value; exact after the end). others is how many other gods there are. Use it to infer what the other gods want: which values raise "
       + "or lower dOthers, which objects their agents keep moving, periodicities. Pair with utility_candidates and the fit_utility_mixture tool.",
   },
   utility_candidates: {

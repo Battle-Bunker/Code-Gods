@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { raw } from "./game-helpers.ts";
 
-export const FORBIDDEN_KEYS = ["scores", "endAtWorld", "net", "deities", "prompt", "penaltyOrdinal", "aiAgent", "descriptor", "seed"];
+export const FORBIDDEN_KEYS = ["scores", "endAtWorld", "net", "deities", "prompt", "penaltyOrdinal", "aiAgent", "descriptor", "seed", "noise", "noiseKey"];
 
 /** Every number (as JSON prints it) in a value. */
 export function numbers(value: unknown, out = new Set<string>()) {

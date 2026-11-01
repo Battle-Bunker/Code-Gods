@@ -368,7 +368,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.series": {
     kind: "query", audience: "player",
     human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },
-    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation in world-time order (unattributed while the game is live; the human's own marked mine), with the object's value before and after, the human's own net bits and the OTHER gods' summed net bits before and after (exact deltas). The data for inferring which utility functions the other gods hold." },
+    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation (unattributed while live; the human's own marked mine), with the value before and after, the human's own bits and the OTHER gods' summed bits before and after (noisy while live, peerNoiseBits; exact after the end). The data for inferring the other gods' rules." },
     tools: ["get_utility_series"], palette: null, why: "An analytics feed paged by the assistant or a stored panel; the human reads it through panels, not a button.",
   },
   "player.board": {

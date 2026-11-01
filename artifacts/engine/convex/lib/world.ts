@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentBattery, isEligible, leaderboard, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, agentBattery, isEligible, leaderboard, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
  * Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no
@@ -102,6 +102,10 @@ export function totalsOf(roster: readonly string[], objects: readonly { scores: 
   const total = new Map(rows.map(r => [r.godId, r.totalPayoff]));
   return roster.map(id => total.get(id)!);
 }
+/** The game's scoreboard interval (world seconds); a game stored before the setting existed uses the default. */
+export const scoreIntervalOf = (game: { settings: unknown }) =>
+  (game.settings as Partial<GameSettings>).scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS;
+
 /**
  * Whether a commit that brings the world from the last publication at `lastWorld` to `world` publishes the scoreboard:
  * it has reached the next multiple of `interval` after `lastWorld` (docs/public-log-design.md §3).

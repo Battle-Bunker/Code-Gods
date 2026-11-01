@@ -123,6 +123,8 @@ export const gameTables = {
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
+    /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
+    noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
     /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
     tick: v.object({ seq: v.number(), leaseUntil: v.number() }),
@@ -161,7 +163,7 @@ export const gameTables = {
     scores: v.array(scoreV),
     /** Public: Σ net bits (disclosed live with `noise` added). */
     salience: v.number(),
-    /** PRIVATE: the live disclosure noise on this version's peers' sums and salience (settings.peerNoiseBits). */
+    /** PRIVATE: the live disclosure noise on this value's peers' sums and salience (settings.peerNoiseBits). */
     noise: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]),
 

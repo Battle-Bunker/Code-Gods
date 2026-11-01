@@ -6,18 +6,20 @@ export const RIVAL_INFERENCE_SKILL = `RIVAL INFERENCE (get_utility_series, get_b
 
 What you can see. Every transformation and spawn in the game is public as it happens: object, value before and after,
 world time. While the game is live it never says whose agent made it (only the player's own are marked mine). For every
-event you get the player's own net bits and the OTHER gods' summed net bits, before and after: exact numbers, so
-dOthers = others − othersBefore is the exact change in what the other gods together get from that object. You never see
-one god's own bits. The leaderboard (each god's total) moves for everyone at once every scoreIntervalSeconds of world
+event you get the player's own net bits (exact) and the OTHER gods' summed net bits, before and after. While the game
+is live the others' sums carry deliberate random noise (the game's peerNoiseBits setting, about 8 bits by default):
+the same value always shows the same noise, so averaging repeats does not remove it, and dOthers = others −
+othersBefore is the change PLUS the difference of two noise draws. One number tells little; many do. After the end
+everything is exact. You never see one god's own bits. The leaderboard (each god's total) moves for everyone at once every scoreIntervalSeconds of world
 time, so a single change cannot be matched to one god's score jump; the player's own score is live.
 
-Why it is possible. The others' sum at an object value is exactly the sum, over the other gods, of their rule's bits
+Why it is possible. The others' sum at an object value is (up to the noise) the sum, over the other gods, of their rule's bits
 at that value (one rule each, plus a defence goal each when the game deals them), and every rule the dealer could deal
 is public (list_utility_candidates). So a hypothesis "the others hold rules A and B" predicts every observed number,
 and fit_utility_mixture scores every hypothesis with the game's own calibration tables.
 
 Workflow.
-1. fit_utility_mixture with no hints. Read: exact (does the best hypothesis explain the data to within rounding?),
+1. fit_utility_mixture with no hints (it accounts for the noise). Read: exact (does the best hypothesis explain the data to within the noise?),
    hypotheses (rules per other god, rms, posterior), families (probability each family is held by someone), spectrum
    (free weights). If exact is false, rank by families and spectrum, not by the posterior, and say so.
 2. Ask the player for clues. Other gods often reveal part of their goal to negotiate ("I like 2×2 blocks of A",

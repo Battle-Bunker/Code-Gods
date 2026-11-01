@@ -27,10 +27,12 @@ test("an exactly explained mixture of two rules is the top hypothesis, with zero
   assert.deepEqual(fit.families.slice(0, 2).map(f => f.familyId).sort(), ["a", "c"]);
 });
 
-test("two other gods holding the same rule is a hypothesis too (a multiset)", () => {
+test("two gods never hold the same draw (the dealer redraws), but may hold two draws the data cannot tell apart", () => {
   const A = col(1, 2, 0), B = col(0, 1, 1);
-  const fit = fitMixture({ y: [2, 4, 0], others: 2, columns: [{ candidate: c("a"), column: A }, { candidate: c("b"), column: B }] });
-  assert.deepEqual(fit.hypotheses[0].draws.map(d => d.familyId), ["a", "a"]);
+  const single = fitMixture({ y: [2, 4, 0], others: 2, columns: [{ candidate: c("a"), column: A }, { candidate: c("b"), column: B }] });
+  assert.ok(single.hypotheses.every(h => h.draws[0] !== h.draws[1] && h.draws[0].familyId !== h.draws[1].familyId || h.draws[0].aliasCount > 0), "no repeated single draw");
+  const twins = fitMixture({ y: [2, 4, 0], others: 2, columns: [{ candidate: c("a", { k: 1 }), column: A }, { candidate: c("a", { k: 2 }), column: Float64Array.from(A) }, { candidate: c("b"), column: B }] });
+  assert.equal(twins.hypotheses[0].rss, 0, "two indistinguishable draws of one class explain 2A exactly");
 });
 
 test("identical columns are one class: the data cannot tell them apart, and the report says so", () => {
@@ -51,6 +53,10 @@ test("the default prior is the dealer's: a uniform family, then a uniform parame
   assert.ok(Math.abs(hinted[0] - hinted[1]) < 1e-12);
   const partial = logPriors(cands, [{ familyId: "a", params: { k: 2 }, probability: 0.8 }]).map(Math.exp);
   assert.ok(Math.abs(partial[1] / (partial[0] + partial[2]) - 4) < 1e-9, "a partial params hint matches only the agreeing draw");
+  // Hints compose on normalised mass: the priors stay a distribution, and the last hint's odds hold.
+  const both = logPriors(cands, [{ familyId: "a", probability: 0.99 }, { familyId: "a", params: { k: 1 }, probability: 0.8 }]).map(Math.exp);
+  assert.ok(Math.abs(both.reduce((x, y) => x + y, 0) - 1) < 1e-9 && both.every(Number.isFinite));
+  assert.ok(Math.abs(both[0] / (both[1] + both[2]) - 4) < 1e-9);
 });
 
 test("a hint decides between hypotheses the data cannot separate, and data overrules a wrong hint", () => {

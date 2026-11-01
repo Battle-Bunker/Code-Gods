@@ -34,10 +34,13 @@ async function pages(fetch: (afterSeq: number, limit: number) => Promise<Page>, 
   return { events, series: [...series].map(([objectId, points]) => ({ objectId, points })) };
 }
 
-/** A dataset that does not exist for this player (no game, or not seated in it) is null; anything else still fails. */
+/**
+ * A dataset that does not exist for this player is null: no game in the room yet, or the player is not seated in it.
+ * Anything else (a wrong gameId, lost room access) still fails.
+ */
 const unseated = (error: unknown) => {
-  const code = error instanceof ConvexError ? (error.data as { code?: string } | undefined)?.code : undefined;
-  if (code === "FORBIDDEN" || code === "NOT_FOUND" || code === "CONFLICT") return null;
+  const message = error instanceof ConvexError ? String((error.data as { message?: string } | undefined)?.message ?? "") : "";
+  if (/no game in this room yet|not seated|You are not seated/.test(message)) return null;
   throw error;
 };
 

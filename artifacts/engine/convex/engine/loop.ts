@@ -12,9 +12,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
 import { gameRecord } from "../lib/projection";
-import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
-import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreboardDue, totalsOf } from "../lib/world";
+import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 
 type Ev = Doc<"tickBatches">["events"][number];
@@ -81,10 +80,6 @@ export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, 
 async function allObjects(ctx: MutationCtx, gameId: Id<"games">) {
   return ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
 }
-
-/** The game's scoreboard interval (world seconds); a game stored before the setting existed uses the default. */
-export const scoreIntervalOf = (game: Pick<Doc<"games">, "settings">) =>
-  (game.settings as Partial<GameSettings>).scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS;
 
 /**
  * End a game: stamp it, publish its final scoreboard (exact, whatever the interval), write its public summary and free

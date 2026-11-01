@@ -20,12 +20,12 @@ export async function gatherSeries(ctx: ActionCtx, principal: Principal, roomId:
   let rows = 0, skipped = 0, truncated = false;
   for (;;) {
     const page: Page = await ctx.runQuery(internal.player.seriesAs, {
-      principal, roomId, ...(options.gameId ? { gameId: options.gameId } : {}), ...(options.objectId ? { objectId: options.objectId } : {}), cursor, limit: 4000,
+      principal, roomId, ...(options.gameId ? { gameId: options.gameId } : {}), ...(options.objectId ? { objectId: options.objectId } : {}),
+      ...(options.fromWorld !== undefined ? { fromWorld: options.fromWorld } : {}), cursor, limit: 4000,
     });
     head ??= page;
     const c = page.columns;
     for (let i = 0; i < page.rows; i++) {
-      if (options.fromWorld !== undefined && c.world[i] < options.fromWorld) continue;
       if (skipped < (options.offset ?? 0)) { skipped++; continue; }
       if (rows >= options.limit) { truncated = true; break; }
       for (const k of keys) (out[k] as unknown[]).push(c[k][i]);

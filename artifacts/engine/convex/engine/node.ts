@@ -6,7 +6,7 @@
  * file storage or prepare them on demand (engine/calibration.ts resolveTables) and pass them in, `InstanceTables` for
  * scoring; dealing needs none (every available family is dealable, its tables are prepared after the deal).
  */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
   DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
@@ -68,14 +68,21 @@ export const cryptoRng: Rng = {
 export const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
 /** Uniform in (0, 1). */
 export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
+/** A fresh per-game key for the disclosure noise (PRIVATE: games.noiseKey, never projected). */
+export const newNoiseKey = () => randomBytes(32).toString("hex");
 /**
- * One draw of the live disclosure noise on an object version's peers' sums (settings.peerNoiseBits, Gaussian σ in bits;
- * docs/public-log-design.md §5), from the CSPRNG; stored with the version so it never changes. 0 when off.
+ * The live disclosure noise on the others' sums at one object VALUE (settings.peerNoiseBits, Gaussian σ in bits;
+ * docs/public-log-design.md §5.2): a keyed function of (the game's private key, the value), so a value that recurs
+ * (A → B → A, or a later spawn) shows the same noise every time and repeated observations cannot average it away.
+ * Stored with each object version as it is written. 0 when off.
  */
-export function disclosureNoise(settings: Pick<GameSettings, "peerNoiseBits">): number {
+export function disclosureNoise(settings: Pick<GameSettings, "peerNoiseBits">, noiseKey: string | undefined, value: ObjectValue): number {
   const sigma = settings.peerNoiseBits ?? 0;
-  if (!(sigma > 0)) return 0;
-  return sigma * Math.sqrt(-2 * Math.log(openUniform())) * Math.cos(2 * Math.PI * openUniform());
+  if (!(sigma > 0) || !noiseKey) return 0;
+  const digest = createHmac("sha256", noiseKey).update(JSON.stringify(value)).digest();
+  // Two 48-bit uniforms in (0, 1), Box–Muller.
+  const u1 = (digest.readUIntBE(0, 6) + 0.5) / 281474976710656, u2 = (digest.readUIntBE(6, 6) + 0.5) / 281474976710656;
+  return sigma * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
 // ------------------------------------------------------------------------------------------------

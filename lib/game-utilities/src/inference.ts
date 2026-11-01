@@ -135,10 +135,13 @@ export function logPriors(candidates: readonly Candidate[], hints: readonly Hint
       const p = Math.min(0.99, Math.max(0.01, h.probability));
       const hit = idx.filter(([c]) => matches(c, h));
       if (!hit.length || hit.length === idx.length) continue;
-      // Mass of the matching set moves from its prior share to p.
-      const mass = hit.reduce((m, [, i]) => m + Math.exp(out[i]), 0);
+      // The matching set's share of the role's (normalised) mass moves to p; then renormalise, so hints compose.
+      const total = idx.reduce((m, [, i]) => m + Math.exp(out[i]), 0);
+      const mass = hit.reduce((m, [, i]) => m + Math.exp(out[i]), 0) / total;
       const boost = Math.log(p / (1 - p)) - Math.log(mass / (1 - mass));
       for (const [, i] of hit) out[i] += boost;
+      const after = Math.log(idx.reduce((m, [, i]) => m + Math.exp(out[i]), 0));
+      for (const [, i] of idx) out[i] -= after;
     }
   }
   return out;
@@ -184,7 +187,8 @@ export function fitMixture(input: FitInput): FitResult {
   const floor = Math.max(SIGMA_FLOOR_BITS, input.noiseBits ?? 0);
   const searchSigma2 = floor ** 2;
 
-  // Beam search: k reward classes, then k defence classes, each a multiset (non-decreasing class index).
+  // Beam search: k reward classes, then k defence classes, each a set of distinct classes (increasing class index): the
+  // dealer redraws identical draws, so a class repeats only when it holds several draws the data cannot tell apart.
   type State = { picks: number[]; residual: Float64Array; rss: number; logPrior: number };
   let beam: State[] = [{ picks: [], residual: y, rss: dot(y, y), logPrior: 0 }];
   const phases: Role[] = [...Array(k).fill("reward"), ...(input.defenceGoals ? Array(k).fill("penalty") : [])];
@@ -195,7 +199,7 @@ export function fitMixture(input: FitInput): FitResult {
     for (const state of beam) {
       const last = step > 0 && phases[step - 1] === role ? state.picks.at(-1)! : -1;
       for (const [c, i] of pool) {
-        if (i < last) continue;
+        if (i < last || (i === last && c.members.length < 2)) continue;
         const rss = state.rss - 2 * dot(state.residual, c.column) + c.norm;
         candidates.push({ from: state, cls: i, rss: Math.max(0, rss), logPrior: state.logPrior + c.logPrior });
       }
@@ -227,6 +231,8 @@ export function fitMixture(input: FitInput): FitResult {
         const baseRss = dot(base, base), basePrior = state.logPrior - classes[old].logPrior;
         classes.forEach((c, i) => {
           if (i === old || c.role !== classes[old].role) return;
+          // The same constraint as the beam: a class repeats only up to the draws it holds.
+          if (state.picks.filter((p, j) => j !== slot && p === i).length >= c.members.length) return;
           const rss = Math.max(0, baseRss - 2 * dot(base, c.column) + c.norm);
           const cand = { rss, logPrior: basePrior + c.logPrior };
           if (score(cand) < score(improved ?? state) - 1e-12) {
