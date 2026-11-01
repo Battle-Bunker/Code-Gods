@@ -6,7 +6,7 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { allowedLanguages, newAgentAccount, upgradeLegacyLanguage, type GameSettings, type Language } from "@workspace/game-core";
+import { allowedLanguages, newAgentAccount, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -57,7 +57,7 @@ export const prepare = internalQuery({
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
-      examine = { settings: (upgradeLegacyLanguage(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
+      examine = { settings: (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },

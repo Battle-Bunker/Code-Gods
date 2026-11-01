@@ -180,6 +180,7 @@ export const rawGame = internalQuery({
       objects: await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       agents: await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       batches: await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect(),
+      objectEvents: await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).collect(),
     };
   },
 });

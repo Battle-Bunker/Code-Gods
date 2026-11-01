@@ -17,6 +17,7 @@ import type * as agent_oauth from "../agent/oauth.js";
 import type * as agent_oauthStore from "../agent/oauthStore.js";
 import type * as agent_registry from "../agent/registry.js";
 import type * as agent_rules from "../agent/rules.js";
+import type * as agent_series from "../agent/series.js";
 import type * as agent_store from "../agent/store.js";
 import type * as agent_tables from "../agent/tables.js";
 import type * as ai_seats from "../ai/seats.js";
@@ -124,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "agent/oauthStore": typeof agent_oauthStore;
   "agent/registry": typeof agent_registry;
   "agent/rules": typeof agent_rules;
+  "agent/series": typeof agent_series;
   "agent/store": typeof agent_store;
   "agent/tables": typeof agent_tables;
   "ai/seats": typeof ai_seats;

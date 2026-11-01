@@ -20,6 +20,18 @@ Information hiding applies only during live games; ended games are fully transpa
 
 **How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's players and the room owner (the past-game read rule).
 
+During a live game every transformation and spawn is public to every player as it happens (object, value before and after, world time, and the viewer's own and others' summed bits), without attribution; every deity's public score moves together every `scoreIntervalSeconds` of world time (5, 10, 20, 30 or 60; default 10), while a player's own score is live. While live, every disclosed sum of the other gods' bits carries Gaussian noise of `peerNoiseBits` (0, 2, 4, 8 or 16; default 8), a keyed function of the object's value (so a recurring value shows the same noise), stored with each version and shared by every viewer; everything built on it (care, payoff, own live score, salience, the published scoreboard) follows the noisy value. An ended game is fully transparent.
+
+**Why:** The owner wants the other gods' interests to be analysable in real time (possible but hard, helped by negotiation clues), without a per-transformation link to one god's score jump (2026-11-01). Replays of ended games show everything (owner ruling the same day).
+
+**How to apply:** Hide only in LIVE projections (`projectEvent(…, live)`; the replay refuses a live game): no agent id, owner, calls or cost on another god's transformation, no other god's summons or destructions, totals only from the published scoreboard (`games.scoreboard`, the batch that published it carries it as `scoreboard`). Store everything exact (`objectEvents` rows with every deity's bits; exact `tickBatches.totals`). Rival-inference tools (`fit_utility_mixture` and friends) are reads like any other. Never disclose an exact others' sum (or a number built on one) while live unless `peerNoiseBits` is 0. docs/public-log-design.md has the contract, the experiment (exact sums made rule sets easy to identify; 8 bits makes it possible but hard) and the knobs.
+
+Every object is an independent universe: an object's utility is a pure function of that object's own value, and a transformation changes only its target object.
+
+**Why:** The owner calls it an essential simplifying assumption (2026-11-01): no interdependencies or entanglements between objects. The per-object history and the rival inference rest on it.
+
+**How to apply:** Utility families take one object (the host evaluator is a function of one wire value); never add cross-object bonuses, shared state or synergy in scoring (Aligned Lottery synergy only chooses the deal). `lib/game-utilities/test/independence.test.ts` enforces it for every family on every playable shape. The one stated exception is uniqueness (below): a transformation onto a value another object holds fails, so its success depends on the other objects, but it never changes them or any utility.
+
 The user approved sandbox-compatible computational libraries for the MVP: supported Python computational modules and TypeScript's ECMAScript built-ins, with documented exclusions and no host access.
 
 **Why:** Full native standard-library compatibility would require additional isolated execution infrastructure.
@@ -114,7 +126,7 @@ Batch engine ticks: one Node action runs the agents of a tick, then one commit m
 
 **Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap. Batched ticks reach that goal in Convex's transactional model.
 
-**How to apply:** Keep one commit mutation (and one `tickBatches` document) per tick, preserve opportunity order within it, and stay inside Convex's per-transaction limits. A discarded tick (a conflict or a failed action) is an uncommitted window, never a partially applied one.
+**How to apply:** Keep one commit mutation (and one `tickBatches` document) per tick, preserve opportunity order within it, and stay inside Convex's per-transaction limits. The commit also inserts one `objectEvents` row per spawn and transformation (the owner's per-object history model), inside the same mutation. A discarded tick (a conflict or a failed action) is an uncommitted window, never a partially applied one.
 
 Call them **utility functions**, never "value functions". "Value" means an object's value (the T instance).
 

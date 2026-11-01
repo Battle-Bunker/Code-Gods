@@ -6,9 +6,9 @@
  * file storage or prepare them on demand (engine/calibration.ts resolveTables) and pass them in, `InstanceTables` for
  * scoring; dealing needs none (every available family is dealable, its tables are prepared after the deal).
  */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeLegacyLanguage, validateSettings,
+  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
@@ -68,6 +68,22 @@ export const cryptoRng: Rng = {
 export const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
 /** Uniform in (0, 1). */
 export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
+/** A fresh per-game key for the disclosure noise (PRIVATE: games.noiseKey, never projected). */
+export const newNoiseKey = () => randomBytes(32).toString("hex");
+/**
+ * The live disclosure noise on the others' sums at one object VALUE (settings.peerNoiseBits, Gaussian σ in bits;
+ * docs/public-log-design.md §5.2): a keyed function of (the game's private key, the value), so a value that recurs
+ * (A → B → A, or a later spawn) shows the same noise every time and repeated observations cannot average it away.
+ * Stored with each object version as it is written. 0 when off.
+ */
+export function disclosureNoise(settings: Pick<GameSettings, "peerNoiseBits">, noiseKey: string | undefined, value: ObjectValue): number {
+  const sigma = settings.peerNoiseBits ?? 0;
+  if (!(sigma > 0) || !noiseKey) return 0;
+  const digest = createHmac("sha256", noiseKey).update(JSON.stringify(value)).digest();
+  // Two 48-bit uniforms in (0, 1), Box–Muller.
+  const u1 = (digest.readUIntBE(0, 6) + 0.5) / 281474976710656, u2 = (digest.readUIntBE(6, 6) + 0.5) / 281474976710656;
+  return sigma * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
 
 // ------------------------------------------------------------------------------------------------
 // scoring and dealing (calibration tables)
@@ -195,11 +211,12 @@ export function assertPlayable(manifest: CalibrationManifest, settings: GameSett
 
 /**
  * A complete settings object (a game setup): exactly the GameSettings fields, playable. The single-language shape of
- * settings saved before games allowed several languages is accepted as that one language (upgradeLegacyLanguage).
+ * settings saved before games allowed several languages is accepted as that one language, and a field added since with a
+ * default (scoreIntervalSeconds) is filled with it (upgradeStoredSettings).
  */
 export function assertCompleteSettings(manifest: CalibrationManifest, given: unknown): GameSettings {
   if (!given || typeof given !== "object" || Array.isArray(given)) return fail("BAD_REQUEST", "settings must be a settings object");
-  const settings = upgradeLegacyLanguage(given) ?? given;
+  const settings = upgradeStoredSettings(given) ?? given;
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
   const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
@@ -215,9 +232,9 @@ export function assertCompleteSettings(manifest: CalibrationManifest, given: unk
 export function nextSettings(manifest: CalibrationManifest, previous: GameSettings,
   input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
   let settings: GameSettings;
-  if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly
+  if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly unless upgradeStoredSettings fills its default
   else if (input.settings) {
-    try { settings = applySettingsChange((upgradeLegacyLanguage(previous) ?? previous) as GameSettings, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
+    try { settings = applySettingsChange((upgradeStoredSettings(previous) ?? previous) as GameSettings, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
       return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);
     }
   } else return fail("BAD_REQUEST", "Settings or a setup are required");

@@ -395,6 +395,18 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "Per-object series over the game of the human's net bits, the peer aggregate and payoff: which objects are rising or falling for them." },
     tools: ["get_trajectories"], palette: { label: "Open my points over time", group: "view", keywords: ["chart", "trajectories", "over time", "trend"], surfaces: P },
   },
+  "player.series": {
+    kind: "query", audience: "player",
+    human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },
+    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation (unattributed while live; the human's own marked mine), with the value before and after, the human's own bits and the OTHER gods' summed bits before and after (noisy while live, peerNoiseBits; exact after the end). The data for inferring the other gods' rules." },
+    tools: ["get_utility_series"], palette: null, why: "An analytics feed paged by the assistant or a stored panel; the human reads it through panels, not a button.",
+  },
+  "player.board": {
+    kind: "query", audience: "player",
+    human: { title: "Board at a moment", tooltip: "Every object as it was at a world time, with your bits and the others' total." },
+    ai: { description: "The board at a world time (default now): every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
+    tools: ["get_board_at"], palette: null, why: "Takes a world time chosen during analysis; panels and the assistant call it.",
+  },
   "player.myUtility": {
     kind: "query", audience: "player",
     human: { title: "Open my secret goal", tooltip: "Your own utility descriptor and the settings to evaluate it; nobody else's." },

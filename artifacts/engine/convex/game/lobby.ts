@@ -11,11 +11,11 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
 import { endTurnsForNewGame } from "../assistant/store";
-import { nextDeadline } from "../engine/loop";
+import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
-import { EVENT_LOG_SCHEMA, LEASE_MS, totalsOf } from "../lib/world";
+import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 
@@ -167,9 +167,9 @@ export const commitStart = internalMutation({
   args: {
     roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
     prepared: v.optional(v.string()),
-    seasonCommitment: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
+    seasonCommitment: v.string(), noiseKey: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
-    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number() })),
+    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -208,7 +208,7 @@ export const commitStart = internalMutation({
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
       settings, roster, ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
-      endAtWorld: args.endAtWorld, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
+      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
       nextBatch: 0, agentCount: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
@@ -218,14 +218,19 @@ export const commitStart = internalMutation({
     }
     const events = [];
     for (const o of args.objects) {
-      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience });
-      events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits) });
+      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}) });
+      events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
+        ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }
+    // The first scoreboard (docs/public-log-design.md §3): published with the starting objects, at world 0.
+    // Exact totals are stored for the replay; the scoreboard players see is the disclosed one (noisy peers' sums).
+    const godIds = args.deities.map(d => d.godId);
+    const totals = totalsOf(godIds, args.objects), disclosed = disclosedTotalsOf(godIds, args.objects);
     await ctx.db.insert("tickBatches", {
-      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events],
-      totals: totalsOf(args.deities.map(d => d.godId), args.objects),
+      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
-    await ctx.db.patch(gameId, { nextBatch: 1 });
+    await insertObjectEvents(ctx, gameId, 0, events);
+    await ctx.db.patch(gameId, { nextBatch: 1, scoreboard: { totals: disclosed, world: 0, at: now } });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);

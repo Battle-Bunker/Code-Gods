@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CORE_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { CORE_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { SKILLS } from "@workspace/player-client/skills";
 import { BRIEFING_LIMITS, GAME_PRIMER, assistantBriefing, assistantSystemPrompt } from "../src/index.ts";
 
@@ -16,7 +16,9 @@ const toolLine = (text: string, name: string) => text.split("\n").find(l => l.st
 test("the index lists every tool the grant offers beyond the core set, one short line each, and every skill; nothing else", () => {
   for (const permission of ["read", "act", "owner"] as const) {
     const text = prompt(permission);
-    const indexed = toolsFor(permission).filter(t => !(CORE_TOOLS as readonly string[]).includes(t.name));
+    const indexed = toolsFor(permission).filter(t => !(CORE_TOOLS as readonly string[]).includes(t.name) && !SKILL_LOADED_TOOLS.includes(t.name));
+    // Skill-loaded tools are reachable through their skill (load_skill loads them), never orphaned.
+    for (const name of SKILL_LOADED_TOOLS) assert.ok(SKILLS.some(k => (k.tools as readonly string[]).includes(name)), `${name} loads with a skill`);
     for (const t of indexed) assert.equal(toolLine(text, t.name)?.replace(" (confirmed)", ""), `- ${t.name}: ${t.short}`, `${permission}: ${t.name} is indexed by its short line`);
     for (const k of SKILLS) assert.equal(toolLine(text, k.name), `- ${k.name}: ${k.description}`);
     const listed = text.split("\n").filter(l => /^- [a-z_-]+:/.test(l)).map(l => l.slice(2, l.indexOf(":")));

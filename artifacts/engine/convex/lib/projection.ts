@@ -5,12 +5,12 @@
  * opponents' scores and descriptors, seeds, other gods' agent sources, AI prompts and the end deadline
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
-import { allowedLanguages, instantiationOf, leaderboard, type GameSettings } from "@workspace/game-core";
+import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
-import { agentStatus, godEnergy, viewOf, viewOfNet, worldNow } from "./world";
+import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
 export const SCORING = "information-v1" as const;
@@ -21,9 +21,14 @@ type Obj = Doc<"objects">;
 const netMap = (o: Pick<Obj, "scores">) => new Map(o.scores.map(s => [s.god, s.netBits]));
 
 export type Standing = { deityId: string; name: string; kind: "human" | "ai"; totalPayoff: number; rank: number };
-export function standings(game: Pick<Game, "roster">, objects: readonly Pick<Obj, "scores">[]): Standing[] {
+/**
+ * The public leaderboard: the published scoreboard (docs/public-log-design.md §3), which changes for everyone at once
+ * every scoreIntervalSeconds of world time; live totals only for a game started before scoreboards existed.
+ */
+export function standings(game: Pick<Game, "roster"> & { scoreboard?: Game["scoreboard"] }, objects: readonly Pick<Obj, "scores">[]): Standing[] {
   const member = new Map(game.roster.map(m => [m.id, m]));
-  return leaderboard(game.roster.map(m => m.id), objects.map(netMap)).map(row => ({
+  const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));
+  return rows.map(row => ({
     deityId: row.godId, name: member.get(row.godId)!.name, kind: member.get(row.godId)!.kind, totalPayoff: row.totalPayoff, rank: row.rank,
   }));
 }
@@ -65,8 +70,10 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
   return {
     id: game._id, guid: game.guid, shortCode: game.shortCode, phase: game.phase, worldSeconds: game.worldSeconds,
     lastTick: game.lastTick, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt, agentCount,
-    leaderboard: standings(game, objects),
-    objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience })),
+    leaderboard: standings(game, objects), leaderboardWorldSeconds: game.scoreboard?.world ?? null,
+    // Live, salience carries the version's disclosure noise (the same as every seated player's peers' sum, so own +
+    // others = salience still holds for each of them and nothing can be averaged); ended, it is exact.
+    objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience + (game.phase !== "ended" ? o.noise ?? 0 : 0) })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     recoveryReason: game.recoveryReason ?? null,
     settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry),
@@ -124,11 +131,11 @@ export function preparingLine(p: ReturnType<typeof preparingView>): string {
   return `The game is preparing its rule tables: ${p.ready} of ${p.total} ready${parts} (the first game on ${p.instance} on this server; about ${p.estimateSeconds} s in all). It starts by itself when they are.`;
 }
 
-/** One god's private view of one object: its own score and peer aggregates only. */
-export function personalObject(o: Obj, godId: string) {
+/** One god's private view of one object: its own score and peer aggregates only (`live`: the peers' sum with its noise). */
+export function personalObject(o: Obj, godId: string, live: boolean) {
   const own = o.scores.find(s => s.god === godId);
   if (!own) return null;
-  const view = viewOf(o.scores, godId);
+  const view = viewOf(o.scores, godId, live ? o.noise ?? 0 : 0);
   return {
     id: o._id as string, value: o.value, version: o.version,
     own: { ordinal: own.ordinal, rewardBits: own.rewardBits, ...(own.penaltyBits !== undefined ? { penaltyBits: own.penaltyBits } : {}), netBits: own.netBits },
@@ -156,15 +163,18 @@ type Ev = Batch["events"][number];
 
 /**
  * One event as god `godId` (roster index `index`, -1 for a spectator) may see it. Spawns and transforms
- * carry the object value plus the viewer's own net bits and peer aggregates; only an agent's owner learns
- * which calls it made and what they cost; failed acts are the owner's private bookkeeping.
+ * carry the object value plus the viewer's own net bits and peer aggregates. Every transformation reaches every
+ * viewer; while the game is `live` (not ended) only an agent's owner learns which agent made it, and others' summons
+ * and destructions are withheld (docs/public-log-design.md §1). Calls, costs and failed acts are the owner's own.
  */
-export function projectEvent(ev: Ev, godId: string, index: number) {
+export function projectEvent(ev: Ev, godId: string, index: number, live = true) {
   if (ev.t === "phase") return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
   if (ev.t === "summon") {
-    // Everyone sees that an agent appeared (the public agent count rose; its id shows in transforms); only its owner
-    // learns its source, language, price and account.
+    // While the game is live only the owner sees its summons (docs/public-log-design.md §1): another god's summon
+    // would date that god's agent and so attribute the transformations that follow it (the live agent count stays
+    // public as an aggregate). After the end everyone sees that it appeared; only its owner learns its record.
     const mine = ev.ownerId === godId;
+    if (live && !mine) return null;
     return {
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
@@ -173,29 +183,35 @@ export function projectEvent(ev: Ev, godId: string, index: number) {
       } : {}),
     };
   }
-  if (ev.t === "destroy") return { type: "agent.destroyed" as const, agentId: ev.agentId, mine: ev.ownerId === godId, worldSeconds: ev.world };
+  if (ev.t === "destroy") {
+    const mine = ev.ownerId === godId;
+    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
+  }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
     return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: ev.cost };
   }
-  const own = index >= 0 ? viewOfNet(ev.net, index) : null;
+  // Live, the peers' sum carries the version's disclosure noise (settings.peerNoiseBits); ended, it is exact.
+  const own = index >= 0 ? viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0) : null;
   const scored = own ? { own: { netBits: own.netBits }, peerNetBits: own.peerNetBits, peerCare: own.peerCare, payoff: own.payoff } : {};
   if (ev.t === "spawn") {
     return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, ...scored };
   }
+  // Every transformation is public; while the game is live it is unattributed (docs/public-log-design.md §1): another
+  // god's carries no agent id, owner, calls or charge. Only the viewer's own carry its agent, calls and cost.
   const mine = ev.ownerId === godId;
   return {
     type: "object.transformed" as const, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version,
-    worldSeconds: ev.world, agentId: ev.agentId, mine, ...(mine ? { calls: ev.calls, cost: ev.cost } : {}), ...scored,
+    worldSeconds: ev.world, mine, ...(mine || !live ? { agentId: ev.agentId } : {}), ...(mine ? { calls: ev.calls, cost: ev.cost } : {}), ...scored,
   };
 }
 export type ProjectedEvent = NonNullable<ReturnType<typeof projectEvent>>;
 
-/** The viewer's events of a list of batches, each tagged with its batch seq. */
-export function projectBatches(batches: readonly Batch[], godId: string, index: number) {
+/** The viewer's events of a list of batches, each tagged with its batch seq (`live`: the game has not ended). */
+export function projectBatches(batches: readonly Batch[], godId: string, index: number, live: boolean) {
   const out: (ProjectedEvent & { seq: number })[] = [];
   for (const batch of batches) for (const ev of batch.events) {
-    const projected = projectEvent(ev, godId, index);
+    const projected = projectEvent(ev, godId, index, live);
     if (projected) out.push({ ...projected, seq: batch.seq });
   }
   return out;
@@ -237,11 +253,11 @@ export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
 }
 
 /** Per-object series of the viewer's own bits and peer aggregates (the Panel SDK's trajectories). */
-export function trajectories(batches: readonly Batch[], index: number) {
+export function trajectories(batches: readonly Batch[], index: number, live: boolean) {
   const series = new Map<string, { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
   for (const batch of batches) for (const ev of batch.events) {
     if (ev.t !== "spawn" && ev.t !== "transform") continue;
-    const view = viewOfNet(ev.net, index);
+    const view = viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);
     points.push({ seq: batch.seq, worldSeconds: ev.world, value: ev.value, ownNetBits: view.netBits, peerNetBits: view.peerNetBits, payoff: view.payoff });
@@ -284,9 +300,12 @@ export function observation(input: ObservationInput): Observation {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,
       utility: game && deity ? deity.card : undefined, pauseUsed: deity?.pauseUsed ?? false,
       energy: game && deity ? godEnergy(game, deity.spent, now) : 0,
+      // The own score is live; the leaderboard below is the scoreboard last published.
+      // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
+      ...(game && deity ? { score: (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
     objects: game && deity ? input.objects.flatMap(o => {
-      const view = personalObject(o, self.godId);
+      const view = personalObject(o, self.godId, game.phase !== "ended");
       return view ? [{ id: view.id, value: view.value, own: view.own, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff }] : [];
     }) : [],
     agents: game ? input.agents.filter(a => a.ownerId === self.godId).map(a => agentView(game, a, now)) : [],
@@ -295,6 +314,7 @@ export function observation(input: ObservationInput): Observation {
       ...(Array.isArray(t.calls) ? { calls: t.calls.slice(0, 16) } : {}), ...(t.cost !== undefined ? { cost: t.cost } : {}),
     })),
     leaderboard: game ? standings(game, input.objects).map(s => ({ godId: s.deityId, label: s.name, isAI: s.kind === "ai", totalPayoff: s.totalPayoff })) : [],
+    ...(game?.scoreboard ? { leaderboardWorldSeconds: game.scoreboard.world } : {}),
     chat: input.chat.slice(-100).map(m => ({ id: m._id, godId: m.authorId, label: m.authorName, isAI: m.kind === "ai", text: m.text.slice(0, 2000) })),
   });
 }

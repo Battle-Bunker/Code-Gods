@@ -62,3 +62,29 @@ test("an ended game is frozen: a god's energy stops accruing at the end", () => 
   assert.equal(godEnergy(ended, 10, 30_000), 100 + 40 - 10, "reading after the end gives the energy at the end");
   assert.equal(godEnergy(ended, 10, 3_600_000), godEnergy(ended, 10, 20_000), "and it does not move however late it is read");
 });
+
+test("the scoreboard publishes once per interval: at the first commit reaching the next multiple, never twice in one", async () => {
+  const { scoreboardDue } = await import("../../convex/lib/world.ts");
+  // Published at 0; commits at about 1 s apart with a 10 s interval: due at the first commit at or past 10, then 20.
+  assert.equal(scoreboardDue(0, 9.99, 10), false);
+  assert.equal(scoreboardDue(0, 10, 10), true, "exactly on the mark");
+  assert.equal(scoreboardDue(0, 10.7, 10), true);
+  assert.equal(scoreboardDue(10.7, 19.5, 10), false, "published at 10.7: not again before 20");
+  assert.equal(scoreboardDue(10.7, 20.2, 10), true);
+  assert.equal(scoreboardDue(10.7, 45, 10), true, "a long window publishes once, at its end");
+  assert.equal(scoreboardDue(3, 3, 10), false, "no world time passed (a pause)");
+  assert.equal(scoreboardDue(0.1 + 0.2, 30 * (0.1 + 0.2) / 0.3, 30), true, "floating-point marks still count");
+});
+
+
+test("the live disclosure adds an object version's noise to the peers' sum; care, payoff and every god's total follow it", async () => {
+  const { viewOfNet, viewOf, disclosedTotalsOf, totalsOf } = await import("../../convex/lib/world.ts");
+  // Roster [a, b, c]; net bits 2, 3, −1; the viewer is a (index 0): others 3 + (−1) = 2, with noise −2.5 → −0.5.
+  assert.deepEqual(viewOfNet([2, 3, -1], 0), { netBits: 2, peerNetBits: 2, peerCare: 2, payoff: 4 });
+  assert.deepEqual(viewOfNet([2, 3, -1], 0, -2.5), { netBits: 2, peerNetBits: -0.5, peerCare: 0, payoff: 0 });
+  const scores = [{ god: "a", netBits: 2 }, { god: "b", netBits: 3 }, { god: "c", netBits: -1 }];
+  assert.deepEqual(viewOf(scores, "b", 1), { netBits: 3, peerNetBits: 2, peerCare: 2, payoff: 6 }, "b: others 2 − 1 = 1, +1 noise");
+  // Disclosed totals: a 2·max(0, 2 + 1) = 6, b 3·max(0, 1 + 1) = 6, c −1·max(0, 5 + 1) = −6 (one object, noise +1).
+  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores, noise: 1 }]), [6, 6, -6]);
+  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores }]), totalsOf(["a", "b", "c"], [{ scores }]), "without noise: the exact totals");
+});

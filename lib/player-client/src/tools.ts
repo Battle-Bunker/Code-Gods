@@ -298,7 +298,7 @@ const datasetName = z.enum(DATASET_NAMES);
 const datasetRequest = z.union([datasetName, obj({
   name: datasetName,
   gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history, replay: required (an id from the games dataset)."),
-  limit: z.number().int().min(1).max(2000).optional().describe("events, trajectories, game_history, replay: at most this many tick batches."),
+  limit: z.number().int().min(1).max(20000).optional().describe("events, trajectories, game_history, replay: at most this many tick batches; utility_series: at most this many rows."),
 })]);
 const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
 export const CODE_TOOLS = [
@@ -331,7 +331,50 @@ export const CODE_TOOLS = [
     input: obj({ limit: z.number().int().min(1).max(50).default(10) }), output: result(anyData) }),
 ] as const;
 
-export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS, CODE_TOOLS] as const;
+/**
+ * Rival inference (docs/public-log-design.md §4): the public transformation log with the player's own and the other
+ * gods' summed bits, the board at a moment, the candidate rules, and the hypothesis fit. Reads only. The
+ * rival-inference skill (skills.ts) has the workflow: fit, ask the player for negotiation clues, refit with hints.
+ */
+const hint = obj({
+  familyId: id.describe("A family id from list_utility_candidates."),
+  params: z.record(z.string(), z.unknown()).optional().describe("Some of the family's parameters (a partial match: e.g. {symbol: 'A'}); omit for any."),
+  probability: z.number().min(0.01).max(0.99).describe("How likely some OTHER god holds a matching rule, given what was said."),
+});
+export const INFERENCE_TOOLS = [
+  def({ name: "get_utility_series", short: "Every object change this game with own and others' summed bits, before and after.", functions: ["player.series"], permission: "read", annotations: read,
+    note: "Columns, oldest first, with dOwn and dOthers (after − before; null for spawns). Filter by objectId or fromWorld; a page holds at most "
+      + "`limit` rows and what fits in one result (nextCursor: pass it as offset). For analysis over the whole log, prefer run_code with the utility_series dataset.",
+    input: obj({ gameId, objectId: id.optional(), fromWorld: z.number().min(0).optional(),
+      offset: z.number().int().min(0).default(0).describe("Rows to skip (nextCursor)."), limit: z.number().int().min(1).max(20000).default(500) }),
+    output: result(anyData) }),
+  def({ name: "get_board_at", short: "The board at a world time, with own and others' summed bits.", functions: ["player.board"], permission: "read", annotations: read,
+    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now).") }), output: result(anyData) }),
+  def({ name: "list_utility_candidates", short: "Every rule another god might hold here, with its parameter sets.", title: "Candidate rules", functions: [], permission: "read", annotations: read,
+    about: "The public candidates for the OTHER gods' utility functions in the current game: every family the dealer could deal here (theme, tags, "
+      + "role: reward or defence goal) with every parameter set it can draw, and how many other gods there are. Use the ids and params in "
+      + "fit_utility_mixture hints. Public knowledge: it never says who holds what.",
+    input: obj({ family: id.optional().describe("Only this family (all its parameter sets)."), paramsPerFamily: z.number().int().min(0).max(500).default(20) }),
+    output: result(anyData) }),
+  def({ name: "fit_utility_mixture", short: "Fit hypotheses of the other gods' rules to the observed others' bits.", title: "Fit the other gods' rules", functions: [], permission: "read", annotations: read,
+    about: "Fit the other gods' utility functions to what the player has seen: the others' summed net bits at every object value in the "
+      + "game's public log is exactly the sum of each other god's rule's bits, so every candidate rule is scored with the game's own "
+      + "calibration tables. Returns the best hypotheses (a rule per other god, with RMS residual, R² and posterior), each family's "
+      + "probability of being held, and a free-weight spectrum. exact: false means no hypothesis explains the data (rank by families "
+      + "and spectrum). Hints (negotiation clues) are priors; exclude removes families. Never says which god holds which rule.",
+    input: obj({
+      hints: z.array(hint).max(20).default([]), exclude: z.array(id).max(200).default([]).describe("Family ids no other god holds."),
+      maxObservations: z.number().int().min(10).max(1000).default(300).describe("Use at most this many distinct values, the latest (more is slower: about 1 s per 50 on a 5×5 grid)."),
+      top: z.number().int().min(1).max(10).default(5),
+    }), output: result(anyData) }),
+] as const;
+
+export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS, CODE_TOOLS, INFERENCE_TOOLS] as const;
+/**
+ * Tools the in-client assistant reaches only through their skill (load_skill loads a skill's tools): kept out of its
+ * always-on index to hold the system prompt's budget. Every other surface (MCP, the CLI) lists them like any tool.
+ */
+export const SKILL_LOADED_TOOLS: readonly string[] = INFERENCE_TOOLS.map(t => t.name);
 /**
  * The tools an assistant keeps loaded at every step (the cached prefix): the reads and screen changes nearly every
  * question uses, public chat, and the skill loader. Every other tool is a line of the index, loaded on demand.

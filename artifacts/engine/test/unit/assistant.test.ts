@@ -6,7 +6,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { CORE_TOOLS, OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { CORE_TOOLS, OWNER_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { SKILLS } from "@workspace/player-client/skills";
 import { activeTools, assistantSystemPrompt } from "@workspace/ai-player";
 import {
   LIMITS, argsLimit, buildHistory, callLimitProblem, clipJson, commandIdFor, loadTools, loadableTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, uuidv5,
@@ -26,7 +27,11 @@ test("the tool list is stable and small in context: the loader and the core tool
     const names = (tools[0].inputSchema as any).properties.names;
     assert.deepEqual(names.items.enum, deferred, "load_tools names exactly the index");
     const prompt = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: p });
-    for (const name of deferred) assert.ok(prompt.includes(`\n- ${name}: `), `${p}: ${name} is in the index`);
+    // Skill-loaded tools (SKILL_LOADED_TOOLS) stay deferred and loadable but load with their skill, not from the index.
+    for (const name of deferred) {
+      if (SKILL_LOADED_TOOLS.includes(name)) assert.ok(!prompt.includes(`\n- ${name}: `) && SKILLS.some(k => (k.tools as readonly string[]).includes(name)), `${p}: ${name} loads with its skill`);
+      else assert.ok(prompt.includes(`\n- ${name}: `), `${p}: ${name} is in the index`);
+    }
   }
   assert.ok(!loadableTools("read").includes("summon_agent") && loadableTools("act").includes("summon_agent"));
 });

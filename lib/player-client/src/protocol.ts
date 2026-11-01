@@ -91,7 +91,9 @@ export const observationSchema = z.object({
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     perActFloorBits: finite.optional(), commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
-    utility: utilityCardSchema.optional() }),
+    utility: utilityCardSchema.optional(),
+    // Your own total payoff NOW (live), while the leaderboard is the scoreboard last published (leaderboardWorldSeconds).
+    score: finite.optional() }),
   // Your own score of each object and aggregates over your peers. Individual opponents' scores are never disclosed.
   objects: z.array(z.object({ id, value: wire,
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
@@ -102,7 +104,10 @@ export const observationSchema = z.object({
     energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,
     calls: z.array(z.tuple([z.string().max(64), z.record(z.string(), z.unknown())])).max(16).optional(), cost: finite.optional() })).max(500),
+  // Every god's total payoff as last published: it changes for everyone at once every settings.scoreIntervalSeconds of
+  // world time (docs/public-log-design.md §3), at world time leaderboardWorldSeconds.
   leaderboard: z.array(z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), totalPayoff: finite })).max(100),
+  leaderboardWorldSeconds: finite.optional(),
   chat: z.array(z.object({ id, godId: id, label: z.string().max(128), isAI: z.boolean(), text: z.string().max(2000) })).max(100),
 });
 export type Observation = z.infer<typeof observationSchema>;

@@ -9,13 +9,13 @@
  * endGame, addAi, removeAi (browser owner, or an `owner` credential of the room's current owner).
  */
 import { ConvexError, v } from "convex/values";
-import { LANGUAGE_SPECS, instantiationOf, lifetimeSeconds, upgradeLegacyLanguage, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, instantiationOf, lifetimeSeconds, upgradeStoredSettings, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
-import { assertShape, catalogFor, deal, dealerOf, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
@@ -92,18 +92,18 @@ export const MAX_PREPARING_MS = 30 * 60_000;
 async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly Deal[], tables: InstanceTables,
   commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string }): Promise<Started | null> {
   const occupied = new Set<ObjectValue>();
-  const objects = [];
+  const objects = [], noiseKey = newNoiseKey();
   for (let i = 0; i < settings.startingObjectCount; i++) {
     const value = uniqueSpawn(settings, occupied);
     if (value === undefined) break; // only a nearly full tiny domain gets here
     occupied.add(value);
     const scores = scoresOf(tables, settings, deals, value);
-    objects.push({ value: value as number | string, scores, salience: salienceOf(scores) });
+    objects.push({ value: value as number | string, scores, salience: salienceOf(scores), noise: disclosureNoise(settings, noiseKey, value) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
   return ctx.runMutation(internal.game.lobby.commitStart, {
     ...commit,
-    seasonCommitment: seasonCommitment(), endAtWorld: lifetimeSeconds(settings.halfLifeSeconds, openUniform()),
+    seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: lifetimeSeconds(settings.halfLifeSeconds, openUniform()),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
     objects,
@@ -143,8 +143,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);
   }
   if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
-  // A room the single-language migration has not reached yet plays its one language (upgradeLegacyLanguage).
-  const settings = (upgradeLegacyLanguage(room.settings) ?? room.settings) as GameSettings;
+  // A room the single-language migration has not reached yet plays its one language (upgradeStoredSettings).
+  const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
   const manifest = await calibrationManifest(ctx);
   try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertShape(manifest, settings);
@@ -187,7 +187,7 @@ export const completeStart = internalAction({
     const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
     const p = room?.preparing;
     if (!room || !p || p.requestId !== requestId || p.error) return;
-    const settings = (upgradeLegacyLanguage(room.settings) ?? room.settings) as GameSettings;
+    const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
     const failWith = (message: string) => ctx.runMutation(internal.game.lobby.preparingFailed, { roomId, requestId, message });
     let resolved;
     try {

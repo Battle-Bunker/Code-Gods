@@ -9,7 +9,7 @@
  *     panel catalogue and the utility's source are skills.
  * The prompt is identical for every turn of a player in a room with one grant, so it stays in the prompt cache.
  */
-import { CORE_TOOLS, OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { CORE_TOOLS, OWNER_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { skillIndexLines } from "@workspace/player-client/skills";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
 import { LOAD_TOOLS } from "./chat.ts";
@@ -22,11 +22,13 @@ const CONFIRMED = new Set(["send_chat", "pause_game", "destroy_agent", "delete_p
 const OWNER = new Set<string>(OWNER_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
 export const isConfirmedTool = (name: string) => CONFIRMED.has(name) || OWNER.has(name);
 const CORE = new Set<string>(CORE_TOOLS);
+/** Tools that load with their skill (lib/player-client tools.ts SKILL_LOADED_TOOLS): not in the always-on index. */
+const SKILL_LOADED = new Set<string>(SKILL_LOADED_TOOLS);
 
 /** The index lines of a grant: the tools beyond the core set (full definitions load with load_tools), then the skills. */
 export function assistantIndex(permission: AssistantPromptContext["permission"]): { tools: string[]; skills: string[] } {
   return {
-    tools: toolsFor(permission).filter(t => !CORE.has(t.name)).map(t => `- ${t.name}: ${t.short}${isConfirmedTool(t.name) ? " (confirmed)" : ""}`),
+    tools: toolsFor(permission).filter(t => !CORE.has(t.name) && !SKILL_LOADED.has(t.name)).map(t => `- ${t.name}: ${t.short}${isConfirmedTool(t.name) ? " (confirmed)" : ""}`),
     skills: skillIndexLines(),
   };
 }

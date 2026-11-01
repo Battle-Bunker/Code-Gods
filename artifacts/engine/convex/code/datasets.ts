@@ -5,7 +5,9 @@
  */
 import { DATASETS, datasetName, type DatasetName, type DatasetRequest } from "@workspace/player-client/datasets";
 import { rulesText } from "@workspace/player-client/rules";
+import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
+import { gatherSeries } from "../agent/series";
 import type { ActionCtx } from "../_generated/server";
 import { fail, messageOf } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
@@ -60,6 +62,16 @@ async function replayDataset(ctx: ActionCtx, principal: Principal, roomId: strin
     chat: pages.flatMap(p => p.chat),
   };
 }
+
+/**
+ * A dataset that does not exist for this player is null: no game in the room yet, or the player is not seated in it.
+ * Anything else (a wrong gameId, lost room access) still fails.
+ */
+const unseated = (error: unknown) => {
+  const message = error instanceof ConvexError ? String((error.data as { message?: string } | undefined)?.message ?? "") : "";
+  if (/no game in this room yet|not seated|You are not seated/.test(message)) return null;
+  throw error;
+};
 
 /**
  * {name: value} for every request, in request order (a name requested twice keeps the last). Throws BAD_REQUEST for a
@@ -121,6 +133,13 @@ export async function resolveDatasets(ctx: ActionCtx, principal: Principal, room
         out[name] = await replayDataset(ctx, principal, roomId, options.gameId!, limit);
         break;
       }
+      // Rival inference (docs/public-log-design.md §4): null when there is no game or the player is not seated in it.
+      case "utility_series":
+        out[name] = await gatherSeries(ctx, principal, roomId, { ...(options.gameId ? { gameId: options.gameId } : {}), limit }).catch(unseated);
+        break;
+      case "utility_candidates":
+        out[name] = await ctx.runAction(internal.agent.node.candidates, { principal, roomId }).catch(unseated);
+        break;
     }
   }
   return out;

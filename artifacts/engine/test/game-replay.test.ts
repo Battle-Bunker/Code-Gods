@@ -72,7 +72,27 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   };
   assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 3), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 4), "every batch carries the event schema");
+  // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
+  // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
+  // exact on every scoring batch, so this ended game's replay below steps per event.
+  const published = final.batches.filter((b: any) => b.scoreboard);
+  assert.equal(published[0].seq, 0, "the starting scoreboard");
+  assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
+  const periodic = published.slice(1, -1);
+  periodic.forEach((b: any, i: number) => {
+    const previous = i === 0 ? 0 : periodic[i - 1].worldTo;
+    assert.ok(Math.floor(b.worldTo / 10) > Math.floor(previous / 10), `batch ${b.seq} at ${b.worldTo} s publishes only past the next 10 s mark after ${previous} s`);
+  });
+  assert.deepEqual(final.game.scoreboard.totals, published.at(-1).totals, "the game's scoreboard is the last publication");
+  // One objectEvents row per spawn and transform, in the same order, with the same values and score vectors.
+  const logged = final.batches.flatMap((b: any) => b.events.filter((e: any) => e.t === "spawn" || e.t === "transform").map((e: any) => ({ ...e, seq: b.seq })));
+  assert.equal(final.objectEvents.length, logged.length, "a row per scoring event");
+  for (const e of logged) {
+    const row = final.objectEvents.find((r: any) => r.objectId === e.objectId && r.version === e.version);
+    assert.ok(row, `a row for ${e.objectId} v${e.version}`);
+    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, e.net, e.before, e.agentId]);
+  }
   const roster: string[] = final.game.roster.map((m: any) => m.id);
   const [hostPages, adaPages, boPages] = [await pagesOf(host), await pagesOf(ada), await pagesOf(bo)];
   const strip = (pages: ReplayPage[]) => pages.map(p => ({ ...p, viewer: undefined }));
@@ -82,7 +102,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 3);
+  assert.equal(pages[0].game.logSchema, 4);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));

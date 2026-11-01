@@ -15,7 +15,7 @@ import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf } from "./lib/load";
 import { objectInstance, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
-import { EVENT_LOG_SCHEMA } from "./lib/world";
+import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
 
@@ -102,7 +102,7 @@ export const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: s
       : await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
     const latestCursor = game.nextBatch - 1;
     return {
-      gameId: game._id, events: projectBatches(batches, viewer.subject, index),
+      gameId: game._id, events: projectBatches(batches, viewer.subject, index, game.phase !== "ended"),
       nextCursor: batches.at(-1)?.seq ?? after ?? latestCursor, latestCursor,
       gap: after !== undefined && batches.length > 0 && batches[0].seq > after + 1,
     };
@@ -120,7 +120,7 @@ export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: 
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game!._id).gt("seq", after)).take(limit);
-    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game!.nextBatch - 1 };
+    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game!.nextBatch - 1 };
 };
 
 /** The replay API's version (docs/replay-design.md §3): bump it when the shape of player.replay changes. 2: transparent. */
@@ -240,7 +240,7 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
 };
 
 /**
@@ -268,4 +268,113 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
       objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId, penaltyWeight: settings.penaltyWeight,
       language: allowedLanguages(settings)[0], languages: allowedLanguages(settings), settings,
     };
+}
+
+// ------------------------------------------------------------------------------------------------
+// the utility series (docs/public-log-design.md §2, §4): every spawn and transform of a game, per viewer
+// ------------------------------------------------------------------------------------------------
+
+/** A page of the series holds at most this many rows (default and maximum). */
+export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000;
+type Wire = number | string;
+
+/** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
+/** Live (`noise` given), the others' sum carries the version's disclosure noise; ended, it is exact. */
+const viewAt = (net: readonly number[], index: number, noise = 0) => { const v = viewOfNet(net, index, noise); return { own: v.netBits, others: v.peerNetBits, payoff: v.payoff }; };
+
+async function seatedGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameRef?: string) {
+  const { game, index, viewer } = await gameFor(ctx, caller, roomId, gameRef);
+  if (!game) return fail("NOT_FOUND", "There is no game in this room yet");
+  if (index < 0) return fail("FORBIDDEN", "The utility series is for the game's players; you are not seated in this game");
+  return { game, index, viewer };
+}
+
+/**
+ * Whether the game's per-object history is incomplete: it started before objectEvents rows were written (event log
+ * schema 3), so its early spawns and transformations have no rows. One read (the game's first batch).
+ */
+async function partialSeries(ctx: QueryCtx, gameId: Doc<"games">["_id"]) {
+  const first = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).first();
+  return !first || (first.schema ?? 1) < 3;
+}
+
+/**
+ * One page of the caller's utility series: every spawn and transform of the game in world-time order, in columns, with
+ * the object's value before and after and the caller's OWN bits and the OTHER gods' summed bits before and after
+ * (while live, the others' sums carry the game's disclosure noise, fixed per value; exact after the end). Another god's transformation is unattributed while the
+ * game is live; `mine` marks the caller's own. Page with `cursor` until `pageDone` (`done`: and the game has ended); a
+ * live game's series keeps growing (poll with the last cursor). `objectId` reads one object's history. `partial`: the
+ * game started before these rows were written, so its early events are missing. Never another god's individual bits.
+ */
+const seriesArgs = {
+  roomId: v.string(), gameId: v.optional(v.string()), objectId: v.optional(v.string()), fromWorld: v.optional(v.number()),
+  cursor: v.optional(v.union(v.string(), v.null())), limit: v.optional(v.number()),
+};
+export const series = query({ args: seriesArgs, handler: async (ctx, args) => seriesFor(ctx, await requireViewer(ctx), args) });
+export const seriesAs = internalQuery({
+  args: { principal: principalV, ...seriesArgs },
+  handler: async (ctx, { principal, ...args }) => seriesFor(ctx, await viewerOf(ctx, principal), args),
+});
+export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; objectId?: string; fromWorld?: number; cursor?: string | null; limit?: number }) {
+  const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
+  const limit = Math.max(1, Math.min(SERIES_PAGE_MAX, Math.floor(args.limit ?? SERIES_PAGE)));
+  const objectId = args.objectId ? ctx.db.normalizeId("objects", args.objectId) : null;
+  if (args.objectId && !objectId) return fail("BAD_REQUEST", "Not an object id");
+  const from = args.fromWorld ?? -Infinity;
+  const rowsOf = objectId
+    ? ctx.db.query("objectEvents").withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", objectId).gte("world", from))
+    : ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", game._id).gte("world", from));
+  const page = await rowsOf.paginate({ cursor: args.cursor ?? null, numItems: limit });
+  // Each row's "before" is the same object's previous row (version − 1): in this page, or one indexed read per object.
+  const live = game.phase !== "ended";
+  // A row as the caller sees it: live, the others' sum with that version's disclosure noise (settings.peerNoiseBits).
+  const seen = (r: Pick<Doc<"objectEvents">, "net" | "noise">) => viewAt(r.net, index, live ? r.noise ?? 0 : 0);
+  const last = new Map<string, Pick<Doc<"objectEvents">, "net" | "noise">>();
+  // The rows before this page of each object first seen here, read in parallel (one indexed read each).
+  const firstSeen = new Map<string, Doc<"objectEvents">>();
+  for (const row of page.page) if (!firstSeen.has(row.objectId)) firstSeen.set(row.objectId, row);
+  const priors = new Map((await Promise.all([...firstSeen.values()].filter(r => r.version > 0).map(r =>
+    ctx.db.query("objectEvents").withIndex("by_game_object_version", q => q.eq("gameId", game._id).eq("objectId", r.objectId).eq("version", r.version - 1)).first(),
+  ))).flatMap(r => (r ? [[r.objectId as string, r] as const] : [])));
+  const previous = async (row: Doc<"objectEvents">) => (row.version === 0 ? null : last.get(row.objectId) ?? priors.get(row.objectId) ?? null);
+  const c = {
+    world: [] as number[], seq: [] as number[], objectId: [] as string[], kind: [] as ("spawn" | "transform")[], version: [] as number[],
+    before: [] as (Wire | null)[], value: [] as Wire[], ownBefore: [] as (number | null)[], othersBefore: [] as (number | null)[],
+    own: [] as number[], others: [] as number[], payoff: [] as number[], mine: [] as boolean[],
+  };
+  for (const row of page.page) {
+    const before = await previous(row), after = seen(row), was = before ? seen(before) : null;
+    last.set(row.objectId, row);
+    c.world.push(row.world); c.seq.push(row.seq); c.objectId.push(row.objectId); c.kind.push(row.kind); c.version.push(row.version);
+    c.before.push(row.before ?? null); c.value.push(row.value); c.ownBefore.push(was?.own ?? null); c.othersBefore.push(was?.others ?? null);
+    c.own.push(after.own); c.others.push(after.others); c.payoff.push(after.payoff); c.mine.push(row.ownerId === viewer.subject);
+  }
+  return {
+    gameId: game._id, phase: game.phase, live: game.phase !== "ended", self: { godId: viewer.subject, index }, others: game.roster.length - 1,
+    partial: await partialSeries(ctx, game._id), rows: page.page.length, columns: c, cursor: page.continueCursor, done: page.isDone && game.phase === "ended", pageDone: page.isDone,
+  };
+}
+
+/**
+ * The board at world time `world` (default: now) as the caller saw it: every object that existed then, with its value,
+ * version and the caller's own bits, the others' sum and own payoff, from each object's last row at or before `world`
+ * (one indexed read per object). `partial`: the game predates the per-object history, so objects untouched since then are
+ * missing.
+ */
+const boardArgs = { roomId: v.string(), gameId: v.optional(v.string()), world: v.optional(v.number()) };
+export const board = query({ args: boardArgs, handler: async (ctx, args) => boardFor(ctx, await requireViewer(ctx), args) });
+export const boardAs = internalQuery({
+  args: { principal: principalV, ...boardArgs },
+  handler: async (ctx, { principal, ...args }) => boardFor(ctx, await viewerOf(ctx, principal), args),
+});
+export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number }) {
+  const { game, index } = await seatedGame(ctx, caller, args.roomId, args.gameId);
+  const world = args.world ?? game.worldSeconds;
+  const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(2100);
+  const rows = await Promise.all(objects.map(o => ctx.db.query("objectEvents")
+    .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", o._id).lte("world", world)).order("desc").first()));
+  return {
+    gameId: game._id, world, partial: await partialSeries(ctx, game._id),
+    objects: rows.flatMap(r => (r ? [{ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.world, ...viewAt(r.net, index, game.phase !== "ended" ? r.noise ?? 0 : 0) }] : [])),
+  };
 }

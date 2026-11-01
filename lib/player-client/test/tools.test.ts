@@ -15,12 +15,13 @@ import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_replay", "get_my_utility",
   "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout",
-  "run_code", "get_code_run", "list_code_runs", "list_code_objects", "load_skill"];
+  "run_code", "get_code_run", "list_code_runs", "list_code_objects", "load_skill",
+  "get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"];
 const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine",
   "save_setup", "duplicate_setup", "delete_setup", "save_panel", "rollback_panel", "delete_panel", "open_panel", "set_panel_params", "move_pane", "close_pane"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
 /** Tools whose executor reaches no public function: an engine-internal path (the sandbox, the skills). */
-const ENGINE_INTERNAL = ["evaluate_value", "run_code"];
+const ENGINE_INTERNAL = ["evaluate_value", "run_code", "list_utility_candidates", "fit_utility_mixture"];
 const uuid = "6a1f8b7e-3c2d-4e5f-8a9b-0c1d2e3f4a5b";
 
 test("registry: exactly the planned tools, snake_case, each with title, description, annotations and permission", () => {

@@ -762,7 +762,8 @@
             "writing-agents",
             "screen",
             "game-setups",
-            "analytics-code"
+            "analytics-code",
+            "rival-inference"
           ]
         }
       },
@@ -3340,9 +3341,9 @@
           "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$"
         },
         "datasets": {
-          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history, replay.",
+          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history, replay, utility_series, utility_candidates.",
           "default": [],
-          "maxItems": 13,
+          "maxItems": 15,
           "type": "array",
           "items": {
             "anyOf": [
@@ -3361,7 +3362,9 @@
                   "rules",
                   "games",
                   "game_history",
-                  "replay"
+                  "replay",
+                  "utility_series",
+                  "utility_candidates"
                 ]
               },
               {
@@ -3382,7 +3385,9 @@
                       "rules",
                       "games",
                       "game_history",
-                      "replay"
+                      "replay",
+                      "utility_series",
+                      "utility_candidates"
                     ]
                   },
                   "gameId": {
@@ -3392,10 +3397,10 @@
                     "maxLength": 128
                   },
                   "limit": {
-                    "description": "events, trajectories, game_history, replay: at most this many tick batches.",
+                    "description": "events, trajectories, game_history, replay: at most this many tick batches; utility_series: at most this many rows.",
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 2000
+                    "maximum": 20000
                   }
                 },
                 "required": [
@@ -3608,6 +3613,300 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_utility_series": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "description": "The game (default: the room's current game).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "objectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "fromWorld": {
+          "type": "number",
+          "minimum": 0
+        },
+        "offset": {
+          "description": "Rows to skip (nextCursor).",
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "default": 500,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_board_at": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "description": "The game (default: the room's current game).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "world": {
+          "description": "World seconds (default: now).",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_utility_candidates": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "family": {
+          "description": "Only this family (all its parameter sets).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "paramsPerFamily": {
+          "default": 20,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "fit_utility_mixture": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "hints": {
+          "default": [],
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "familyId": {
+                "description": "A family id from list_utility_candidates.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "params": {
+                "description": "Some of the family's parameters (a partial match: e.g. {symbol: 'A'}); omit for any.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "probability": {
+                "description": "How likely some OTHER god holds a matching rule, given what was said.",
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 0.99
+              }
+            },
+            "required": [
+              "familyId",
+              "probability"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "exclude": {
+          "description": "Family ids no other god holds.",
+          "default": [],
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "maxObservations": {
+          "description": "Use at most this many distinct values, the latest (more is slower: about 1 s per 50 on a 5×5 grid).",
+          "default": 300,
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000
+        },
+        "top": {
+          "default": 5,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       },
       "additionalProperties": false

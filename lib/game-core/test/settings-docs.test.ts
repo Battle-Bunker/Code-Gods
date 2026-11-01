@@ -62,7 +62,7 @@ test("dependencies point at real fields; penalty weight hides while no defence g
 test("every field is a control: asked or under More, never a fixed fact, with a control that fits its value", () => {
   const kinds: Record<string, (v: unknown) => boolean> = {
     number: v => typeof v === "number", switch: v => typeof v === "boolean", checklist: Array.isArray,
-    select: v => typeof v === "string", multiselect: v => Array.isArray(v) && v.length > 0, segmented: v => typeof v === "string", typeArgs: v => !!v && typeof v === "object" && !Array.isArray(v),
+    select: v => typeof v === "string", multiselect: v => Array.isArray(v) && v.length > 0, segmented: v => typeof v === "string" || typeof v === "number", typeArgs: v => !!v && typeof v === "object" && !Array.isArray(v),
   };
   for (const [key, doc] of Object.entries(SETTINGS_DOCS) as [keyof GameSettings, FieldDoc][]) {
     assert.ok(doc.tier === "ask" || doc.tier === "more", `${key}: tier ${doc.tier}`);
