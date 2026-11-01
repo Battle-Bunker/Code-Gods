@@ -10,7 +10,7 @@
  * The prompt is identical for every turn of a player in a room with one grant, so it stays in the prompt cache.
  */
 import { CORE_TOOLS, OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
-import { SKILLS } from "@workspace/player-client/skills";
+import { skillIndexLines } from "@workspace/player-client/skills";
 import { LOAD_TOOLS } from "./chat.ts";
 
 export type AssistantPromptContext = { playerName: string; roomCode: string | null; permission: "read" | "act" | "owner" };
@@ -26,7 +26,7 @@ const CORE = new Set<string>(CORE_TOOLS);
 export function assistantIndex(permission: AssistantPromptContext["permission"]): { tools: string[]; skills: string[] } {
   return {
     tools: toolsFor(permission).filter(t => !CORE.has(t.name)).map(t => `- ${t.name}: ${t.short}${isConfirmedTool(t.name) ? " (confirmed)" : ""}`),
-    skills: SKILLS.map(k => `- ${k.name}: ${k.description}`),
+    skills: skillIndexLines(),
   };
 }
 

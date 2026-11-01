@@ -40,11 +40,11 @@ const id = z.string().min(1).max(128);
 const cursor = z.number().int().min(-1);
 const language = z.enum(["python", "typescript"]);
 const source = z.string().min(1).max(16384).describe("Agent source defining agent(obj) and returning mutator calls (≤ 16 KiB)");
-const commandId = uuid.describe("A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.");
+const commandId = uuid.describe("A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.");
 const optionalCommandId = commandId.optional().describe("Optional UUID for idempotent retries; generated when omitted.");
 const requestId = uuid.describe("A fresh UUID per owner action, echoed back; start_game is idempotent per requestId.");
 const waitMs = z.number().int().min(0).max(MAX_WAIT_MS).default(DEFAULT_WAIT_MS)
-  .describe("How long to wait for the receipt (ms). Past it the answer is {status: 'pending', commandId}: complete it with get_receipt.");
+  .describe("How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.");
 const gameId = id.optional().describe("The game (default: the room's current game).");
 const obj = <T extends z.ZodRawShape>(shape: T) => z.object(shape).strict();
 
@@ -257,8 +257,8 @@ const paneId = z.string().min(1).max(64).describe("A pane id from get_layout (e.
 const panelId = z.enum(PANEL_IDS).describe("A built-in panel id (get_layout lists them with their parameter schemas). Give this or slug, not both.");
 const storedSlug = slug.describe("One of the player's stored panels (list_panels). Give this or panelId, not both.");
 const panelParams = z.record(z.string(), z.unknown()).optional()
-  .describe("A built-in panel's parameters (its JSON Schema is in get_layout; every field is optional with a default except what-if's objectId and calls). Invalid parameters are refused with the schema. Not for stored panels.");
-const place = placeSchema.optional().describe("Where the pane goes: next to another pane (relativeTo, default: the last built-in panel's pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same panel.");
+  .describe("The built-in panel's parameters (schemas in get_layout; all optional except what-if's objectId and calls). Not for stored panels.");
+const place = placeSchema.optional().describe("Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.");
 const layoutData = z.object({ paneId: z.string(), layout: z.unknown(), summary: z.string(), reused: z.boolean() });
 export const LAYOUT_TOOLS = [
   def({ name: "get_layout", short: "The player's panes and the built-in panel catalogue with parameter schemas.", title: "Dock layout", functions: ["layout.current"], permission: "read", annotations: read,
