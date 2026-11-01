@@ -275,7 +275,7 @@ test("a turn still streaming when the next game starts is stopped, and does not 
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: ["a", "b", "c", "d", "e", "f", "g", "h"], delayMs: 1500, tools: [{ name: "whoami" }] }, { text: "never" }]) });
   await waitFor(async () => (await turnOf(ann, sent.threadId, sent.turnId)).messages.some((m: any) => m.role === "assistant" && m.text), "text streams", 30_000, 100);
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
-  await ann.c.action(api.owner.start, { roomId });
+  await startGame(ann, roomId);
   const next = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "new game" }]) });
   assert.notEqual(next.threadId, sent.threadId);
   const old = await until(ann, sent, DONE, "the last game's turn ends");

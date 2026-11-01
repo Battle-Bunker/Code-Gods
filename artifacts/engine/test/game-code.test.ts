@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
@@ -24,7 +24,7 @@ async function startedRoom(names: string[]) {
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
-  const game = await members[0].c.action(api.owner.start, { roomId });
+  const game = await startGame(members[0], roomId);
   return { members, roomId, gameId: game.gameId as string };
 }
 const credential = (god: God, roomId: string, permission: "read" | "act" = "read") =>

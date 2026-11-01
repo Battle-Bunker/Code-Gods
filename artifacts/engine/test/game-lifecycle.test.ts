@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, rejects, roomWith, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, gods, internal, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const INT_TS = { languages: ["typescript"], objectType: "Int", spawnRateHz: 0 };
 
@@ -44,8 +44,9 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
 
   // Launch.
   const requestId = crypto.randomUUID();
-  const game1 = await host.c.action(api.owner.start, { roomId, requestId });
-  assert.deepEqual(await host.c.action(api.owner.start, { roomId, requestId }), game1, "start is idempotent per requestId");
+  const game1 = await startGame(host, roomId, { requestId });
+  const again = await host.c.action(api.owner.start, { roomId, requestId });
+  assert.deepEqual([again.gameId, again.shortCode, again.guid], [game1.gameId, game1.shortCode, game1.guid], "start is idempotent per requestId"); // start-result-ok: game1 has begun, so the repeat names it
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.activeGame.id, game1.gameId);
   assert.deepEqual(room.activeGame.roster.map((m: any) => m.id).sort(), [host.subject, ada.subject, bo.subject].sort());
@@ -110,7 +111,7 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   await cy.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), command: { type: "chat", text: "Lobby talk after game one" } } });
 
   // Second game, the latecomer dealt in.
-  const game2 = await host.c.action(api.owner.start, { roomId });
+  const game2 = await startGame(host, roomId);
   assert.notEqual(game2.gameId, game1.gameId);
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.activeGame.roster.length, 4, "the latecomer is dealt into the next game");

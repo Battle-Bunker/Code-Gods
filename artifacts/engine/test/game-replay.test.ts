@@ -13,7 +13,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildReplay, stateAt, type ReplayPage } from "@workspace/player-client/replay";
-import { admin, api, envelope, gods, internal, raw, rejects, roomWith, touch, waitFor, TS } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const settings = {
@@ -27,7 +27,7 @@ test("each player's replay, cut at any snapshot, rebuilds that player's view of 
   const [host, ada, bo, late] = await gods("Replay Host", "Replay Ada", "Replay Bo", "Replay Late");
   await touch(host);
   const { roomId, shortCode } = await roomWith([host, ada, bo], settings);
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const ok = async (p: Promise<any>) => { const r = await p; assert.equal(r.accepted, true, r.message); return r; };
   const SECRET_BO = "bo_replay_marker";

@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Client as LegacyClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport as LegacyTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { admin, api, envelope, gods, internal, raw, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -245,7 +245,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   const owner = await credential(host, roomId, "owner");
   const actor = await credential(ada, roomId, "act");
   const started = await call(owner.token, "start_game", { requestId: randomUUID() });
-  assert.ok(started.data?.result?.gameId, JSON.stringify(started));
+  const game = await startedGame(host, roomId, started.data?.result);
   const commandId = randomUUID();
   const first = await call(actor.token, "summon_agent", { source: AGENT, commandId });
   assert.equal(first.data.status, "received", JSON.stringify(first));
@@ -255,7 +255,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   assert.deepEqual(replay.data.receipt, first.data.receipt, "the identical call returns the stored receipt");
   const conflict = await call(actor.token, "summon_agent", { source: AGENT.replace("1", "2"), commandId });
   assert.equal(conflict.error?.code, "CONFLICT");
-  const agents = (await raw(started.data.result.gameId)).agents.filter((a: any) => a.ownerId === ada.subject);
+  const agents = (await raw(game.gameId)).agents.filter((a: any) => a.ownerId === ada.subject);
   assert.equal(agents.length, 1, "exactly one agent after the replay");
   // waitMs 0: the summon runs on the server after the call answers `pending`; get_receipt completes it.
   const later = randomUUID();
@@ -282,7 +282,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], { ...TS_INT, objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
     startingObjectCount: 12, spawnRateHz: 2, interactionRateHz: 40 });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_mcp_marker", SECRET_HOST = "host_mcp_marker";
   for (const [god, source] of [[ada, "function agent(grid) { return [slide(row(0), 1)]; }"],

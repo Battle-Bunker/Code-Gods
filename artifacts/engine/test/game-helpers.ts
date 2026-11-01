@@ -4,6 +4,7 @@
  * acting-as identity carrying `subject` and the issuer of the token kind, which convex/auth/access.ts reads); `users` rows
  * and player credentials are seeded with test-only internal mutations (convex/testing.ts).
  */
+import assert from "node:assert/strict";
 import { after } from "node:test";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
@@ -100,16 +101,32 @@ export async function rejects(promise: Promise<unknown>): Promise<string> {
 
 export const raw = (gameId: string) => admin.query(internal.testing.rawGame, { gameId });
 
+/** What a begun game is known by (convex/owner.ts `Started`). */
+export type Started = { gameId: string; shortCode: string; guid: string };
+
 /**
- * Start the room's game and return its id. A start whose random deal draws a table this deployment has not
- * computed yet returns `{ status: "preparing" }` with no gameId (convex/owner.ts startGame); the game then
- * begins by itself once the tables land, so wait for it.
+ * Start the room's game and return its id, short code and guid. A start whose random deal draws a table this
+ * deployment has not computed yet returns `{ status: "preparing" }` with no gameId (convex/owner.ts startGame); the game then
+ * begins by itself once the tables land, so wait for it. Never read `.gameId` off `api.owner.start` directly
+ * (test/unit/start-result-guard.test.ts enforces this).
  */
-export async function startGame(owner: God, roomId: string, ms = 120_000): Promise<{ gameId: string }> {
-  const started = await owner.c.action(api.owner.start, { roomId });
-  if (started.status !== "preparing") return { gameId: started.gameId };
-  const game = await waitFor(async () => (await owner.c.query(api.rooms.get, { room: roomId })).activeGame, `the prepared game in ${roomId} starts`, ms, 500);
-  return { gameId: game.id };
+export async function startGame(owner: God, roomId: string, args: { requestId?: string } = {}, ms = 120_000): Promise<Started> {
+  return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...args }), ms);
+}
+
+/** The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing`. */
+export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000): Promise<Started> {
+  if (started?.status !== "preparing") {
+    assert.ok(started?.gameId, `the start began a game: ${JSON.stringify(started)}`);
+    return { gameId: started.gameId, shortCode: started.shortCode, guid: started.guid };
+  }
+  const game = await waitFor(async () => {
+    const room = await owner.c.query(api.rooms.get, { room: roomId });
+    if (room.preparing?.error) throw new Error(`the game in ${roomId} failed to prepare: ${room.preparing.error}`);
+    return room.activeGame;
+  }, `the prepared game in ${roomId} starts`, ms, 500);
+  const { guid } = await owner.c.query(api.games.view, { code: game.shortCode });
+  return { gameId: game.id, shortCode: game.shortCode, guid };
 }
 
 export const TS = {
