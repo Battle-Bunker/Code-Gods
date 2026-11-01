@@ -7,7 +7,7 @@
  * Cards are authored in this package and are plain JavaScript (no type annotations); player code never reaches
  * `new Function` here.
  */
-import { instanceInfo, objectType, resolve, type Badge, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
+import { instanceInfo, objectType, resolve, type Badge, type Resolution, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
@@ -37,13 +37,21 @@ export function context(inst: Instantiation): FamilyContext {
   return ctx;
 }
 
-/** Whether a family can be dealt in this instantiation (its constraints, via game-types' resolver). */
-export function available(f: UtilityFamily<any>, inst: Instantiation) {
+/**
+ * THE applicability checker (docs/rules-design.md §4.2): whether a family, or one draw of it, can be dealt on this
+ * instantiation. The family's declared `requires`, plus the draw's `needs` when params are given, evaluated by
+ * game-types' constraint resolver. Dealing (both lotteries), the public catalog (settings UI) and calibration coverage
+ * all ask this one function.
+ */
+export function applicable(f: UtilityFamily<any>, inst: Instantiation, params?: Params): Resolution {
   if (f.objectType !== inst.objectType) {
     return { ok: false as const, unmet: [], reason: `only for ${f.objectType} games` };
   }
-  return resolve(f.requires, inst);
+  const extra = params !== undefined && f.needs ? f.needs(params, context(inst)) : [];
+  return resolve([...f.requires, ...extra], inst);
 }
+/** Whether a family can be dealt in this instantiation at all: `applicable` without params. */
+export const available = (f: UtilityFamily<any>, inst: Instantiation): Resolution => applicable(f, inst);
 
 /** The distinct canonical params of the support: what calibration enumerates (one table each). */
 export function canonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: FamilyContext): P[] {
@@ -106,6 +114,7 @@ export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): Utility
   return {
     familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
+    ...(f.example ? { example: f.example(p, ctx) } : {}),
     ...(pen && pf ? {
       penalty: {
         familyId: pf.id, emoji: pf.emoji, name: pf.name, summary: pf.summary(pen.params, ctx),

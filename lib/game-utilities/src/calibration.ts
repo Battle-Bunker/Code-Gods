@@ -20,7 +20,7 @@
  * fails (naming the regenerate command) whenever a shipped table is stale.
  */
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
-import { canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
+import { applicable, canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
 import { cardProgram } from "./families/card.ts";
 import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
@@ -477,6 +477,7 @@ export function coverage(manifest: CalibrationManifest, inst: Instantiation, exc
   for (const f of familiesFor(inst.objectType)) {
     if (excluded.has(f.id) || !available(f, inst).ok) continue;
     for (const p of canonicalSupport(f, ctx)) {
+      if (f.needs && !applicable(f, inst, p).ok) continue; // never dealt here, so never needs a table
       const stored = (isUniform(prior) ? entry?.tables : entry?.priors?.[priorKey(prior)])?.[f.id]?.[paramsKey(p)];
       if (stored !== undefined && stored === tableKey(f.id, p, inst, prior)) tables++;
       else missing.push({ familyId: f.id, params: p, stale: stored !== undefined });

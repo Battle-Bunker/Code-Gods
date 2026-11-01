@@ -16,20 +16,24 @@ const COMPARATIVE_COLOUR: Readonly<Record<string, string>> = {
   red: "redder", green: "greener", blue: "bluer", yellow: "yellower", orange: "more orange", violet: "more violet",
 };
 const valueName = (g: GridSpec, v: number) => (g.cards ? { 1: "ace", 11: "jack", 12: "queen", 13: "king" }[v] ?? String(v) : String(v));
+/** The hated value as the board shows it: "A (10)" or "7" on digits, "Ace (any suit)" on cards. */
+const hatedValue = (g: GridSpec, v: number) => (g.cards
+  ? `${(({ 1: "Ace", 11: "Jack", 12: "Queen", 13: "King" } as Record<number, string>)[v]) ?? String(v)} (any suit)`
+  : g.say.values([v]));
 const PENALTY = { role: "penalty" as const, tags: ["penalty"] };
 
 // --- Hated colour -------------------------------------------------------------------------------
 type ColourP = { colour: number };
 const hateColourText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🚫", name: "Hated colour", consts: [["HATED_COLOUR", cname(g, p.colour)]],
-  about: `You can't stand ${cname(g, p.colour)}. Every ${cname(g, p.colour)} cell is one more bad point. Bigger is worse.`,
+  about: `−1 for each ${cname(g, p.colour)} cell`,
 });
 const hateColour = gridFamily<ColourP>({
   id: "hate_colour", name: "Hated colour", emoji: "🚫", theme: "Hates one colour", ...PENALTY, shape: SCALAR,
   comparative: (p, g) => COMPARATIVE_COLOUR[cname(g, p.colour)] ?? `more ${cname(g, p.colour)}`,
   support: g => range(g.C).map(colour => ({ colour })),
   canonical: () => ({ colour: 0 }),
-  summary: (p, g) => `−1 for each ${cname(g, p.colour)} cell`,
+  summary: (p, g) => hateColourText(p, g).about,
   python: (p, g) => pyCard(hateColourText(p, g), `
     def penalty(grid):
         bad = 0
@@ -54,8 +58,7 @@ const hateColour = gridFamily<ColourP>({
 type ValueP = { value: number };
 const hateValueText = (p: ValueP, g: GridSpec): CardText => ({
   emoji: "🙅", name: "Hated number", consts: [["HATED_VALUE", p.value, valueNote(g, p.value)]],
-  about: `You want ${valueName(g, p.value)}s kept off the board. Every cell worth ${p.value} is one more bad point. `
-    + "Bigger is worse.",
+  about: `−1 for each ${hatedValue(g, p.value)}`,
 });
 const hateValue = gridFamily<ValueP>({
   id: "hate_value", name: "Hated number", emoji: "🙅", theme: "Hates one number", ...PENALTY, shape: SCALAR,
@@ -64,7 +67,7 @@ const hateValue = gridFamily<ValueP>({
   support: g => [...new Set(g.value)].sort((a, b) => a - b).map(value => ({ value })),
   // every value has the same share of the symbol set (digits 1/S, cards 4/52), so all values are one orbit
   canonical: (_, g) => ({ value: g.vmin }),
-  summary: (p, g) => `−1 for each ${valueName(g, p.value)}`,
+  summary: (p, g) => hateValueText(p, g).about,
   python: (p, g) => pyCard(hateValueText(p, g), `
     def penalty(grid):
         bad = 0
@@ -87,15 +90,14 @@ const hateValue = gridFamily<ValueP>({
 type BlobP = { C: number };
 const hateBlobText = (p: BlobP, g: GridSpec): CardText => ({
   emoji: "🫧", name: "Hated patch", consts: [["HATED_COLOUR", cname(g, p.C)]],
-  about: `You hate big ${cname(g, p.C)} patches. Your bad points are the size of the biggest joined-up `
-    + `${cname(g, p.C)} patch. Bigger is worse.`,
+  about: `−1 for each cell in the biggest joined-up ${cname(g, p.C)} patch`,
 });
 const hateBlob = gridFamily<BlobP>({
   id: "hate_blob", name: "Hated patch", emoji: "🫧", theme: "Hates a big patch of one colour", ...PENALTY, shape: SCALAR,
   comparative: (p, g) => `with a bigger ${cname(g, p.C)} patch`,
   support: g => range(g.C).map(C => ({ C })),
   canonical: () => ({ C: 0 }),
-  summary: (p, g) => `−1 for each cell in the biggest joined-up ${cname(g, p.C)} patch`,
+  summary: (p, g) => hateBlobText(p, g).about,
   python: (p, g) => pyCard(hateBlobText(p, g), `
     def same_colour(a, b):
         return a.colour == b.colour
@@ -124,13 +126,13 @@ const hateBlob = gridFamily<BlobP>({
 // --- Takeover ---------------------------------------------------------------------------------------
 const takeoverText: CardText = {
   emoji: "🏴", name: "Takeover", consts: [],
-  about: "No colour may take over. Your bad points are how many cells the commonest colour has. Bigger is worse.",
+  about: "−1 for each cell of whichever colour is commonest",
 };
 const hateTakeover = gridFamily<Record<string, never>>({
   id: "hate_takeover", name: "Takeover", emoji: "🏴", theme: "Hates one colour taking over", ...PENALTY, shape: SCALAR,
   comparative: () => "more taken over by one colour",
   support: () => [{}],
-  summary: () => "−1 for each cell of whichever colour is commonest",
+  summary: () => takeoverText.about,
   python: () => pyCard(takeoverText, `
     def penalty(grid):
         most = 0
@@ -161,14 +163,13 @@ const hateTakeover = gridFamily<Record<string, never>>({
 // --- Big blobs ----------------------------------------------------------------------------------------
 const bigBlobText: CardText = {
   emoji: "🫠", name: "Big blobs", consts: [],
-  about: "You hate blobs. Your bad points are the size of the biggest joined-up patch of one colour (any colour). "
-    + "Bigger is worse.",
+  about: "−1 for each cell in the biggest joined-up patch of one colour (any colour)",
 };
 const hateBigBlob = gridFamily<Record<string, never>>({
   id: "hate_big_blob", name: "Big blobs", emoji: "🫠", theme: "Hates big blobs of any colour", ...PENALTY, shape: SCALAR,
   comparative: () => "blobbier",
   support: () => [{}],
-  summary: () => "−1 for each cell in the biggest joined-up patch of one colour (any colour)",
+  summary: () => bigBlobText.about,
   python: () => pyCard(bigBlobText, `
     def same_colour(a, b):
         return a.colour == b.colour
@@ -194,8 +195,8 @@ const hateBigBlob = gridFamily<Record<string, never>>({
 // --- Matching corners ---------------------------------------------------------------------------------
 const cornersText = (g: GridSpec): CardText => ({
   emoji: "📐", name: "Matching corners", consts: [],
-  about: "Keep the corners varied. Your bad points are how many corners share the commonest corner colour; if "
-    + `that's a tie, how many share the commonest ${g.cards ? "rank" : "number"}. Bigger is worse.`,
+  about: "−1 for each corner that shares the commonest corner colour. If that's a tie, −1 for each corner that "
+    + `shares the commonest ${g.cards ? "rank" : "number"}.`,
 });
 const hateSameCorners = gridFamily<Record<string, never>>({
   id: "hate_same_corners", name: "Matching corners", emoji: "📐", theme: "Hates matching corners", ...PENALTY,
@@ -203,7 +204,7 @@ const hateSameCorners = gridFamily<Record<string, never>>({
   comparative: () => "more alike in the corners",
   shape: tuple(2),
   support: () => [{}],
-  summary: () => "−1 for each corner that shares the commonest corner colour (then the commonest number)",
+  summary: (_, g) => cornersText(g).about,
   python: (_, g) => pyCard(cornersText(g), `
     def most_alike(things):
         best = 0
@@ -238,8 +239,8 @@ const hateSameCorners = gridFamily<Record<string, never>>({
 type RowP = { row: number };
 const repeatText = (p: RowP): CardText => ({
   emoji: "🔁", name: "Repeats in the row", consts: [["MY_ROW", p.row, "rows count from 0 at the top"]],
-  about: "Protect the rainbow row. Your bad points are the colours missing from your row (one per repeat); if that's "
-    + "a tie, the pairs of side-by-side cells there with the same colour. Bigger is worse.",
+  about: `−1 for each repeated colour in row ${p.row + 1}. If that's a tie, −1 for each pair of side-by-side cells `
+    + "in that row with the same colour.",
 });
 const hateRepeatRow = gridFamily<RowP>({
   id: "hate_repeat_row", name: "Repeats in the row", emoji: "🔁", theme: "Hates repeats in one row", ...PENALTY,
@@ -248,8 +249,7 @@ const hateRepeatRow = gridFamily<RowP>({
   shape: tuple(2),
   support: g => range(g.N).map(row => ({ row })),
   canonical: () => ({ row: 0 }), // permuting rows preserves the prior; the rule reads one row
-  summary: p => `−1 for each repeated colour in row ${p.row + 1} `
-    + "(then for each pair of side-by-side cells there with the same colour)",
+  summary: p => repeatText(p).about,
   python: p => pyCard(repeatText(p), `
     def penalty(grid):
         row = grid.rows[MY_ROW]
@@ -281,8 +281,7 @@ const hateRepeatRow = gridFamily<RowP>({
 // --- Number crowd -------------------------------------------------------------------------------------
 const crowdText = (g: GridSpec): CardText => ({
   emoji: "👥", name: "Number crowd", consts: [],
-  about: `No ${g.cards ? "rank" : "number"} may take over. Your bad points are how many cells show the commonest `
-    + `${g.cards ? "rank" : "number"}. Bigger is worse.`,
+  about: `−1 for each copy of whichever ${g.cards ? "rank (any suit)" : "number"} is commonest`,
 });
 const hateSymbolTakeover = gridFamily<Record<string, never>>({
   id: "hate_symbol_takeover", name: "Number crowd", emoji: "👥", theme: "Hates one number taking over", ...PENALTY,
@@ -290,7 +289,7 @@ const hateSymbolTakeover = gridFamily<Record<string, never>>({
   comparative: () => "more crowded with one number",
   shape: SCALAR,
   support: () => [{}],
-  summary: () => "−1 for each copy of whichever number is commonest",
+  summary: (_, g) => crowdText(g).about,
   python: (_, g) => pyCard(crowdText(g), `
     def penalty(grid):
         most = 0

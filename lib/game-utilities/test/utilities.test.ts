@@ -31,7 +31,8 @@ function lint(src: string, lang: "python" | "typescript", f: UtilityFamily<any>,
   const c = lang === "python" ? "#" : "//";
   assert.match(lines[0], lang === "python" ? /^# \S+ .+/ : /^\/\/ \S+ .+/, `${where}: header must be '${c} <emoji> <name>'`);
   assert.ok(lines[0].includes(f.name) || lines[0].includes("King of the Valley") || lines[0].includes("Sandwich Maker"), `${where}: header names the family`);
-  assert.ok(lines.filter(l => l.startsWith(c)).length <= 5, `${where}: header longer than 4 lines of explanation`);
+  // The header is the goal text itself (summary = about, docs/rules-design.md P8): short sentences, at most 6 lines.
+  assert.ok(lines.filter(l => l.startsWith(c)).length <= 7, `${where}: header longer than 6 lines of explanation`);
   const arg = f.objectType === "Grid" ? "grid" : "x", entry = f.role === "penalty" ? "penalty" : "utility";
   assert.ok(src.includes(lang === "python" ? `def ${entry}(${arg}):` : `function ${entry}(${arg}) {`), `${where}: no ${entry}(${arg})`);
   const code = lines.map(l => l.replace(lang === "python" ? /#.*$/ : /\/\/.*$/, "")).join("\n");
