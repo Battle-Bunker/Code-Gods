@@ -207,7 +207,8 @@ keyed by (player, game) like the threads). The composer stays usable while the a
   by themselves. They go first in the player's next message's turn, or now with `sendQueued` (the conversation on
   screen); the pane says so. A
   message sent after Stop, while the step winds down, is not held and starts the next turn when the cancellation lands.
-  A new game drops the last game's queue.
+  Starting the next game drops the last game's queue with its conversation (`endTurnsForNewGame`): nothing queued for
+  the old game is delivered or carried into the new one.
 - **Accounting.** A queued message costs nothing until delivered. Its text is then part of the next step's input, so
   that step's reservation estimate (made after delivery) includes it and settles to what the step cost, as for any
   message.

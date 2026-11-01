@@ -143,7 +143,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.cancel": {
     kind: "mutation", audience: "player",
-    human: { title: "Stop the assistant", tooltip: "Stops the current answer; a card waiting for you is cancelled at once. Messages you queued stay, held, until you send." },
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer and cancels a waiting card; messages you queued stay held until you send." },
     ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
     tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: P }, why: NO_SELF_DRIVE,
   },

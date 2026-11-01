@@ -215,3 +215,21 @@ test("a turn that fails holds its queued messages instead of spending them on a 
   assert.deepEqual((await queuedOf(ann, roomId)).map((q: any) => [q.text, q.held]), [["try again, please", true]], "held, not spent");
   assert.equal((await thread(ann, sent.threadId)).turns.length, 1);
 });
+
+test("starting the next game drops the last game's queued messages with its conversation; the new game starts with an empty queue", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Drop", "Bob Drop", "Cyd Drop"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ ...slowToolStep, text: ["a", "b", "c", "d", "e", "f", "g", "h"], delayMs: 1500 }, { text: "never" }]) });
+  await streaming(ann, sent);
+  await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "for the old game" });
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  await ann.c.action(api.owner.start, { roomId });
+  assert.deepEqual(await queuedOf(ann, roomId), [], "the new game's queue is empty");
+  const old = await until(ann, sent, DONE, "the last game's turn ends");
+  assert.equal(old.turn.status, "cancelled");
+  await sleep(1500);
+  assert.ok(!(await thread(ann, sent.threadId)).messages.some((m: any) => m.text === "for the old game"), "never delivered into the old conversation");
+  assert.equal((await thread(ann, sent.threadId)).turns.length, 1, "and no turn started from it");
+  const fresh = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "new game" }]) });
+  assert.equal(fresh.queued, false, "the new game's first message starts a turn");
+  assert.notEqual(fresh.threadId, sent.threadId);
+});
