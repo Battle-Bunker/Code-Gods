@@ -62,8 +62,8 @@ test("missing tables put the room in a visible preparing state; a failing table 
   const { host, members, roomId } = await room("Prepare", "smooth-operator");
   const requestId = crypto.randomUUID();
   const first = await host.c.action(api.owner.start, { roomId, requestId });
-  assert.deepEqual([first.status, first.instance, first.ready, first.total, first.estimateSeconds], ["preparing", inst.key, 0, 3, 100]);
-  assert.match(first.message, /^The game is preparing its rule tables: 0 of 3 ready \(the first game on Int\(0,2147483647\) on this server; about 100 s in all\)\. It starts by itself/);
+  assert.deepEqual([first.status, first.instance, first.ready, first.total, first.estimateSeconds], ["preparing", inst.key, 0, 3, 250]);
+  assert.match(first.message, /^The game is preparing its rule tables: 0 of 3 ready \(the first game on Int\(0,2147483647\) on this server; about 250 s in all\)\. It starts by itself/);
   // The default dealer is the Aligned Lottery; with no synergy measured here it says it deals like the Divine Lottery.
   assert.deepEqual([first.dealtAs, /deals like the Divine Lottery/.test(first.note)], ["divine-lottery", true]);
   // Every member sees the progress, never the deal.

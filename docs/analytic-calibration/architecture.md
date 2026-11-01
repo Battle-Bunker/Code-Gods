@@ -332,6 +332,12 @@ action cold start).
 | Int(0,2147483647) | 6 (3) | 3 | 8.1–94.9 s (`many-faced` the slow one) | 98.9 s |
 | string(16) | 6 (2) | 4 | 7.4–9.2 s | 11.7 s |
 
+Confirmed after the B2 deploy through the engine's own scheduled fan-out (`calibration/compute:prepare` on the dev
+deployment, claims and scheduled `run` actions, polled every ~17 s): Int(0,2147483647) with digit-devotee (analytic,
+5 ms), two smooth-operator tables (7.9 s, 9.3 s), many-faced (89.2 s) and truncation-saint (236.7 s): all four
+scheduled actions ran concurrently and every table was ready after 252 s wall (warm resolution afterwards: 0.3 s).
+One slow family sets an Int range's first use, so `FIRST_USE_SECONDS.Int` is 250 s.
+
 What this says:
 
 - **The cloud runs the fan-out concurrently**: the wall is the slowest table plus a few seconds, never the sum (7×7:
