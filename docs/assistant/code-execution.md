@@ -56,7 +56,24 @@ across 20 requests). That still leaves 340 MiB per worker, and every timeout kil
 
 ### 1.2 Dev Convex deployment
 
-Measured on the dev deployment after the develop deploy of this change; see §1.4.
+The develop deploy of PR #64 (`10a3db7`), `runtime/probeScripts` run with the dev deploy key. scriptCold ran first on a
+fresh instance: its module had loaded 1 ms before the call, and the bundle came from file storage, not `/tmp`.
+pyodideCold followed, from its own fresh module, after the probe asset was uploaded.
+
+| | (a) CPython-WASI | (b) Pyodide + numpy + pandas | (c) QuickJS / TypeScript |
+|---|---|---|---|
+| egress from Convex file storage | **245 ms** for 5.2 MB | **286 ms** for 14.1 MB | none (installed with the deployment) |
+| verify + gunzip + unpack + `WebAssembly.compile` | 135 ms | unpack to /tmp 178 ms, compile 29 ms | (in worker start) |
+| first worker ready | 1,116 ms (bootstrap to the snapshot) | `loadPyodide` 3,430 ms + packages 1,636 ms + import 5,488 ms = **10.6 s** | 390 ms (compiler + executor) |
+| first script (rank / corr) | 37 / 13 ms | 21 ms (pure) / 47 ms (pandas) | 71 / 30 ms |
+| warm script p50 (rank / corr) | **6.5 / 7.1 ms** (through the pool) | pure 2.2 ms, numpy 4.2 ms, pandas 11.8 ms; heap reset 4.9 ms | **5.0 / 5.5 ms** |
+| RSS | 233 → 443 MiB (both script pools started) | 443 → 678 MiB loaded, 771 MiB after the runs | (in the 443) |
+
+Cold on dev, then: egress is a quarter of a second for either bundle. For CPython it is followed by about 0.13 s of
+verify and compile and about 1 s of bootstrap. For Pyodide it is followed by about 10.6 s of CPU in interpreter and
+package init. The dev instance went to 771 MiB without being stopped (the README's 512 MiB figure is the documented
+action limit, so that headroom is not something to build on). The Pyodide probe asset stays in dev's file storage
+as `probe-pyodide.bin.gz` (14 MB, measurement only).
 
 ### 1.3 The answer to the owner's question
 
@@ -72,7 +89,7 @@ Measured on the dev deployment after the develop deploy of this change; see §1.
   deterministic (README "Determinism"), so it could be built once and shipped as a data file (4.7 MB gzip). A fresh
   instance would then pay only egress, gunzip, a 13 ms compile and a 25 ms memory copy: about 80 ms of CPU plus the
   download. Today it pays 575 ms once instead, which a warm instance then amortises over every request. On the dev
-  deployment, file-storage egress for the 5.2 MB bundle is the other part (§1.2).
+  deployment, file-storage egress for the 5.2 MB bundle is 245 ms (§1.2); the dev bootstrap was 1.1 s.
 - **Pyodide with numpy/pandas cannot be that module today.** Its snapshot cannot hold loaded native extensions, so
   a cold Pyodide worker spends 6.5–7 s in init: 2 s Python, 1.1 s package loading, 3.3 s importing numpy and pandas.
   That time is CPU, not egress. A warm repertoire of Pyodide workers serving stateless requests would work for
@@ -89,10 +106,6 @@ about 0.6 s of bootstrap plus egress (Python) or about 0.3 s (TypeScript compile
 become frequent, the next step is shipping the CPython snapshot as a precomputed asset, not Pyodide. numpy-class
 libraries would need a dedicated Pyodide host. Until then the skill steers scripts to `statistics`, `collections`
 and plain loops, which handle the game's data sizes (tens to thousands of rows) in milliseconds.
-
-### 1.4 Dev deployment numbers
-
-(Filled in after the deploy; see the follow-up commit.)
 
 ## 2. Script mode in lib/game-runtime
 
