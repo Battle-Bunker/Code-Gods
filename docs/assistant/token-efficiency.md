@@ -189,9 +189,19 @@ hash of the stable prefix (system prompt and tool names), so every thread of a p
 
 ### 3.3 MCP parity (PR 3)
 
-`tools/list` serves the short descriptions, the deterministic registry order and accurate annotations, plus
-`load_skill` for the long guidance. The server instructions name the skills index. Schemas stay in `tools/list`,
-since the spec requires `inputSchema`; clients defer them as they choose, as Claude Code does.
+- `tools/list` serves each tool's `short` line plus its argument note (paging, waits, ids), in deterministic registry
+  order with accurate annotations. The longer guidance is in the skills, which `load_skill` serves over MCP like any
+  tool (the room's live helpers and panel catalogue included).
+- The server instructions carry the skills index (name and one line each).
+- Schemas stay in `tools/list`: the spec requires `inputSchema`, and the list must not change per connection or as a
+  side effect of other requests, so a stateless server cannot defer them itself. Clients defer them as they choose:
+  Claude Code lists MCP tools by name and fetches schemas with ToolSearch; Anthropic's MCP connector takes
+  `defer_loading`.
+- Measured with `count_tokens`, a model reading the whole `tools/list`:
+  - `act` grant: 9,853 → 8,571 tokens;
+  - `owner` grant: 12,352 → 10,834 tokens (−13%; the schemas are the rest).
+- Schema prose that repeated across tools was tightened at the same time: `commandId`, `waitMs`, and `open_panel`'s
+  `params` and `place`.
 
 ### 3.4 Forward compatibility: a code-execution tool
 
@@ -213,15 +223,22 @@ The index, `load_tools`, `load_skill`, MCP and the confirmation rules pick it up
 | PR 1: append-only history, prefix cache key | gpt-4.1-mini | 7 | 6,083 | 0.013 | 32.9 |
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | claude-sonnet-5-5 | 8 | 3,826 | 0.052 | 52.3 |
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | gpt-4.1-mini | 10 | 3,328 | 0.007 | 60.1 |
+| PR 3 (final: MCP listing, tighter schema prose) | claude-sonnet-5-5 | 9 | 3,938 | 0.051 | 50.8 |
+| PR 3 (final: MCP listing, tighter schema prose) | gpt-4.1-mini | 10 | 3,954 | 0.009 | 50.6 |
 
-Per model step after PR 2 (claude-sonnet-5-5, `act` grant, `count_tokens`), against 16,640 before:
+The runs vary by a few hundred tokens a question with the model's choices (one more step, a skill loaded or not).
+The target, a typical question under 10k billed tokens and 20+ questions per 200k, is met on both models with
+room to spare. Each step's reservation (what the allowance must have room for) fell too: about 8.7k tokens for a
+one-step answer on Sonnet, against 30–37k before, so a nearly spent allowance still answers.
+
+Per model step now (claude-sonnet-5-5, `act` grant, `count_tokens`), against 16,640 before:
 
 | Component | Characters | Tokens |
 |---|---:|---:|
-| 6 loaded tools (loader + core; 29 deferred, not in context) | 5,156 | 2,396 |
-| System prompt with the index (29 tools, 4 skills) | 7,219 | 2,366 |
+| 6 loaded tools (loader + core; 29 deferred, not in context) | 4,538 | 2,208 |
+| System prompt with the index (29 tools, 4 skills) | 7,257 | 2,378 |
 | Briefing (live state only) | 1,026 | 450 |
-| **Total** | | **5,212** |
+| **Total** (after PR 3's schema prose; 5,212 after PR 2) | | **5,036** |
 | Skill when loaded: game-rules / writing-agents / screen / game-setups | | 2,821 / 2,223 / 1,446 / 330 |
 
 What the live runs taught (both are in the design above):
@@ -248,3 +265,17 @@ node --experimental-transform-types scripts/assistant-tokens.ts act [--per-tool]
 node --experimental-transform-types scripts/assistant-driver.ts claude-sonnet-5-5   # or gpt-4.1-mini
 pnpm --filter @workspace/engine assistant:mock
 ```
+
+## 5. What remains
+
+- **The fixed tool-use preamble.** About 360 tokens come with any tool and cannot be removed. The six loaded
+  definitions cost about 1,850 tokens more, mostly `open_panel`'s and `set_panel_params`' schemas. A smaller core
+  (for example `open_panel` deferred, with the screen skill loading it) would save about 600 tokens a step, at the
+  cost of a load step for "show me" questions, which are common.
+- **OpenAI native tool search.** It needs the Responses API and gpt-5.4 or later. The catalogued gpt-4.1-mini is on
+  Chat Completions, so its adapter appends loaded tools, and each load changes its tools list once.
+- **Per-message effort.** Claude Sonnet 5.5 and Opus 5.5 accept a per-message effort change without a cache reset
+  (beta `mid-conversation-output-config-2026-07-01`). Lowering effort for plain questions is a further output
+  saving to measure.
+- **Code execution (§3.4).** A `run_code` tool and its skill slot into the index and the loaders unchanged; the
+  sandbox is a separate task.

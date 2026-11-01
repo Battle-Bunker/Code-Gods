@@ -12,6 +12,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync, existsSync } from "node:fs";
 import { assistantBriefing, assistantSystemPrompt } from "@workspace/ai-player";
 import { SKILL_NAMES, skillBody } from "@workspace/player-client/skills";
+import { toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
 import { modelTools } from "../convex/assistant/rules.ts";
 
 const permission = (process.argv[2] ?? "act") as "read" | "act" | "owner";
@@ -53,6 +54,17 @@ if (data) {
   for (const name of SKILL_NAMES) {
     const body = skillBody(name, data);
     console.log(`${`skill ${name}`.padEnd(22)} ${String(body.length).padStart(7)} chars ${String((await count({ user: [body, "hi"] })) - bare).padStart(7)} tokens (when loaded)`);
+  }
+}
+if (process.argv.includes("--mcp")) {
+  // What an MCP client's model reads from tools/list for this grant: the full descriptions (before) or the short
+  // listing (agent/mcp.ts listedDescription), with the registry's complete input schemas either way.
+  const json = toolJsonSchemas();
+  const listing = (describe: (t: (typeof registry)[number]) => string) => registry.map(t => ({ name: t.name, description: describe(t), inputSchema: json[t.name].input }));
+  const registry = toolsFor(permission);
+  for (const [label, describe] of [["mcp tools/list, full descriptions", (t: (typeof registry)[number]) => t.description], ["mcp tools/list, short listing", (t: (typeof registry)[number]) => [t.short, t.note].filter(Boolean).join(" ")]] as const) {
+    const tools = listing(describe);
+    console.log(`${label.padEnd(36)} ${String(JSON.stringify(tools).length).padStart(7)} chars ${String((await count({ tools })) - bare).padStart(7)} tokens`);
   }
 }
 if (process.argv.includes("--per-tool")) {
