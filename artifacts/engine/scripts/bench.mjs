@@ -23,7 +23,10 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const config = JSON.parse(readFileSync(`${root}/.convex/local/default/config.json`, "utf8"));
 const url = process.env.CONVEX_URL ?? `http://127.0.0.1:${config.ports.cloud}`;
 const admin = new ConvexHttpClient(url); admin.setAdminAuth(config.adminKey);
-const as = (subject, sid) => { const c = new ConvexHttpClient(url); c.setAdminAuth(config.adminKey, { subject, issuer: "https://bench.local", scope: "browser", sid }); return c; };
+// Acting as a signed-in browser: the issuer of a Better Auth JWT (the site URL) plus its sessionId, as
+// test/game-helpers.ts clientFor does (convex/auth/access.ts tells token kinds apart by issuer).
+const site = process.env.CG_TEST_SITE_URL ?? `http://127.0.0.1:${config.ports.site}`;
+const as = (subject, sid) => { const c = new ConvexHttpClient(url); c.setAdminAuth(config.adminKey, { subject, issuer: site, sessionId: sid }); return c; };
 
 const gods = [];
 for (const name of ["Bench Host", "Bench Two", "Bench Three"]) {
@@ -41,7 +44,18 @@ await gods[0].action(api.owner.settings, { roomId, revision: room.revision, sett
   objectType: type, typeArgs, startingObjectCount: objects, spawnRateHz: 0, planningSeconds: 3600, interactionRateHz: rate,
   startingEnergy: 1e9, agentEnergyPerSecond: 1e6, agentBatteryActs: 1e6,
 } });
-const game = await gods[0].action(api.owner.start, { roomId });
+// A start whose random deal draws a table this deployment has not computed yet returns { status: "preparing" }
+// with no gameId; the game begins by itself once the tables land (test/game-helpers.ts startGame does the same).
+const started = await gods[0].action(api.owner.start, { roomId });
+const game = started.status !== "preparing" ? started : await (async () => {
+  console.log(`preparing: ${started.message}`);
+  for (const deadline = Date.now() + 600_000; Date.now() < deadline; await new Promise(r => setTimeout(r, 1000))) {
+    const r = await gods[0].query(api.rooms.get, { room: roomId });
+    if (r.preparing?.error) throw new Error(`the game failed to prepare: ${r.preparing.error}`);
+    if (r.activeGame) return { gameId: r.activeGame.id };
+  }
+  throw new Error("the prepared game did not start within 10 minutes");
+})();
 const source = (i) => type === "Grid"
   ? (language === "python" ? `def agent(grid):\n    return [slide(row(${i % 5}), ${1 + (i % 4)})]` : `function agent(grid) { return [slide(row(${i % 5}), ${1 + (i % 4)})]; }`)
   : (language === "python" ? `def agent(x):\n    return [add(${i + 1})]` : `function agent(x) { return [add(${i + 1})]; }`);
