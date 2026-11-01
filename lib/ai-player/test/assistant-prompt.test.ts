@@ -137,3 +137,13 @@ test("in the lobby, a game preparing its rule tables is in the briefing with its
     /Starting the next game failed while preparing its rule tables: The rule table for snap \{\} could not be prepared\. The owner can start again\./);
   assert.ok(!assistantBriefing({ observation, preparing: null }).includes("preparing its rule tables"), "nothing when nothing prepares");
 });
+
+test("the briefing carries a board key, so the assistant can name the symbols and colours a goal uses", () => {
+  const grid = (symbols: string, colours: string) => assistantBriefing({ observation: { ...observation, instance: { objectType: "Grid", args: { size: 5, symbols, colours } } } })
+    .split("\n").find(l => l.startsWith("Board key:"));
+  assert.equal(grid("base12", "rgb"), "Board key: a 5×5 board. Symbols: 0 to 9, then A (10) and B (11). Colours: red, green and blue.");
+  assert.equal(grid("cards", "rgby"), "Board key: a 5×5 board. Symbols: playing cards A, 2 to 10, J, Q and K in four suits (♠ spades, ♥ hearts, ♦ diamonds, ♣ clubs); A counts 1, J 11, Q 12, K 13. Colours: red, yellow, green and blue.");
+  assert.equal(grid("base10", "rainbow6"), "Board key: a 5×5 board. Symbols: 0 to 9. Colours: red, orange, yellow, green, blue and violet.");
+  assert.equal(assistantBriefing({ observation }).includes("Board key"), false, "no key without a Grid instance");
+  assert.match(assistantSystemPrompt({ playerName: "Ann", roomCode: "R", permission: "read" }), /exact symbols and colours they name and a tiny example; never say you have not looked/);
+});

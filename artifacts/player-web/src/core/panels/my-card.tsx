@@ -7,12 +7,12 @@ export default function MyCard({ params, phase }: PanelProps<"my-card">) {
   const card = useMyCard();
   const objects = useObjects({ hz: 1 });
   const ranks = useObjectRanks(objects);
-  const { noun } = useObjectContext();
+  const { noun, ctx } = useObjectContext();
   if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   const examples = [...objects].sort((a, b) => (params.exampleSort === "best" ? b.own.netBits - a.own.netBits : a.own.netBits - b.own.netBits)).slice(0, params.examples);
   return (
     <div className="space-y-5" data-testid="panel-utility">
-      <UtilityCardView card={card} />
+      <UtilityCardView card={card} grid={ctx.grid} />
       {params.showSource && <pre className="max-h-48 overflow-auto bg-secondary p-3 font-mono text-[12px] text-secondary-foreground">{card.source}</pre>}
       {params.examples > 0 && (
         <Section title={`${phase === "ended" ? "Final" : "Live"} ${noun}s you like ${params.exampleSort === "best" ? "most" : "least"}`}>

@@ -147,6 +147,7 @@ export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) 
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,
     language, source: c.source[language],
+    ...(c.example ? { example: { value: String(c.example.value), size: c.example.size, caption: c.example.caption } } : {}),
     ...(c.penalty ? { penalty: {
       familyId: c.penalty.familyId, emoji: c.penalty.emoji, name: c.penalty.name, summary: c.penalty.summary,
       comparative: c.penalty.comparative, shape: c.penalty.shape, source: c.penalty.source[language],
