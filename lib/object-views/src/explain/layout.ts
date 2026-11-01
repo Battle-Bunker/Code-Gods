@@ -3,7 +3,7 @@
  * piece is outlined, where its numbered badge goes, which order the callouts take and the arrows' curves. Pure and
  * framework-free, unit tested under Node; the React component (GoalBoard.tsx) only measures and draws.
  */
-import type { Cell, Part, PartShape, Tone } from "@workspace/game-utilities";
+import type { Cell, Part, PartShape, Tone, WhatIfEntry } from "@workspace/game-utilities";
 
 export interface BoardGeometry {
   /** Cell edge in px. */
@@ -134,6 +134,23 @@ export function litCells(focus: Cell, parts: readonly Pick<Part, "cells">[], siz
   lit[focus.r][focus.c] = true;
   for (const p of parts) for (const x of p.cells) if (x.r >= 0 && x.c >= 0 && x.r < size && x.c < size) lit[x.r][x.c] = true;
   return lit;
+}
+
+/**
+ * Rows of the what-if table that score alike, merged: symbols in runs whose entries have the same deltas and verdicts. A
+ * merged row shows the entries of its first symbol, except that the cell's current entry wins, so "now" stays visible.
+ */
+export function groupRows(entries: readonly (readonly WhatIfEntry[])[]): { syms: number[]; row: readonly WhatIfEntry[] }[] {
+  const out: { syms: number[]; row: WhatIfEntry[]; key: string }[] = [];
+  entries.forEach((row, s) => {
+    const key = row.map(e => `${e.delta}|${e.verdict}`).join(",");
+    const last = out.at(-1);
+    if (last && last.key === key) {
+      last.syms.push(s);
+      row.forEach((e, c) => { if (e.current) last.row[c] = e; });
+    } else out.push({ syms: [s], row: [...row], key });
+  });
+  return out.map(({ syms, row }) => ({ syms, row }));
 }
 
 const round = (n: number) => Math.round(n * 10) / 10;

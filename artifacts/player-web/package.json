@@ -13,7 +13,8 @@
     "e2e:panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/stored-panels.ts",
     "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/assistant-games.ts",
     "e2e:replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/replay-shot.ts ../../docs/screenshots/replay",
-    "e2e:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations.ts"
+    "e2e:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations.ts",
+    "videos:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-videos.ts ../../docs/videos/annotations"
   },
   "devDependencies": {
     "@radix-ui/react-accordion": "^1.2.4",

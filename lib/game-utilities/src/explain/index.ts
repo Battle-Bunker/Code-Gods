@@ -31,6 +31,7 @@ import { mirrormancer } from "./lenses/mirrormancer.ts";
 export * from "./model.ts";
 export { MAX_FOCUS_PARTS, containing, orderParts, type Lens } from "./lens.ts";
 export { boardOf, readBoard, type Board } from "./board.ts";
+export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFrame, type StoryRole, type WhatIfEntry } from "./modes.ts";
 
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([

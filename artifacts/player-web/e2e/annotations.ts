@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 
 const PORT = Number(process.env.PORT_ANNOTATIONS ?? 22795), BASE = `http://127.0.0.1:${PORT}`;
 const server = spawn("npx", ["vite", "--config", "vite.config.ts", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], {
-  cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PORT: String(PORT) }, detached: true,
+  cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, PORT: String(PORT) }, detached: true,
 });
 // npx runs vite as a child: stop the whole process group.
 const stop = () => { try { process.kill(-server.pid!, "SIGTERM"); } catch { /* already gone */ } };
@@ -77,6 +77,20 @@ try {
   assert.equal(await pop.locator("[data-testid=goal-outcome-table] [data-here]").count(), 1, "the focus's outcome is ringed");
   await pop.locator('[data-cell="2,2"]').hover();
   assert.match(await pop.locator("[data-testid=goal-board-headline]").innerText(), /^Row 3, column 3:/);
+  // Mode 1, the part scrubber: stepping to the last piece counts the board's whole score.
+  const scrub = page.locator("[data-mode=scrubber]");
+  const total = await scrub.locator("[data-testid=goal-board-total] b").innerText();
+  while (!(await scrub.locator("[data-testid=button-step-next]").isDisabled())) await scrub.locator("[data-testid=button-step-next]").click();
+  assert.equal(await scrub.locator("[data-testid=scrubber-sofar]").innerText(), total, "the running total ends on the board's score");
+  // Mode 2, what if: pointing at a change previews its score.
+  const what = page.locator("[data-mode=whatif]");
+  const cell = what.locator("[data-testid=what-if-table] td:not([data-current])").first();
+  await cell.hover();
+  assert.match(await what.locator("[data-testid=what-if-score]").innerText(), /^With this change: \d+ points/);
+  // Mode 3, the story: its last step gives the score.
+  const tale = page.locator("[data-mode=story]");
+  while (!(await tale.locator("[data-testid=button-step-next]").isDisabled())) await tale.locator("[data-testid=button-step-next]").click();
+  assert.match(await tale.locator("[data-testid=story-points]").innerText(), /^Score: \d+ points?/);
   assert.deepEqual(errors, [], "no page errors");
   console.log(`annotations e2e: ok (${families.length} families)`);
 } catch (e) {

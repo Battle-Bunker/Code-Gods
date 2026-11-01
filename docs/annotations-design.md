@@ -279,3 +279,96 @@ Where to look: the gallery page `artifacts/player-web/annotations.html` (dev ser
 dev`, then `/annotations.html`; `?family=<id>` for one) and its browser check `pnpm --filter @workspace/player-web
 e2e:annotations`. In a game, the goal card (`my-card` panel) shows the annotated example, and every grid's hover view
 explains the grid with the player's own goal (`MyGoalProvider` in `src/core/app.tsx`).
+
+## 10. Report: where the focus-cell paradigm strains
+
+Building nine lenses and reviewing the rest of the catalogue (§5) showed five kinds of rule that a single focus cell
+explains poorly. Each kind comes with the evidence that shows it and what helps.
+
+1. **Global counts and totals.** These are rules whose score is a count over the whole board (Magic Accountant's
+   tie-break distance, Chessmaster's seams, Kingdom's "biggest", Robin Hood's per-colour sums). A focus cell shows
+   its own pieces, but the *total* is the sum of pieces the kid is not looking at. The headline's "This board: 5
+   points" states the total but does not *build* it. Chessmaster's focus can expand up to 4 blocks and 4 seams, and we
+   cap it at 6 pieces (A1), so a busy cell already hides part of its own story. **Helps:** the part scrubber (M1)
+   counts the pieces one by one with a running total.
+2. **Long-range patterns.** Mirror pairs, symmetry orbits (Looking-Glass, Pinwheel) and knight jumps link cells that
+   are far apart. The focus selects the line, but the eye has to travel. Arcs (`links`) help (Mirrormancer). A line
+   rule's verdict still depends on cells the kid did not point at, and "why is row 3 not a mirror?" is answered in the
+   callout, not on the board. **Helps:** a focus *line* (select a row, not a cell) and the scrubber over lines.
+3. **Whole-board properties and "max" rules.** These are all-or-nothing rules (Picture Frame, Sudoku Scholar) and
+   max-over rules (Kingdom, Lone Peak, Snake Charmer, Magic Window). Most cells play no part in the score, and saying
+   so ("This cell is inside the frame: it never changes your score.") is the main lesson. That note is honest but
+   static. For max rules, the focus cell's patch is often not the one that scores, so the lens has to show *two*
+   pieces (Kingdom: "your patch" and "the biggest"). Ties are subtle: two equal biggest patches and only one scores.
+   **Helps:** what-if (M2), because it shows that changing this cell does nothing until it touches the frame or the
+   biggest patch.
+4. **Centroids, processes and orderings.** Far Apart scores the distance between two colour centroids. Castle Keeper
+   floods from the edge. Mountain Climb follows a path. Bullseye stops at the first failing ring. A cell's role is
+   indirect: it shifts a centroid a fraction of a step, blocks or opens a flood, or ends a climb. No local piece
+   captures it. **Helps:** what-if (M2) for centroids and maxima ("which change helps, by how much"), and step-through
+   stories (M3) for processes.
+5. **Penalties and defence goals.** The defence goals (§5, Tier D) are mostly global counts with a loss tone. Lenses
+   work for them (negative points, red pieces), but a penalty only counts above the 90th percentile, so the board's
+   breakdown in points is not what the player is charged. The card program's ordinal is what we verify, not the
+   charged bits. **Helps:** a separate "⚠️ how close am I to the line" gauge beside the breakdown. This is not built:
+   defence goals are not part of First Steps.
+
+Two smaller lessons:
+
+- **Keeping the score honest costs nothing at runtime.** Verifying against the card catches lens bugs immediately: a
+  mutation that counted 4 neighbours instead of 8 in Minesweeper failed the suite. The search for an example board
+  runs in 30–130 ms, once per game.
+- **Picking the default focus is a design decision.** "Most illuminating" (scoring and non-scoring pieces, not too
+  many) works well. Mine cells in Minesweeper had to be capped at 3 pieces, or they won the search with 6 overlapping
+  windows.
+
+## 11. Extensions to the interaction paradigm
+
+Proposed, in order of value. ★ = built as a working demo (gallery `annotations.html?mode=…`, components in
+`lib/object-views/src/explain/modes.tsx`, logic in `lib/game-utilities/src/explain/modes.ts`).
+
+- ★ **M1 · Part scrubber ("count as you go").** `PartScrubber` steps through every piece of the explanation in
+  reading order: ◀ ▶, play and a slider, one piece drawn at a time with its callout and a running total that ends on
+  the board's score. It needs no new lens code (it reuses `Explanation.parts`), so every lensed family gets it free.
+  It is best for global counts and line rules. Demo: Mirrormancer.
+- ★ **M2 · What-if preview.** `WhatIfBoard` lets the player pick a cell and lists every symbol × colour it could
+  show, each scored by the card program (`whatIf`), better in green and worse in red. Pointing at an option previews
+  the changed board and its score. Rows that score alike merge ("any" number for a colour-only rule). It is generic:
+  it needs no lens, so it covers every family, including Tier D. Demo: Far Apart.
+- ★ **M3 · Step-through story.** `StoryPlayer` narrates a process rule as frames (cells by role, a sentence, the
+  score on the last frame), from a per-family `story` function. Its last frame is tested to equal the card's score on
+  hundreds of boards. Demo: Castle Keeper's flood.
+- **Focus line / region.** Select a row, column, diagonal or 2×2 window instead of a cell (keyboard: Shift+arrows;
+  pointer: hover a row's margin). This is natural for line rules (Rainbow Road, Ladder of Numbers, Seesaw) and
+  removes the "which of my two lines?" ambiguity of row-and-column rules.
+- **Pinned comparison.** Pin one focus and hover another: two sets of pieces side by side, for "why does this patch
+  score and that one doesn't?".
+- **Best-move hint.** M2's "best change here" across all cells: a heat map of how much each cell could gain. It is
+  powerful for strategy, but it moves from *explaining* the rule to *playing* it, so keep it out of the goal card.
+- **Threshold gauge for defence goals.** See §10.5.
+
+## 12. Videos
+
+Short screen recordings (WebM, VP9, 960×800, 8–22 s, 0.1–0.8 MB each), in `docs/videos/annotations/`.
+`pnpm --filter @workspace/player-web videos:annotations` records all of them again from the gallery. Each family clip
+does three things: it opens on the goal-card example's default focus, moves cell by cell across the board, then hovers
+a live grid and explores the rich view, which starts on the top-left cell.
+
+| Video | Shows |
+|---|---|
+| [parity_painter.webm](videos/annotations/parity_painter.webm) | 🎭 one piece per cell; the outcome table rings the focus's kind × colour |
+| [set_spotter.webm](videos/annotations/set_spotter.webm) | 🔺 trios that end at the focus, SET ✓ / not a SET ✗ with the colour and number checks |
+| [number_bonds.webm](videos/annotations/number_bonds.webm) | 🤝 pairs touching the focus with their sums |
+| [chessmaster.webm](videos/annotations/chessmaster.webm) | ♟️ 2×2 blocks (points) and red–green seams (tie-break) |
+| [honest_minesweeper.webm](videos/annotations/honest_minesweeper.webm) | 💣 the 3×3 window with its mines circled; a mine shows the cells that count it |
+| [magic_accountant.webm](videos/annotations/magic_accountant.webm) | 🧮 the focus's row against the magic number, the tie-break distance |
+| [kingdom.webm](videos/annotations/kingdom.webm) | 🏰 the focus's patch and the biggest patch |
+| [picture_frame.webm](videos/annotations/picture_frame.webm) | 🖼️ the whole frame, its breakers, and the inside cells that never matter |
+| [mirrormancer.webm](videos/annotations/mirrormancer.webm) | 🪞 the row folded onto itself, pairs as ✓ / ✗ arcs |
+| [mode-scrubber.webm](videos/annotations/mode-scrubber.webm) | M1: Mirrormancer counted row by row, the running total ends on the score |
+| [mode-whatif.webm](videos/annotations/mode-whatif.webm) | M2: Far Apart, every repaint of a cell scored by the card, previewed on the board |
+| [mode-story.webm](videos/annotations/mode-story.webm) | M3: Castle Keeper's water pouring in and spreading, then the shut-in cell |
+| [real-app-goal-card.webm](videos/annotations/real-app-goal-card.webm) | The real player app on a local engine: the goal card's annotated example, then a live grid's hover view |
+
+`e2e/goal-card-video.ts` records the real-app clip. It needs the local engine and seeds a First Steps room whose
+goals can only be annotated families.
