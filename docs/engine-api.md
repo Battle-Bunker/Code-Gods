@@ -212,7 +212,7 @@ Each of these returns the caller's own projection only.
   its players and the room owner (the player client's read-only `/rooms/:room/games/:game`)
 - `player.trajectories({roomId, gameId?, afterSeq?, limit≤200})` query → `{objects[{objectId, points[{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], nextCursor, latestCursor}`
 - `player.myUtility({roomId})` query → `{gameId, godId, utility{familyId, params, penalty?}, instantiationKey, objectType, typeArgs, priorId, penaltyWeight, language (the default), languages, settings}`, or null when the caller isn't seated (own descriptor only)
-- `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT.
+- `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT. Validate and summon (the agent's sandboxed examination) are limited to 30 a minute per human per room, whatever the credential: past it, `RATE_LIMITED` with no receipt (send the identical envelope again later).
 - `receipts.get({roomId, commandId})` query → `CommandResult | null`
 
 ### Stored panels (`panels`)
