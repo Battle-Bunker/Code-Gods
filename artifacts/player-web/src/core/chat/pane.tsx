@@ -26,9 +26,10 @@ import { runPaletteCommand } from "@/core/palette/registry";
 import { composer, threadFor, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, userCount, withPending, withSteps,
+  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, stepView, userCount, withPending, withSteps,
   type CallRow, type ChatItem, type StepTone,
 } from "./state";
+import { ToolDetail } from "./tool-detail-view";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 type Note = { at: number; key: string; text: string };
@@ -225,7 +226,7 @@ function SystemLine({ children }: { children: React.ReactNode }) {
 }
 
 const TONE: Record<StepTone, string> = { ok: "text-muted-foreground", error: "text-destructive", muted: "text-muted-foreground opacity-70", busy: "text-muted-foreground beat", ask: "text-foreground" };
-/** One model step: its verbs in one line; ▸ opens the exact calls. */
+/** One model step: its verbs in one line (a summary); ▸ opens every call in it with its full detail. */
 function StepLine({ calls }: { calls: CallRow[] }) {
   const view = stepView(calls);
   const [open, setOpen] = useState(view.open);
@@ -235,21 +236,22 @@ function StepLine({ calls }: { calls: CallRow[] }) {
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className={`flex w-full min-w-0 items-center gap-1 text-left ${TONE[view.tone]}`}>
         <span aria-hidden>◦</span><span className="truncate">{view.text}</span>{open ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
       </button>
-      {open && <div className="mt-1 space-y-1 pl-3">{calls.map(call => <Chip key={call._id} call={call} />)}</div>}
+      {open && <div className="mt-1 space-y-1 pl-3">{calls.map(call => <Chip key={call._id} call={call} defaultOpen />)}</div>}
     </div>
   );
 }
 
-/** One tool call: its name, outcome and the exact arguments. */
-function Chip({ call }: { call: CallRow }) {
-  const [open, setOpen] = useState(false);
+/** One tool call: its name and outcome; expanded, everything the assistant sent and read (tool-detail.ts). */
+function Chip({ call, defaultOpen = false }: { call: CallRow; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const view = chipView(call);
   return (
     <div className={`border-l-2 pl-2 ${view.tone === "error" ? "border-destructive text-destructive" : view.tone === "ok" ? "border-[hsl(var(--accent))]" : "border-[hsl(var(--input))]"}`} data-testid={`assistant-chip-${call.tool}`} data-status={call.status}>
-      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1 font-mono text-[11px]" aria-expanded={open}>
-        {view.label}<span className="text-muted-foreground">· {call.status === "running" || call.status === "pending" ? "running" : view.detail || call.status}</span>
+      <button type="button" onClick={() => setOpen(!open)} className="flex items-start gap-1 text-left font-mono text-[11px]" aria-expanded={open}>
+        {open ? <ChevronDown size={11} className="mt-0.5 shrink-0" /> : <ChevronRight size={11} className="mt-0.5 shrink-0" />}
+        <span>{view.label} <span className="text-muted-foreground">· {call.status === "running" || call.status === "pending" ? "running" : view.detail || call.status}</span></span>
       </button>
-      {open && <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[10px]">{prettyArgs(call.argsJson)}</pre>}
+      {open && <ToolDetail call={call} />}
     </div>
   );
 }
@@ -297,7 +299,7 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
             className="px-3 py-1 text-xs disabled:opacity-40">Not now</button>
           <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="ml-auto text-xs text-muted-foreground">Details {details ? "▾" : "▸"}</button>
         </div>
-        {details && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[10px]" data-testid="assistant-card-args">{prettyArgs(call.argsJson)}</pre>}
+        {details && <div className="max-h-56 overflow-auto" data-testid="assistant-card-args"><ToolDetail call={call} /></div>}
       </div>
       {left !== null && <div className="h-0.5 bg-muted" aria-hidden><div className="h-full bg-primary transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(100, (100 * left) / CARD_MS)}%` }} /></div>}
     </div>
