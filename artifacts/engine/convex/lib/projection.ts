@@ -234,6 +234,8 @@ export type ObservationInput = {
   deity: Doc<"deities"> | null; objects: readonly Obj[]; agents: readonly Doc<"agents">[];
   transformations: readonly { id: string; agentId: string; before: number | string; after: number | string; calls?: unknown; cost?: number }[];
   chat: readonly Chat[]; nowMs?: number;
+  /** The allowed languages' sandbox readiness (runtime/readiness.ts sandboxViews). */
+  sandboxes?: readonly { language: string; state: string; reason?: string }[];
 };
 
 /** Protocol v3 observation: own scores and peer aggregates, own agents, the instance and the kid card. */
@@ -246,6 +248,7 @@ export function observation(input: ObservationInput): Observation {
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
+    ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,

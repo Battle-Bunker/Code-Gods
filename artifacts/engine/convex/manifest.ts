@@ -9,14 +9,14 @@ import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
  * diagnostics. Also the pre-authored dropdown options, available runtimes and AI funding status. Game setups are a
  * table of their own (convex/setups.ts).
  */
-import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS, defaultSettingsFor } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS } from "@workspace/game-core";
 import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-types";
 import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
 import { calibrationManifest } from "./engine/calibration";
 import { priorIds } from "./engine/node";
-import { bindRuntime, languageAvailable } from "./engine/runtime";
+import { bindRuntime, ensureSandboxes } from "./engine/runtime";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
 
 const shape = (inst: Instantiation) => {
@@ -49,13 +49,13 @@ export const get = action({
   handler: async (ctx) => {
     await bindRuntime(ctx);
     const calibration = await calibrationManifest(ctx);
-    const runtimes = [];
-    for (const language of LANGUAGES) {
-      if (await languageAvailable(language, defaultSettingsFor("Int", [language]))) runtimes.push(language);
-    }
+    // Deployed runtimes, without booting any (a cold boot is 1-2 s): opening the settings is also the cheapest moment
+    // to warm them (throttled deployment-wide by runtime/readiness.ts), so a start finds them ready.
+    const sandboxes = await ensureSandboxes(ctx, LANGUAGES, true);
+    const runtimes = sandboxes.filter(s => s.state !== "failed").map(s => s.language);
     return {
       protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, maximumPlayers: 8, defaults: DEFAULT_SETTINGS,
-      runtimes, languages: LANGUAGES.map(id => ({ id, ...LANGUAGE_SPECS[id] })), options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
+      runtimes, sandboxes: sandboxes.map(({ language, state, reason }) => ({ language, state, ...(reason ? { reason } : {}) })), languages: LANGUAGES.map(id => ({ id, ...LANGUAGE_SPECS[id] })), options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
       priors: priorIds(calibration),
       aiFunding: {
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),

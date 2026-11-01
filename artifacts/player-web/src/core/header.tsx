@@ -28,7 +28,12 @@ function phasePill(s: Situation, now: number): string {
   if (live && !s.seated) return `Spectating · ${obs.phase}`;
   switch (obs.phase) {
     case "lobby": { const ready = s.room?.members.filter(m => m.ready).length; return s.room ? `Lobby · ${ready} of ${s.members} ready` : "Lobby"; }
-    case "planning": { const left = countdown(obs.planningEndsAt); return left ? `Planning · starts in ${left}` : "Planning"; }
+    case "planning": {
+      const left = countdown(obs.planningEndsAt);
+      if (left) return `Planning · starts in ${left}`;
+      // Past the deadline, planning holds until every allowed language's agent sandbox is warm.
+      return obs.sandboxes?.some(sb => sb.state !== "ready") ? "Planning · agent sandboxes warming up" : "Planning";
+    }
     case "running": return `Running · ${clock(obs.economy?.worldSeconds ?? 0)}`;
     case "paused": { const left = countdown(obs.pauseEndsAt); return left ? `Paused · resumes ${left}` : "Paused"; }
     case "ended": return "Ended · game over";

@@ -16,7 +16,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
 import { assertShape, catalogFor, deal, dealerOf, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
-import { bindRuntime, languageAvailable } from "./engine/runtime";
+import { bindRuntime, ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
@@ -149,9 +149,14 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   const manifest = await calibrationManifest(ctx);
   try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertShape(manifest, settings);
-  const available = await Promise.all(settings.languages.map(language => languageAvailable(language, settings)));
-  const down = settings.languages.filter((_, i) => !available[i]);
-  if (down.length) fail("UNAVAILABLE", `The isolated ${down.map(l => LANGUAGE_SPECS[l].label).join(" and ")} runtime is unavailable`);
+  // The start never waits for a sandbox to boot (1-2 s on a cold instance): it checks that each allowed language's
+  // runtime is deployed and has not just failed, and schedules the warm-ups. Until they report, validate and summon
+  // answer "not ready yet" and planning holds past its deadline (lib/sandboxes.ts planningEnd).
+  const sandboxes = await ensureSandboxes(ctx, settings.languages, true);
+  const down = sandboxes.filter(s => s.state === "failed");
+  if (down.length) {
+    fail("UNAVAILABLE", down.map(s => `The isolated ${LANGUAGE_SPECS[s.language].label} runtime is unavailable: ${s.reason}`).join("; ").slice(0, 1000));
+  }
   const inst = instantiationOf(settings);
   const dealt = deal(settings, members.length);
   const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));

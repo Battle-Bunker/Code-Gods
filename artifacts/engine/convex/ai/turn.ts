@@ -89,7 +89,7 @@ export const run = internalAction({
     const context = await ctx.runQuery(internal.ai.seats.turnContext, { gameId, godId, chain });
     if ("stop" in context) return { stopped: context.stop };
     if ("waitUntil" in context) {
-      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: "Waiting for the pause to end", waitUntil: context.waitUntil });
+      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: context.status ?? "Waiting", waitUntil: context.waitUntil });
       return { waited: true };
     }
     const { roomId, agent } = context;

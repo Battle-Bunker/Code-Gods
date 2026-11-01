@@ -5,11 +5,15 @@
  * module scope and are reused across tick actions and summon examinations. Every action that can run
  * agent code calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { LANGUAGE_SPECS, codecOf, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, codecOf, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
 import type { ActResult, ActSettings, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
-import { runtimeFor } from "../runtime/node";
-export { bindRuntime } from "../runtime/node";
+import { internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
+import { RETRY_AFTER_MS, notReadyMessage } from "../lib/sandboxes";
+import { RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
+import type { LanguageSandbox } from "../runtime/readiness";
+export { bindRuntime, runtimeVersion } from "../runtime/node";
 
 /** Acts in flight per tick wave (the runtime pools queue beyond their worker count). */
 export const WORKERS = 4;
@@ -68,26 +72,52 @@ export function act(source: string, language: Language, input: ObjectValue, sett
   return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings), seed.toString()));
 }
 
-/** Probe a language once per warm instance: an empty agent must round-trip on these settings' instantiation. */
-const probes = new Map<Language, Promise<boolean>>();
-export function languageAvailable(language: Language, settings: GameSettings): Promise<boolean> {
+/**
+ * Boot a language's sandbox on this instance and prove it: an empty agent must round-trip on a default instantiation.
+ * A success is remembered for the instance's life; a failure reports why and is retried by the next call.
+ */
+const probes = new Map<Language, Promise<{ ok: true } | { ok: false; reason: string }>>();
+export function probeLanguage(language: Language): Promise<{ ok: true } | { ok: false; reason: string }> {
   let p = probes.get(language);
   if (!p) {
     p = (async () => {
       try {
-        const source = LANGUAGE_SPECS[language].emptyAgent;
+        const settings = defaultSettingsFor("Int", [language]);
         const inst = instantiationOf(settings), T = objectType(inst.objectType);
         const { seededRng } = await import("@workspace/game-types");
         const value = T.codec(inst).encode(T.spawn(inst, seededRng(`code-gods:probe:${inst.key}`)));
-        const result = await act(source, language, value, settings, 0n);
-        return result.calls === "[]";
+        const result = await act(LANGUAGE_SPECS[language].emptyAgent, language, value, settings, 0n);
+        if (result.calls !== "[]") throw new Error(`the probe agent returned ${result.calls.slice(0, 100)}`);
+        return { ok: true as const };
       } catch (error) {
         console.warn(`Isolated ${language} runtime unavailable: ${(error as Error).message}`);
         probes.delete(language);
-        return false;
+        return { ok: false as const, reason: (error as Error).message.slice(0, 500) };
       }
     })();
     probes.set(language, p);
   }
   return p;
+}
+
+/**
+ * Each language's sandbox readiness for this code, scheduling the warm-ups that are due (runtime/readiness.ts ensure;
+ * one mutation, no writes when all are ready). `keepWarm`: a proactive caller, which also refreshes a ready runtime
+ * so a Node instance stays warm. Never boots anything itself: no caller waits on a sandbox.
+ */
+export function ensureSandboxes(ctx: ActionCtx, languages: readonly Language[], keepWarm = false): Promise<LanguageSandbox[]> {
+  return ctx.runMutation(internal.runtime.readiness.ensure, {
+    runtimes: [...new Set(languages)].map(language => ({ language, version: runtimeVersion(language), ...(RUNTIME_ASSETS[language] ? { asset: RUNTIME_ASSETS[language]!.name } : {}) })),
+    ...(keepWarm ? { keepWarm } : {}),
+  });
+}
+
+/** The typed "not ready yet" answer of a function that needs a warm sandbox (validate, summon, run_code). */
+export type NotReady = { language: Language; state: "warming" | "failed"; reason?: string; retryAfterMs: number; message: string };
+/** null when `language`'s sandbox is ready; else why not (and a warm-up is scheduled if one is due). */
+export async function sandboxGate(ctx: ActionCtx, language: Language): Promise<NotReady | null> {
+  const [view] = await ensureSandboxes(ctx, [language]);
+  if (view.state === "ready") return null;
+  return { language, state: view.state, ...(view.reason ? { reason: view.reason } : {}), retryAfterMs: RETRY_AFTER_MS,
+    message: notReadyMessage(LANGUAGE_SPECS[language].label, view) };
 }

@@ -69,6 +69,10 @@ export const utilityCardSchema = z.object({
 export type UtilityCardView = z.infer<typeof utilityCardSchema>;
 /** Expected bits per act: measured decision information + erasure + motion + the floor. */
 const breakdownSchema = z.object({ decision: finite, erasure: finite, motion: finite, floor: finite });
+/** One allowed language's agent sandbox: booted (`ready`), booting (`warming`), or not booting (`failed`, with why). */
+export const sandboxSchema = z.object({ language, state: z.enum(["warming", "ready", "failed"]), reason: z.string().max(500).optional() });
+export type SandboxStatus = z.infer<typeof sandboxSchema>;
+export const sandboxNotReadySchema = z.object({ language, state: z.enum(["warming", "failed"]), reason: z.string().max(500).optional(), retryAfterMs: z.number().int().nonnegative() });
 // Strip unknown fields at every level: never spread raw server state into model context.
 export const observationSchema = z.object({
   version: z.literal(VERSION), roomId: id, revision: z.number().int().nonnegative(),
@@ -76,6 +80,9 @@ export const observationSchema = z.object({
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
   // The languages agents may be written in (each agent picks one; validate/summon carry it), and the default: the first.
   language, languages: z.array(language).min(1).max(LANGUAGES.length),
+  // Each allowed language's agent sandbox. Validate and summon in a language wait for `ready` (they answer notReady
+  // before); while any is not ready after planning's deadline, planning holds: world time starts for everyone at once.
+  sandboxes: z.array(sandboxSchema).max(LANGUAGES.length).optional(),
   // `seated` is false for a member who joined after this game launched: they spectate and play in the next one.
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   instance: instanceSchema.optional(),
@@ -111,6 +118,9 @@ export const resultSchema = z.object({
     // The validating god's energy when it was measured, and whether it covers the summon price.
     energy: finite.optional(), affordable: z.boolean().optional(),
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
+  // Validate or summon before the agent's language's sandbox is warm: nothing was examined or stored, and the identical
+  // command can be sent again after retryAfterMs. `failed` carries the boot's reason (it is retried automatically).
+  notReady: sandboxNotReadySchema.optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 /** Room-credential permissions, weakest first: read < act < owner. */

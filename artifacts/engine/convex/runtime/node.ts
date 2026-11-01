@@ -99,6 +99,15 @@ export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
   python: { language: "python", workers: 2, queueLimit: 64, assets: pythonBundle },
   get typescript(): RuntimeOptions { return { language: "typescript", workers: 2, queueLimit: 64, typescriptFiles: typescriptFiles() }; },
 };
+/**
+ * The file-storage asset each language's runtime needs, pinned by SHA-256 (a language without one ships in the
+ * deployment's packages). Its pin is also the runtime's version for readiness (runtime/readiness.ts): a new bundle boots again.
+ */
+export const RUNTIME_ASSETS: Partial<Record<Language, { name: string; sha256: string }>> = {
+  python: { name: PYTHON_BUNDLE_FILE, sha256: PYTHON_BUNDLE_SHA256 },
+};
+export const runtimeVersion = (language: Language): string => RUNTIME_ASSETS[language]?.sha256 ?? `builtin:${language}`;
+
 const runtimes: Partial<Record<Language, GameRuntime>> = {};
 /** The instance's warm runtime for a language (created lazily; workers start on demand or via `warm()`). */
 export function runtimeFor(language: Language): GameRuntime {

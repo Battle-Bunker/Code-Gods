@@ -15,6 +15,7 @@ import { internalAction, type ActionCtx } from "../_generated/server";
 import { fail, messageOf } from "../lib/errors";
 import { principalV, type Principal } from "../lib/rooms";
 import { bindRuntime, scriptRuntimeFor } from "../runtime/node";
+import { sandboxGate, type NotReady } from "../engine/runtime";
 import { resolveDatasets } from "./datasets";
 import { CODE_LIMITS } from "./limits";
 import { splitRunResult } from "./keys";
@@ -34,8 +35,13 @@ export const runArgs = {
 type RunArgs = { roomId: string; language?: "python" | "typescript"; title?: string; source?: string; script?: string; datasetsJson: string;
   paramsJson?: string; cpuMs?: number; load?: string[]; saveAs?: string };
 
-/** What run_code returns to the model: bounded; the whole result is the object runs/<runId> (get_code_run, the code-output panel). */
-export type RunOutcome = {
+/**
+ * What run_code returns to the model: bounded; the whole result is the object runs/<runId> (get_code_run, the code-output
+ * panel). `not_ready`: the language's sandbox is still warming (or failed to start); nothing ran or was charged, and
+ * the same call can be made again after notReady.retryAfterMs.
+ */
+export type RunOutcome = RunDone | { status: "not_ready"; message: string; notReady: Omit<NotReady, "message"> };
+type RunDone = {
   TRUNCATED?: string;
   runId: string; status: "ok" | "error"; title: string | null;
   error?: { code: string; message: string };
@@ -83,6 +89,8 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
     source = saved.source; lang = saved.language; title ??= saved.title;
   }
   if (source === undefined || lang === undefined) return fail("BAD_REQUEST", "run_code needs a language and a source, or a saved script");
+  const notReady = await sandboxGate(ctx, lang);
+  if (notReady) { const { message, ...rest } = notReady; return { status: "not_ready", message, notReady: rest }; }
   const scopes = args.load ?? [];
   const { runId, cpuMs, roomId, epoch } = await ctx.runMutation(internal.code.runs.start, {
     principal, roomId: args.roomId, language: lang, source, ...(title ? { title } : {}),
@@ -92,7 +100,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   const show = `open_panel {panelId: "code-output", params: {runId: "${runId}"}} shows this run to the player`;
   const base = { runId, title: title ?? null, show };
   let inputBytes = 0;
-  const failed = async (error: { code: string; message: string }, usedMs: number): Promise<RunOutcome> => {
+  const failed = async (error: { code: string; message: string }, usedMs: number): Promise<RunDone> => {
     const wallMs = Math.round(performance.now() - started);
     await ctx.runMutation(internal.code.runs.finish, { runId, status: "error", error, cpuMs: usedMs, wallMs, inputBytes });
     return { ...base, status: "error", error, output: "", outputTruncated: false, cpuMs: usedMs, wallMs, inputBytes };
@@ -128,7 +136,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   }
   // The run's store writes (UNTRUSTED guest output: the guest can tamper with its own store): parsed defensively here,
   // and every key, size and the quota checked in commitAs. Blobs uploaded for a set that is not committed are deleted.
-  let storeOutcome: RunOutcome["store"];
+  let storeOutcome: RunDone["store"];
   const uploaded: Id<"_storage">[] = [];
   try {
     let writes: { put: Map<string, unknown>; delete: string[] } | null = null;
