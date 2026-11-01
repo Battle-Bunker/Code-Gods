@@ -66,12 +66,32 @@ test("each player's replay, cut at any snapshot, rebuilds that player's view of 
     }
   };
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 2), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 3), "every batch carries the event schema");
+  // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
+  // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
+  // exact on every scoring batch, so this ended game's replay below steps per event.
+  const published = final.batches.filter((b: any) => b.published);
+  assert.equal(published[0].seq, 0, "the starting scoreboard");
+  assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
+  const periodic = published.slice(1, -1);
+  periodic.forEach((b: any, i: number) => {
+    const previous = i === 0 ? 0 : periodic[i - 1].worldTo;
+    assert.ok(Math.floor(b.worldTo / 10) > Math.floor(previous / 10), `batch ${b.seq} at ${b.worldTo} s publishes only past the next 10 s mark after ${previous} s`);
+  });
+  assert.deepEqual(final.game.scoreboard.totals, published.at(-1).totals, "the game's scoreboard is the last publication");
+  // One objectEvents row per spawn and transform, in the same order, with the same values and score vectors.
+  const logged = final.batches.flatMap((b: any) => b.events.filter((e: any) => e.t === "spawn" || e.t === "transform").map((e: any) => ({ ...e, seq: b.seq })));
+  assert.equal(final.objectEvents.length, logged.length, "a row per scoring event");
+  for (const e of logged) {
+    const row = final.objectEvents.find((r: any) => r.objectId === e.objectId && r.version === e.version);
+    assert.ok(row, `a row for ${e.objectId} v${e.version}`);
+    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, e.net, e.before, e.agentId]);
+  }
   const roster: string[] = final.game.roster.map((m: any) => m.id);
   for (const god of [host, ada, bo]) {
     const pages = await pagesOf(god);
     assert.ok(pages.length > 1, "the replay pages");
-    assert.equal(pages[0].game.logSchema, 2);
+    assert.equal(pages[0].game.logSchema, 3);
     const index = roster.indexOf(god.subject);
     for (const [n, snap] of snapshots.entries()) {
       const label = `${god.name} at snapshot ${n}`;

@@ -24,12 +24,13 @@ import type { ActionCtx } from "../_generated/server";
 import { envelopeHash } from "../game/commands";
 import { fail } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
-import type { eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
+import type { boardFor, eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
+import { fitRows, gatherSeries } from "./series";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
 import type { CurrentLayout, LayoutChange } from "../layout";
 import type { RunOutcome } from "../code/execute";
 import type { RunDetail } from "../code/runs";
-import { bound } from "./bound";
+import { MAX_RESULT_CHARS, bound } from "./bound";
 import { pollDelay } from "./rules";
 import type { Who } from "./store";
 
@@ -245,6 +246,26 @@ export const EXECUTORS: Executors = {
   get_my_utility: async (ctx, { principal, who }) => {
     const mine: R<typeof myUtilityFor> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId: who.roomId });
     return { data: mine };
+  },
+  get_utility_series: async (ctx, { principal, who }, { gameId, objectId, fromWorld, offset, limit }) => {
+    // Whole rows up to the result bound: the next page starts at offset + rows.
+    const series = fitRows(await gatherSeries(ctx, principal, who.roomId, { gameId, objectId, fromWorld, offset, limit }), MAX_RESULT_CHARS - 2_000);
+    return { data: series, nextCursor: series.truncated ? offset + series.rows : null, ...(series.truncated ? { truncated: true } : {}) };
+  },
+  get_board_at: async (ctx, { principal, who }, args) => {
+    const board: R<typeof boardFor> = await ctx.runQuery(internal.player.boardAs, { principal, roomId: who.roomId, ...args });
+    return { data: board };
+  },
+  list_utility_candidates: async (ctx, { principal, who }, { family, paramsPerFamily }) => {
+    const list: unknown = await ctx.runAction(internal.agent.node.candidates, { principal, roomId: who.roomId, ...(family ? { family } : {}), paramsPerFamily });
+    return { data: list };
+  },
+  fit_utility_mixture: async (ctx, { principal, who }, { hints, exclude, maxObservations, top }) => {
+    const fitted: unknown = await ctx.runAction(internal.agent.node.fit, {
+      principal, roomId: who.roomId, hints: hints.map(h => ({ familyId: h.familyId, probability: h.probability, ...(h.params ? { params: h.params } : {}) })),
+      exclude, maxObservations, top,
+    });
+    return { data: fitted };
   },
   evaluate_value: async (ctx, { principal, who }, { value }) => {
     const scored: unknown = await ctx.runAction(internal.agent.node.evaluate, { principal, roomId: who.roomId, value });

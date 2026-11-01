@@ -132,6 +132,13 @@ export const gameTables = {
     agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
+    /**
+     * The published scoreboard (docs/public-log-design.md §3): every roster god's total payoff, roster order, as the
+     * leaderboard shows it, published at world time `world` (wall `at`) by the first commit reaching the next multiple of
+     * settings.scoreIntervalSeconds, at the start and at the end. Public. Absent on games started before it existed
+     * (their leaderboard is live).
+     */
+    scoreboard: v.optional(v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() })),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
@@ -172,13 +179,32 @@ export const gameTables = {
     /** The event schema this batch was written with (EVENT_LOG_SCHEMA); absent on batches written before schema 2. */
     schema: v.optional(v.number()),
     /**
-     * Every roster god's total payoff (the public leaderboard) after this batch, in roster order, on batches that
-     * change scores (spawns, transforms). Public: the same numbers the live leaderboard showed at that commit.
+     * Every roster god's exact total payoff after this batch, in roster order, on batches that change scores (spawns,
+     * transforms) and on batches that publish the scoreboard. Server-exact: a LIVE game projects it only on `published`
+     * batches (the scoreboard players saw, docs/public-log-design.md §3); an ended game's replay shows every one.
      */
     totals: v.optional(v.array(v.number())),
+    /** Schema 3: this batch's commit published the live scoreboard (games.scoreboard = its totals). */
+    published: v.optional(v.literal(true)),
     /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
     perf: v.optional(v.object({ acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()) })),
   }).index("by_game_seq", ["gameId", "seq"]),
+
+  /**
+   * The per-object history (docs/public-log-design.md §2): one row per spawn and transform, written in the same commit
+   * as its tickBatches event. `net` is every roster god's net bits of the object AFTER the event, in roster order:
+   * SERVER-PRIVATE, projected per viewer to its own bits, the others' sum and the product. `agentId`, `ownerId` and
+   * `calls` are private while the game is live (only the owner sees their own). The state of any object at world time t
+   * is its last row at or before t (by_game_object_world); an object's previous row is version − 1 (by_game_object_version).
+   */
+  objectEvents: defineTable({
+    gameId: v.id("games"), objectId: v.id("objects"), seq: v.number(), world: v.number(),
+    kind: v.union(v.literal("spawn"), v.literal("transform")),
+    before: v.optional(wire), value: wire, version: v.number(),
+    calls: v.optional(v.any()), agentId: v.optional(v.string()), ownerId: v.optional(v.string()),
+    net: v.array(v.number()),
+  }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
+    .index("by_game_object_version", ["gameId", "objectId", "version"]),
 
   /**
    * Large, rarely written public data kept OFF the hot docs (the game doc is rewritten every tick and Convex

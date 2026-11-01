@@ -148,6 +148,10 @@ export const STEP_VERBS = {
   list_code_runs: ["listed your code runs", "listing your code runs", "list your code runs"],
   list_code_objects: ["listed your stored objects", "listing your stored objects", "list your stored objects"],
   load_skill: ["read up on it", "reading up on it", "read up on it"],
+  get_utility_series: ["read the transformation log", "reading the transformation log", "read the transformation log"],
+  get_board_at: ["looked at the board then", "looking at the board then", "look at the board then"],
+  list_utility_candidates: ["listed the possible rules", "listing the possible rules", "list the possible rules"],
+  fit_utility_mixture: ["analysed the other gods' rules", "analysing the other gods' rules", "analyse the other gods' rules"],
 } as const satisfies Record<ToolName, readonly [string, string, string]>;
 
 function argsOf(call: CallRow): Record<string, unknown> {

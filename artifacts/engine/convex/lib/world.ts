@@ -28,9 +28,11 @@ export const EVENTS_PER_BATCH = 400;
 /**
  * The event log's schema (game/tables.ts eventV, docs/replay-design.md §2), stamped on every tickBatches doc. 2 added
  * agent summons and destructions, per-batch leaderboard totals and chat stamped with its game and world time; a
- * batch without the stamp predates them. Bump it whenever an event's meaning or fields change.
+ * batch without the stamp predates them. 3 marks the batches that published the live scoreboard (`published`, every
+ * scoreIntervalSeconds of world time, docs/public-log-design.md §3) and writes one objectEvents row per spawn and
+ * transform. Bump it whenever an event's meaning or fields change.
  */
-export const EVENT_LOG_SCHEMA = 2;
+export const EVENT_LOG_SCHEMA = 3;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
@@ -85,6 +87,14 @@ export function totalsOf(roster: readonly string[], objects: readonly { scores: 
   const rows = leaderboard(roster, objects.map(o => new Map(o.scores.map(s => [s.god, s.netBits]))));
   const total = new Map(rows.map(r => [r.godId, r.totalPayoff]));
   return roster.map(id => total.get(id)!);
+}
+/**
+ * Whether a commit that brings the world from the last publication at `lastWorld` to `world` publishes the scoreboard:
+ * it has reached the next multiple of `interval` after `lastWorld` (docs/public-log-design.md §3).
+ */
+export function scoreboardDue(lastWorld: number, world: number, interval: number): boolean {
+  if (!(interval > 0)) return true;
+  return Math.floor(world / interval + 1e-9) > Math.floor(lastWorld / interval + 1e-9);
 }
 export const salienceOf = (scores: readonly { netBits: number }[]) => scores.reduce((sum, s) => sum + s.netBits, 0);
 

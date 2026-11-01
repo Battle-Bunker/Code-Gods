@@ -1,4 +1,4 @@
-import { upgradeLegacyLanguage } from "@workspace/game-core";
+import { upgradeStoredSettings } from "@workspace/game-core";
 
 /**
  * The setups-v2 conversion of one stored settings object (convex/migrations.ts), pure so it is unit-tested
@@ -8,11 +8,12 @@ import { upgradeLegacyLanguage } from "@workspace/game-core";
  *   defenceRate > 0  → defenceGoals: true (else false);
  *   excludedFamilies → its reward ids; its defence ids (`defenceIds`) → excludedDefenceFamilies.
  * It also converts the single-language shape ({language, grammarId, complexityFunctionId}) to the allowed set
- * {languages: [language]} (game-core upgradeLegacyLanguage): each agent's grammar and price now follow its own language.
+ * {languages: [language]} (game-core upgradeStoredSettings): each agent's grammar and price now follow its own language,
+ * and fills fields added since (scoreIntervalSeconds) with their defaults.
  * Returns null when the settings are already in the new shape (so the migration is idempotent).
  */
 export function migrateSettings(settings: unknown, defenceIds: ReadonlySet<string>): Record<string, unknown> | null {
-  const languages = upgradeLegacyLanguage(settings);
+  const languages = upgradeStoredSettings(settings);
   const defence = migrateDefence(languages ?? settings, defenceIds);
   return defence ?? languages;
 }

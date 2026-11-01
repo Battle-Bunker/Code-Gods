@@ -203,8 +203,8 @@ export const run = internalAction({
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
-      // The leaderboard after the window, for the replay's score curves (the commit keeps it only when scores changed).
-      ...(changed.length || spawns.length ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
+      // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
+      totals: totalsOf(roster, [...objects, ...spawns]),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

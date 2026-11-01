@@ -8,7 +8,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeLegacyLanguage, validateSettings,
+  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
@@ -195,11 +195,12 @@ export function assertPlayable(manifest: CalibrationManifest, settings: GameSett
 
 /**
  * A complete settings object (a game setup): exactly the GameSettings fields, playable. The single-language shape of
- * settings saved before games allowed several languages is accepted as that one language (upgradeLegacyLanguage).
+ * settings saved before games allowed several languages is accepted as that one language, and a field added since with a
+ * default (scoreIntervalSeconds) is filled with it (upgradeStoredSettings).
  */
 export function assertCompleteSettings(manifest: CalibrationManifest, given: unknown): GameSettings {
   if (!given || typeof given !== "object" || Array.isArray(given)) return fail("BAD_REQUEST", "settings must be a settings object");
-  const settings = upgradeLegacyLanguage(given) ?? given;
+  const settings = upgradeStoredSettings(given) ?? given;
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
   const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
@@ -215,9 +216,9 @@ export function assertCompleteSettings(manifest: CalibrationManifest, given: unk
 export function nextSettings(manifest: CalibrationManifest, previous: GameSettings,
   input: { settings?: Record<string, unknown>; setup?: GameSettings }): GameSettings {
   let settings: GameSettings;
-  if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly
+  if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly unless upgradeStoredSettings fills its default
   else if (input.settings) {
-    try { settings = applySettingsChange((upgradeLegacyLanguage(previous) ?? previous) as GameSettings, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
+    try { settings = applySettingsChange((upgradeStoredSettings(previous) ?? previous) as GameSettings, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
       return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);
     }
   } else return fail("BAD_REQUEST", "Settings or a setup are required");

@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
@@ -84,6 +84,17 @@ test("run_code: a script over datasets resolved as the player, stored for them o
   const other = await roomWith([eve]);
   const eveCred = await credential(eve, other.roomId);
   assert.equal(await errorCode(run(eveCred, roomId, { language: "python", source: RANK_PY })), "FORBIDDEN");
+  // The rival-inference datasets (docs/public-log-design.md §4): the public log with own and others' summed bits, in
+  // columns of equal length, and the public candidates (any god's parameters appear among them by design).
+  const inference = await run(cred, roomId, { language: "python",
+    source: "def main(data):\n    s = data['utility_series']\n    c = s['columns']\n    return {'rows': s['rows'], 'lengths': sorted(set(len(v) for v in c.values())), 'others': s['others'], 'families': len(data['utility_candidates']['families'])}\n",
+    datasetsJson: JSON.stringify(["utility_series", "utility_candidates"]) });
+  assert.equal(inference.status, "ok", JSON.stringify(inference.error));
+  assert.ok(inference.result.rows > 0 && inference.result.families > 0, JSON.stringify(inference.result));
+  assert.deepEqual(inference.result.lengths, [inference.result.rows], "every column has a row per event");
+  assert.equal(inference.result.others, (await raw(gameId)).game.roster.length - 1, "the number of other gods");
+  const inferred = JSON.parse((await ann.c.query(api.code.runs.get, { roomId, runId: inference.runId })).resultJson);
+  await disclosureChecker(gameId, ann.subject, [SECRET])("inference datasets", inferred);
 });
 
 test("run_code: errors are stored and explained, large results go to storage, the budget holds", { timeout: 300_000 }, async () => {

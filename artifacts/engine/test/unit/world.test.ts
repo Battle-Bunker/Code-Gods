@@ -62,3 +62,17 @@ test("an ended game is frozen: a god's energy stops accruing at the end", () => 
   assert.equal(godEnergy(ended, 10, 30_000), 100 + 40 - 10, "reading after the end gives the energy at the end");
   assert.equal(godEnergy(ended, 10, 3_600_000), godEnergy(ended, 10, 20_000), "and it does not move however late it is read");
 });
+
+test("the scoreboard publishes once per interval: at the first commit reaching the next multiple, never twice in one", async () => {
+  const { scoreboardDue } = await import("../../convex/lib/world.ts");
+  // Published at 0; commits at about 1 s apart with a 10 s interval: due at the first commit at or past 10, then 20.
+  assert.equal(scoreboardDue(0, 9.99, 10), false);
+  assert.equal(scoreboardDue(0, 10, 10), true, "exactly on the mark");
+  assert.equal(scoreboardDue(0, 10.7, 10), true);
+  assert.equal(scoreboardDue(10.7, 19.5, 10), false, "published at 10.7: not again before 20");
+  assert.equal(scoreboardDue(10.7, 20.2, 10), true);
+  assert.equal(scoreboardDue(10.7, 45, 10), true, "a long window publishes once, at its end");
+  assert.equal(scoreboardDue(3, 3, 10), false, "no world time passed (a pause)");
+  assert.equal(scoreboardDue(0.1 + 0.2, 30 * (0.1 + 0.2) / 0.3, 30), true, "floating-point marks still count");
+});
+

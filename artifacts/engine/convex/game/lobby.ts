@@ -11,7 +11,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
 import { endTurnsForNewGame } from "../assistant/store";
-import { nextDeadline } from "../engine/loop";
+import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
@@ -221,11 +221,13 @@ export const commitStart = internalMutation({
       const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits) });
     }
+    // The first scoreboard (docs/public-log-design.md §3): published with the starting objects, at world 0.
+    const totals = totalsOf(args.deities.map(d => d.godId), args.objects);
     await ctx.db.insert("tickBatches", {
-      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events],
-      totals: totalsOf(args.deities.map(d => d.godId), args.objects),
+      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, published: true,
     });
-    await ctx.db.patch(gameId, { nextBatch: 1 });
+    await insertObjectEvents(ctx, gameId, 0, events);
+    await ctx.db.patch(gameId, { nextBatch: 1, scoreboard: { totals, world: 0, at: now } });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);

@@ -47,7 +47,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   energyPerSecond: "Energy refill", agentEnergyPerSecond: "Agent charging", agentBatteryActs: "Agent battery", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
-  commitClause: "Conditional moves", objectSelection: "Act targeting",
+  commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates",
 };
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
@@ -269,6 +269,7 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
   if (named) return named;
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
+  if (key === "scoreIntervalSeconds" && typeof v === "number") return `every ${duration(v)}`;
   if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
   return typeof v === "number" ? n(v) : v;
 }

@@ -65,14 +65,39 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   assert.equal(live.myUtility.instantiationKey, "Grid(5,base10,rgby)");
   assert.equal(live.observation.agents.length, 1);
   assert.ok(live.observation.agents[0].source.includes("slide(row(0), 1)"));
-  // The replay has every summon, but a source only for the viewer's own agent.
+  // The replay has only the viewer's own summon (another god's would date its agent: docs/public-log-design.md §1).
   const batches = new Map(live.replay.batches.concat(live.replayLater.batches).map((b: any) => [b.seq, b]));
   const summons = [...batches.values()].flatMap((b: any) => b.events).filter((e: any) => e.type === "agent.summoned");
-  assert.ok(summons.length >= 3, "every god's summon is in the replay (the AI seat may summon too)");
-  assert.deepEqual(summons.filter((e: any) => "source" in e).map((e: any) => e.mine), [true], "only the viewer's own summon carries its source");
-  const theirs = live.events.events.concat(live.eventsFromStart.events).filter((e: any) => e.type === "object.transformed" && !e.mine);
+  assert.deepEqual(summons.map((e: any) => [e.mine, "source" in e]), [[true, true]], "only the viewer's own summon, with its source");
+  // A live replay shows the leaderboard only as published: totals on the scoreboard's publication batches only.
+  const publishedSeqs = new Set(secret.batches.filter((b: any) => b.published).map((b: any) => b.seq));
+  for (const b of batches.values()) if ((b as any).totals) assert.ok(publishedSeqs.has((b as any).seq), `live replay batch ${(b as any).seq}: totals only when published`);
+  assert.ok(secret.batches.some((b: any) => b.totals && !b.published && !(batches.get(b.seq) as any)?.totals && batches.has(b.seq)) || ![...batches.values()].length,
+    "an unpublished scoring batch's exact totals are withheld while live");
+  // Every transformation is public and unattributed: another god's carries no agent, owner, calls or charge, and no
+  // agent id in any result points at another god's agent.
+  const theirs = live.events.events.concat(live.eventsFromStart.events, live.history.events).filter((e: any) => e.type === "object.transformed" && !e.mine);
   assert.ok(theirs.length > 0, "others' transformations are visible");
-  assert.ok(theirs.every((e: any) => !("calls" in e) && !("cost" in e)), "only an agent's owner learns its calls and costs");
+  for (const e of theirs) assert.deepEqual(Object.keys(e).filter(k => ["agentId", "ownerId", "calls", "cost"].includes(k)), [], "no attribution on another god's transformation");
+  const othersAgents = secret.agents.filter((a: any) => a.ownerId !== ada.subject).map((a: any) => a._id as string);
+  for (const [label, result] of Object.entries(live)) {
+    const json = JSON.stringify(result);
+    for (const id of othersAgents) assert.ok(!json.includes(id), `live ${label}: never another god's agent id`);
+    // (rooms.get and games.view name the ROOM's owner; event-bearing results never name an agent's.)
+    if (label !== "room" && label !== "view") for (const g of [bo.subject, host.subject]) assert.ok(!json.includes(`"ownerId":"${g}"`), `live ${label}: never an owner`);
+  }
+  // Transformations reach the viewer with their value change and the viewer's bits (own and the peers' sum only).
+  assert.ok(theirs.every((e: any) => "before" in e && "value" in e && "own" in e && "peerNetBits" in e && typeof e.worldSeconds === "number"));
+  // Others' scores are the published scoreboard, not live totals: the leaderboard is games.scoreboard as of
+  // leaderboardWorldSeconds (retry across a publication between the two reads), while the own score is live.
+  await waitFor(async () => {
+    const o = await ada.c.query(api.player.observation, { roomId });
+    const board = (await raw(game.gameId)).game.scoreboard;
+    if (o.leaderboardWorldSeconds !== board.world) return false;
+    const roster = secret.game.roster.map((m: any) => m.id);
+    return o.leaderboard.every((r: any) => r.totalPayoff === board.totals[roster.indexOf(r.godId)]);
+  }, "the observation's leaderboard is the published scoreboard", 20000);
+  assert.equal(typeof live.observation.self.score, "number", "the own score is live");
   assert.ok(live.eventsFromStart.events.every((e: any) => e.type !== "agent.failed" || secret.agents.some((a: any) => a._id === e.agentId && a.ownerId === ada.subject)), "failures are the owner's own");
   assert.ok(live.trajectories.objects.length > 0 && live.trajectories.objects.every((o: any) => o.points.every((p: any) =>
     ["seq", "worldSeconds", "value", "ownNetBits", "peerNetBits", "payoff"].every(k => k in p) && Object.keys(p).length === 6)));
@@ -95,4 +120,49 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const after = await collect(ada);
   for (const [label, result] of Object.entries(after)) await check(`ended ${label}`, result);
+});
+
+test("other gods' scores move only when the scoreboard is published; the own score is live", { timeout: 180000 }, async () => {
+  // What would break: a leaderboard computed live from the objects (a per-commit jump matchable to one transformation's
+  // others-delta), or a scoreboard that never publishes.
+  const [host, ada, bo] = await gods("Cadence Host", "Cadence Ada", "Cadence Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1,
+    interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 60,
+  });
+  const game = await host.c.action(api.owner.start, { roomId });
+  const start = (await raw(game.gameId)).game.scoreboard;
+  assert.equal(start.world, 0, "the first scoreboard is published at the start");
+  for (const god of [ada, bo]) {
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
+    assert.equal(r.accepted, true, r.message);
+  }
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
+  const live = (snap: any, id: string) => snap.objects.reduce((x: number, o: any) => {
+    const own = o.scores.find((s: any) => s.god === id).netBits;
+    return x + own * Math.max(0, o.scores.filter((s: any) => s.god !== id).reduce((y: number, s: any) => y + s.netBits, 0));
+  }, 0);
+  const roster: string[] = (await raw(game.gameId)).game.roster.map((m: any) => m.id);
+  // Wait until the live totals have moved away from the published ones while the world is still under 60 s.
+  const snap = await waitFor(async () => {
+    const r = await raw(game.gameId);
+    return r.game.worldSeconds < 55 && roster.some((id, i) => Math.abs(live(r, id) - start.totals[i]) > 1e-9) ? r : null;
+  }, "live totals moved", 60000);
+  assert.ok(snap.game.worldSeconds < 60);
+  const observation = await ada.c.query(api.player.observation, { roomId });
+  assert.deepEqual(observation.leaderboard.map((r: any) => r.totalPayoff), roster.map((_, i) => start.totals[i]).sort((a, b) => b - a),
+    "the leaderboard is still the start's scoreboard");
+  assert.equal(observation.leaderboardWorldSeconds, 0);
+  const view = await ada.c.query(api.games.view, { code: game.shortCode });
+  assert.deepEqual(view.leaderboard.map((r: any) => r.totalPayoff).sort(), [...start.totals].sort(), "the public game view too");
+  // The own score is live: the sum of own payoffs now.
+  const now = await raw(game.gameId);
+  const obs = await ada.c.query(api.player.observation, { roomId });
+  const ownNow = obs.objects.reduce((x: number, o: any) => x + o.payoff, 0);
+  assert.ok(Math.abs((obs.self.score ?? NaN) - ownNow) < 1e-9, "self.score is the sum of own payoffs");
+  void now;
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  const ended = await raw(game.gameId);
+  roster.forEach((id, i) => assert.ok(Math.abs(ended.game.scoreboard.totals[i] - live(ended, id)) < 1e-9, "the end publishes the exact totals"));
 });

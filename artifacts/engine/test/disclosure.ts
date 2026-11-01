@@ -26,7 +26,11 @@ export const isSmallInteger = (n: number) => Number.isInteger(n) && Math.abs(n) 
  * to another god. `secrets` are marker strings planted in other gods' agent sources.
  */
 export function disclosureChecker(gameId: string, viewerSubject: string, secrets: string[]) {
-  return async (label: string, result: unknown) => {
+  /**
+   * `publicParams`: the result enumerates the public candidates (every parameter set any god might hold), so other gods'
+   * parameters appear in it by design; callers then prove the result is the same for every viewer instead.
+   */
+  return async (label: string, result: unknown, options: { publicParams?: boolean } = {}) => {
     const secret = await raw(gameId);
     const json = JSON.stringify(result);
     for (const key of FORBIDDEN_KEYS) assert.ok(!json.includes(`"${key}":`), `${label}: never discloses "${key}"`);
@@ -38,17 +42,25 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
     // values, never substrings. A small integer is not distinctive: ordinary public data (counts, ids, values, a
     // seat's energy) holds the same numbers, so "7 net bits" matched "objectCount: 7" about one run in two.
     const seen = numbers(result);
+    // Numbers the viewer may legitimately see, on any object: its own bits and the peers' sum. Calibration tables are
+    // discrete, so another god's bits on one object often equal such an aggregate on another (or the same) object
+    // whenever the remaining peers score exactly 0; those coincidences are not disclosures.
+    const allowed = new Set<string>();
+    for (const o of secret.objects) {
+      const own = o.scores.find((x: any) => x.god === viewerSubject);
+      if (own) allowed.add(JSON.stringify(own.netBits));
+      allowed.add(JSON.stringify(o.scores.filter((x: any) => x.god !== viewerSubject).reduce((n: number, x: any) => n + x.netBits, 0)));
+    }
     for (const o of secret.objects) for (const s of o.scores) {
       if (s.god === viewerSubject) continue;
-      const distinctive = Math.abs(s.netBits) > 1e-6 && !isSmallInteger(s.netBits) &&
-        !o.scores.some((x: any) => x.god === viewerSubject && Math.abs(x.netBits - s.netBits) < 1e-12);
+      const distinctive = Math.abs(s.netBits) > 1e-6 && !isSmallInteger(s.netBits) && !allowed.has(JSON.stringify(s.netBits));
       if (distinctive) assert.ok(!seen.has(JSON.stringify(s.netBits)), `${label}: ${s.god}'s net bits ${s.netBits} on ${o._id}`);
     }
     // Other gods' descriptors never appear.
     const own = secret.deities.find((x: any) => x.godId === viewerSubject)?.utility;
     for (const d of secret.deities) {
       if (d.godId === viewerSubject) continue;
-      if (JSON.stringify(d.utility.params) !== JSON.stringify(own?.params) && JSON.stringify(d.utility.params) !== "{}") {
+      if (!options.publicParams && JSON.stringify(d.utility.params) !== JSON.stringify(own?.params) && JSON.stringify(d.utility.params) !== "{}") {
         assert.ok(!json.includes(JSON.stringify(d.utility.params)), `${label}: ${d.godId}'s utility parameters`);
       }
     }

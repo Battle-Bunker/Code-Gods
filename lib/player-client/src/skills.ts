@@ -12,6 +12,7 @@
 import { allowedLanguages } from "@workspace/game-core";
 import { PRIMER_AGENTS, PRIMER_SCORING } from "./primer.ts";
 import { ANALYTICS_CODE_SKILL } from "./skills/analytics-code.ts";
+import { RIVAL_INFERENCE_SKILL } from "./skills/rival-inference.ts";
 
 export type SkillRead = "rules" | "observation" | "layout";
 /** `tools`: the registry tools the skill's task calls (as the Agent Skills spec's allowed-tools): loading the skill loads those the grant may use. */
@@ -26,6 +27,8 @@ export const SKILLS = [
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
   { name: "analytics-code", description: "Tables, rankings and statistics over the game's data with run_code (shown in code-output): dataset shapes, libraries, examples. Load for any table.", reads: [],
     tools: ["run_code", "get_code_run", "list_code_runs", "list_code_objects"] },
+  { name: "rival-inference", description: "Inferring the other gods' rules from the public transformation log, with negotiation clues as hints.", reads: [],
+    tools: ["get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"] },
 ] as const satisfies readonly SkillEntry[];
 export type SkillName = (typeof SKILLS)[number]["name"];
 export const SKILL_NAMES = SKILLS.map(s => s.name) as unknown as readonly [SkillName, ...SkillName[]];
@@ -142,6 +145,8 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
       : "The panel catalogue could not be read: call get_layout.");
   } else if (name === "analytics-code") {
     parts.push(ANALYTICS_CODE_SKILL);
+  } else if (name === "rival-inference") {
+    parts.push(RIVAL_INFERENCE_SKILL);
   } else {
     parts.push(SETUPS);
   }

@@ -12,8 +12,9 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
 import { gameRecord } from "../lib/projection";
+import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
-import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
+import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreboardDue, totalsOf } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 
 type Ev = Doc<"tickBatches">["events"][number];
@@ -44,36 +45,62 @@ export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: num
 
 /**
  * Append events to the game's log as one (or more) tickBatches docs. `totals` (the leaderboard after these events)
- * goes on the last doc, so a reader that has it has every event it sums.
+ * goes on the last doc, so a reader that has it has every event it sums; `published` marks that doc as the live
+ * scoreboard's publication. Every spawn and transform also gets its objectEvents row (docs/public-log-design.md §2).
  */
 export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number,
-  perf?: Doc<"tickBatches">["perf"], totals?: number[]): Promise<number> {
+  perf?: Doc<"tickBatches">["perf"], totals?: number[], published = false): Promise<number> {
   let next = game.nextBatch;
   const docs = Math.max(1, Math.ceil(events.length / EVENTS_PER_BATCH));
   if (!events.length && !perf && !totals) return next;
   for (let k = 0; k < docs; k++) {
+    const seq = next++, slice = events.slice(k * EVENTS_PER_BATCH, (k + 1) * EVENTS_PER_BATCH);
     await ctx.db.insert("tickBatches", {
-      gameId: game._id, seq: next++, at: Date.now(), worldFrom, worldTo, schema: EVENT_LOG_SCHEMA,
-      events: events.slice(k * EVENTS_PER_BATCH, (k + 1) * EVENTS_PER_BATCH),
-      ...(k === 0 && perf ? { perf } : {}), ...(k === docs - 1 && totals ? { totals } : {}),
+      gameId: game._id, seq, at: Date.now(), worldFrom, worldTo, schema: EVENT_LOG_SCHEMA, events: slice,
+      ...(k === 0 && perf ? { perf } : {}), ...(k === docs - 1 && totals ? { totals } : {}), ...(k === docs - 1 && published ? { published: true as const } : {}),
     });
+    await insertObjectEvents(ctx, game._id, seq, slice);
   }
   return next;
+}
+
+/** One objectEvents row per spawn and transform (the indexed per-object history, docs/public-log-design.md §2). */
+export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[]) {
+  for (const e of events) {
+    if (e.t === "spawn") {
+      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net });
+    } else if (e.t === "transform") {
+      await ctx.db.insert("objectEvents", {
+        gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
+        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, net: e.net,
+      });
+    }
+  }
 }
 
 async function allObjects(ctx: MutationCtx, gameId: Id<"games">) {
   return ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
 }
 
-/** End a game: stamp it, write its public summary and free the room. Bumps the epoch. */
+/** The game's scoreboard interval (world seconds); a game stored before the setting existed uses the default. */
+export const scoreIntervalOf = (game: Pick<Doc<"games">, "settings">) =>
+  (game.settings as Partial<GameSettings>).scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS;
+
+/**
+ * End a game: stamp it, publish its final scoreboard (exact, whatever the interval), write its public summary and free
+ * the room. Bumps the epoch.
+ */
 export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lifetime" | "owner", patch: Partial<Doc<"games">> = {}) {
   const now = Date.now();
-  const ended = { ...game, ...patch, phase: "ended" as const, endedAt: now, endReason: reason, executionEpoch: game.executionEpoch + 1, autoResume: undefined };
-  const summary = gameRecord(ended, await allObjects(ctx, game._id));
-  const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds);
+  const objects = await allObjects(ctx, game._id);
+  const scoreboard = { totals: totalsOf(game.roster.map(m => m.id), objects), world: patch.worldSeconds ?? game.worldSeconds, at: now };
+  const ended = { ...game, ...patch, phase: "ended" as const, endedAt: now, endReason: reason, executionEpoch: game.executionEpoch + 1, autoResume: undefined, scoreboard };
+  const summary = gameRecord(ended, objects);
+  const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
+    undefined, scoreboard.totals, true);
   await ctx.db.patch(game._id, {
     ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
-    summary, nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
+    summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
@@ -157,7 +184,7 @@ export const commit = internalMutation({
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
-    /** The leaderboard after the window (every roster god's total payoff, roster order), when it changed any score. */
+    /** The leaderboard after the window (every roster god's total payoff, roster order); published when due. */
     totals: v.optional(v.array(v.number())),
     wakeAt: v.optional(v.number()),
   },
@@ -224,9 +251,19 @@ export const commit = internalMutation({
     const clock = args.clock!;
     const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
+    // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
+    // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before
+    // scoreboards) keeps its live leaderboard.
+    const publish = !!game.scoreboard && !!args.totals && clock.phase !== "ended" &&
+      scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
+    const scoreboard = publish ? { totals: args.totals!, world: clock.worldSeconds, at: now } : undefined;
+    // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
+    // projection shows them only on the batch marked `published`.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
-    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined, scored ? args.totals : undefined);
+    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
+      scored || publish ? args.totals : undefined, publish);
     const patch: Partial<Doc<"games">> = {
+      ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
       stats: { acts: game.stats.acts + acts, commits: game.stats.commits + 1, discarded: game.stats.discarded, opportunities: game.stats.opportunities + args.stats.opportunities },

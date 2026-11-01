@@ -9,7 +9,7 @@
  * endGame, addAi, removeAi (browser owner, or an `owner` credential of the room's current owner).
  */
 import { ConvexError, v } from "convex/values";
-import { LANGUAGE_SPECS, instantiationOf, lifetimeSeconds, upgradeLegacyLanguage, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, instantiationOf, lifetimeSeconds, upgradeStoredSettings, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
@@ -144,8 +144,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);
   }
   if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
-  // A room the single-language migration has not reached yet plays its one language (upgradeLegacyLanguage).
-  const settings = (upgradeLegacyLanguage(room.settings) ?? room.settings) as GameSettings;
+  // A room the single-language migration has not reached yet plays its one language (upgradeStoredSettings).
+  const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
   const manifest = await calibrationManifest(ctx);
   try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertShape(manifest, settings);
@@ -184,7 +184,7 @@ export const completeStart = internalAction({
     const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
     const p = room?.preparing;
     if (!room || !p || p.requestId !== requestId || p.error) return;
-    const settings = (upgradeLegacyLanguage(room.settings) ?? room.settings) as GameSettings;
+    const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
     const failWith = (message: string) => ctx.runMutation(internal.game.lobby.preparingFailed, { roomId, requestId, message });
     let resolved;
     try {

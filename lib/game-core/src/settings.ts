@@ -104,7 +104,17 @@ export interface GameSettings {
   commitClause: boolean;
   /** Which object an interaction targets: "uniform", or "shelter" (weight 1/(1+σ⁺), σ the object's salience). */
   objectSelection: "uniform" | "shelter";
+  /**
+   * World seconds between publications of the public scoreboard (docs/public-log-design.md §3): every god's total
+   * payoff, as the leaderboard shows it, changes for everyone at once every this many seconds, never per commit. One of
+   * SCORE_INTERVALS. A player's own score stays live.
+   */
+  scoreIntervalSeconds: number;
 }
+
+/** The pre-authored choices of scoreIntervalSeconds (world seconds). */
+export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
+export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
 
 // These IDs describe the contract, not a claim that runners are installed.
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
@@ -134,6 +144,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   priorId: "uniform",
   commitClause: false,
   objectSelection: "uniform",
+  scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
 } satisfies GameSettings);
 
 /**
@@ -146,6 +157,19 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
   const s = settings as { language?: unknown; languages?: unknown };
   if (Array.isArray(s.languages) && s.languages.length && s.languages.every(isLanguage)) return s.languages as Language[];
   return isLanguage(s.language) ? [s.language] : [];
+}
+
+/**
+ * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
+ * (see upgradeLegacyLanguage), and fields added since filled with their defaults (scoreIntervalSeconds, 2026-11).
+ * Use it wherever stored settings (rooms, setups, games) are read.
+ */
+export function upgradeStoredSettings(settings: unknown): Record<string, unknown> | null {
+  const languages = upgradeLegacyLanguage(settings);
+  const s = (languages ?? settings) as Record<string, unknown> | null;
+  if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
+  if (!("scoreIntervalSeconds" in s)) return { ...s, scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS };
+  return languages;
 }
 
 /**
@@ -259,6 +283,9 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (typeof settings.commitClause !== "boolean") throw new Error("commitClause must be true or false");
   if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
     throw new Error("objectSelection must be uniform or shelter");
+  }
+  if (!SCORE_INTERVALS.includes(settings.scoreIntervalSeconds)) {
+    throw new Error(`scoreIntervalSeconds must be one of ${SCORE_INTERVALS.join(", ")} seconds`);
   }
   for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
@@ -579,6 +606,11 @@ export const SETTINGS_DOCS = {
     question: "How fast does the world move?", section: "time", tier: "ask", control: "number", unit: "acts/s", suggested: [25, 100, 300, 1000],
     meaning: "The maximum number of acts per second across all agents.",
     consequence: "Lowering it makes each score easier to follow, and raising it makes the world busier and harder to read.",
+  },
+  scoreIntervalSeconds: {
+    question: "How often do the public scores update?", section: "time", tier: "more", control: "segmented", unit: "s", suggested: SCORE_INTERVALS,
+    meaning: "Every player's public score on the leaderboard changes for everyone at once, every this many seconds of world time; your own score stays live.",
+    consequence: "Lengthening it makes it harder to tell from the leaderboard whose move changed an object, while shortening it makes the race easier to follow.",
   },
   pauseSeconds: {
     question: "How long is each player's one pause?", section: "time", tier: "more", control: "number", unit: "s", suggested: [60, 180, 300],

@@ -30,3 +30,7 @@ export {
   offeredInstantiations, playableInstantiations, isPlayableInstantiation, firstUseSeconds, FIRST_USE_SECONDS, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
   type CalibrationFile, type CalibrationManifest, type CalibrationTable, type InstanceTables, type PriorRef,
 } from "./calibration.ts";
+export {
+  candidatesFor, candidateColumn, fitMixture, logPriors, nnls, SIGMA_FLOOR_BITS,
+  type Candidate, type DrawClass, type FitInput, type FitResult, type Hint, type Hypothesis, type Role,
+} from "./inference.ts";

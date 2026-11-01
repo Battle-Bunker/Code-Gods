@@ -9,6 +9,7 @@
  */
 export const DATASET_NAMES = [
   "objects", "my_utility", "agents", "leaderboard", "observation", "events", "trajectories", "chat", "settings", "rules", "games", "game_history",
+  "utility_series", "utility_candidates",
 ] as const;
 export type DatasetName = (typeof DATASET_NAMES)[number];
 
@@ -17,8 +18,9 @@ export interface DatasetSpec {
   shape: string;
   /** One paragraph for the model: what it is and when to use it. */
   about: string;
-  /** Takes `limit` (tick batches, newest last); default and maximum. */
+  /** Takes `limit` (tick batches, newest last, unless `limitUnit` says otherwise); default and maximum. */
   limit?: { default: number; max: number };
+  limitUnit?: "batches" | "rows";
   /** Requires a gameId (an ended game from `games`). */
   needsGameId?: true;
   /** Accepts a gameId (default: the current game). */
@@ -89,6 +91,21 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
   game_history: {
     shape: `${EVENT}[]`, limit: { default: 400, max: 1000 }, needsGameId: true,
     about: "A game's event log by id (from games), oldest first, the first `limit` tick batches: the same entries as events.",
+  },
+  utility_series: {
+    shape: "{ gameId: string; live: boolean; others: number; rows: number; truncated: boolean; columns: { world: number[]; seq: number[]; objectId: string[]; kind: ('spawn' | 'transform')[]; "
+      + "version: number[]; before: (number | string | null)[]; value: (number | string)[]; ownBefore: (number | null)[]; othersBefore: (number | null)[]; own: number[]; others: number[]; "
+      + "dOwn: (number | null)[]; dOthers: (number | null)[]; payoff: number[]; mine: boolean[] } } | null",
+    limit: { default: 5000, max: 12000 }, limitUnit: "rows", gameId: true,
+    about: "The game's public transformation log as columns (one index per event, oldest first; `limit` is rows): every spawn and transformation, "
+      + "unattributed while live (mine: your own), with the value before and after and YOUR bits and the OTHER gods' summed bits before and after "
+      + "(dOwn, dOthers: exact changes). others is how many other gods there are. Use it to infer what the other gods want: which values raise "
+      + "or lower dOthers, which objects their agents keep moving, periodicities. Pair with utility_candidates and the fit_utility_mixture tool.",
+  },
+  utility_candidates: {
+    shape: "{ others: number; defenceGoals: boolean; penaltyWeight: number; families: { familyId: string; name: string; theme: string; role: 'reward' | 'penalty'; tags: string[]; params: Record<string, unknown>[]; count: number }[] } | null",
+    about: "Every rule another god might hold in the current game: each family the dealer could deal (theme, tags, role) with all its parameter sets. "
+      + "Public knowledge (who holds what is not). Use it to enumerate hypotheses; scoring a hypothesis needs the game's tables, so use fit_utility_mixture for that.",
   },
 };
 

@@ -302,15 +302,23 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     ["get_events", { after: -1, limit: 50 }], ["get_trajectories", { afterSeq: -1, limit: 200 }], ["list_games", {}],
     ["get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }], ["get_my_utility", {}], ["get_chat", {}],
     ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }], ["list_setups", {}],
+    // Rival inference (docs/public-log-design.md §4): the public log with own and others' summed bits, and the fit.
+    ["get_utility_series", {}], ["get_board_at", {}], ["get_board_at", { world: 0 }], ["list_utility_candidates", { paramsPerFamily: 2 }],
+    ["fit_utility_mixture", { maxObservations: 60, hints: [{ familyId: "bullseye", probability: 0.6 }] }],
   ];
+  // These enumerate (or rank) the public candidate rules, so any god's parameters can appear in them by design.
+  const PUBLIC_CANDIDATES = new Set(["list_utility_candidates", "fit_utility_mixture"]);
   // Another god's setup is shared by design (setups are one public collection): Ada lists it, as the host's.
   const hostSetup = await host.c.action(api.setups.save, { name: "Host's shared setup", settings: (await host.c.query(api.rooms.get, { room: roomId })).settings });
   for (const [name, args] of reads) {
     const result = await call(token, name, args);
     assert.ok(result && !result.error && !result.rpcError, `${name}: ${JSON.stringify(result).slice(0, 300)}`);
     assert.equal(result.untrusted, true, `${name} marks game data untrusted`);
-    await check(`mcp ${name}`, result);
+    await check(`mcp ${name}`, result, { publicParams: PUBLIC_CANDIDATES.has(name) });
   }
+  // The candidates are public: the same list for every player, so they say nothing about who holds what.
+  const { token: boToken } = await credential(bo, roomId, "read");
+  assert.deepEqual((await call(boToken, "list_utility_candidates", {})).data, (await call(token, "list_utility_candidates", {})).data, "the same candidates for every player");
   // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
   await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
   // With `place`, open_panel adds a pane (without it, it would switch the never-chosen first pane instead).
@@ -337,6 +345,52 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await check("mcp list_setups (own setup saved)", listed);
   await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
+  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum), by hand.
+  const snap = await raw(game.gameId);
+  const roster: string[] = snap.game.roster.map((m: any) => m.id), me = roster.indexOf(ada.subject);
+  const ownOf = (net: number[]) => net[me], othersOf = (net: number[]) => net.reduce((x, n, i) => (i === me ? x : x + n), 0);
+  // Page through the whole series (each page is whole rows, cut to the result bound).
+  const series: any = { rows: 0, columns: {} };
+  for (let offset: number | null = 0; offset !== null;) {
+    const page: any = await call(token, "get_utility_series", { offset, limit: 20000 });
+    series.others = page.data.others;
+    for (const [k, v] of Object.entries(page.data.columns)) series.columns[k] = [...(series.columns[k] ?? []), ...(v as unknown[])];
+    series.rows += page.data.rows;
+    offset = page.nextCursor ?? null;
+  }
+  assert.equal(series.others, 2);
+  const byKey = new Map(snap.objectEvents.map((r: any) => [`${r.objectId}:${r.version}`, r]));
+  const cols = series.columns;
+  assert.ok(series.rows >= 12, "the starting objects and the transformations");
+  for (let i = 0; i < series.rows; i++) {
+    const row: any = byKey.get(`${cols.objectId[i]}:${cols.version[i]}`);
+    assert.ok(row, "every series row is a stored event");
+    assert.deepEqual([cols.value[i], cols.kind[i], cols.world[i]], [row.value, row.kind, row.world]);
+    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - othersOf(row.net)) < 1e-12, "own and others' sum after");
+    const prior: any = byKey.get(`${cols.objectId[i]}:${cols.version[i] - 1}`);
+    if (!prior) { assert.equal(cols.dOthers[i], null); continue; }
+    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) - othersOf(prior.net))) < 1e-12, "dOthers is the exact change of the others' sum");
+    assert.ok(Math.abs(cols.dOwn[i] - (ownOf(row.net) - ownOf(prior.net))) < 1e-12);
+    assert.equal(cols.mine[i], row.ownerId === ada.subject);
+    assert.equal(cols.before[i], row.before);
+  }
+  const board = (await call(token, "get_board_at", { world: 1e9 })).data;
+  for (const o of snap.objects) {
+    const b = board.objects.find((x: any) => x.objectId === o._id);
+    if (!b || b.version !== o.version) continue; // moved on since the snapshot
+    const own = o.scores.find((x: any) => x.god === ada.subject).netBits, others = o.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
+    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - others) < 1e-12, "the board's own and others' bits are the object's");
+  }
+  const atStart = (await call(token, "get_board_at", { world: 0 })).data;
+  assert.equal(atStart.objects.length, 12, "the board at world 0 is the starting objects");
+  assert.ok(atStart.objects.every((o: any) => o.version === 0));
+  const fitted = (await call(token, "fit_utility_mixture", { maxObservations: 200 })).data;
+  assert.ok(fitted.observations >= 12 && fitted.hypotheses.length > 0 && fitted.hypotheses[0].draws.length === 2, JSON.stringify(fitted).slice(0, 400));
+  // With exact observations the true pair of the other gods' rules explains them: it is in the fit (as a class).
+  const truth = snap.deities.filter((d: any) => d.godId !== ada.subject).map((d: any) => d.utility.familyId).sort();
+  // A class lists up to five aliases; families of the class are the representative's and its aliases'.
+  const holds = (h: any) => { const left = [...truth]; return h.draws.every((d: any) => { const fams = [d.familyId, ...d.aliases.map((a: any) => a.familyId)]; const i = left.findIndex(f => fams.includes(f)); if (i < 0) return false; left.splice(i, 1); return true; }); };
+  assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);

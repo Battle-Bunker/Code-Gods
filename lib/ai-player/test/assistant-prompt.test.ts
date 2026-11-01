@@ -25,8 +25,9 @@ test("the index lists every tool the grant offers beyond the core set, one short
     assert.ok(!text.includes(GAME_PRIMER), "the primer is no longer re-sent: the game-rules skill has the rules");
     assert.match(text, /briefing/i);
     assert.match(text, /load_tools \{names\}/);
-    // 9.5 KB: the owner grant's prompt, with the agent-writing flow that ends a validate loop (the 1WB8 turn).
-    assert.ok(text.length < 9_500, `${permission}: the prompt stays small (${text.length})`);
+    // 10 KB: the owner grant's prompt, with the agent-writing flow that ends a validate loop (the 1WB8 turn) and the
+    // rival-inference tools' four index lines (docs/public-log-design.md §4).
+    assert.ok(text.length < 10_000, `${permission}: the prompt stays small (${text.length})`);
   }
   assert.equal(toolLine(prompt("read"), "summon_agent"), undefined);
   assert.ok(toolLine(prompt("act"), "summon_agent"));
