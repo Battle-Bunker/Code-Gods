@@ -17,10 +17,15 @@ import {
 import { fail } from "../lib/errors";
 import { isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { utcDay } from "../lib/world";
+import { LANGUAGE_SPECS, allowedLanguages, type GameSettings } from "@workspace/game-core";
+import { sandboxViews } from "../runtime/readiness";
 
 /** Turn interval and backoff. */
 export const TURN_MS = 12_000;
 export const MAX_FAILURES = 5;
+/** How long a seat waits before checking a warming (or failed) agent sandbox again. */
+const SANDBOX_WARMING_WAIT_MS = 1_500;
+const SANDBOX_FAILED_WAIT_MS = 10_000;
 
 /** (Re)start every AI seat's chain of a game: on start and on resume. */
 export const startAll = internalMutation({
@@ -51,7 +56,16 @@ export const turnContext = internalQuery({
     if (!room || !member || member.aiChain !== chain || !seat?.aiAgent) return { stop: "stale chain" as const };
     if (game.phase === "ended" || game.phase === "recovery") return { stop: game.phase };
     if (isIdle(await lastHumanActivity(ctx))) return { stop: "idle" as const };
-    if (game.phase === "paused") return { waitUntil: game.pauseEndsAt };
+    if (game.phase === "paused") return { waitUntil: game.pauseEndsAt, status: "Waiting for the pause to end" };
+    // No tokens are spent before the game's agent sandboxes can run the seat's summons: it waits (a failed one, longer).
+    const sandboxes = await sandboxViews(ctx, allowedLanguages(game.settings as GameSettings));
+    const notReady = sandboxes.find(s => s.state !== "ready");
+    if (notReady) {
+      const label = LANGUAGE_SPECS[notReady.language].label;
+      return notReady.state === "failed"
+        ? { waitUntil: Date.now() + SANDBOX_FAILED_WAIT_MS, status: `Waiting: the ${label} agent sandbox failed to start` }
+        : { waitUntil: Date.now() + SANDBOX_WARMING_WAIT_MS, status: `Waiting for the ${label} agent sandbox to warm up` };
+    }
     return { roomId: room._id, agent: seat.aiAgent, failures: member.aiFailures ?? 0 };
   },
 });

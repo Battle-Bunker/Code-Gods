@@ -6,7 +6,7 @@
  * leases. Pause, end, recovery and idle parking bump `executionEpoch`, which discards any window in flight.
  */
 import { v } from "convex/values";
-import type { GameSettings } from "@workspace/game-core";
+import { allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
@@ -15,6 +15,7 @@ import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
 import { agentLanguage } from "../lib/language";
+import { readinessRows } from "../runtime/readiness";
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -127,6 +128,7 @@ export const snapshot = internalQuery({
         expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
       })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),
+      sandboxes: await readinessRows(ctx, allowedLanguages(game.settings as GameSettings)),
     };
   },
 });
@@ -179,7 +181,8 @@ export const commit = internalMutation({
       return { result: "parked" as const };
     }
     if (args.kind === "wait") {
-      await scheduleTick(ctx, game, nextDeadline(game, now));
+      // wakeAt: planning held past its deadline for a warming sandbox polls instead of spinning.
+      await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now));
       return { result: "waited" as const };
     }
 

@@ -68,7 +68,28 @@ export const envelope = (command: Record<string, unknown>, gameId?: string) =>
 export async function touch(god: God) { await god.c.mutation(api.activity.touch, {}); }
 
 /** A room with these gods (first is owner); settings applied directly by the test helper when given. */
+/**
+ * Every agent sandbox of the deployment warm (runtime/readiness.ts): a start never waits for one, so a test that
+ * validates right after its start needs them booted first. Once per test process; the manifest schedules the boots.
+ */
+let warm: Promise<void> | undefined;
+export function sandboxesWarm(): Promise<void> {
+  return warm ??= (async () => {
+    const sandboxes: { language: string; state: string; reason?: string }[] = (await admin.action(api.manifest.get, {})).sandboxes;
+    const undeployed = sandboxes.find(s => s.state === "failed");
+    if (undeployed) throw new Error(`The ${undeployed.language} sandbox cannot boot: ${undeployed.reason}`);
+    const languages = sandboxes.map(s => s.language);
+    await waitFor(async () => {
+      const rows = (await admin.query(internal.testing.sandboxes, {})).filter((r: any) => languages.includes(r.language));
+      const failed = rows.find((r: any) => r.state === "failed");
+      if (failed) throw new Error(`The ${failed.language} sandbox failed to boot: ${failed.reason}`);
+      return rows.length === languages.length && rows.every((r: any) => r.state === "ready") || undefined;
+    }, "every agent sandbox ready", 120_000, 100);
+  })().catch(error => { warm = undefined; throw error; });
+}
+
 export async function roomWith(members: God[], settings?: Record<string, unknown>) {
+  await sandboxesWarm();
   const [owner, ...rest] = members;
   const { roomId, shortCode } = await owner.c.mutation(api.rooms.create, {});
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });

@@ -1,5 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { languageV } from "../lib/language";
 
 /**
  * Runtime assets in Convex file storage (scripts/upload-runtime.mjs). One row per name; today the only
@@ -17,4 +18,20 @@ export const runtimeTables = {
     size: v.number(),
     uploadedAt: v.number(),
   }).index("by_name", ["name"]),
+  /**
+   * Agent sandbox readiness, one row per language for the deployment (lib/sandboxes.ts has the rules; runtime/readiness.ts
+   * writes it, runtime/warm.ts boots). Read by the observation, the tick, AI seats and every function that runs agent code.
+   */
+  runtimeReadiness: defineTable({
+    language: languageV,
+    /** The runtime version this row is about (the Python bundle's pin; `builtin:<language>` for packaged runtimes). */
+    version: v.string(),
+    state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")),
+    reason: v.optional(v.string()),
+    attemptAt: v.number(),
+    attempts: v.number(),
+    readyAt: v.optional(v.number()),
+    /** The latest boot's wall time (diagnostics). */
+    bootMs: v.optional(v.number()),
+  }).index("by_language", ["language"]),
 };

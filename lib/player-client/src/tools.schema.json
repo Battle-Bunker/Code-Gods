@@ -620,7 +620,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -849,7 +850,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -1004,7 +1006,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -1144,7 +1147,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -1274,7 +1278,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -1406,7 +1411,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {
@@ -1539,7 +1545,8 @@
                     "works",
                     "fails",
                     "no_change",
-                    "rejected"
+                    "rejected",
+                    "not_ready"
                   ]
                 },
                 "summary": {

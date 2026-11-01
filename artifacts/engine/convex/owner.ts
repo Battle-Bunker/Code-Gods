@@ -1,6 +1,6 @@
 "use node";
 /**
- * Owner actions that need the calibration tables or the sandbox (Node): settings (validated with
+ * Owner actions that need the calibration tables (Node; they never boot a sandbox: engine/runtime.ts ensureSandboxes): settings (validated with
  * validateSettings + the playable instantiations, optimistic on the room revision) and the game start (deal
  * utility functions with the selector, prepare their tables, spawn and score the starting objects). Each reads a context with the
  * owner check, computes, then commits through an internal mutation that re-checks everything.
@@ -16,7 +16,7 @@ import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
 import { assertShape, catalogFor, deal, dealerOf, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
-import { bindRuntime, languageAvailable } from "./engine/runtime";
+import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
@@ -29,7 +29,6 @@ import { PREPARING_WATCHDOG_MS } from "./game/lobby";
 export const fillCatalog = internalAction({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }): Promise<void> => {
-    await bindRuntime(ctx);
     const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
     if (!room) return;
     await ctx.runMutation(internal.game.lobby.setCatalog, { roomId, revision: room.revision, catalog: catalogFor(room.settings as GameSettings) });
@@ -71,7 +70,7 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
  */
 export const settings = action({
   args: { roomId: v.string(), revision: v.number(), settings: v.optional(v.any()), setupId: v.optional(v.string()), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, args): Promise<SettingsResult> => { await bindRuntime(ctx); return updateSettings(ctx, args); },
+  handler: async (ctx, args): Promise<SettingsResult> => { return updateSettings(ctx, args); },
 });
 
 /** AI seats can play only with a configured provider key, or the mock provider in development. */
@@ -149,9 +148,14 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   const manifest = await calibrationManifest(ctx);
   try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertShape(manifest, settings);
-  const available = await Promise.all(settings.languages.map(language => languageAvailable(language, settings)));
-  const down = settings.languages.filter((_, i) => !available[i]);
-  if (down.length) fail("UNAVAILABLE", `The isolated ${down.map(l => LANGUAGE_SPECS[l].label).join(" and ")} runtime is unavailable`);
+  // The start never waits for a sandbox to boot (1-2 s on a cold instance): it checks that each allowed language's
+  // runtime is deployed and has not just failed, and schedules the warm-ups. Until they report, validate and summon
+  // answer "not ready yet" and planning holds past its deadline (lib/sandboxes.ts planningEnd).
+  const sandboxes = await ensureSandboxes(ctx, settings.languages, true);
+  const down = sandboxes.filter(s => s.state === "failed");
+  if (down.length) {
+    fail("UNAVAILABLE", down.map(s => `The isolated ${LANGUAGE_SPECS[s.language].label} runtime is unavailable: ${s.reason}`).join("; ").slice(0, 1000));
+  }
   const inst = instantiationOf(settings);
   const dealt = deal(settings, members.length);
   const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
@@ -180,7 +184,6 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
 export const completeStart = internalAction({
   args: { roomId: v.id("rooms"), requestId: v.string(), watchdog: v.optional(v.boolean()) },
   handler: async (ctx, { roomId, requestId, watchdog }): Promise<void> => {
-    await bindRuntime(ctx);
     const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
     const p = room?.preparing;
     if (!room || !p || p.requestId !== requestId || p.error) return;
@@ -212,7 +215,7 @@ export const completeStart = internalAction({
  */
 export const start = action({
   args: { roomId: v.string(), requestId: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<StartResult> => { await bindRuntime(ctx); return startGame(ctx, args); },
+  handler: async (ctx, args): Promise<StartResult> => { return startGame(ctx, args); },
 });
 
 const commandArgs = {
@@ -252,10 +255,10 @@ async function ownerCommand(ctx: ActionCtx, args: CommandArgs, principal?: Princ
  */
 export const command = action({
   args: commandArgs,
-  handler: async (ctx, args): Promise<unknown> => { await bindRuntime(ctx); return ownerCommand(ctx, args); },
+  handler: async (ctx, args): Promise<unknown> => { return ownerCommand(ctx, args); },
 });
 /** Internal twin of `command` for a principal {credentialId} (the agent registry's owner tools). */
 export const commandAs = internalAction({
   args: { principal: principalV, ...commandArgs },
-  handler: async (ctx, { principal, ...args }): Promise<unknown> => { await bindRuntime(ctx); return ownerCommand(ctx, args, principal); },
+  handler: async (ctx, { principal, ...args }): Promise<unknown> => { return ownerCommand(ctx, args, principal); },
 });
