@@ -171,26 +171,28 @@ test("a split table: each piece is progress, a failed piece is retried alone, th
   // tables, the engine retries piece 1.
   const all = keysOf("smooth-operator"), k = all[2]!;
   for (const x of all) {
-    assert.equal(await admin.mutation(internal.calibration.cache.claim, { key: x.key, instance: inst.key, family: "smooth-operator", paramsKey: x.paramsKey, prior: priorKey(UNIFORM_PRIOR), ...(x === k ? { pieces: 3 } : {}) }), "compute");
+    await admin.mutation(internal.calibration.cache.claim, { key: x.key, instance: inst.key, family: "smooth-operator", paramsKey: x.paramsKey, prior: priorKey(UNIFORM_PRIOR), ...(x === k ? { pieces: 3 } : {}) });
   }
   const { host, members, roomId } = await room("Split", "smooth-operator");
   const requestId = crypto.randomUUID();
   const first = await host.c.action(api.owner.start, { roomId, requestId });
-  assert.deepEqual([first.status, first.ready, first.total], ["preparing", 0, 3]);
-  assert.match(first.message, /0 of 3 ready, 0 of 5 parts computed/);
+  // (An earlier test's retry may still land smooth-operator's first table, before the start or during this test.)
+  const early = first.ready, total = 5 - early;
+  assert.ok(early === 0 || (early === 1 && k !== all[0]));
+  assert.deepEqual([first.status, first.total], ["preparing", 3]);
+  assert.match(first.message, new RegExp(`${early} of 3 ready, 0 of ${total} parts computed`));
   const view = async () => (await members[1].c.query(api.rooms.get, { room: roomId })).preparing;
-  assert.deepEqual((await view()).pieces, { done: 0, total: 5 });
+  assert.deepEqual((await view()).pieces, { done: 0, total });
 
   const { budgetFor, buildReplicate, buildTable, mergeReplicates, tableJson } = await import("@workspace/game-utilities/estimator");
   const params = k.params, plan = { replicates: 3 }, budget = budgetFor("Int");
   const reps = [0, 1, 2].map(r => buildReplicate("smooth-operator", params, inst, budget, plan, r));
-  const land = (index: number) => admin.mutation(internal.calibration.cache.pieceFinished, { key: k.key, index, result: JSON.stringify(reps[index]), buildMs: 1 });
+  const land = (index: number) => admin.mutation(internal.calibration.cache.pieceFinished, { key: k.key, index, pieces: 3, result: JSON.stringify(reps[index]), buildMs: 1 });
   assert.equal(await land(0), true);
-  // (A plain key may land meanwhile: an earlier test's retry can still compute smooth-operator's first table.)
-  const done = async (pieces: number) => { const v = await view(); assert.ok(v.pieces.total === 5 && v.pieces.done >= pieces && v.pieces.done <= pieces + 1, JSON.stringify(v.pieces)); };
+  const done = async (pieces: number) => { const v = await view(); assert.ok(v.pieces.total === total && v.pieces.done >= pieces && v.pieces.done <= pieces + 1 - early, JSON.stringify(v.pieces)); };
   await done(1);
   // Piece 1 fails: only it is retried (after retryDelayMs(1) = 5 s, as a real piece action); piece 0 stays as it was.
-  await admin.mutation(internal.calibration.cache.pieceFinished, { key: k.key, index: 1, error: "injected piece failure", buildMs: 1 });
+  await admin.mutation(internal.calibration.cache.pieceFinished, { key: k.key, index: 1, pieces: 3, error: "injected piece failure", buildMs: 1 });
   assert.equal((await view()).error, undefined, "a piece's first failure is retried, not reported");
   assert.equal(await land(2), true);
   await done(2);
@@ -208,6 +210,7 @@ test("a split table: each piece is progress, a failed piece is retried alone, th
   await done(3);
   // The two single-action tables land: a piece each, then the game.
   for (const x of all.slice(0, 2)) {
+    if ((await admin.mutation(internal.calibration.cache.getMany, { keys: [x.key] }))[0]?.status === "ready") continue;
     await admin.mutation(internal.calibration.cache.finished, { key: x.key, table: tableJson(buildTable("smooth-operator", x.params, inst, budget).table), buildMs: 1 });
   }
   const game = await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).activeGame, "the prepared game starts", 60_000);

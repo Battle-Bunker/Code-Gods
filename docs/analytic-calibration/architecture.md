@@ -165,7 +165,8 @@ retired shapes (and a non-uniform prior without shipped tables, which are never 
   start claims nothing): at most `MAX_PREPARATIONS` (2) of the owner's other rooms may be preparing tables the owner's
   starts are computing, and a bucket of `PIECE_BUCKET` (200) pieces refilled at `PIECES_PER_MINUTE` (60) must hold the
   start's new pieces (a start larger than the bucket is admitted when it is full). Waiting on keys someone else computes
-  costs nothing. The owner reads `RATE_LIMITED`: "This game needs 36 new rule-table computations, and this server allows
+  costs nothing, and so do the restarts of an admitted preparation (the watchdog's claims of a crashed key). A room
+  admitted but not yet recorded as preparing counts for two minutes. The owner reads `RATE_LIMITED`: "This game needs 36 new rule-table computations, and this server allows
   each owner about 60 a minute (12 available now): you have started several new shapes recently. Try again in about 24
   s, or choose a shape whose tables are ready." or "2 of your rooms are already preparing rule tables for a new shape;
   this server prepares at most 2 at a time per owner. …". So cycling Int ranges costs an owner about a game's tables a

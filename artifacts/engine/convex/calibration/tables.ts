@@ -80,7 +80,8 @@ export const calibrationTables = {
     ownerId: v.string(),
     tokens: v.number(),
     updatedAt: v.number(),
-    rooms: v.array(v.id("rooms")),
+    /** Rooms the owner's admitted starts prepare, with when each was admitted. */
+    rooms: v.array(v.object({ roomId: v.id("rooms"), at: v.number() })),
   }).index("by_owner", ["ownerId"]),
   /**
    * Rooms waiting for a computed table (owner.ts start, the preparing state): one row per (room start, key). The compute

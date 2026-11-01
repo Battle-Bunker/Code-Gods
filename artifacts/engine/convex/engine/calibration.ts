@@ -26,6 +26,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { priorOf, rememberPriors } from "./node";
+import { STALE_COMPUTING_MS } from "../calibration/cache";
 
 export const INDEX_TTL_MS = 60_000;
 export const MAX_INSTANCES = 8;
@@ -239,11 +240,14 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
     }
     // Claim every missing key at once, each under its split plan; the claim schedules the work (costliest first) and
     // applies the owner's rate limit (a refusal throws RATE_LIMITED and claims nothing).
-    const plans = new Map(missing.length ? planDraws(inst, missing).map(p => [p.key, p]) : []);
+    // Keys computing elsewhere are only waited for: no need to measure them (the watchdog resolves again every minute).
+    const inFlight = (key: string) => { const r = rows.get(key); return r?.status === "computing" && Date.now() - r.startedAt < STALE_COMPUTING_MS; };
+    const plans = new Map(planDraws(inst, missing.filter(m => !inFlight(m.key))).map(p => [p.key, p]));
+    const planOf = (key: string) => plans.get(key) ?? { pieces: 1, pieceSeconds: 0 };
     const verdicts = missing.length ? new Map((await ctx.runMutation(internal.calibration.cache.claimMany, {
       items: missing.map(({ draw, canon, key }) => ({
         key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior), params: canon,
-        pieces: plans.get(key)!.pieces, pieceSeconds: plans.get(key)!.pieceSeconds,
+        pieces: planOf(key).pieces, pieceSeconds: planOf(key).pieceSeconds,
       })),
       ...(options.owner ? { owner: options.owner } : {}),
     })).map(r => [r.key, r.verdict])) : new Map<string, string>();

@@ -40,6 +40,8 @@ export const MAX_PREPARATIONS = 2;
 /** The per-owner bucket of computation pieces (a split table is several): its size, and its refill per minute. */
 export const PIECE_BUCKET = 200;
 export const PIECES_PER_MINUTE = 60;
+/** A room admitted this recently counts as preparing even before its start records the preparation. */
+export const ADMISSION_GRACE_MS = 2 * 60_000;
 
 type Verdict = "compute" | "wait" | "ready" | "failed";
 const rowArgs = { key: v.string(), instance: v.string(), family: v.string(), paramsKey: v.string(), prior: v.string() };
@@ -54,13 +56,13 @@ const piecesOfKey = (ctx: MutationCtx, key: string) => ctx.db.query("calibration
  * a computing one older than STALE_COMPUTING_MS) under a plan of `pieces` (1: one action). A restart keeps a split key's
  * ready pieces and recomputes only the others (or merges, when all are ready). Returns the verdict and the work to start.
  */
-async function claimRow(ctx: MutationCtx, args: RowArgs, pieces: number, now: number): Promise<{ verdict: Verdict; work?: Work }> {
+async function claimRow(ctx: MutationCtx, args: RowArgs, pieces: number, now: number): Promise<{ verdict: Verdict; work?: Work; row?: Doc<"calibrationComputed"> }> {
   const fresh = (): Work => (pieces > 1 ? { kind: "pieces", indices: Array.from({ length: pieces }, (_, i) => i) } : { kind: "run" });
   const plan = { pieces: pieces > 1 ? pieces : undefined, piecesDone: pieces > 1 ? 0 : undefined, pieceMs: undefined };
   const row = await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", args.key)).unique();
   if (!row) {
-    await ctx.db.insert("calibrationComputed", { ...args, status: "computing", startedAt: now, attempts: 1, lastUsedAt: now, ...plan });
-    return { verdict: "compute", work: fresh() };
+    const id = await ctx.db.insert("calibrationComputed", { ...args, status: "computing", startedAt: now, attempts: 1, lastUsedAt: now, ...plan });
+    return { verdict: "compute", work: fresh(), row: (await ctx.db.get(id))! };
   }
   if (row.status === "ready") { await ctx.db.patch(row._id, { lastUsedAt: now }); return { verdict: "ready" }; }
   if (row.status === "computing" && now - row.startedAt < STALE_COMPUTING_MS) return { verdict: "wait" };
@@ -68,25 +70,33 @@ async function claimRow(ctx: MutationCtx, args: RowArgs, pieces: number, now: nu
   if (row.status === "failed" && now - (row.finishedAt ?? row.startedAt) >= FAILED_COOLDOWN_MS) {
     for (const p of await piecesOfKey(ctx, args.key)) await ctx.db.delete(p._id);
     await ctx.db.patch(row._id, { status: "computing", startedAt: now, attempts: 1, error: undefined, lastUsedAt: now, ...plan });
-    return { verdict: "compute", work: fresh() };
+    return { verdict: "compute", work: fresh(), row: { ...row, ...plan, status: "computing" } };
   }
   // Failed, or computing for too long (an action that died without reporting): retry while attempts remain.
   if (row.attempts >= MAX_ATTEMPTS) {
     if (row.status !== "failed") await ctx.db.patch(row._id, { status: "failed", error: row.error ?? `no result after ${row.attempts} attempts (the action did not finish)`, finishedAt: now });
     return { verdict: "failed" };
   }
-  await ctx.db.patch(row._id, { status: "computing", startedAt: now, attempts: row.attempts + 1, error: undefined, lastUsedAt: now });
-  if (!row.pieces || row.pieces <= 1) return { verdict: "compute", work: { kind: "run" } };
-  // A split key keeps its plan (its ready pieces belong to it): restart the pieces that are not ready and not in flight.
+  const restart = async () => {
+    await ctx.db.patch(row._id, { status: "computing", startedAt: now, attempts: row.attempts + 1, error: undefined, lastUsedAt: now });
+  };
+  if (!row.pieces || row.pieces <= 1) { await restart(); return { verdict: "compute", work: { kind: "run" }, row }; }
+  // A split key keeps its plan (its ready pieces belong to it): restart the pieces that are not ready and not in flight,
+  // or the merge when every piece is ready. Pieces still in flight (a retry waiting out its backoff) are no crash: the
+  // key is waited for, its attempts untouched.
   const byIndex = new Map((await piecesOfKey(ctx, args.key)).map(p => [p.index, p]));
   const indices: number[] = [];
+  let ready = 0;
   for (let i = 0; i < row.pieces; i++) {
     const p = byIndex.get(i);
-    if (p?.status === "ready" || (p?.status === "computing" && now - p.startedAt < STALE_COMPUTING_MS)) continue;
+    if (p?.status === "ready") { ready++; continue; }
+    if (p?.status === "computing" && now - p.startedAt < STALE_COMPUTING_MS) continue;
     indices.push(i);
   }
-  if (indices.length) return { verdict: "compute", work: { kind: "pieces", indices } };
-  return { verdict: "compute", work: [...byIndex.values()].every(p => p.status === "ready") ? { kind: "merge" } : { kind: "pieces", indices: [] } };
+  if (indices.length) { await restart(); return { verdict: "compute", work: { kind: "pieces", indices }, row }; }
+  if (ready === row.pieces) { await restart(); return { verdict: "compute", work: { kind: "merge" }, row }; }
+  await ctx.db.patch(row._id, { status: "computing", startedAt: now, lastUsedAt: now });
+  return { verdict: "wait" };
 }
 
 /** How many new pieces a work item starts (what the owner's bucket is charged). */
@@ -121,26 +131,23 @@ export const claimMany = internalMutation({
   handler: async (ctx, { items, owner }) => {
     const now = Date.now(), seen = new Set<string>();
     const verdicts: { key: string; verdict: Verdict }[] = [];
-    const work: { item: (typeof items)[number]; work: Work }[] = [];
+    const work: { item: (typeof items)[number]; work: Work; row: Doc<"calibrationComputed"> }[] = [];
     for (const item of items) {
       if (seen.has(item.key)) continue;
       seen.add(item.key);
       const { key, instance, family, paramsKey, prior } = item;
       const r = await claimRow(ctx, { key, instance, family, paramsKey, prior }, item.pieces, now);
       verdicts.push({ key, verdict: r.verdict });
-      if (r.work) work.push({ item, work: r.work });
+      if (r.work) work.push({ item, work: r.work, row: r.row! });
     }
     const charged = work.reduce((n, w) => n + piecesOf(w.work), 0);
     if (owner && charged > 0) await admit(ctx, owner, charged, now);
     work.sort((a, b) => b.item.pieceSeconds - a.item.pieceSeconds);
-    for (const { item, work: w } of work) {
+    for (const { item, work: w, row } of work) {
       const { key, instance, family: familyId, params } = item;
       if (w.kind === "run") await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance, familyId, params });
       else if (w.kind === "merge") await ctx.scheduler.runAfter(0, internal.calibration.compute.merge, { key });
-      else {
-        const row = (await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", key)).unique())!;
-        for (const index of w.indices) await startPiece(ctx, row, index, now);
-      }
+      else for (const index of w.indices) await startPiece(ctx, row, index, now);
     }
     return verdicts;
   },
@@ -166,20 +173,22 @@ async function startPiece(ctx: MutationCtx, row: Doc<"calibrationComputed">, ind
 async function admit(ctx: MutationCtx, owner: { id: string; roomId: Id<"rooms"> }, pieces: number, now: number) {
   const quota = await ctx.db.query("calibrationQuotas").withIndex("by_owner", q => q.eq("ownerId", owner.id)).unique();
   const tokens = quota ? Math.min(PIECE_BUCKET, quota.tokens + ((now - quota.updatedAt) / 60_000) * PIECES_PER_MINUTE) : PIECE_BUCKET;
-  const others: Id<"rooms">[] = [];
-  for (const roomId of quota?.rooms ?? []) {
-    if (roomId === owner.roomId) continue;
-    const p = (await ctx.db.get(roomId))?.preparing;
-    if (p && !p.error && p.pending.length && p.ownerId === owner.id) others.push(roomId);
+  // The owner's other rooms still preparing, or admitted so recently that their preparation is not recorded yet.
+  const others: { roomId: Id<"rooms">; at: number }[] = [];
+  for (const r of quota?.rooms ?? []) {
+    if (r.roomId === owner.roomId) continue;
+    const p = (await ctx.db.get(r.roomId))?.preparing;
+    if ((p && !p.error && p.pending.length && p.ownerId === owner.id) || (!p && now - r.at < ADMISSION_GRACE_MS)) others.push(r);
   }
   if (others.length >= MAX_PREPARATIONS) {
     fail("RATE_LIMITED", `${others.length} of your rooms are already preparing rule tables for a new shape; this server prepares at most ${MAX_PREPARATIONS} at a time per owner. Wait for one of them to start (or end its preparation), or choose a shape whose tables are ready.`);
   }
   if (pieces > tokens && tokens < PIECE_BUCKET) {
-    const seconds = Math.ceil(((pieces - tokens) / PIECES_PER_MINUTE) * 60);
+    // Admitted once the bucket holds the pieces, or is full (a start larger than the bucket).
+    const seconds = Math.ceil(((Math.min(pieces, PIECE_BUCKET) - tokens) / PIECES_PER_MINUTE) * 60);
     fail("RATE_LIMITED", `This game needs ${pieces} new rule-table computations, and this server allows each owner about ${PIECES_PER_MINUTE} a minute (${Math.max(0, Math.floor(tokens))} available now): you have started several new shapes recently. Try again in about ${seconds} s, or choose a shape whose tables are ready.`);
   }
-  const next = { tokens: tokens - pieces, updatedAt: now, rooms: [...others, owner.roomId] };
+  const next = { tokens: tokens - pieces, updatedAt: now, rooms: [...others, { roomId: owner.roomId, at: now }] };
   if (quota) await ctx.db.patch(quota._id, next);
   else await ctx.db.insert("calibrationQuotas", { ownerId: owner.id, ...next });
 }
@@ -203,10 +212,11 @@ export const readyPieces = internalQuery({
  * (retryDelayMs) up to MAX_ATTEMPTS, the other pieces untouched; then the key fails and every waiting room says so.
  */
 export const pieceFinished = internalMutation({
-  args: { key: v.string(), index: v.number(), result: v.optional(v.string()), error: v.optional(v.string()), buildMs: v.number() },
-  handler: async (ctx, { key, index, result, error, buildMs }): Promise<boolean> => {
+  args: { key: v.string(), index: v.number(), pieces: v.number(), result: v.optional(v.string()), error: v.optional(v.string()), buildMs: v.number() },
+  handler: async (ctx, { key, index, pieces, result, error, buildMs }): Promise<boolean> => {
     const row = await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", key)).unique();
-    if (!row || row.status !== "computing" || !row.pieces || row.pieces <= 1 || index >= row.pieces) return false;
+    // A piece of another plan (an action still running from before a fresh round re-planned the key) is not this one's.
+    if (!row || row.status !== "computing" || !row.pieces || row.pieces <= 1 || pieces !== row.pieces || index >= row.pieces) return false;
     const now = Date.now();
     const piece = await ctx.db.query("calibrationPieces").withIndex("by_key", q => q.eq("key", key).eq("index", index)).unique();
     if (piece?.status === "ready") return true;   // reported twice
@@ -251,7 +261,8 @@ export const finished = internalMutation({
   args: { key: v.string(), table: v.optional(v.string()), error: v.optional(v.string()), buildMs: v.number() },
   handler: async (ctx, { key, table, error, buildMs }): Promise<boolean> => {
     const row = await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", key)).unique();
-    if (!row) return false;
+    // A second report for a written table (a duplicated merge or run) changes nothing.
+    if (!row || row.status === "ready") return false;
     const now = Date.now(), split = !!row.pieces && row.pieces > 1;
     const waits = await ctx.db.query("calibrationWaits").withIndex("by_key", q => q.eq("key", key)).collect();
     if (table !== undefined) {
@@ -367,7 +378,8 @@ export const setQuota = internalMutation({
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "No such room");
     const quota = await ctx.db.query("calibrationQuotas").withIndex("by_owner", q => q.eq("ownerId", room.ownerId)).unique();
-    const next = { tokens, rooms, updatedAt: Date.now() };
+    // The rooms count as admitted long ago: preparing, or not at all (no admission grace).
+    const now = Date.now(), next = { tokens, rooms: rooms.map(roomId => ({ roomId, at: 0 })), updatedAt: now };
     if (quota) await ctx.db.patch(quota._id, next);
     else await ctx.db.insert("calibrationQuotas", { ownerId: room.ownerId, ...next });
   },

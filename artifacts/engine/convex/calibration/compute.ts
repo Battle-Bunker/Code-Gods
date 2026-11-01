@@ -53,11 +53,11 @@ export const piece = internalAction({
       if (tableKey(familyId, params, inst) !== key) throw new Error(`${familyId} ${paramsKey(params)} on ${instance}: key is not the current code's`);
       const r = buildReplicate(familyId, params, inst, budgetFor(inst.objectType), { replicates: pieces }, index);
       const result = JSON.stringify(r);
-      await ctx.runMutation(internal.calibration.cache.pieceFinished, { key, index, result, buildMs: performance.now() - started });
+      await ctx.runMutation(internal.calibration.cache.pieceFinished, { key, index, pieces, result, buildMs: performance.now() - started });
       return { key, index, seconds: r.seconds, bodySeconds: r.bodySeconds, stages: r.stages, evaluations: r.evaluations, ...(returnResult ? { result } : {}) };
     } catch (error) {
       try {
-        await ctx.runMutation(internal.calibration.cache.pieceFinished, { key, index, error: (error as Error).message, buildMs: performance.now() - started });
+        await ctx.runMutation(internal.calibration.cache.pieceFinished, { key, index, pieces, error: (error as Error).message, buildMs: performance.now() - started });
       } catch (reportError) {
         console.error(`calibration.compute.piece ${key} #${index}: could not record the failure: ${(reportError as Error).message}`);
       }

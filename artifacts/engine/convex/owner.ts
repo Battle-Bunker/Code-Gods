@@ -154,7 +154,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
   let resolved;
   try { resolved = await resolveTables(ctx, inst, drawsOf(dealt), priorOf(settings.priorId), { owner: { id: context.ownerId, roomId: room._id } }); } catch (error) {
-    if (error instanceof ConvexError) throw error;   // RATE_LIMITED: the owner's message as is
+    // The rate limit's words reach the owner as they are; anything else is the tables failing.
+    if (error instanceof ConvexError && (error.data as { code?: string })?.code === "RATE_LIMITED") throw error;
     return fail("UNAVAILABLE", `The rule tables for this game could not be prepared: ${(error as Error).message}`);
   }
   const commit = { roomId: room._id, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId, principal: args.principal };
