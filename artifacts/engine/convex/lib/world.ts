@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentBattery, isEligible, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { agentBattery, isEligible, leaderboard, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
  * Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no
@@ -25,6 +25,12 @@ export const MAX_OBJECTS = 2000;
 export const IDLE_MS = 30 * 60 * 1000;
 /** Every object a game holds; events per tickBatches doc. */
 export const EVENTS_PER_BATCH = 400;
+/**
+ * The event log's schema (game/tables.ts eventV, docs/replay-design.md §2), stamped on every tickBatches doc. 2 added
+ * agent summons and destructions, per-batch leaderboard totals and chat stamped with its game and world time; a
+ * batch without the stamp predates them. Bump it whenever an event's meaning or fields change.
+ */
+export const EVENT_LOG_SCHEMA = 2;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
@@ -73,6 +79,12 @@ export function viewOfNet(net: readonly number[], index: number) {
   for (let i = 0; i < net.length; i++) if (i !== index) peer += net[i];
   const own = net[index], peerCare = Math.max(0, peer);
   return { netBits: own, peerNetBits: peer, peerCare, payoff: peerCare === 0 ? 0 : own * peerCare };
+}
+/** Every roster god's total payoff over these objects (the leaderboard's numbers), in roster order. */
+export function totalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[] }[]): number[] {
+  const rows = leaderboard(roster, objects.map(o => new Map(o.scores.map(s => [s.god, s.netBits]))));
+  const total = new Map(rows.map(r => [r.godId, r.totalPayoff]));
+  return roster.map(id => total.get(id)!);
 }
 export const salienceOf = (scores: readonly { netBits: number }[]) => scores.reduce((sum, s) => sum + s.netBits, 0);
 

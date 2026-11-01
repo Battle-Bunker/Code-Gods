@@ -346,6 +346,13 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The same projected event log for any game of the room, finished games included, from a seq cursor." },
     tools: ["get_game_history"], palette: { label: "Replay a past game's log…", group: "view", keywords: ["replay", "history", "past game"], surfaces: P },
   },
+  "player.replay": {
+    kind: "query", audience: "player",
+    human: { title: "Replay a game I played", tooltip: "Everything needed to replay a game you were seated in, tick by tick, as you could see it." },
+    ai: { description: "One page of a game's replay for one of its players: the game's header, the human's own utility card, batches of projected events (spawns, transforms, agent summons and destructions, phases) with wall time, world window and leaderboard totals, and on the first page the game's chat. Page with afterSeq = nextCursor until done. Players of that game only." },
+    tools: [], palette: null,
+    why: "Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.",
+  },
   "player.trajectories": {
     kind: "query", audience: "player",
     human: { title: "Open my points over time", tooltip: "Per-object series of your bits, the others' total and your payoff." },

@@ -48,6 +48,9 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       room: await client.query(api.rooms.get, { room: shortCode }),
       view: await client.query(api.games.view, { code: game.shortCode }),
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
+      // The replay (docs/replay-design.md): the first page (header, own card, chat) and a later one.
+      replay: await client.query(api.player.replay, { roomId, gameId: game.gameId, limit: 5 }),
+      replayLater: await client.query(api.player.replay, { roomId, gameId: game.gameId, afterSeq: 2, limit: 100 }),
     };
   };
   const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
@@ -62,6 +65,11 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   assert.equal(live.myUtility.instantiationKey, "Grid(5,base10,rgby)");
   assert.equal(live.observation.agents.length, 1);
   assert.ok(live.observation.agents[0].source.includes("slide(row(0), 1)"));
+  // The replay has every summon, but a source only for the viewer's own agent.
+  const batches = new Map(live.replay.batches.concat(live.replayLater.batches).map((b: any) => [b.seq, b]));
+  const summons = [...batches.values()].flatMap((b: any) => b.events).filter((e: any) => e.type === "agent.summoned");
+  assert.ok(summons.length >= 3, "every god's summon is in the replay (the AI seat may summon too)");
+  assert.deepEqual(summons.filter((e: any) => "source" in e).map((e: any) => e.mine), [true], "only the viewer's own summon carries its source");
   const theirs = live.events.events.concat(live.eventsFromStart.events).filter((e: any) => e.type === "object.transformed" && !e.mine);
   assert.ok(theirs.length > 0, "others' transformations are visible");
   assert.ok(theirs.every((e: any) => !("calls" in e) && !("cost" in e)), "only an agent's owner learns its calls and costs");

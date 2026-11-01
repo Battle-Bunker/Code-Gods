@@ -31,7 +31,7 @@ test("the catalogue lists exactly the public functions in the engine's sources, 
   const found = walkPublicFunctions();
   assert.deepEqual([...CATALOG_PATHS].sort(), [...found.keys()].sort());
   for (const [path, kind] of found) assert.equal(CATALOG[path as keyof typeof CATALOG].kind, kind, `${path} is a ${kind}`);
-  assert.equal(found.size, 67);
+  assert.equal(found.size, 68);
   assert.ok(found.has("layout.current") && found.has("layout.set") && !found.has("panels.place") && !found.has("panels.layout"));
 });
 
@@ -45,7 +45,7 @@ test("every player or owner affordance reaches the assistant through a tool, or 
   // The gaps the design names are the only ones without a tool among player/owner entries.
   const noTool = CATALOG_PATHS.filter(p => (CATALOG[p].audience === "player" || CATALOG[p].audience === "owner") && !CATALOG[p].tools.length).sort();
   assert.deepEqual(noTool, ["assistant.cancel", "assistant.confirm", "assistant.send", "assistant.setPrefs", "assistant.status", "assistant.thread", "assistant.threads",
-    "games.resolve", "games.view", "panels.setEnabled", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
+    "games.resolve", "games.view", "panels.setEnabled", "player.replay", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
 });
 
 test("tools and entries agree in both directions; kinds match annotations", () => {

@@ -13,7 +13,8 @@ import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf } from "./lib/load";
-import { projectBatches, trajectories as trajectoriesOf } from "./lib/projection";
+import { objectInstance, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
+import { EVENT_LOG_SCHEMA } from "./lib/world";
 import { findGame, principalV, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 
 /*
@@ -93,6 +94,79 @@ export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: 
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game!._id).gt("seq", after)).take(limit);
     return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game!.nextBatch - 1 };
 };
+
+/** The replay API's version (docs/replay-design.md §3): bump it when the shape of player.replay changes. */
+export const REPLAY_VERSION = 1;
+/** A replay page holds at most this many batches, stops early past REPLAY_PAGE_EVENTS events, and carries at most REPLAY_CHAT messages. */
+const REPLAY_PAGE_BATCHES = 100, REPLAY_PAGE_EVENTS = 4000, REPLAY_CHAT = 500;
+
+/**
+ * One page of a game's replay for one of its PLAYERS (docs/replay-design.md §3): the game's fixed header, the caller's
+ * own utility card, the event log as the caller may see it, batch by batch with each batch's wall time, world window
+ * and the public leaderboard totals, and the game's chat after `chatAfter` (a wall-clock cursor) up to this page's
+ * last batch. Page with `afterSeq: nextCursor, chatAfter: chatCursor` until `done`; a live game's replay is polled the
+ * same way. Room members who were not seated in the game get FORBIDDEN.
+ */
+const replayArgs = { roomId: v.string(), gameId: v.string(), afterSeq: v.optional(v.number()), chatAfter: v.optional(v.number()), limit: v.optional(v.number()) };
+export const replay = query({ args: replayArgs, handler: async (ctx, args) => replayFor(ctx, await requireViewer(ctx), args) });
+export const replayAs = internalQuery({
+  args: { principal: principalV, ...replayArgs },
+  handler: async (ctx, { principal, ...args }) => replayFor(ctx, await viewerOf(ctx, principal), args),
+});
+export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number }) {
+  const { room, viewer, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
+  if (!game) return fail("NOT_FOUND", "Game not found in this room");
+  if (index < 0) return fail("FORBIDDEN", "Replays are for the game's players; you were not seated in this game");
+  const limit = Math.max(1, Math.min(REPLAY_PAGE_BATCHES, Math.floor(args.limit ?? REPLAY_PAGE_BATCHES)));
+  const after = args.afterSeq ?? -1;
+  // Read batch by batch and stop at the event cap, so a dense game's page never reads docs it would drop.
+  const batches: Doc<"tickBatches">[] = [];
+  let events = 0;
+  for await (const b of ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after))) {
+    if (batches.length && events + b.events.length > REPLAY_PAGE_EVENTS) break;
+    batches.push(b); events += b.events.length;
+    if (batches.length >= limit) break;
+  }
+  const latestCursor = game.nextBatch - 1;
+  const nextCursor = batches.at(-1)?.seq ?? after;
+  const first = after < 0;
+  const done = game.phase === "ended" && nextCursor >= latestCursor;
+  const deity = await deityOf(ctx, game._id, viewer.subject);
+  const settings = game.settings as GameSettings;
+  // Chat: the game's messages (stamped with it, or from before stamps, sent between its start and end) after the
+  // caller's chat cursor, up to this page's last batch (to the end once done), so a page's chat never runs ahead of
+  // its events and a live replay picks up new messages as its log grows.
+  const chatFrom = args.chatAfter ?? game.createdAt - 1;
+  const chatTo = done ? (game.endedAt ?? Infinity) : (batches.at(-1)?.at ?? chatFrom);
+  const rows = chatTo > chatFrom ? await ctx.db.query("chat").withIndex("by_room", q => {
+    const lower = q.eq("roomId", room._id).gt("timestamp", chatFrom);
+    return Number.isFinite(chatTo) ? lower.lte("timestamp", chatTo) : lower;
+  }).take(REPLAY_CHAT) : [];
+  const chatCursor = rows.length === REPLAY_CHAT ? rows.at(-1)!.timestamp : Math.max(chatFrom, Number.isFinite(chatTo) ? chatTo : Date.now());
+  const chat = rows.filter(m => m.gameId === game._id || (m.gameId === undefined && m.world === undefined && m.timestamp >= game.createdAt));
+  return {
+    version: REPLAY_VERSION,
+    game: {
+      id: game._id, shortCode: game.shortCode, phase: game.phase, startedAt: game.createdAt, planningEndsAt: game.planningEndsAt,
+      endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, worldSeconds: game.worldSeconds,
+      settings, setup: game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null,
+      roster: game.roster.map(({ id, name, kind }) => ({ id, name, kind })), objectInstance: objectInstance(settings),
+      seasonCommitment: game.seasonCommitment,
+      // On the first page, the log's schema (its first batch's): below EVENT_LOG_SCHEMA it predates summons, totals and
+      // chat stamps (wholly, or up to a deploy during the game), so the replay's agents, leaderboard curve and chat
+      // placement are incomplete.
+      ...(first ? { logSchema: batches[0]?.schema ?? 1, currentLogSchema: EVENT_LOG_SCHEMA } : {}),
+    },
+    self: { godId: viewer.subject, index, utility: deity?.card ?? null },
+    batches: replayBatches(batches, viewer.subject, index),
+    chat: chat.map(m => ({
+      id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp,
+      ...(m.world !== undefined ? { worldSeconds: m.world } : {}),
+    })),
+    // `done`: the game has ended and this page reaches the end of its log; a live game's replay keeps growing.
+    nextCursor, chatCursor, latestCursor, done,
+  };
+}
 
 /**
  * Per-object series of the caller's own net bits, the peer aggregate and payoff over seq / world time, for

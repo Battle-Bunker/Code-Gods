@@ -14,7 +14,7 @@ import { nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
-import { LEASE_MS } from "../lib/world";
+import { EVENT_LOG_SCHEMA, LEASE_MS, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 
@@ -220,7 +220,10 @@ export const commitStart = internalMutation({
       const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits) });
     }
-    await ctx.db.insert("tickBatches", { gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, events: [{ t: "phase", phase: "planning", world: 0 }, ...events] });
+    await ctx.db.insert("tickBatches", {
+      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events],
+      totals: totalsOf(args.deities.map(d => d.godId), args.objects),
+    });
     await ctx.db.patch(gameId, { nextBatch: 1 });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     await ctx.db.patch(room._id, {

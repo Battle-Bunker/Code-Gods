@@ -13,7 +13,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { eventV, scoreV } from "../game/tables";
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
-import { EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
+import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 
 type Ev = Doc<"tickBatches">["events"][number];
@@ -42,11 +42,21 @@ export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: num
   await ctx.scheduler.runAt(when, internal.engine.tick.run, { gameId: game._id, seq });
 }
 
-/** Append events to the game's log as one (or more) tickBatches docs. */
-export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number, perf?: Doc<"tickBatches">["perf"]): Promise<number> {
+/**
+ * Append events to the game's log as one (or more) tickBatches docs. `totals` (the leaderboard after these events)
+ * goes on the last doc, so a reader that has it has every event it sums.
+ */
+export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number,
+  perf?: Doc<"tickBatches">["perf"], totals?: number[]): Promise<number> {
   let next = game.nextBatch;
-  for (let i = 0; i < events.length || (i === 0 && perf); i += EVENTS_PER_BATCH) {
-    await ctx.db.insert("tickBatches", { gameId: game._id, seq: next++, at: Date.now(), worldFrom, worldTo, events: events.slice(i, i + EVENTS_PER_BATCH), ...(i === 0 && perf ? { perf } : {}) });
+  const docs = Math.max(1, Math.ceil(events.length / EVENTS_PER_BATCH));
+  if (!events.length && !perf && !totals) return next;
+  for (let k = 0; k < docs; k++) {
+    await ctx.db.insert("tickBatches", {
+      gameId: game._id, seq: next++, at: Date.now(), worldFrom, worldTo, schema: EVENT_LOG_SCHEMA,
+      events: events.slice(k * EVENTS_PER_BATCH, (k + 1) * EVENTS_PER_BATCH),
+      ...(k === 0 && perf ? { perf } : {}), ...(k === docs - 1 && totals ? { totals } : {}),
+    });
   }
   return next;
 }
@@ -147,6 +157,8 @@ export const commit = internalMutation({
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
+    /** The leaderboard after the window (every roster god's total payoff, roster order), when it changed any score. */
+    totals: v.optional(v.array(v.number())),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -212,7 +224,8 @@ export const commit = internalMutation({
     const clock = args.clock!;
     const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
-    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined);
+    const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
+    const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined, scored ? args.totals : undefined);
     const patch: Partial<Doc<"games">> = {
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,

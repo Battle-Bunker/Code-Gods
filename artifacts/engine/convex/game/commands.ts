@@ -118,7 +118,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (!text.trim() || text.length > 2000) fail("BAD_REQUEST", "Chat text must be 1–2000 characters");
     const last = await ctx.db.query("chat").withIndex("by_room_author", q => q.eq("roomId", room._id).eq("authorId", member.godId)).order("desc").first();
     if (last && now - last.timestamp < CHAT_INTERVAL_MS) fail("RATE_LIMITED", "Chat rate limit");
-    const id = await ctx.db.insert("chat", { roomId: room._id, authorId: member.godId, authorName: member.name, kind: member.kind, text, timestamp: now });
+    // Chat belongs to the room; a message sent while a game is live is stamped with that game and its world time, so
+    // the game's replay places it exactly (docs/replay-design.md §2.3).
+    const stamp = game && game._id === room.activeGameId && game.phase !== "ended" ? { gameId: game._id, world: worldNow(game, now) } : {};
+    const id = await ctx.db.insert("chat", { roomId: room._id, authorId: member.godId, authorName: member.name, kind: member.kind, text, timestamp: now, ...stamp });
     return { id };
   }
   if (command.type === "ready") {
@@ -155,13 +158,17 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (godEnergy(game, deity.spent, now) < e.cost) fail("CONFLICT", "Insufficient energy");
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
-    const agentId = await ctx.db.insert("agents", {
-      gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now,
+    const world = worldNow(game, now);
+    const record = {
       summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, perActFloorBits: settings.perActFloorBits,
-      breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(worldNow(game, now)), acts: 0, spent: 0,
-    });
+      breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(world),
+    };
+    const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, ...record, acts: 0, spent: 0 });
     await ctx.db.patch(deity._id, { spent: deity.spent + e.cost });
-    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1 });
+    // The summon is in the event log with the agent's whole record (its source stays its owner's), so a replay has
+    // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
+    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, ...record }], world, world);
+    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1, nextBatch });
     return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
   }
   if (command.type === "destroy") {
@@ -170,7 +177,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     await ctx.db.delete(agent._id);
-    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1) });
+    const world = worldNow(game, now);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world }], world, world);
+    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1), nextBatch });
     return { destroyed: agent._id };
   }
   return fail("BAD_REQUEST", "Unknown command");
