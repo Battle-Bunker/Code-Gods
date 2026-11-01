@@ -27,7 +27,7 @@ export const SKILLS = [
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
   { name: "analytics-code", description: "Tables, rankings and statistics with run_code: datasets, libraries, examples. Load for any table.", reads: [],
     tools: ["run_code", "get_code_run", "list_code_runs", "list_code_objects"] },
-  { name: "rival-inference", description: "Infer other gods' rules from the public log and clues.", reads: [],
+  { name: "rival-inference", description: "Infer other gods' rules from the public log.", reads: [],
     tools: ["get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"] },
 ] as const satisfies readonly SkillEntry[];
 export type SkillName = (typeof SKILLS)[number]["name"];
