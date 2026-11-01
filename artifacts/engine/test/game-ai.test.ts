@@ -87,3 +87,20 @@ test("a seat whose model answers with no decision says why, retries, and is read
   await waitFor(async () => (await seat()).status === "Ready; awaiting game start", "the seat is ready again once the game ends", 20000, 250);
   assert.equal((await seat()).aiFailures, 0);
 });
+
+test("an OpenAI seat whose reply is JSON but no decision says so and keeps the reply private", { timeout: 120000 }, async () => {
+  // JSON mode (the OpenAI path before strict structured outputs) guaranteed JSON, not the decision's shape.
+  const host = await adminGod("AI Host O");
+  const [ada] = await gods("AI Ada O");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada], settings);
+  const template = await host.c.mutation(api.aiTemplates.create, { name: "Loose Replier", provider: "openai", model: "gpt-4.1-mini", prompt: 'mock-reply: {"move":"summon","plan":"my private plan"}' });
+  const { godId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: template.id });
+  await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 300_000 });
+  await host.c.action(api.owner.start, { roomId });
+  const seat = async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId);
+  await waitFor(async () => ((await seat()).aiFailures ?? 0) >= 1, "the first turn fails on the reply", 60000, 500);
+  const failed = await seat();
+  assert.match(failed.status, /^Turn failed: the model's reply was not a valid move; retrying in \d+ s$/, failed.status);
+  assert.equal(failed.status.includes("private plan"), false, "the reply itself stays private");
+});
