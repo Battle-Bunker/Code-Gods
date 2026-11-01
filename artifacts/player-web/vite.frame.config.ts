@@ -1,7 +1,7 @@
 /**
  * The stored-panel frame: a second build of the SDK with the bridge transport, as one classic IIFE script
  * (panel-runtime.js, plus panel-frame.css) and the frame document panel-frame.html with its own CSP. Written
- * next to the player client's build (dist/public, served at /player/). The dev server builds the same thing in
+ * next to the player client's build (dist/public, served at /client/). The dev server builds the same thing in
  * memory (vite.config.ts, framePlugin).
  *
  * A classic script, not a module: the frame's origin is opaque, so a module script would need CORS.

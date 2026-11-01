@@ -237,7 +237,7 @@ try {
       const members = await a.locator('[data-testid^="row-member-"]').allInnerTexts();
       assert.ok(members.some(t => /Bob Okafor/.test(t)) && members.some(t => /Carol Nguyen/.test(t)), members.join(" | "));
       // A member's primary is the player client; "Mark me ready" is a secondary link.
-      assert.equal(await b.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      assert.equal(await b.getByTestId("link-player").getAttribute("href"), `/client/rooms/${code}`);
       await b.getByTestId("button-ready").click();
       await a.getByTestId(`row-member-${bob.subject}`).getByText("ready").waitFor();
       await a.getByTestId("button-start").waitFor();   // three players: Start is the owner's one primary now
@@ -419,8 +419,9 @@ try {
       await a.getByTestId("panel-preparing").waitFor();
       await shot(a, `room-preparing-${name}`);
       for (const job of pending) convexRun("calibration/compute:run", job);   // the real per-table action; finished() launches the game
-      await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 480_000 });
-      await b.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
+      // Games are nested in their room's URL.
+      await a.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
+      await b.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
       // The world clock and the objects move without any reload or polling (the clock is under Game details).
@@ -429,7 +430,7 @@ try {
       await a.locator('[data-testid^="row-object-"]').first().waitFor({ timeout: 30_000 });
       assert.equal(await a.locator('[data-testid^="row-standing-"]').count(), 4, "the leaderboard lists every seated player");
       assert.match(await b.getByTestId("text-viewer-seat").innerText(), /playing/);
-      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/client/rooms/${code}`);
       assert.doesNotMatch(await a.locator("main").innerText(), /value function/i);
       await shot(a, `game-${name}`);
       await noHorizontalScroll(a, `${name} game`);
@@ -449,6 +450,15 @@ try {
     await check(`${name}: the room's past games show the ended game; the Setup combobox applies a setup at once, with Undo`, async () => {
       await a.getByTestId("button-back-to-room").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
+      await expand(a, "section-past-games");
+      await a.getByTestId(`link-game-${gameCode}`).waitFor();
+      assert.equal(await a.getByTestId(`link-game-${gameCode}`).getAttribute("href"), `/rooms/${code}/games/${gameCode}`);
+      // Old game links (/games/CODE, /rooms/CODE?game=CODE) redirect to the nested one.
+      for (const old of [`/games/${gameCode}`, `/rooms/${code}?game=${gameCode}`]) {
+        await a.goto(`${SITE}${old}`);
+        await a.waitForURL(new RegExp(`/rooms/${code}/games/${gameCode}$`));
+      }
+      await a.goto(`${SITE}/rooms/${code}`);
       await expand(a, "section-past-games");
       await a.getByTestId(`link-game-${gameCode}`).waitFor();
       assert.match(await a.locator('[data-testid^="text-game-winners-"]').first().innerText(), /\w/);

@@ -15,6 +15,10 @@ local checkout, GitHub Codespaces, Gitpod or Replit.
   Check with `pnpm -s player status`. The dev server prints a private launch link; open the app with it.
   Behind a proxy or tunnel the detector does not know, set `CODE_GODS_PUBLIC_ORIGIN` (and, for extra
   hosts, `CODE_GODS_ALLOWED_HOSTS`).
+- **URLs:** the app runs at any base path (Vite's `BASE_PATH`; `/` on a dev server, `/client/` when the engine hosts
+  it) and mirrors the engine UI's scheme under it: `/rooms/CODE`, `/rooms/CODE/games` (past games) and
+  `/rooms/CODE/games/GAME` (live, or read-only once past). Build links with `src/core/routes.ts` /
+  `src/core/navigation.tsx`, never a hard-coded prefix. A dev-server app plays only in its credential's room.
 - **The screen:** a header (who, the phase, the command palette: Cmd/Ctrl+K) over a dock of panes
   (`src/dock/`, dockview on desktop, a stacked layout with the assistant as a bottom sheet on phones). By
   default one built-in **panel** (`src/core/panels/<id>.tsx`, metadata in `lib/player-client/src/panels.ts`) on top

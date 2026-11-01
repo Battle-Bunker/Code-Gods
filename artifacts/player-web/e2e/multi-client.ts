@@ -427,24 +427,26 @@ export default definePanel({ title: "Test live", placement: "left", Component() 
 // ------------------------------------------------------------------------------------------------
 await check("the engine serves both frontends (static hosting with SPA fallback)", async () => {
   execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
-  for (const path of ["/", `/rooms/${shortCode}`, "/player/", `/player/?room=${shortCode}`]) {
+  for (const path of ["/", `/rooms/${shortCode}`, "/client/", `/client/rooms/${shortCode}`, `/player/?room=${shortCode}`]) {
     const r = await fetch(`${SITE}${path}`);
     assert(r.ok && (r.headers.get("content-type") ?? "").includes("text/html"), `${path}: ${r.status} ${r.headers.get("content-type")}`);
   }
-  const html = await (await fetch(`${SITE}/player/`)).text();
-  const asset = html.match(/\/player\/assets\/[^"]+\.js/)?.[0];
+  const html = await (await fetch(`${SITE}/client/`)).text();
+  const asset = html.match(/\/client\/assets\/[^"]+\.js/)?.[0];
   assert(asset, "player asset link");
   const r = await fetch(`${SITE}${asset}`);
   assert(r.ok && /javascript/.test(r.headers.get("content-type") ?? ""), `asset ${asset}: ${r.status}`);
 });
-await check("the hosted player client (engine site, /player/) plays as the signed-in human", async () => {
+await check("the hosted player client (engine site, /client/) plays as the signed-in human, and opens past games read-only", async () => {
   const context = await browser.newContext();
   // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
   await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
-  // An unknown code (rooms.get throws NOT_FOUND) is answered on the form, not by the page's error boundary.
+  // An old invite link (/player/?room=) lands on /client/rooms/CODE; an unknown code (rooms.get throws NOT_FOUND) is
+  // answered on the form, not by the page's error boundary.
   await page.goto(`${SITE}/player/?room=NOSUCHROOM`);
   await page.getByTestId("text-room-error").filter({ hasText: "No room NOSUCHROOM on this engine." }).waitFor({ timeout: 60_000 });
+  assert(new URL(page.url()).pathname === "/client/rooms/NOSUCHROOM", `legacy link canonicalised: ${page.url()}`);
   await page.getByTestId("input-room-id").fill(shortCode.toLowerCase());
   await page.getByTestId("button-open-room").click();
   // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
@@ -452,6 +454,20 @@ await check("the hosted player client (engine site, /player/) plays as the signe
   const label = await page.textContent("[data-testid=text-self-label]");
   assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
   assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
+  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}`, `the room's canonical URL: ${page.url()}`);
+  // The room's past games, then one of them read-only, by in-app navigation.
+  await page.getByTestId("link-past-games").click();
+  await page.getByTestId("screen-past-games").waitFor({ timeout: 30_000 });
+  // carol played the earlier games of this room, which a later launch made past games.
+  const links = page.locator("[data-testid^=link-past-game-]");
+  await links.first().waitFor({ timeout: 30_000 });
+  const last = links.last();   // the oldest: a past game whatever the room is doing now
+  const code = (await last.getAttribute("data-testid"))!.replace("link-past-game-", "");
+  await last.click();
+  await page.getByTestId("historic-game").waitFor({ timeout: 30_000 });
+  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}/games/${code}`, `historic game URL: ${page.url()}`);
+  assert((await page.textContent("[data-testid=text-game-status]"))?.includes("read-only"), "read-only");
+  assert(await page.locator("[data-testid=table-final-standings] tr").count() > 0, "final standings");
   await context.close();
 });
 
@@ -462,7 +478,7 @@ await check("at phone size (390×844) the same layout is stacked, the assistant 
   const scripts: string[] = [];
   page.on("request", r => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
   page.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await page.goto(`${SITE}/player/?room=${shortCode}`);
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
   await page.waitForSelector("[data-testid=dock-stacked]", { timeout: 60_000 });
   await page.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached" });
   // carol's layout from the games: four built-in panels, each stacked with its own header.

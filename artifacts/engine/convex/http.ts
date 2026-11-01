@@ -6,7 +6,9 @@
  *                 /api/oauth/{register,token,revoke}: its OAuth authorization server (convex/agent/oauth.ts)
  *   /api/*        exact routes: device flow, player JWKS, config, health (convex/auth/routes.ts); any other
  *                 /api/ path is a JSON 404 (a longer prefix than "/", so it beats the SPA fallback)
- *   /player/*     default player client (static-hosting instance `playerSite`, built with base /player/)
+ *   /client/*     the reference player client (static-hosting instance `playerSite`, built with base /client/); the
+ *                 client itself is path-independent and runs from any dev server at / too (artifacts/player-web)
+ *   /player[/*]   308 to the same path under /client/ (the client's old prefix: links and bookmarks keep working)
  *   /*            engine UI (static-hosting instance `engineSite`, built with base /)
  *
  * Convex matches exact paths first, then the LONGEST matching pathPrefix, which is what lets the two
@@ -59,7 +61,14 @@ http.route({ path: "/mcp", method: "POST", handler: mcp });
 for (const method of ["GET", "DELETE"] as const) http.route({ path: "/mcp", method, handler: mcpMethodNotAllowed });
 registerOAuthRoutes(http);
 registerAuthRoutes(http);
-registerStaticRoutes(http, components.playerSite, { pathPrefix: "/player/" });
+// The player client's old prefix: /player → /client, /player/x?y → /client/x?y. Only that exact segment (not /players).
+const toClient = httpAction(async (_ctx, request) => {
+  const url = new URL(request.url);
+  return new Response(null, { status: 308, headers: { Location: `${url.pathname.replace(/^\/player/, "/client")}${url.search}` } });
+});
+http.route({ path: "/player", method: "GET", handler: toClient });
+http.route({ pathPrefix: "/player/", method: "GET", handler: toClient });
+registerStaticRoutes(http, components.playerSite, { pathPrefix: "/client/" });
 registerStaticRoutes(http, components.engineSite);
 
 export default http;

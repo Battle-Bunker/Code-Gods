@@ -270,7 +270,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       {room && <AiSpendingSheet key={`${room.id}-${room.aiBudget}-${room.assistantBudget}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-spending"} onOpenChange={o => setSheet(o ? "ai-spending" : null)} />}
       <ConnectedAppsSheet open={sheet === "connected-apps"} onOpenChange={o => setSheet(o ? "connected-apps" : null)} roomCode={room?.shortCode} />
       <ScoringSheet open={sheet === "scoring"} onOpenChange={o => setSheet(o ? "scoring" : null)} objectType={room?.settings.objectType ?? game?.settings.objectType} />
-      <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} />
+      <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} roomCode={room?.shortCode ?? game?.roomShortCode}
+        viewer={{ meId: user?.id, ownerId: room?.ownerId ?? game?.ownerId ?? undefined, roomLive: room ? !!room.activeGame : !!(game && (game.status === "active" || game.roomActiveGame)) }} />
       {room && (
         <AiBudgetDialog open={!!pendingAi} templateName={pendingAi?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
           onApprove={tokens => {

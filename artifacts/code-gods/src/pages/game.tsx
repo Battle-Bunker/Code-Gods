@@ -21,6 +21,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/lib/next-step";
+import { gamePath } from "@/lib/routes";
 import { errMsg, fmt } from "@/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs } from "@/lib/time";
 import { MoreHorizontal, Trophy } from "lucide-react";
@@ -156,7 +157,7 @@ function GameBody({ game, room }: { game: GameView; room?: { members: readonly {
       </header>
       {newer && (
         <p className="border border-accent px-4 py-3 text-sm" data-testid="banner-newer-game">
-          Room {game.roomShortCode} is now playing game {newer.shortCode}. <Link href={`/games/${newer.shortCode}`} className="underline underline-offset-4">Open it</Link>
+          Room {game.roomShortCode} is now playing game {newer.shortCode}. <Link href={gamePath(game.roomShortCode ?? "", newer.shortCode)} className="underline underline-offset-4">Open it</Link>
         </p>
       )}
       {!active && <Results game={game} returnIn={returnIn} onStay={() => setReturnAt(null)} />}
@@ -186,9 +187,11 @@ function GameBody({ game, room }: { game: GameView; room?: { members: readonly {
   );
 }
 
+/** /rooms/:room/games/:game, and the old /games/:code (redirected to the nested form once the game's room is known). */
 export default function Game() {
-  const { code = "" } = useParams<{ code: string }>();
-  const [, navigate] = useLocation();
+  const { code: legacyCode, gameId } = useParams<{ code?: string; roomId?: string; gameId?: string }>();
+  const code = gameId ?? legacyCode ?? "";
+  const [location, navigate] = useLocation();
   const { user, isAuthenticated, isLoading: authLoading, error: authError, refetch: refetchAuth } = useAuth();
   // One reactive subscription: the public world updates as the engine commits each tick.
   const q = useLive(api.games.view, isAuthenticated && code ? { code } : "skip");
@@ -197,7 +200,9 @@ export default function Game() {
   // The room in scope (membership, the owner's commands); the game view itself does not carry it.
   const room = useLive(api.rooms.get, active && game?.roomId ? { room: game.roomId } : "skip");
   useEffect(() => { document.title = `Game ${game?.shortCode ?? code} · Code Gods`; }, [game?.shortCode, code]);
-  useEffect(() => { if (game && code !== game.shortCode) navigate(`/games/${game.shortCode}`, { replace: true }); }, [code, game?.shortCode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The canonical URL nests the game in its room (a game whose room is gone keeps its old /games/ link).
+  const canonical = game ? (game.roomShortCode ? gamePath(game.roomShortCode, game.shortCode) : `/games/${encodeURIComponent(game.shortCode)}`) : null;
+  useEffect(() => { if (canonical && location !== canonical) navigate(`${canonical}${window.location.search}${window.location.hash}`, { replace: true }); }, [canonical, location, navigate]);
   const step = game ? gameStep(user?.id, game) : null;
   const crumbs = [...(game?.roomShortCode ? [{ label: game.roomShortCode, href: `/rooms/${game.roomShortCode}` }] : []), { label: `Game ${game?.shortCode ?? code.toUpperCase()}` }];
   return (
