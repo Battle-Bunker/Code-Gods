@@ -57,3 +57,12 @@ test("a source that does not compile is rejected with the engine's message", () 
   assert.equal(a.verdict, "rejected");
   assert.equal(a.summary, "Rejected: SyntaxError: invalid syntax (line 1)");
 });
+
+test("a validate answered while the sandbox warms is not a rejection: nothing ran, so the next step is the identical retry", () => {
+  const a = assessValidation({ commandId, accepted: false, message: "The Python agent sandbox is warming up; try again in a moment.",
+    notReady: { language: "python", state: "warming", retryAfterMs: 1500 } });
+  assert.equal(a.verdict, "not_ready");
+  assert.match(a.summary, /warming up/);
+  assert.match(a.next, /1\.5 s/);
+  assert.doesNotMatch(a.next, /fix/i, "the code is not at fault");
+});

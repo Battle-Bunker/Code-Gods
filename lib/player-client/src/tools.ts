@@ -66,7 +66,7 @@ const receiptData = z.object({
   status: z.enum(["received", "pending", "failed", "not_found"]),
   commandId: uuid,
   receipt: z.unknown().optional().describe("The engine's CommandResult: accepted, message, validation details."),
-  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected"]), summary: z.string(), next: z.string() }).passthrough().optional()
+  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
     .describe("A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
   message: z.string().optional(),
