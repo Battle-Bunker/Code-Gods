@@ -143,6 +143,10 @@ export const STEP_VERBS = {
   set_panel_params: ["adjusted a panel", "adjusting a panel", "adjust a panel"],
   move_pane: ["moved a pane", "moving a pane", "move a pane"],
   close_pane: ["closed a pane", "closing a pane", "close a pane"],
+  run_code: ["ran code", "running code", "run code"],
+  get_code_run: ["read a code result", "reading a code result", "read a code result"],
+  list_code_runs: ["listed your code runs", "listing your code runs", "list your code runs"],
+  load_skill: ["read a guide", "reading a guide", "read a guide"],
 } as const satisfies Record<ToolName, readonly [string, string, string]>;
 
 function argsOf(call: CallRow): Record<string, unknown> {

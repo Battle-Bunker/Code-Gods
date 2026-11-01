@@ -202,6 +202,19 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The signed-in human: subject, name, admin flag and, for a player credential, its room, permission and label. whoami adds the credential's expiry." },
     tools: ["whoami"], palette: { label: "Show who I am", group: "account", keywords: ["account", "identity", "credential", "expiry"], surfaces: BOTH },
   },
+  // ----- code (analytics runs; docs/assistant/code-execution.md) -----
+  "code.runs.list": {
+    kind: "query", audience: "player",
+    human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this room, newest first, with this game's budget." },
+    ai: { description: "The human's recent analytics code runs in this room (runId, title, language, status, datasets, CPU and timing), newest first, and this game's run budget (runs and CPU seconds used and left)." },
+    tools: ["list_code_runs"], palette: null, why: "The code-output panel lists and shows runs; the assistant starts them.",
+  },
+  "code.runs.get": {
+    kind: "query", audience: "player",
+    human: { title: "Show a code run", tooltip: "One analytics run's source, result table and printed output." },
+    ai: { description: "One of the human's code runs (default: the latest in this room): its source, datasets, status or error, CPU time, the result JSON and printed output (a prefix when large, with a URL of the whole)." },
+    tools: ["get_code_run"], palette: null, why: "Rendered by the code-output panel, which the assistant opens with open_panel.",
+  },
   // ----- commands -----
   "commands.submit": {
     kind: "action", audience: "player",

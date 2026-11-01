@@ -16,7 +16,7 @@ const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"
 const WORLD: readonly Phase[] = ["running", "paused", "ended"];
 const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
 
-export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules"] as const;
+export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
 
 export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
@@ -130,6 +130,16 @@ export const PANELS = {
     id: "rules", title: "How to play", blurb: "The 90-second explanation, scoring and this room's settings.", phases: ALL,
     params: z.strictObject({ section: z.enum(["all", "primer", "scoring", "settings"]).default("all") }),
     summary: p => (p.section === "all" ? "Everything" : { primer: "The 90-second explanation", scoring: "How scoring works", settings: "This room's settings" }[p.section]),
+  }),
+  "code-output": def({
+    id: "code-output", title: "Code results", blurb: "Tables and notes from analytics your assistant ran for you.", phases: ALL,
+    params: z.strictObject({
+      /** A run's id (run_code's runId); default: your latest run in this room. */
+      runId: z.string().min(1).max(128).optional(),
+      view: z.enum(["auto", "table", "json"]).default("auto"),
+      showSource: bool(false),
+    }),
+    summary: p => line([p.runId ? "One run" : "Your latest run", ...when(p.view !== "auto", p.view), ...when(p.showSource, "with source")]),
   }),
 } satisfies { readonly [K in PanelId]: PanelDefinition };
 

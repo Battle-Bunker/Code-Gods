@@ -15,7 +15,8 @@
     "./panels": "./src/panels.ts",
     "./layout": "./src/layout.ts",
     "./skills": "./src/skills.ts",
-    "./primer": "./src/primer.ts"
+    "./primer": "./src/primer.ts",
+    "./datasets": "./src/datasets.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",
