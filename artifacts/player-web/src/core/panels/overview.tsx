@@ -53,7 +53,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
           ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
           : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}
       </dl>
-      <PrimaryButton onClick={go} testId="button-next-step">{step.label}</PrimaryButton>
+      <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>
     </div>
   );
 }
@@ -81,7 +81,7 @@ function Lobby({ next, onNext }: { next: ReturnType<typeof nextStep>; onNext: ()
           ))}
         </ul>
       )}
-      <PrimaryButton onClick={onNext} testId="button-next-step">{next.label}</PrimaryButton>
+      <PrimaryButton onClick={onNext} busy={next.busy} testId="button-next-step">{next.label}</PrimaryButton>
     </div>
   );
 }

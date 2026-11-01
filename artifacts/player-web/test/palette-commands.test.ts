@@ -114,6 +114,10 @@ test("owner commands need the owner and the right moment", () => {
   const as = (phase: NonNullable<State["phase"]>) => ctx({ role: "owner", phase });
   assert.ok(ok(owner("lobby"), "owner.start", as("lobby")));
   assert.ok(!ok(owner("running"), "owner.start", as("running")), "one game at a time");
+  const starting = playerCommands(state({ isOwner: true, phase: "lobby", starting: "starting" }), actions);
+  assert.match(reason(starting, "owner.start", as("lobby")), /already starting/, "no second start while one is pending");
+  const preparing = playerCommands(state({ isOwner: true, phase: "lobby", starting: "preparing" }), actions);
+  assert.match(reason(preparing, "owner.start", as("lobby")), /preparing/);
   assert.ok(ok(owner("running"), "rooms.endActiveGame", as("running")));
   assert.ok(!ok(owner("lobby"), "rooms.endActiveGame", as("lobby")));
   assert.ok(ok(owner("lobby"), "rooms.addAi", as("lobby")));

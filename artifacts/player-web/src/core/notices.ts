@@ -13,15 +13,16 @@ const emit = (value: readonly Notice[]) => { notices = value; for (const l of li
 export const noticeStore = {
   subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
   get: () => notices,
-  push(text: string, tone: Notice["tone"] = "info", ms = 6000) {
+  push(text: string, tone: Notice["tone"] = "info", ms = 6000): number {
     const id = next++;
     emit([...notices.slice(-2), { id, text, tone }]);
     setTimeout(() => noticeStore.dismiss(id), ms);
+    return id;
   },
   dismiss(id: number) { if (notices.some(n => n.id === id)) emit(notices.filter(n => n.id !== id)); },
 };
 
-export const notify = (text: string) => noticeStore.push(text);
+export const notify = (text: string): number => noticeStore.push(text);
 
 /** What a failure says: an engine error's `data.message` (ConvexError), else the error's message. */
 export function errorText(error: unknown): string {

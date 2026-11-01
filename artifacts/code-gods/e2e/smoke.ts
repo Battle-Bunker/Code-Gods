@@ -405,7 +405,15 @@ try {
       // So this run's first game on the range prepares again, and deterministically: every table its deal can need is
       // claimed first (as if computing elsewhere), so the room waits until this script runs the compute actions.
       const pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
+      // The click registers in the same frame: by the next animation frame the button reads "Starting…" and refuses a
+      // second click, before the start action (a Node action) has answered.
+      await a.evaluate(() => document.querySelector('[data-testid="button-start"]')!.addEventListener("click", () => requestAnimationFrame(() => {
+        const b = document.querySelector('[data-testid="button-start"]');
+        (window as unknown as { startFrame: unknown }).startFrame = { text: b?.textContent, disabled: b?.getAttribute("aria-disabled") };
+      }), { once: true }));
       await a.getByTestId("button-start").click();
+      await a.waitForFunction(() => (window as unknown as { startFrame?: unknown }).startFrame);
+      assert.deepEqual(await a.evaluate(() => (window as unknown as { startFrame: unknown }).startFrame), { text: "Starting…", disabled: "true" });
       // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
       await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
       await a.getByTestId("panel-preparing").waitFor();

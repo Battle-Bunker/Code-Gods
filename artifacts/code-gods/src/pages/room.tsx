@@ -143,13 +143,13 @@ function Preparing({ preparing: p }: { preparing: NonNullable<RoomState["prepari
 
 function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
   const { user } = useAuth();
-  const { manifest, run } = usePage();
+  const { manifest, run, start } = usePage();
   const act = useRun();
   const sendChat = useSendChat(room.id);
   const isOwner = room.ownerId === user?.id;
   const isMember = room.members.some(m => m.id === user?.id);
   const minPlayers = manifest?.minimumPlayers ?? 3;
-  const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false });
+  const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false, start });
   return (
     <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6">
       <header className="space-y-4 rise">

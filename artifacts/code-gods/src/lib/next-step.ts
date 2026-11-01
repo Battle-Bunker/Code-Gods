@@ -5,6 +5,8 @@
  * (catalogue paths or `ui.*` ids) so the page button and the palette row run the same command.
  */
 
+import type { StartView } from "@workspace/player-client/start";
+
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
   "ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
@@ -29,7 +31,8 @@ export interface StepRoom {
   /** A start waiting for rule tables computed on demand (rooms.get `preparing`). */
   preparing?: { ready: number; total: number; error?: string } | null;
 }
-export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null }
+/** `start`: this browser's pending start (@workspace/player-client/start); the click shows before the room changes. */
+export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null; start?: StartView }
 
 export const firstName = (name: string) => name.split(/\s+/)[0] || name;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -59,7 +62,12 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
       ? { status: `You're playing in game ${g.shortCode}.`, primary: "ui.nav.playerClient", secondary: ["ui.nav.game"] }
       : { status: `Game ${g.shortCode} is running; you'll play in the next one.`, primary: "ui.nav.game", secondary: [] };
   }
+  // The owner's start is pending (also a retry over a failed preparation; startView gives a preparation in progress
+  // precedence): the start button stays the primary, rendered busy (components/step-action.tsx), so the click shows in place.
   const p = room.preparing;
+  if (owner && opts.start?.phase === "starting") {
+    return { status: opts.start.source === "assistant" ? "Your assistant is starting the game…" : "Starting the game: dealing secret goals…", primary: "owner.start", secondary: ["ui.nav.playerClient"] };
+  }
   if (p) {
     if (p.error) return owner
       ? { status: "Preparing the game failed; start again to retry.", primary: "owner.start", secondary: ["ui.nav.playerClient"] }

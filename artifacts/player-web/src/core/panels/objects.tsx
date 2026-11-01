@@ -84,7 +84,7 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
   const left = phase === "planning" && until && until > now ? Math.ceil((until - now) / 1000) : null;
   const when = phase === "lobby" ? "When the game starts and the world runs" : `When the world starts${left ? ` (in ${left} s)` : ""}`;
   return (
-    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} testId="button-next-step">{step.label}</PrimaryButton>}>
+    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
       your bits and whose height is what the others care, on one scale, so its area is your payoff. Next: {step.why}
     </PanelEmpty>

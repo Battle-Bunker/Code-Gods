@@ -27,6 +27,8 @@ export type PaletteState = {
   pauseUsed: boolean;
   /** The next game is preparing its rule tables (rooms.get `preparing`); End ends the preparation. */
   preparing?: boolean;
+  /** A start is pending (@workspace/player-client/start): the click registered, the room has not shown the game yet. */
+  starting?: "starting" | "preparing";
   agents: readonly { id: string; label: string }[];
   /** A command whose outcome is unknown waits for its identical retry (the banner under the header). */
   unknownOutcome: boolean;
@@ -147,7 +149,11 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
     "owner.settings": { performer: pick("Next game's setup", () => s.setups, id => a.owner.setup(id)), available: () => betweenGames(s) },
-    "owner.start": { performer: submit(() => a.owner.start()), available: () => betweenGames(s) },
+    "owner.start": {
+      performer: submit(() => a.owner.start()),
+      available: () => (s.starting === "starting" ? no("The game is already starting.")
+        : s.starting === "preparing" ? no("The game is preparing its rule tables; it starts by itself.") : betweenGames(s)),
+    },
     "panels.list": { performer: pick("Open one of your panels", storedOptions(p => p.enabled, p => p.title), slug => a.panels.open(slug)) },
     "panels.code": {
       performer: pick("Which panel?", storedOptions(() => true, p => p.title), slug => a.assistant.handoff(`Show me the source of my panel "${slug}" and explain what it does.`)),
