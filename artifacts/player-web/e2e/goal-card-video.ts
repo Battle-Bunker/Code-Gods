@@ -4,17 +4,21 @@
  * goals can only be annotated families (excludedFamilies holds every other one), starts a game, opens alice's app on
  * a Vite dev server of this checkout, shows her goal card, explores its example board and hovers a live grid.
  *
- *   node --experimental-transform-types e2e/goal-card-video.ts <out-dir>      (writes real-app-goal-card.webm and two shots)
+ *   node --experimental-transform-types e2e/goal-card-video.ts <out-dir>      (writes <out-dir>/real-app-goal-card.webm; the
+ *   seeded credentials and screenshots stay in a temporary directory, printed at the end)
  */
 import "../../engine/scripts/local-only.mjs";
 import { execFileSync, spawn } from "node:child_process";
 import type { Locator, Page } from "playwright";
 import { createRequire } from "node:module";
-import { mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const OUT = resolve(process.argv[2] ?? "goal-card-video");
 mkdirSync(OUT, { recursive: true });
+// Credentials, the raw recording and the screenshots stay in a private scratch directory: only the clip goes to OUT.
+const WORK = mkdtempSync(join(tmpdir(), "goal-card-video-"));
 process.env.CG_TEST_CLOUD_URL ??= "http://127.0.0.1:3210";
 process.env.CG_TEST_SITE_URL ??= "http://127.0.0.1:3211";
 process.env.CG_TEST_OIDC_URL ??= "http://127.0.0.1:3399";
@@ -24,7 +28,7 @@ const annotated = new Set(LENSES.map(l => l.familyId));
 const excluded = FAMILIES.filter(f => f.objectType === "Grid" && f.role === "reward" && !annotated.has(f.familyId ?? f.id)).map(f => f.id);
 const settings = { excludedFamilies: excluded, planningSeconds: 2, halfLifeSeconds: 3600, penaltyWeight: 0 };
 const seed = JSON.parse(execFileSync("node", ["--experimental-transform-types", "--disable-warning=ExperimentalWarning", "scripts/seed-players.ts",
-  "--players", "alice,bob,carol", "--out", join(OUT, "secrets"), "--settings", JSON.stringify(settings)], { cwd: ENGINE, encoding: "utf8" })) as {
+  "--players", "alice,bob,carol", "--out", join(WORK, "secrets"), "--settings", JSON.stringify(settings)], { cwd: ENGINE, encoding: "utf8" })) as {
   roomId: string; shortCode: string; players: { identity: string; session: string; envFile: string }[] };
 const env = Object.fromEntries(readFileSync(seed.players[0].envFile, "utf8").trim().split("\n").map(l => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)]));
 const { browserJwt } = await import("../../engine/test/helpers.ts");
@@ -50,7 +54,7 @@ for (let i = 0; i < 120; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, recordVideo: { dir: OUT, size: { width: 1280, height: 860 } } });
+const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, recordVideo: { dir: WORK, size: { width: 1280, height: 860 } } });
 const page = await context.newPage();
 try {
   await page.goto(`http://127.0.0.1:${PORT}/__codegods/launch?key=${KEY}`);
@@ -64,7 +68,7 @@ try {
   await board.waitFor({ timeout: 30_000 });
   await board.scrollIntoViewIfNeeded();
   await sleep(1500);
-  await page.screenshot({ path: join(OUT, "goal-card.png") });
+  await page.screenshot({ path: join(WORK, "goal-card.png") });
   const size = Math.round(Math.sqrt(await board.locator("[data-cell]").count()));
   for (const [r, c] of [[0, 0], [0, 1], [1, 1], [1, 2], [2, 2], [3, 1], [3, 3]].filter(([r, c]) => r < size && c < size)) {
     await glide(page, board.locator(`[data-cell="${r},${c}"]`));
@@ -77,12 +81,12 @@ try {
     const pop = page.locator("[data-testid=grid-object-goal]");
     await pop.waitFor({ timeout: 10_000 });
     await sleep(1200);
-    await page.screenshot({ path: join(OUT, "grid-popover.png") });
+    await page.screenshot({ path: join(WORK, "grid-popover.png") });
     for (const [r, c] of [[0, 1], [1, 1], [2, 2], [3, 2]]) { await glide(page, pop.locator(`[data-cell="${r},${c}"]`)); await sleep(1000); }
   }
   console.log("goal card video: ok");
 } catch (e) {
-  await page.screenshot({ path: join(OUT, "failure.png") }).catch(() => {});
+  await page.screenshot({ path: join(WORK, "failure.png") }).catch(() => {});
   console.error(e);
   process.exitCode = 1;
 } finally {
@@ -90,6 +94,8 @@ try {
   await context.close();
   await browser.close();
   stop();
+  rmSync(join(WORK, "secrets"), { recursive: true, force: true });
+  console.log(`screenshots: ${WORK}`);
   if (video) {
     const raw = await video.path(), out = join(OUT, "real-app-goal-card.webm");
     try { execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-i", raw, "-c:v", "libvpx-vp9", "-crf", "42", "-b:v", "0", "-row-mt", "1", "-an", out]); rmSync(raw); }

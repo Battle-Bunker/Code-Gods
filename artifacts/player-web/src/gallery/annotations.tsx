@@ -83,12 +83,9 @@ function Mode({ id, title, blurb, children }: { id: string; title: string; blurb
   );
 }
 
-function Modes({ only }: { only: string | null }) {
-  const mirror = useMemo(() => explainer(MIRROR, INST)!, []), far = useMemo(() => explainer(FAR, INST)!, []);
-  const mirrorBoard = useMemo(() => mirror.example()!.value, [mirror]);
-  const tale = useMemo(() => story(CASTLE, INST, CASTLE_BOARD)!, []);
-  // Open on the cell whose changes swing the score most.
-  const farFocus = useMemo(() => {
+/** The what-if demo opens on the cell whose changes swing the score most (computed only when this demo is shown). */
+function WhatIfDemo({ goal }: { goal: ReturnType<typeof explainer> & object }) {
+  const focus = useMemo(() => {
     let best = { r: 0, c: 0 }, spread = -1;
     for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
       const d = whatIf(FAR, INST, FAR_BOARD, { r, c })!.entries.flat().map(e => e.delta);
@@ -96,6 +93,13 @@ function Modes({ only }: { only: string | null }) {
     }
     return best;
   }, []);
+  return <WhatIfBoard draw={FAR} inst={INST} goal={goal} value={FAR_BOARD} grid={GRID} initialFocus={focus} />;
+}
+
+function Modes({ only }: { only: string | null }) {
+  const mirror = useMemo(() => explainer(MIRROR, INST)!, []), far = useMemo(() => explainer(FAR, INST)!, []);
+  const mirrorBoard = useMemo(() => (!only || only === "scrubber" ? mirror.example()!.value : ""), [mirror, only]);
+  const tale = useMemo(() => (!only || only === "story" ? story(CASTLE, INST, CASTLE_BOARD)! : null), [only]);
   return (
     <>
       {(!only || only === "scrubber") && (
@@ -105,12 +109,12 @@ function Modes({ only }: { only: string | null }) {
       )}
       {(!only || only === "whatif") && (
         <Mode id="whatif" title="Mode 2 · What if this cell changed?" blurb={`${family("far_apart").emoji} Far Apart: ${family("far_apart").summary(FAR.params as never, context(INST))}`}>
-          <WhatIfBoard draw={FAR} inst={INST} goal={far} value={FAR_BOARD} grid={GRID} initialFocus={farFocus} />
+          <WhatIfDemo goal={far} />
         </Mode>
       )}
       {(!only || only === "story") && (
         <Mode id="story" title="Mode 3 · Step-through story" blurb={`${family("castle_keeper").emoji} Castle Keeper: ${family("castle_keeper").summary(CASTLE.params as never, context(INST))}`}>
-          <StoryPlayer story={tale} value={CASTLE_BOARD} grid={GRID} />
+          <StoryPlayer story={tale!} value={CASTLE_BOARD} grid={GRID} />
         </Mode>
       )}
     </>

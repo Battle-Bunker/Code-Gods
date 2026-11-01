@@ -18,7 +18,7 @@ const OUT = resolve(process.argv[2] ?? "videos"), ONLY = process.argv.slice(3);
 mkdirSync(OUT, { recursive: true });
 const PORT = 22796, BASE = `http://127.0.0.1:${PORT}`;
 const server = spawn("npx", ["vite", "--config", "vite.config.ts", "--host", "127.0.0.1", "--port", String(PORT), "--strictPort"], {
-  cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, PORT: String(PORT) }, detached: true,
+  cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, PORT: String(PORT) }, detached: true,
 });
 const stop = () => { try { process.kill(-server.pid!, "SIGTERM"); } catch { /* gone */ } };
 await new Promise<void>((ok, fail) => {

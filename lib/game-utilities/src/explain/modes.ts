@@ -118,10 +118,13 @@ function castleKeeper(draw: Draw, inst: Instantiation, value: ObjectValue): Stor
 
 const STORIES: Readonly<Record<string, (draw: Draw, inst: Instantiation, value: ObjectValue) => Story | null>> = { castle_keeper: castleKeeper };
 
-/** The rule told as steps on this board, or null when the family (or this draw) has no story. */
+/**
+ * The rule told as steps on this board, or null when the family (or this draw, or this value) has no story. A bug in a
+ * story throws rather than passing for "no story".
+ */
 export function story(draw: Draw, inst: Instantiation, value: ObjectValue): Story | null {
   const tell = Object.hasOwn(STORIES, draw.familyId) ? STORIES[draw.familyId] : undefined;
-  try { return tell ? tell(draw, inst, value) : null; } catch { return null; }
+  return tell ? tell(draw, inst, value) : null;
 }
 /** Families with a step-through story. */
 export const STORY_FAMILIES: readonly string[] = Object.keys(STORIES);

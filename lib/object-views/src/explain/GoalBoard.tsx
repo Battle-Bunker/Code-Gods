@@ -36,6 +36,8 @@ export interface GoalBoardProps {
    * against the viewport would otherwise jump, and slip out from under the pointer).
    */
   steady?: boolean;
+  /** The board's explanation when the caller already has it (else computed here). */
+  explanation?: Explanation | null;
   testId?: string;
 }
 
@@ -48,9 +50,10 @@ const pointsText = (points: readonly number[]) => {
 };
 
 /** A tile as the grid's detail view draws it: the colour, the viewer's colour cue (pattern), the colour letter in a corner. */
-export function GoalTile(props: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
-  return <Tile {...props} />;
-}
+/** The viewer's colour cue (pattern or letter), live. */
+export const useColourCueSetting = (): ColourCue => useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
+
+export { Tile as GoalTile };
 
 function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
   const pattern = cue === "pattern";
@@ -143,12 +146,12 @@ interface Arrow { d: string; tone: Tone }
  * A board explained for one focus cell at a time. Without a rich explanation (a family without a lens, or an
  * explanation that does not add up to the card's score) it draws the board and its score only.
  */
-export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, view: chosen, steady, testId = "goal-board" }: GoalBoardProps) {
-  const cue = useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
+export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, view: chosen, steady, explanation: given, testId = "goal-board" }: GoalBoardProps) {
+  const cue = useColourCueSetting();
   const model = useMemo(() => gridModel(value, grid), [value, grid.size, grid.symbols, grid.colours]);
   const size = model?.size ?? 0;
   const geo: BoardGeometry = useMemo(() => ({ cell: cellPx(size), gap: 2, size }), [size]);
-  const explanation = useMemo(() => goal.explain(value), [goal, value]);
+  const explanation = useMemo(() => (given !== undefined ? given : goal.explain(value)), [given, goal, value]);
   const [focus, setFocus] = useState<Cell>(initialFocus ?? { r: 0, c: 0 });
   // A new starting cell (another example) moves the focus; a live board update does not, so a reader keeps their cell.
   useEffect(() => { if (initialFocus) setFocus(initialFocus); }, [initialFocus?.r, initialFocus?.c]);

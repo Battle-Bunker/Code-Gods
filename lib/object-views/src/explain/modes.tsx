@@ -7,17 +7,15 @@
  *                  them: for global rules (centroids, maxima, totals) where a cell's role is "it moves the score".
  *   StoryPlayer    a process rule told step by step (Castle Keeper's flood), ending on the score.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet, type Instantiation } from "@workspace/game-types";
 import {
   toneOf, whatIf, type Cell, type Draw, type FocusView, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
 } from "@workspace/game-utilities";
-import { getColourCue, gridModel, subscribeColourCue, type ColourCue } from "../grid-display.ts";
+import { gridModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
-import { GoalBoard, GoalTile } from "./GoalBoard.tsx";
-import { TONE_COLOUR, boardPx, cellX, cellY, groupRows, signed } from "./layout.ts";
-
-const useCue = () => useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
+import { GoalBoard, GoalTile, useColourCueSetting as useCue } from "./GoalBoard.tsx";
+import { TONE_COLOUR, boardPx, cellX, cellY, groupRows, moveFocus, signed } from "./layout.ts";
 const btn = "border px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-40";
 
 /** Prev / play / next and a step counter, shared by the scrubber and the story player. */
@@ -47,18 +45,22 @@ function Stepper({ index, count, onIndex, label, interval = 1400 }: { index: num
 /** Every piece of the board's explanation, one at a time in reading order, with the points counted so far. */
 export function PartScrubber({ goal, value, grid, testId = "part-scrubber" }: { goal: GoalExplainer; value: string; grid: GridSettings; testId?: string }) {
   const explanation = useMemo(() => goal.explain(value), [goal, value]);
-  const parts = useMemo(() => [...(explanation?.parts ?? [])], [explanation]);
+  // Pieces with cells (a piece is drawn on the board); a new board starts again from the first.
+  const parts = useMemo(() => (explanation?.parts ?? []).filter(p => p.cells.length > 0), [explanation]);
   const [index, setIndex] = useState(0);
-  if (!explanation?.verified || !parts.length) return <GoalBoard goal={goal} value={value} grid={grid} testId={testId} />;
+  useEffect(() => setIndex(0), [goal, value]);
+  if (!explanation?.verified || !parts.length) return <GoalBoard goal={goal} value={value} grid={grid} explanation={explanation} testId={testId} />;
   const part: Part = parts[Math.min(index, parts.length - 1)];
-  const sofar = explanation.components.map((_, k) => parts.slice(0, index + 1).reduce((s, p) => s + p.points[k], 0));
-  const view: FocusView = { focus: part.cells[0], headline: `Piece ${index + 1} of ${parts.length}`, parts: [part] };
+
+  const step = Math.min(index, parts.length - 1);
+  const sofar = explanation.components.map((_, k) => parts.slice(0, step + 1).reduce((s, p) => s + p.points[k], 0));
+  const view: FocusView = { focus: part.cells[0], headline: `Piece ${step + 1} of ${parts.length}`, parts: [part] };
   return (
     <div className="space-y-2" data-testid={testId}>
-      <Stepper index={index} count={parts.length} onIndex={setIndex}
+      <Stepper index={step} count={parts.length} onIndex={setIndex}
         label={<>Counted so far: <b className="text-foreground" data-testid="scrubber-sofar">{sofar[0]} point{sofar[0] === 1 ? "" : "s"}</b>
           {sofar.length > 1 && <> · tie-break {signed(sofar[1])}</>}</>} />
-      <GoalBoard goal={goal} value={value} grid={grid} view={view} testId={`${testId}-board`} />
+      <GoalBoard goal={goal} value={value} grid={grid} view={view} explanation={explanation} testId={`${testId}-board`} />
     </div>
   );
 }
@@ -100,8 +102,8 @@ export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r:
         <div role="grid" tabIndex={0} aria-label="Board: pick a cell" className="relative outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ width: boardPx(geo), height: boardPx(geo) }}
           onKeyDown={e => {
-            const d = ({ ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] } as Record<string, number[]>)[e.key];
-            if (d) { e.preventDefault(); setFocus(f => ({ r: Math.max(0, Math.min(size - 1, f.r + d[0])), c: Math.max(0, Math.min(size - 1, f.c + d[1])) })); }
+            const next = moveFocus(focus, e.key, size);
+            if (next) { e.preventDefault(); setPreview(null); setFocus(next); }
           }}>
           {model.rows.flatMap((row, r) => row.map((cell, c) => (
             <span key={`${r}-${c}`} role="gridcell" aria-selected={focus.r === r && focus.c === c} className="absolute" style={{ left: cellX(geo, c), top: cellY(geo, r) }}
