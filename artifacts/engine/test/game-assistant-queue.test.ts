@@ -10,7 +10,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, playerClient, roomWith, sleep, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { QUEUED_NOTE } from "../convex/assistant/rules.ts";
 
 const settings = {
@@ -32,7 +32,7 @@ async function assistantRoom(names: [string, string, string]) {
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
   await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
-  await members[0].c.action(api.owner.start, { roomId });
+  await startGame(members[0], roomId);
   return { members, roomId };
 }
 
@@ -222,7 +222,7 @@ test("starting the next game drops the last game's queued messages with its conv
   await streaming(ann, sent);
   await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "for the old game" });
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
-  await ann.c.action(api.owner.start, { roomId });
+  await startGame(ann, roomId);
   assert.deepEqual(await queuedOf(ann, roomId), [], "the new game's queue is empty");
   const old = await until(ann, sent, DONE, "the last game's turn ends");
   assert.equal(old.turn.status, "cancelled");
