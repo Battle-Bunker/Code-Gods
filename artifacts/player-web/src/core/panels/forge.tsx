@@ -1,6 +1,7 @@
 /**
  * Agent code: the agent being written for you and what it costs. The code view shows the assistant's draft (or a
- * live agent's source); "Edit" switches the pane to the editor, which is the forge: language, the source, the
+ * live agent's source); "Edit" switches the pane to the editor, which is the forge: the agent's language (a dropdown
+ * of the languages the game allows; the agent's own by default, else the first allowed), the source, the
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
@@ -8,7 +9,9 @@ import { useRef } from "react";
 import { Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
+import { LANGUAGE_SPECS } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
+import { forgeLanguage, forgeLanguages } from "@/core/game/language";
 import { GhostButton, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -20,12 +23,13 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
   const state = useRunner();
   const live = params.agentId ? agents.find(a => a.id === params.agentId) : undefined;
   const shown = live?.source ?? params.source;
-  const language: Lang = state.draft.language ?? params.language ?? obs?.language ?? "python";
+  const allowed = forgeLanguages(obs);
+  const language: Lang = forgeLanguage(allowed, state.draft.language, params.language);
   // Nothing to look at: the pane is the editor straight away.
   const editing = state.editing || !shown;
 
   if (!editing) {
-    const lang = live?.language ?? params.language ?? obs?.language ?? "python";
+    const lang = live?.language ?? forgeLanguage(allowed, params.language);
     return (
       <div className="space-y-3" data-testid="panel-forge">
         <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? "The code of one of your agents, as it ran until the end." : "The code of one of your live agents.") : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
@@ -37,10 +41,10 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
       </div>
     );
   }
-  return <Editor language={language} assistantDraft={params.source} showHelpers={params.showHelpers} ended={phase === "ended"} />;
+  return <Editor language={language} allowed={allowed} assistantDraft={params.source} showHelpers={params.showHelpers} ended={phase === "ended"} />;
 }
 
-function Editor({ language, assistantDraft, showHelpers, ended }: { language: Lang; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
+function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { language: Lang; allowed: readonly Lang[]; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
   const obs = useObservation({ hz: 2 });
   const { instance } = useMutators();
   const commands = useGameCommands();
@@ -56,17 +60,20 @@ function Editor({ language, assistantDraft, showHelpers, ended }: { language: La
   // After the end the editor stays (read the code, copy it for the next game) but nothing can be validated or summoned.
   const gameplay = !!obs && !unknown && commands.canAct && !ended;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
-  const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && language === obs?.language && source.trim().length > 0;
+  const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
   return (
     <div className="space-y-3" data-testid="panel-forge">
       <div className="flex flex-wrap items-center gap-2">
-        {(["python", "typescript"] as const).map(l => (
-          <button key={l} type="button" data-testid={`button-lang-${l}`} onClick={() => runner.setDraft({ language: l })} aria-pressed={language === l}
-            className={`border px-2.5 py-1 font-mono text-xs ${language === l ? "border-secondary bg-secondary text-secondary-foreground" : "border-[hsl(var(--input))]"}`}>{l}</button>
-        ))}
-        {obs && obs.language !== language && <span className="text-xs font-semibold text-destructive">This room expects {obs.language}</span>}
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Language
+          <select data-testid="select-language" aria-label="Agent language" value={language} disabled={allowed.length < 2}
+            onChange={e => runner.setDraft({ language: e.target.value as Lang })}
+            className="border border-[hsl(var(--input))] bg-background px-2 py-1 font-mono text-xs text-foreground outline-none focus:border-primary disabled:opacity-80">
+            {(allowed.length ? allowed : [language]).map(l => <option key={l} value={l}>{LANGUAGE_SPECS[l].label}</option>)}
+          </select>
+        </label>
         <span className="ml-auto font-mono text-[11px] text-muted-foreground">{bytes(source)} / 16384 bytes</span>
       </div>
       {assistantDraft && assistantDraft !== source && (
@@ -79,7 +86,7 @@ function Editor({ language, assistantDraft, showHelpers, ended }: { language: La
       <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
       {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
       <div className="flex flex-wrap items-center gap-2">
-        <GhostButton testId="button-validate" disabled={!gameplay || language !== obs?.language || !source.trim() || !!busy} onClick={() => void commands.run({ type: "validate", language, source })}>
+        <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim() || !!busy} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
         </GhostButton>
         <PrimaryButton testId="button-summon" disabled={!canSummon || !!busy} onClick={() => void commands.run({ type: "summon", language, source })}>

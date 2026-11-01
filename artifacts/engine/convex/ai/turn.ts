@@ -7,10 +7,12 @@ import { bindRuntime } from "../engine/runtime";
  *
  * Providers: Anthropic or OpenAI with the deployment's server-side keys (ANTHROPIC_API_KEY,
  * OPENAI_API_KEY), or — only when AI_MOCK=1 — a mock that plays sensibly without any network:
- * it summons one simple valid agent for the room's object type and language and chats once.
+ * it summons one simple valid agent for the room's object type, in the game's default (first allowed) language, and
+ * chats once.
  */
 import { v } from "convex/values";
 import { AIController, createDirectAnthropicProvider, createDirectOpenAIProvider, type ModelProvider } from "@workspace/ai-player";
+import type { Language } from "@workspace/game-core";
 import type { Observation } from "@workspace/player-client";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -19,8 +21,8 @@ import { findModel, mockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
 import type { Reservation } from "./seats";
 
-/** A simple valid agent for each object type, in each language. */
-export const SIMPLE_AGENTS: Record<string, { python: string; typescript: string }> = {
+/** A simple valid agent for each object type, in each language (a language without one here is never the mock's pick). */
+export const SIMPLE_AGENTS: Record<string, Partial<Record<Language, string>>> = {
   Int: { python: "def agent(x):\n    return [add(1)]", typescript: "function agent(x) { return [add(1)]; }" },
   string: { python: "def agent(s):\n    return [rotate(1)]", typescript: "function agent(s) { return [rotate(1)]; }" },
   Grid: { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }" },
@@ -36,9 +38,10 @@ export function mockProvider(): ModelProvider {
       if (!observation.chat.some(m => m.godId === observation.self.godId)) {
         actions.push({ type: "chat", text: `${observation.self.label} here (a mock AI god). I will summon a simple agent.` });
       }
-      const sources = SIMPLE_AGENTS[observation.instance?.objectType ?? ""];
-      if (sources && observation.seated !== false && observation.agents.length === 0 && (observation.phase === "planning" || observation.phase === "running")) {
-        actions.push({ type: "summon", language: observation.language, source: sources[observation.language] });
+      const sources = SIMPLE_AGENTS[observation.instance?.objectType ?? ""] ?? {};
+      const language = observation.languages.find(l => sources[l] !== undefined);
+      if (language && observation.seated !== false && observation.agents.length === 0 && (observation.phase === "planning" || observation.phase === "running")) {
+        actions.push({ type: "summon", language, source: sources[language] });
       }
       const text = JSON.stringify({ actions });
       return { text, inputTokens: Math.ceil((request.system.length + request.data.length) / 4), outputTokens: Math.ceil(text.length / 4) };

@@ -14,7 +14,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const [host, ada, bo] = await gods("Disclosure Host", "Disclosure Ada", "Disclosure Bo");
   await touch(host);
   const settings = {
-    language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+    languages: ["typescript"], objectType: "Grid",
     typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, startingObjectCount: 12, spawnRateHz: 2, planningSeconds: 3600,
     agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 40, startingEnergy: 1000,
   };

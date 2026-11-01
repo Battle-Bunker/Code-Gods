@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { admin, api, gods, internal, rejects, roomWith, touch, waitFor } from "./game-helpers.ts";
 
-const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0 };
+const INT_TS = { languages: ["typescript"], objectType: "Int", spawnRateHz: 0 };
 
 test("room lobby lifecycle: launch, spectate, end by lifetime, history, second game, end by owner", { timeout: 180000 }, async () => {
   const [host, ada, bo, cy] = await gods("Lobby Host", "Ada Seated", "Bo Seated", "Cy Latecomer");

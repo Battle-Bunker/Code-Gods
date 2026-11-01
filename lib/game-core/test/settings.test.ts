@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings,
+  DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
+  grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
 } from "../src/settings.ts";
 
@@ -26,15 +27,15 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.defenceGoals, false);
   assert.deepEqual(DEFAULT_SETTINGS.excludedDefenceFamilies, []);
   assert.ok(!("defenceRate" in DEFAULT_SETTINGS), "defence goals are a switch, not a per-player probability");
-  assert.equal(DEFAULT_SETTINGS.grammarId, "python-agent-v1");
-  assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bits-v1");
+  assert.deepEqual(DEFAULT_SETTINGS.languages, ["python"]);
+  for (const legacy of ["language", "grammarId", "complexityFunctionId"]) assert.ok(!(legacy in DEFAULT_SETTINGS), `${legacy} is derived from each agent's language`);
   assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
   assert.equal(DEFAULT_SETTINGS.perActFloorBits, 2);
   assert.equal(DEFAULT_SETTINGS.commitClause, false);
   assert.equal(DEFAULT_SETTINGS.objectSelection, "uniform");
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, objectSelection: "salient" as never }), /objectSelection/);
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, commitClause: "yes" as never }), /commitClause/);
-  assert.equal(defaultSettingsFor("Int", "typescript").complexityFunctionId, "ts-ast-bits-v1-uniform");
+  assert.deepEqual(defaultSettingsFor("Int", ["typescript"]).languages, ["typescript"]);
   assert.equal(DEFAULT_SETTINGS.objectType, "Int");
   assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { min: -2147483648, max: 2147483647 });
   for (const legacy of ["intMin", "intMax", "stringMaxLength"]) assert.ok(!(legacy in DEFAULT_SETTINGS));
@@ -116,38 +117,63 @@ test("object values are checked by the type's codec, never coerced", () => {
   assert.equal(codecOf(grids), codecOf({ ...grids, typeArgs: { colours: "rgb", size: 3, symbols: "base10" } })); // cached
 });
 
-test("every authored option is accepted with its compatible language and type", () => {
-  for (const language of ["python", "typescript"] as const) {
-    for (const objectType of ["Int", "string", "Grid"]) {
-      const base = defaultSettingsFor(objectType, language);
-      for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"] as const) {
-        const options = settingsOptionsFor(key, language, objectType);
-        assert.ok(options.length > 0, `${key} ${language} ${objectType}`);
-        for (const option of options) {
-          assert.doesNotThrow(() => validateSettings({ ...base, grammarId: settingsOptionsFor("grammarId", language, objectType)[0].id as GameSettings["grammarId"], [key]: option.id }));
-        }
-      }
+test("every authored option is accepted with its compatible type", () => {
+  for (const objectType of ["Int", "string", "Grid"]) {
+    const base = defaultSettingsFor(objectType);
+    for (const key of ["utilitySelectorId", "spawnFunctionId"] as const) {
+      const options = settingsOptionsFor(key, objectType);
+      assert.ok(options.length > 0, `${key} ${objectType}`);
+      for (const option of options) assert.doesNotThrow(() => validateSettings({ ...base, [key]: option.id }));
     }
   }
 });
 
-test("unknown identifiers, cross-language grammars and old grammar ids are rejected", () => {
-  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"] as const) {
+test("unknown identifiers are rejected", () => {
+  for (const key of ["utilitySelectorId", "spawnFunctionId"] as const) {
     assert.throws(() => validateSettings(settings({ [key]: "custom-arbitrary-id" })), /Unsupported/);
   }
-  assert.throws(() => validateSettings(settings({ language: "typescript" })), /Unsupported grammarId/);
-  validateSettings(settings({ language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" }));
-  assert.throws(() => validateSettings(settings({ complexityFunctionId: "ast-bytes-v1" })), /Unsupported complexityFunctionId/);
   assert.throws(() => validateSettings(settings({ stepBudget: 0 })), /stepBudget/);
   assert.throws(() => validateSettings(settings({ perActFloorBits: -1 })), /perActFloorBits/);
-  assert.throws(() => validateSettings(settings({ grammarId: "python-standard-v1" as never })), /Unsupported grammarId/);
-  assert.deepEqual(SETTINGS_OPTIONS.grammarId.map(o => o.id), ["python-agent-v1", "typescript-agent-v1"]);
   assert.deepEqual(SETTINGS_OPTIONS.spawnFunctionId.map(o => o.id), ["uniform"]);
+});
+
+test("a game allows a non-empty set of supported languages, each listed once", () => {
+  validateSettings(settings({ languages: ["typescript"] }));
+  validateSettings(settings({ languages: ["typescript", "python"] }));
+  for (const bad of [[], ["cobol"], ["python", "python"], "python", undefined, null]) {
+    assert.throws(() => validateSettings(settings({ languages: bad as never })), /languages/, JSON.stringify(bad));
+  }
+});
+
+test("each language has exactly one grammar and one summon-price function, read from its one table entry", () => {
+  assert.deepEqual([...LANGUAGES], Object.keys(LANGUAGE_SPECS));
+  assert.deepEqual(LANGUAGES.map(grammarFor), ["python-agent-v1", "typescript-agent-v1"]);
+  assert.deepEqual(LANGUAGES.map(complexityFor), ["ast-bits-v1", "ts-ast-bits-v1-uniform"]);
+});
+
+test("allowedLanguages reads the set, and a stored single language still works", () => {
+  assert.deepEqual(allowedLanguages(settings({ languages: ["typescript", "python"] })), ["typescript", "python"]);
+  const legacy = { ...DEFAULT_SETTINGS, languages: undefined, language: "typescript", grammarId: "typescript-agent-v1" } as never;
+  assert.deepEqual(allowedLanguages(legacy), ["typescript"]);
+});
+
+test("upgradeLegacyLanguage turns a single language into the set and drops the derived ids", () => {
+  const { languages: _l, ...rest } = DEFAULT_SETTINGS;
+  const legacy = { ...rest, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" };
+  const upgraded = upgradeLegacyLanguage(legacy);
+  assert.deepEqual(upgraded, { ...rest, languages: ["typescript"] });
+  validateSettings(upgraded as GameSettings);
+  assert.equal(upgradeLegacyLanguage(upgraded), null, "already upgraded: no change");
+  // A stray single language beside the set is dropped, the set wins.
+  assert.deepEqual(upgradeLegacyLanguage({ ...rest, languages: ["python"], language: "typescript" }), { ...rest, languages: ["python"] });
+  assert.equal(upgradeLegacyLanguage(null), null);
+  assert.equal(upgradeLegacyLanguage({ ...rest, languages: ["python"], grammarId: "python-agent-v1" }), null,
+    "a grammar id without a language is not the old shape: validation refuses it as an unknown setting");
 });
 
 test("defaultSettingsFor gives valid settings for every type and language", () => {
   for (const language of ["python", "typescript"] as const)
-    for (const objectType of ["Int", "string", "Grid"]) validateSettings(defaultSettingsFor(objectType, language));
+    for (const objectType of ["Int", "string", "Grid"]) validateSettings(defaultSettingsFor(objectType, [language]));
   assert.throws(() => defaultSettingsFor("Unicorn"));
   const grid = defaultSettingsFor("Grid");
   assert.equal(grid.spawnRateHz, 0.5); // tuned Grid defaults (grid-lab experiments)
@@ -155,13 +181,13 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
   assert.ok(grid.excludedFamilies.includes("sudoku_scholar") && grid.excludedFamilies.includes("fair_weaver"));
-  const classic = defaultSettingsFor("Grid", "python", { size: 5, symbols: "base10", colours: "rgby" });
+  const classic = defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" });
   assert.equal(classic.excludedFamilies.length, 11); // weak families, every Grid board
   for (const attractor of ["snap", "full_house", "bullseye", "flush_royale", "pinwheel", "stripe_painter"])
     assert.ok(!classic.excludedFamilies.includes(attractor));
   assert.equal(grid.agentEnergyPerSecond, 32); // measured Grid income (grid-lab PR #14 §4.9)
   assert.equal(grid.perActFloorBits, 2);
-  assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
+  assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
   assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
   assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);

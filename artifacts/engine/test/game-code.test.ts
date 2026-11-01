@@ -13,7 +13,7 @@ import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 async function errorCode(promise: Promise<unknown>): Promise<string> {

@@ -45,7 +45,7 @@ export function useGame({ hz }: Live = {}) {
   const o = useObservation({ hz });
   return useMemo(() => o && {
     phase: o.phase, gameId: o.gameId, roomShortCode: o.roomShortCode, gameShortCode: o.gameShortCode,
-    seated: o.seated !== false && !!o.gameId, language: o.language,
+    seated: o.seated !== false && !!o.gameId, language: o.language, languages: o.languages,
     planningEndsAt: o.planningEndsAt, pauseEndsAt: o.pauseEndsAt,
     instance: o.instance, economy: o.economy, worldSeconds: o.economy?.worldSeconds ?? 0,
     self: { godId: o.self.godId, label: o.self.label, isAI: o.self.isAI, energy: o.self.energy, ready: o.self.ready, pauseUsed: o.self.pauseUsed },

@@ -68,7 +68,7 @@ export class AIController {
       this.options.onEvent({type:"status",godId:this.options.godId,status:"acting"});
       for(const action of decision.actions) {
         bounded.throwIfAborted();
-        if("language" in action && action.language!==observation.language) throw new Error("Wrong room language");
+        if("language" in action && !observation.languages.includes(action.language)) throw new Error(`This game does not allow ${action.language} agents`);
         if(action.type==="summon") {
           const validation=await this.send(this.client.prepare({...action,type:"validate"},observation),bounded);
           if(!validation.accepted || !validation.validation?.valid) continue;

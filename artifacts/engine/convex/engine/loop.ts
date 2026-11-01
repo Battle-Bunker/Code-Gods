@@ -14,6 +14,7 @@ import { eventV, scoreV } from "../game/tables";
 import { gameRecord } from "../lib/projection";
 import { isIdle, lastHumanActivity } from "../lib/rooms";
 import { EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
+import { agentLanguage } from "../lib/language";
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -108,7 +109,7 @@ export const snapshot = internalQuery({
       game, lastActivity: await lastHumanActivity(ctx),
       objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience })),
       agents: agents.map(a => ({
-        id: a._id as string, ownerId: a.ownerId, source: a.source, decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
+        id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
         expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
       })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),

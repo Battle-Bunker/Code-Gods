@@ -3,8 +3,10 @@
  * idempotent, so every deploy may run them again.
  *
  * setups-v2 (`migrations/node:setupsV2`, which pages through `setupsV2Page`):
- *  - settings on game setups, rooms and games: `defenceRate` becomes `defenceGoals` + `excludedDefenceFamilies`
- *    (lib/migrateSetups.ts);
+ *  - settings on game setups, rooms and games: `defenceRate` becomes `defenceGoals` + `excludedDefenceFamilies`, and a
+ *    single `language` (with its grammarId and complexityFunctionId) becomes the allowed set `languages: [language]`
+ *    (lib/migrateSetups.ts). Agents summoned before then carry no `language`: they are read as the game's one language
+ *    (lib/language.ts agentLanguage), so agents need no migration;
  *  - rooms: `settingsOrigin` becomes `setupId` (+ `setupName`). A room on an unmodified setup that still exists keeps
  *    it; any other room (custom, a legacy preset, modified, or its setup gone) gets a new setup of its owner's named
  *    "Room <code>'s setup" holding its settings, which it then runs;

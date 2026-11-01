@@ -9,6 +9,7 @@
  * what-if's `objectId` and `calls`, which the panel cannot show anything without.
  */
 import { z } from "zod/v4";
+import { LANGUAGES, type Language } from "@workspace/game-core";
 
 export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
 const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"];
@@ -118,7 +119,7 @@ export const PANELS = {
   }),
   forge: def({
     id: "forge", title: "Agent code", blurb: "The agent being written for you and what it costs; Edit opens the editor.", phases: GAME,
-    params: z.strictObject({ language: z.enum(["python", "typescript"]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
+    params: z.strictObject({ language: z.enum(LANGUAGES as [Language, ...Language[]]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
     summary: p => line([p.agentId ? "A live agent's code" : p.source ? "A draft" : "Empty", ...when(!!p.language, p.language ?? ""), ...when(p.showHelpers, "with helpers")]),
   }),
   results: def({

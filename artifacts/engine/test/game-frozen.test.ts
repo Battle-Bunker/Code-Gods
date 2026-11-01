@@ -13,7 +13,7 @@ import { observationSchema } from "@workspace/player-client";
 import { admin, api, envelope, gods, internal, raw, roomWith, sleep, touch, waitFor, TS } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;

@@ -16,7 +16,7 @@ import { admin, api, gods, internal, rejects, roomWith, touch, waitFor } from ".
 const typeArgs = { min: 0, max: 2147483647 };
 const inst = instantiate("Int", typeArgs);
 const only = (...ids: string[]) => familiesFor("Int", "reward").map(f => f.id).filter(id => !ids.includes(id));
-const settingsFor = (...allowed: string[]) => ({ objectType: "Int", typeArgs, language: "typescript", excludedFamilies: only(...allowed), halfLifeSeconds: 100000 });
+const settingsFor = (...allowed: string[]) => ({ objectType: "Int", typeArgs, languages: ["typescript"], excludedFamilies: only(...allowed), halfLifeSeconds: 100000 });
 const keysOf = (familyId: string, on = inst) => canonicalSupport(familiesFor("Int", "reward").find(f => f.id === familyId)!, context(on))
   .map(p => ({ key: tableKey(familyId, p, on), paramsKey: paramsKey(p), params: p }));
 /** Another range nobody ships: the rate-limit test computes there, so its actions never land on this file's other keys. */
@@ -47,7 +47,7 @@ test("a shipped shape starts from the warm file without claiming anything", asyn
   await admin.mutation(internal.calibration.cache.forget, { instance: instantiate("Int", shipped).key });
   const members = await gods("Warm Owner", "Warm Ada", "Warm Bo");
   await touch(members[0]);
-  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: shipped, language: "typescript", halfLifeSeconds: 100000 });
+  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: shipped, languages: ["typescript"], halfLifeSeconds: 100000 });
   const started = await members[0].c.action(api.owner.start, { roomId });
   assert.ok(started.gameId);
   assert.equal(await admin.mutation(internal.calibration.cache.forget, { instance: instantiate("Int", shipped).key }), 0);

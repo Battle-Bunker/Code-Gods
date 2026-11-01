@@ -749,7 +749,7 @@
           "maxLength": 16384
         },
         "language": {
-          "description": "Default: the game's language.",
+          "description": "The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language.",
           "type": "string",
           "enum": [
             "python",
@@ -876,6 +876,7 @@
           "maxLength": 16384
         },
         "language": {
+          "description": "The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language.",
           "type": "string",
           "enum": [
             "python",
@@ -1570,7 +1571,7 @@
           "maximum": 9007199254740991
         },
         "settings": {
-          "description": "The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId.",
+          "description": "The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId.",
           "type": "object",
           "propertyNames": {
             "type": "string"

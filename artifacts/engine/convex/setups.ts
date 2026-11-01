@@ -19,7 +19,7 @@
  * Every function has an internal twin `<fn>As` taking `principal: {credentialId}` for the agent registry.
  */
 import { v } from "convex/values";
-import { FIRST_STEPS_SEED_ID, SEED_SETUPS, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { FIRST_STEPS_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -194,11 +194,11 @@ export function freeName(stem: string, tail: string, taken: ReadonlySet<string>)
 /** The name of a copy of `name`: "<name>'s copy", deduplicated among the owner's own. */
 export const copyName = (name: string, taken: ReadonlySet<string>) => freeName(name, "'s copy", taken);
 
-/** The menu line of a human's setup: its world, language, size and pace. */
+/** The menu line of a human's setup: its world, languages, size and pace. */
 export function setupSummary(s: GameSettings): string {
   let world: string;
   try { world = instanceInfo(instantiationOf(s)).label; } catch { world = s.objectType; }
-  return `${world} · ${s.language === "python" ? "Python" : "TypeScript"} · ${s.startingObjectCount} objects · ${s.interactionRateHz} acts/s`;
+  return `${world} · ${allowedLanguages(s).map(l => LANGUAGE_SPECS[l].label).join(" or ")} · ${s.startingObjectCount} objects · ${s.interactionRateHz} acts/s`;
 }
 
 /**

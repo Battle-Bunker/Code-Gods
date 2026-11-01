@@ -1,3 +1,5 @@
+import { upgradeLegacyLanguage } from "@workspace/game-core";
+
 /**
  * The setups-v2 conversion of one stored settings object (convex/migrations.ts), pure so it is unit-tested
  * (test/unit/migrate-setups.test.ts). Before setups-v2 a defence goal was dealt to each god with probability
@@ -5,9 +7,17 @@
  * or to none, and the excluded defence ids live in `excludedDefenceFamilies`:
  *   defenceRate > 0  → defenceGoals: true (else false);
  *   excludedFamilies → its reward ids; its defence ids (`defenceIds`) → excludedDefenceFamilies.
+ * It also converts the single-language shape ({language, grammarId, complexityFunctionId}) to the allowed set
+ * {languages: [language]} (game-core upgradeLegacyLanguage): each agent's grammar and price now follow its own language.
  * Returns null when the settings are already in the new shape (so the migration is idempotent).
  */
 export function migrateSettings(settings: unknown, defenceIds: ReadonlySet<string>): Record<string, unknown> | null {
+  const languages = upgradeLegacyLanguage(settings);
+  const defence = migrateDefence(languages ?? settings, defenceIds);
+  return defence ?? languages;
+}
+
+function migrateDefence(settings: unknown, defenceIds: ReadonlySet<string>): Record<string, unknown> | null {
   if (!settings || typeof settings !== "object" || Array.isArray(settings)) return null;
   const s = settings as Record<string, unknown>;
   if (!("defenceRate" in s) && "defenceGoals" in s && "excludedDefenceFamilies" in s) return null;

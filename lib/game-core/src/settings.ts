@@ -11,26 +11,52 @@ import type { Codec, Instantiation, ObjectValue, TypeArgs } from "@workspace/gam
 
 export type { ObjectValue, TypeArgs } from "@workspace/game-types";
 
-export type Language = "python" | "typescript";
-export const LANGUAGES: readonly Language[] = ["python", "typescript"];
+/**
+ * The agent languages, ONE entry each. A game allows a non-empty set of them (`GameSettings.languages`), and each
+ * agent is written in one: its grammar and summon-price function are that language's, read from this table (each
+ * language has exactly one of each, as in lib/game-runtime GRAMMAR_IDS and COMPLEXITY_IDS), so settings never carry
+ * them. Adding a language is an entry here plus its runtime (lib/game-runtime, wired in the engine's runtime/node.ts).
+ * `emptyAgent` is the smallest valid agent (the engine's availability probe).
+ */
+export const LANGUAGE_SPECS = Object.freeze({
+  python: Object.freeze({
+    label: "Python", grammarId: "python-agent-v1", complexityFunctionId: "ast-bits-v1",
+    grammarLabel: "def agent(obj) returns mutator calls",
+    emptyAgent: "def agent(x):\n    return []",
+  }),
+  typescript: Object.freeze({
+    label: "TypeScript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
+    grammarLabel: "function agent(obj) returns mutator calls",
+    emptyAgent: "function agent(x) { return []; }",
+  }),
+} as const);
+export type Language = keyof typeof LANGUAGE_SPECS;
+export const LANGUAGES: readonly Language[] = Object.freeze(Object.keys(LANGUAGE_SPECS) as Language[]);
+export const isLanguage = (value: unknown): value is Language => typeof value === "string" && Object.hasOwn(LANGUAGE_SPECS, value);
 
 /** Agent grammars: source defines `agent(obj)` returning mutator calls, against the room's prelude. */
-export type GrammarId = "python-agent-v1" | "typescript-agent-v1";
+export type GrammarId = (typeof LANGUAGE_SPECS)[Language]["grammarId"];
+/** The grammar of an agent written in this language. */
+export const grammarFor = (language: Language): GrammarId => LANGUAGE_SPECS[language].grammarId;
+/** The summon-price function of an agent written in this language. */
+export const complexityFor = (language: Language): string => LANGUAGE_SPECS[language].complexityFunctionId;
 
 /** Resource limit: at most this many live agents per god. */
 export const MAX_AGENTS_PER_GOD = 200;
 
 export interface GameSettings {
-  language: Language;
+  /**
+   * The languages agents may be written in (non-empty, each once; the first is the default). Each agent's grammar and
+   * summon price follow its own language (LANGUAGE_SPECS). Stored settings from before this field held one `language`:
+   * read them through `allowedLanguages`, or convert them with `upgradeLegacyLanguage`.
+   */
+  languages: readonly Language[];
   /** Registered object type id ("Int", "string", "Grid", ...). */
   objectType: string;
   /** Arguments of the type constructor, validated by the type's `instantiate`. */
   typeArgs: TypeArgs;
-  grammarId: GrammarId;
   /** How utility functions are dealt to gods; see @workspace/game-utilities. */
   utilitySelectorId: string;
-  /** Summon price in bits: the source's description (Python ast-bits-v1, TypeScript ts-ast-bits-v1-uniform). */
-  complexityFunctionId: string;
   spawnFunctionId: "uniform";
   planningSeconds: number;
   halfLifeSeconds: number;
@@ -82,12 +108,10 @@ export interface GameSettings {
 
 // These IDs describe the contract, not a claim that runners are installed.
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
-  language: "python",
+  languages: Object.freeze(["python"]) as readonly Language[],
   objectType: "Int",
   typeArgs: Object.freeze({ min: -2147483648, max: 2147483647 }),
-  grammarId: "python-agent-v1",
   utilitySelectorId: "fair-aligned",
-  complexityFunctionId: "ast-bits-v1",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
   halfLifeSeconds: 300,
@@ -112,45 +136,63 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectSelection: "uniform",
 } satisfies GameSettings);
 
-/** The one summon-price code of each language (lib/game-runtime COMPLEXITY_IDS). */
-export const COMPLEXITY_FOR: Readonly<Record<Language, string>> = Object.freeze({ python: "ast-bits-v1", typescript: "ts-ast-bits-v1-uniform" });
+/**
+ * The languages a game allows (the first is the game's default). Settings stored before `languages` existed held a single `language` (with its grammar
+ * and price ids): that one language is the set. Use this wherever stored settings are read, so a document the
+ * migration has not reached yet still plays.
+ */
+export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { language?: unknown; languages?: unknown } | null | undefined): readonly Language[] {
+  if (!settings) return [];
+  const s = settings as { language?: unknown; languages?: unknown };
+  if (Array.isArray(s.languages) && s.languages.length && s.languages.every(isLanguage)) return s.languages as Language[];
+  return isLanguage(s.language) ? [s.language] : [];
+}
+
+/**
+ * Stored settings in the single-language shape ({language, grammarId, complexityFunctionId}) as allowed languages
+ * ({languages: [language]}), dropping the derived ids. Only a `language` marks the old shape: a grammar or price id
+ * without one is left for validation to refuse as an unknown setting. Returns null when there is nothing to convert, so
+ * the migration (engine convex/lib/migrateSetups.ts) is idempotent.
+ */
+export function upgradeLegacyLanguage(settings: unknown): Record<string, unknown> | null {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return null;
+  const s = settings as Record<string, unknown>;
+  if (!("language" in s)) return null;
+  const { language, grammarId: _g, complexityFunctionId: _c, ...rest } = s;
+  return "languages" in s || language === undefined ? rest : { ...rest, languages: [language] };
+}
 
 export interface SettingsOption {
   readonly id: string;
   readonly label: string;
-  readonly languages: readonly Language[];
   readonly objectTypes: readonly string[];
 }
 
 const ALL_TYPES = ["Int", "string", "Grid"] as const;
 
-/** Pre-authored dropdown choices; unknown identifiers are always rejected. */
-export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId" | "complexityFunctionId" | "spawnFunctionId",
-  readonly SettingsOption[]>> = Object.freeze({
-  grammarId: [
-    { id: "python-agent-v1", label: "Python agent: def agent(obj) returns mutator calls", languages: ["python"], objectTypes: ALL_TYPES },
-    { id: "typescript-agent-v1", label: "TypeScript agent: function agent(obj) returns mutator calls", languages: ["typescript"], objectTypes: ALL_TYPES },
-  ],
+/** Pre-authored dropdown choices; unknown identifiers are always rejected. Languages are LANGUAGE_SPECS. */
+export const SETTINGS_OPTIONS: Readonly<Record<"utilitySelectorId" | "spawnFunctionId", readonly SettingsOption[]>> = Object.freeze({
   utilitySelectorId: [
-    { id: "fair-aligned", label: "Aligned Lottery (tables of rules that tend to want the same objects)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
-    { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
-  ],
-  complexityFunctionId: [
-    { id: "ast-bits-v1", label: "Python description bits (ast-bits-v1, corpus-weighted)", languages: ["python"], objectTypes: ALL_TYPES },
-    { id: "ts-ast-bits-v1-uniform", label: "TypeScript description bits (ts-ast-bits-v1, uniform)", languages: ["typescript"], objectTypes: ALL_TYPES },
+    { id: "fair-aligned", label: "Aligned Lottery (tables of rules that tend to want the same objects)", objectTypes: ALL_TYPES },
+    { id: "divine-lottery", label: "Divine Lottery (each god draws a random utility function)", objectTypes: ALL_TYPES },
   ],
   spawnFunctionId: [
-    { id: "uniform", label: "Uniformly at random (the type's spawn prior)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
+    { id: "uniform", label: "Uniformly at random (the type's spawn prior)", objectTypes: ALL_TYPES },
   ],
 });
 
 export type OptionKey = keyof typeof SETTINGS_OPTIONS;
 /** The fields whose choices are pre-authored (SETTINGS_OPTIONS). */
-export const OPTION_KEYS: readonly OptionKey[] = ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"];
+export const OPTION_KEYS: readonly OptionKey[] = ["utilitySelectorId", "spawnFunctionId"];
 
-/** The options of one dropdown compatible with a language and object type. */
-export function settingsOptionsFor(key: OptionKey, language: Language, objectType: string): SettingsOption[] {
-  return SETTINGS_OPTIONS[key].filter(o => o.languages.includes(language) && o.objectTypes.includes(objectType));
+/** The options of one dropdown compatible with an object type. */
+export function settingsOptionsFor(key: OptionKey, objectType: string): SettingsOption[] {
+  return SETTINGS_OPTIONS[key].filter(o => o.objectTypes.includes(objectType));
+}
+
+/** Whether `value` is a valid set of allowed languages: non-empty, supported, each once. */
+export function validLanguages(value: unknown): value is readonly Language[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isLanguage) && new Set(value).size === value.length;
 }
 
 function finiteNonnegative(settings: GameSettings, keys: readonly (keyof GameSettings)[]): void {
@@ -178,7 +220,7 @@ const familyList = (value: unknown) => Array.isArray(value) && value.length <= 2
  * switched on also need at least one defence family left to deal.
  */
 export function validateSettings(settings: GameSettings, domain?: FamilyDomain): void {
-  if (!LANGUAGES.includes(settings.language)) throw new Error("Unsupported language");
+  if (!validLanguages(settings.languages)) throw new Error("languages must list one or more supported languages, each once");
   if (typeof settings.objectType !== "string") throw new Error("Unsupported object type");
   if (settings.typeArgs === null || typeof settings.typeArgs !== "object" || Array.isArray(settings.typeArgs)) {
     throw new Error("typeArgs must be an object of type arguments");
@@ -219,8 +261,8 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
     throw new Error("objectSelection must be uniform or shelter");
   }
   for (const key of OPTION_KEYS) {
-    if (!settingsOptionsFor(key, settings.language, settings.objectType).some(o => o.id === settings[key])) {
-      throw new Error(`Unsupported ${key} for this language and object type`);
+    if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
+      throw new Error(`Unsupported ${key} for this object type`);
     }
   }
   if (settings.defenceGoals && domain) {
@@ -317,17 +359,14 @@ export function typeDefaults(objectType: string, typeArgs?: TypeArgs): Partial<G
 }
 
 /**
- * Default settings for one instantiation and language: tuned type defaults and the language's grammar. Used to build
- * the seed setups below (and fixtures); a settings CHANGE never consults tuned defaults (settings-model.ts).
+ * Default settings for one instantiation and set of allowed languages: tuned type defaults. Used to build the seed
+ * setups below (and fixtures); a settings CHANGE never consults tuned defaults (settings-model.ts).
  */
 export function defaultSettingsFor(
-  objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language, typeArgs?: TypeArgs,
+  objectType: string, languages: readonly Language[] = DEFAULT_SETTINGS.languages, typeArgs?: TypeArgs,
 ): GameSettings {
   const args = typeArgs ?? objectTypeDef(objectType).defaults;
-  return {
-    ...DEFAULT_SETTINGS, ...typeDefaults(objectType, args), language, objectType, typeArgs: args,
-    grammarId: `${language}-agent-v1` as GrammarId, complexityFunctionId: COMPLEXITY_FOR[language],
-  };
+  return { ...DEFAULT_SETTINGS, ...typeDefaults(objectType, args), languages: [...languages], objectType, typeArgs: args };
 }
 
 /**
@@ -353,7 +392,7 @@ export const SETUP_NAME_MAX = 40;
 export const FIRST_STEPS_SEED_ID = "grid-first-steps";
 
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
-  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, "python", typeArgs), ...patch }) });
+  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
@@ -373,7 +412,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
 export function seedSetupSettings(seedId: string): GameSettings {
   const found = SEED_SETUPS.find(s => s.seedId === seedId);
   if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
-  return { ...found.settings, typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
+  return { ...found.settings, languages: [...found.settings.languages], typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -384,11 +423,12 @@ export function seedSetupSettings(seedId: string): GameSettings {
 export type SettingsSection = "world" | "goals" | "agents" | "energy" | "population" | "time" | "players";
 
 /**
- * How a field is edited: stepped choices (`segmented`), a list of options (`select`), a number (`number`, stepped
+ * How a field is edited: stepped choices (`segmented`), a list of options (`select`), several of a list of options, at
+ * least one (`multiselect`), a number (`number`, stepped
  * choices plus an exact value), on or off (`switch`), a checklist of families (`checklist`), or one control per type
  * argument (`typeArgs`). Every field has one: nothing a game needs is a read-only fact.
  */
-export type ControlKind = "segmented" | "select" | "number" | "switch" | "checklist" | "typeArgs";
+export type ControlKind = "segmented" | "select" | "multiselect" | "number" | "switch" | "checklist" | "typeArgs";
 
 /**
  * One field's documentation, read by every surface: the configuration page, the read-only view, the assistant's
@@ -423,20 +463,10 @@ export const SETTINGS_DOCS = {
     meaning: "The arguments of the object type, such as a board's size, symbols and colours, or a range of numbers.",
     consequence: "They decide which rules can be dealt and how hard each object is to read at a glance.",
   },
-  language: {
-    question: "Which language do agents use?", section: "world", tier: "ask", control: "select", suggested: ["python", "typescript"],
-    meaning: "Every player writes agents in this programming language.",
-    consequence: "Changing it changes how agents are written and how their summon price is counted.",
-  },
-  grammarId: {
-    question: "What shape must an agent's code have?", section: "world", tier: "more", control: "select", dependsOn: ["language"],
-    meaning: "The grammar every agent's source must follow, such as a function agent(obj) that returns a list of moves.",
-    consequence: "Each language has its own grammars, so changing the language picks one that language offers.",
-  },
-  complexityFunctionId: {
-    question: "How is an agent's summon price measured?", section: "world", tier: "more", control: "select", dependsOn: ["language"],
-    meaning: "The measure of an agent's summon price, such as the description bits of its source code.",
-    consequence: "Each language has its own measures, and under every one shorter programs cost less.",
+  languages: {
+    question: "Which languages may agents be written in?", section: "world", tier: "ask", control: "multiselect", suggested: LANGUAGES,
+    meaning: "The programming languages players may choose from for each agent, at least one; each agent's code shape and summon price follow its own language.",
+    consequence: "Allowing more languages lets every player write in the one they know, while summon prices are counted differently in each.",
   },
   utilitySelectorId: {
     question: "How are secret goals dealt?", section: "goals", tier: "ask", control: "segmented", suggested: ["fair-aligned", "divine-lottery"],

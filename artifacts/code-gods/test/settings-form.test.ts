@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
 import { objectType } from "@workspace/game-types";
 import {
-  SECTIONS, argChoices, choiceLabel, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel, searchSetups } from "../src/lib/setup-words.ts";
@@ -25,7 +25,7 @@ const types = [
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
   assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
   assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "excludedFamilies", "penaltyWeight", "priorId"], "asked, then more");
-  assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "language", "grammarId", "complexityFunctionId"], "the grammar and summon price are controls too");
+  assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "languages"], "the grammar and summon price follow each agent's language");
   assert.deepEqual(fieldsOf("population"), ["startingObjectCount", "spawnRateHz", "spawnFunctionId", "objectSelection"]);
 });
 
@@ -137,6 +137,18 @@ test("the setup combobox: search by name, owner or summary; whose it is; why Edi
   assert.equal(freeName("Classic", "'s copy", []), "Classic's copy");
   assert.equal(freeName("Classic", "'s copy", ["classic's COPY", "Classic's copy 2"]), "Classic's copy 3");
   assert.equal(freeName("L".repeat(40), "'s copy", []), `${"L".repeat(33)}'s copy`);
+});
+
+test("the language multi-select: toggling keeps the order (the first is the default) and never empties the set; labels and errors", () => {
+  assert.deepEqual(toggleLanguage(["python"], "typescript", true), ["python", "typescript"]);
+  assert.deepEqual(toggleLanguage(["typescript"], "python", true), ["typescript", "python"], "the default stays first");
+  assert.deepEqual(toggleLanguage(["typescript", "python"], "typescript", false), ["python"]);
+  assert.deepEqual(toggleLanguage(["python", "typescript"], "python", false), ["typescript"]);
+  assert.deepEqual(toggleLanguage(["python"], "python", false), ["python"], "at least one language stays allowed");
+  assert.deepEqual(toggleLanguage(["python"], "python", true), ["python"]);
+  assert.equal(formatValue("languages", ["python", "typescript"]), "Python, TypeScript");
+  assert.match(draftErrors({ ...DEFAULT_SETTINGS, languages: [] }).languages ?? "", /at least one language/);
+  assert.equal(draftErrors({ ...DEFAULT_SETTINGS, languages: ["typescript", "python"] }).languages, undefined);
 });
 
 test("penalty weight and the defence checklist hide while defence goals are off; stepped choices keep the current value; summary lines", () => {

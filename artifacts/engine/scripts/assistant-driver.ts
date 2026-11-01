@@ -25,7 +25,7 @@ const QUESTIONS = [
   "Write a simple agent for my utility and validate it; do not summon it.",
 ];
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 60, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];

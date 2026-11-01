@@ -1,8 +1,12 @@
+import { LANGUAGE_SPECS, allowedLanguages, complexityFor, grammarFor, type Language } from "@workspace/game-core";
 import type { InstanceInfo, Settings } from "@/lib/types";
+
+const AGENT_SHAPES: Partial<Record<Language, string>> = { python: "def agent(grid):", typescript: "function agent(grid) { ... }" };
 
 /** The room's or game's rules as text for any AI assistant (the palette's "Copy game rules for an AI"). */
 export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: string | null, instance?: InstanceInfo) {
-  const agent = s.language === "python" ? "def agent(grid):" : "function agent(grid) { ... }";
+  const languages = allowedLanguages(s);
+  const agent = languages.map(l => `\`${AGENT_SHAPES[l] ?? LANGUAGE_SPECS[l].grammarLabel}\` (${LANGUAGE_SPECS[l].label})`).join(" or ");
   const t = instance ? `${instance.label} (${instance.key}, wire format ${instance.codec.format})` : `${s.objectType} ${JSON.stringify(s.typeArgs)}`;
   const moves = instance?.mutators.length ? instance.mutators.map(m => `${m.emoji} ${m.id}: ${m.summary}`).join("\n  ") : "(see the room's helpers)";
   return `# Code Gods — rules for an AI assistant
@@ -20,12 +24,12 @@ If, overall, the others don't care about an object, nobody scores from it. You c
 
 ## World and agents
 Object type: ${t}.
-An agent is ordinary ${s.language} code defining \`${agent}\` against the room's helper prelude. It returns a list of at most 16 mutator calls; objects change only through these mutators:
+An agent is ordinary code in one of this game's languages, chosen per agent: ${agent}, against the room's helper prelude. It returns a list of at most 16 mutator calls; objects change only through these mutators:
   ${moves}
 Each act costs bits (naming the moves and their parameters, erased information and how much of the object moved).
-Summoning costs the agent's description bits (${s.complexityFunctionId}) from your god energy. Each agent then has its own ⚡ energy: it earns ${s.agentEnergyPerSecond ?? 2} bits per second of world time (up to ${s.agentBatteryActs ?? 2} acts' worth), acts only while its energy covers its expected act cost, and pays each act's actual cost (it may go below zero: a cooldown). You may destroy your own agents at any time, for free. At most ${s.maxAgentsPerGod ?? 200} agents per god.
+Summoning costs the agent's description bits (counted in its own language: ${languages.map(l => `${LANGUAGE_SPECS[l].label} ${complexityFor(l)}`).join(", ")}) from your god energy. Each agent then has its own ⚡ energy: it earns ${s.agentEnergyPerSecond ?? 2} bits per second of world time (up to ${s.agentBatteryActs ?? 2} acts' worth), acts only while its energy covers its expected act cost, and pays each act's actual cost (it may go below zero: a cooldown). You may destroy your own agents at any time, for free. At most ${s.maxAgentsPerGod ?? 200} agents per god.
 All object values are unique. A transformation to an existing value, including the object's own, fails without changing the world. Spawns redraw duplicates.
-Grammar: ${s.grammarId}. Only the supported sandbox computational libraries/built-ins are available, not unrestricted host access. Read-only time and randomness are allowed; filesystem, network and process access are not.
+Grammar: ${languages.map(grammarFor).join(" or ")}. Only the supported sandbox computational libraries/built-ins are available, not unrestricted host access. Read-only time and randomness are allowed; filesystem, network and process access are not.
 At each interaction a random eligible agent acts on a random object. You cannot choose its target.
 Interaction cap (not guaranteed throughput): ${s.interactionRateHz} interactions/second. Guest compute budget: ${s.interactionComputeMs} ms per interaction.
 Starting objects: ${s.startingObjectCount}. Uniform-random spawning: ${s.spawnRateHz} objects/second of world time.

@@ -87,8 +87,16 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "x".repeat(41), settings: quick })), "BAD_REQUEST");
   const bobs: Setup = await bob.c.action(api.setups.save, { name: "Quick classic", settings: quick });
   // Settings: complete, valid, a playable shape (3×3 is retired) and within the server's limits; defence goals need one allowed family.
-  const { language: _l, ...incomplete } = quick;
-  assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Partial", settings: incomplete }))).message ?? "", /missing: language/);
+  const { languages: _l, ...incomplete } = quick;
+  assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Partial", settings: incomplete }))).message ?? "", /missing: languages/);
+  for (const languages of [[], ["cobol"], ["python", "python"]]) {
+    assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Languages", settings: { ...quick, languages } })), "BAD_REQUEST", JSON.stringify(languages));
+  }
+  // A setup in the old single-language shape is saved as that one language.
+  const single: Setup = await ann.c.action(api.setups.save, { name: "Single language", settings: {
+    ...incomplete, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" } });
+  assert.deepEqual(single.settings, { ...quick, languages: ["typescript"] });
+  await ann.c.mutation(api.setups.remove, { setupId: single.id });
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Extra", settings: { ...quick, colour: "red" } }))).message ?? "", /Unknown settings: colour/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Old", settings: { ...quick, defenceRate: 0 } }))).message ?? "", /Unknown settings: defenceRate/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Odd board", settings: { ...quick, typeArgs: { size: 3, symbols: "base10", colours: "rgb" } } }))).message ?? "", /not playable|retired/);
@@ -162,7 +170,7 @@ test("a new room runs the system's First steps; owner.settings applies anyone's 
 
   // Ada's setup, in another language: applied whole by the room's owner (setups are shared).
   const adas: Setup = await ada.c.action(api.setups.save, { name: "TypeScript Master", settings: {
-    ...seedSetupSettings("grid-master"), language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", planningSeconds: 300 } });
+    ...seedSetupSettings("grid-master"), languages: ["typescript"], planningSeconds: 300 } });
   const applied = await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: adas.id });
   assert.equal(applied.setup.created, false);
   room = await host.c.query(api.rooms.get, { room: roomId });

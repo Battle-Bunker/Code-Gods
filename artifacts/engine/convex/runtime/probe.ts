@@ -19,7 +19,7 @@ const language = v.union(v.literal("python"), v.literal("typescript"));
 
 /** The runtime's view of a room's settings (as the engine's adapter builds it). */
 function room(lang: Language): { settings: ActSettings; inputs: string[] } {
-  const settings: GameSettings = defaultSettingsFor("Grid", lang);
+  const settings: GameSettings = defaultSettingsFor("Grid", [lang]);
   const inst = instantiationOf(settings), T = objectType(inst.objectType), parts = T.prelude(inst);
   const rng = seededRng(`code-gods:probe:${inst.key}`);
   return {

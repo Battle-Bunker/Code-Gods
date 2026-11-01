@@ -37,7 +37,7 @@ for (const g of gods.slice(1)) await g.mutation(api.rooms.join, { room: shortCod
 const typeArgs = type === "Grid" ? { size: 5, symbols: "base10", colours: "rgby" } : { min: -2147483648, max: 2147483647 };
 const room = await gods[0].query(api.rooms.get, { room: roomId });
 await gods[0].action(api.owner.settings, { roomId, revision: room.revision, settings: {
-  language, grammarId: `${language}-agent-v1`, complexityFunctionId: language === "python" ? "ast-bits-v1" : "ts-ast-bits-v1-uniform",
+  languages: [language],
   objectType: type, typeArgs, startingObjectCount: objects, spawnRateHz: 0, planningSeconds: 3600, interactionRateHz: rate,
   startingEnergy: 1e9, agentEnergyPerSecond: 1e6, agentBatteryActs: 1e6,
 } });

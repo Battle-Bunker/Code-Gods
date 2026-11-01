@@ -8,7 +8,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, validateSettings,
+  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeLegacyLanguage, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
@@ -140,9 +140,9 @@ export function dealerOf(settings: GameSettings): { selectorId: string; dealtAs:
   if (selectorId !== fairAligned.id || synergyFor(instantiationOf(settings), settings.priorId)) return { selectorId, dealtAs: selectorId };
   return { selectorId, dealtAs: divineLottery.id, note: `No synergy has been measured for ${instantiationOf(settings).key}: the ${fairAligned.name} deals like the ${divineLottery.name}` };
 }
-/** A god's own kid card: plain-language incentives first, then source in the game's language, plus any defence goal. */
+/** A god's own kid card: plain-language incentives first, then source in the game's default (first allowed) language, plus any defence goal. */
 export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) {
-  const language = settings.language;
+  const language = allowedLanguages(settings)[0]!;
   const c = card(utility, context(instantiationOf(settings)));
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,
@@ -192,9 +192,13 @@ export function assertPlayable(manifest: CalibrationManifest, settings: GameSett
       settings.planningSeconds > 3600 || settings.pauseSeconds > 3600) fail("BAD_REQUEST", "Settings exceed server resource limits");
 }
 
-/** A complete settings object (a game setup): exactly the GameSettings fields, playable. */
-export function assertCompleteSettings(manifest: CalibrationManifest, settings: unknown): GameSettings {
-  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return fail("BAD_REQUEST", "settings must be a settings object");
+/**
+ * A complete settings object (a game setup): exactly the GameSettings fields, playable. The single-language shape of
+ * settings saved before games allowed several languages is accepted as that one language (upgradeLegacyLanguage).
+ */
+export function assertCompleteSettings(manifest: CalibrationManifest, given: unknown): GameSettings {
+  if (!given || typeof given !== "object" || Array.isArray(given)) return fail("BAD_REQUEST", "settings must be a settings object");
+  const settings = upgradeLegacyLanguage(given) ?? given;
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
   const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
@@ -212,7 +216,7 @@ export function nextSettings(manifest: CalibrationManifest, previous: GameSettin
   let settings: GameSettings;
   if (input.setup) return assertCompleteSettings(manifest, input.setup);   // stored setups are re-checked whole: a field added since fails loudly
   else if (input.settings) {
-    try { settings = applySettingsChange(previous, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
+    try { settings = applySettingsChange((upgradeLegacyLanguage(previous) ?? previous) as GameSettings, input.settings as Partial<GameSettings>, settingsDomain()); } catch (error) {
       return fail("BAD_REQUEST", error instanceof SettingsChangeError ? error.message : `Invalid settings: ${(error as Error).message}`);
     }
   } else return fail("BAD_REQUEST", "Settings or a setup are required");

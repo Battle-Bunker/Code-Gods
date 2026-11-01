@@ -5,7 +5,7 @@
  * module scope and are reused across tick actions and summon examinations. Every action that can run
  * agent code calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { codecOf, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, codecOf, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
 import type { ActResult, ActSettings, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
 import { runtimeFor } from "../runtime/node";
@@ -55,29 +55,31 @@ async function guarded<T>(language: Language, run: (rt: GameRuntime) => Promise<
   }
 }
 
-/** The source's description bits and literal moves. Never evaluates. */
-export function inspect(source: string, settings: GameSettings): Promise<Inspection> {
+/**
+ * The source's description bits and literal moves, in the agent's own language (one the game allows: the caller
+ * checks that). Never evaluates.
+ */
+export function inspect(source: string, language: Language, settings: GameSettings): Promise<Inspection> {
   validateSettings(settings);
-  return guarded(settings.language, rt => rt.inspect(source, actSettings(settings)));
+  return guarded(language, rt => rt.inspect(source, actSettings(settings)));
 }
-/** One deterministic act (frozen clock, `random` seeded with `seed`): the UNTRUSTED encoded call list. */
-export function act(source: string, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
-  return guarded(settings.language, rt => rt.act(source, input as string | number, actSettings(settings), seed.toString()));
+/** One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded call list. */
+export function act(source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
+  return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings), seed.toString()));
 }
 
-/** Probe a language once per warm instance: an empty agent must round-trip. */
+/** Probe a language once per warm instance: an empty agent must round-trip on these settings' instantiation. */
 const probes = new Map<Language, Promise<boolean>>();
-export function languageAvailable(settings: GameSettings): Promise<boolean> {
-  const language = settings.language;
+export function languageAvailable(language: Language, settings: GameSettings): Promise<boolean> {
   let p = probes.get(language);
   if (!p) {
     p = (async () => {
       try {
-        const source = language === "python" ? "def agent(x):\n    return []" : "function agent(x) { return []; }";
+        const source = LANGUAGE_SPECS[language].emptyAgent;
         const inst = instantiationOf(settings), T = objectType(inst.objectType);
         const { seededRng } = await import("@workspace/game-types");
         const value = T.codec(inst).encode(T.spawn(inst, seededRng(`code-gods:probe:${inst.key}`)));
-        const result = await act(source, value, settings, 0n);
+        const result = await act(source, language, value, settings, 0n);
         return result.calls === "[]";
       } catch (error) {
         console.warn(`Isolated ${language} runtime unavailable: ${(error as Error).message}`);

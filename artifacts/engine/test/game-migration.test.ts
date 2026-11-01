@@ -1,18 +1,24 @@
 /**
  * The setups-v2 migration (convex/migrations.ts) on legacy documents against the live local backend. What would break:
  * a room left without a setup, a custom or modified room put on a setup whose settings it does not have, a room's
- * defence goals lost or its excluded defence families mixed back into the reward list, a game that forgot its setup,
- * or a second run changing anything (the deploy runs it on every push).
+ * defence goals lost or its excluded defence families mixed back into the reward list, a single stored language not
+ * becoming the allowed set of that language, a game that forgot its setup, or a second run changing anything (the
+ * deploy runs it on every push).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { complexityFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { admin, api, gods, internal, roomWith, touch } from "./game-helpers.ts";
 
-/** The pre-setups-v2 shape of some settings: a defence rate, and defence ids among the excluded families. */
+/**
+ * The pre-setups-v2 shape of some settings: a defence rate, defence ids among the excluded families, and one language
+ * with its grammar and summon-price ids.
+ */
 function legacy(settings: GameSettings, defenceRate: number, excludedDefence: string[] = []) {
-  const { defenceGoals: _g, excludedDefenceFamilies: _x, ...rest } = settings;
-  return { ...rest, defenceRate, excludedFamilies: [...rest.excludedFamilies, ...excludedDefence] };
+  const { defenceGoals: _g, excludedDefenceFamilies: _x, languages, ...rest } = settings;
+  const language = languages[0]!;
+  return { ...rest, defenceRate, excludedFamilies: [...rest.excludedFamilies, ...excludedDefence],
+    language, grammarId: grammarFor(language), complexityFunctionId: complexityFor(language) };
 }
 const migrate = (): Promise<Record<string, number>> => admin.action(internal.migrations.node.setupsV2, {});
 
@@ -68,6 +74,10 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   assert.deepEqual(record.setup, { id: classic.id, name: "Classic" });
   assert.equal(record.settings.defenceGoals, true);
   assert.ok(!("defenceRate" in record.settings));
+  for (const settings of [c.settings, m.settings, ownAfter.settings, record.settings]) {
+    assert.deepEqual(settings.languages, ["python"], "the one stored language is the allowed set");
+    for (const gone of ["language", "grammarId", "complexityFunctionId"]) assert.ok(!(gone in settings), gone);
+  }
 
   assert.deepEqual(await migrate(), { setups: 0, rooms: 0, games: 0 }, "idempotent");
 });

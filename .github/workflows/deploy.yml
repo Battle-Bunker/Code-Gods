@@ -168,7 +168,7 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run setups:ensureSeeded
 
-      - name: Migrate stored settings and room setups to setups-v2 (idempotent; convex/migrations.ts)
+      - name: Migrate stored settings (setups-v2, allowed languages) and room setups (idempotent; convex/migrations.ts)
         working-directory: artifacts/engine
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
