@@ -24,7 +24,8 @@ import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
 import { gameTables } from "./calibration";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
-import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
+import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
+import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
@@ -33,6 +34,10 @@ type ActResult = { calls: string } | { error: string };
 
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
+
+/** How often a planning phase held for a warming (or failed: its retries back off) sandbox checks again. */
+const HOLD_POLL_MS = 1000;
+const HOLD_FAILED_POLL_MS = 5000;
 
 /** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
 const MAX_SIMULATE_MS = 4000;
@@ -66,10 +71,20 @@ export const run = internalAction({
     // Clock: planning and pauses end at their deadline; world time then runs from that deadline.
     let phase: Doc<"games">["phase"] = game.phase, lastTick = game.lastTick;
     const events: Ev[] = [];
+    // Agent sandboxes (lib/sandboxes.ts): a language not ready yet holds planning past its deadline (world time starts for
+    // everyone once all can run) and, later, sits out the window; a due warm-up is scheduled either way.
+    const sandboxes = snap.sandboxes.map(({ language, row }) => ({ language, ...effectiveSandbox(row, runtimeVersion(language)), readyAt: row?.readyAt }));
+    const unready = new Set(sandboxes.filter(s => s.state !== "ready").map(s => s.language));
+    if (unready.size) await ensureSandboxes(ctx, [...unready]);
     if (phase === "planning" || phase === "paused") {
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
-      phase = "running"; lastTick = deadline;
+      const end = phase === "planning" ? planningEnd(deadline, sandboxes) : { at: deadline };
+      if ("hold" in end) {
+        const failed = sandboxes.some(s => s.state === "failed");
+        return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
+      }
+      phase = "running"; lastTick = Math.min(now, end.at);
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
     // The game's tables (only a simulating tick needs them): shipped, analytic or computed at the start; memory after the first.
@@ -85,7 +100,8 @@ export const run = internalAction({
     const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
     const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
-    const agents = snap.agents.map(a => ({ ...a, fromActs: a.acts, touched: false }));
+    // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
+    const agents = snap.agents.filter(a => !unready.has(a.language)).map(a => ({ ...a, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
@@ -122,9 +138,9 @@ export const run = internalAction({
         // The new value's live disclosure noise (settings.peerNoiseBits): a function of the value, stored with the version.
         object.noise = disclosureNoise(settings, game.noiseKey, object.value);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
-          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise });
+          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise, seed: p.seed.toString() });
       } else {
-        events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost,
+        events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString(),
           reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300) });
       }
     };

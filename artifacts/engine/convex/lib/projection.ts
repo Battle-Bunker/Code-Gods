@@ -218,17 +218,37 @@ export function projectBatches(batches: readonly Batch[], godId: string, index: 
 }
 
 /**
- * The replay's pages (player.replay): the viewer's projected events grouped by batch, with each batch's wall time,
- * world window and the leaderboard totals after it. While the game is `live`, totals are the published scoreboard, only
- * on the batches that published it (what players saw, docs/public-log-design.md §3); after the end, exact on every
- * scoring batch.
+ * One logged event in full, for the replay of an ENDED game (player.replay): ended games are fully transparent, so
+ * nothing is projected away. `net` is every roster god's net bits after the event (roster order); `ownerId`
+ * attributes every act and agent; `seed` is the act's derived seed (schema 3).
  */
-export function replayBatches(batches: readonly Batch[], godId: string, index: number, live: boolean, scoreboarded: boolean) {
-  // A game started before scoreboards keeps its live leaderboard, so its totals stay visible on every batch.
+export function replayEvent(ev: Ev) {
+  switch (ev.t) {
+    case "phase": return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
+    case "spawn": return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
+    case "transform": return {
+      type: "object.transformed" as const, objectId: ev.objectId, before: ev.before, value: ev.value, version: ev.version, worldSeconds: ev.world,
+      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: ev.cost, net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "fail": return {
+      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: ev.cost,
+      ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "summon": return {
+      type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
+      summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits,
+      breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+    };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
+  }
+}
+export type ReplayEventOut = ReturnType<typeof replayEvent>;
+
+/** The replay's pages: every event of each batch in full, with the batch's wall time and world window (totals follow exactly from `net`). */
+export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
   return batches.map(b => ({
-    seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo,
-    ...(!live || !scoreboarded ? (b.totals ? { totals: b.totals } : {}) : b.scoreboard ? { totals: b.scoreboard } : {}),
-    events: b.events.flatMap(ev => { const p = projectEvent(ev, godId, index, live); return p ? [p] : []; }),
+    seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo, ...(b.from ? { from: b.from } : {}),
+    events: b.events.map(replayEvent),
   }));
 }
 
@@ -254,6 +274,8 @@ export type ObservationInput = {
   deity: Doc<"deities"> | null; objects: readonly Obj[]; agents: readonly Doc<"agents">[];
   transformations: readonly { id: string; agentId: string; before: number | string; after: number | string; calls?: unknown; cost?: number }[];
   chat: readonly Chat[]; nowMs?: number;
+  /** The allowed languages' sandbox readiness (runtime/readiness.ts sandboxViews). */
+  sandboxes?: readonly { language: string; state: string; reason?: string }[];
 };
 
 /** Protocol v3 observation: own scores and peer aggregates, own agents, the instance and the kid card. */
@@ -266,6 +288,7 @@ export function observation(input: ObservationInput): Observation {
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
+    ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,

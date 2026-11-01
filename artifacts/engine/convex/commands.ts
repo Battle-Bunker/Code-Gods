@@ -1,5 +1,5 @@
 "use node";
-import { bindRuntime } from "./engine/runtime";
+import { bindRuntime, sandboxGate } from "./engine/runtime";
 /**
  * The ONE command entry point: a protocol v3 envelope (lib/player-client envelopeSchema), so the default
  * client, a modded player app and the room assistant submit exactly the same thing and get the same
@@ -32,6 +32,12 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
   let examined: { gameId: string; source: string; language: Language; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
   if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
+    // A cold sandbox is never waited for: the caller is told it is warming (nothing examined, claimed or receipted).
+    const notReady = await sandboxGate(ctx, command.language);
+    if (notReady) {
+      const { message, ...rest } = notReady;
+      return { commandId: envelope.commandId, accepted: false, message, notReady: rest };
+    }
     // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
     await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {

@@ -25,8 +25,10 @@ export const runCommand = internalAction({
     const job = { roomId, subject, commandId: String(envelope?.commandId ?? "") };
     try {
       await bindRuntime(ctx);
-      await runEnvelope(ctx, roomId, envelope, undefined, principal);
-      await ctx.runMutation(internal.agent.store.finishJob, job);
+      const result = await runEnvelope(ctx, roomId, envelope, undefined, principal);
+      // Not run (the sandbox is warming): no receipt exists, so the job says why and the identical command can be resent.
+      if (result.notReady) await ctx.runMutation(internal.agent.store.finishJob, { ...job, error: { code: "NOT_READY", message: result.message } });
+      else await ctx.runMutation(internal.agent.store.finishJob, job);
     } catch (error) {
       const data = error instanceof ConvexError ? error.data as { code?: string } : undefined;
       await ctx.runMutation(internal.agent.store.finishJob, { ...job, error: { code: String(data?.code ?? "UNAVAILABLE"), message: messageOf(error).slice(0, 1000) } });

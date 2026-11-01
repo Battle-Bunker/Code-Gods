@@ -51,6 +51,8 @@ function statusLine(game: GameView, now: number) {
   if (game.phase === "recovery") return `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}.`;
   if (pause && pause > 0) return `Paused · resumes in ${fmt(pause, 0)} s.`;
   if (plan && plan > 0) return `Planning · world starts in ${fmt(plan, 0)} s.`;
+  // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
+  if (game.phase === "planning") return "Planning · agent sandboxes warming up; the world starts when they are ready.";
   return "Running.";
 }
 

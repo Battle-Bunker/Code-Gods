@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { codecOf, leaderboard, personalView, salience, type GameSettings } from "@workspace/game-core";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, PY, raw, roomWith, touch, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const SPECS = [
   { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 } },
@@ -33,7 +33,7 @@ for (const spec of SPECS) for (const language of languages) {
     const { roomId } = await roomWith([host, ada, bo], settings);
     const room = await host.c.query(api.rooms.get, { room: roomId });
     assert.equal(room.objectInstance.objectType, spec.objectType);
-    const game = await host.c.action(api.owner.start, { roomId });
+    const game = await startGame(host, roomId);
 
     // Public: values and salience only.
     let view = await host.c.query(api.games.view, { code: game.shortCode });

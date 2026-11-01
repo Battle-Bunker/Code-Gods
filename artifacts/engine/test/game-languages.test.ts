@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, raw, roomWith, touch, PY, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
   agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
@@ -15,7 +15,7 @@ test("each agent is written in one of the game's languages, priced and run in it
   const [host, ada, bo] = await gods("Lang Host", "Lang Ada", "Lang Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript", "python"] });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: typeof host, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
   const obs = await ada.c.query(api.player.observation, { roomId });
@@ -51,7 +51,7 @@ test("a language the game does not allow is refused at validate and summon", { t
   const [host, ada, bo] = await gods("Only Host", "Only Ada", "Only Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   for (const type of ["validate", "summon"]) {
     const refused = await send({ type, language: "python", source: PY.Int });

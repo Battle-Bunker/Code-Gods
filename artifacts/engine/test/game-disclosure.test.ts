@@ -1,12 +1,12 @@
 /**
- * Disclosure (plan §6, product rule: aggregate-only). For one viewer, every player-facing result, live and
+ * Disclosure (plan §6, product rule: aggregate-only while a game is live; an ended game's replay is fully transparent). For one viewer, every player-facing result, live and
  * historical, is searched for other gods' private data: their per-object net bits, utility descriptors,
  * agent sources, AI prompts, the event log's per-god vectors, the season salt and the end deadline.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, playerClient, raw, roomWith, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 
@@ -22,7 +22,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
   await host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" });
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 200_000 });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_private_marker", SECRET_HOST = "host_private_marker";
   const ok = (r: any) => assert.equal(r.accepted, true, r.message);
@@ -48,9 +48,6 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       room: await client.query(api.rooms.get, { room: shortCode }),
       view: await client.query(api.games.view, { code: game.shortCode }),
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
-      // The replay (docs/replay-design.md): the first page (header, own card, chat) and a later one.
-      replay: await client.query(api.player.replay, { roomId, gameId: game.gameId, limit: 5 }),
-      replayLater: await client.query(api.player.replay, { roomId, gameId: game.gameId, afterSeq: 2, limit: 100 }),
     };
   };
   const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
@@ -65,15 +62,12 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   assert.equal(live.myUtility.instantiationKey, "Grid(5,base10,rgby)");
   assert.equal(live.observation.agents.length, 1);
   assert.ok(live.observation.agents[0].source.includes("slide(row(0), 1)"));
-  // The replay has only the viewer's own summon (another god's would date its agent: docs/public-log-design.md §1).
-  const batches = new Map(live.replay.batches.concat(live.replayLater.batches).map((b: any) => [b.seq, b]));
-  const summons = [...batches.values()].flatMap((b: any) => b.events).filter((e: any) => e.type === "agent.summoned");
-  assert.deepEqual(summons.map((e: any) => [e.mine, "source" in e]), [[true, true]], "only the viewer's own summon, with its source");
-  // A live replay shows the leaderboard only as published: totals on the scoreboard's publication batches only.
-  const publishedSeqs = new Set(secret.batches.filter((b: any) => b.scoreboard).map((b: any) => b.seq));
-  for (const b of batches.values()) if ((b as any).totals) assert.ok(publishedSeqs.has((b as any).seq), `live replay batch ${(b as any).seq}: totals only when published`);
-  assert.ok(secret.batches.some((b: any) => b.totals && !b.scoreboard && !(batches.get(b.seq) as any)?.totals && batches.has(b.seq)) || ![...batches.values()].length,
-    "an unpublished scoring batch's exact totals are withheld while live");
+  // While live, the event log shows only the viewer's own summons (another god's would date its agent and attribute its
+  // transformations: docs/public-log-design.md §1), with their source.
+  const summons = live.eventsFromStart.events.concat(live.history.events).filter((e: any) => e.type === "agent.summoned");
+  assert.ok(summons.length >= 1 && summons.every((e: any) => e.mine && "source" in e), "only the viewer's own summons, with their source");
+  // Information hiding is the rule while the game is live: its full replay is refused.
+  assert.match(await rejects(ada.c.query(api.player.replay, { roomId, gameId: game.gameId })), /opens when the game ends/);
   // Every transformation is public and unattributed: another god's carries no agent, owner, calls or charge, and no
   // agent id in any result points at another god's agent.
   const theirs = live.events.events.concat(live.eventsFromStart.events, live.history.events).filter((e: any) => e.type === "object.transformed" && !e.mine);
@@ -128,6 +122,11 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
     const others = secretObject.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
     assert.ok(Math.abs(o.peerNetBits - others) < 1e-9, "ended: exact others' sums");
   }
+  // ...and the replay reveals everything once the game has ended: every god's descriptor, every agent's source, every
+  // god's per-object net bits, the end deadline, the AI seat's prompt (docs/replay-design.md §3).
+  const replay = JSON.stringify(await ada.c.query(api.player.replay, { roomId, gameId: game.gameId, limit: 100 }));
+  for (const marker of [SECRET_BO, SECRET_HOST, "Play strategically", JSON.stringify(final.game.endAtWorld)]) assert.ok(replay.includes(marker), `the ended replay reveals ${marker}`);
+  for (const d of final.deities) assert.ok(replay.includes(JSON.stringify(d.utility.params)), `the ended replay reveals ${d.godId}'s utility`);
 });
 
 test("other gods' scores move only when the scoreboard is published; the own score is live", { timeout: 180000 }, async () => {
@@ -139,7 +138,7 @@ test("other gods' scores move only when the scoreboard is published; the own sco
     languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1,
     interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 60,
   });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const start = (await raw(game.gameId)).game.scoreboard;
   assert.equal(start.world, 0, "the first scoreboard is published at the start");
   for (const god of [ada, bo]) {

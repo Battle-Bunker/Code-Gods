@@ -255,3 +255,24 @@ export const ageExaminations = internalMutation({
     }
   },
 });
+
+/** The agent sandbox readiness rows (runtime/readiness.ts), raw. */
+export const sandboxes = internalQuery({
+  args: {},
+  handler: async ctx => { dev(); return ctx.db.query("runtimeReadiness").take(16); },
+});
+
+/**
+ * Put a language's readiness row in a state (as if a boot were in flight, or had failed at `attemptAt`). Only the fields
+ * given change; the row must exist (warm it first).
+ */
+export const setSandbox = internalMutation({
+  args: { language: v.string(), patch: v.any() },
+  handler: async (ctx, { language, patch }) => {
+    dev();
+    const row = await ctx.db.query("runtimeReadiness").filter(q => q.eq(q.field("language"), language)).first();
+    if (!row) fail("NOT_FOUND", "no readiness row: warm the language first");
+    await ctx.db.patch(row._id, patch as Partial<Doc<"runtimeReadiness">>);
+    return ctx.db.get(row._id);
+  },
+});

@@ -6,12 +6,12 @@
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
 import { useRef } from "react";
-import { Sparkles, Wand2 } from "lucide-react";
+import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
 import { LANGUAGE_SPECS } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
-import { forgeLanguage, forgeLanguages } from "@/core/game/language";
+import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { GhostButton, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -58,7 +58,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
     requestAnimationFrame(() => { if (el) { el.focus(); el.setSelectionRange(at + name.length, at + name.length); } });
   };
   // After the end the editor stays (read the code, copy it for the next game) but nothing can be validated or summoned.
-  const gameplay = !!obs && !unknown && commands.canAct && !ended;
+  const sandbox = forgeSandbox(obs, language);
+  const gameplay = !!obs && !unknown && commands.canAct && !ended && sandbox.ready;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
@@ -94,6 +95,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
       </div>
+      {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">{sandbox.warming && <Loader2 size={12} className="animate-spin" />}{sandbox.text}</p>}
       {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
       <div data-testid="panel-validation" className="text-sm">
         {current ? (

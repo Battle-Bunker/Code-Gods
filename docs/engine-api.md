@@ -282,7 +282,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation`, `load_skill` |
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of a game of this room; past games open for their players. | `get_game_history` |
-| `player.replay` | query | player | Replay a game I played | Everything needed to replay a game you were seated in, tick by tick, as you could see it. | — (Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.) |
+| `player.replay` | query | player | Replay a game I played | Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move. | `get_replay` |
 | `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |

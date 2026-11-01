@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, touch } from "./game-helpers.ts";
+import { api, gods, roomWith, startGame, touch } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
@@ -113,7 +113,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
 
   // A started game snapshots the setup; the ended game's record and the public view name it.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 } });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const view = await ada.c.query(api.games.view, { code: game.shortCode });
   assert.deepEqual(view.setup, { id: fromDeleted.setup.id, name: "Ada's board's copy 2" });
   await host.c.mutation(api.rooms.endActiveGame, { roomId });

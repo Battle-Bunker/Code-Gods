@@ -24,7 +24,7 @@ import type { ActionCtx } from "../_generated/server";
 import { envelopeHash } from "../game/commands";
 import { fail } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
-import type { boardFor, eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
+import type { boardFor, eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, replayFor, trajectoriesFor } from "../player";
 import { fitRows, gatherSeries } from "./series";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
 import type { CurrentLayout, LayoutChange } from "../layout";
@@ -242,6 +242,18 @@ export const EXECUTORS: Executors = {
   get_game_history: async (ctx, { principal, who }, args) => {
     const r: R<typeof gameHistoryFor> = await ctx.runQuery(internal.player.historyAs, { principal, roomId: who.roomId, ...args });
     return { data: r, nextCursor: r.nextCursor < r.latestCursor ? r.nextCursor : null };
+  },
+  get_replay: async (ctx, { principal, who }, { gameId, cursor }) => {
+    // The cursor packs the query's three: "afterSeq:eventOffset:chatAfter". Pages shrink until the result fits a tool
+    // result (MAX_RESULT_CHARS): a model's context is small, and a page's size is not the caller's to tune.
+    const [afterSeq, eventOffset, chatAfter] = (cursor ?? "").split(":").map(Number);
+    const at = cursor ? { afterSeq, ...(eventOffset ? { eventOffset } : {}), chatAfter } : {};
+    let r: R<typeof replayFor> | undefined;
+    for (const [maxEvents, maxChat] of [[60, 100], [20, 20], [5, 5], [1, 1]]) {
+      r = await ctx.runQuery(internal.player.replayAs, { principal, roomId: who.roomId, gameId, ...at, limit: 20, maxEvents, maxChat });
+      if (JSON.stringify(r).length < MAX_RESULT_CHARS * 0.9) break;
+    }
+    return { data: r!, nextCursor: r!.done ? null : `${r!.nextCursor}:${r!.eventOffset ?? 0}:${r!.chatCursor}` };
   },
   get_my_utility: async (ctx, { principal, who }) => {
     const mine: R<typeof myUtilityFor> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId: who.roomId });

@@ -66,7 +66,7 @@ const receiptData = z.object({
   status: z.enum(["received", "pending", "failed", "not_found"]),
   commandId: uuid,
   receipt: z.unknown().optional().describe("The engine's CommandResult: accepted, message, validation details."),
-  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected"]), summary: z.string(), next: z.string() }).passthrough().optional()
+  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
     .describe("A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
   message: z.string().optional(),
@@ -142,6 +142,10 @@ export const READ_TOOLS = [
   def({ name: "get_game_history", short: "The event log of a game of the room; past games only for their players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games) and pages by afterSeq.",
     input: obj({ gameId: id, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(50).default(20) }), output: result(anyData) }),
+  def({ name: "get_replay", short: "An ended game the player played in, fully revealed: every utility, agent's code and act.", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
+    note: "Takes the gameId (list_games); pass nextCursor back as cursor. For whole-game analysis use run_code's replay dataset.",
+    input: obj({ gameId: id, cursor: z.string().max(200).optional().describe("The previous page's nextCursor (omit for the first page).") }),
+    output: result(anyData) }),
   def({ name: "get_my_utility", short: "The player's utility descriptor (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
     note: "The observation's self.utility has the readable name, summary and source.",
     input: obj({}), output: result(anyData) }),
@@ -293,8 +297,8 @@ export const LAYOUT_TOOLS = [
 const datasetName = z.enum(DATASET_NAMES);
 const datasetRequest = z.union([datasetName, obj({
   name: datasetName,
-  gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset)."),
-  limit: z.number().int().min(1).max(20000).optional().describe("events, trajectories, game_history: at most this many tick batches; utility_series: at most this many rows."),
+  gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history, replay: required (an id from the games dataset)."),
+  limit: z.number().int().min(1).max(20000).optional().describe("events, trajectories, game_history, replay: at most this many tick batches; utility_series: at most this many rows."),
 })]);
 const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
 export const CODE_TOOLS = [
@@ -366,6 +370,11 @@ export const INFERENCE_TOOLS = [
 ] as const;
 
 export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS, CODE_TOOLS, INFERENCE_TOOLS] as const;
+/**
+ * Tools the in-client assistant reaches only through their skill (load_skill loads a skill's tools): kept out of its
+ * always-on index to hold the system prompt's budget. Every other surface (MCP, the CLI) lists them like any tool.
+ */
+export const SKILL_LOADED_TOOLS: readonly string[] = [...INFERENCE_TOOLS.map(t => t.name), "get_replay"];
 /**
  * The tools an assistant keeps loaded at every step (the cached prefix): the reads and screen changes nearly every
  * question uses, public chat, and the skill loader. Every other tool is a line of the index, loaded on demand.

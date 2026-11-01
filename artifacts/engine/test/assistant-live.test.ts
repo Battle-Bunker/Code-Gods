@@ -12,7 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { api, gods, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { api, gods, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 const ENGINE = fileURLToPath(new URL("..", import.meta.url));
 const deploymentLive = () => spawnSync("npx", ["convex", "env", "get", "ASSISTANT_LIVE"], {
@@ -53,7 +53,7 @@ test("a real turn streams; the next resolves a tool through the registry over th
   const { roomId } = await roomWith(members, settings);
   const [lia] = members;
   await lia.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 200_000, assistantModel: MODEL });
-  await lia.c.action(api.owner.start, { roomId });
+  await startGame(lia, roomId);
 
   // Streaming is checked on an answer with no tool exchange before it: after a tool result the Messages API has
   // been seen to deliver the whole answer in one burst (tens of deltas within ~15 ms), so a flush count there
@@ -127,7 +127,7 @@ test("a real model ranks the player's top objects with run_code and shows the ta
   const { roomId } = await roomWith(members, settings);
   const [ria] = members;
   await ria.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 200_000, assistantModel: MODEL });
-  await ria.c.action(api.owner.start, { roomId });
+  await startGame(ria, roomId);
   const sent = await ria.c.mutation(api.assistant.send, { roomId, text: "Rank my top 5 objects by payoff and show a table." });
   const t = await follow(ria, sent);
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));

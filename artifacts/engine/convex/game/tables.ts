@@ -7,7 +7,8 @@ import { languageV } from "../lib/language";
  *
  * God ids are strings: a human's Replit subject, or "ai:<uuid>" for an AI seat. Private fields (never
  * returned raw by a public function): deities.utility/card, objects.scores, agents.source (owner only),
- * games.endAtWorld, members.aiAgent.prompt, tickBatches.events[].net (per-god net bits).
+ * games.endAtWorld, members.aiAgent.prompt, tickBatches.events[].net (per-god net bits). Private while the game is LIVE:
+ * once it has ended, player.replay reveals all of it to its players (docs/replay-design.md), except the season salt.
  */
 const kind = v.union(v.literal("human"), v.literal("ai"));
 const phase = v.union(v.literal("planning"), v.literal("running"), v.literal("paused"), v.literal("recovery"), v.literal("ended"));
@@ -46,10 +47,12 @@ export const eventV = v.union(
   v.object({
     t: v.literal("transform"), objectId: v.string(), before: wire, value: wire, version: v.number(), world: v.number(),
     agentId: v.string(), ownerId: v.string(), calls: v.any(), cost: charge, net: v.array(v.number()), noise: v.optional(v.number()),
+    /** The act's seed (decimal), derived from the secret season salt by HMAC: revealing it reveals nothing else (schema 3). */
+    seed: v.optional(v.string()),
   }),
   v.object({
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
-    reason: v.string(), cost: charge,
+    reason: v.string(), cost: charge, seed: v.optional(v.string()),
   }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
   v.object({

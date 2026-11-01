@@ -6,9 +6,11 @@
  *
  * Disclosure is the player's own: each dataset is a projection the player can already read (observation, events,
  * trajectories, their own utility, history, chat, rules), resolved through the same internal twins as the read tools.
+ * `replay` is the one fully revealed dataset, and only for ENDED games the player played in (information hiding
+ * applies only while a game is live).
  */
 export const DATASET_NAMES = [
-  "objects", "my_utility", "agents", "leaderboard", "observation", "events", "trajectories", "chat", "settings", "rules", "games", "game_history",
+  "objects", "my_utility", "agents", "leaderboard", "observation", "events", "trajectories", "chat", "settings", "rules", "games", "game_history", "replay",
   "utility_series", "utility_candidates",
 ] as const;
 export type DatasetName = (typeof DATASET_NAMES)[number];
@@ -87,6 +89,17 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
   games: {
     shape: "{ id: string; shortCode: string; endedAt: number | null; endReason: string | null; worldSeconds: number; leaderboard: { deityId: string; name: string; kind: string; totalPayoff: number; rank: number }[] }[]",
     about: "The room's finished games, newest first, with their final standings; id is the gameId for game_history.",
+  },
+  replay: {
+    shape: "{ game: { id: string; roster: { id: string; name: string; kind: string }[]; settings: unknown; endAtWorld: number; [k: string]: unknown }; "
+      + "gods: { godId: string; index: number; utility: { familyId: string; params: unknown; penalty?: unknown }; card: unknown; spent: number; aiAgent?: unknown }[]; "
+      + "events: { seq: number; at: number; type: string; worldSeconds: number; objectId?: string; value?: number | string; before?: number | string; agentId?: string; "
+      + "ownerId?: string; net?: number[]; calls?: unknown; cost?: { total: number }; source?: string; language?: string; summonCost?: number; seed?: string; reason?: string; phase?: string }[]; "
+      + "chat: { authorId: string; authorName: string; text: string; worldSeconds?: number }[] } | null",
+    limit: { default: 400, max: 2000 }, needsGameId: true,
+    about: "An ENDED game the player played in, fully revealed (live games stay hidden): every god's utility (descriptor and card), and every event in full: "
+      + "net[i] is roster god i's net bits for the object after the change, ownerId says whose agent acted, summons carry every agent's source. "
+      + "A god's payoff on an object is net[i] × max(0, Σ others' net); its score is the sum over objects. Use it to study how others played. null while the game is live.",
   },
   game_history: {
     shape: `${EVENT}[]`, limit: { default: 400, max: 1000 }, needsGameId: true,

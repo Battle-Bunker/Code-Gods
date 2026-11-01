@@ -7,7 +7,7 @@
  */
 import type { CommandResult } from "./protocol.ts";
 
-export type ValidationVerdict = "works" | "fails" | "no_change" | "rejected";
+export type ValidationVerdict = "works" | "fails" | "no_change" | "rejected" | "not_ready";
 export interface ValidationAssessment {
   verdict: ValidationVerdict;
   /** One line: what the measurement found. */
@@ -33,6 +33,10 @@ function failureLine(diagnostics: readonly string[]): string | undefined {
 }
 
 export function assessValidation(receipt: CommandResult): ValidationAssessment {
+  if (receipt.notReady) {
+    // The agent's language's sandbox is still booting (or failed to boot): nothing ran, so nothing about the code is known.
+    return { verdict: "not_ready", summary: receipt.message, next: `Nothing ran and the code is not at fault. Wait ${(receipt.notReady.retryAfterMs / 1000).toFixed(1)} s and validate the identical source again; this does not count as a failed attempt.` };
+  }
   const v = receipt.validation;
   if (!receipt.accepted || !v || !v.valid) {
     const why = (v?.diagnostics[0] ?? receipt.message).slice(0, 300);

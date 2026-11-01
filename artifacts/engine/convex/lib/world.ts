@@ -27,12 +27,13 @@ export const IDLE_MS = 30 * 60 * 1000;
 export const EVENTS_PER_BATCH = 400;
 /**
  * The event log's schema (game/tables.ts eventV, docs/replay-design.md §2), stamped on every tickBatches doc. 2 added
- * agent summons and destructions, per-batch leaderboard totals and chat stamped with its game and world time; a
- * batch without the stamp predates them. 3 marks the batches that published the live scoreboard (`published`, every
- * scoreIntervalSeconds of world time, docs/public-log-design.md §3) and writes one objectEvents row per spawn and
+ * agent summons and destructions, per-batch leaderboard totals and chat stamped with its game and world time; 3 added
+ * each act's seed to transform and fail events. A batch without the stamp predates them. 4 marks the batches that
+ * published the live scoreboard (`scoreboard`, every scoreIntervalSeconds of world time, docs/public-log-design.md §3),
+ * adds the live disclosure noise per spawn and transform (`noise`) and writes one objectEvents row per spawn and
  * transform. Bump it whenever an event's meaning or fields change.
  */
-export const EVENT_LOG_SCHEMA = 3;
+export const EVENT_LOG_SCHEMA = 4;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

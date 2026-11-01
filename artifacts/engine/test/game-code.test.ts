@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, raw, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
@@ -24,7 +24,7 @@ async function startedRoom(names: string[]) {
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
-  const game = await members[0].c.action(api.owner.start, { roomId });
+  const game = await startGame(members[0], roomId);
   return { members, roomId, gameId: game.gameId as string };
 }
 const credential = (god: God, roomId: string, permission: "read" | "act" = "read") =>
@@ -95,6 +95,16 @@ test("run_code: a script over datasets resolved as the player, stored for them o
   assert.equal(inference.result.others, (await raw(gameId)).game.roster.length - 1, "the number of other gods");
   const inferred = JSON.parse((await ann.c.query(api.code.runs.get, { roomId, runId: inference.runId })).resultJson);
   await disclosureChecker(gameId, ann.subject, [SECRET])("inference datasets", inferred);
+  // The replay dataset: null while the game is live; once it has ended, the whole game, Bob's agent's code included.
+  const replayCode = "def main(d):\n    r = d['replay']\n    return None if r is None else {'gods': len(r['gods']), 'sources': [e['source'] for e in r['events'] if e['type'] == 'agent.summoned']}\n";
+  const liveReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(liveReplay.status, "ok", JSON.stringify(liveReplay.error));
+  assert.equal(liveReplay.result, null, "a live game's replay stays closed");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const endedReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(endedReplay.status, "ok", JSON.stringify(endedReplay.error));
+  assert.equal(endedReplay.result.gods, 3);
+  assert.ok(endedReplay.result.sources.some((src: string) => src.includes(SECRET)), "an ended game's replay has every agent's code");
 });
 
 test("run_code: errors are stored and explained, large results go to storage, the budget holds", { timeout: 300_000 }, async () => {

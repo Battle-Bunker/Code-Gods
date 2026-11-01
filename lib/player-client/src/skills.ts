@@ -25,9 +25,9 @@ export const SKILLS = [
   { name: "screen", description: "The player's screen: panes, every built-in panel with its parameters, and when to open, change, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: listing, copying, saving and switching the room's setup (owners), and what each choice changes.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
-  { name: "analytics-code", description: "Tables, rankings and statistics over the game's data with run_code (shown in code-output): dataset shapes, libraries, examples. Load for any table.", reads: [],
-    tools: ["run_code", "get_code_run", "list_code_runs", "list_code_objects"] },
-  { name: "rival-inference", description: "Inferring the other gods' rules from the public transformation log, with negotiation clues as hints.", reads: [],
+  { name: "analytics-code", description: "Tables, statistics and past-game replays with run_code (code-output pane). Load for any table.", reads: [],
+    tools: ["run_code", "get_code_run", "list_code_runs", "list_code_objects", "get_replay"] },
+  { name: "rival-inference", description: "Infer other gods' rules from the public log and clues.", reads: [],
     tools: ["get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"] },
 ] as const satisfies readonly SkillEntry[];
 export type SkillName = (typeof SKILLS)[number]["name"];
@@ -97,7 +97,7 @@ const WRITING_AGENTS = `WRITING AN AGENT.
 3. Write ordinary code in one of the allowed languages (pass it as language to validate_agent and summon_agent) that defines agent(obj) and returns a LIST of at most 16 mutator calls (only the helper names below; never a new object). Every object value is unique: a change onto an existing value fails.
 4. Keep it cheap: simple code costs fewer summon bits and fewer decision bits per act.
 5. Show the draft in the forge panel: open_panel {panelId: "forge", params: {source}}.
-6. validate_agent (free, takes seconds): its assessment says whether the agent works on the reference objects (verdict works, fails, no_change or rejected; a compiled agent that raises on every object fails), its summon price against the player's energy and its cost per act, and the next step. Fix a failing draft from the error and the signatures below; after three failures, show the player the draft and the error.
+6. validate_agent (free, takes seconds): its assessment says whether the agent works on the reference objects (verdict works, fails, no_change, rejected or not_ready; a compiled agent that raises on every object fails), its summon price against the player's energy and its cost per act, and the next step. Fix a failing draft from the error and the signatures below; after three failures, show the player the draft and the error. A result with notReady is not a failure: the language's agent sandbox is still warming up (or failed to start, with the reason) and nothing ran; wait notReady.retryAfterMs and send it again (get_observation sandboxes shows each language's state).
 7. Once it works, stop validating and report: the code, what it does, price against energy, cost per act. Summon (summon_agent with the identical source and language; the in-client assistant's calls are confirmed by the player on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
 Running agents: watch bits-over-time and the feed; destroy_agent an agent that loses bits; energy already spent is not refunded.`;
 

@@ -13,7 +13,7 @@ import { PANEL_IDS } from "../src/panels.ts";
 import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
-const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
+const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_replay", "get_my_utility",
   "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout",
   "run_code", "get_code_run", "list_code_runs", "list_code_objects", "load_skill",
   "get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"];

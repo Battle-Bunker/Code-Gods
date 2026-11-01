@@ -348,10 +348,10 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.replay": {
     kind: "query", audience: "player",
-    human: { title: "Replay a game I played", tooltip: "Everything needed to replay a game you were seated in, tick by tick, as you could see it." },
-    ai: { description: "One page of a game's replay for one of its players: the game's header, the human's own utility card, batches of projected events (spawns, transforms, agent summons and destructions, phases) with wall time, world window and leaderboard totals, and on the first page the game's chat. Page with afterSeq = nextCursor until done. Players of that game only." },
-    tools: [], palette: null,
-    why: "Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.",
+    human: { title: "Replay a game I played", tooltip: "Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move." },
+    ai: { description: "One page of an ENDED game's replay, fully revealed (hiding applies only while a game is live): on the first page every god's utility descriptor, card and AI seat and the end deadline; then every event in full (each god's net bits after each change, whose agent acted, every agent's source, each act's seed) and the chat. Page with afterSeq = nextCursor, chatAfter = chatCursor until done. Players of that game only; refused while it is live." },
+    tools: ["get_replay"], palette: null,
+    why: "The replay view opens from the room's game list and the results panel (docs/replay-design.md §7); there is nothing to run from the palette.",
   },
   "player.game": {
     kind: "query", audience: "player",
