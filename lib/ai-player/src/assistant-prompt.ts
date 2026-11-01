@@ -11,6 +11,7 @@
  */
 import { CORE_TOOLS, OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { skillIndexLines } from "@workspace/player-client/skills";
+import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
 import { LOAD_TOOLS } from "./chat.ts";
 
 export type AssistantPromptContext = { playerName: string; roomCode: string | null; permission: "read" | "act" | "owner" };
@@ -43,7 +44,7 @@ THE GAME IN BRIEF. Each god has a private utility that scores objects in bits; a
 
 WRITING FOR THE PLAYER. The conversation shows your text exactly as written, without Markdown: no **bold**, headings, tables or backticks; plain sentences, with "- " or "1. " lists when they help, and code only as plain lines. Call panels, panes and agents by what the player sees (a panel's title such as "What others care about", "the panel on the right", "your swap agent"), never by internal ids. Keep answers short and concrete; explain numbers in bits as the game does.
 
-BRIEFING. Each of the player's messages starts with a <briefing> the engine fetched when it was sent: phase, energy, economy, their utility's name, their standing and the panes on their screen. The latest briefing is current; earlier ones are history. Answer from it when it suffices; call tools only for what it lacks or what may have changed (objects, scores, chat, receipts).
+BRIEFING. Each player message starts with a <briefing>: phase, energy, utility, board key, standing, panes. Explain goals by exact symbols and colours, with an example; never say you haven't looked. The latest briefing is current; earlier ones are history. Answer from it when it suffices; call tools only for what it lacks or what may have changed (objects, scores, chat, receipts).
 
 TOOLS AND SKILLS. Some tools are loaded (their definitions are in your tool list). The INDEX below lists the others by name: before calling one, load it with ${LOAD_TOOLS} {names} (several at once, together with any other call), then call it in your next step; loaded tools stay in your tool list while the conversation keeps the load (if one is missing, load it again). Skills hold the knowledge for a kind of task and name the tools it calls: load_skill {name} before writing an agent (writing-agents), arranging the screen beyond a simple open_panel (screen), answering detailed rules questions (game-rules), touching setups (game-setups) or computing over the game's data (analytics-code). Load only what the question needs.
 Reads are cheap and safe. Command ids are added for you; never invent them. Calls marked (confirmed), public chat included, are shown to the player on a confirmation card before they run: when the player asked for one, call the tool at once instead of asking "shall I?" in text (the card is the confirmation); if the player denies one, accept it and do not retry it. Ids you pass (agentId, paneId, deityId, aiAgentId) come from what a tool returned; never reuse a command id as an agent id. Layout changes run at once (at most two per step); at most one per answer unless the player asks for an arrangement, never moving or closing a pane the player arranged unless asked, and saying in one line what changed. A result whose first field is TRUNCATED was cut to fit: never state a count, total or "only N" from it; use its count fields (objectCount, agentCount) or call again with a smaller limit or a filter.
@@ -72,6 +73,28 @@ const rec = (v: unknown): Json => v && typeof v === "object" && !Array.isArray(v
 const str = (v: unknown): string | undefined => typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : undefined;
 const cut = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}… [cut]` : text;
 const num = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : undefined;
+
+const LIST = (items: readonly string[]) => items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+/**
+ * The board key for a Grid instance (docs/rules-design.md §7): size, the symbols with the values of those that are not
+ * plain digits, and the colours, from the same component tables the board and the goal text use. Absent for other types.
+ */
+export function boardKeyLine(instance: unknown): string[] {
+  const i = rec(instance), args = rec(i.args);
+  if (i.objectType !== "Grid") return [];
+  const S = SYMBOL_COMPONENTS[str(args.symbols) as GridSymbolSet], C = COLOUR_COMPONENTS[str(args.colours) as GridColourSet];
+  const size = num(args.size);
+  if (!S || !C || size === undefined) return [];
+  let symbols: string;
+  if (S.suits) {
+    const suits = S.suitGlyphs!.map((g, k) => `${g} ${S.suitNames![k]}`).join(", ");
+    symbols = `playing cards A, 2 to 10, J, Q and K in four suits (${suits}); A counts 1, J 11, Q 12, K 13`;
+  } else {
+    const high = S.values.map((v, k) => [v, k] as const).filter(([v]) => v >= 10).map(([v, k]) => `${S.glyphs[k]} (${v})`);
+    symbols = high.length ? `0 to 9, then ${LIST(high)}` : "0 to 9";
+  }
+  return [`Board key: a ${size}×${size} board. Symbols: ${symbols}. Colours: ${LIST([...C.names])}.`];
+}
 
 function utilityLine(title: string, u: Json): string[] {
   const name = [str(u.emoji), str(u.name)].filter(Boolean).join(" ");
@@ -150,6 +173,7 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
       `Your energy${ended ? " at the end" : ""}: ${num(self.energy) ?? "?"} bits${self.pauseUsed ? "; your pause is used" : ""}. Economy: ${cut(JSON.stringify(rec(o.economy)), 400)}.`,
       ...utilityLine("Your utility (private; its source is in the writing-agents skill)", utility),
       ...utilityLine("Your defence goal (penalty)", rec(utility.penalty)),
+      ...boardKeyLine(o.instance),
     );
     const board = Array.isArray(o.leaderboard) ? o.leaderboard.map(rec) : [];
     const mine = board.findIndex(r => r.godId !== undefined ? r.godId === self.godId : r.label === self.label);

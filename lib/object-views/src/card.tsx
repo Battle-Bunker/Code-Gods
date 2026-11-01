@@ -2,6 +2,8 @@
 import { useMemo, useState } from "react";
 import { capabilityClass } from "@workspace/game-types";
 import { familyUses, type BadgeLike } from "./catalog.ts";
+import type { GridSettings } from "./registry.ts";
+import { GridObject } from "./views.tsx";
 
 export interface UtilityCardLike {
   familyId: string;
@@ -11,6 +13,8 @@ export interface UtilityCardLike {
   summary: string;
   language: "python" | "typescript" | string;
   source: string;
+  /** A tiny example board (its own size) and what it scores (docs/rules-design.md §3.2). */
+  example?: { value: string; size: number; caption: string };
   penalty?: { familyId: string; emoji: string; name: string; summary: string; comparative: string; source: string };
 }
 
@@ -34,8 +38,21 @@ function Source({ text, language, testId }: { text: string; language: string; te
   );
 }
 
-/** Emoji and name, plain summary, a "uses" chip row, then the source; a defence goal follows as its own card. */
-export function UtilityCardView({ card, uses }: { card: UtilityCardLike; uses?: readonly BadgeLike[] }) {
+/** A goal card's example board: the room's tiles at the example's own size, with its caption. */
+export function CardExample({ example, grid }: { example: NonNullable<UtilityCardLike["example"]>; grid?: GridSettings }) {
+  return (
+    <figure className="mt-2 flex items-center gap-3" data-testid="utility-card-example">
+      <GridObject value={example.value} grid={grid ? { ...grid, size: example.size } : undefined} renderer="tiles" />
+      <figcaption className="text-xs leading-snug text-muted-foreground"><span className="font-medium text-foreground">For example: </span>{example.caption}</figcaption>
+    </figure>
+  );
+}
+
+/**
+ * Emoji and name, plain summary, an example board when the rule has one, a "uses" chip row, then the source; a defence
+ * goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ */
+export function UtilityCardView({ card, uses, grid }: { card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings }) {
   const badges = useMemo(() => uses ?? familyUses(card.familyId), [uses, card.familyId]);
   const penaltyUses = useMemo(() => (card.penalty ? familyUses(card.penalty.familyId) : []), [card.penalty?.familyId]);
   return (
@@ -44,6 +61,7 @@ export function UtilityCardView({ card, uses }: { card: UtilityCardLike; uses?: 
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
         <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
+        {card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" />
       </div>

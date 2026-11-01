@@ -135,3 +135,10 @@ test("digits: changed cells are flagged (drawn underlined and bold), and the let
   assert.deepEqual(lines.map(l => l.cells.map(c => c.changed)), [[false, true], [false, true]]);
   assert.deepEqual(gridDigitsLines(b, null, { letters: true }).map(l => l.text), ["1R 2B", "3B 5R"]);
 });
+
+test("a goal card's tiny example board (size 2) is drawn with the room's colour set", () => {
+  const m = gridModel("AR,AG/AB,AR", { size: 2, symbols: "base12", colours: "rgb" })!;
+  assert.equal(m.colours, "rgb");
+  assert.deepEqual(m.rows.map(r => r.map(c => `${c.glyph} ${c.colourName}`)), [["A red", "A green"], ["A blue", "A red"]]);
+  assert.equal(m.rows[0]![0]!.css, gridModel("AR,AR,AR/AR,AR,AR/AR,AR,AR", { size: 3, symbols: "base12", colours: "rgb" })!.rows[0]![0]!.css);
+});

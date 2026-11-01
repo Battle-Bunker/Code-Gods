@@ -59,6 +59,8 @@ export type InstanceView = z.infer<typeof instanceSchema>;
 export const utilityCardSchema = z.object({
   familyId: z.string().max(128), emoji: z.string().max(16), name: z.string().max(128), theme: z.string().max(500),
   summary: z.string().max(2000), language, source: z.string().max(16384), shape: shape.optional(),
+  // A tiny example board of the goal (docs/rules-design.md §3.2): a grid wire value of its own size and a caption.
+  example: z.object({ value: z.string().max(256), size: z.number().int().min(1).max(4), caption: z.string().max(300) }).optional(),
   penalty: z.object({
     familyId: z.string().max(128), emoji: z.string().max(16), name: z.string().max(128), summary: z.string().max(2000),
     comparative: z.string().max(64), source: z.string().max(16384), shape: shape.optional(),

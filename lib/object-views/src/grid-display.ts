@@ -61,8 +61,10 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
   const args = settingsArgs(settings);
   let strict = false;
   if (args) { try { decodeGrid(value as string, args); strict = true; } catch { strict = false; } }
-  const palette = args ? COLOUR_COMPONENTS[args.colours] : undefined;
-  const set = args?.colours;
+  // The colour set also applies to boards of another size (a goal card's 2×2 example), so take it from the settings
+  // whenever they name a known set.
+  const set = args?.colours ?? (settings && Object.hasOwn(COLOUR_COMPONENTS, String(settings.colours)) ? settings.colours as GridColourSet : undefined);
+  const palette = set ? COLOUR_COMPONENTS[set] : undefined;
   const rows = cells.map(row => row.map(({ code, letter }): GridCellModel => {
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
