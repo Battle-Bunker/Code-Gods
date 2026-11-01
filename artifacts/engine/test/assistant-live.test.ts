@@ -133,7 +133,7 @@ test("a real model ranks the player's top objects with run_code and shows the ta
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
   const calls = t.calls.map((c: any) => `${c.tool}:${c.status}:${c.summary}`);
   const runs = t.calls.filter((c: any) => c.tool === "run_code");
-  assert.ok(runs.length >= 1, `run_code was called: ${calls.join(" | ")}`);
+  assert.ok(runs.length >= 1, `run_code was called: ${calls.join(" | ")} — ${t.text.slice(0, 300)}`);
   const ok = runs.map((c: any) => JSON.parse(c.resultJson).data).find((d: any) => d.status === "ok");
   assert.ok(ok, `a run succeeded: ${calls.join(" | ")}`);
   // The expectation is the player's own observation: the top 5 object ids by payoff.

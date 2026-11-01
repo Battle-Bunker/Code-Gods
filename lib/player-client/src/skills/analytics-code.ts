@@ -36,7 +36,9 @@ Randomness is seeded from the script and its data, so a rerun gives the same ans
 
 Output conventions.
 - Return a list of flat rows (objects with the same keys) for anything tabular: the code-output panel renders it as a
-  table, keys in first-row order. Round numbers (e.g. round(x, 2)) and keep at most a few hundred rows.
+  table, keys in first-row order. Keep 3 to 5 short columns with the numbers that answer the question first (players
+  are often on a phone); leave out long object ids unless asked (a short value or a rank reads better). Round numbers
+  (e.g. round(x, 2)) and keep at most a few hundred rows.
 - Or return {"summary": "...", "rows": [...]} or another small object; print() short notes if useful.
 - After a useful result, show it: open_panel {panelId: "code-output", params: {runId}} (the result says so), then
   explain the finding in one or two sentences. Never paste the whole table into the conversation.

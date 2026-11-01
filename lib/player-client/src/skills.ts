@@ -23,7 +23,7 @@ export const SKILLS = [
   { name: "screen", description: "The player's screen: panes, every built-in panel with its parameters, and when to open, change, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: listing, copying, saving and switching the room's setup (owners), and what each choice changes.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
-  { name: "analytics-code", description: "Running analytics code (run_code) over the game's data: every dataset's shape, the libraries, output conventions, examples.", reads: [],
+  { name: "analytics-code", description: "Tables, rankings and statistics over the game's data with run_code (shown in code-output): dataset shapes, libraries, examples. Load for any table.", reads: [],
     tools: ["run_code", "get_code_run", "list_code_runs"] },
 ] as const satisfies readonly SkillEntry[];
 export type SkillName = (typeof SKILLS)[number]["name"];

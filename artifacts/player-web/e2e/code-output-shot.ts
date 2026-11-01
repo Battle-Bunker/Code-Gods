@@ -18,15 +18,15 @@ const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-const { session } = await login("dana");
+const { session } = await login("bob");
 const dana = new ConvexHttpClient(CLOUD);
 dana.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await dana.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
 const owner = (action: string, extra: Record<string, unknown> = {}) => dana.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
+await dana.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 200_000, assistantModel: MODEL });
 await owner("start");
-await dana.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 0, assistantBudget: 200_000, assistantModel: MODEL });
 // Wait for a world with objects (planning ends on its own; the default is short).
 for (let i = 0; i < 120; i++) {
   const o = await dana.query(fn.q("player:observation"), { roomId }) as { phase: string; objects: unknown[] };
@@ -40,7 +40,7 @@ const context = await browser.newContext({ viewport: { width: 390, height: 844 }
 await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
 await page.goto(`${SITE}/player/?room=${shortCode}`);
-await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
+await page.waitForSelector("[data-testid=text-self-label]", { state: "attached", timeout: 60_000 });
 // Ask through the composer (on a phone the assistant is a sheet).
 const input = page.locator("[data-testid=input-assistant]");
 if (!(await input.isVisible().catch(() => false))) await page.locator("[data-testid=button-sheet]").click().catch(() => {});
