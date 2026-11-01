@@ -233,8 +233,8 @@ nothing (100% exact).
 | 8 | 3 | 150 spawns + 60/god pushed | 1 correct | 100% | 100% | 100% | 0.96 | 0.07 | 58% | 9872 |
 | 8 | 6 | 60 spawns + 30/god pushed | none | 17% | 33% | 66% | 0.63 | 0.75 | 31% | 10827 |
 | 8 | 6 | 60 spawns + 30/god pushed | 1 correct | 17% | 33% | 76% | 0.67 | 0.64 | 31% | 5428 |
-| 8 | 6 | 150 spawns + 60/god pushed | none | 50% | 67% | 93% | 0.91 | 0.41 | 65% | 6746 |
-| 8 | 6 | 150 spawns + 60/god pushed | 1 correct | 67% | 83% | 97% | 0.93 | 0.24 | 65% | 9098 |
+| 8 | 6 | 150 spawns + 60/god pushed | none | 67% | 67% | 93% | 0.91 | 0.39 | 65% | 3936 |
+| 8 | 6 | 150 spawns + 60/god pushed | 1 correct | 83% | 83% | 97% | 0.94 | 0.22 | 65% | 4107 |
 | 16 | 3 | 20 spawns + 10/god pushed | none | 0% | 0% | 25% | 0.19 | 0.49 | 0% | 1359 |
 | 16 | 3 | 20 spawns + 10/god pushed | 1 correct | 0% | 0% | 75% | 0.51 | 0.02 | 0% | 825 |
 | 16 | 3 | 60 spawns + 30/god pushed | none | 0% | 0% | 25% | 0.26 | 0.36 | 0% | 3701 |
@@ -278,7 +278,7 @@ standard deviation.
   noise, and `exact` means "explains the data to within the noise".
 
 Why 8: at σ = 2 identification is still certain; at 4 it is likely from 100 values; at 8 the top hypothesis is right
-in a third of 3-god games after ~50 values and in 17% of 6-god games after ~200, a correct hint raises family recall
+in a third of 3-god games after ~50 values and in 17% of 6-god games after ~90 (67% after ~400), a correct hint raises family recall
 noticeably (50% → 75% for three gods at ~50 values), and only long games (hundreds of values) approach certainty;
 at 16 even long games rarely pin the set. 8 is "possible but hard". The cost: a player's view of what the others
 care about on a single object is ±8 bits uncertain, so cooperation rests more on talk and on trends than on one

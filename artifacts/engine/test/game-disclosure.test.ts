@@ -103,7 +103,8 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
     if (last.value !== o.value) continue;
     const mine = o.scores.find((s: any) => s.god === ada.subject).netBits;
     const peers = o.scores.filter((s: any) => s.god !== ada.subject).reduce((n: number, s: any) => n + s.netBits, 0);
-    assert.ok(Math.abs(last.ownNetBits - mine) < 1e-9 && Math.abs(last.peerNetBits - peers) < 1e-9, "trajectory = own bits and peer aggregate");
+    // Live, the peers' aggregate carries the value's disclosure noise (settings.peerNoiseBits).
+    assert.ok(Math.abs(last.ownNetBits - mine) < 1e-9 && Math.abs(last.peerNetBits - (peers + (o.noise ?? 0))) < 1e-9, "trajectory = own bits and the (noisy) peer aggregate");
   }
 
   // A player-app credential sees exactly the same projection.

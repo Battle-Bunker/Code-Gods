@@ -392,7 +392,10 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   const truth = snap.deities.filter((d: any) => d.godId !== ada.subject).map((d: any) => d.utility.familyId).sort();
   // A class lists up to five aliases; families of the class are the representative's and its aliases'.
   const holds = (h: any) => { const left = [...truth]; return h.draws.every((d: any) => { const fams = [d.familyId, ...d.aliases.map((a: any) => a.familyId)]; const i = left.findIndex(f => fams.includes(f)); if (i < 0) return false; left.splice(i, 1); return true; }); };
-  assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
+  // Exact disclosure: an exact fit holds the truth. With the default disclosure noise (8 bits) and a dozen objects the
+  // fit cannot pin it (docs/public-log-design.md §5.1); it must at least never trust the data more than the noise.
+  if ((snap.game.settings.peerNoiseBits ?? 0) === 0) assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
+  else assert.ok(fitted.sigma >= snap.game.settings.peerNoiseBits, `the fit's σ (${fitted.sigma}) is at least the disclosure noise`);
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);
