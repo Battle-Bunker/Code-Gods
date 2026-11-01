@@ -110,6 +110,7 @@ const NO_EXAMPLE: Readonly<Record<string, string>> = {
   column_addition: "the written sum sits on rows chosen for the room's size",
   ladder_of_numbers: "a pure number goal: rows read as big numbers compared with each other",
   bingo_caller: "the BINGO bonus is the board's size, so a tiny board would contradict the card's own bonus",
+  mountain_climb: "its first score is yes or no (does the climb reach the corner), not points, so a caption would mislead",
   twenty_one: "the target is sized for the room's full lines, so a short line cannot show going bust or hitting it",
 };
 
@@ -128,7 +129,7 @@ test("every Grid reward family has an example board, or a stated reason not to",
 });
 
 test("example boards render on every shape in its own tiles, and their captions state the card's own score", async () => {
-  const problems: string[] = [];
+  const problems: string[] = [], shown = new Set<string>();
   for (const inst of SHAPES.filter(i => i.objectType === "Grid")) {
     const ctx = context(inst), args = inst.args as unknown as GridTypeArgs;
     for (const f of familiesFor("Grid", "reward")) {
@@ -137,22 +138,36 @@ test("example boards render on every shape in its own tiles, and their captions 
         const where = `${f.id} ${paramsKey(p)} on ${inst.key}`;
         let e;
         try { e = f.example(p, ctx); } catch (err) { problems.push(`${where}: example fails: ${(err as Error).message}`); continue; }
-        if (!e) { problems.push(`${where}: no example`); continue; }
-        if (!(e.size >= 2 && e.size <= 4)) problems.push(`${where}: example of size ${e.size}`);
+        if (!e) continue; // a room too small to show one (checked below: every family shows one somewhere)
+        shown.add(f.id);
+        if (!(e.size >= 2 && e.size <= Math.min(4, Number(args.size)))) problems.push(`${where}: example of size ${e.size}`);
         // The player client's protocol bounds (lib/player-client/src/protocol.ts utilityCardSchema).
         if (String(e.value).length > 256 || e.caption.length > 300) problems.push(`${where}: example too long for the card protocol`);
         // Decoding in the room's own symbols and colours (at the example's size) is what "uses only this shape's tiles" means.
         try { decodeGrid(String(e.value), { ...args, size: e.size }); } catch { problems.push(`${where}: ${String(e.value)} is not in this room's tiles`); continue; }
-        const stated = [...e.caption.matchAll(/\b(\d+) points?\b/g)].map(m => Number(m[1]));
+        // The caption ends ": <n> <unit>." (points, or the family's own unit when its text counts something else).
+        const stated = [...e.caption.matchAll(/: (-?\d+) [a-z ]+\.$/g)].map(m => Number(m[1]));
         const o = evaluator({ familyId: f.id, params: p }, inst, e.size)(e.value), scored = typeof o === "number" ? o : o[0]!;
-        if (stated.length !== 1) problems.push(`${where}: caption should state its points once: "${e.caption}"`);
+        if (stated.length !== 1) problems.push(`${where}: caption should end by stating its points: "${e.caption}"`);
         else if (stated[0] !== scored) problems.push(`${where}: caption says ${stated[0]} points, the card scores ${scored}: "${e.caption}"`);
         if (!(scored > 0)) problems.push(`${where}: the example scores ${scored}, so it shows nothing: "${e.caption}"`);
-        if (e.caption.split(/(?<=[.!?])\s+(?=[A-Z"(])/).length > 2) problems.push(`${where}: caption is more than one short sentence: "${e.caption}"`);
+        if (e.caption.split(/(?<=[.!?])\s+(?=[A-Z"(])/).length > 1) problems.push(`${where}: caption is more than one short sentence: "${e.caption}"`);
         for (const msg of lintRuleText(e.caption, String(args.symbols), String(args.colours))) problems.push(`${where}: caption ${msg}`);
       }
     }
   }
+  for (const f of familiesFor("Grid", "reward")) if (f.example && !shown.has(f.id)) problems.push(`${f.id}: no example on any shape`);
   if (process.env.RULES_DUMP) (await import("node:fs")).writeFileSync(`${process.env.RULES_DUMP}.examples`, problems.join("\n") + "\n");
   assert.deepEqual(problems.slice(0, 40), [], `${problems.length} problems`);
+});
+
+test("a card whose example fails to build still deals, without the example", t => {
+  const f = FAMILIES.find(x => x.id === "chessmaster")! as { example?: unknown };
+  const real = f.example;
+  f.example = () => { throw new Error("broken example"); };
+  t.after(() => { f.example = real; });
+  t.mock.method(console, "warn", () => {});
+  const c = card({ familyId: "chessmaster", params: { A: 0, B: 1 } }, context(instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" })));
+  assert.equal(c.familyId, "chessmaster");
+  assert.equal(c.example, undefined);
 });

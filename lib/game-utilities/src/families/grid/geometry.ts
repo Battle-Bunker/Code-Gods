@@ -2,7 +2,7 @@
 import type { CardText, GridSpec } from "./_util.ts";
 import {
   SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product,
-  pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire, example, plainSymbols, paint, mark,
+  pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire, example, plainSymbols, mark,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { LONGEST_SNAKES, longestSnake } from "../../analytic/maxima.ts";
@@ -275,7 +275,7 @@ const cardWindmill = gridFamily<Record<string, never>>({
   requires: { classes: ["Suited"], minSuits: 4 }, shape: tuple(2), tags: ["shortlist"],
   support: () => [{}],
   summary: (_, g) => windmillText(g).about,
-  example: () => example([[6, 13 + 6], [39 + 6, 26 + 6]], paint(2, 0), pts => `The four suits in order round a square: ${pts}.`),
+  example: () => example([[6, 13 + 6], [39 + 6, 26 + 6]], full(2, 0), pts => `The four suits in order round a square: ${pts}.`),
   python: (_, g) => pyCard(windmillText(g), `
     SUITS = ["spades", "hearts", "diamonds", "clubs"]
 
@@ -354,7 +354,7 @@ const royalCourt = gridFamily<CourtP>({
   summary: (p, g) => courtText(p, g).about,
   example: (p, g) => {
     const s = (p.suit ?? 1) * 13;
-    return example(mark(3, [[1, 1]], s + 11, s + 1).map((row, r) => row.map((x, c) => (r === 0 && c === 1 ? s + 10 : x))), paint(3, 0),
+    return example(mark(3, [[1, 1]], s + 11, s + 1).map((row, r) => row.map((x, c) => (r === 0 && c === 1 ? s + 10 : x))), full(3, 0),
       pts => `The ${g.say.tile(s + 11)} in the middle and the ${g.say.tile(s + 10)} touching it: ${pts}.`);
   },
   python: (p, g) => pyCard(courtText(p, g), `
@@ -484,7 +484,7 @@ const lookingGlass = gridFamily<GlassP>({
       : p.axis === "D" ? [c, r] : p.axis === "A" ? [2 - c, 2 - r] : [2 - r, 2 - c];
     const key = fromFn(3, (r, c) => { const [a, b] = twin(r, c); return Math.min(3 * r + c, 3 * a + b); });
     const layer = key.map(row => row.map(k => (p.layer === "colour" ? k % g.C : symForValue(g, 1 + (k % 9)))));
-    return example(p.layer === "colour" ? plainSymbols(g, 3) : layer, p.layer === "colour" ? layer : paint(3, 0),
+    return example(p.layer === "colour" ? plainSymbols(g, 3) : layer, p.layer === "colour" ? layer : full(3, 0),
       pts => `Every cell has the same ${p.layer === "colour" ? "colour" : g.cards ? "rank" : "number"} as its twin: ${pts}.`);
   },
   python: (p, g) => {
@@ -547,7 +547,7 @@ const pinwheel = gridFamily<PinP>({
     const ring = fromFn(3, (r, c) => (r === 1 && c === 1 ? 2 : (r + c) % 2));
     return p.attr === "colour"
       ? example(plainSymbols(g, 3), ring, pts => `The corners share a colour and so do the edges: ${pts}.`)
-      : example(ring.map(row => row.map(k => symForValue(g, 2 + k))), paint(3, 0), pts => `The corners match and so do the edges: ${pts}.`);
+      : example(ring.map(row => row.map(k => symForValue(g, 2 + k))), full(3, 0), pts => `The corners match and so do the edges: ${pts}.`);
   },
   python: (p, g) => pyCard(pinText(p, g), `
     def place(grid, cell):
@@ -823,6 +823,7 @@ const tetrominoTamer = gridFamily<PieceP>({
       S: [[0, 1], [0, 2], [1, 0], [1, 1]], I: [[0, 0], [0, 1], [0, 2], [0, 3]],
     };
     const k = p.P === "I" ? 4 : 3;
+    if (k > g.N) return null;
     return example(plainSymbols(g, k), mark(k, cells[p.P], p.C, other(g, p.C)), pts => `${cap(an(cname(g, p.C)))} island shaped like the ${p.P} piece: ${pts}.`);
   },
   python: (p, g) => pyCard(tetText(p, g), `${SAME_COLOUR_PY}
@@ -958,7 +959,7 @@ const constellation = gridFamily<RankP>({
   summary: (p, g) => starText(p, g).about,
   example: (p, g) => {
     const star = (i: number) => (g.cards ? 13 * (i % 4) + p.S : p.S), dull = g.cards ? (p.S + 1) % 13 : (p.S + 1) % g.S;
-    return example(fromFn(3, (r, c) => (r === c ? star(r) : dull)), paint(3, 0), pts => `Three ${g.say.rankPlural(p.S)} touching at corners make one cluster: ${pts}.`);
+    return example(fromFn(3, (r, c) => (r === c ? star(r) : dull)), full(3, 0), pts => `Three ${g.say.rankPlural(p.S)} touching at corners make one cluster: ${pts}.`);
   },
   python: (p, g) => pyCard(starText(p, g), `
     def utility(grid):
@@ -1012,7 +1013,7 @@ const rainbowRoads = gridFamily<Record<string, never>>({
   summary: (_, g) => roadsText(g).about,
   example: (_p, g) => {
     const path: [number, number][] = [[0, 0], [0, 1], [0, 2], [1, 2], [1, 1], [1, 0], [2, 0], [2, 1], [2, 2]];
-    const col = paint(3, 1);
+    const col = full(3, 1);
     path.slice(0, g.C).forEach(([r, c], i) => { col[r][c] = i; });
     return example(plainSymbols(g, 3), col, pts => `One road through every colour in order: ${pts}.`);
   },
@@ -1157,9 +1158,9 @@ const carousel = gridFamily<TurnP>({
   canonical: () => ({ dir: "cw" }),
   summary: (p, g) => carouselText(p, g).about,
   example: (p, g) => {
-    const ring = ringCells(3), col = paint(3, 0);
+    const ring = ringCells(3), col = full(3, 0);
     (p.dir === "cw" ? ring : ring.slice().reverse()).forEach(([r, c], i) => { col[r][c] = i < g.C ? i : 0; });
-    return example(plainSymbols(g, 3), col, pts => `The edge goes once round the colour wheel: ${pts}.`);
+    return { ...example(plainSymbols(g, 3), col, pts => `The edge goes once round the colour wheel: ${pts}.`), unit: ["lap", "laps"] as const };
   },
   python: (p, g) => pyCard(carouselText(p, g), `
     def border(grid):
@@ -1321,12 +1322,6 @@ const mountainClimb = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued"] }, shape: tuple(2),
   support: () => [{}],
   summary: (_, g) => climbText(g).about,
-  example: (_p, g) => {
-    const vs = range(5).map(i => g.vmin + i);
-    const sym = full(3, symForValue(g, g.vmax));
-    ([[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]] as const).forEach(([r, c], i) => { sym[r][c] = symForValue(g, vs[i]); });
-    return example(sym, paint(3, 0), pts => `The climb ${g.say.values(vs)} reaches the far corner: ${pts}.`);
-  },
   python: (_, g) => pyCard(climbText(g), `
     def utility(grid):
         goal = grid.cell(grid.size - 1, grid.size - 1)

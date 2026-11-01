@@ -684,7 +684,9 @@ const wallpaper = gridFamily<PaperP>({
   canonical: p => ({ p: p.p, dir: "right" }),
   summary: p => paperText(p).about,
   example: (p, g) => {
-    const k = p.p + 1, stripes = fromFn(k, (_, c) => c % p.p);
+    const k = p.p + 1;
+    if (k > g.N) return null;
+    const stripes = fromFn(k, (_, c) => c % p.p);
     return example(plainSymbols(g, k), p.dir === "right" ? stripes : fromFn(k, (r, c) => stripes[c]![r]!),
       pts => `The colours repeat every ${p.p} cells ${p.dir === "right" ? "across" : "down"}: ${pts}.`);
   },

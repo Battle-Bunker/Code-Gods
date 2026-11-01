@@ -8,7 +8,7 @@
  * `new Function` here.
  */
 import { instanceInfo, objectType, resolve, type Badge, type Resolution, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
-import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
+import type { CardExample, FamilyContext, Ordinal, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
 import { GRID_FAMILIES } from "./families/grid/index.ts";
@@ -106,12 +106,20 @@ export function readDescriptor(value: unknown): UtilityDescriptor {
   return d!;
 }
 
+/** The card's example board, or none: an example that fails to build must never cost the player their card. */
+function cardExample(f: UtilityFamily<any>, p: Params, ctx: FamilyContext): CardExample | null {
+  try { return f.example?.(p, ctx) ?? null; } catch (e) {
+    console.warn(`no example for ${f.id} ${paramsKey(p)} on ${ctx.inst.key}: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 /** What a god is told about their own utility function (and defence goal). */
 export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): UtilityCard {
   const f = family(descriptor.familyId), p = descriptor.params;
   const pen = descriptor.penalty;
   const pf = pen ? family(pen.familyId) : null;
-  const example = f.example?.(p, ctx) ?? null;
+  const example = cardExample(f, p, ctx);
   return {
     familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
@@ -161,6 +169,7 @@ export interface Draw { readonly familyId: string; readonly params: Params }
 export const entryPoint = (f: UtilityFamily<any>) => (f.role === "penalty" ? "penalty" : "utility");
 
 const compiled = new Map<string, (wire: ObjectValue) => Ordinal>();
+const compiledExamples = new Map<string, (wire: ObjectValue) => Ordinal>();
 const MAX_COMPILED = 4096;
 
 /**
@@ -169,13 +178,15 @@ const MAX_COMPILED = 4096;
  * instantiation's JS prelude, returning `utility(__decode(wire))` (or `penalty(...)`) checked against the
  * family's shape. Cached by (inst.key, familyId, params).
  *
- * `boardSize` (Grid only) runs that same program, written for this room, on a smaller board: how a goal card's example
- * board is scored (docs/rules-design.md §3.2). The prelude is the room's, at the example's size.
+ * `boardSize` (Grid only) runs that same program, written for this room, on a board of that size: how a goal card's
+ * example board is scored (docs/rules-design.md §3.2). The prelude is the room's, at the example's size. Example
+ * programs have their own cache, so building cards never evicts the programs live scoring uses.
  */
 export function evaluator(draw: Draw, inst: Instantiation, boardSize?: number): (wire: ObjectValue) => Ordinal {
   const board = boardSize === undefined ? inst : resized(inst, boardSize);
   const key = `${board.key}\0${draw.familyId}\0${paramsKey(draw.params)}`;
-  let fn = compiled.get(key);
+  const cache = boardSize === undefined ? compiled : compiledExamples;
+  let fn = cache.get(key);
   if (fn) return fn;
   const f = family(draw.familyId), ctx = context(inst);
   if (f.objectType !== inst.objectType) throw new Error(`${f.id} does not apply to ${inst.key}`);
@@ -184,8 +195,8 @@ export function evaluator(draw: Draw, inst: Instantiation, boardSize?: number): 
   const raw = new Function(body)() as (wire: ObjectValue) => unknown;
   const shape = f.shape(ctx);
   fn = (wire: ObjectValue) => assertOrdinal(shape, raw(wire));
-  if (compiled.size >= MAX_COMPILED) compiled.delete(compiled.keys().next().value!);
-  compiled.set(key, fn);
+  if (cache.size >= MAX_COMPILED) cache.delete(cache.keys().next().value!);
+  cache.set(key, fn);
   return fn;
 }
 

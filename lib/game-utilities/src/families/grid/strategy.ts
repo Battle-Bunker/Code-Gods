@@ -1,7 +1,7 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, example, plainSymbols, paint, mark,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, example, plainSymbols, mark,
 } from "./_util.ts";
 import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
@@ -318,7 +318,7 @@ const mirrormancer = gridFamily<MirrorP>({
     const layer = p.axis === "LR" ? line : fromFn(3, (r, c) => line[c]![r]!);
     return p.layer === "colour"
       ? example(plainSymbols(g, 3), layer.map(row => row.map(k => k % g.C)), pts => `Every ${p.axis === "LR" ? "row" : "column"}'s colours read the same both ways: ${pts}.`)
-      : example(layer.map(row => row.map(k => symForValue(g, 1 + k))), paint(3, 0), pts => `Every ${p.axis === "LR" ? "row" : "column"} reads the same both ways: ${pts}.`);
+      : example(layer.map(row => row.map(k => symForValue(g, 1 + k))), full(3, 0), pts => `Every ${p.axis === "LR" ? "row" : "column"} reads the same both ways: ${pts}.`);
   },
   python: (p, g) => {
     const what = p.layer === "colour" ? "colour" : "value";
@@ -633,7 +633,7 @@ const staircase = gridFamily<StairP>({
   summary: (p, g) => stairText(p, g).about,
   example: (p, g) => {
     const v = g.vmin + 1, stairs = fromFn(3, (r, c) => symForValue(g, v + (p.dir === "→" ? c : r)));
-    return example(stairs, paint(3, 0), pts => `${p.dir === "→" ? "Every row" : "Every column"} climbs ${g.say.values([v, v + 1, v + 2])}: ${pts}.`);
+    return example(stairs, full(3, 0), pts => `${p.dir === "→" ? "Every row" : "Every column"} climbs ${g.say.values([v, v + 1, v + 2])}: ${pts}.`);
   },
   python: (p, g) => pyCard(stairText(p, g), `
     def utility(grid):

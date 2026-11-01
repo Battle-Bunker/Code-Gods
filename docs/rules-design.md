@@ -119,17 +119,19 @@ captioned "A perfect book: four A (10) cells using all 3 colours. 2 points." The
 `example: { value, size, caption }`; `UtilityCardView` draws it with the board's tile renderer at a readable cell size.
 
 - **Built for the draw.** Each family's `example(p, g)` builds its layers from the draw's own symbols and colours
-  (`p.X`, `p.S`, the room's colour count), so it always uses tiles that exist in the room.
+  (`p.X`, `p.S`, the room's colour count), so it always uses tiles that exist in the room. It is never larger than the
+  room's board (null when the room is too small to show it), and a failing example drops only the example, not the card.
 - **Points are computed, never written.** The caption is a function of its points: the card's own program, written for
   the room, is run on the example board (`evaluator(draw, inst, boardSize)`: the room's prelude at the example's
-  size) and the first number of its score fills the caption.
+  size) and the first number of its score fills the caption, as points or in the family's own unit where its text
+  counts something else ("6 whole lines", "1 lap").
 - **Tested** (`test/rules.test.ts`), on every playable shape, for the canonical params plus samples: the example decodes
   in the room's symbols and colours, scores more than 0, states its points exactly once and they equal the card's own
   score on that board, is one short sentence, and passes the lint.
 - **Coverage.** Every Grid reward family has an example except those listed, with the reason, in the test's
   `NO_EXAMPLE`: goals whose numbers are sized for the room (Border Baron, Magic Accountant, Twenty-One, Column Addition,
   Bingo Caller's bonus) or that are pure number goals with no pattern to show (Far Apart, Robin Hood, Divisibility
-  Detective, Ladder of Numbers). Int and string worlds have none: their goal is about one number or one string, which
+  Detective, Ladder of Numbers), and Mountain Climb, whose first score is yes or no rather than points. Int and string worlds have none: their goal is about one number or one string, which
   the card already shows. Defence goals have none: they are one-line penalties and the card does not draw them.
 
 ## 4. Declared needs and the one applicability checker

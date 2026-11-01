@@ -1,7 +1,7 @@
 /** Arithmetic & number-pattern lens rules (lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import {
-  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolour, sentences, symForValue, thing, tsCard, tuple, wire, example, paint, mark,
+  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolour, sentences, symForValue, thing, tsCard, tuple, wire, example, mark,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -47,7 +47,7 @@ const straightShooter = gridFamily<ShootP>({
   example: (p, g) => {
     const vs = p.step === 1 ? [2, 3, 4] : [4, 3, 2];
     const sym = fromFn(3, (r, c) => symForValue(g, r === 0 ? vs[c]! : g.vmax));
-    return example(sym, paint(3, 0), pts => `The run ${g.say.values(vs)} along the top row${p.flush ? ", all one colour" : ""}: ${pts}.`);
+    return example(sym, full(3, 0), pts => `The run ${g.say.values(vs)} along the top row${p.flush ? ", all one colour" : ""}: ${pts}.`);
   },
   python: (p, g) => pyCard(shootText(p, g), `
     def number(cell):
@@ -366,7 +366,7 @@ const roundNumbers = gridFamily<RoundP>({
   summary: (p, g) => roundText(p, g).about,
   example: (p, g) => {
     const B = g.base!, vs = [[1, 2, B - 3], [2, B - 3, 1], [B - 3, 1, 2]];
-    return example(symGrid(g, vs), paint(3, 0), pts => `Every ${AXIS_WORD[p.axis]} adds up to ${B}, a round number: ${pts}.`);
+    return example(symGrid(g, vs), full(3, 0), pts => `Every ${AXIS_WORD[p.axis]} adds up to ${B}, a round number: ${pts}.`);
   },
   python: (p, g) => pyCard(roundText(p, g), `
     def utility(grid):
@@ -421,7 +421,7 @@ const numberSandwich = gridFamily<SandP>({
   summary: (p, g) => sandText(p, g).about,
   example: (p, g) => {
     const top = p.mode === "sandwich" ? [2, 5, 3] : [2, 3, 5];
-    return example(symGrid(g, fromFn(3, (r, c) => (r === 0 ? top[c]! : g.vmax))), paint(3, p.X ?? 0),
+    return example(symGrid(g, fromFn(3, (r, c) => (r === 0 ? top[c]! : g.vmax))), full(3, p.X ?? 0),
       pts => `In ${g.say.values(top)}, the ${p.mode === "sandwich" ? "middle" : "last"} ${num(g)} is the other two added: ${pts}.`);
   },
   python: (p, g) => {
@@ -482,7 +482,7 @@ const magicWindow = gridFamily<WindowP>({
   sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => windowText(p, g).about,
-  example: (p, g) => example(symGrid(g, [[2, 7, 6], [9, 5, 1], [4, 3, 8]]), paint(3, p.X ?? 0),
+  example: (p, g) => example(symGrid(g, [[2, 7, 6], [9, 5, 1], [4, 3, 8]]), full(3, p.X ?? 0),
     pts => `A perfect magic square: all 8 lines add up to 3 times the middle: ${pts}.`),
   python: (p, g) => pyCard(windowText(p, g), `
     def window_lines(grid, top, left):
@@ -632,7 +632,7 @@ const oddsEvens = gridFamily<OddP>({
   sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => oddText(p, g).about,
-  example: (p, g) => example(symGrid(g, [[1, 2], [2, 1]]), paint(2, p.X ?? 0), pts => `Odd and even ${nums(g)} take turns like a chessboard: ${pts}.`),
+  example: (p, g) => example(symGrid(g, [[1, 2], [2, 1]]), full(2, p.X ?? 0), pts => `Odd and even ${nums(g)} take turns like a chessboard: ${pts}.`),
   python: (p, g) => pyCard(oddText(p, g), `
     def odd(cell):
         return cell.value % 2 == 1
@@ -794,7 +794,7 @@ const seesaw = gridFamily<SeesawP>({
   canonical: p => recolour({ ...p, scope: p.scope === "cols" ? "rows" : p.scope }, ["X", "Y"]),
   summary: (p, g) => seesawText(p, g).about,
   example: (p, g) => {
-    if (p.mode === "halves") return example(symGrid(g, [[2, 7, 2], [5, 1, 5], [2, 7, 2]]), paint(3, 0),
+    if (p.mode === "halves") return example(symGrid(g, [[2, 7, 2], [5, 1, 5], [2, 7, 2]]), full(3, 0),
       pts => `Every ${AXIS_WORD[p.scope]} balances, its two halves adding up the same: ${pts}.`);
     const Z = range(g.C).find(k => k !== p.X && k !== p.Y)!, order = [p.X!, p.Y!, Z];
     return example(symGrid(g, full(3, 4)), fromFn(3, (r, c) => order[(r + c) % 3]!),
@@ -868,7 +868,7 @@ const steppingStones = gridFamily<HopP>({
   summary: (p, g) => hopText(p, g).about,
   example: (p, g) => {
     const a = g.cards ? 2 : g.vmin, b = a + p.d;
-    return example(symGrid(g, [[a, b], [b, a]]), paint(2, 0), pts => `Cells showing ${g.say.values([a, b])} differ by ${p.d}, so you can hop round all four: ${pts}.`);
+    return example(symGrid(g, [[a, b], [b, a]]), full(2, 0), pts => `Cells showing ${g.say.values([a, b])} differ by ${p.d}, so you can hop round all four: ${pts}.`);
   },
   python: (p, g) => pyCard(hopText(p, g), `
     def hop(a, b):
@@ -1026,7 +1026,7 @@ const snap = gridFamily<Record<string, never>>({
   summary: (_, g) => snapText(g).about,
   example: (_p, g) => {
     const s = symForValue(g, 3), t = symForValue(g, 3, g.cards ? 1 : 0);
-    return example([[s, t], [symForValue(g, 5), symForValue(g, 7)]], paint(2, 0), pts => `${g.say.tile(s)} and ${g.say.tile(t)} touch: Snap! ${pts}.`);
+    return example([[s, t], [symForValue(g, 5), symForValue(g, 7)]], full(2, 0), pts => `${g.say.tile(s)} and ${g.say.tile(t)} touch, so Snap: ${pts}.`);
   },
   python: (_, g) => pyCard(snapText(g), `
     def utility(grid):
@@ -1074,8 +1074,9 @@ const youngTableau = gridFamily<CornerP>({
   summary: (p, g) => uphillText(p, g).about,
   example: (p, g) => {
     const up = (r: number, c: number) => (p.K[0] === "B" ? r : 2 - r) + (p.K[1] === "R" ? c : 2 - c);
-    return example(symGrid(g, fromFn(3, (r, c) => g.vmin + up(r, c))), paint(3, 0),
-      pts => `Every row and column gets bigger toward the ${p.K[0] === "T" ? "top" : "bottom"}-${p.K[1] === "L" ? "left" : "right"} corner: ${pts}.`);
+    return { ...example(symGrid(g, fromFn(3, (r, c) => g.vmin + up(r, c))), full(3, 0),
+      pts => `Every row and column gets bigger toward the ${p.K[0] === "T" ? "top" : "bottom"}-${p.K[1] === "L" ? "left" : "right"} corner: ${pts}.`),
+    unit: ["whole line", "whole lines"] as const };
   },
   python: (p, g) => pyCard(uphillText(p, g), `
     def utility(grid):
@@ -1128,7 +1129,7 @@ const fillomino = gridFamily<Record<string, never>>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: () => [{}],
   summary: (_, g) => fillText(g).about,
-  example: (_p, g) => example(symGrid(g, [[2, 2], [1, 4]]), paint(2, 0),
+  example: (_p, g) => example(symGrid(g, [[2, 2], [1, 4]]), full(2, 0),
     pts => `Two ${g.say.rankPlural(g.cards ? 1 : 2)} side by side, and ${g.cards ? "an Ace" : "a 1"} on its own, are right: ${pts}.`),
   python: (_, g) => pyCard(fillText(g), `
     def same_value(a, b):

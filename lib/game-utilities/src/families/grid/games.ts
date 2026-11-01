@@ -330,6 +330,8 @@ const sudoku = gridFamily<SudokuP>({
   example: (p, g) => {
     const word = g.cards ? "rank" : "number";
     // At N <= 4 the card also checks the long diagonals, which a 3×3 board cannot keep apart: show a 4×4.
+    // On a 3×3 room no board keeps the diagonals apart too (no 3×3 diagonal Latin square): no example.
+    if (g.N === 3) return null;
     if (g.N <= 4) return example([[1, 2, 3, 4], [3, 4, 1, 2], [4, 3, 2, 1], [2, 1, 4, 3]].map(row => row.map(v => symForValue(g, v))), full(4, 0),
       pts => `No ${word} appears twice in any row, column or long diagonal: ${pts}.`);
     return example(fromFn(3, (r, c) => symForValue(g, 1 + ((r + c) % 3))), full(3, 0),
@@ -614,9 +616,9 @@ const goFish = gridFamily<FishP>({
   top: (_p, g) => [2 * (g.N - 1) ** 2, 4 * (g.N - 1) ** 2],
   example: (p, g) => {
     const perfect = fishPerfect(g), mine = g.say.rankPlural(p.r);
-    if (g.cards) return { sym: [[p.r, 13 + p.r], [26 + p.r, 39 + p.r]], col: full(2, 0), caption: pts => `A perfect book: four ${mine}, one of each suit. ${pts}.` };
+    if (g.cards) return { sym: [[p.r, 13 + p.r], [26 + p.r, 39 + p.r]], col: full(2, 0), caption: pts => `A perfect book: four ${mine}, one of each suit: ${pts}.` };
     return { sym: full(2, p.r), col: [[0, 1], [2, perfect >= 4 ? 3 : 0]],
-      caption: pts => `A perfect book: four ${g.say.tile(p.r)} cells using ${g.say.distinctColours(perfect)}. ${pts}.` };
+      caption: pts => `A perfect book: four ${g.say.tile(p.r)} cells using ${g.say.distinctColours(perfect)}: ${pts}.` };
   },
   python: (p, g) => pyCard(fishText(p, g), `
     def utility(grid):
@@ -970,8 +972,8 @@ const connectFour = gridFamily<FourP>({
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => fourText(p, g).about,
-  example: (p, g) => example(full(4, symForValue(g, 1)), fromFn(4, r => (r === 3 ? p.X : (p.X + 1) % g.C)),
-    pts => `Four ${cname(g, p.X)} counters in a row along the bottom: ${pts}.`),
+  example: (p, g) => (g.N < 4 ? null : example(full(4, symForValue(g, 1)), fromFn(4, r => (r === 3 ? p.X : (p.X + 1) % g.C)),
+    pts => `Four ${cname(g, p.X)} counters in a row along the bottom: ${pts}.`)),
   python: (p, g) => pyCard(fourText(p, g), `
     def standing(grid, row, col):
         if not (0 <= row < grid.size and 0 <= col < grid.size):

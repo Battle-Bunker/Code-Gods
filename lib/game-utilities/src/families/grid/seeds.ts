@@ -139,8 +139,8 @@ const greenOnes = gridFamily<GreenP>({
   summary: (p, g) => greenText(p, g).about,
   example: (p, g) => {
     const s = symForValue(g, p.value), blank = symForValue(g, p.value + 1), away = (p.colour + 1) % g.C;
-    return example([[s, blank], [blank, s]], [[p.colour, away], [away, p.colour]],
-      pts => `Two ${cname(g, p.colour)} cells showing ${g.say.tile(s)}: ${pts}.`);
+    return { ...example([[s, blank], [blank, s]], [[p.colour, away], [away, p.colour]],
+      pts => `Two ${cname(g, p.colour)} cells showing ${g.say.tile(s)}: ${pts}.`), unit: ["of those", "of those"] as const };
   },
   python: (p, g) => pyCard(greenText(p, g), `
     def utility(grid):
