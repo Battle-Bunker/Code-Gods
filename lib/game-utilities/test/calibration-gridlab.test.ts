@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { instantiate, objectType, seededRng, type TypeArgs } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
 import { surprisal, tableFor } from "../src/calibration.ts";
+import { shippedTables } from "../src/calibration-data.ts";
 
 const LAB = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "grid-lab");
 
@@ -68,7 +69,7 @@ test("cross-check: shipped tables agree with lib/grid-lab's survival on the same
   for (const c of CASES) {
     const inst = instantiate("Grid", c.grid), T = objectType("Grid"), codec = T.codec(inst), ctx = context(inst);
     const f = family(c.family), params = f.canonical(f.support(ctx)[0], ctx);
-    const table = tableFor(f.id, params, inst);
+    const table = tableFor(shippedTables(inst.key), { familyId: f.id, params }, inst);
     assert.ok(table, `${c.family} on ${inst.key}: no shipped table`);
     const rng = seededRng(`gridlab-cross:${f.id}:${inst.key}`);
     const values = Array.from({ length: 120 }, () => T.spawn(inst, rng));

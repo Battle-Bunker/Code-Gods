@@ -38,13 +38,23 @@ export interface ComponentOption {
   readonly kid: string;
 }
 
-export type ParamSchema =
+/**
+ * A type argument's documentation for the configuration page and the assistant (onboarding-and-config.md §4.3):
+ * the question a newcomer answers, and one neutral sentence each for what it means and what changing it does.
+ */
+export interface ParamDoc {
+  readonly question: string;
+  readonly meaning: string;
+  readonly consequence: string;
+}
+
+export type ParamSchema = ParamDoc & (
   /** Choose one registered component (a symbol set, a colour set...). */
   | { readonly kind: "component"; readonly id: string; readonly label: string; readonly slot: string;
       readonly options: readonly ComponentOption[] }
   /** An integer parameter. `presets` are the values the settings UI offers (calibrated values only). */
   | { readonly kind: "int"; readonly id: string; readonly label: string; readonly min: number; readonly max: number;
-      readonly presets?: readonly number[] };
+      readonly presets?: readonly number[] });
 
 /** A kid-facing capability badge: "♠ Suits: Symbols belong to teams". */
 export interface Badge {

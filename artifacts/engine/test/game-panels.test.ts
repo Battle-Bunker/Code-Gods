@@ -86,7 +86,6 @@ test("a read credential reads but cannot write; an act credential writes as a de
   assert.match((await reader.query(api.panels.code, { slug: "shared" })).source, /browser/);
   assert.equal(await errorCode(reader.action(api.panels.save, { slug: "shared", source: panel("read") })), "FORBIDDEN");
   assert.equal(await errorCode(reader.mutation(api.panels.rollback, { slug: "shared", version: 1 })), "FORBIDDEN");
-  assert.equal(await errorCode(reader.mutation(api.panels.setLayout, { layout: { version: 1, panels: {}, regions: {} } })), "FORBIDDEN");
 
   const actor = await playerClient(ada, roomId, "act");
   const saved = await actor.action(api.panels.save, { slug: "shared", source: panel("agent") });
@@ -115,10 +114,9 @@ test("a removed and re-created slug is a different panel (its id changes), so ol
   assert.notEqual(second.id, first.id);
 });
 
-test("a save's literal manifest sets title, placement and size; explicit arguments win", async () => {
+test("a save's literal manifest sets title, placement and size (add-pane hints); explicit arguments win", async () => {
   const [ada] = await gods("Ada Lovelace");
   await ada.c.action(api.panels.save, { slug: "where", source: panel("a") });
-  await ada.c.mutation(api.panels.place, { slug: "where", placement: "bottom", title: "Renamed" });
   const moved = `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Moved", placement: "right", size: "lg", Component: () => null });\n`;
   await ada.c.action(api.panels.save, { slug: "where", source: moved });
   const [after] = await ada.c.query(api.panels.list, {});
@@ -142,8 +140,6 @@ test("internal twins act as a credential principal: act may write, read may not,
   assert.equal((await admin.query(internal.panels.listAs, { principal: { credentialId: read } }))[0].slug, "via-registry");
   assert.match((await admin.query(internal.panels.codeAs, { principal: { credentialId: read }, slug: "via-registry" })).source, /x/);
   assert.equal(await errorCode(admin.action(internal.panels.saveAs, { principal: { credentialId: read }, slug: "via-registry", source: panel("y") })), "FORBIDDEN");
-  await admin.mutation(internal.panels.placeAs, { principal: { credentialId: act }, slug: "via-registry", placement: "bottom", size: "lg" });
-  assert.equal((await ada.c.query(api.panels.list, {}))[0].placement, "bottom");
   await admin.mutation(internal.panels.testing.revoke, { credentialId: act });
   assert.equal(await errorCode(admin.action(internal.panels.saveAs, { principal: { credentialId: act }, slug: "via-registry", source: panel("z") })), "UNAUTHENTICATED");
   assert.equal(await errorCode(admin.query(internal.panels.listAs, { principal: { credentialId: act } })), "UNAUTHENTICATED");
@@ -181,21 +177,12 @@ test("only the last 20 versions are kept", async () => {
   assert.equal(await admin.query(internal.panels.testing.versionCount, { subject: ada.subject, slug: "long" }), 20);
 });
 
-test("enable, place, remove and the layout follow the player", async () => {
+test("enable and remove follow the player (the dock layout lives in convex/layout.ts)", async () => {
   const [ada, bob] = await gods("Ada Lovelace", "Bob Ross");
   await ada.c.action(api.panels.save, { slug: "tool", source: panel("t") });
   await ada.c.mutation(api.panels.setEnabled, { slug: "tool", enabled: false });
   assert.equal((await ada.c.query(api.panels.list, {}))[0].enabled, false);
-  await ada.c.mutation(api.panels.place, { slug: "tool", placement: "right", size: "sm", title: "Tool" });
-  const [placed] = await ada.c.query(api.panels.list, {});
-  assert.deepEqual([placed.placement, placed.size, placed.title], ["right", "sm", "Tool"]);
-
-  assert.equal(await ada.c.query(api.panels.layout, {}), null);
-  const layout = { version: 1, panels: { tool: { region: "bottom", order: 2 } }, regions: { bottom: { mode: "tabs" } } };
-  await ada.c.mutation(api.panels.setLayout, { layout });
-  assert.deepEqual(await ada.c.query(api.panels.layout, {}), layout);
-  assert.equal(await bob.c.query(api.panels.layout, {}), null);
-  assert.equal(await errorCode(ada.c.mutation(api.panels.setLayout, { layout: { version: 1, panels: { x: "y".repeat(20_000) }, regions: {} } })), "BAD_REQUEST");
+  assert.deepEqual((await bob.c.query(api.panels.list, {})).filter((p: { slug: string }) => p.slug === "tool"), [], "another human never sees it");
 
   await ada.c.mutation(api.panels.remove, { slug: "tool" });
   assert.deepEqual(await ada.c.query(api.panels.list, {}), []);

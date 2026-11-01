@@ -4,6 +4,8 @@ import {
   SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product,
   pyCard, range, recipes, recolour, symForValue, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
+import { LONGEST_SNAKES, longestSnake } from "../../analytic/maxima.ts";
 
 const other = (g: GridSpec, ...cs: number[]) => range(g.C).find(k => !cs.includes(k))!;
 
@@ -270,6 +272,7 @@ function orbits(N: number): [number, number][][] {
 }
 const cardWindmill = gridFamily<Record<string, never>>({
   id: "card_windmill", name: "Card Windmill", emoji: "🌀", theme: "Suits spin round a quarter turn at a time",
+  analytic: solvedAnalytic("card_windmill"),
   requires: { classes: ["Suited"] }, shape: tuple(2), tags: ["shortlist"],
   support: () => [{}],
   summary: () => "Turn the grid a quarter turn and every suit should move on one: ♠→♥→♦→♣→♠. Every set of 4 "
@@ -682,9 +685,10 @@ const snakeCharmer = gridFamily<IslandsP>({
       }
       return best;
     }`),
+  // The longest induced path of the N×N grid, found by exact search (src/analytic/maxima.ts): a proven maximum.
   exemplar: (p, g) => {
-    const N = g.N, o = (p.C + 1) % g.C;
-    return wire(g, full(N, 0), fromFn(N, (r, c) => (r % 2 === 0 || c === (Math.floor(r / 2) % 2 === 0 ? N - 1 : 0) ? p.C : o)));
+    const N = g.N, o = (p.C + 1) % g.C, snake = new Set(LONGEST_SNAKES[N] ?? longestSnake(N)); // tabulated for every GRID_SIZES
+    return wire(g, full(N, 0), fromFn(N, (r, c) => (snake.has(r * N + c) ? p.C : o)));
   },
 });
 
@@ -707,6 +711,71 @@ function pieceForms(P: PieceP["P"]): [number, number][][] {
     seen.set(JSON.stringify(norm), norm);
   }
   return [...seen.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
+}
+const packings = new Map<string, boolean[][]>();
+/** Tetromino Tamer's best board (packTetrominoes), cached per size and piece. */
+function bestPacking(N: number, P: PieceP["P"]): boolean[][] {
+  const key = `${N}:${P}`;
+  let occ = packings.get(key);
+  if (!occ) packings.set(key, occ = packTetrominoes(N, P).occ);
+  return occ;
+}
+/**
+ * Tetromino Tamer's best board: the cells to paint MY_COLOUR so that no two islands touch and there are as many
+ * islands shaped like P as possible, then as many 4-cell islands of any shape. Exact (a greedy first fit is not: on
+ * 4×4 it puts a Z in the corner and leaves no room for a second S). A memoised search over cells in reading order,
+ * where each island is placed at its first cell; the state is the cursor and which of the next `window` cells are
+ * taken or touched. 4N is enough, since an island placed before the cursor reaches no further: about 11k states on
+ * 7×7. Exported so a test can check it against the full state (window N²).
+ */
+export function packTetrominoes(N: number, P: PieceP["P"], window = 4 * N): { occ: boolean[][]; value: [number, number] } {
+  const shapes = (["I", "O", "T", "L", "S"] as const).flatMap(q => pieceForms(q).map(f => ({
+    mine: q === P, cells: f.map(([r, c]) => [r - f[0][0], c - f[0][1]] as [number, number]),
+  })));
+  const NN = N * N, W = NN + 1, blocked = new Uint8Array(NN), memo = new Map<string, [value: number, choice: number]>();
+  /** The cells of shape s placed at cell i, or null if it leaves the grid or meets a taken or touched cell. */
+  const place = (i: number, s: number) => {
+    const r = Math.floor(i / N), c = i % N, cells = shapes[s].cells.map(([a, b]) => [r + a, c + b]);
+    return cells.every(([x, y]) => x >= 0 && x < N && y >= 0 && y < N && !blocked[x * N + y]) ? cells : null;
+  };
+  /** Marks the cells and their neighbours taken; returns the ones it changed, for undo. */
+  const take = (cells: number[][]) => {
+    const changed: number[] = [];
+    for (const [x, y] of cells) for (const [a, b] of [[x, y], [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+      if (a >= 0 && a < N && b >= 0 && b < N && !blocked[a * N + b]) { blocked[a * N + b] = 1; changed.push(a * N + b); }
+    }
+    return changed;
+  };
+  const next = (i: number) => { while (i < NN && blocked[i]) i++; return i; };
+  const keyOf = (i: number) => `${i}:${blocked.subarray(i + 1, Math.min(NN, i + window + 1)).join("")}`;
+  /** Best value (islands like P × W + 4-cell islands) from cursor i on, which must be a free cell or NN. */
+  const best = (i: number): number => {
+    if (i >= NN) return 0;
+    const key = keyOf(i), hit = memo.get(key);
+    if (hit) return hit[0];
+    blocked[i] = 1;
+    let value = best(next(i + 1)), choice = -1;
+    blocked[i] = 0;
+    for (let s = 0; s < shapes.length; s++) {
+      const cells = place(i, s);
+      if (!cells) continue;
+      const changed = take(cells), v = best(next(i + 1)) + (shapes[s].mine ? W : 0) + 1;
+      for (const k of changed) blocked[k] = 0;
+      if (v > value) { value = v; choice = s; }
+    }
+    memo.set(key, [value, choice]);
+    return value;
+  };
+  const value = best(0);
+  const occ = range(N).map(() => Array<boolean>(N).fill(false));
+  for (let i = next(0); i < NN; i = next(i + 1)) {
+    const choice = memo.get(keyOf(i))![1];
+    if (choice < 0) { blocked[i] = 1; continue; }
+    const cells = place(i, choice)!;
+    take(cells);
+    for (const [x, y] of cells) occ[x][y] = true;
+  }
+  return { occ, value: [Math.floor(value / W), value % W] };
 }
 const tetText = (p: PieceP, g: GridSpec): CardText => ({
   emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", cname(g, p.C)], ["MY_PIECE", p.P]],
@@ -780,23 +849,7 @@ const tetrominoTamer = gridFamily<PieceP>({
       }
       return [pieces, fours];
     }`),
-  exemplar: (p, g) => {
-    const N = g.N, occ = range(N).map(() => Array<boolean>(N).fill(false)), forms = pieceForms(p.P);
-    const inGrid = (x: number, y: number) => x >= 0 && x < N && y >= 0 && y < N;
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      for (const f of forms) {
-        const cells = f.map(([a, b]) => [r + a, c + b]);
-        if (!cells.every(([x, y]) => inGrid(x, y) && !occ[x][y])) continue;
-        const key = new Set(cells.map(([x, y]) => x * N + y));
-        const touches = cells.some(([x, y]) => [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]
-          .some(([a, b]) => inGrid(a, b) && !key.has(a * N + b) && occ[a][b]));
-        if (touches) continue;
-        for (const [x, y] of cells) occ[x][y] = true;
-        break;
-      }
-    }
-    return wire(g, full(N, 0), occ.map(row => row.map(o => (o ? p.C : (p.C + 1) % g.C))));
-  },
+  exemplar: (p, g) => wire(g, full(g.N, 0), bestPacking(g.N, p.P).map(row => row.map(o => (o ? p.C : (p.C + 1) % g.C)))),
 });
 
 // --- Rainbow Bands -----------------------------------------------------------------------------------
@@ -1120,6 +1173,7 @@ const sandText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const gravity = gridFamily<ColourP>({
   id: "gravity", name: "Falling Sand", emoji: "⏳", theme: "Your colour sinks to the bottom", shape: SCALAR,
+  analytic: solvedAnalytic("gravity"),
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => `${cap(cname(g, p.X))} is sand that sinks. Score every ${cname(g, p.X)} cell that has only `
@@ -1266,6 +1320,7 @@ const mapText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const treasureMap = gridFamily<ColourP>({
   id: "treasure_map", name: "Treasure Map", emoji: "🗝️", theme: "Big numbers of your colour near the middle",
+  analytic: solvedAnalytic("treasure_map"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),

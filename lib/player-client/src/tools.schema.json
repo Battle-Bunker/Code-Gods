@@ -662,6 +662,81 @@
       "additionalProperties": false
     }
   },
+  "load_skill": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The skill's name.",
+          "type": "string",
+          "enum": [
+            "game-rules",
+            "writing-agents",
+            "screen",
+            "game-setups",
+            "analytics-code"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "body"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "validate_agent": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -694,7 +769,7 @@
           "maxLength": 128
         },
         "waitMs": {
-          "description": "How long to wait for the receipt (ms). Past it the answer is {status: 'pending', commandId}: complete it with get_receipt.",
+          "description": "How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.",
           "default": 90000,
           "type": "integer",
           "minimum": 0,
@@ -808,7 +883,7 @@
           ]
         },
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -820,7 +895,7 @@
           "maxLength": 128
         },
         "waitMs": {
-          "description": "How long to wait for the receipt (ms). Past it the answer is {status: 'pending', commandId}: complete it with get_receipt.",
+          "description": "How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.",
           "default": 90000,
           "type": "integer",
           "minimum": 0,
@@ -922,12 +997,13 @@
       "type": "object",
       "properties": {
         "agentId": {
+          "description": "The agent's id from get_observation (agents[].id); never a command id.",
           "type": "string",
           "minLength": 1,
           "maxLength": 128
         },
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -1242,7 +1318,7 @@
       "type": "object",
       "properties": {
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -1494,14 +1570,17 @@
           "maximum": 9007199254740991
         },
         "settings": {
+          "description": "The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId.",
           "type": "object",
           "propertyNames": {
             "type": "string"
           },
           "additionalProperties": {}
         },
-        "preset": {
+        "setupId": {
+          "description": "Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings.",
           "type": "string",
+          "minLength": 1,
           "maxLength": 128
         },
         "aiBudget": {
@@ -1931,6 +2010,307 @@
       "additionalProperties": false
     }
   },
+  "list_setups": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "query": {
+          "description": "Words that must all appear in the name, the owner's name or the summary.",
+          "type": "string",
+          "maxLength": 100
+        },
+        "limit": {
+          "description": "At most this many rows (default 100); total says how many match.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "setupId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "save_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "settings": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "summary": {
+          "description": "One plain sentence for the setup menu (default: generated from the settings).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "name",
+        "settings"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "duplicate_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      },
+      "required": [
+        "setupId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "delete_setup": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "setupId": {
+          "description": "A setup's id from list_setups.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "setupId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "list_panels": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -2055,6 +2435,7 @@
           "maxLength": 80
         },
         "placement": {
+          "description": "Add-pane hint: where the panel prefers to open relative to the built-in panels.",
           "type": "string",
           "enum": [
             "left",
@@ -2175,7 +2556,7 @@
       "additionalProperties": false
     }
   },
-  "place_panel": {
+  "delete_panel": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
@@ -2184,26 +2565,6 @@
           "description": "kebab-case panel id, like a file name in src/panels/",
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
-        },
-        "placement": {
-          "type": "string",
-          "enum": [
-            "left",
-            "right",
-            "bottom"
-          ]
-        },
-        "size": {
-          "type": "string",
-          "enum": [
-            "sm",
-            "md",
-            "lg"
-          ]
-        },
-        "title": {
-          "type": "string",
-          "maxLength": 80
         }
       },
       "required": [
@@ -2249,20 +2610,748 @@
       "additionalProperties": false
     }
   },
-  "delete_panel": {
+  "get_layout": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "open_panel": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "object",
       "properties": {
+        "panelId": {
+          "description": "A built-in panel id (get_layout lists them with their parameter schemas). Give this or slug, not both.",
+          "type": "string",
+          "enum": [
+            "overview",
+            "my-card",
+            "objects",
+            "others-care",
+            "bits-over-time",
+            "race",
+            "agents",
+            "feed",
+            "what-if",
+            "public-chat",
+            "forge",
+            "results",
+            "rules",
+            "code-output"
+          ]
+        },
         "slug": {
-          "description": "kebab-case panel id, like a file name in src/panels/",
+          "description": "One of the player's stored panels (list_panels). Give this or panelId, not both.",
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
+        },
+        "params": {
+          "description": "The built-in panel's parameters (schemas in get_layout; all optional except what-if's objectId and calls). Not for stored panels.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "place": {
+          "description": "Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.",
+          "type": "object",
+          "properties": {
+            "relativeTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "above",
+                "below",
+                "tab"
+              ]
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
         }
       },
       "required": [
-        "slug"
+        "untrusted",
+        "notice",
+        "data"
       ],
+      "additionalProperties": false
+    }
+  },
+  "set_panel_params": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "params": {
+          "description": "The complete parameters; omitted fields take their defaults.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "paneId",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "move_pane": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "place": {
+          "description": "Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction, or 'tab'.",
+          "type": "object",
+          "properties": {
+            "relativeTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "left",
+                "right",
+                "above",
+                "below",
+                "tab"
+              ]
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "paneId",
+        "place"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "close_pane": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "paneId": {
+          "description": "A pane id from get_layout (e.g. p1).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "paneId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "paneId": {
+              "type": "string"
+            },
+            "layout": {},
+            "summary": {
+              "type": "string"
+            },
+            "reused": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "paneId",
+            "layout",
+            "summary",
+            "reused"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "run_code": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "language": {
+          "description": "python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript. Required with source.",
+          "type": "string",
+          "enum": [
+            "python",
+            "typescript"
+          ]
+        },
+        "source": {
+          "description": "The script: defines main(data) and returns JSON data (a list of rows for a table). Give this or script.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "script": {
+          "description": "Run a saved script instead: its key, e.g. scripts/top5 (saved with saveAs).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "load": {
+          "description": "Keys of the player's stored objects to load into the script's store, or prefixes ending in * (e.g. notes/*); only these are readable (store.get). Not the objects dataset.",
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 129
+          }
+        },
+        "saveAs": {
+          "description": "Save this source as the object scripts/<saveAs> after a successful run.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$"
+        },
+        "datasets": {
+          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history.",
+          "default": [],
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "objects",
+                  "my_utility",
+                  "agents",
+                  "leaderboard",
+                  "observation",
+                  "events",
+                  "trajectories",
+                  "chat",
+                  "settings",
+                  "rules",
+                  "games",
+                  "game_history"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "objects",
+                      "my_utility",
+                      "agents",
+                      "leaderboard",
+                      "observation",
+                      "events",
+                      "trajectories",
+                      "chat",
+                      "settings",
+                      "rules",
+                      "games",
+                      "game_history"
+                    ]
+                  },
+                  "gameId": {
+                    "description": "events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset).",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "limit": {
+                    "description": "events, trajectories, game_history: at most this many tick batches.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "params": {
+          "description": "Extra JSON values, as data.params.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "title": {
+          "description": "A short name for the run (the panel's caption).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "cpuSeconds": {
+          "description": "CPU budget in seconds (default 10).",
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_code_run": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "runId": {
+          "description": "A run's id (run_code's runId, or list_code_runs).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "part": {
+          "type": "string",
+          "enum": [
+            "result",
+            "output",
+            "source"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "length": {
+          "default": 4000,
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 6000
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_code_objects": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "limit": {
+          "default": 100,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_code_runs": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "default": 10,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      },
       "additionalProperties": false
     },
     "output": {

@@ -11,6 +11,7 @@ import Game from '@/pages/game';
 import Device from '@/pages/device';
 import Connect from '@/pages/connect';
 import AdminAgents from '@/pages/admin-agents';
+import Configure from '@/pages/configure';
 import {
   Route,
   Switch,
@@ -25,11 +26,13 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/rooms/:id/configure" component={Configure} />
         <Route path="/rooms/:id" component={Room} />
         <Route path="/games/:code" component={Game} />
         <Route path="/device" component={Device} />
         <Route path="/connect" component={Connect} />
         <Route path="/admin/agents" component={AdminAgents} />
+        <Route path="/admin/agents/:id" component={AdminAgents} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

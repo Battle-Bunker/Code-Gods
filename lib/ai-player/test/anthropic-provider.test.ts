@@ -41,3 +41,9 @@ test("failed API requests are not retried and have no provider fallback", async 
 test("empty credentials fail closed without making requests", () => {
   assert.throws(() => createDirectAnthropicProvider(""), /ANTHROPIC_API_KEY/);
 });
+test("thinking blocks (on by default on Claude 5 models) are skipped; the decision is the text", async () => {
+  const thinking = [{ type: "thinking", thinking: "", signature: "sig" }, { type: "redacted_thinking", data: "opaque" }];
+  const model = mocked(async () => Response.json({ ...response, content: [...thinking, ...response.content] }));
+  assert.deepEqual(await model.complete(request), { text: '{"actions":[]}', inputTokens: 20, outputTokens: 7 });
+  await assert.rejects(mocked(async () => Response.json({ ...response, content: thinking })).complete(request), /Incomplete|unsupported/i, "thinking alone is no answer");
+});

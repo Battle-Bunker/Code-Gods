@@ -31,7 +31,11 @@ export const panelTables = {
     /** Code a non-browser author wrote (also when a browser rollback restored such code). */
     foreign: v.optional(v.boolean()),
   }).index("by_panel_version", ["panelId", "version"]),
-  /** The dock layout, following the player across devices (localStorage is only the boot cache). */
+  /**
+   * RETIRED: the old region dock's layout, replaced by convex/layout/tables.ts dockLayouts. Nothing reads or writes it.
+   * Convex refuses a schema whose existing documents fail validation, so the table stays declared until the dev
+   * deployment's rows are cleared (testing.ts clearPanelLayouts); a follow-up then drops it. Production has no rows.
+   */
   panelLayouts: defineTable({ subject: v.string(), layout: v.any(), updatedAt: v.number() }).index("by_subject", ["subject"]),
   /** Recent save times per human (rolling-minute rate limit; at most LIMITS.savesPerMinute entries). */
   panelQuotas: defineTable({ subject: v.string(), saves: v.array(v.number()) }).index("by_subject", ["subject"]),

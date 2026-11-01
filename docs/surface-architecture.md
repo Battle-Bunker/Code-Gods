@@ -77,7 +77,9 @@ A credential is always bound to one human (`subject`), one room and one permissi
 | Read | `whoami`, `get_rules`, `get_observation`, `get_events`, `get_trajectories`, `list_games`, `get_game_history`, `get_my_utility`, `evaluate_value` (own utility only), `get_chat`, `get_receipt` |
 | Act | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game`, `wake_engine` |
 | Owner | `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
-| Panels (act) | `list_panels`, `get_panel`, `save_panel`, `delete_panel`, `rollback_panel`, `place_panel` |
+| Game setups | `list_setups` (read); `save_setup`, `delete_setup` (act) |
+| Panels | `list_panels`, `get_panel` (read); `save_panel`, `delete_panel`, `rollback_panel` (act) |
+| Layout (docs/ui-redesign.md §2.4) | `get_layout` (read); `open_panel`, `set_panel_params`, `move_pane`, `close_pane` (act) |
 
 - Command tools build the v3 envelope. `commandId` is required for summon, destroy and pause; owner tools carry a `requestId`.
 - Summon and validate take `waitMs` (default 90 s). Past it they return `{status: "pending", commandId}`, and `get_receipt` completes the call.
@@ -101,6 +103,10 @@ One connection is one credential, for one room and one permission.
 
 ## 5. Stored panels and the panel host (Wave 1C)
 
+> The dock (regions, `panelLayouts`, `panels.place/layout/setLayout`, `place_panel`) described below was replaced by the
+> pane layout of `docs/ui-redesign.md` §2.3–2.4 (`dockLayouts`, `layout.current/set`, the layout tools). Panels are
+> panes; `placement`/`size` are add-pane hints. The compilation, sandbox and confirmation parts stand.
+
 **Engine (`convex/panels/`).**
 - `panels {subject, slug, title, placement, size, currentVersion, enabled, updatedAt}` and `panelVersions {panelId, version, source, compiled, diagnostics, compilerVersion, sourceHash, author {kind: browser|device|oauth|assistant, label}, createdAt}`, keeping the last 20 versions.
 - `panelLayouts {subject, layout}` makes the dock layout follow the player across devices. localStorage is only the boot cache.
@@ -116,7 +122,7 @@ One connection is one credential, for one room and one permission.
 
 Type-checking against `sdk.d.ts` is phase 2.
 
-**Public API.** `panels.list`, `panels.code`, `panels.save`, `panels.rollback`, `panels.setEnabled`, `panels.remove`, `panels.place`, `panels.layout` and `panels.setLayout`. Each has an internal twin taking `principal`, named `<fn>As`, for the registry.
+**Public API.** `panels.list`, `panels.code`, `panels.save`, `panels.rollback`, `panels.setEnabled` and `panels.remove`. Each has an internal twin taking `principal`, named `<fn>As`, for the registry. The dock layout is `layout.current` and `layout.set` (docs/engine-api.md "Dock layout").
 
 **Client (`artifacts/player-web`).**
 - The shell registry merges file panels with stored panels from `panels.list`. On an id clash the file panel wins and shows a "shadows stored vN" badge.
@@ -132,6 +138,9 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 ## 6. In-client assistant (Wave 2A, built)
 
+> The assistant now lives in a pane of the dock, not a drawer, and arranges the player's screen through the layout tools;
+> the system prompt and briefing gained THE PLAYER'S SCREEN, NEXT STEPS and a PANELS block (`docs/ui-redesign.md` §2.4).
+
 A model served by Convex that answers one human in the player client's **Assistant** drawer and acts for them
 through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.
 
@@ -139,8 +148,9 @@ through the agent registry. API: `docs/engine-api.md` "In-client assistant"; bil
 - `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
 - `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
   status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
-- `assistantMessages {threadId, turnId, seq, role, text (≤ 16 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?}`:
-  the user's message, then one assistant message per model step.
+- `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?,
+  cacheReadTokens?, cacheWriteTokens?, billedTokens?, inputEstimate?, usageEstimated?, contentJson?}`: the user's message, then one assistant message
+  per model step (`usageEstimated`: a cancelled step billed from what was known).
 - `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?, confirmDeadline?, approved?}`.
   `argsJson` is ≤ 8 KB, except agent sources (validate/summon, 20 KB) and stored panels (`save_panel`, 70 KB).
 - `assistantAllowances {roomId, subject, epoch, usedTokens, calls}` (epoch: the room's current game id, or `lobby`) and
@@ -168,12 +178,12 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
   and denies unanswered confirmations.
 
 **Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
-same source at most at N), `send_chat`, `pause_game`, `delete_panel` and every owner tool wait for a card: the call goes
-`awaiting_confirmation`, the turn pauses with no action open, the drawer shows the exact payload, and
+same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel`, `delete_setup` and every owner tool wait for a card:
+the call goes `awaiting_confirmation`, the turn pauses with no action open, the pane shows the exact payload, and
 `assistant.confirm(toolCallId, approve|deny)` resumes it (a new `gen`). Unanswered after 2 minutes, the call is denied.
-Reads, `validate_agent`, `destroy_agent`, `set_ready`, `wake_engine` and panel saves (`save_panel`, `rollback_panel`,
-`place_panel`) run automatically and show as activity chips. A tool the grant does not allow is refused at once
-(FORBIDDEN), with no card.
+Reads, `validate_agent`, `set_ready`, `wake_engine`, panel saves (`save_panel`, `rollback_panel`) and the layout tools
+(at most two layout changes per step) run automatically and show as activity chips. A tool the grant does not allow is
+refused at once (FORBIDDEN), with no card.
 
 **Models and budget.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
 onText})`) has Anthropic Messages and OpenAI chat-completions adapters (direct endpoints, catalog prices, no retries;
@@ -183,6 +193,18 @@ assistant explain the game with one `GAME_PRIMER`. The model is offered the regi
 credential's permission, without the engine-derived ids. The separate assistant pool: an equal allowance per human per
 game and the model, approved by the owner in the AI budget card (default 0 = off); `ASSISTANT_GAME_USD` per room per
 game, `DAILY_ASSISTANT_USD` per day; per-player and per-room call rates (`convex/lib/aiModels.ts`).
+
+**Cost.** Anthropic requests cache the tools and system prompt (an explicit breakpoint) and the conversation so far
+(top-level automatic caching), so a turn's later steps read most of their input from the cache; OpenAI caches the same
+stable prefix automatically (`prompt_cache_key` per thread). The allowance counts billed tokens (a cache read at its
+price relative to input; `lib/ai-player` `usageCost`) and USD uses the catalogue's cache prices. A step's reservation
+is its input estimate (Anthropic `count_tokens`; otherwise a characters-per-token ratio measured from live usage,
+`CHARS_PER_TOKEN`) with a margin, at its dearest price, plus the 8,192-token output ceiling; it settles to the actual
+cost, even past the reservation. A cancelled step is billed from what was known: the input the provider reported when
+the stream opened (else the estimate) and the streamed output plus hidden reasoning time at a speed bound. An earlier
+turn that ended without its answer (allowance, failure, cancellation) is followed in the model's history by an
+"Engine note" saying so, so the next turn neither treats it as answered nor answers it unasked. A tool result clipped
+to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the prompt forbids counts from it.
 
 **Safety.**
 - Tool results reach the model as the registry's untrusted JSON (`{untrusted: true, notice, data}`); the system prompt

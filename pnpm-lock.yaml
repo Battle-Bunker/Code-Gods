@@ -264,6 +264,12 @@ importers:
       '@workspace/object-views':
         specifier: workspace:*
         version: link:../../lib/object-views
+      '@workspace/player-client':
+        specifier: workspace:*
+        version: link:../../lib/player-client
+      '@workspace/ui-kit':
+        specifier: workspace:*
+        version: link:../../lib/ui-kit
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -376,6 +382,9 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
     devDependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.133.0
+        version: 0.133.0(zod@4.6.7)
       '@modelcontextprotocol/client':
         specifier: 2.4.0
         version: 2.4.0
@@ -406,9 +415,15 @@ importers:
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../../lib/player-client
+      '@workspace/ui-kit':
+        specifier: workspace:*
+        version: link:../../lib/ui-kit
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)
+      dockview-react:
+        specifier: ^8.8.2
+        version: 8.8.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
     devDependencies:
       '@convex-dev/better-auth':
         specifier: 0.12.6
@@ -548,9 +563,6 @@ importers:
       react-hook-form:
         specifier: ^7.55.0
         version: 7.87.0(react@19.1.0)
-      react-resizable-panels:
-        specifier: ^2.1.7
-        version: 2.1.9(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       recharts:
         specifier: ^2.15.2
         version: 2.15.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -626,6 +638,9 @@ importers:
         specifier: workspace:*
         version: link:../game-types
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -660,6 +675,9 @@ importers:
       '@workspace/engine':
         specifier: workspace:*
         version: link:../../artifacts/engine
+      '@workspace/game-core':
+        specifier: workspace:*
+        version: link:../game-core
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)
@@ -670,6 +688,37 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
+
+  lib/ui-kit:
+    dependencies:
+      '@radix-ui/react-alert-dialog':
+        specifier: ^1.1.7
+        version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.7
+        version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@radix-ui/react-popover':
+        specifier: ^1.1.7
+        version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@workspace/player-client':
+        specifier: workspace:*
+        version: link:../player-client
+      cmdk:
+        specifier: ^1.1.1
+        version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+    devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.3.0(@types/react@19.3.0)
+      react:
+        specifier: 'catalog:'
+        version: 19.1.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.1.0(react@19.1.0)
 
 packages:
 
@@ -1982,6 +2031,18 @@ packages:
   detect-node-es@1.1.0:
     resolution: {integrity: sha512-ypdmJU/TbBby2Dxibuv7ZLW3Bs1QEmM7nHjEANfohJLvE0XVujisn1qPJcZxg+qDucsr+bP6fLD1rPS3AhJ7EQ==}
 
+  dockview-core@8.8.2:
+    resolution: {integrity: sha512-qJ49+6H0PvPx2mnT0ZVbubCsQM3voohkNmqalcGlVJVuaqufPfxzwkfwAa2okCMK8I1aIy62QyK6/DzuiL74gA==}
+
+  dockview-react@8.8.2:
+    resolution: {integrity: sha512-jI8kjhP8Z6y6EeXER9/2IkO+xZqBwEfmI0/rfeXLLJmGmh3jpL0xMsGmt8e1RRf2W4MICiskoALWARgSngO3XQ==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  dockview@8.8.2:
+    resolution: {integrity: sha512-mvC+hvV5S0jkJgHpy/LoY7lGXOXBs2NiFbwPclUha7huvJxWt5ZuC2xVK/RmbO10rpTI6e0xLzpwQ/PnCTvp1g==}
+
   dom-helpers@5.2.1:
     resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
@@ -2758,6 +2819,13 @@ snapshots:
       standardwebhooks: 1.1.1
     optionalDependencies:
       zod: 3.25.76
+
+  '@anthropic-ai/sdk@0.133.0(zod@4.6.7)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+      standardwebhooks: 1.1.1
+    optionalDependencies:
+      zod: 4.6.7
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -4062,6 +4130,18 @@ snapshots:
   detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
+
+  dockview-core@8.8.2: {}
+
+  dockview-react@8.8.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0):
+    dependencies:
+      dockview: 8.8.2
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
+
+  dockview@8.8.2:
+    dependencies:
+      dockview-core: 8.8.2
 
   dom-helpers@5.2.1:
     dependencies:

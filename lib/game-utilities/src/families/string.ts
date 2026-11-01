@@ -8,6 +8,7 @@ import type { CardText } from "./card.ts";
 import { pyCard, tsCard } from "./card.ts";
 import { SCALAR, defineFamilies, tuple } from "./define.ts";
 import type { FamilyContext } from "../types.ts";
+import { solvedAnalytic } from "../analytic/hook.ts";
 
 interface StringSpec { readonly L: number }
 const stringFamily = defineFamilies<StringSpec>("string", (ctx: FamilyContext) => ({ L: Number(ctx.inst.args.maxLength) }));
@@ -60,6 +61,7 @@ const puristText = (p: KindP) => card("🧼", "Purist",
   kindConsts(p));
 const purist = stringFamily<KindP>({
   id: "purist", name: "Purist", emoji: "🧼", theme: "Wants x made purely of one class of characters.", shape: SCALAR,
+  analytic: solvedAnalytic("purist"),
   support: () => Object.keys(CLASSES).map(kind => ({ kind })),
   canonical: p => ({ kind: CLASS_CANON[p.kind] }),
   summary: p => `You want x to be pure ${p.kind} (${CLASSES[p.kind]}): +1 for each of them, −1 for anything else.`,
@@ -89,6 +91,7 @@ const streakText = (p: KindP) => card("🏃", "Streaker",
   `You want one long unbroken streak of ${p.kind} somewhere in x. Score the longest streak.`, kindConsts(p));
 const streaker = stringFamily<KindP>({
   id: "streaker", name: "Streaker", emoji: "🏃", theme: "Wants one long unbroken streak of a class of characters.",
+  analytic: solvedAnalytic("streaker"),
   shape: SCALAR,
   support: () => Object.keys(CLASSES).map(kind => ({ kind })),
   canonical: p => ({ kind: CLASS_CANON[p.kind] }),
@@ -207,6 +210,7 @@ const ascText = (p: StepP) => card(p.step > 0 ? "📈" : "📉", "Ascender",
   + `"${p.step > 0 ? "aceg" : "geca"}"). Score the longest such run.`);
 const ascender = stringFamily<StepP>({
   id: "ascender", name: "Ascender", emoji: "📈", theme: "Wants a long run of characters sorted by ASCII code.", shape: SCALAR,
+  analytic: solvedAnalytic("ascender"),
   support: () => [{ step: 1 }, { step: -1 }],
   canonical: () => ({ step: 1 }), // reversing the character order maps falling runs to rising ones
   summary: p => `You want a long run of characters whose ASCII codes strictly ${p.step > 0 ? "rise" : "fall"}: the `
@@ -271,6 +275,7 @@ const nestText = card("🪺", "Nest Builder",
   + "ignored). Score the deepest level at which a \")\" closes.");
 const nestBuilder = stringFamily<Record<string, never>>({
   id: "nest-builder", name: "Nest Builder", emoji: "🪺", theme: "Wants deeply nested parentheses.", shape: SCALAR,
+  analytic: solvedAnalytic("nest-builder"),
   support: () => [{}],
   summary: () => "You build nests of parentheses: the deeper a \")\" closes, the better.",
   python: () => pyCard(nestText, `
@@ -297,7 +302,8 @@ const nestBuilder = stringFamily<Record<string, never>>({
       }
       return best;
     }`),
-  exemplar: (_, s) => "(".repeat(Math.floor(s.L / 2)) + ")".repeat(Math.floor(s.L / 2)),
+  // Depth is recorded when a ")" closes, so L − 1 openers and one closer reach L − 1 (deeper than balanced pairs).
+  exemplar: (_, s) => (s.L < 2 ? "" : "(".repeat(s.L - 1) + ")"),
 });
 
 // --- Haiku Master ------------------------------------------------------------------------------------------
@@ -370,6 +376,7 @@ const tallyText = (p: TallyP) => card("🧾", "Tallykeeper",
   + "the better.", [["SACRED", p.total]]);
 const tallykeeper = stringFamily<TallyP>({
   id: "tallykeeper", name: "Tallykeeper", emoji: "🧾", theme: "Wants the digit characters in x to add up to a sacred number.",
+  analytic: solvedAnalytic("tallykeeper"),
   requires: minLength(1),
   shape: SCALAR,
   support: s => TALLIES.filter(t => t <= 9 * s.L).map(total => ({ total })),

@@ -55,10 +55,16 @@ export interface GameSettings {
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
   penaltyWeight: number;
-  /** Probability that a god is dealt a defence goal (0: opt-in, as in grid-lab). */
-  defenceRate: number;
-  /** Family ids the dealer never deals in this game (e.g. rules too hard on a beginner board). */
+  /**
+   * Defence goals (opt-in, as in grid-lab): when on, EVERY god is also dealt exactly one defence goal, drawn from the
+   * instantiation's defence (penalty) families minus `excludedDefenceFamilies`; when off, no god gets one. Never a
+   * per-god probability: a defence goal is a handicap, so everyone gets one or no one does.
+   */
+  defenceGoals: boolean;
+  /** Reward family ids the dealer never deals in this game (e.g. rules too hard on a beginner board). */
   excludedFamilies: readonly string[];
+  /** Defence family ids the dealer never deals (the complement of the allowed defence goals). */
+  excludedDefenceFamilies: readonly string[];
   /**
    * The reference prior that rarity is measured against (calibration tables are keyed by it). "uniform" is
    * the spawn prior; later seasons may use an empirical mixture (lib/grid-lab/docs/explore/priors.md).
@@ -98,8 +104,9 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   agentBatteryActs: 2,
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
-  defenceRate: 0,
+  defenceGoals: false,
   excludedFamilies: Object.freeze([]) as readonly string[],
+  excludedDefenceFamilies: Object.freeze([]) as readonly string[],
   priorId: "uniform",
   commitClause: false,
   objectSelection: "uniform",
@@ -118,7 +125,7 @@ export interface SettingsOption {
 const ALL_TYPES = ["Int", "string", "Grid"] as const;
 
 /** Pre-authored dropdown choices; unknown identifiers are always rejected. */
-export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId" | "complexityFunctionId",
+export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId" | "complexityFunctionId" | "spawnFunctionId",
   readonly SettingsOption[]>> = Object.freeze({
   grammarId: [
     { id: "python-agent-v1", label: "Python agent: def agent(obj) returns mutator calls", languages: ["python"], objectTypes: ALL_TYPES },
@@ -132,9 +139,14 @@ export const SETTINGS_OPTIONS: Readonly<Record<"grammarId" | "utilitySelectorId"
     { id: "ast-bits-v1", label: "Python description bits (ast-bits-v1, corpus-weighted)", languages: ["python"], objectTypes: ALL_TYPES },
     { id: "ts-ast-bits-v1-uniform", label: "TypeScript description bits (ts-ast-bits-v1, uniform)", languages: ["typescript"], objectTypes: ALL_TYPES },
   ],
+  spawnFunctionId: [
+    { id: "uniform", label: "Uniformly at random (the type's spawn prior)", languages: ["python", "typescript"], objectTypes: ALL_TYPES },
+  ],
 });
 
 export type OptionKey = keyof typeof SETTINGS_OPTIONS;
+/** The fields whose choices are pre-authored (SETTINGS_OPTIONS). */
+export const OPTION_KEYS: readonly OptionKey[] = ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"];
 
 /** The options of one dropdown compatible with a language and object type. */
 export function settingsOptionsFor(key: OptionKey, language: Language, objectType: string): SettingsOption[] {
@@ -150,11 +162,22 @@ function finiteNonnegative(settings: GameSettings, keys: readonly (keyof GameSet
   }
 }
 
+/** Which families exist where, as far as validation needs it (settings-model.ts SettingsDomain provides it). */
+export interface FamilyDomain {
+  families(objectType: string, typeArgs: TypeArgs, role: FamilyRole): readonly string[];
+}
+/** A utility family's role: a reward rule every god is dealt, or a defence goal (game-utilities "penalty"). */
+export type FamilyRole = "reward" | "defence";
+
+const FAMILY_IDS = /^[a-z0-9_+-]{1,64}$/;
+const familyList = (value: unknown) => Array.isArray(value) && value.length <= 200 && value.every(id => typeof id === "string" && FAMILY_IDS.test(id));
+
 /**
  * Validate mathematical settings and pre-authored options. Type arguments are validated by the
- * object type's own `instantiate` (it throws on bad arguments).
+ * object type's own `instantiate` (it throws on bad arguments). With `domain` (which families exist), defence goals
+ * switched on also need at least one defence family left to deal.
  */
-export function validateSettings(settings: GameSettings): void {
+export function validateSettings(settings: GameSettings, domain?: FamilyDomain): void {
   if (!LANGUAGES.includes(settings.language)) throw new Error("Unsupported language");
   if (typeof settings.objectType !== "string") throw new Error("Unsupported object type");
   if (settings.typeArgs === null || typeof settings.typeArgs !== "object" || Array.isArray(settings.typeArgs)) {
@@ -167,7 +190,7 @@ export function validateSettings(settings: GameSettings): void {
   finiteNonnegative(settings, [
     "planningSeconds", "halfLifeSeconds", "spawnRateHz", "interactionRateHz", "pauseSeconds",
     "startingEnergy", "energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs",
-    "penaltyWeight", "defenceRate", "perActFloorBits",
+    "penaltyWeight", "perActFloorBits",
   ]);
   if (!Number.isInteger(settings.stepBudget) || settings.stepBudget < 1 || settings.stepBudget > 10_000_000) {
     throw new Error("stepBudget must be an integer from 1 to 10,000,000 steps");
@@ -185,11 +208,9 @@ export function validateSettings(settings: GameSettings): void {
       settings.maxAgentsPerGod < 1 || settings.maxAgentsPerGod > MAX_AGENTS_PER_GOD) {
     throw new Error(`maxAgentsPerGod must be an integer from 1 to ${MAX_AGENTS_PER_GOD}`);
   }
-  if (settings.defenceRate > 1) throw new Error("defenceRate must be a probability in [0, 1]");
-  if (!Array.isArray(settings.excludedFamilies) || settings.excludedFamilies.length > 200 ||
-      settings.excludedFamilies.some(id => typeof id !== "string" || !/^[a-z0-9_+-]{1,64}$/.test(id))) {
-    throw new Error("excludedFamilies must be a list of family ids");
-  }
+  if (typeof settings.defenceGoals !== "boolean") throw new Error("defenceGoals must be true or false");
+  if (!familyList(settings.excludedFamilies)) throw new Error("excludedFamilies must be a list of family ids");
+  if (!familyList(settings.excludedDefenceFamilies)) throw new Error("excludedDefenceFamilies must be a list of family ids");
   if (typeof settings.priorId !== "string" || !/^[a-z0-9][a-z0-9._-]{0,63}$/.test(settings.priorId)) {
     throw new Error("priorId must be a prior identifier");
   }
@@ -197,10 +218,15 @@ export function validateSettings(settings: GameSettings): void {
   if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
     throw new Error("objectSelection must be uniform or shelter");
   }
-  if (settings.spawnFunctionId !== "uniform") throw new Error("Unsupported spawn function");
-  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
+  for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.language, settings.objectType).some(o => o.id === settings[key])) {
       throw new Error(`Unsupported ${key} for this language and object type`);
+    }
+  }
+  if (settings.defenceGoals && domain) {
+    const excluded = new Set(settings.excludedDefenceFamilies);
+    if (!domain.families(settings.objectType, settings.typeArgs, "defence").some(id => !excluded.has(id))) {
+      throw new Error("Defence goals need at least one defence goal allowed in this world");
     }
   }
 }
@@ -272,10 +298,12 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // Agent income 32 bits/s with the 2-bit floor (perActFloorBits, a global default): the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
-    // alternative is the "grid-low-income" preset (16 bits/s, floor 1).
+    // alternative is the "grid-low-income" seed setup (16 bits/s, floor 1).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
     byKey: {
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
+      "Grid(7,cards,rainbow6)": { excludedFamilies: WEAK_GRID_FAMILIES.filter(id => id !== "ladder_of_numbers") },
     },
   },
 };
@@ -289,35 +317,9 @@ export function typeDefaults(objectType: string, typeArgs?: TypeArgs): Partial<G
 }
 
 /**
- * Named starting points for the settings picker, in the suggested learning order. A preset is a settings
- * patch; owners can change anything afterwards. "Gentle" slows interactions so kids can follow their own
- * scores (explore/gridtypes.md: at 100 Hz an own score changes 10–17 times a minute).
+ * Default settings for one instantiation and language: tuned type defaults and the language's grammar. Used to build
+ * the seed setups below (and fixtures); a settings CHANGE never consults tuned defaults (settings-model.ts).
  */
-export const SETTINGS_PRESETS: readonly {
-  readonly id: string; readonly label: string; readonly kid: string;
-  readonly objectType: string; readonly typeArgs: TypeArgs; readonly patch: Partial<GameSettings>;
-}[] = [
-  { id: "grid-first-steps", label: "First steps", kid: "A small 4×4 board, slowed down so you can watch your score",
-    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, patch: { interactionRateHz: 25 } },
-  { id: "grid-classic", label: "Classic", kid: "5×5 with four colours: the standard game",
-    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: {} },
-  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
-  { id: "grid-low-income", label: "Low income", kid: "Classic 5×5, but agents earn half as fast and acts cost a little less",
-    objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, patch: { agentEnergyPerSecond: 16, perActFloorBits: 1 } },
-  { id: "grid-big", label: "Big board", kid: "6×6 in hex digits and six colours",
-    objectType: "Grid", typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" }, patch: {} },
-  { id: "grid-master", label: "Master", kid: "7×7 playing cards in rainbow colours",
-    objectType: "Grid", typeArgs: { size: 7, symbols: "cards", colours: "rainbow6" }, patch: {} },
-];
-
-/** Settings for a preset: the instantiation's tuned defaults, then the preset's own patch. */
-export function presetSettings(id: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language): GameSettings {
-  const preset = SETTINGS_PRESETS.find(p => p.id === id);
-  if (!preset) throw new Error(`Unknown settings preset: ${id}`);
-  return { ...defaultSettingsFor(preset.objectType, language, preset.typeArgs), ...preset.patch };
-}
-
-/** Default settings for one instantiation and language: tuned type defaults and the language's grammar. */
 export function defaultSettingsFor(
   objectType: string, language: GameSettings["language"] = DEFAULT_SETTINGS.language, typeArgs?: TypeArgs,
 ): GameSettings {
@@ -327,3 +329,249 @@ export function defaultSettingsFor(
     grammarId: `${language}-agent-v1` as GrammarId, complexityFunctionId: COMPLEXITY_FOR[language],
   };
 }
+
+/**
+ * The seed catalogue of game setups, in the suggested learning order. Each is a complete settings object: the
+ * instantiation's tuned defaults (TYPE_DEFAULTS), then the setup's own patch. The engine keeps its `gameSetups` table
+ * (artifacts/engine/convex/setups.ts) equal to this list: seed setups are owned by the system, so nobody (admins
+ * included) edits or deletes them; players duplicate one instead. "First
+ * steps" slows interactions so kids can follow their own scores (explore/gridtypes.md: at 100 Hz an own score changes
+ * 10–17 times a minute).
+ */
+export interface SeedSetup {
+  /** Stable id of the seeded row (the former preset id), so a re-seed never duplicates or recreates it. */
+  readonly seedId: string;
+  /** At most SETUP_NAME_MAX characters. */
+  readonly name: string;
+  /** One plain sentence for the setup menu. */
+  readonly summary: string;
+  readonly settings: Readonly<GameSettings>;
+}
+/** The longest setup name. */
+export const SETUP_NAME_MAX = 40;
+/** The setup a new room starts on (docs/ui-redesign.md §1): a small, slowed-down board a newcomer can follow. */
+export const FIRST_STEPS_SEED_ID = "grid-first-steps";
+
+const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
+  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, "python", typeArgs), ...patch }) });
+
+export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
+  seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25 }),
+  seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
+    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
+  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
+  seed("grid-low-income", "Low income", "Classic 5×5, but agents earn half as fast and acts cost a little less",
+    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, { agentEnergyPerSecond: 16, perActFloorBits: 1 }),
+  seed("grid-big", "Big board", "6×6 in hex digits and six colours",
+    "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
+  seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
+    "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
+]);
+
+/** A seed setup's complete settings (a fresh copy). */
+export function seedSetupSettings(seedId: string): GameSettings {
+  const found = SEED_SETUPS.find(s => s.seedId === seedId);
+  if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
+  return { ...found.settings, typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
+}
+
+// ------------------------------------------------------------------------------------------------
+// field documentation (docs/research/ui-redesign/onboarding-and-config.md §4.3, §4.6)
+// ------------------------------------------------------------------------------------------------
+
+/** The configuration page's sections, in order (the Players & AI section documents room budgets, not settings). */
+export type SettingsSection = "world" | "goals" | "agents" | "energy" | "population" | "time" | "players";
+
+/**
+ * How a field is edited: stepped choices (`segmented`), a list of options (`select`), a number (`number`, stepped
+ * choices plus an exact value), on or off (`switch`), a checklist of families (`checklist`), or one control per type
+ * argument (`typeArgs`). Every field has one: nothing a game needs is a read-only fact.
+ */
+export type ControlKind = "segmented" | "select" | "number" | "switch" | "checklist" | "typeArgs";
+
+/**
+ * One field's documentation, read by every surface: the configuration page, the read-only view, the assistant's
+ * explanation and tool descriptions. `meaning` and `consequence` are each one neutral sentence with no reference to
+ * layout or controls. `suggested` are the stepped choices (every default and seed setup value is among them); `tier`
+ * says whether a newcomer is asked ("ask") or the field sits under "More" ("more"); `control` how it is edited.
+ */
+export interface FieldDoc {
+  readonly question: string;
+  readonly meaning: string;
+  readonly consequence: string;
+  readonly unit?: string;
+  readonly section: SettingsSection;
+  readonly tier: "ask" | "more";
+  readonly control: ControlKind;
+  readonly suggested?: readonly number[] | readonly string[];
+  /** Hidden while every listed field has the listed value (it has no effect then). */
+  readonly hiddenWhen?: Partial<Record<keyof GameSettings, unknown>>;
+  /** Fields whose change moves this one (e.g. the grammar follows the language). */
+  readonly dependsOn?: readonly (keyof GameSettings)[];
+}
+
+/** Every GameSettings field, documented once; a field without docs (or a stale key) fails the typecheck. */
+export const SETTINGS_DOCS = {
+  objectType: {
+    question: "What are the objects in the world?", section: "world", tier: "ask", control: "segmented", suggested: ["Grid", "Int", "string"],
+    meaning: "The kind of thing every player scores and every agent changes: a grid of coloured symbols, a whole number or a piece of text.",
+    consequence: "Grids give the richest and most visual rules, while numbers and text give terser, more abstract games.",
+  },
+  typeArgs: {
+    question: "What shape does each object have?", section: "world", tier: "ask", control: "typeArgs", dependsOn: ["objectType"],
+    meaning: "The arguments of the object type, such as a board's size, symbols and colours, or a range of numbers.",
+    consequence: "They decide which rules can be dealt and how hard each object is to read at a glance.",
+  },
+  language: {
+    question: "Which language do agents use?", section: "world", tier: "ask", control: "select", suggested: ["python", "typescript"],
+    meaning: "Every player writes agents in this programming language.",
+    consequence: "Changing it changes how agents are written and how their summon price is counted.",
+  },
+  grammarId: {
+    question: "What shape must an agent's code have?", section: "world", tier: "more", control: "select", dependsOn: ["language"],
+    meaning: "The grammar every agent's source must follow, such as a function agent(obj) that returns a list of moves.",
+    consequence: "Each language has its own grammars, so changing the language picks one that language offers.",
+  },
+  complexityFunctionId: {
+    question: "How is an agent's summon price measured?", section: "world", tier: "more", control: "select", dependsOn: ["language"],
+    meaning: "The measure of an agent's summon price, such as the description bits of its source code.",
+    consequence: "Each language has its own measures, and under every one shorter programs cost less.",
+  },
+  utilitySelectorId: {
+    question: "How are secret goals dealt?", section: "goals", tier: "ask", control: "segmented", suggested: ["fair-aligned", "divine-lottery"],
+    meaning: "How secret goals are dealt: the Aligned Lottery deals rules that tend to want the same objects, and the Divine Lottery draws each rule at random.",
+    consequence: "The Divine Lottery produces more clashing goals, which makes negotiation harder and outcomes less fair.",
+  },
+  excludedFamilies: {
+    question: "Which rules are never dealt?", section: "goals", tier: "more", control: "checklist", dependsOn: ["objectType", "typeArgs"],
+    meaning: "Families of reward rules that are never dealt in this game.",
+    consequence: "Excluding more families makes goals more predictable, and restoring the weak families lowers fairness.",
+  },
+  defenceGoals: {
+    question: "Does every player also get something to defend?", section: "goals", tier: "ask", control: "switch",
+    meaning: "When on, every player is also dealt one defence goal from the allowed families, which costs points when objects are unusually bad for it.",
+    consequence: "Turning it on adds conflict for everyone alike, because objects can lose points as well as gain them.",
+  },
+  excludedDefenceFamilies: {
+    question: "Which defence goals can be dealt?", section: "goals", tier: "ask", control: "checklist", dependsOn: ["objectType", "typeArgs"],
+    hiddenWhen: { defenceGoals: false },
+    meaning: "The families every player's defence goal is drawn from, the rest never being dealt.",
+    consequence: "Allowing fewer families makes defence goals more predictable, and at least one must stay allowed.",
+  },
+  penaltyWeight: {
+    question: "How much does a defence bit weigh against a reward bit?", section: "goals", tier: "more", control: "number", suggested: [0.5, 1, 2],
+    hiddenWhen: { defenceGoals: false },
+    meaning: "How much one defence-goal bit counts against one reward bit.",
+    consequence: "Raising it makes defending matter more than building, and it has no effect when no defence goals are dealt.",
+  },
+  priorId: {
+    question: "What is rarity measured against?", section: "goals", tier: "more", control: "select",
+    meaning: "The reference distribution that rarity is measured against, such as uniformly random objects.",
+    consequence: "Every score is calibrated against it, so only references with shipped calibration tables can be chosen.",
+  },
+  maxAgentsPerGod: {
+    question: "How many agents may each player keep?", section: "agents", tier: "ask", control: "number", suggested: [5, 20, 50, 200],
+    meaning: "The most agents each player may have in the world at once.",
+    consequence: "Lowering it makes each agent count more and rewards careful code over swarms.",
+  },
+  commitClause: {
+    question: "May agents make their moves conditional?", section: "agents", tier: "more", control: "switch",
+    meaning: "Whether agents may wrap moves in only_if_better, so that the moves apply only if they raise their owner's payoff on that object.",
+    consequence: "Offering it makes agents safer and accidents rarer, at about 3.6 extra summon bits for each agent that uses it.",
+  },
+  stepBudget: {
+    question: "How much may an agent compute per act?", section: "agents", tier: "more", control: "number", unit: "steps", suggested: [100_000, 500_000, 2_000_000],
+    meaning: "The fixed number of computation steps an agent may use per act, so the same agent and input always fit or never do.",
+    consequence: "Lowering it allows only simple agents, and raising it allows cleverer agents at the cost of a slower world.",
+  },
+  interactionComputeMs: {
+    question: "What is the CPU safety limit per act?", section: "agents", tier: "more", control: "number", unit: "ms",
+    meaning: "A CPU-time safety limit per act behind the step budget, excluding compilation and startup.",
+    consequence: "It rarely binds, so changing it seldom matters.",
+  },
+  startingEnergy: {
+    question: "How much energy does each player start with?", section: "energy", tier: "ask", control: "number", unit: "bits", suggested: [50, 100, 200, 400],
+    meaning: "The energy, in bits, each player holds for summoning agents when planning begins.",
+    consequence: "Raising it allows bigger or more first agents and a faster start.",
+  },
+  energyPerSecond: {
+    question: "How fast does a player's energy refill?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [0.5, 1, 2, 4],
+    meaning: "The bits each player's energy gains per real-time second, including planning and pauses.",
+    consequence: "Raising it allows more summons and a busier world.",
+  },
+  agentEnergyPerSecond: {
+    question: "How fast do agents charge?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [2, 8, 16, 32, 64],
+    meaning: "The bits each agent's own energy gains per second of world time, used to pay for its acts.",
+    consequence: "Raising it makes agents act more often, so objects change faster.",
+  },
+  agentBatteryActs: {
+    question: "How many acts can an agent save up?", section: "energy", tier: "more", control: "number", unit: "acts", suggested: [1, 2, 4, 8],
+    meaning: "How many expected acts' worth of energy an agent can store before its income stops.",
+    consequence: "Raising it lets agents act in bursts after quiet spells.",
+  },
+  perActFloorBits: {
+    question: "What is the minimum price of an attempted act?", section: "energy", tier: "more", control: "number", unit: "bits", suggested: [0, 1, 2, 4],
+    meaning: "The minimum bits charged for every attempted act, whether or not it succeeds.",
+    consequence: "Raising it makes failed and wasteful moves costlier, which favours precise code.",
+  },
+  startingObjectCount: {
+    question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],
+    meaning: "How many objects the world holds when it starts running.",
+    consequence: "Raising it spreads scores across more objects, and each object changes less often.",
+  },
+  spawnRateHz: {
+    question: "How often does a new object appear?", section: "population", tier: "ask", control: "number", unit: "per s", suggested: [0, 0.1, 0.5, 1],
+    meaning: "How many new random objects appear per second of world time.",
+    consequence: "Raising it brings more fresh objects to claim, and totals grow faster.",
+  },
+  spawnFunctionId: {
+    question: "How are new objects drawn?", section: "population", tier: "more", control: "select",
+    meaning: "How each new object is drawn, such as uniformly at random from every possible object.",
+    consequence: "It decides which objects are common in the world, and uniform drawing is the only way shipped today.",
+  },
+  objectSelection: {
+    question: "Which object does an act target?", section: "population", tier: "more", control: "segmented", suggested: ["uniform", "shelter"],
+    meaning: "How an act's target object is chosen: uniformly, or with shelter, where objects many players care about are hit a little less often.",
+    consequence: "Shelter protects objects many players care about, so agreements last longer.",
+  },
+  planningSeconds: {
+    question: "How long is planning before the world starts?", section: "time", tier: "ask", control: "number", unit: "s", suggested: [30, 60, 120, 300],
+    meaning: "How long the world stays frozen at the start while players read their goals, summon agents and talk.",
+    consequence: "Lengthening it helps beginners and delays the action.",
+  },
+  halfLifeSeconds: {
+    question: "Roughly how long should games last?", section: "time", tier: "ask", control: "number", unit: "s", suggested: [120, 300, 600, 1200],
+    meaning: "The world time within which half of games end, the end itself being a hidden random moment.",
+    consequence: "Lengthening it gives more time to negotiate and makes games longer on average.",
+  },
+  interactionRateHz: {
+    question: "How fast does the world move?", section: "time", tier: "ask", control: "number", unit: "acts/s", suggested: [25, 100, 300, 1000],
+    meaning: "The maximum number of acts per second across all agents.",
+    consequence: "Lowering it makes each score easier to follow, and raising it makes the world busier and harder to read.",
+  },
+  pauseSeconds: {
+    question: "How long is each player's one pause?", section: "time", tier: "more", control: "number", unit: "s", suggested: [60, 180, 300],
+    meaning: "How long the world stops when a player uses their one pause per game.",
+    consequence: "Lengthening it gives more time to negotiate during a pause.",
+  },
+} as const satisfies Record<keyof GameSettings, FieldDoc>;
+
+/** The room budgets the configuration page also asks about (room state, not GameSettings; set by approveAiBudget). */
+export const ROOM_BUDGET_DOCS = {
+  aiBudget: {
+    question: "How many tokens may AI players use per game?", section: "players", tier: "ask", control: "number", unit: "tokens", suggested: [0, 100_000, 300_000, 1_000_000],
+    meaning: "The total tokens all AI players together may use in one game, billed to the server owner.",
+    consequence: "Too low a budget makes AI players stop acting mid-game, and dollar caps of $2 per game and $5 per day still apply.",
+  },
+  assistantBudget: {
+    question: "How many assistant tokens does each human get per game?", section: "players", tier: "ask", control: "number", unit: "tokens", suggested: [0, 50_000, 200_000, 1_000_000],
+    meaning: "The tokens each human's in-client assistant may use per game, billed to the server owner, where zero turns the assistant off.",
+    consequence: "Raising it lets players rely on the assistant for more of the game.",
+  },
+  assistantModel: {
+    question: "Which model powers the assistants?", section: "players", tier: "ask", control: "select",
+    meaning: "The AI model that powers every player's assistant in the room.",
+    consequence: "Larger models give better help at a higher cost per token.",
+  },
+} as const satisfies Record<"aiBudget" | "assistantBudget" | "assistantModel", FieldDoc>;

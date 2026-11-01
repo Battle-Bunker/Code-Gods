@@ -7,15 +7,40 @@ and one Radix popover; the logic is in framework-free modules with Node unit tes
 ## Objects
 
 Every place an object value is shown renders `<ObjectView value={…} {...objectContext(instance)} />`,
-which dispatches on the object type to the registered component:
+which dispatches on the object type to one of its registered renderers: the `renderer` prop when given, else
+the viewer's choice for that type, else the type's default.
 
-| `objectType` | component      | shows                                                                         |
-|--------------|----------------|-------------------------------------------------------------------------------|
-| `Int`        | `IntObject`    | the number                                                                    |
-| `string`     | `StringObject` | the JSON-quoted string                                                        |
-| `Grid`       | `GridObject`   | a compact board of coloured cells with glyphs; hover or click for the detail view (larger board, cell names, canonical string, colour-cue toggle) |
+| `objectType` | renderers (default first) | shows |
+|--------------|---------------------------|-------|
+| `Int`        | `text` (`IntObject`)      | the number |
+| `string`     | `text` (`StringObject`)   | the JSON-quoted string |
+| `Grid`       | `digits`, `tiles` (`GridObject`) | `digits`: one monospace line per row, each glyph (a digit, or card rank and suit) in its colour's text shade, no tiles; `tiles`: a compact board of coloured cells with a pattern or letter cue. Both open the same detail view on hover or click (larger tile board, cell names, canonical string, Display and colour-cue toggles) |
+
+The viewer's choice per type is remembered in `localStorage` under `code-gods.object-views.renderer.<type>`
+(guarded; a choice still holds for the page when storage is blocked). `objectRenderers(type)`,
+`getObjectRenderer(type)`, `setObjectRenderer(type, id)`, `subscribeObjectRenderer` and the
+`useObjectRenderer(type)` hook read and change it; both apps' palettes switch grids with `ui.objects.renderer`.
+The chosen renderer's id reaches the component as `renderer`, so one component can serve several renderers
+(the Grid's detail view stays open when the viewer switches from inside it).
 
 `objectContext(instance)` turns the API's `InstanceInfo` into the context (`objectType`, Grid args).
+
+### Annotations
+
+`ObjectView` takes `annotations` (`src/annotations.ts`; the types come from `@workspace/game-utilities`, which produces
+them): marks that show which parts of an object make up a utility's score, as quiet cues in the page's ink that never
+fight the digits' colours (no washes, glyphs or tone hues). Grid `cells` (weighted) are underlined in digits and outlined
+in tiles; a grid `region` is one outline around the group; string `spans` and Int `digits` (positions from the left, past
+the sign) are underlined; `badge`s are chips after the object. Tones differ by the line's style (`TONE_DECORATION`): good
+solid, bad dotted, neutral dashed. Weight sets its thickness (`underlinePx`) and opacity (`cueOpacity`). The labels make
+the legend, each after its cue drawn inline (`ToneCue`): the grid detail view (`grid-object-legend`), the trigger's
+tooltip and the accessible label ("solid underline: …"), and `AnnotationLegend` for lists. Helpers: `mergeAnnotations`,
+`annotationLegend`, `legendText`, `annotationBadges`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`,
+`cueColour`.
+
+The payoff's two dimensions and its strength have fixed colours (`src/dimensions.ts`): `DIMENSION_COLOURS` (yours,
+others; `dimensionVar`, `--cg-yours` / `--cg-others`) and `SCORE_RAMP` (`rampVar`, `rampHex`, `relativeStrength`;
+`--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`). Who produces annotations: docs/panels.md "Annotations".
 `TransformationView` shows before → after; on grids the changed cells are outlined. When the type is
 unknown, numbers render as Int, strings that parse as a grid of at least 2×2 as Grid, others as string.
 
@@ -23,6 +48,15 @@ To add an object type, write one component taking `ObjectViewProps` and register
 
 ```tsx
 objectViews.register({ type: "Tree", component: TreeObject, infer: (v) => isTree(v) });
+```
+
+or give it several renderers, one of them the default:
+
+```tsx
+objectViews.register({ type: "Tree", defaultRenderer: "outline", infer: isTree, renderers: [
+  { id: "outline", label: "Outline", blurb: "Indented text.", Component: TreeOutline },
+  { id: "drawing", label: "Drawing", blurb: "Boxes and lines.", Component: TreeDrawing },
+] });
 ```
 
 ## Kid-facing components
@@ -43,10 +77,19 @@ Settings deltas and the draft rule shelf are computed client-side with `@workspa
 
 ## Grid accessibility
 
-Hue is never the only cue. Each colour has a distinct pattern (`COLOUR_PATTERNS`) drawn in its `ink`
-colour, and its letter (R O Y G B V) is shown in the detail view. Viewers can switch compact cells
-between patterns and letters; the choice is remembered in `localStorage` (guarded). Every css/ink pair
-meets WCAG AA. Compact grids are `role="img"` with a row-by-row text summary.
+In tiles, each colour has a distinct pattern (`COLOUR_PATTERNS`) drawn in its `ink` colour, and its
+letter (R O Y G B V) is shown in the detail view. Viewers can switch compact cells between patterns and
+letters; the choice is remembered in `localStorage` (guarded). Tiles are filled with the colour set's bright
+shades (`DIGIT_SHADES[set].dark`) under a dark glyph (`TILE_INK`, 4.5:1 or better on each). In digits, the
+glyphs are coloured per colour SET with `DIGIT_SHADES` (`--cg-ink-<set>-<letter>`, rainbow6 and unknown sets
+`--cg-ink-<letter>`, in both apps' `index.css`, the light shade as fallback). Each set's shades were derived
+together (`scripts/derive-palettes.ts`, `src/colour-science.ts`): the smallest pairwise CIEDE2000 plus the
+smallest OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (the last standing in for small-field
+tritanopia at digit size, where a blue and a green of one lightness collapse) is maximised, subject to 4.5:1 on
+the page, card, popover and muted surfaces of the scheme, a hue that still reads as the colour's name
+(`NAME_HUES`), OKLCH chroma ≥ 0.1, and a dark gold for yellow on light pages. The Letter cue appends the colour letter to each digit; changed cells are
+underlined and bold. Compact grids are `role="img"` with a row-by-row text summary, and the detail view
+always names every cell's colour.
 
 ## Styling
 
@@ -56,6 +99,9 @@ app's `src/index.css` has `@source "../../../lib/object-views/src";`.
 ## Checks
 
 - `pnpm --filter @workspace/object-views test`: rarity and penalty wording, locked reasons, catalog
-  grouping, settings snapping and badges, dispatch, grid display model, contrast and cue tests.
+  grouping, settings snapping and badges, dispatch, renderers and the viewer's choice, grid display model,
+  digit lines, the annotation helpers (merging, legend, cell and character marks, region outlines, weight encodings),
+  contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
+  floors, name hues, and that both `index.css` files carry the same values), and the payoff colours and ramp.
 - The Playwright smoke tests of both apps (`pnpm --filter @workspace/code-gods run e2e`, see
   `artifacts/code-gods/e2e/smoke.ts`) exercise these components in the real pages at desktop and phone width.

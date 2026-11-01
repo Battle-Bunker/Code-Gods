@@ -7,15 +7,20 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
+import { CORE_TOOLS, SHORT_MAX, TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
+import { CATALOG } from "../src/catalog.ts";
+import { PANEL_IDS } from "../src/panels.ts";
 import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
-  "evaluate_value", "get_chat", "get_receipt", "list_panels", "get_panel"];
+  "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout",
+  "run_code", "get_code_run", "list_code_runs", "list_code_objects", "load_skill"];
 const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine",
-  "save_panel", "rollback_panel", "place_panel", "delete_panel"];
+  "save_setup", "duplicate_setup", "delete_setup", "save_panel", "rollback_panel", "delete_panel", "open_panel", "set_panel_params", "move_pane", "close_pane"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
+/** Tools whose executor reaches no public function: an engine-internal path (the sandbox, the skills). */
+const ENGINE_INTERNAL = ["evaluate_value", "run_code"];
 const uuid = "6a1f8b7e-3c2d-4e5f-8a9b-0c1d2e3f4a5b";
 
 test("registry: exactly the planned tools, snake_case, each with title, description, annotations and permission", () => {
@@ -30,7 +35,49 @@ test("registry: exactly the planned tools, snake_case, each with title, descript
   for (const name of ACT) assert.equal(tool(name).permission, "act", name);
   for (const name of OWNER) assert.equal(tool(name).permission, "owner", name);
   for (const name of READ) assert.equal(tool(name).annotations.readOnlyHint, true, `${name} is read-only`);
-  for (const name of ["destroy_agent", "end_game", "remove_ai", "delete_panel"]) assert.equal(tool(name).annotations.destructiveHint, true, name);
+  for (const name of ["destroy_agent", "end_game", "remove_ai", "delete_panel", "delete_setup"]) assert.equal(tool(name).annotations.destructiveHint, true, name);
+});
+
+test("descriptions come from the catalogue unless a tool wraps a shared function and says its own about", () => {
+  const shared = new Set(["commands.submit", "layout.set", "auth.user.me", "rooms.get"]);
+  for (const t of TOOLS) {
+    const first = t.functions[0];
+    if (!first) { assert.ok(ENGINE_INTERNAL.includes(t.name), `${t.name}: only engine-internal tools reach no public function`); continue; }
+    if (!shared.has(first)) assert.ok(t.description.startsWith(CATALOG[first as keyof typeof CATALOG].ai.description), `${t.name} starts with ${first}'s AI description`);
+    else assert.ok(!t.description.startsWith(CATALOG[first as keyof typeof CATALOG].ai.description), `${t.name} describes itself, not the shared ${first}`);
+    assert.ok(t.description.length >= 40 && t.description.length <= 700, `${t.name} description is bounded (${t.description.length})`);
+  }
+  assert.equal(tool("wake_engine").description, CATALOG["activity.touch"].ai.description, "a tool without a note is the catalogue text");
+  assert.match(tool("summon_agent").description, /confirms first/);
+  for (const t of TOOLS) assert.ok(t.title.length >= 3 && t.title.length <= 60, `${t.name} has a short title`);
+});
+
+test("every tool has a one-line short form for the index; the core set is a few existing tools including the skill loader", () => {
+  const shorts = new Set<string>();
+  for (const t of TOOLS) {
+    assert.ok(t.short.length >= 20 && t.short.length <= SHORT_MAX, `${t.name}: short is 20..${SHORT_MAX} characters (${t.short.length})`);
+    assert.match(t.short, /^[A-Z][^\n]*\.$/, `${t.name}: one sentence`);
+    assert.doesNotMatch(t.short, /confirm/i, `${t.name}: the index adds "(confirmed)" itself`);
+    assert.ok(!shorts.has(t.short), `${t.name}: short lines are distinct`);
+    shorts.add(t.short);
+  }
+  assert.ok(CORE_TOOLS.length <= 6 && CORE_TOOLS.every(name => TOOL_NAMES.includes(name)) && CORE_TOOLS.includes("load_skill"));
+  assert.ok(tool("open_panel").description.length <= 450, "a core tool's description is short; its guidance lives in the screen skill");
+});
+
+test("layout tools: open_panel takes a built-in panel id from the enum or a stored panel's slug; places are validated; ids are bounded", () => {
+  const open = tool("open_panel");
+  assert.deepEqual((toolJsonSchemas().open_panel.input as { properties: { panelId: { enum: string[] } } }).properties.panelId.enum, [...PANEL_IDS]);
+  assert.equal(open.input.safeParse({ panelId: "objects" }).success, true, "params are optional");
+  assert.equal(open.input.safeParse({ panelId: "stored" }).success, false, "a built-in panel id comes from the enum");
+  assert.equal(open.input.safeParse({ slug: "my-panel" }).success, true, "a stored panel by slug");
+  assert.equal(open.input.safeParse({ slug: "Not A Slug" }).success, false, "slugs are kebab-case");
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { direction: "sideways" } }).success, false);
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { relativeTo: "p1", direction: "tab" } }).success, true);
+  assert.equal(tool("move_pane").input.safeParse({ paneId: "p2" }).success, false, "a move needs a place");
+  assert.equal(tool("set_panel_params").input.safeParse({ paneId: "p1" }).success, false, "params are required here");
+  assert.equal(tool("close_pane").input.safeParse({ paneId: "" }).success, false);
+  for (const name of ["get_layout", "open_panel", "set_panel_params", "move_pane", "close_pane"]) assert.ok(tool(name).functions.includes(name === "get_layout" ? "layout.current" : "layout.set"), name);
 });
 
 test("permission matrix: a grant lists exactly the tools at or below it", () => {

@@ -5,6 +5,7 @@ import {
   RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product,
   pyCard, range, recolour, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
+import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const lineWord = (dir: "rows" | "cols") => (dir === "rows" ? "row" : "column");
 const pyLines = (dir: "rows" | "cols") => (dir === "rows" ? "grid.rows" : "grid.columns");
@@ -247,6 +248,7 @@ const bingoText = (p: BingoP, g: GridSpec): CardText => {
 };
 const bingoCaller = gridFamily<BingoP>({
   id: "bingo_caller", name: "Bingo Caller", emoji: "🎱", theme: "Dab your called numbers",
+  analytic: solvedAnalytic("bingo_caller"),
   shape: SCALAR, tags: ["shortlist"],
   support: g => [...combinations(g.ranks, calledCount(g))].map(called => ({ called })),
   sample: (rng, g) => ({ called: choose(rng, range(g.ranks), calledCount(g)).sort((a, b) => a - b) }),
@@ -304,6 +306,7 @@ const sudokuText = (p: SudokuP, g: GridSpec): CardText => {
 };
 const sudoku = gridFamily<SudokuP>({
   id: "sudoku_scholar", name: "Sudoku Scholar", emoji: "🔢", theme: "No number twice in a line",
+  analytic: solvedAnalytic("sudoku_scholar"),
   // All or nothing at N <= 4: grid-lab pads the tuple with a constant 0, the card returns 0 or 1.
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],
   support: () => (["rows", "cols", "both"] as const).map(dir => ({ dir })),
@@ -393,6 +396,7 @@ const houseText = (p: HouseP, g: GridSpec): CardText => ({
 });
 const fullHouse = gridFamily<HouseP>({
   id: "full_house", name: "Full House", emoji: "🏠", theme: "Rows read like poker hands",
+  analytic: solvedAnalytic("full_house"),
   shape: SCALAR, tags: ["shortlist"],
   support: () => [{ dir: "rows" }, { dir: "cols" }],
   canonical: () => ({ dir: "rows" }),
@@ -719,6 +723,7 @@ const unoText = (p: UnoP): CardText => ({
 });
 const unoSnake = gridFamily<UnoP>({
   id: "uno_snake", name: "Uno Snake", emoji: "🐍", theme: "A zig-zag walk where every step matches", shape: SCALAR,
+  analytic: solvedAnalytic("uno_snake"),
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
   summary: p => unoText(p).about,
@@ -886,6 +891,7 @@ const fourText = (p: FourP, g: GridSpec): CardText => ({
 });
 const connectFour = gridFamily<FourP>({
   id: "connect_four", name: "Connect Four", emoji: "🔴", theme: "Four in a row, stacked from the bottom",
+  analytic: solvedAnalytic("connect_four"),
   requires: { minSize: 4 }, shape: tuple(2),
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),

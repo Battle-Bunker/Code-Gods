@@ -145,3 +145,33 @@ Every assistant surface uses one agent interface: the tool registry (lib/player-
 **Why:** The owner wants Replit, Claude artifacts and an in-client assistant to plug into exactly the same interfaces. That interface has to let them act, query state and history, and live-update the client UI.
 
 **How to apply:** New agent capabilities are registry tools, run inside Convex as the human behind a revocable credential (principal = credential), never a surface-specific API. Live UI changes are stored panels: TSX in Convex, compiled on save, rendered in sandboxed frames by every open client. The in-client assistant uses the same executors, is off until the room owner approves an allowance, and asks the player to confirm public chat, summons, pauses and owner actions.
+
+Every public Convex function has an entry in one typed catalogue (lib/player-client/src/catalog.ts: `CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from the generated `api` type) with documentation for humans (title, tooltip) and for the AI (description), the tools that reach it, and a palette spec or a `why`.
+
+**Why:** The owner wants every affordance a player has to be available and documented for their assistant, enumerated in one place that forks into the human and the AI API, with the documentation required by the type system (2026-10-31).
+
+**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palette in both apps read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
+
+The player client is a dock of panes: built-in panels, the human's stored panels and exactly one assistant pane (never closable). A human picks a pane's panel from a menu; a panel's parameters are set only by the assistant, through the layout tools.
+
+**Why:** The owner centred the interface on the assistant, wants IDE-style movable panes with one analytics panel over the chat by default, and wants every panel parameterised by the AI rather than by controls (docs/ui-redesign.md, 2026-10-31).
+
+**How to apply:** Panel metadata and the layout tree are pure modules in lib/player-client (`panels.ts`, `layout.ts`) shared by the engine (validation in `convex/layout.ts`, one row per human per room in `dockLayouts`) and the client (rendering). New views are panels with zod parameter schemas whose fields all default (so the client is complete with the assistant off); the assistant changes the screen only through `open_panel` (a built-in panel by id or a stored panel by slug), `set_panel_params`, `move_pane` and `close_pane` (no confirmation card, at most two per step, never a pane the player arranged unless asked). Do not reintroduce per-panel controls, dock regions or a per-human-only layout.
+
+The things a player adds to their workspace are called **panels**, never "lenses": the built-in ones are panels ("Panels" in menus), a player's own TSX ones are stored panels ("Your panels"). One tool, `open_panel`, opens either.
+
+**Why:** The owner's instruction (2026-10-31): "Use the term panel instead of lens for the things that can be added to one's player workspace." The rename was a clean break: no aliases, no deprecated names; stored layouts with the old pane kind reset to the default layout.
+
+**How to apply:** Use "panel" in code, UI copy, tool names, test ids and docs (`PanelId`, `kind: "panel"`, `open_panel`, `set_panel_params`, `ui.panel.*`, `menu-panel`). Built-in renderers live in `artifacts/player-web/src/core/panels/`; `src/panels/` stays the file-panel folder. Say "built-in panel" or "stored panel" where the two could be confused. The research documents under `docs/research/ui-redesign/` keep the old word as history.
+
+Game setups are a seeded catalogue of complete settings; a settings change enforces only the game's own dependencies.
+
+**Why:** The owner (2026-10-31) asked to remove the configuration page's "Start from" presets, to turn them into a seed catalogue of default game setups, and to delete the confusing, buggy guidance toward partial preset collections of settings (retuning toward tuned type defaults, option repair, snapping, "Recommended" resets), implementing clean mutations for the degrees of freedom that enforce exactly the invariants and dependencies the model defines, and no more.
+
+**How to apply:** A setup is a named complete `GameSettings` (`gameSetups`, `convex/setups.ts`): the defaults come from game-core `SEED_SETUPS`, are seeded once and only admins change them; every human may save their own. `owner.settings` takes a `setupId` or the fields to change, and every change (UI control, engine request) goes through game-core `applySettingsChange`: a language sets its grammar and summon price, an object type its default offered instantiation, type arguments must be offered, excluded families that no longer exist are dropped, option fields must be choices of the language and type; everything else is free within `validateSettings`. Tuned type defaults (`typeDefaults`, `defaultSettingsFor`) only build the seed setups. Do not reintroduce partial presets, retuning, or fields that move to "suit" another.
+
+An ended game stays inspectable in its frozen final state: nothing the player could see while it ran disappears when it ends.
+
+**Why:** The owner's instruction (2026-10-31): "Do not make any information disappear when the game ends. The entire structure of the game should continue to be inspectable in frozen state after the game ends." (My agents had shown only a placeholder sentence after the end.)
+
+**How to apply:** Every built-in panel with game data lists `ended` in its phases (`lib/player-client/src/panels.ts`, linted by `test/panels.test.ts`); `results` is only the default once the game is over. Panels show the final tick (clocks stop: god energy at `endedAt`, world time at its last value) and refuse actions with a visible reason instead of hiding the panel (forge: Validate and Summon off with a line saying why). The engine never deletes or collapses an ended game's rows; reads (observation, events, trajectories, myUtility, layout, the assistant's tools) serve it until the room's next game, then by game id. The assistant briefs an ended game as its frozen final state, never as a lobby. Chat stays open after the end (it belongs to the room). Do not add a phase gate that blanks a panel or a read on `ended`.

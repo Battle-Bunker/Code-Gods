@@ -4,15 +4,20 @@ import type { UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
 
 export interface SelectOptions {
-  /** Probability that a god is also dealt a defence goal (a penalty family). Default 0: opt-in. */
-  readonly defenceRate?: number;
+  /**
+   * Defence goals (settings.defenceGoals): when true EVERY god is also dealt exactly one defence goal (a penalty
+   * family), and when false (the default: opt-in) none is. Never a per-god chance: a defence goal is a handicap.
+   */
+  readonly defenceGoals?: boolean;
   /**
    * Only deal draws that have calibration tables. Called with the raw draw (the predicate canonicalises it, e.g.
    * through `family.canonical`). Default: every draw has one.
    */
   readonly hasTable?: (draw: Draw) => boolean;
-  /** Family ids never dealt in this game (settings.excludedFamilies). */
+  /** Reward family ids never dealt in this game (settings.excludedFamilies). */
   readonly exclude?: readonly string[];
+  /** Defence family ids never dealt in this game (settings.excludedDefenceFamilies). */
+  readonly excludeDefence?: readonly string[];
   /** The rarity prior (settings.priorId); selects the synergy matrix. Default "uniform". */
   readonly priorId?: string;
 }
@@ -51,20 +56,20 @@ export const divineLottery: UtilitySelector = {
   name: "Divine Lottery",
   description: "Every god independently draws a random utility function from the families available for this kind of "
     + "object. Identical draws are redrawn; anything else, including two gods of the same family, can happen. With "
-    + "defence goals on, each god may also be dealt something to hate.",
+    + "defence goals on, every god is also dealt something to hate from the allowed defence goals.",
   select(inst, godCount, rng, options = {}) {
     const hasTable = options.hasTable ?? (() => true);
-    const rate = Math.min(1, Math.max(0, options.defenceRate ?? 0));
+    const defence = options.defenceGoals === true;
     const rewards = availableFamilies(inst, "reward", options.exclude);
-    const penalties = rate > 0 ? availableFamilies(inst, "penalty", options.exclude) : [];
+    const penalties = defence ? availableFamilies(inst, "penalty", options.excludeDefence) : [];
     const chosen: UtilityDescriptor[] = [];
     const seen = new Set<string>();
     for (let attempt = 0; chosen.length < godCount; attempt++) {
       if (attempt > ATTEMPTS * Math.max(1, godCount)) throw new Error(`Not enough distinct utility functions for ${inst.key}`);
       const reward = drawFrom(rewards, inst, rng, hasTable);
       if (!reward) throw new Error(`No calibrated utility family is available for ${inst.key}`);
-      // Defence goal with probability `rate` (resolution 1e-6).
-      const penalty = rate > 0 && rng.int(1_000_000) < Math.round(rate * 1_000_000) ? drawFrom(penalties, inst, rng, hasTable) : null;
+      const penalty = defence ? drawFrom(penalties, inst, rng, hasTable) : null;
+      if (defence && !penalty) throw new Error(`No calibrated defence goal is allowed for ${inst.key}`);
       const descriptor: UtilityDescriptor = penalty ? { ...reward, penalty } : reward;
       const key = paramsKey(descriptor);
       if (seen.has(key)) continue;

@@ -22,6 +22,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
+import { gameTables } from "./calibration";
 import { cryptoRng, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
@@ -71,6 +72,8 @@ export const run = internalAction({
       phase = "running"; lastTick = deadline;
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
+    // The game's tables (only a simulating tick needs them): shipped, analytic or computed at the start; memory after the first.
+    const tables = await gameTables(ctx, settings, snap.deities.map(d => d.utility as UtilityDescriptor));
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);
@@ -101,7 +104,7 @@ export const run = internalAction({
         // The commit clause: commit only if the act strictly raises the owner's own payoff on this object.
         if (!settings.commitClause) outcome = { ok: false, reason: "this room does not offer the commit clause", cost: outcome.cost };
         else if (!occupied.has(outcome.value)) {
-          next = scoresOf(settings, deals, outcome.value);
+          next = scoresOf(tables, settings, deals, outcome.value);
           if (!(ownPayoff(next, agent.ownerId) - ownPayoff(object.scores, agent.ownerId) > 0)) {
             outcome = { ok: false, reason: "the commit clause kept the object: it would not raise your points", cost: outcome.cost };
           }
@@ -114,7 +117,7 @@ export const run = internalAction({
       if (outcome.ok && !duplicate) {
         occupied.delete(object.value); occupied.add(outcome.value);
         object.value = outcome.value; object.version++; object.changed = true;
-        object.scores = next ?? scoresOf(settings, deals, outcome.value);
+        object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
           agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster) });
@@ -167,7 +170,7 @@ export const run = internalAction({
         const value = uniqueSpawn(settings, occupied);
         if (value === undefined) return false;
         occupied.add(value);
-        const scores = scoresOf(settings, deals, value), tmp = `tmp:${spawns.length}`;
+        const scores = scoresOf(tables, settings, deals, value), tmp = `tmp:${spawns.length}`;
         spawns.push({ tmp, value, scores, salience: salienceOf(scores) });
         events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world, net: net(scores, roster) });
         return true;

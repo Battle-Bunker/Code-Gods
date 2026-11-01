@@ -9,18 +9,20 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { fail } from "./lib/errors";
+import { seed as seedSetups } from "./setups";
 
 const dev = () => {
   if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
 };
 
 export const seedUser = internalMutation({
-  args: { subject: v.string(), name: v.string(), email: v.optional(v.string()), emailVerified: v.optional(v.boolean()) },
+  args: { subject: v.string(), name: v.string(), email: v.optional(v.string()), emailVerified: v.optional(v.boolean()), provider: v.optional(v.literal("fake")) },
   handler: async (ctx, args) => {
     dev();
     const existing = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", args.subject)).unique();
     const now = Date.now();
-    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: "test", updatedAt: now };
+    // provider "fake" with a verified ADMIN_EMAILS address makes an admin (auth/identity.ts isAdminUser; dev.mjs allows admin@example.test).
+    const doc = { subject: args.subject, name: args.name, email: args.email, emailVerified: args.emailVerified ?? false, provider: args.provider ?? "test", updatedAt: now };
     if (existing) await ctx.db.replace(existing._id, doc);
     else await ctx.db.insert("users", doc);
     // Browser JWTs name a Better Auth session (`sessionId`) that access.ts checks: return one for impersonated
@@ -49,6 +51,17 @@ export const patchCredential = internalMutation({
   handler: async (ctx, { credentialId, patch }) => {
     dev();
     await ctx.db.patch(credentialId, patch);
+  },
+});
+
+/** Empty the retired `panelLayouts` table so a follow-up can drop it from the schema (docs/ui-redesign.md §2.4). */
+export const clearPanelLayouts = internalMutation({
+  args: {},
+  handler: async ctx => {
+    dev();
+    let cleared = 0;
+    for (const row of await ctx.db.query("panelLayouts").take(1000)) { await ctx.db.delete(row._id); cleared++; }
+    return { cleared };
   },
 });
 
@@ -83,6 +96,32 @@ export const patchRoom = internalMutation({
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "no room");
     await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}), ...(aiBudget !== undefined ? { aiBudget } : {}) });
+  },
+});
+
+/** Put the system setups back as shipped (the seed sync does exactly that). */
+export const resetSeedSetups = internalMutation({
+  args: {},
+  handler: async ctx => { dev(); await seedSetups(ctx); },
+});
+
+/**
+ * Put a room, game or setup back into its pre-setups-v2 shape (raw `settings`; for rooms and games a legacy
+ * `settingsOrigin` and no setupId), so the migration test (test/game-migration.test.ts) has legacy documents to migrate.
+ */
+export const makeLegacy = internalMutation({
+  args: { roomId: v.optional(v.id("rooms")), gameId: v.optional(v.id("games")), setupId: v.optional(v.id("gameSetups")), settings: v.any(), settingsOrigin: v.optional(v.any()) },
+  handler: async (ctx, { roomId, gameId, setupId, settings, settingsOrigin }) => {
+    dev();
+    const legacy = { settings, settingsOrigin, setupId: undefined, setupName: undefined };
+    if (roomId) await ctx.db.patch(roomId, legacy);
+    const game = gameId ? await ctx.db.get(gameId) : null;
+    if (game) {
+      const summary = game.summary as Record<string, unknown> | undefined;
+      const { setup: _s, ...rest } = summary ?? {};
+      await ctx.db.patch(game._id, { ...legacy, ...(summary ? { summary: { ...rest, settings, settingsOrigin } } : {}) });
+    }
+    if (setupId) await ctx.db.patch(setupId, { settings });
   },
 });
 

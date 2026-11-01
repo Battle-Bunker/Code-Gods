@@ -32,6 +32,7 @@ pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # play
 (cd artifacts/engine && npx convex deploy)                                # push again so auth.config.ts inlines both JWKS
 pnpm --filter @workspace/game-runtime setup:python                        # once: the pinned CPython WASI download
 pnpm --filter @workspace/engine upload-runtime --prod                     # the Python runtime bundle → file storage
+pnpm --filter @workspace/engine upload-calibration --prod                 # the calibration tables → file storage (a warm cache: a shape without them prepares its tables on its first game)
 pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the engine UI and /player/
 ```
 
@@ -60,12 +61,29 @@ again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
    `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PLAYER_JWT_PRIVATE_KEY`,
    `PLAYER_JWT_JWKS`, `SEASON_SALT` or `ADMIN_EMAILS` is missing, or a test-only variable is set.
 
-Each run (one at a time per environment): install, root typecheck and the offline unit suites, the
-pinned Python runtime bundle (the CPython download is cached), `npx convex deploy` (it accepts dev and
-production deploy keys alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set →
-push again), `upload-runtime` (skipped when the bundle is already there), `deploy-static`, and a smoke
-test (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`). Re-run a failed run from the Actions
-tab; a manual run ("Run workflow") works on `develop` and `main` only.
+Each deploy (one at a time per environment): install, the pinned Python runtime bundle (the CPython
+download is cached) and a check that the sandbox worker build is current, `npx convex deploy --typecheck
+enable` (it typechecks every function, validates the schema, and accepts dev and production deploy keys
+alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again),
+`upload-runtime` (skipped when the bundle is already there), `upload-calibration` (uploads only the calibration files
+whose bytes changed and removes instances no longer in git, right after the push; the engine loads them lazily, and a
+new shape is offered within a minute; a push that changes table keys, e.g. an edited card, leaves the affected tables
+stale for the seconds until this step lands), `deploy-static --if-changed` (both sites
+build in parallel; a site whose build hashes to the deployment's env var `STATIC_SHA256_ENGINE` /
+`STATIC_SHA256_PLAYER`, recorded at its last upload, isn't uploaded again), and a smoke test
+(`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`, and `calibration/node:probe` loading the Grid default's
+tables from storage).
+
+**The gate differs by branch.** The root typecheck, `pnpm run test:offline` (every offline unit suite), `calibrate --check`
+and the `game-runtime` sandbox tests run before every **production** deploy, inside the deploy job. On
+**`develop`** they run in the parallel `checks` job instead, so a change reaches dev in about 1½–2 minutes.
+A failure there marks the commit red but doesn't hold back the dev deploy, so fix or revert it before
+merging `develop` into `main`. A newer push to `develop` cancels the dev deploy still running; production
+deploys never cancel. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/` don't deploy.
+
+Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
+Release `develop` → `main` with a pull request whose head is a short-lived branch cut from `develop`, never
+`develop` itself: merging deletes the head branch.
 
 The local scripts (`scripts/dev.mjs`, `test:auth`, the e2e scripts, the player-client tests) refuse to run
 while `CONVEX_DEPLOY_KEY` is set or `CONVEX_DEPLOYMENT` names a cloud deployment: they set test-only env
@@ -91,7 +109,7 @@ Smoke test: `/` loads and a real Google sign-in works (the account chooser appea
 in with your full name); `/api/health` answers;
 `npx convex run --prod runtime/probe:smoke` (in `artifacts/engine`) runs one act per language; the
 AI library shows which providers are configured. Then create a room, connect one player app and play
-the "First steps" preset.
+the "First steps" setup.
 
 The admin check reads `ADMIN_EMAILS` on every call: no new sign-in is needed after changing it.
 Open **AI library** to create or edit named agent templates. The seeded Sonnet Strategist uses
@@ -163,7 +181,7 @@ a modified client can do no more than its human could, and never sees opponents'
 
 ## First smoke game
 
-Start with three humans, or two humans and one AI. Use the "First steps" preset (Grid 4×4) or Int, a
+Start with three humans, or two humans and one AI. Use the "First steps" setup (Grid 4×4) or Int, a
 short planning phase and the default world rates. A valid first summon is an agent that returns
 mutator calls. Int, Python:
 
@@ -201,7 +219,7 @@ public message, and try one pause. Then revoke and reconnect a player app.
 
 ```sh
 pnpm install
-pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399)
+pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399); uploads the calibration tables
 pnpm --filter @workspace/engine upload-runtime    # Python runtime bundle → the local deployment
 pnpm --filter @workspace/engine deploy-static     # engine UI at http://127.0.0.1:3211/, player client at /player/
 ```
@@ -225,6 +243,23 @@ Tests that use the local backend: `pnpm --filter @workspace/engine test:game`,
 `pnpm --filter @workspace/code-gods run e2e` (Playwright, three signed-in browsers). Tests without an
 engine: `pnpm run typecheck`, `pnpm --filter @workspace/game-runtime test` (after
 `setup:python` and `build:python`), and the `lib/game-*`, `lib/object-views` and `lib/ai-player` tests.
+
+### Testing the assistant against a real provider locally
+
+The local deployment's assistant normally uses the mock (`AI_MOCK=1`). To try it against Anthropic while the AI
+seats stay mocked, put a Console API key in your shell as `CODE_GODS_ANTHROPIC_API_KEY` and run
+`pnpm --filter @workspace/engine assistant:live`: it copies the key into the **local** deployment as
+`ANTHROPIC_API_KEY` (through a private temp file, never printed) and sets `ASSISTANT_LIVE=1`, which takes effect
+without a restart. If the shell also has `CODE_GODS_OPENAI_API_KEY` (or `OPENAI_API_KEY`), it is copied as
+`OPENAI_API_KEY` for rooms on an OpenAI model. `assistant:status` reports the mode without the key, and `assistant:mock` removes both; every
+`dev` start also removes them, so the mock-scripted suites never spend money. The script refuses anything but the
+anonymous loopback deployment; the cloud deployments keep their own keys (`npx convex env set`, above).
+`pnpm --filter @workspace/engine test:assistant-live` then runs four real turns (a streamed answer, a tool call, a
+clipped tool result, a cancellation) and prints each step's reservation, input estimate, cache reads and writes and
+billed tokens: about USD 0.15 with the cheapest catalogued Anthropic model (`CG_ASSISTANT_MODEL=gpt-4.1-mini` runs
+OpenAI for about USD 0.01); it skips while the assistant is mocked. After a tool result the Messages API has been
+seen to send the whole answer in one burst, so streamed text then appears all at once; that is the provider, not
+the engine.
 
 ## Verification boundary
 

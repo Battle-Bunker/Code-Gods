@@ -1,68 +1,182 @@
-import { useEffect, useRef } from "react";
+/**
+ * The room page (palette-and-pages.md §3.3): the room's code, owner and creation date; one status sentence and one
+ * filled button from nextStep; then Players, Public chat, Next game (the Setup combobox and "See all settings →")
+ * and Past games, collapsed. Everything else is in the palette.
+ */
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { api, useLive } from "@/lib/convex";
 import { catalogOf, type RoomState } from "@/lib/types";
 import { useRun } from "@/hooks/use-run";
 import { useSendChat } from "@/hooks/use-chat";
-import { Shell, ErrorLine } from "@/components/shell";
-import { GameRules } from "@/components/game-rules";
-import { Chat, Conn, ReadOnlySettings, Repertoire, ScoringPanel } from "@/components/game-panels";
-import { History, Members, OwnerSettings, PlayerApps } from "@/components/room-panels";
 import { useAuth } from "@/hooks/use-auth";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
-import { errMsg } from "@/lib/errors";
-import { fmtWhen, isoWhen } from "@/lib/time";
 import { useManifest } from "@/hooks/use-manifest";
-import { ArrowRight, Copy, Crown, Radio } from "lucide-react";
+import { Page, usePage } from "@/components/layout";
+import { Action, Tip } from "@/components/action";
+import { StepAction } from "@/components/step-action";
+import { EmptyState, ErrorLine, KeyValueStrip, NextStepBar, Section } from "@/components/page-parts";
+import { PastGameRow } from "@/components/sheets";
+import { Chat, SettingsList, UtilityFamilies, settingsSummary } from "@/components/game-panels";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { nextStep } from "@/lib/next-step";
+import { SetupPicker, setupTitle } from "@/components/setup-picker";
+import { errMsg, fmt } from "@/lib/errors";
+import { fmtWhen, isoWhen } from "@/lib/time";
+import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
+import type { GameRecord } from "@/lib/types";
 
-function Header({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
-  const { toast } = useToast();
-  const copy = () => { navigator.clipboard.writeText(new URL(`/rooms/${room.shortCode}`, window.location.origin).href).then(() => toast({ title: "Room link copied" }), () => toast({ title: "Could not copy room link", variant: "destructive" })); };
+function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; minPlayers: number }) {
+  const { act, manifest } = usePage();
+  const runner = useRun();
+  const [armed, setArmed] = useState<string | null>(null);
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(null), 5000); return () => clearTimeout(t); }, [armed]);
+  const g = room.activeGame;
+  const seated = (id: string) => !!g && g.roster.some(r => r.id === id);
+  const open = g ? 0 : Math.max(0, minPlayers - room.members.length);
   return (
-    <div className="border-b bg-card/70">
-      <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid md:grid-cols-[1fr_auto] gap-6 items-end">
-        <div className="rise">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="label-mono">Room</span>
-            <button onClick={copy} className="font-mono text-sm border px-2 py-0.5 inline-flex items-center gap-1.5 hover:bg-muted" title="Copy room link" data-testid="button-copy-link">{room.shortCode}<Copy className="h-3 w-3" /></button>
-            {isOwner && <span className="label-mono inline-flex items-center gap-1 !text-accent"><Crown className="h-3 w-3" /> you own this room</span>}
-            <span className="label-mono">rev {room.revision}</span>
-          </div>
-          <h1 className="font-display text-5xl md:text-7xl leading-none mt-3" data-testid="text-room-code">{room.shortCode}</h1>
-        </div>
-        <div className="grid grid-cols-2 gap-px bg-border border">
-          <div className="bg-card px-4 py-2 min-w-[160px]">
-            <div className="label-mono">owner</div>
-            <div className="text-lg inline-flex items-center gap-1.5" data-testid="text-room-owner"><Crown className="h-4 w-4 text-accent" />{room.ownerName}</div>
-          </div>
-          <div className="bg-card px-4 py-2 min-w-[160px]">
-            <div className="label-mono">created</div>
-            <div className="text-lg" data-testid="text-room-created"><time dateTime={isoWhen(room.createdAt)}>{fmtWhen(room.createdAt)}</time></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <Section title="Players" count={room.members.length}>
+      <ul className="divide-y">
+        {room.members.map(m => (
+          <li key={m.id} className="px-4 py-2.5 flex items-center gap-3" data-testid={`row-member-${m.id}`}>
+            {m.kind === "ai" ? <Bot className="h-4 w-4 text-accent shrink-0" aria-label="AI player" /> : <User className="h-4 w-4 text-primary shrink-0" aria-label="Human player" />}
+            <span className="flex-1 min-w-0 text-sm">
+              <span className="block truncate">{m.name}{m.id === meId && <span className="text-muted-foreground"> (you)</span>}{m.id === room.ownerId && <Crown className="inline h-3.5 w-3.5 ml-1.5 text-accent" aria-label="room owner" />}</span>
+              <span className="block text-xs text-muted-foreground" data-testid={`text-member-seat-${m.id}`}>
+                {g ? (seated(m.id) ? "in the game" : "plays the next game") : [m.id === room.ownerId ? "owner" : m.kind === "ai" ? `AI · ${m.model ?? m.provider ?? ""}` : null, m.ready ? "ready" : null, m.status ?? null].filter(Boolean).join(" · ")}
+              </span>
+            </span>
+            {isOwner && m.kind === "ai" && !g && (
+              <DropdownMenu onOpenChange={o => { if (!o) setArmed(null); }}>
+                <Tip k="rooms.removeAi"><DropdownMenuTrigger asChild>
+                  <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${m.name}`} data-testid={`button-ai-menu-${m.id}`}><MoreHorizontal className="h-4 w-4" /></button>
+                </DropdownMenuTrigger></Tip>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem data-testid={`button-remove-ai-${m.id}`} className={armed === m.id ? "text-destructive" : ""}
+                    onSelect={e => { if (armed !== m.id) { e.preventDefault(); setArmed(m.id); return; } setArmed(null); runner.run("Remove an AI player", () => act.removeAi(m.id)); }}>
+                    {armed === m.id ? "Select again to remove" : "Remove"}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </li>
+        ))}
+        {Array.from({ length: open }, (_, i) => (
+          <li key={`open-${i}`} className="px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-3"><span aria-hidden className="h-4 w-4 rounded-full border border-dashed" />waiting for a player…</li>
+        ))}
+      </ul>
+      {isOwner && manifest?.aiFunding.configured === false && <p className="border-t px-4 py-2 text-xs text-muted-foreground">AI players are not set up on this server.</p>}
+    </Section>
   );
 }
 
-function ActiveBanner({ room, meId }: { room: RoomState; meId?: string }) {
-  const g = room.activeGame;
-  if (!g) return null;
-  const seated = g.roster.some((r) => r.id === meId);
-  const member = room.members.some((m) => m.id === meId);
+function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
+  const { manifest, setups, openSheet } = usePage();
+  const current = setups?.find(s => s.id === room.setup?.id);
+  const frozen = room.activeGame;
+  const configure = `/rooms/${room.shortCode}/configure`;
+  const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);
   return (
-    <Link href={`/games/${g.shortCode}`} className="block border border-accent bg-accent/10 hover:bg-accent/20 px-4 py-3 rise" data-testid="banner-active-game">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <Radio className="h-4 w-4 text-accent pulse-dot" />
-        <span className="font-display text-2xl">Game {g.shortCode} is running</span>
-        <span className="label-mono">phase {g.phase}</span>
-        <span className="label-mono">started {fmtWhen(g.startedAt)}</span>
-        <span className="text-sm" data-testid="text-viewer-seat">{seated ? "You are seated in this game." : member ? "You are spectating; you play in the next game." : "You are watching; join the room to play the next game."}</span>
-        <span className="flex-1" />
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium">Open game <ArrowRight className="h-4 w-4" /></span>
+    <Section title="Next game" testId="section-next-game">
+      <div className="p-4 space-y-3">
+        {isOwner ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex w-full sm:w-auto items-center gap-2 text-sm min-w-0">
+              <span>Setup</span>
+              <SetupPicker room={room} />
+            </div>
+            <Action k="ui.nav.configure" label="See all settings →" tone="link" href={configure} testId="link-configure" />
+          </div>
+        ) : (
+          <p className="text-sm">This room plays: <span className="font-medium" data-testid="text-setup">{setupTitle(room)}</span>
+            {" · "}<Action k="ui.nav.configure" label="See all settings →" tone="link" href={configure} testId="link-configure" /></p>
+        )}
+        {frozen && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Changes apply after game {frozen.shortCode} ends.</p>}
+        <p className="text-sm text-muted-foreground" data-testid="text-next-game-summary">{current ? `${current.name}: ${current.summary}. ` : ""}{settingsSummary(room.settings, room.objectInstance)}</p>
+        {/* Out of Details: creating a room asks nothing, so this line is where the owner finds the assistant. */}
+        <p className="text-sm" data-testid="text-ai-spending">
+          AI players: {fmt(used)} of {fmt(room.aiBudget)} tokens · Assistant: {room.assistantBudget ? `${fmt(room.assistantBudget)} per player` : "off"}
+          {isOwner && manifest?.aiFunding.configured !== false && <> · <button type="button" className="underline underline-offset-4" onClick={() => openSheet("ai-spending")}
+            data-testid="button-ai-spending">{room.assistantBudget ? "Change" : "Turn on…"}</button></>}
+        </p>
+        <details className="text-sm" data-testid="details-next-game">
+          <summary className="cursor-pointer select-none">Details</summary>
+          <div className="mt-3 space-y-4">
+            <SettingsList settings={room.settings} instance={room.objectInstance} />
+            <UtilityFamilies catalog={catalogOf(room.utilityCatalog)} classes={manifest?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />
+          </div>
+        </details>
       </div>
-    </Link>
+    </Section>
+  );
+}
+
+/**
+ * The next game is preparing rule tables computed on demand (its first game on this shape on this server): progress,
+ * the measured estimate, how the goals were dealt, or why it failed. The game page opens by itself when it starts.
+ */
+function Preparing({ preparing: p }: { preparing: NonNullable<RoomState["preparing"]> }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const elapsed = Math.max(0, Math.round((now - p.startedAt) / 1000));
+  // A split table is several pieces of computation (architecture.md §3.2): the bar follows them when there are more.
+  const [done, of] = p.pieces ? [p.pieces.done, p.pieces.total] : [p.ready, p.total];
+  const percent = of ? Math.round((100 * done) / of) : 0;
+  return (
+    <section className="border bg-card px-4 py-3 space-y-2 text-sm" data-testid="panel-preparing" aria-live="polite">
+      {p.error ? (
+        <p className="text-destructive" role="alert" data-testid="text-preparing-error">{p.error}</p>
+      ) : (<>
+        <p data-testid="text-preparing">
+          The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready
+          {p.pieces && <> (<span data-testid="text-preparing-pieces">{p.pieces.done} of {p.pieces.total}</span> parts computed)</>}.
+          {" "}<span className="text-muted-foreground">This is the first game on {p.instance} on this server (about {p.estimateSeconds} s; {elapsed} s so far). It starts by itself; later games on this shape start at once.</span>
+        </p>
+        <div className="h-1.5 bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={of} aria-valuenow={done} aria-label={p.pieces ? "Rule table parts computed" : "Rule tables ready"}>
+          <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+        </div>
+      </>)}
+      {p.dealerNote && <p className="text-xs text-muted-foreground" data-testid="text-preparing-dealer">{p.dealerNote}.</p>}
+    </section>
+  );
+}
+
+function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
+  const { user } = useAuth();
+  const { manifest, run } = usePage();
+  const act = useRun();
+  const sendChat = useSendChat(room.id);
+  const isOwner = room.ownerId === user?.id;
+  const isMember = room.members.some(m => m.id === user?.id);
+  const minPlayers = manifest?.minimumPlayers ?? 3;
+  const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false });
+  return (
+    <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6">
+      <header className="space-y-4 rise">
+        <h1 className="font-display text-4xl md:text-5xl leading-none flex items-center gap-3">
+          <span>Room <span data-testid="text-room-code">{room.shortCode}</span></span>
+          <Tip k="ui.copyInviteLink"><button type="button" onClick={() => run("ui.copyInviteLink")} aria-label="Copy invite link" className="text-muted-foreground hover:text-foreground"><Copy className="h-5 w-5" /></button></Tip>
+        </h1>
+        <KeyValueStrip items={[
+          { label: "Owner", value: <>{room.ownerName}{isOwner ? " (you)" : ""}</>, testId: "text-room-owner" },
+          { label: "Created", value: <time dateTime={isoWhen(room.createdAt)}>{fmtWhen(room.createdAt)}</time>, testId: "text-room-created" },
+        ]} />
+        <NextStepBar status={step.status}
+          primary={step.primary && <StepAction id={step.primary} primary roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />}
+          secondary={step.secondary.map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
+      </header>
+      {room.preparing && <Preparing preparing={room.preparing} />}
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+        <Players room={room} meId={user?.id} isOwner={isOwner} minPlayers={minPlayers} />
+        <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Say something to everyone…" : "Join the room to chat"}
+          onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
+      </div>
+      <NextGame room={room} isOwner={isOwner} />
+      <Section title="Past games" count={games?.length ?? 0} collapsible defaultOpen={false} testId="section-past-games"
+        summary={games?.[0] ? `last: ${games[0].shortCode}` : undefined}>
+        {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="divide-y">{games.map(g => <PastGameRow key={g.id} g={g} />)}</ul>}
+      </Section>
+    </div>
   );
 }
 
@@ -70,24 +184,19 @@ export default function Room() {
   const { id = "" } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
   const requestedGame = new URLSearchParams(useSearch()).get("game");
-  const { user, isAuthenticated, isLoading: authLoading, login } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const live = !!id && isAuthenticated && !requestedGame;
   const q = useLive(api.rooms.get, live ? { room: id } : "skip");
   const room = q.data;
-  const games = useLive(api.rooms.history, live && room ? { room: room.id } : "skip");
-  const manifest = useManifest();
-  const act = useRun();
-  const sendChat = useSendChat(room?.id);
+  const history = useLive(api.rooms.history, live && room ? { room: room.id } : "skip");
+  const games = history.data?.filter((g): g is GameRecord => !!g);
+  const manifest = useManifest().data;
   // Legacy links: /rooms/:id?game=CODE now belong to the game's own page.
+  useEffect(() => { if (requestedGame) navigate(`/games/${encodeURIComponent(requestedGame)}`, { replace: true }); }, [requestedGame, navigate]);
   useEffect(() => {
-    if (requestedGame) navigate(`/games/${encodeURIComponent(requestedGame)}`, { replace: true });
-  }, [requestedGame, navigate]);
-  useEffect(() => {
-    if (room && id !== room.shortCode) {
-      navigate(`/rooms/${room.shortCode}${window.location.search}${window.location.hash}`, { replace: true });
-    }
-  }, [id, room?.shortCode, navigate]);
-  // Launch: take viewers to the new game, but never on first load (the banner covers that).
+    if (room && id !== room.shortCode) navigate(`/rooms/${room.shortCode}${window.location.search}${window.location.hash}`, { replace: true });
+  }, [id, room?.shortCode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Launch: take viewers to the new game, but never on first load (the status sentence covers that).
   const activeId = room?.activeGame?.id ?? null;
   const seenActive = useRef<{ room: string; game: string | null } | null>(null);
   useEffect(() => {
@@ -97,52 +206,34 @@ export default function Room() {
     if (!prev || prev.room !== room.id || prev.game === activeId) return;
     if (activeId && room.activeGame) navigate(`/games/${room.activeGame.shortCode}`);
   }, [activeId, room, navigate]);
-  const isOwner = !!room && room.ownerId === user?.id;
-  const isMember = !!room && room.members.some((m) => m.id === user?.id);
-  const minPlayers = manifest.data?.minimumPlayers ?? 3;
   useEffect(() => { document.title = `Room ${room?.shortCode ?? id} · Code Gods`; }, [room?.shortCode, id]);
+  const code = room?.shortCode ?? id.toUpperCase();
+  const step = room ? nextStep(user?.id, room, { minPlayers: manifest?.minimumPlayers, maxPlayers: manifest?.maximumPlayers, aiAvailable: manifest?.aiFunding.configured !== false }) : null;
 
   return (
-    <Shell right={room && <Conn ok={!q.error} />}>
+    <Page room={room ?? null} history={games} crumbs={[{ label: code }]} placeholder={`Search or do anything in ${code}`}
+      suggested={step ? [step.primary, ...step.secondary].filter((s): s is NonNullable<typeof s> => !!s) : []} conn={room ? { ok: !q.error } : null}>
       {requestedGame ? <p className="mx-auto max-w-lg px-4 py-20" role="status" data-testid="status-legacy-redirect">Opening game {requestedGame}…</p>
-      : authLoading ? null : !isAuthenticated ? (
-        <div className="mx-auto max-w-lg px-4 py-20 text-center rise">
-          <p className="label-mono">Shared room</p>
-          <h1 className="font-display text-5xl mt-2">You were summoned.</h1>
-          <p className="text-muted-foreground mt-3">Sign in to view this room and claim a seat.</p>
-          <button onClick={login} className="mt-8 bg-foreground text-background px-5 py-3" data-testid="button-login-room">Sign in with Google</button>
-        </div>
-      ) : q.isLoading ? (
-        <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-3 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
+      : authLoading ? null : !isAuthenticated ? <Invited code={code} />
+      : q.isLoading ? (
+        <div className="mx-auto max-w-[1200px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-72" /><Skeleton className="h-72" /></div></div>
       ) : !room ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found"} />
-          <Link href="/" className="label-mono underline" data-testid="link-back">Back to rooms</Link>
+          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} />
+          <Link href="/" className="underline underline-offset-4" data-testid="link-back">Your rooms</Link>
         </div>
-      ) : (<>
-        <Header room={room} isOwner={isOwner} />
-        <div className="mx-auto max-w-[1440px] px-4 md:px-6 pt-4 space-y-3 empty:hidden">
-          <ActiveBanner room={room} meId={user?.id} />
-        </div>
-        <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-6 grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_360px] items-start">
-          <div className="space-y-6 min-w-0">
-            <Members room={room} meId={user?.id} isOwner={isOwner} act={act} minPlayers={minPlayers} />
-            <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Speak to all deities" : "Join the room to speak"} onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
-            {isMember && <PlayerApps room={room} />}
-          </div>
-          <div className="space-y-6 min-w-0">
-            <History games={games.data?.filter(g => !!g)} loading={games.isLoading} error={games.error} />
-            <GameRules settings={room.settings} instance={room.objectInstance} roomCode={room.shortCode} note="Includes this room’s settings for the next game." />
-            <ScoringPanel objectType={room.objectInstance?.objectType} />
-          </div>
-          <div className="space-y-6 min-w-0">
-            {isOwner && manifest.isError && <ErrorLine message={`Could not load settings options: ${errMsg(manifest.error)}`} onRetry={() => manifest.refetch()} />}
-            {isOwner ? <OwnerSettings room={room} act={act} defaults={manifest.data?.defaults} options={manifest.data?.options} optionsFailed={manifest.isError} aiFunding={manifest.data?.aiFunding} objectTypes={manifest.data?.objectTypes} presets={manifest.data?.presets} />
-              : <ReadOnlySettings settings={room.settings} instance={room.objectInstance} title="Settings for the next game" note={room.activeGame ? `Frozen while game ${room.activeGame.shortCode} runs.` : "Only the room owner can change these."} />}
-            {!isOwner && <Repertoire catalog={catalogOf(room.utilityCatalog)} classes={manifest.data?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />}
-          </div>
-        </div>
-      </>)}
-    </Shell>
+      ) : <RoomBody room={room} games={games} />}
+    </Page>
+  );
+}
+
+function Invited({ code }: { code: string }) {
+  const { run } = usePage();
+  return (
+    <div className="mx-auto max-w-lg px-4 py-20 text-center rise space-y-4">
+      <h1 className="font-display text-5xl">Room {code}</h1>
+      <p className="text-muted-foreground" data-testid="text-viewer-seat">You were invited to room {code}. Sign in to see who is here and take a seat.</p>
+      <Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId="button-login-room" />
+    </div>
   );
 }

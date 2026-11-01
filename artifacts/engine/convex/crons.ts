@@ -8,4 +8,6 @@ crons.interval("engine watchdog", { minutes: 1 }, internal.engine.loop.watchdog,
 crons.interval("assistant sweeper", { minutes: 1 }, internal.assistant.store.sweep, {});
 /** Keep the OAuth tables bounded: retired refresh tokens, never-used DCR clients, stale metadata, old requests. */
 crons.interval("oauth sweep", { hours: 1 }, internal.agent.oauthStore.sweep, {});
+/** Drop on-demand calibration tables unused for 90 days (calibration/cache.ts prune; they are recomputed if needed). */
+crons.daily("calibration cache prune", { hourUTC: 4, minuteUTC: 17 }, internal.calibration.cache.prune, {});
 export default crons;

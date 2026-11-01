@@ -10,17 +10,26 @@
     "./state": "./src/state.ts",
     "./connect": "./src/connect.ts",
     "./tools": "./src/tools.ts",
-    "./rules": "./src/rules.ts"
+    "./rules": "./src/rules.ts",
+    "./catalog": "./src/catalog.ts",
+    "./panels": "./src/panels.ts",
+    "./layout": "./src/layout.ts",
+    "./skills": "./src/skills.ts",
+    "./primer": "./src/primer.ts",
+    "./datasets": "./src/datasets.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",
     "assistant": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts assistant",
     "test": "node scripts/test.mjs",
+    "test:unit": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test --test-concurrency=1 test/unit.test.ts test/tools.test.ts test/catalog.test.ts test/panels.test.ts test/layout.test.ts test/rules.test.ts test/skills.test.ts",
     "gen:tools": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-tools.ts",
+    "gen:catalog": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/gen-catalog-doc.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json"
   },
   "dependencies": {
     "@workspace/engine": "workspace:*",
+    "@workspace/game-core": "workspace:*",
     "convex": "1.48.0",
     "zod": "catalog:"
   },

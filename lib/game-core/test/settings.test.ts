@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SETTINGS_PRESETS, presetSettings, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
 } from "../src/settings.ts";
 
 const settings = (patch: Partial<GameSettings>): GameSettings => ({ ...DEFAULT_SETTINGS, ...patch });
@@ -23,7 +23,9 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.maxAgentsPerGod, 200);
   assert.equal(MAX_AGENTS_PER_GOD, 200);
   assert.equal(DEFAULT_SETTINGS.penaltyWeight, 1);
-  assert.equal(DEFAULT_SETTINGS.defenceRate, 0);
+  assert.equal(DEFAULT_SETTINGS.defenceGoals, false);
+  assert.deepEqual(DEFAULT_SETTINGS.excludedDefenceFamilies, []);
+  assert.ok(!("defenceRate" in DEFAULT_SETTINGS), "defence goals are a switch, not a per-player probability");
   assert.equal(DEFAULT_SETTINGS.grammarId, "python-agent-v1");
   assert.equal(DEFAULT_SETTINGS.complexityFunctionId, "ast-bits-v1");
   assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
@@ -43,17 +45,30 @@ test("numeric settings are validated", () => {
     { halfLifeSeconds: 0 }, { spawnRateHz: NaN }, { pauseSeconds: 0 }, { startingEnergy: -1 },
     { startingObjectCount: 1.5 }, { agentEnergyPerSecond: -1 }, { agentEnergyPerSecond: Infinity },
     { agentBatteryActs: 0.5 }, { agentBatteryActs: NaN }, { maxAgentsPerGod: 0 }, { maxAgentsPerGod: 201 },
-    { maxAgentsPerGod: 2.5 }, { penaltyWeight: -0.1 }, { penaltyWeight: NaN }, { defenceRate: 1.01 },
-    { defenceRate: -0.5 }, { spawnFunctionId: "biased" as "uniform" },
+    { maxAgentsPerGod: 2.5 }, { penaltyWeight: -0.1 }, { penaltyWeight: NaN }, { defenceGoals: 1 as never },
+    { defenceGoals: "yes" as never }, { excludedDefenceFamilies: ["Bad Id"] }, { excludedDefenceFamilies: "hate_red" as never },
+    { spawnFunctionId: "biased" as "uniform" },
   ] as Partial<GameSettings>[]) {
     assert.throws(() => validateSettings(settings(patch)), JSON.stringify(patch));
   }
   for (const patch of [
     { agentEnergyPerSecond: 0 }, { agentBatteryActs: 1 }, { maxAgentsPerGod: 1 }, { penaltyWeight: 0 },
-    { penaltyWeight: 0.25 }, { defenceRate: 1 }, { defenceRate: 0.3 },
+    { penaltyWeight: 0.25 }, { defenceGoals: true }, { defenceGoals: true, excludedDefenceFamilies: ["hate_red"] },
   ] as Partial<GameSettings>[]) {
     assert.doesNotThrow(() => validateSettings(settings(patch)), JSON.stringify(patch));
   }
+});
+
+test("defence goals on with every defence family excluded is refused when the families are known", () => {
+  const families = (_t: string, _a: unknown, role: "reward" | "defence") => (role === "defence" ? ["hate_red", "hate_blue"] : ["stripes"]);
+  const domain = { playable: () => [], families, typeFamilies: (_t: string, role: "reward" | "defence") => families("", {}, role) };
+  assert.doesNotThrow(() => validateSettings(settings({ defenceGoals: true, excludedDefenceFamilies: ["hate_red"] }), domain));
+  assert.throws(() => validateSettings(settings({ defenceGoals: true, excludedDefenceFamilies: ["hate_red", "hate_blue"] }), domain),
+    /at least one defence goal/);
+  assert.doesNotThrow(() => validateSettings(settings({ defenceGoals: false, excludedDefenceFamilies: ["hate_red", "hate_blue"] }), domain),
+    "off: the checklist has no effect");
+  assert.throws(() => validateSettings(settings({ defenceGoals: true }), { ...domain, families: () => [] }), /at least one defence goal/,
+    "an instantiation with no defence families cannot deal defence goals");
 });
 
 test("interaction compute budget is an integer from 1 to 1000 ms; interaction cap is 1000 Hz", () => {
@@ -105,7 +120,7 @@ test("every authored option is accepted with its compatible language and type", 
   for (const language of ["python", "typescript"] as const) {
     for (const objectType of ["Int", "string", "Grid"]) {
       const base = defaultSettingsFor(objectType, language);
-      for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
+      for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"] as const) {
         const options = settingsOptionsFor(key, language, objectType);
         assert.ok(options.length > 0, `${key} ${language} ${objectType}`);
         for (const option of options) {
@@ -117,7 +132,7 @@ test("every authored option is accepted with its compatible language and type", 
 });
 
 test("unknown identifiers, cross-language grammars and old grammar ids are rejected", () => {
-  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId"] as const) {
+  for (const key of ["grammarId", "utilitySelectorId", "complexityFunctionId", "spawnFunctionId"] as const) {
     assert.throws(() => validateSettings(settings({ [key]: "custom-arbitrary-id" })), /Unsupported/);
   }
   assert.throws(() => validateSettings(settings({ language: "typescript" })), /Unsupported grammarId/);
@@ -127,6 +142,7 @@ test("unknown identifiers, cross-language grammars and old grammar ids are rejec
   assert.throws(() => validateSettings(settings({ perActFloorBits: -1 })), /perActFloorBits/);
   assert.throws(() => validateSettings(settings({ grammarId: "python-standard-v1" as never })), /Unsupported grammarId/);
   assert.deepEqual(SETTINGS_OPTIONS.grammarId.map(o => o.id), ["python-agent-v1", "typescript-agent-v1"]);
+  assert.deepEqual(SETTINGS_OPTIONS.spawnFunctionId.map(o => o.id), ["uniform"]);
 });
 
 test("defaultSettingsFor gives valid settings for every type and language", () => {
@@ -147,7 +163,11 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(grid.perActFloorBits, 2);
   assert.equal(defaultSettingsFor("Grid", "python", { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
   assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
-  for (const p of SETTINGS_PRESETS) validateSettings(presetSettings(p.id));
-  assert.equal(presetSettings("grid-first-steps").interactionRateHz, 25);
+  for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
+  assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
+  assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
+  assert.throws(() => seedSetupSettings("nope"), /Unknown seed setup/);
   assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));
 });

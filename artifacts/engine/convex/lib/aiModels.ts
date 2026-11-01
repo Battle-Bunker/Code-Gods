@@ -1,11 +1,12 @@
 /**
- * Backend allowlist of AI models (clients cannot select API origins or unpriced models). Rates are standard
- * uncached text-token ceilings in USD per million (ported from api-server ai-provider.ts).
+ * Backend allowlist of AI models (clients cannot select API origins or unpriced models). Rates are standard text-token
+ * prices in USD per million (ported from api-server ai-provider.ts), with the prompt-cache rates the assistant uses:
+ * Anthropic cache reads (0.1x input; 0.05x on Opus 5.5) and 5-minute cache writes (1.25x); OpenAI cached input (0.25x).
  */
 export const AI_MODEL_CATALOG = Object.freeze([
-  Object.freeze({ id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", provider: "anthropic" as const, inputUsdPerMillion: 2, outputUsdPerMillion: 10 }),
-  Object.freeze({ id: "claude-opus-5-5", label: "Claude Opus 5.5", provider: "anthropic" as const, inputUsdPerMillion: 4, outputUsdPerMillion: 20 }),
-  Object.freeze({ id: "gpt-4.1-mini", label: "GPT-4.1 mini", provider: "openai" as const, inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6 }),
+  Object.freeze({ id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5", provider: "anthropic" as const, inputUsdPerMillion: 2, outputUsdPerMillion: 10, cacheReadUsdPerMillion: 0.2, cacheWriteUsdPerMillion: 2.5 }),
+  Object.freeze({ id: "claude-opus-5-5", label: "Claude Opus 5.5", provider: "anthropic" as const, inputUsdPerMillion: 4, outputUsdPerMillion: 20, cacheReadUsdPerMillion: 0.2, cacheWriteUsdPerMillion: 5 }),
+  Object.freeze({ id: "gpt-4.1-mini", label: "GPT-4.1 mini", provider: "openai" as const, inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6, cacheReadUsdPerMillion: 0.1 }),
 ]);
 export type AIModel = (typeof AI_MODEL_CATALOG)[number];
 export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
@@ -22,5 +23,12 @@ export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PE
 export const ASSISTANT_BUDGET_MAX = 2_000_000;
 export const PROMPT_MAX = 10_000;
 export const mockEnabled = () => process.env.AI_MOCK === "1";
+/**
+ * The in-client assistant uses the mock only under AI_MOCK=1 without ASSISTANT_LIVE=1, so a local deployment can
+ * run the assistant against a real provider while AI seats stay mocked (scripts/assistant-provider.mjs).
+ * Production sets neither, so it is unaffected.
+ */
+export const assistantMockEnabled = (env: Record<string, string | undefined> = process.env) =>
+  env.AI_MOCK === "1" && env.ASSISTANT_LIVE !== "1";
 export const providerConfigured = (provider: string) =>
   !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();

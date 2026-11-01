@@ -20,9 +20,15 @@ export * from "./codec.ts";
 const option = (x: { id: string; label: string; emoji: string; kid: string }) => ({ id: x.id, label: x.label, emoji: x.emoji, kid: x.kid });
 
 const PARAMS: readonly ParamSchema[] = Object.freeze([
-  { kind: "int", id: "size", label: "Size", min: GRID_SIZES[0], max: GRID_SIZES[GRID_SIZES.length - 1], presets: GRID_SIZES },
-  { kind: "component", id: "symbols", label: "Symbols", slot: "symbols", options: GRID_SYMBOL_SETS.map(id => option(SYMBOL_COMPONENTS[id])) },
-  { kind: "component", id: "colours", label: "Colours", slot: "colours", options: GRID_COLOUR_SETS.map(id => option(COLOUR_COMPONENTS[id])) },
+  { kind: "int", id: "size", label: "Size", min: GRID_SIZES[0], max: GRID_SIZES[GRID_SIZES.length - 1], presets: GRID_SIZES,
+    question: "How big is each board?", meaning: "Each object is a square board with this many cells on a side.",
+    consequence: "A bigger board allows more rules and makes each object harder to read at a glance." },
+  { kind: "component", id: "symbols", label: "Symbols", slot: "symbols", options: GRID_SYMBOL_SETS.map(id => option(SYMBOL_COMPONENTS[id])),
+    question: "What can each cell show?", meaning: "The set of symbols that cells can show and that rules can count.",
+    consequence: "Playing cards add suits and face cards, which unlock more rules and make objects harder to read." },
+  { kind: "component", id: "colours", label: "Colours", slot: "colours", options: GRID_COLOUR_SETS.map(id => option(COLOUR_COMPONENTS[id])),
+    question: "Which colours can cells have?", meaning: "The set of colours that cells can have, some of which mix into others.",
+    consequence: "More colours unlock more colour rules and mixing moves." },
 ]);
 
 /** The Grid parameters of an instantiation. */

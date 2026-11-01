@@ -5,7 +5,7 @@
  * memory (vite.config.ts, framePlugin).
  *
  * A classic script, not a module: the frame's origin is opaque, so a module script would need CORS.
- * The shipped calibration tables (4.5 MB) are replaced by a stub; the host sends the player's own tables.
+ * No calibration tables are bundled (the engine serves them); the host sends the player's own over the bridge.
  */
 import path from "path";
 import react from "@vitejs/plugin-react";
@@ -37,7 +37,6 @@ export default defineConfig(({ mode }) => ({
       { find: "@sdk-transport", replacement: path.resolve(dir, "src/frame/transport.ts") },
       { find: "@sdk", replacement: path.resolve(dir, "src/sdk/index.ts") },
       { find: "@", replacement: path.resolve(dir, "src") },
-      { find: /^\.\.\/data\/calibration\/v1\/index\.js$/, replacement: path.resolve(dir, "src/frame/calibration-stub.ts") },
     ],
     dedupe: ["react", "react-dom"],
   },

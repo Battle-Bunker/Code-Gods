@@ -8,7 +8,9 @@ import { STRING_MUTATORS } from "./mutators.ts";
 export const STRING_MAX_LENGTH = 1024;
 
 const PARAMS: readonly ParamSchema[] = Object.freeze([
-  { kind: "int", id: "maxLength", label: "Longest", min: 0, max: STRING_MAX_LENGTH, presets: [16, 128] },
+  { kind: "int", id: "maxLength", label: "Longest", min: 0, max: STRING_MAX_LENGTH, presets: [16, 128],
+    question: "How long can a piece of text be?", meaning: "Every object is a piece of text at most this many characters long.",
+    consequence: "A shorter limit makes objects simpler and leaves fewer possible values." },
 ]);
 
 export const STRING_PRESETS: readonly TypeArgs[] = Object.freeze([{ maxLength: 128 }, { maxLength: 16 }]);

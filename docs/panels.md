@@ -8,6 +8,12 @@ second, with live data. You don't reload, and you don't lose your place.
 
 This page is written for the coding agent. Read all of it before writing a panel.
 
+Two kinds of panel share the dock. **Built-in panels** (the overview, objects by payoff, the race, the forge and
+the rest: `src/core/panels/`, metadata in `lib/player-client/src/panels.ts`) ship with the client; a player picks
+one from a pane's menu and only the assistant sets its parameters. **Your panels** are the ones written for you:
+file panels (`src/panels/*.tsx`, in a dev server) and stored panels (saved in the engine, in every client of
+yours). This page is about your panels; check first whether a built-in panel already shows what you want.
+
 ## How it works
 
 - The client runs as a Vite dev server with hot module replacement
@@ -22,10 +28,11 @@ This page is written for the coding agent. Read all of it before writing a panel
 
   Save a fix and the frame recovers by itself. A broken panel never breaks the game console or the
   other panels.
-- **Layout.** Panels dock left, right or bottom of the core console. The player can move them (drag
-  the header, or use ◧ ◨ ⬓), resize them (sm, md, lg), hide them, or switch a region to tabs. Their
-  layout follows you across devices (stored in the engine; this browser keeps a copy). A panel's manifest
-  only sets its defaults.
+- **Layout.** The client is a dock of panes (`docs/ui-redesign.md`): built-in panels, your assistant, and
+  your panels. Your panel opens as a pane from a built-in panel's menu ("Your panels"), the command palette or
+  your assistant (`open_panel {slug}` for a stored panel); you drag panes anywhere, split and tab them. The arrangement follows you across devices
+  and rooms (`layout.current`/`layout.set`). A panel's manifest `placement` and `size` are only hints for
+  where a new pane opens.
 - **The core console** (`src/core/`) is the protected game UI: the forge, agents, utility card,
   objects, chat and leaderboard. **Never edit `src/core/`, `src/shell/` or `src/sdk/` to add a
   feature;** write a panel. Panels import only from `@sdk` (and React).
@@ -38,8 +45,8 @@ import { definePanel, useObjects, ObjectGrid, fmtBits } from "@sdk";
 
 export default definePanel({
   title: "Salient to others, not me",   // shown in the frame header
-  placement: "right",                   // "left" | "right" | "bottom" (default "right")
-  size: "md",                           // "sm" | "md" | "lg" (default "md")
+  placement: "right",                   // add-pane hint: "left" | "right" | "bottom" (default "right")
+  size: "md",                           // add-pane hint: "sm" | "md" | "lg" (default "md")
   Component() {
     const objects = useObjects({ hz: 2 });
     const chips = objects.filter(o => o.peerCare > 2 && o.own.netBits <= 0);
@@ -83,7 +90,8 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useTrajectories({hz})` | `Map<objectId, TrajectoryPoint[]>` for the whole current game (the last 600 points per object) |
 | `useObjectHistory(id, {hz})` | one object's `TrajectoryPoint[]` |
 | `useMyUtility()` | your descriptor and the game settings (the evaluator's input); null when not seated |
-| `useEvaluator()` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below) |
+| `useEvaluator({enabled?})` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below); `enabled: false` keeps the scoring tables from loading |
+| `useAnnotations(objects, {utility: "mine" \| "none"})` | `Map<objectId, Annotation[]>`: what makes up your score on each object, for `ObjectView`'s `annotations` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
 | `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/player/`) |
@@ -144,8 +152,10 @@ never send a new one. A summon must not be paid twice.
 | Component or helper | What it draws |
 |---|---|
 | `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
-| `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
+| `ObjectGrid({objects, badge?, onSelect?, annotations?})` | a wrapping grid of objects with an optional badge and annotations (`o => Annotation[]`) |
+| `ObjectView({value, annotations?})` | one object with annotations drawn on it (see Annotations below) |
 | `ObjectView`, `TransformationView`, `useObjectContext()` | the engine UI's renderers, plus their props for this game |
+| `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
 | `Sparkline({values})` | a tiny inline line |
 | `LineChart({series: [{label, points: [{x, y}]}]})` | multi-series lines with axes and a legend |
 | `BarList({items: [{label, value}]})` | horizontal bars; negative values go left |
@@ -157,6 +167,73 @@ never send a new one. A summon must not be paid twice.
 
 All charts are SVG. Colours come from the theme with colour-blind-safe fallbacks, and series also
 differ by dash pattern.
+
+**Renderers.** An object type can have several named renderers (`lib/object-views`, `objectViews.register({type,
+renderers, defaultRenderer, infer})`); each viewer picks one per type and the choice is remembered in their browser
+(`localStorage` key `code-gods.object-views.renderer.<type>`). Grids have two: `digits` (the default: rows of
+coloured digits, or card rank and suit, compact enough for lists) and `tiles` (coloured tiles with a pattern or
+letter per colour). Int and string have one each (`text`). The viewer switches grids from the palette ("Show grids as
+tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
+every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only
+where one form is essential. The digit colours are per colour set, as the theme tokens `--cg-ink-<set>-<letter>`
+(rainbow6, and grids whose set is unknown: `--cg-ink-R` … `--cg-ink-V`); tiles use the same sets' bright shades.
+
+**Annotations.** An annotation draws the eye to the parts of an object that make up a utility's score. The vocabulary
+(`lib/game-utilities/src/annotations.ts`, re-exported by `@workspace/object-views` with its helpers):
+
+| kind | for | shape | drawn as |
+|---|---|---|---|
+| `cells` | Grid | `{cells: [{r, c, weight?}], tone, label?}` | digits: an underline in the page's ink (thickness and opacity by weight); tiles: an outline in the same ink |
+| `region` | Grid | `{cells, tone, label?}`, a connected group | one outline around the group |
+| `spans` | string | `{spans: [{start, end, weight?}], tone, label?}`, character indices, end exclusive | underlined characters |
+| `digits` | Int | `{positions, weights?, tone, label?}`, positions from the left of the decimal digits, the minus sign not counted | underlined digits |
+| `badge` | any | `{text, tone}` | a small chip after the object |
+
+`tone` is `good` (a solid underline or outline), `bad` (dotted) or `neutral` (dashed). The cues are quiet so they never
+fight the digits' own colours: no washes, no glyphs and no tone hue, only the line's style (the tone) and its thickness
+and opacity (the weight), in the page's ink (`TONE_DECORATION`, `underlinePx`, `cueOpacity`, `cueColour`). The labels form a legend: in a grid's detail view, as the object's
+tooltip, and under the objects panel's caption, each label after its cue drawn inline (`AnnotationLegend`, `ToneCue`,
+`annotationLegend`, `legendText`, which reads "solid underline: supports your score" to screen readers). Helpers:
+`mergeAnnotations`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`, `cueColour`.
+
+**The payoff's colour coding.** Your bits and what the others care (or their summed bits) wear one colour each wherever
+they appear, so the coding is learnt once: `yours` petrol blue and `others` raspberry (`dimensionVar("yours")`,
+`--cg-yours` / `--cg-others`); a payoff's strength relative to the best shown runs one amber ramp from muted to strong
+(`relativeStrength`, `rampVar`, `--cg-ramp-low` / `--cg-ramp-high`). The objects panel's rectangle is drawn to one
+scale for both axes (a square when the two are equal), its bottom edge and value in the yours colour and its right
+edge and value in the others colour, filled by the ramp like the relative bar. `Table` columns take a `colour` and
+`ScatterPlot` takes `xColour` / `yColour` for the same coding in your own panels.
+
+```tsx
+const { ctx } = useObjectContext();
+const objects = useObjects({ hz: 1 }).slice(0, 12);
+const marks = useAnnotations(objects, { utility: "mine" });       // computed in idle time, cached per game, player and value
+return <>{objects.map(o => <ObjectView key={o.id} value={o.value} {...ctx} annotations={marks.get(o.id)} />)}</>;
+```
+
+`useAnnotations` uses the family's own annotator when it has one, else a generic **sensitivity analysis**
+(`src/sdk/annotate.ts`): it re-scores the value with each cell (Int: digit; string: character) changed to up to six
+alternatives (half other colours, half other symbols, each spread over its set), at most 300 scorings per object,
+through your local evaluator. A position whose change can lower your net bits supports your score (weight: the largest
+drop); one that no change lowers but some change raises holds it back (weight: the largest rise); weights are relative
+to the strongest position. With a defence goal, a family's own marks gain the cells that feed the goal ("feeds your
+defence goal", from the same analysis of the penalty bits). Pass only the objects you show: annotations are computed
+lazily, one position per idle step, never during a render. Only your own utility can be annotated: the client has no
+one else's.
+
+**A family's own annotator.** Where a family's idea has a clearer picture than per-cell sensitivity (the patch it measures,
+the stripe it counts, the cells that touch), register an annotator beside the families in
+`lib/game-utilities/src/families/annotators.ts`:
+
+```ts
+const kingdom: Annotator = (value, { params }, inst) => { /* decode, find the biggest patch of params.C */ return [{ kind: "region", cells, tone: "good", label: "biggest blue patch (5)" }]; };
+export const ANNOTATORS = { …, kingdom };
+```
+
+An annotator is a pure function `(value, descriptor, instance) => Annotation[]` mirroring the family's TypeScript card;
+it must not throw (`annotatorFor` also guards it). Test it on a literal value with hand-derived marks, and cross-check
+against the card's ordinal (`lib/game-utilities/test/annotators.test.ts`). Families with one today: Green Ones, Homebody,
+Picture Frame, Feuding Families, Kingdom, Stripe Painter (Grid), Digit Devotee (Int), Glyph Glutton (string).
 
 ## Performance rules
 
@@ -213,9 +290,9 @@ your agents can write one; the file workflow above keeps working beside it.
 | CLI (device credential) | `pnpm -s player panel push my-view` saves `artifacts/player-web/src/panels/my-view.tsx` (or `--file PATH`) |
 | | `pnpm -s player panel pull my-view [--version N] [--file PATH] [--force]` writes a stored version to a file |
 | | `pnpm -s player panel list` shows your stored panels with version, author and placement |
-| Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`, `panels.place`, `panels.layout`, `panels.setLayout` |
-| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`): MCP clients, the CLI and the in-client assistant |
-| In-client assistant | ask it in the player client's **Assistant** drawer ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), shows the save as an activity chip, and asks you before `delete_panel` |
+| Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`; showing one in a pane is `layout.set` (docs/engine-api.md "Dock layout") |
+| Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`), and `open_panel {slug, place?}` shows a panel in a pane: MCP clients, the CLI and the in-client assistant |
+| In-client assistant | ask it in the player client's assistant pane ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), opens it with `open_panel`, shows both as activity chips, and asks you before `delete_panel` |
 
 - **The slug** is the panel's id: kebab-case, like a file name (`my-view`). Saving an existing slug makes a
   new version.
@@ -224,7 +301,7 @@ your agents can write one; the file workflow above keeps working beside it.
 - **Styling:** Tailwind classes that appear somewhere in the player app's sources work, as do the
   `hsl(var(--…))` tokens and the `label`/`panel` classes; use `style={{…}}` for anything else.
 - **Manifest:** `title`, `placement` and `size` are read from a literal `definePanel({...})`; the save call
-  can override them.
+  can override them. `placement` and `size` only hint where and how big a new pane opens.
 
 **Diagnostics.** `save` compiles at once (TypeScript, syntax only; type-checking is a later phase). A syntax
 error or a refused import returns `{ok: false, diagnostics: [{line, column, code, message}]}` and stores
@@ -259,8 +336,10 @@ file panel's header runs it in a frame exactly as a stored panel would: use it b
 for example to remove a panel that misbehaves (`pnpm player panel list`, then `panels.remove` or
 `panels.setEnabled`).
 
-**Layout.** Where you put panels (region, order, size, hidden, tabs) follows you across devices
-(`panels.setLayout`); this browser's copy is only the boot cache.
+**Layout.** A stored panel is a pane like a built-in panel: open it from the add-pane menu, the palette or your
+assistant (`open_panel {slug}`), drag it anywhere, tab it with other panes. The arrangement follows you across
+devices and rooms (`layout.current`/`layout.set`); `panels.setEnabled` hides a panel everywhere without
+deleting it.
 
 ## Isolation and trust
 

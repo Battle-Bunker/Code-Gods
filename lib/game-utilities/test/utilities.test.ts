@@ -2,9 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, objectType, type Instantiation } from "@workspace/game-types";
 import {
-  FAMILIES, GRID_LENSES, assertOrdinal, available, canonicalSupport, card, compareOrdinals, context, divineLottery,
-  evaluator, family, familiesFor, paramsKey, publicCatalog, readDescriptor, selector, type UtilityFamily,
+  FAMILIES, GRID_LENSES, assertOrdinal, available, availableFamilies, canonicalSupport, card, compareOrdinals, context, divineLottery,
+  evaluator, fairAligned, family, familiesFor, paramsKey, publicCatalog, readDescriptor, selector, type UtilityFamily,
 } from "../src/index.ts";
+import { packTetrominoes } from "../src/families/grid/geometry.ts";
+import type { Ordinal } from "../src/types.ts";
 import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
 
 const ALL: Instantiation[] = [...allGrids(), ...intInsts(), ...stringInsts()];
@@ -101,6 +103,39 @@ test("exemplars are legal and reach the top of every sampled ordinal", () => {
   }
 });
 
+// A greedy first-fit packing is not a maximum (on 4×4 it puts a Z in the corner and has no room for a second S), and a
+// random board then out-scores the "best" one. Only which cells are MY_COLOUR matters, so on small boards every
+// two-colour board can be scored with the real card, one per class of the 8 turns and flips (the rule is invariant
+// under them). On larger boards the search's memo key (the next 4N cells) must give the value of keying on the whole
+// remaining board. (calibration.test.ts checks the exemplar against every calibrated level.)
+test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 4×4, memo window exact on 5×5 to 7×7)", () => {
+  const f = family("tetromino_tamer");
+  for (const size of [3, 4]) {
+    const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst), n = size - 1;
+    const cells = Array.from({ length: size * size }, (_, i) => i);
+    const perms = [(r: number, c: number) => [c, n - r], (r: number, c: number) => [n - r, n - c], (r: number, c: number) => [n - c, r],
+      (r: number, c: number) => [r, n - c], (r: number, c: number) => [n - r, c], (r: number, c: number) => [c, r],
+      (r: number, c: number) => [n - c, n - r]].map(g => cells.map(i => { const [r, c] = g(Math.floor(i / size), i % size); return r * size + c; }));
+    const smallest = (m: number) => perms.every(p => cells.reduce((t, i) => t | (((m >> i) & 1) << p[i]), 0) >= m);
+    const boards = Array.from({ length: 2 ** (size * size) }, (_, m) => m).filter(smallest)
+      .map(m => cells.map(i => (i === 0 ? "" : i % size === 0 ? "/" : ",") + ((m >> i) & 1 ? "0R" : "0G")).join(""));
+    const pieces = f.support(ctx).filter(p => p.C === 0)
+      .map(p => ({ p, u: evaluator({ familyId: f.id, params: p }, inst), best: [0, 0] as Ordinal }));
+    for (const w of boards) for (const x of pieces) {
+      const v = x.u(w);
+      if (compareOrdinals(v, x.best) > 0) x.best = v;
+    }
+    for (const { p, u, best } of pieces) assert.deepEqual(u(f.exemplar!(p, ctx)), best, `${size}×${size} ${paramsKey(p)}`);
+  }
+  for (const size of [5, 6, 7]) {
+    const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst);
+    for (const p of f.support(ctx).filter(p => p.C === 0)) {
+      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, p.P, size * size).value,
+        `${size}×${size} ${paramsKey(p)}: the exemplar (memo window 4N) is not the maximum of the full-state search`);
+    }
+  }
+});
+
 test("ordinals: lexicographic comparison and shape checks", () => {
   assert.equal(compareOrdinals(3, 2), 1);
   assert.equal(compareOrdinals([1, 5], [2, 0]), -1);
@@ -162,13 +197,33 @@ test("Divine Lottery: available rewards only, distinct, deterministic, defence g
     }
   }
   const inst = instantiate("Grid", { size: 5, symbols: "cards", colours: "rainbow6" });
-  const defended = divineLottery.select(inst, 8, seededRng(2), { defenceRate: 1 });
-  for (const d of defended) assert.equal(family(d.penalty!.familyId).role, "penalty");
-  const half = divineLottery.select(inst, 40, seededRng(3), { defenceRate: 0.5 }).filter(d => d.penalty).length;
-  assert.ok(half > 8 && half < 32, `${half}/40 defence goals at rate 0.5`);
-  const only = divineLottery.select(inst, 6, seededRng(4), { hasTable: d => d.familyId === "conqueror" || d.familyId === "hate_colour", defenceRate: 1 });
+  const only = divineLottery.select(inst, 6, seededRng(4), { hasTable: d => d.familyId === "conqueror" || d.familyId === "hate_colour", defenceGoals: true });
   assert.ok(only.every(d => d.familyId === "conqueror" && d.penalty!.familyId === "hate_colour"));
   assert.throws(() => divineLottery.select(inst, 2, seededRng(5), { hasTable: () => false }));
+});
+
+test("defence goals: on, every god gets exactly one from the allowed set; off, none does, whatever the excluded list says", () => {
+  const inst = instantiate("Grid", { size: 5, symbols: "cards", colours: "rainbow6" });
+  const penalties = availableFamilies(inst, "penalty").map(f => f.id);
+  assert.ok(penalties.length >= 3 && penalties.every(id => id.startsWith("hate_")), `defence families: ${penalties.join(", ")}`);
+  const [kept, ...excludeDefence] = penalties;
+  for (const selected of [divineLottery, fairAligned]) {
+    for (const seed of [1, 2, 3]) {
+      const all = selected.select(inst, 8, seededRng(seed), { defenceGoals: true });
+      assert.equal(all.length, 8);
+      for (const d of all) assert.ok(d.penalty && penalties.includes(d.penalty.familyId), `${selected.id}: every god defends something`);
+      const one = selected.select(inst, 8, seededRng(seed), { defenceGoals: true, excludeDefence });
+      assert.ok(one.every(d => d.penalty?.familyId === kept), `${selected.id}: only the allowed ${kept}`);
+      const off = selected.select(inst, 8, seededRng(seed), { defenceGoals: false, excludeDefence });
+      assert.ok(off.every(d => d.penalty === undefined), `${selected.id}: off means no god gets one`);
+      assert.ok(selected.select(inst, 8, seededRng(seed)).every(d => d.penalty === undefined), "off by default");
+    }
+    // A reward exclusion never removes defence goals, and a defence exclusion never removes rewards.
+    const rewards = availableFamilies(inst, "reward").map(f => f.id);
+    const mixed = selected.select(inst, 2, seededRng(9), { defenceGoals: true, exclude: rewards.slice(1), excludeDefence });
+    assert.ok(mixed.every(d => d.familyId === rewards[0] && d.penalty?.familyId === kept));
+    assert.throws(() => selected.select(inst, 3, seededRng(5), { defenceGoals: true, excludeDefence: penalties }), /No calibrated defence goal/);
+  }
 });
 
 test("fair-aligned deals like the Divine Lottery without a synergy matrix, and prefers friendly even tables with one", async () => {

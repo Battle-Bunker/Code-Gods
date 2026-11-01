@@ -19,7 +19,7 @@ const entries: PanelEntry[] = Object.entries(modules)
   })
   .sort((a, b) => a.file.localeCompare(b.file));
 
-// Safe mode (?panels=off) loads only the core console.
+// Safe mode (?panels=off) loads only the built-in panels and the assistant.
 panelStore.publish(SAFE_MODE ? [] : entries);
 
 // Literal `import.meta.hot.accept()`: Vite detects self-acceptance lexically.

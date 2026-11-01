@@ -74,6 +74,34 @@ export interface ActResult {
   steps: number;
 }
 
+/** Script mode (python-script-v1 / typescript-script-v1): `main(data)` over host JSON, for analytics. */
+export interface ScriptOptions {
+  /** CPU budget, ms: 1–SCRIPT_LIMITS.cpuMsMax, default SCRIPT_LIMITS.cpuMsDefault. The hard wall adds 1–5 s of slack. */
+  cpuMs?: number;
+  /** Seeds `random` / `Math.random` (64-bit decimal or 0x-hex string); default "0". */
+  seed?: string;
+  /**
+   * The owner's objects this run may read, as JSON text {scope: [key | "prefix*"], objects: {key: JSON value}}
+   * (≤ SCRIPT_LIMITS.storeBytes; bytes as {"$hex": ...}). The guest's `store` (get, put, delete, list) reads them and
+   * buffers writes; nothing touches a file system. Default: nothing loaded.
+   */
+  store?: string;
+}
+export interface ScriptResult {
+  /** main's return value as JSON text (ASCII, ≤ SCRIPT_LIMITS.resultBytes); non-finite numbers became null. UNTRUSTED. */
+  result: string;
+  /** Captured print / console.log text, clipped at SCRIPT_LIMITS.outputBytes. UNTRUSTED. */
+  output: string;
+  outputTruncated: boolean;
+  usedRandom: boolean;
+  /** CPU used by the budgeted phase, ms. */
+  cpuMs: number;
+  /** The run's store writes as JSON text {put: {key: value}, delete: [key]} (≤ SCRIPT_LIMITS.writesBytes). UNTRUSTED: the host validates keys, sizes and quotas before committing. */
+  writes: string;
+}
+export const SCRIPT_GRAMMAR_IDS: Readonly<{ python: "python-script-v1"; typescript: "typescript-script-v1" }>;
+export const SCRIPT_LIMITS: Readonly<{ sourceBytes: number; inputBytes: number; resultBytes: number; outputBytes: number; storeBytes: number; writesBytes: number; cpuMsDefault: number; cpuMsMax: number }>;
+
 export type RuntimeErrorCode = "CONFIG" | "COMPILE" | "DOMAIN" | "EXECUTION" | "LIMIT" | "CAPACITY" | "UNAVAILABLE";
 export class RuntimeError extends Error { readonly code: RuntimeErrorCode; constructor(code: RuntimeErrorCode, message: string); }
 /**
@@ -160,6 +188,14 @@ export class GameRuntime {
   act(source: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
   /** inspect + one act per sample (1–32 samples, one seed each, fresh guest each); rejects on the first failure. */
   validate(source: string, samples: WireValue[], settings: ActSettings, seeds: string[]): Promise<{ inspection: Inspection; acts: ActResult[] }>;
+  /**
+   * One script in a fresh guest (the agents' sandbox: no network, files, processes or host objects; 128 MiB): the
+   * module, then `main(data)` with `data = JSON.parse(input)`, then its result as JSON. COMPILE: syntax (TypeScript:
+   * also imports/exports; types are erased, not checked). EXECUTION: the script raised, has no main, or returned
+   * something that is not JSON. LIMIT: CPU, memory, or a result over SCRIPT_LIMITS.resultBytes. DOMAIN: input not JSON
+   * text within SCRIPT_LIMITS.inputBytes. CONFIG: options.
+   */
+  script(source: string, input: string, options?: ScriptOptions): Promise<ScriptResult>;
   close(): void;
 }
 export function createRuntime(options: RuntimeOptions): GameRuntime;

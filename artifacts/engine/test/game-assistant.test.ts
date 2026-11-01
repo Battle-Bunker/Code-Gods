@@ -85,6 +85,76 @@ test("a scripted turn reads, validates and answers as the human's assistant cred
   assert.deepEqual(await bob.c.query(api.assistant.threads, { roomId }), []);
 });
 
+test("each turn starts with a briefing of the player's live situation, kept for every step; the prompt indexes the tools beyond the loaded core", { timeout: 180_000 }, async () => {
+  const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+  const [mine, theirs] = await Promise.all([ann, bob].map(g => g.c.query(api.player.observation, { roomId })));
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ echo: true, tools: [{ name: "whoami" }] }, { echo: true }]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const [first, second] = t.messages.filter((m: any) => m.role === "assistant").map((m: any) => JSON.parse(m.text));
+  assert.deepEqual(second, first, "the same briefing, system prompt and tools at every step of the turn");
+  const [briefing] = first.context as string[];
+  assert.ok(briefing.startsWith("<briefing>"), briefing);
+  for (const expected of [mine.self.utility.name, mine.self.utility.summary, "phase: planning", "Panes on the player's screen"]) {
+    assert.ok(briefing.includes(expected), `the briefing has ${expected}`);
+  }
+  assert.ok(!briefing.includes("Room rules:") && !briefing.includes("Mutators") && briefing.length < 2_500, "rules and helpers are skills now");
+  if (theirs.self.utility.name !== mine.self.utility.name) assert.ok(!briefing.includes(theirs.self.utility.name), "never another god's utility");
+  assert.deepEqual(first.tools, ["load_tools", "get_observation", "load_skill", "send_chat", "open_panel", "set_panel_params"], "only the loader and the core tools are in context");
+  for (const name of ["summon_agent", "validate_agent", "move_pane", "get_rules"]) assert.ok(first.system.includes(`\n- ${name}: `), `the index lists ${name}`);
+  assert.ok(!first.system.includes("\n- start_game: "), "no owner tools for an act grant");
+  assert.equal(first.maxOutputTokens, 2048, "the default output ceiling");
+
+  const lobby = await assistantRoom(["Lia Lobby", "Max Lobby", "Ned Lobby"], { start: false });
+  const inLobby = await lobby.members[0].c.mutation(api.assistant.send, { roomId: lobby.roomId, text: mock([{ echo: true }]) });
+  const l = await until(lobby.members[0], inLobby, DONE, "the lobby turn finishes");
+  assert.match(JSON.parse(finalText(l)).context[0], /no game is running/i);
+});
+
+test("load_tools puts index tools in context for the rest of the thread; load_skill returns the skill with live data", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Load", "Bob Load", "Cyd Load"]);
+  const mineObs = await ann.c.query(api.player.observation, { roomId });
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "load_tools", input: { names: ["validate_agent", "move_pane"] } }, { name: "load_skill", input: { name: "writing-agents" } }, { name: "load_tools", input: { names: ["start_game"] } }] },
+    { echo: true },
+  ]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["load_tools", "ok"], ["load_skill", "ok"], ["load_tools", "error"]]);
+  assert.equal(t.calls[0].summary, "Loaded validate_agent, move_pane");
+  assert.match(JSON.parse(t.calls[2].resultJson).error.message, /Not in this grant's index: start_game/, "an act grant cannot load owner tools");
+  const skill = JSON.parse(t.calls[1].resultJson).data;
+  assert.equal(skill.name, "writing-agents");
+  assert.ok(skill.body.includes("validate_agent") && skill.body.includes("Mutators") && skill.body.includes(mineObs.self.utility.source.slice(0, 30)), "guidance, helpers and the player's own utility source");
+  const echoed = JSON.parse(finalText(t));
+  assert.deepEqual(echoed.tools, ["load_tools", "get_observation", "load_skill", "send_chat", "open_panel", "set_panel_params", "validate_agent", "move_pane",
+    "evaluate_value", "summon_agent", "destroy_agent"], "load_tools' tools, then the skill's own (where the adapter manages context)");
+  assert.equal(echoed.maxOutputTokens, 8192, "a code-writing tool is loaded: the full ceiling");
+  // The next turn of the thread keeps them (the load is in its history).
+  const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
+  const a = await until(ann, again, DONE, "the next turn finishes");
+  assert.ok(JSON.parse(finalText(a)).tools.includes("validate_agent"));
+});
+
+test("a step cut by the default output ceiling is billed, never acted on, and run again with the full ceiling", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Cut", "Bob Cut", "Cyd Cut"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ cutBelow: 8192, text: "A long answer.", tools: [{ name: "get_observation", input: { objectsLimit: 1 } }] }]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const steps = t.messages.filter((m: any) => m.role === "assistant");
+  assert.equal(steps.length, 3, "the cut step, its retry, and the (empty) end of the script");
+  assert.equal(steps[0].status, "error");
+  assert.equal(steps[0].text, "", "the cut answer is not kept");
+  assert.ok(steps[0].billedTokens > 0 && steps[0].outputTokens === 2048, "the cut step is billed");
+  assert.equal(steps[1].text, "A long answer.");
+  assert.deepEqual(t.calls.map((c: any) => c.tool), ["get_observation"], "only the retry's call exists");
+  assert.equal(t.turn.usage.billedTokens, steps.reduce((sum: number, m: any) => sum + m.billedTokens, 0), "the turn bills every step, the cut one included");
+  assert.equal(t.turn.step, 2, "the cut step does not count against the step ceiling");
+  // The thread keeps the raised ceiling for its next turns.
+  const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
+  assert.equal(JSON.parse(finalText(await until(ann, next, DONE, "the next turn"))).maxOutputTokens, 8192);
+});
+
 test("streaming text grows in the message document before the step ends", { timeout: 120_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: ["one ", "two ", "three ", "four "], delayMs: 700 }]) });
@@ -126,6 +196,15 @@ test("cancel during a streaming delay: the turn is cancelled and runs no further
   assert.deepEqual(after.calls, [], "no tool call ran");
   assert.ok(!finalText(after).includes("never"));
   assert.equal(after.thread.activeTurnId, undefined);
+  // The cancelled step is billed from what was known (the mock reports its input usage when it opens, as Anthropic
+  // does, and the characters it streamed), not its whole reservation; the allowance keeps exactly that.
+  const cancelled = after.messages.find((m: any) => m.role === "assistant");
+  assert.equal(cancelled.usageEstimated, true);
+  assert.ok(cancelled.inputTokens > 0 && cancelled.outputTokens > 0, JSON.stringify(cancelled));
+  assert.ok(cancelled.outputTokens <= Math.ceil(6 / 2.5) + 8, `at most the six streamed characters' tokens: ${cancelled.outputTokens}`);
+  assert.equal(cancelled.billedTokens, cancelled.inputTokens + cancelled.outputTokens, "uncached input + output");
+  assert.ok(cancelled.billedTokens < cancelled.reservedTokens, `${cancelled.billedTokens} < ${cancelled.reservedTokens}`);
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, cancelled.billedTokens);
   const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "back" }]) });
   assert.equal((await until(ann, next, DONE, "a new turn")).turn.status, "done");
 });
@@ -229,15 +308,28 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   // After trustworthy usage the room's assistant USD keeps only the actual cost, not the worst-case reservation.
   const counters = await admin.query(internal.testing.rawAssistantPool, { roomId });
   assert.ok(counters.roomUsd > 0 && counters.roomUsd < measured.turn.usage.reservedUsd, `room USD ${counters.roomUsd} < reserved ${measured.turn.usage.reservedUsd}`);
+  // Cache reads count at their price relative to input (the mock's are 0.1x) in the allowance; settled exactly.
+  const cachedTurn = await ann.c.mutation(api.assistant.send, { roomId, threadId: probe.threadId, text: mock([{ text: "cached", cache: { read: 0.8, write: 0.1 } }]) });
+  const cached = await until(ann, cachedTurn, DONE, "the cached turn");
+  const step = cached.messages.find((m: any) => m.role === "assistant");
+  assert.ok(step.cacheReadTokens > 0 && step.cacheWriteTokens > 0, JSON.stringify(step));
+  const uncached = step.inputTokens - step.cacheReadTokens - step.cacheWriteTokens;
+  assert.equal(step.billedTokens, uncached + Math.ceil(step.cacheReadTokens * 0.1) + Math.ceil(step.cacheWriteTokens * 1.25) + step.outputTokens);
+  assert.ok(step.billedTokens < step.inputTokens, "cheaper than uncached");
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed + step.billedTokens);
+  // The reservation was made from an input estimate no smaller than the actual input.
+  assert.ok(step.inputEstimate >= step.inputTokens, `${step.inputEstimate} >= ${step.inputTokens}`);
   // An allowance that covers one step but not two.
   await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: firstStep + 1000 });
   const sent = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "never" }]) });
   const t = await until(bob, sent, DONE, "Bob's turn ends");
   assert.equal(t.turn.status, "budget_exhausted");
   assert.match(t.turn.error.message, /allowance/i);
+  // Not "used up" while tokens remain: how many are left, what the next step may need, and who can raise it.
+  assert.match(t.turn.error.message, /^Your assistant allowance for this game is too low for another step: [\d,]+ of [\d,]+ tokens used \([\d,]+ left\), and the next step may need up to [\d,]+\. The room owner can raise it\.$/);
   assert.deepEqual(t.calls.map((c: any) => c.status), ["ok"], "the first step ran");
   assert.ok(!finalText(t).includes("never"));
-  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed, "Ann's allowance is untouched");
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed + step.billedTokens, "Ann's allowance is untouched");
   const cydTurn = await cyd.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "fine" }]) });
   assert.equal((await until(cyd, cydTurn, DONE, "Cyd's turn")).turn.status, "done", "other players keep their allowance");
   const { room } = await admin.query(internal.testing.rawRoom, { roomId });
@@ -245,6 +337,13 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   const status = await bob.c.query(api.assistant.status, { roomId });
   assert.equal(status.enabled, true);
   assert.ok(status.allowance.used <= status.allowance.limit);
+  // Bob's unanswered message is not silent context for his next turn: the model sees it marked as unanswered.
+  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  const next = await bob.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
+  const n = await until(bob, next, DONE, "Bob's next turn");
+  assert.equal(n.turn.status, "done");
+  const earlier: string[] = JSON.parse(finalText(n)).earlier;
+  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because the player's assistant allowance ran out\./);
 });
 
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {
@@ -267,6 +366,37 @@ test("disclosure: threads are their human's only; stored tool results pass the d
   assert.equal(await errorCode(bob.c.mutation(api.assistant.cancel, { turnId: sent.turnId })), "NOT_FOUND");
 });
 
+test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "open_panel", input: { panelId: "objects", params: { limit: 4, filter: "chips" } } }] },
+    { tools: [
+      { name: "open_panel", input: { panelId: "race", place: { relativeTo: "p1", direction: "below" } } },
+      { name: "get_layout" },
+      { name: "move_pane", input: { paneId: "p2", place: { relativeTo: "p1", direction: "right" } } },
+      { name: "close_pane", input: { paneId: "p1" } },
+    ] },
+    { text: "Arranged." },
+  ]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["open_panel", "ok"], ["open_panel", "ok"], ["get_layout", "ok"], ["move_pane", "ok"], ["close_pane", "error"]]);
+  // The objects panel is the default pane, so the first open_panel reuses it (parameters replaced) rather than adding one.
+  assert.equal(t.calls[0].summary, "Updated Top 4 by payoff · only ones others care about", "the chip names the change; no confirmation card");
+  assert.match(t.calls[4].resultJson, /At most 2 layout changes/, "get_layout is a read; the third change is refused before it runs");
+  const layout = await ann.c.query(api.layout.current, { roomId });
+  assert.equal(layout.source, "room");
+  assert.equal(layout.setBy?.kind, "assistant");
+  const panels = Object.values(layout.layout.panes).filter((p: any) => p.kind === "panel") as any[];
+  assert.deepEqual(panels.map(p => [p.panelId, p.setBy]).sort(), [["objects", "assistant"], ["race", "assistant"]]);
+  assert.equal(panels.find(p => p.panelId === "objects").params.limit, 4);
+  const assistantPane = (Object.values(layout.layout.panes) as any[]).find(p => p.kind === "assistant");
+  const parentOf = (node: any, id: string): any => node.type === "tabs" ? (node.panes.includes(id) ? node : null)
+    : node.children.map((c: any) => parentOf(c, id)).find(Boolean) && (node.children.some((c: any) => c.type === "tabs" && c.panes.includes(id)) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean));
+  assert.equal(parentOf(layout.layout.root, assistantPane.id).direction, "row", "the assistant pane moved beside the objects pane");
+  assert.ok(Object.values(layout.layout.panes).some((p: any) => p.kind === "assistant"), "the assistant pane is still there");
+});
+
 test("a stored panel saved by the assistant is listed with author kind assistant", { timeout: 120_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
   const source = `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Made by assistant", placement: "left", Component() { return <p>hi</p>; } });\n`;
@@ -275,4 +405,22 @@ test("a stored panel saved by the assistant is listed with author kind assistant
   assert.equal(t.calls[0].status, "ok", t.calls[0].resultJson);
   const panel = (await ann.c.query(api.panels.list, {})).find((p: any) => p.slug === "assistant-made");
   assert.equal(panel?.author.kind, "assistant");
+});
+
+test("a provider refusal (out of credit) tells the player who can fix it and gives the reservation back", { timeout: 120_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
+  // OpenAI's answer on the cloud environment's first real call: HTTP 429 insufficient_quota.
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ fail: "You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.", status: 429 }]) });
+  const t = await until(ann, sent, DONE, "the turn fails");
+  assert.equal(t.turn.status, "failed");
+  assert.equal(t.turn.error.code, "MODEL");
+  assert.match(t.turn.error.message, /out of credit[\s\S]*whoever runs this server/i);
+  assert.doesNotMatch(t.turn.error.message, /platform\.openai\.com/);
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, 0, "a refused request cost nothing, so its reservation is released");
+
+  // A failure without an HTTP status (the stream broke after it started) may have been billed: the reservation stays.
+  const broken = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ fail: "stream cut" }]) });
+  const b = await until(ann, broken, DONE, "the second turn fails");
+  assert.equal(b.turn.error.message, "The model call failed: stream cut");
+  assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
 });

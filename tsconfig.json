@@ -13,6 +13,9 @@
       "path": "./lib/ai-player"
     },
     {
+      "path": "./lib/ui-kit"
+    },
+    {
       "path": "./lib/game-core"
     },
     {

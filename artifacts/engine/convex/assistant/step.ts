@@ -8,14 +8,19 @@
  *      characters through a mutation that also reports cancellation), settle the usage, record its tool calls;
  *   3. run those calls (step 1), then schedule the next step, or finish (model stop, step ceiling, deadline, budget).
  *
+ * Before the turn's first model step, the briefing (the player's utility, energy, helpers, the room's rules and the
+ * panes on their screen) is read through the same registry and stored with the turn. The model's blocks of each step are stored verbatim and replayed
+ * in its history (rules.ts buildHistory), so Claude's thinking blocks stay valid across the turn's steps.
+ *
  * Every tool runs through the agent registry as the turn's assistant credential (`runTool(ctx, {credentialId}, …)`):
  * there is no other path to game state. Command and request ids are UUIDv5 of (turn, call), never the model's.
  */
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
 import {
-  assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider, mockChatProvider,
-  type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse,
+  ChatAbortedError, ChatCutError, LOAD_TOOLS, abortedOutputTokens, assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider,
+  inputReservation, mockChatProvider, providerFailure, usageCost, worstCaseCost,
+  type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse, type Prices,
 } from "@workspace/ai-player";
 import { findTool, mayUse, type ToolResult } from "@workspace/player-client/tools";
 import { internal } from "../_generated/api";
@@ -24,28 +29,37 @@ import { internalAction, type ActionCtx } from "../_generated/server";
 import { runTool, toolError } from "../agent/registry";
 import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
-import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, mockEnabled } from "../lib/aiModels";
+import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { LIMITS, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, argsLimit } from "./rules";
+import { LIMITS, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, argsLimit } from "./rules";
 import { log } from "./store";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
-const bytes = (text: string) => Buffer.byteLength(text);
 
 type Context = Exclude<Awaited<ReturnType<typeof loadContext>>, { stop: string }>;
 type CallRow = Context["calls"][number];
 const loadContext = (ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number) => ctx.runQuery(internal.assistant.store.context, { turnId, gen });
 
 function providerFor(modelId: string | null): ChatProvider {
-  if (mockEnabled()) return mockChatProvider();
+  if (assistantMockEnabled()) return mockChatProvider();
   const config = AI_MODEL_CATALOG.find(m => m.id === (modelId ?? DEFAULT_AGENT_MODEL));
   if (!config) throw new Error("The assistant's model is no longer offered");
   const key = (config.provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
-  if (!key) throw new Error(`The assistant needs a server-side ${config.provider} API key`);
+  if (!key) throw new Error(`The assistant is not set up on this server yet: whoever runs it has to add an ${config.provider} API key. Until then, the command palette does everything the assistant would.`);
+  const { inputUsdPerMillion, outputUsdPerMillion, cacheReadUsdPerMillion, cacheWriteUsdPerMillion } = config as typeof config & Prices;
+  const prices: Prices = { inputUsdPerMillion, outputUsdPerMillion, cacheReadUsdPerMillion, ...(cacheWriteUsdPerMillion ? { cacheWriteUsdPerMillion } : {}) };
   return config.provider === "anthropic"
-    ? createDirectAnthropicChatProvider(key, { model: config.id, inputUsdPerMillion: config.inputUsdPerMillion, outputUsdPerMillion: config.outputUsdPerMillion })
-    : createDirectOpenAIChatProvider(key, config.id, config);
+    ? createDirectAnthropicChatProvider(key, { model: config.id, ...prices })
+    : createDirectOpenAIChatProvider(key, config.id, prices);
 }
+
+/**
+ * The provider's prompt-cache routing key (OpenAI prompt_cache_key): the stable prefix itself (system prompt and tool
+ * set, which differ by player, room and grant), so every thread of a player shares its cached prefix; a key per
+ * thread made each new thread's first step a cache miss.
+ */
+const cacheKeyOf = (system: string, tools: { name: string }[]) =>
+  createHash("sha256").update(JSON.stringify([system, tools.map(t => t.name)])).digest("hex").slice(0, 32);
 
 /** The cost a validate_agent call of this turn reported for exactly this source and language (for auto-approved summons). */
 function validatedCost(calls: CallRow[], args: Record<string, unknown>): number | undefined {
@@ -60,6 +74,22 @@ function validatedCost(calls: CallRow[], args: Record<string, unknown>): number 
     } catch { /* not a usable validation */ }
   }
   return undefined;
+}
+
+/**
+ * The player's live situation for the turn's briefing, read as the turn's credential like any tool call: the
+ * observation and the layout (absent when a read fails; the briefing says so), and with no game running the room's
+ * `preparing` (get_rules). The rules are the game-rules skill.
+ */
+async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["credentialId"]): Promise<string> {
+  const read = async (tool: string, args: Record<string, unknown>) => {
+    try { return (await runTool(ctx, { credentialId }, tool, args)).data; } catch { return undefined; }
+  };
+  const [observation, layout] = await Promise.all([read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
+  // With no game running, the next one may be preparing its rule tables (rooms.preparing, through get_rules).
+  const phase = (observation as { phase?: string } | undefined)?.phase;
+  const preparing = phase === "lobby" || phase === "ended" ? ((await read("get_rules", {})) as { preparing?: unknown } | undefined)?.preparing : undefined;
+  return assistantBriefing({ observation, layout, preparing });
 }
 
 /**
@@ -82,7 +112,9 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
     if (start.cancelled) return "cancelled";
     if (!start.go) continue;
     let outcome: { status: "ok" | "error"; summary: string; resultJson: string };
-    try {
+    // The tool loader changes only the model's context (the history turns its result into tool references).
+    if (call.tool === LOAD_TOOLS) outcome = who ? loadTools(who.permission, args) : { status: "error", summary: "Not loaded", resultJson: JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." } }) };
+    else try {
       const result: ToolResult = await runTool(ctx, principal, call.tool, args);
       outcome = { status: "ok", summary: summarize(call.tool, result), resultJson: clipJson(result, LIMITS.resultChars) };
     } catch (error) {
@@ -132,7 +164,7 @@ export const run = internalAction({
   handler: async (ctx, { turnId, gen }): Promise<void> => {
     const finish = (status: "done" | "failed" | "budget_exhausted" | "cancelled", error?: { code: string; message: string }) =>
       ctx.runMutation(internal.assistant.store.finish, { turnId, gen, status, ...(error ? { error } : {}) });
-    const c = await loadContext(ctx, turnId, gen);
+    let c = await loadContext(ctx, turnId, gen);
     if ("stop" in c) {
       // A cancelled turn whose step was only scheduled: acknowledge the cancellation.
       if (c.stop === "stale" && c.status === "cancelling") await finish("cancelled");
@@ -153,16 +185,28 @@ export const run = internalAction({
     if (c.turn.step >= c.turn.maxSteps) return void await finish("done", { code: "STEP_LIMIT", message: `Stopped after ${c.turn.maxSteps} steps; ask again to continue.` });
     if (!who) return void await finish("failed", { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." });
 
-    // 2. One model step.
+    // 2. One model step. The first one fetches the briefing (kept for the whole turn, so its history stays append-only).
+    if (!c.hasBriefing) {
+      const { cancelled } = await ctx.runMutation(internal.assistant.store.setBriefing, { turnId, gen, briefing: await briefingFor(ctx, c.turn.credentialId) });
+      if (cancelled) return void await finish("cancelled");
+      const reloaded = await loadContext(ctx, turnId, gen);
+      if ("stop" in reloaded) { if (reloaded.stop === "stale" && reloaded.status === "cancelling") await finish("cancelled"); return; }
+      c = reloaded;
+    }
     let provider: ChatProvider;
     try { provider = providerFor(c.model); } catch (error) { return void await finish("failed", { code: "UNAVAILABLE", message: messageOf(error) }); }
     const tools = modelTools(who.permission);
     const system = assistantSystemPrompt({ playerName: c.playerName, roomCode: c.roomCode, permission: who.permission });
     const messages = JSON.parse(c.historyJson) as ChatMessage[];
-    const inputBound = bytes(system) + bytes(c.historyJson) + bytes(JSON.stringify(tools)) + 2048;
-    const outputBound = LIMITS.maxOutputTokens;
+    // The reservation: the request's estimated input (a provider count, else a measured characters-per-token ratio),
+    // with a margin, at its dearest price (all written to the prompt cache), plus the output ceiling. Settled to the
+    // actual usage afterwards, so it only decides whether the allowance has room for the step.
+    const estimate = await provider.estimateInputTokens({ system, messages, tools });
+    const inputBound = inputReservation(estimate);
+    const outputBound = outputCeiling(c.turn.outputCeiling ?? undefined, messages, tools);
+    const worst = worstCaseCost(provider.prices, inputBound, outputBound);
     const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, {
-      pool: "assistant", roomId: c.roomId, subject: c.turn.subject, tokens: inputBound + outputBound, usd: provider.estimateMaxUsd(inputBound, outputBound),
+      pool: "assistant", roomId: c.roomId, subject: c.turn.subject, tokens: worst.tokens, usd: worst.usd,
     });
     if (!reservation.ok) {
       log("budget", { turnId, reason: reservation.reason });
@@ -173,48 +217,93 @@ export const run = internalAction({
       return void await finish("budget_exhausted", { code: reservation.reason.toUpperCase(), message: reservation.message });
     }
     const messageId = await ctx.runMutation(internal.assistant.store.openStep, {
-      turnId, gen, tools: tools.map(t => t.name), reservedTokens: reservation.reservedTokens, reservedUsd: reservation.reservedUsd,
+      turnId, gen, tools: tools.map(t => t.name), reservedTokens: reservation.reservedTokens, reservedUsd: reservation.reservedUsd, inputEstimate: estimate.tokens,
     });
     if (!messageId) return void await finish("cancelled");
+    const settle = (cost: { tokens: number; usd: number }, usage: { inputTokens: number; outputTokens: number }) => ctx.runMutation(internal.ai.seats.settle, {
+      pool: "assistant", roomId: c.roomId, subject: c.turn.subject, epoch: reservation.epoch, reservedTokens: reservation.reservedTokens,
+      ...usage, tokens: cost.tokens, reservedUsd: reservation.reservedUsd, usd: cost.usd,
+    });
     const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), Math.max(1000, c.turn.deadline - Date.now()));
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; abort.abort(); }, Math.max(1000, c.turn.deadline - Date.now()));
     const flush = flusher(ctx, turnId, gen, messageId, () => abort.abort());
     let result: ChatResult;
     try {
-      result = await provider.stream({ system, messages, tools, maxOutputTokens: outputBound, signal: abort.signal, onText: d => flush.push(d) });
+      result = await provider.stream({ system, messages, tools, maxOutputTokens: outputBound, signal: abort.signal, onText: d => flush.push(d), cacheKey: cacheKeyOf(system, tools) });
     } catch (error) {
       await flush.stop();
       clearTimeout(timeout);
+      if (error instanceof ChatCutError && !abort.signal.aborted) {
+        // The output ceiling cut the answer: bill it, never act on it, and run the step again with the full ceiling
+        // (once: a cut at the full ceiling fails the turn).
+        const cost = usageCost(provider.prices, error.usage);
+        await settle(cost, { inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens }).catch(() => log("budget", { turnId, reason: "settle_failed" }));
+        log("step", { turnId, step: c.turn.step, outcome: "cut", outputBound, inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens, billedTokens: cost.tokens });
+        const { cancelled } = await ctx.runMutation(internal.assistant.store.cutStep, { turnId, gen, messageId, ...error.usage, billedTokens: cost.tokens });
+        if (cancelled) return void await finish("cancelled");
+        if (outputBound >= LIMITS.maxOutputTokens) return void await finish("failed", { code: "MODEL", message: "The answer was too long for one step; ask for less at a time." });
+        await ctx.runMutation(internal.assistant.store.next, { turnId, gen });
+        return;
+      }
+      if (error instanceof ChatAbortedError && abort.signal.aborted) {
+        // A cancelled (or timed-out) stream reports no usage. Bill the best known: the input the provider reported
+        // when the stream opened, else the estimate at its dearest price; the output the streamed text and reasoning
+        // time bound. Never more than the reservation.
+        const { partial } = error;
+        const outputTokens = abortedOutputTokens(partial, outputBound);
+        const cost = partial.input ? usageCost(provider.prices, { ...partial.input, outputTokens }) : worstCaseCost(provider.prices, estimate.tokens, outputTokens);
+        const billed = { tokens: Math.min(cost.tokens, reservation.reservedTokens), usd: Math.min(cost.usd, reservation.reservedUsd) };
+        const inputTokens = partial.input?.inputTokens ?? estimate.tokens;
+        log("step", { turnId, step: c.turn.step, outcome: "aborted", billedTokens: billed.tokens, reservedTokens: reservation.reservedTokens,
+          input: partial.input ? "reported" : estimate.counted ? "counted" : "estimated", inputTokens, outputTokens, outputBasis: "streamed text and reasoning time" });
+        await settle(billed, { inputTokens, outputTokens }).catch(() => log("budget", { turnId, reason: "settle_failed" }));
+        await ctx.runMutation(internal.assistant.store.recordAbortedUsage, {
+          turnId, messageId, inputTokens, outputTokens, cacheReadTokens: partial.input?.cacheReadTokens ?? 0, cacheWriteTokens: partial.input?.cacheWriteTokens ?? 0, billedTokens: billed.tokens,
+        }).catch(() => log("budget", { turnId, reason: "record_failed" }));
+        // A deadline abort fails the turn (finish turns a cancelling turn into cancelled either way).
+        return void await (timedOut ? finish("failed", { code: "DEADLINE", message: "The turn ran past its 10-minute deadline" }) : finish("cancelled"));
+      }
       log("step", { turnId, step: c.turn.step, outcome: abort.signal.aborted ? "aborted" : "provider_error" });
       // A provider failure, or a cancellation the flush saw (finish turns a cancelling turn into cancelled, never
-      // failed). No trustworthy usage: the reservation is kept either way.
-      return void await finish("failed", { code: "MODEL", message: `The model call failed: ${messageOf(error).slice(0, 300)}` });
+      // failed). A request the provider refused outright (an HTTP error status) cost nothing, so its reservation is
+      // released (best effort: the turn finishes either way); any other failure has no trustworthy usage and keeps it.
+      const failure = providerFailure(error);
+      if (failure.unbilled && !abort.signal.aborted) {
+        await settle({ tokens: 0, usd: 0 }, { inputTokens: 0, outputTokens: 0 }).catch(() => log("budget", { turnId, reason: "release_failed" }));
+      }
+      return void await finish("failed", { code: "MODEL", message: failure.message });
     }
     await flush.stop();
     clearTimeout(timeout);
-    if (result.inputTokens <= inputBound && result.outputTokens <= outputBound) {
-      await ctx.runMutation(internal.ai.seats.settle, {
-        pool: "assistant", roomId: c.roomId, subject: c.turn.subject, epoch: reservation.epoch,
-        reservedTokens: reservation.reservedTokens, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
-        reservedUsd: reservation.reservedUsd, usd: provider.estimateMaxUsd(result.inputTokens, result.outputTokens),
-      });
-    }
-    log("step", { turnId, step: c.turn.step, outcome: result.stopReason, inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+    // The actual usage, even past the reservation (a low estimate): the allowance keeps what the call cost.
+    const cost = usageCost(provider.prices, result);
+    await settle(cost, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+    log("step", { turnId, step: c.turn.step, outcome: result.stopReason, inputTokens: result.inputTokens, cacheReadTokens: result.cacheReadTokens,
+      cacheWriteTokens: result.cacheWriteTokens, outputTokens: result.outputTokens, billedTokens: cost.tokens, inputEstimate: estimate.tokens, counted: estimate.counted });
     const text = result.content.filter(b => b.type === "text").map(b => b.text).join("");
-    const uses = result.content.filter((b): b is ChatToolUse => b.type === "tool_use").slice(0, 16);
-    const calls = uses.map(use => {
+    // Every tool use gets a call row (and so a result): the step's blocks are replayed verbatim.
+    const uses = result.content.filter((b): b is ChatToolUse => b.type === "tool_use");
+    const calls = uses.map((use, n) => {
       const id = commandIdFor(turnId, use.id, sha1);
       const args = prepareArgs(use.name, use.input, id);
       const argsJson = JSON.stringify(args);
       const ids = args.commandId === id || args.requestId === id ? { commandId: id } : {};
+      const limited = callLimitProblem(use.name, uses.slice(0, n).map(u => u.name));
+      if (limited) {
+        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars, { notice: false }), ...ids, status: "error" as const, summary: "Too many calls in one step",
+          resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: limited } }) };
+      }
       if (argsJson.length > argsLimit(use.name)) {
-        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars), ...ids, status: "error" as const, summary: "Arguments too large",
+        return { callId: use.id, tool: use.name, argsJson: clipJson(args, LIMITS.argsChars, { notice: false }), ...ids, status: "error" as const, summary: "Arguments too large",
           resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message: `Tool arguments are limited to ${argsLimit(use.name)} characters` } }) };
       }
       return { callId: use.id, tool: use.name, argsJson, ...ids, status: "pending" as const, summary: "" };
     });
+    const contentJson = JSON.stringify(result.content);
     const done = await ctx.runMutation(internal.assistant.store.completeStep, {
-      turnId, gen, messageId, text, inputTokens: result.inputTokens, outputTokens: result.outputTokens, stop: result.stopReason, calls,
+      turnId, gen, messageId, text, ...(contentJson.length <= LIMITS.contentChars ? { contentJson } : {}), inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+      cacheReadTokens: result.cacheReadTokens, cacheWriteTokens: result.cacheWriteTokens, billedTokens: cost.tokens, stop: result.stopReason, calls,
     });
     if (done.cancelled) return void await finish("cancelled");
     if (!calls.length) return void await finish("done");

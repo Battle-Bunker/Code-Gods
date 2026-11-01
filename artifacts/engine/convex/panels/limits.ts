@@ -10,8 +10,6 @@ export const LIMITS = {
   savesPerMinute: 30,
   /** Versions kept per panel (older ones are pruned; the current one is always kept). */
   versionsKept: 20,
-  /** Layout JSON, UTF-8 bytes. */
-  layoutBytes: 16 * 1024,
 } as const;
 
 /** A panel's id: kebab-case, like a file panel's file name. */

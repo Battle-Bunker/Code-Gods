@@ -1,17 +1,17 @@
 /**
- * The player client's root: find the engine, authenticate, pick the room, then render the protected
- * core console inside the panel dock.
+ * The player client's root: find the engine, authenticate, pick the room, then render the player's screen: the
+ * header and the dock of panes (built-in panels, the assistant, your own panels) in dock/shell.tsx.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
-import { ConvexProviderWithAuth, useConvexAuth, useMutation, useQuery } from "convex/react";
+import { ConvexProviderWithAuth, useConvexAuth, useMutation, useQueries, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
 import { authClient, connection, convexClient, fetchAppAccessToken, signIn, type Connection } from "./connection";
 import { RoomProvider } from "@/sdk/context";
-import { Dock } from "@/shell/dock";
-import Console from "./console";
+import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "./core-boundary";
-import { AssistantToggle } from "./assistant/drawer";
+import { roomLookup } from "./room-lookup";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -50,7 +50,9 @@ function DevServerMode({ conn }: { conn: Connection }) {
 function Hosted() {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get("room") ?? "");
-  const room = useQuery(api.rooms.get, isAuthenticated && code ? { room: code } : "skip");
+  // useQueries, not useQuery: an unknown code makes rooms.get throw NOT_FOUND, shown on the form below.
+  const queries = useMemo((): Record<string, { query: typeof api.rooms.get; args: { room: string } }> => isAuthenticated && code ? { room: { query: api.rooms.get, args: { room: code } } } : {}, [isAuthenticated, code]);
+  const lookup = roomLookup(code, useQueries(queries).room as FunctionReturnType<typeof api.rooms.get> | Error | undefined);
   const me = useQuery(api.auth.user.me, isAuthenticated ? {} : "skip");
   const join = useMutation(api.rooms.join);
   const [error, setError] = useState<string>();
@@ -64,18 +66,19 @@ function Hosted() {
       </Screen>
     );
   }
-  if (!code || room === null) {
+  if (lookup.state === "ask") {
     return (
       <Screen title="Which room?">
         <form className="space-y-3" onSubmit={e => { e.preventDefault(); const value = new FormData(e.currentTarget).get("room"); if (typeof value === "string") setCode(value.trim()); }}>
           <input name="room" data-testid="input-room-id" defaultValue={code} placeholder="Room short code" className="w-full bg-card border border-[hsl(var(--input))] px-3 py-3 font-mono text-lg" />
-          {room === null && <p className="text-sm text-destructive">No room {code} on this engine.</p>}
+          {lookup.error && <p className="text-sm text-destructive" data-testid="text-room-error">{lookup.error}</p>}
           <button type="submit" data-testid="button-open-room" className="bg-primary text-primary-foreground px-4 py-2 font-semibold">Open</button>
         </form>
       </Screen>
     );
   }
-  if (!room || !me) return <Screen title="Connecting…" testId="status-connecting" />;
+  if (lookup.state === "loading" || !me) return <Screen title="Connecting…" testId="status-connecting" />;
+  const room = lookup.room;
   if (!room.members.some(m => m.id === me.subject)) {
     return (
       <Screen title={`Join room ${room.shortCode}?`}>
@@ -93,14 +96,9 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
   const room = useMemo(() => ({ roomId, permission, mode }), [roomId, permission, mode]);
   return (
     <RoomProvider room={room}>
-      <Dock>
-        <CoreBoundary>
-          <Console header={<>
-            <span className="font-mono text-xs opacity-70" data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
-            <AssistantToggle />
-          </>} />
-        </CoreBoundary>
-      </Dock>
+      <CoreBoundary>
+        <PlayerShell />
+      </CoreBoundary>
     </RoomProvider>
   );
 }

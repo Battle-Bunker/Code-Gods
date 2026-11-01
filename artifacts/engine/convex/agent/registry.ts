@@ -14,6 +14,8 @@ import {
   DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
+import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
+import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
@@ -22,6 +24,9 @@ import { fail } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
 import type { eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
+import type { CurrentLayout, LayoutChange } from "../layout";
+import type { RunOutcome } from "../code/execute";
+import type { RunDetail } from "../code/runs";
 import { bound } from "./bound";
 import { pollDelay } from "./rules";
 import type { Who } from "./store";
@@ -108,24 +113,95 @@ const owner = (action: "settings" | "start" | "resume" | "endGame" | "addAi" | "
     return { data: { requestId, result } };
   };
 
+/** Game setups (convex/setups.ts): one shared, owned collection, whichever room the credential is bound to. */
+const SETUP_EXECUTORS = {
+  list_setups: async (ctx, { principal }, { query, limit }) => {
+    const rows: { name: string; ownerName: string; summary: string; system: boolean; mine: boolean }[] = await ctx.runQuery(internal.setups.listAs, { principal });
+    const words = (query ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+    const found = rows.filter(r => {
+      const text = `${r.name} ${r.ownerName} ${r.system ? "system" : ""} ${r.mine ? "you mine" : ""} ${r.summary}`.toLowerCase();
+      return words.every(w => text.includes(w));
+    });
+    return { data: { setups: found.slice(0, limit ?? 100), total: found.length } };
+  },
+  get_setup: async (ctx, { principal }, args) => ({ data: await ctx.runQuery(internal.setups.getAs, { principal, ...args }) }),
+  save_setup: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.setups.saveAs, { principal, ...args }) }),
+  duplicate_setup: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.setups.duplicateAs, { principal, ...args }) }),
+  delete_setup: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.setups.removeAs, { principal, ...args }) }),
+} satisfies Pick<Executors, "list_setups" | "get_setup" | "save_setup" | "duplicate_setup" | "delete_setup">;
+
 /** Stored panels (convex/panels.ts): the human's own panels, whichever room the credential is bound to. */
 const PANEL_EXECUTORS = {
   list_panels: async (ctx, { principal }) => ({ data: await ctx.runQuery(internal.panels.listAs, { principal }) }),
   get_panel: async (ctx, { principal }, args) => ({ data: await ctx.runQuery(internal.panels.codeAs, { principal, ...args }) }),
   save_panel: async (ctx, { principal }, args) => ({ data: await ctx.runAction(internal.panels.saveAs, { principal, ...args }) }),
   rollback_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.rollbackAs, { principal, ...args }) }),
-  place_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.placeAs, { principal, ...args }) }),
   delete_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.panels.removeAs, { principal, ...args }) }),
-} satisfies Pick<Executors, "list_panels" | "get_panel" | "save_panel" | "rollback_panel" | "place_panel" | "delete_panel">;
+} satisfies Pick<Executors, "list_panels" | "get_panel" | "save_panel" | "rollback_panel" | "delete_panel">;
+
+/**
+ * The dock layout (convex/layout.ts): the panes the player sees. Each operation is one read-modify-write mutation on
+ * the human's row for the credential's room, so an assistant's change lands on the latest layout.
+ */
+type PanelMeta = { slug: string; title: string; enabled: boolean; placement: string; size: string };
+const LAYOUT_EXECUTORS = {
+  get_layout: async (ctx, { principal }) => {
+    const current: CurrentLayout = await ctx.runQuery(internal.layout.currentAs, { principal });
+    const stored: PanelMeta[] = await ctx.runQuery(internal.panels.listAs, { principal });
+    const panels = panelCatalog().map(entry => ({ ...entry, defaults: defaultPanelParams(entry.id) }));
+    return { data: { ...current, panels, storedPanels: stored.filter(p => p.enabled).map(p => ({ slug: p.slug, title: p.title, placement: p.placement, size: p.size })) } };
+  },
+  open_panel: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.openPanelAs, { principal, ...args }) satisfies LayoutChange }),
+  set_panel_params: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.setPanelParamsAs, { principal, ...args }) satisfies LayoutChange }),
+  move_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.movePaneAs, { principal, ...args }) satisfies LayoutChange }),
+  close_pane: async (ctx, { principal }, args) => ({ data: await ctx.runMutation(internal.layout.closePaneAs, { principal, ...args }) satisfies LayoutChange }),
+} satisfies Pick<Executors, "get_layout" | "open_panel" | "set_panel_params" | "move_pane" | "close_pane">;
+
+/**
+ * Code runs (convex/code; docs/assistant/code-execution.md): analytics scripts over datasets the engine resolves as the
+ * human, in the room the credential is bound to. Reads only. The analytics-code skill (load_skill) has the guidance.
+ */
+const CODE_EXECUTORS = {
+  run_code: async (ctx, { principal, who }, { language, source, script, load, saveAs, datasets, params, title, cpuSeconds }) => {
+    const outcome: RunOutcome = await ctx.runAction(internal.code.execute.runAs, {
+      principal, roomId: who.roomId, datasetsJson: JSON.stringify(datasets),
+      ...(language ? { language } : {}), ...(source !== undefined ? { source } : {}), ...(script !== undefined ? { script } : {}),
+      ...(load ? { load } : {}), ...(saveAs !== undefined ? { saveAs } : {}),
+      ...(params ? { paramsJson: JSON.stringify(params) } : {}), ...(title ? { title } : {}), ...(cpuSeconds ? { cpuMs: Math.round(cpuSeconds * 1000) } : {}),
+    });
+    return { data: outcome };
+  },
+  get_code_run: async (ctx, { principal, who }, { runId, part, offset, length }) => {
+    const run: RunDetail | null = await ctx.runQuery(internal.code.runs.getAs, { principal, roomId: who.roomId, runId });
+    if (!run) return fail("NOT_FOUND", "No such code run of yours in this room");
+    const { resultJson, output, source, fullUrl: _, ...summary } = run;
+    if (!part) return { data: { ...summary, resultPreview: (resultJson ?? "").slice(0, 1000), outputPreview: (output ?? "").slice(0, 500) } };
+    let text = part === "source" ? source : part === "result" ? resultJson ?? "" : output ?? "";
+    // The row holds a prefix of a clipped run; the whole is read from file storage only for a slice past it.
+    if (part !== "source" && run.clipped && offset + length > text.length) {
+      const full: { result: string; output: string } | null = await ctx.runAction(internal.code.execute.fullText, { principal, roomId: who.roomId, runId });
+      if (full) text = part === "result" ? full.result : full.output;
+    }
+    const slice = text.slice(offset, offset + length);
+    const next = offset + slice.length;
+    return { data: { runId, part, offset, text: slice, totalChars: text.length, nextOffset: next < text.length ? next : null } };
+  },
+  list_code_runs: async (ctx, { principal, who }, { limit }) => ({ data: await ctx.runQuery(internal.code.runs.listAs, { principal, roomId: who.roomId, limit }) }),
+  list_code_objects: async (ctx, { principal }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, ...(prefix ? { prefix } : {}), limit }) }),
+} satisfies Pick<Executors, "run_code" | "get_code_run" | "list_code_runs" | "list_code_objects">;
 
 export const EXECUTORS: Executors = {
+  ...SETUP_EXECUTORS,
   ...PANEL_EXECUTORS,
+  ...LAYOUT_EXECUTORS,
+  ...CODE_EXECUTORS,
   // ----- read -----
   whoami: async (_ctx, { who }) => ({ data: who }),
   get_rules: async (ctx, { principal, who }) => {
     const room: RoomState = await ctx.runQuery(internal.rooms.getAs, { principal, room: who.roomId });
     return { data: { rules: rulesText(room.settings as unknown as Record<string, unknown>), settings: room.settings, objectInstance: room.objectInstance,
-      activeGame: room.activeGame, note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility)." } };
+      activeGame: room.activeGame, preparing: room.preparing,
+      note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready." } };
   },
   get_observation: async (ctx, { principal, who }, { objectsLimit, objectsCursor }) => {
     const o = await observe(ctx, principal, who.roomId);
@@ -168,6 +244,22 @@ export const EXECUTORS: Executors = {
     return { data: { messages }, nextCursor };
   },
   get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
+  // A skill's guidance with the live parts it reads, through the same executors as the human (a failed read is left
+  // out; the body says which tool to call instead).
+  load_skill: async (ctx, p, { name }) => {
+    const reads = findSkill(name)?.reads ?? [];
+    const read = async (part: SkillRead) => {
+      if (!reads.includes(part)) return undefined;
+      try {
+        const page = part === "rules" ? await EXECUTORS.get_rules(ctx, p, {})
+          : part === "observation" ? await EXECUTORS.get_observation(ctx, p, { objectsLimit: 1, objectsCursor: 0 })
+          : await EXECUTORS.get_layout(ctx, p, {});
+        return page.data;
+      } catch { return undefined; }
+    };
+    const [rules, observation, layout] = await Promise.all([read("rules"), read("observation"), read("layout")]);
+    return { data: { name, body: skillBody(name, { rules, observation, layout }) } };
+  },
   // ----- act -----
   validate_agent: (ctx, p, args) => command(ctx, p, "validate_agent", args),
   summon_agent: (ctx, p, args) => command(ctx, p, "summon_agent", args),

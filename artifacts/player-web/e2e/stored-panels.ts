@@ -8,13 +8,17 @@
  * first (CG_E2E_SKIP_DEPLOY=1 skips that). Playwright must be resolvable (e.g. NODE_PATH to a global install).
  *
  * What it checks (each line printed as ok / FAIL):
- *   a panel saved with panels.save appears without a reload (a window marker survives), with live data over the
- *   bridge, also when the frame is served from another origin than its CSP names (a custom domain); an update and a rollback change it live; a render-throwing version stays inside its frame; a panel
+ *   a panel saved with panels.save and opened as a pane from the panel menu appears without a reload (a window marker
+ *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
+ *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
+ *   change it live; moving the pane does not restart its frame; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
- *   the engine; ?panels=off loads only the core; the page CSP reports nothing of its own and sign-in still works.
+ *   the engine; after the game ends every built-in panel shows the frozen final state (none blank) and the forge says
+ *   why it is read-only; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
+ *   built-in panels and the assistant; the page CSP reports nothing of its own and sign-in still works.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
@@ -36,6 +40,10 @@ async function check(name: string, run: () => Promise<unknown> | unknown) {
 }
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+async function until<T>(read: () => Promise<T | undefined>, label: string, ms = 60_000): Promise<T> {
+  for (const end = Date.now() + ms; Date.now() < end; await sleep(500)) { const value = await read(); if (value) return value; }
+  throw new Error(`timed out: ${label}`);
+}
 
 if (!(await fetch(`${SITE}/api/health`).then(r => r.ok, () => false))) {
   console.error(`No engine at ${SITE}. Start one: pnpm --filter @workspace/engine dev`);
@@ -78,9 +86,22 @@ const { roomId, shortCode } = await carol.mutation(fn.m("rooms:create"), {}) as 
 // Earlier runs' panels of this identity would crowd the dock: start clean.
 for (const p of await carol.query(fn.q("panels:list"), {}) as { slug: string }[]) await carol.mutation(fn.m("panels:remove"), { slug: p.slug });
 
-async function save(slug: string, source: string) {
+const { DEFAULT_LAYOUT, openPane } = await import("@workspace/player-client/layout");
+type Layout = ReturnType<typeof DEFAULT_LAYOUT>;
+// Layouts follow the human across rooms: start this room from the default arrangement.
+await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+
+/** Open a stored panel as a pane through the engine's layout, as the assistant's open_panel does (the page follows). */
+async function openAsPane(slug: string) {
+  const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
+  if (Object.values(layout.panes).some(p => p.kind === "stored-panel" && p.slug === slug)) return;
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: openPane(layout, { id: "", kind: "stored-panel", slug }).layout });
+}
+/** Save a panel (and open it as a pane unless told not to). */
+async function save(slug: string, source: string, { open = true } = {}) {
   const result = await carol.action(fn.a("panels:save"), { slug, source }) as { ok: boolean; version?: number; diagnostics: unknown[] };
   assert(result.ok, `save ${slug}: ${JSON.stringify(result.diagnostics)}`);
+  if (open) await openAsPane(slug);
   return result.version!;
 }
 const live = (label: string) => `import { definePanel, useGame } from "@sdk";
@@ -118,8 +139,11 @@ async function frameShows(slug: string, testId: string, expected: RegExp) {
   }
 }
 
-await check("a panel saved with panels.save appears without a reload, with live data over the bridge", async () => {
-  assert(await save("e2e-live", live("v1")) === 1, "first version");
+await check("a panel saved with panels.save and opened from the panel menu appears without a reload, with live data over the bridge", async () => {
+  assert(await save("e2e-live", live("v1"), { open: false }) === 1, "first version");
+  // "Your panels" in a built-in panel's menu opens it as a pane of its own.
+  await page.locator("[data-testid=menu-panel]").first().click();
+  await page.click("[data-testid=menu-stored-panel-e2e-live]", { timeout: 15_000 });
   await frameShows("e2e-live", "sp-text", /^v1 with data$/);
   assert(await page.textContent("[data-testid=badge-stored-e2e-live]") === "stored v1", "version badge");
   assert(await page.getAttribute('[data-testid="panel-frame-stored:e2e-live"] iframe', "sandbox") === "allow-scripts", "sandbox attribute");
@@ -133,6 +157,20 @@ await check("an update and a rollback change the panel live", async () => {
   await frameShows("e2e-live", "sp-text", /^v1 with data$/);
   await page.waitForFunction(() => document.querySelector("[data-testid=badge-stored-e2e-live]")?.textContent === "stored v3", null, { timeout: 15_000 });
   assert(await sameDocument(), "the page reloaded");
+});
+
+await check("moving a panel's pane (the assistant to the right) does not restart its frame", async () => {
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("[data-testid=dialog-palette]");
+  await page.keyboard.type("Move assistant right");
+  await page.keyboard.press("Enter");
+  await sleep(1500);
+  assert(await page.getAttribute('[data-testid="panel-frame-stored:e2e-live"]', "data-frame-state") !== "navigated", "the moved frame was stopped as a navigation");
+  await frameShows("e2e-live", "sp-text", /^v1 with data$/);
+  await page.keyboard.press("Control+k");
+  await page.keyboard.type("Move assistant to the bottom");
+  await page.keyboard.press("Enter");
+  await sleep(500);
 });
 
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {
@@ -301,16 +339,188 @@ export default definePanel({ title: "Evaluator", Component() {
   // Objects spawn once the game runs; wait for some, then every local score must equal the engine's.
   const text = await (async () => { for (let i = 0; i < 4; i++) { try { return await frameShows("e2e-eval", "sp-eval", /^(match|mismatch) \d+$/); } catch { /* still planning */ } } return frameText("e2e-eval", "sp-eval"); })();
   assert(/^match \d+$/.test(text ?? ""), `evaluator: ${text}`);
+});
+
+await check("after the game ends every built-in panel shows the frozen final state (no placeholder), the forge says why it is read-only", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) =>
+    carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  type Obs = { gameId: string; language: "python" | "typescript"; instance: { objectType: string }; objects: { id: string }[]; agents: unknown[]; transformations: { calls?: [string, Record<string, unknown>][] }[] };
+  const observe = () => carol.query(fn.q("player:observation"), { roomId, at: Date.now() }) as Promise<Obs>;
+  let obs = await observe();
+  const AGENT: Record<string, Record<string, string>> = {
+    python: { Int: "def agent(x):\n    return [add(1)]", string: "def agent(s):\n    return [swap_chars(0, 1)]", Grid: "def agent(grid):\n    return [slide(row(0), 1)]" },
+    typescript: { Int: "function agent(x) { return [add(1)]; }", string: "function agent(s) { return [swapChars(0, 1)]; }", Grid: "function agent(grid) { return [slide(row(0), 1)]; }" },
+  };
+  // The game ends whatever happens here: the checks after this one expect an ended game.
+  try {
+    const source = AGENT[obs.language][obs.instance.objectType];
+    assert(source, `no agent source for ${obs.language} ${obs.instance.objectType}`);
+    const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
+      command: { type: "summon", language: obs.language, source } } }) as { accepted: boolean; message?: string };
+    assert(summon.accepted, `summon: ${summon.message}`);
+    obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
+  } finally { await owner("endGame"); }
+  await page.waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 });
+  const whatIf = { objectId: obs.objects[0].id, calls: [obs.transformations.find(t => t.calls?.length)!.calls![0]] };
+  /** Each panel's own content, as it renders with data (any one selector). */
+  const CONTENT: Record<string, string> = {
+    overview: "[data-testid=panel-overview]", "my-card": "[data-testid=panel-utility]", objects: "[data-testid^=row-object-]", "others-care": "[data-testid=panel-others-care]",
+    "bits-over-time": "[data-testid=panel-bits-over-time]", race: "[data-testid^=row-leader-]", agents: "[data-testid^=row-agent-]", feed: "[data-testid^=row-transformation-]",
+    "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
+    "code-output": "[data-testid=table-code-result]",
+  };
+  const { PANEL_IDS } = await import("@workspace/player-client/panels");
+  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
+  // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
+  // The AI seats keep the budget the evaluator check gave them (a later check starts another game with them).
+  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+  const rank = "def main(data):\n    rows = sorted(data['objects'], key=lambda o: -o['payoff'])[:5]\n    return [{'object': o['id'], 'payoff': round(o['payoff'], 2)} for o in rows]\n";
+  const sent = await carol.mutation(fn.m("assistant:send"), { roomId, text: `/mock ${JSON.stringify({ steps: [
+    { tools: [{ name: "run_code", input: { language: "python", source: rank, datasets: ["objects"], title: "Top 5 by payoff" } }] }, { text: "Done." }] })}` }) as { threadId: string; turnId: string };
+  await until(async () => {
+    const t = await carol.query(fn.q("assistant:thread"), { threadId: sent.threadId }) as { turns: { _id: string; status: string }[] };
+    const turn = t.turns.find(x => x._id === sent.turnId);
+    if (turn && turn.status !== "running") { assert(turn.status === "done", `the code turn ended ${turn.status}`); return true; }
+    return undefined;
+  }, "carol's code run", 90_000);
+  // layout:set allows 12 changes a minute: a sweep of 14 panels waits for the window instead of failing.
+  const setLayout = (layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, (e: Error) => {
+    if (/RATE_LIMITED/.test(e.message)) return sleep(4_000).then(() => undefined);
+    throw e;
+  }), "layout:set", 120_000);
+  const show = (panelId: string) => {
+    const layout = DEFAULT_LAYOUT("ended");
+    layout.panes.p1 = { id: "p1", kind: "panel", panelId: panelId as never, params: panelId === "what-if" ? whatIf : {}, setBy: "human" };
+    return setLayout(layout);
+  };
+  // The checks after this one use carol's arrangement (her stored panels' panes): put it back at the end.
+  const arranged = (await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout;
+  try { await sweep(); } finally { await setLayout(arranged); }
+  async function sweep() {
+  const blank: string[] = [];
+  for (const id of PANEL_IDS) {
+    await show(id);
+    const pane = page.locator("[data-testid=pane-p1]");
+    const ok = await pane.locator(CONTENT[id]).first().waitFor({ state: "attached", timeout: 20_000 }).then(() => true, () => false);
+    const text = (await pane.textContent()) ?? "";
+    if (!ok || await pane.locator("[data-testid^=panel-empty-]").count() > 0 || /shows data|How the game went\.$/.test(text)) blank.push(`${id}: ${text.slice(0, 120)}`);
+  }
+  assert(blank.length === 0, `blank after the end: ${blank.join(" | ")}`);
+  await show("forge");
+  await page.locator("[data-testid=pane-p1] [data-testid=input-source]").fill("def agent(x):\n    return []");
+  assert(await page.locator("[data-testid=pane-p1] [data-testid=button-summon]").isDisabled() && await page.locator("[data-testid=pane-p1] [data-testid=button-validate]").isDisabled(), "summon and validate are off after the end");
+  // Phone-size screenshots of the frozen agents, objects and feed panels (CG_E2E_SHOTS=<dir> keeps them).
+  if (process.env.CG_E2E_SHOTS) {
+    const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await phone.addCookies(sessionCookies(session));
+    const shot = await phone.newPage();
+    await shot.goto(`${SITE}/player/?room=${shortCode}`);
+    await shot.waitForSelector("[data-testid=dock-stacked]", { state: "attached", timeout: 60_000 });
+    for (const id of ["agents", "objects", "feed"]) {
+      await show(id);
+      await shot.locator(`[data-testid=pane-p1] ${CONTENT[id]}`).first().waitFor({ state: "attached", timeout: 20_000 }).catch(() => {});
+      await sleep(800);
+      await shot.screenshot({ path: join(process.env.CG_E2E_SHOTS, `ended-${id}-after.png`) });
+    }
+    await phone.close();
+  }
+  }
+});
+
+await check("while the next game prepares its rule tables (a shape with no shipped file), the overview and results panels say so with the progress", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  const { canonicalSupport, context, familiesFor, firstUseSeconds, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
+  const inst = instantiateKey("Int(0,2147483647)");
+  const smooth = familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!;
+  const convex = (fnName: string, args: unknown) => execFileSync("npx", ["convex", "run", fnName, JSON.stringify(args)], { cwd: ENGINE, encoding: "utf8" });
+  convex("calibration/cache:forget", { instance: inst.key });
+  // The three tables are claimed as if computing elsewhere: the room waits on them, nothing is computed here.
+  for (const p of canonicalSupport(smooth, context(inst))) {
+    convex("calibration/cache:claim", { key: tableKey(smooth.id, p, inst), instance: inst.key, family: smooth.id, paramsKey: paramsKey(p), prior: "uniform" });
+  }
+  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
+  await owner("settings", { revision, settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, language: "typescript",
+    excludedFamilies: familiesFor("Int", "reward").map(f => f.id).filter(id => id !== smooth.id) } });
+  const started = await owner("start") as { status?: string; message?: string };
+  assert(started.status === "preparing" && /preparing its rule tables: 0 of 3 ready/.test(started.message ?? ""), `start: ${JSON.stringify(started)}`);
+  const note = page.locator("[data-testid=note-preparing]").first();
+  await note.waitFor({ timeout: 30_000 });
+  const text = await note.innerText();
+  assert(new RegExp(`The game is preparing its rule tables, 0 of 3 ready\\. It is the first game on Int\\(0,2147483647\\) on this server \\(about ${firstUseSeconds(inst)} s\\)`).test(text), `note: ${text}`);
+  await owner("endGame");   // ends the preparation
+  await page.locator("[data-testid=note-preparing]").first().waitFor({ state: "detached", timeout: 30_000 });
+  convex("calibration/cache:forget", { instance: inst.key });
+});
+
+await check("at phone size (390×844) a panel's pane runs in the stacked layout, with the assistant as a sheet", async () => {
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await phoneContext.addCookies(sessionCookies(session));
+  const phone = await phoneContext.newPage();
+  phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached", timeout: 60_000 });
+  const text = await phone.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 });
+  assert(text === "v1 with data", `phone frame: ${text}`);
+  assert(await phone.locator(".dv-dockview").count() === 0, "dockview on a phone");
+  const width = await phone.evaluate(() => document.scrollingElement!.scrollWidth);
+  assert(width <= 390, `the page scrolls sideways: ${width}px`);
+  await phoneContext.close();
+});
+
+await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, rectangles to scale with labelled edges, the top bar at the ramp's strong end, no sideways scroll", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
+  await owner("settings", { revision, settings: { objectType: "Grid", language: "typescript", planningSeconds: 2, halfLifeSeconds: 3600 } });
+  await owner("start");
+  const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "human" } } } });
+  const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await phoneContext.addCookies(sessionCookies(session));
+  const phone = await phoneContext.newPage();
+  phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await phone.goto(`${SITE}/player/?room=${shortCode}`);
+  await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
+  const panel = await phone.evaluate(() => {
+    const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
+    const list = rows[0].closest("ol")!.parentElement!;
+    return {
+      text: list.textContent ?? "",
+      rects: [...list.querySelectorAll("svg[data-testid^=payoff-rect-]")].map(r => ({
+        kind: r.getAttribute("data-kind"), w: Number(r.getAttribute("data-width")), h: Number(r.getAttribute("data-height")),
+        yours: Number(r.querySelector("[data-testid=payoff-label-yours]")?.textContent), others: Number(r.querySelector("[data-testid=payoff-label-others]")?.textContent),
+      })),
+      topBar: getComputedStyle(rows[0].querySelector("[data-testid^=payoff-bar-]")!).backgroundColor,
+      scrollWidth: document.scrollingElement!.scrollWidth,
+    };
+  });
+  assert(!/[✓✗]/u.test(panel.text), `glyphs in the objects panel: ${panel.text.match(/.{0,20}[✓✗].{0,20}/u)?.[0]}`);
+  assert(panel.rects.length > 0 && panel.rects.every(r => Number.isFinite(r.yours) && Number.isFinite(r.others)), "every rectangle labels both edges");
+  // One scale for both axes: where both sides are well above the minimum, width : height = yours : others.
+  for (const r of panel.rects.filter(r => r.kind === "gain" && r.w > 8 && r.h > 8 && r.others > 0)) {
+    const drawn = r.w / r.h, values = Math.abs(r.yours) / r.others;
+    assert(Math.abs(drawn / values - 1) < 0.1, `rectangle ${r.w}×${r.h} for ${r.yours} × ${r.others} is not to scale`);
+  }
+  // The bar mixes the ramp in linear light, so the browser may report it as color(srgb-linear …): compare as sRGB bytes.
+  const srgb = (css: string) => {
+    const lin = /^color\(srgb-linear ([\d.e-]+) ([\d.e-]+) ([\d.e-]+)/.exec(css);
+    if (lin) return lin.slice(1, 4).map(Number).map(c => Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)));
+    return (/^rgba?\((\d+), (\d+), (\d+)/.exec(css) ?? []).slice(1, 4).map(Number);
+  };
+  if (panel.rects[0].kind === "gain") assert(srgb(panel.topBar).join() === "154,96,5", `the top object's bar is ${panel.topBar}, not the ramp's strong end #9a6005`);
+  assert(panel.scrollWidth <= 390, `the page scrolls sideways: ${panel.scrollWidth}px`);
+  await phoneContext.close();
   await owner("endGame");
 });
 
-await check("?panels=off loads only the core console", async () => {
+await check("?panels=off loads only the built-in panels and the assistant", async () => {
   const safe = await context.newPage();
   await safe.goto(`${SITE}/player/?room=${shortCode}&panels=off`);
   await safe.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await safe.waitForSelector("[data-testid=text-safe-mode]");
+  await safe.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   await sleep(1500);
   assert(await safe.locator("[data-panel-origin]").count() === 0, "panels rendered in safe mode");
+  assert(await safe.locator("[data-testid=dock] [data-testid=menu-panel]").count() >= 1, "no panel in safe mode");
   await safe.close();
 });
 
@@ -332,6 +542,26 @@ await check("sign-in still works under the page CSP: the signed-out page offers 
   await Promise.all([out.waitForURL(url => !url.href.startsWith(`${SITE}/player/`), { timeout: 30_000 }), out.click("[data-testid=link-login]")]);
   assert(reports.length === 0, reports.slice(0, 2).join(" | "));
   await fresh.close();
+});
+
+await check("the assistant timeline stays at the bottom when the suggestion chips appear under a long answer (mock provider)", async () => {
+  // Real-provider testing hid the end of an answer under the chips: the timeline shrank without scrolling.
+  const other = await carol.mutation(fn.m("rooms:create"), { assistantBudget: 400_000 }) as { roomId: string; shortCode: string };
+  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 0, assistantBudget: 400_000 });
+  const chat = await browser.newContext({ viewport: { width: 1200, height: 700 } });
+  await chat.addCookies(sessionCookies(session));
+  const p = await chat.newPage();
+  p.on("pageerror", e => pageErrors.push(`timeline: ${e.message}`));
+  await p.goto(`${SITE}/player/?room=${other.shortCode}`);
+  await p.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
+  const lines = Array.from({ length: 40 }, (_, i) => `line ${i + 1}\n`);
+  await p.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ text: [...lines, "THE END"] }] })}`);
+  await p.click("[data-testid=button-assistant-send]");
+  await p.waitForSelector("[data-testid=assistant-chips]", { timeout: 60_000 });
+  await sleep(500);
+  const gap = await p.$eval("[data-testid=assistant-timeline]", el => el.scrollHeight - el.scrollTop - el.clientHeight);
+  assert(gap < 24, `the end of the answer is ${gap}px below the visible timeline`);
+  await chat.close();
 });
 
 await check("no uncaught page errors in the host", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));

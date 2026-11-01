@@ -3,6 +3,7 @@
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
 @source "../../../lib/object-views/src";
+@source "../../../lib/ui-kit/src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -72,6 +73,23 @@
 :root {
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
+
+  /* Grid digits: one text colour per colour letter, per colour set (lib/object-views DIGIT_SHADES.light: rainbow6 as
+     --cg-ink-<letter>, the others as --cg-ink-<set>-<letter>; tested for contrast on these
+     surfaces and for distinguishability). */
+  --cg-ink-R: #c20d39;
+  --cg-ink-O: #773a0e;
+  --cg-ink-Y: #695f01;
+  --cg-ink-G: #1d7242;
+  --cg-ink-B: #0555e7;
+  --cg-ink-V: #aa01bc;
+  --cg-ink-rgb-R: #b73305; --cg-ink-rgb-G: #247148; --cg-ink-rgb-B: #2900df;
+  --cg-ink-rgby-R: #900f21; --cg-ink-rgby-Y: #7c5a03; --cg-ink-rgby-G: #086f4e; --cg-ink-rgby-B: #1707f9;
+  /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.light). */
+  --cg-yours: #0b6aa0;
+  --cg-others: #b52d6e;
+  --cg-ramp-low: #e2c5a0;
+  --cg-ramp-high: #9a6005;
 
   /* Automatic computation of border around primary / danger buttons */
   --opaque-button-border-intensity: -8; /* In terms of percentages */
@@ -222,6 +240,22 @@
 .dark {
   --button-outline: rgba(255, 255, 255, 0.1);
   --badge-outline: rgba(255, 255, 255, 0.05);
+
+  /* Grid digits on the dark page (lib/object-views DIGIT_SHADES.dark). Not keyed to prefers-color-scheme: the page
+     itself does not follow the OS, so dark shades there would put light text on the light page. */
+  --cg-ink-R: #fb4d63;
+  --cg-ink-O: #fe8c1a;
+  --cg-ink-Y: #ecdc1e;
+  --cg-ink-G: #31f9a9;
+  --cg-ink-B: #5cbefe;
+  --cg-ink-V: #cb56f9;
+  --cg-ink-rgb-R: #fb5422; --cg-ink-rgb-G: #a9fb25; --cg-ink-rgb-B: #129fe7;
+  --cg-ink-rgby-R: #f35868; --cg-ink-rgby-Y: #edae12; --cg-ink-rgby-G: #29fcb7; --cg-ink-rgby-B: #1c91fa;
+  /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.dark). */
+  --cg-yours: #25afd2;
+  --cg-others: #de6d9b;
+  --cg-ramp-low: #614826;
+  --cg-ramp-high: #e9aa4e;
 
   --opaque-button-border-intensity: 9; /* In terms of percentages */
 
@@ -441,6 +475,8 @@ body::after { content:''; position:fixed; inset:0; pointer-events:none; z-index:
 @keyframes rise { from { opacity:0; transform: translateY(10px);} to {opacity:1; transform:none;} }
 .rise { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes orbit { to { transform: rotate(360deg); } }
-.orbit { animation: orbit 40s linear infinite; }
+/* The sigil turns once on load; the live dot is the only thing that keeps moving (calm periphery). */
+.orbit-once { animation: orbit 2.4s cubic-bezier(.2,.8,.2,1) 1; }
+@media (prefers-reduced-motion: reduce) { .orbit-once, .rise, .pulse-dot { animation: none; } }
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
 .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }

@@ -6,18 +6,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, objectType, seededRng, type Instantiation } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
-  ESTIMATOR, REGENERATE_COMMAND, calibrationManifest, cmpOrdinal, coverage, hasTable, keyFromParts, offeredInstantiations,
-  penaltyMeanBits, priorMeanBits, shippedFiles, softHinge, surprisal, tableFor, tableKey, tableKeyParts,
-  type CalibrationTable,
+  ESTIMATOR, REGENERATE_COMMAND, cmpOrdinal, coverage, hasTable, instanceTables, keyFromParts, manifestEntry, manifestOf,
+  offeredInstantiations, penaltyMeanBits, priorMeanBits, softHinge, surprisal, tableFor, tableKey, tableKeyParts,
+  type CalibrationFile, type CalibrationTable,
 } from "../src/calibration.ts";
+import { CALIBRATION_DIR, shippedFile, shippedInstanceKeys, shippedManifest, shippedTables } from "../src/calibration-data.ts";
 import type { Ordinal } from "../src/types.ts";
 import { SMOKE_BUDGET, buildTable, tableJson, thin, THIN_BITS } from "../scripts/estimator.ts";
 
-const FILES = shippedFiles();
+const FILES: Record<string, CalibrationFile> = Object.fromEntries(shippedInstanceKeys().map(k => [k, shippedFile(k)!]));
 const TABLES: CalibrationTable[] = Object.values(FILES).flatMap(f => f.tables);
+const MANIFEST = shippedManifest();
 const instOf = (key: string): Instantiation => {
-  const e = calibrationManifest().instances[key];
+  const e = MANIFEST.instances[key];
   return objectType(e.objectType).instantiate(e.args);
 };
 
@@ -154,6 +158,8 @@ test("penaltyMeanBits = E_μ[softHinge(s)] and matches the stored value; softHin
 // ------------------------------------------------------------------------------------------------
 
 const FRESH = 400;
+/** Families whose exemplar is computed exactly, so no calibrated level can be above it. */
+const EXACT_EXEMPLARS = new Set(["tetromino_tamer", "snake_charmer", "colour_mixer"]);
 
 test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance, exemplars reach high bits", () => {
   const pooled = new Array(9).fill(0);
@@ -176,8 +182,15 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
       }
       const f = family(t.family);
       if (f.exemplar) {
-        const ex = surprisal(t, ev(f.exemplar(t.canonicalParams, ctx)));
+        const best = ev(f.exemplar(t.canonicalParams, ctx)), ex = surprisal(t, best), top = t.levels[t.levels.length - 1][0];
         assert.ok(ex >= s[FRESH - 1], `${where}: exemplar ${ex} bits below a random spawn's ${s[FRESH - 1]}`);
+        // The estimator records whether the exemplar's ordinal is among the levels; the key does not cover the
+        // exemplar, so a changed exemplar can leave the flag stale without making the table stale. (Mixture tables
+        // copy the uniform table's meta, so only uniform tables are checked.)
+        if (!t.prior) assert.equal(t.meta.topReached, cmpOrdinal(best, top) <= 0, `${where}: stale meta.topReached`);
+        if (EXACT_EXEMPLARS.has(t.family)) {
+          assert.ok(cmpOrdinal(best, top) >= 0, `${where}: exact exemplar ${JSON.stringify(best)} below the level ${JSON.stringify(top)}`);
+        }
         if (ex < 8) lowExemplars.push(`${where}: ${ex.toFixed(1)}`);
       }
     }
@@ -210,69 +223,95 @@ test("every shipped table's key matches the current code (else regenerate)", () 
     + `Regenerate with: ${REGENERATE_COMMAND}`);
 });
 
+test("manifest.json describes exactly the shipped files (else regenerate)", () => {
+  const onDisk = readFileSync(join(CALIBRATION_DIR, "manifest.json"), "utf8");
+  assert.equal(onDisk, JSON.stringify(MANIFEST) + "\n", `manifest.json is out of date; regenerate with: ${REGENERATE_COMMAND}`);
+});
+
 test("every dealable draw of every shipped instantiation has a fresh table, so all are offered", () => {
-  for (const instKey of Object.keys(calibrationManifest().instances)) {
-    const c = coverage(instOf(instKey));
+  for (const instKey of Object.keys(MANIFEST.instances)) {
+    const c = coverage(MANIFEST, instOf(instKey));
     assert.deepEqual(c.missing.map(m => `${m.familyId} ${JSON.stringify(m.params)}${m.stale ? " (stale)" : ""}`), [],
       `${instKey} lacks tables; regenerate with: ${REGENERATE_COMMAND}`);
   }
-  const offered = [...offeredInstantiations("Int"), ...offeredInstantiations("string"), ...offeredInstantiations("Grid")].map(i => i.key);
-  assert.deepEqual(offered.sort(), Object.keys(calibrationManifest().instances).sort());
+  const offered = ["Int", "string", "Grid"].flatMap(t => offeredInstantiations(MANIFEST, t)).map(i => i.key);
+  assert.deepEqual(offered.sort(), Object.keys(MANIFEST.instances).sort());
   assert.ok(offered.includes("Grid(5,base10,rgby)") && offered.includes("Int(-2147483648,2147483647)") && offered.includes("string(128)"));
-  assert.ok(!offeredInstantiations("Grid").some(i => i.key === "Grid(7,cards,rgb)"));
-  assert.ok(!offeredInstantiations("Grid").some(i => i.terms.size === 3), "3×3 grids are retired from play");
+  assert.ok(!offeredInstantiations(MANIFEST, "Grid").some(i => i.terms.size === 3), "3×3 grids are retired from play");
+});
+
+test("offered follows the manifest it is given: an instance without an entry, or with a stale key, is not offered", () => {
+  const key = "Grid(5,base10,rgby)", entry = MANIFEST.instances[key];
+  const without = manifestOf(Object.entries(MANIFEST.instances).filter(([k]) => k !== key));
+  assert.ok(offeredInstantiations(MANIFEST, "Grid").some(i => i.key === key));
+  assert.ok(!offeredInstantiations(without, "Grid").some(i => i.key === key));
+  // One table key off by a digit: that draw is stale, so the instantiation is not offered.
+  const [familyId, byParams] = Object.entries(entry.tables)[0], [pk, k] = Object.entries(byParams)[0];
+  const staleKey = k.replace(/^./, c => (c === "0" ? "1" : "0"));
+  const stale = manifestOf(Object.entries(MANIFEST.instances).map(([ik, e]) => [ik, ik !== key ? e
+    : { ...e, tables: { ...e.tables, [familyId]: { ...byParams, [pk]: staleKey } } }] as const));
+  assert.ok(!offeredInstantiations(stale, "Grid").some(i => i.key === key));
+  assert.ok(coverage(stale, instOf(key)).missing.some(m => m.familyId === familyId && m.stale));
+  // …unless the room excludes that family.
+  assert.ok(offeredInstantiations(stale, "Grid", { excludedFamilies: [familyId] }).some(i => i.key === key));
+  // The order is the manifest's.
+  assert.deepEqual(offeredInstantiations(MANIFEST, "Grid").map(i => i.key), Object.keys(MANIFEST.instances).filter(k => k.startsWith("Grid(")));
+});
+
+test("manifestEntry lists every table of a file by family and canonical params", () => {
+  const file = FILES["Int(0,9999)"], e = manifestEntry(file);
+  assert.equal(e.objectType, "Int");
+  assert.deepEqual(e.args, { max: 9999, min: 0 });
+  assert.equal(Object.values(e.tables).reduce((n, byParams) => n + Object.keys(byParams).length, 0), file.tables.length);
+  assert.throws(() => manifestEntry({ ...file, instance: "Int(0,9998)" }), /is in the file of/);
+  assert.throws(() => instanceTables("Int(0,9998)", file), /given as/);
 });
 
 test("offered ignores excluded families: excluded rules need no tables", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   const ex = ["bridge_builder", "fair_weaver", "ladder_of_numbers", "lantern_lighter", "sudoku_scholar"];
-  const all = coverage(inst, []), dflt = coverage(inst, ex);
-  assert.ok(offeredInstantiations("Grid", { excludedFamilies: i => (i.key === inst.key ? ex : []) }).some(i => i.key === inst.key));
+  const all = coverage(MANIFEST, inst, []), dflt = coverage(MANIFEST, inst, ex);
+  assert.ok(offeredInstantiations(MANIFEST, "Grid", { excludedFamilies: i => (i.key === inst.key ? ex : []) }).some(i => i.key === inst.key));
   assert.ok(dflt.missing.every(m => !ex.includes(m.familyId)));
   assert.ok(dflt.tables <= all.tables);
   // An exclusion can only shrink what is required.
-  assert.ok(coverage(inst, [...ex, "seed1_line_painter"]).missing.length <= dflt.missing.length);
+  assert.ok(coverage(MANIFEST, inst, [...ex, "seed1_line_painter"]).missing.length <= dflt.missing.length);
 });
 
 test("tableFor canonicalises raw draws and serves fresh tables only", () => {
-  const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" }), ctx = context(inst);
+  const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" }), ctx = context(inst), tables = shippedTables(inst.key);
   const f = family("seed3_green_ones");
   for (const p of f.support(ctx)) {
-    const t = tableFor({ familyId: f.id, params: p }, inst);
+    const t = tableFor(tables, { familyId: f.id, params: p }, inst);
     assert.ok(t, JSON.stringify(p));
-    assert.equal(t, tableFor(f.id, p, inst));
     assert.equal(t!.key, tableKey(f.id, f.canonical(p, ctx), inst));
-    assert.ok(hasTable({ familyId: f.id, params: p }, inst) && hasTable(f.id, p, inst));
+    assert.ok(hasTable(tables, { familyId: f.id, params: p }, inst));
   }
-  assert.equal(tableFor("digit-devotee", { d: 3 }, inst), undefined);
-  assert.equal(hasTable("seed3_green_ones", { colour: 0, value: 0 }, instantiate("Grid", { size: 7, symbols: "cards", colours: "rgb" })), false);
+  assert.equal(tableFor(tables, { familyId: "digit-devotee", params: { d: 3 } }, inst), undefined);
+  // Nothing shipped for an instantiation: an empty set, every lookup misses.
+  const none = instantiate("Grid", { size: 3, symbols: "cards", colours: "rgb" });
+  assert.equal(hasTable(instanceTables(none.key, null), { familyId: "seed3_green_ones", params: { colour: 0, value: 0 } }, none), false);
+  // A stale table (its key no longer the current code's) is never served.
+  const p0 = f.canonical(f.support(ctx)[0], ctx), fresh = tableFor(tables, { familyId: f.id, params: p0 }, inst)!;
+  const staleFile: CalibrationFile = { format: "v1", instance: inst.key, tables: [{ ...fresh, key: fresh.key.replace(/^./, c => (c === "0" ? "1" : "0")) }] };
+  assert.equal(tableFor(instanceTables(inst.key, staleFile), { familyId: f.id, params: p0 }, inst), undefined);
+  // Tables of one instantiation are never used for another.
+  assert.throws(() => tableFor(tables, { familyId: f.id, params: p0 }, instantiate("Grid", { size: 5, symbols: "base10", colours: "rgb" })), /used for/);
 });
 
-test("exact tails reproduce the cards: Monte Carlo frequencies agree at every level with mass ≥ 2^-9", async () => {
-  const { EXACT_IMPLEMENTATIONS, exactLevels } = await import("../scripts/exact.ts");
-  const { EXACT_TAILS } = await import("../src/calibration.ts");
-  assert.deepEqual([...new Set(Object.values(EXACT_TAILS))].sort(), [...EXACT_IMPLEMENTATIONS].sort());
-  const n = 20000;
-  for (const [familyId] of Object.entries(EXACT_TAILS)) {
+test("families with analytics (picture_frame, lone_peak) are keyed by the formula id and reproduce the cards' spawn frequencies", async () => {
+  const { analyticFor, tableKeyParts: parts } = await import("../src/calibration.ts");
+  const { compareWithSpawns } = await import("../src/analytic-verify.ts");
+  for (const familyId of ["picture_frame", "lone_peak"]) {
     for (const args of [{ size: 5, symbols: "base10", colours: "rgby" }, { size: 4, symbols: "cards", colours: "rgb" }, { size: 3, symbols: "base16", colours: "rgb" }]) {
-      const inst = instantiate("Grid", args), ctx = context(inst), T = objectType("Grid"), codec = T.codec(inst);
-      const f = family(familyId);
+      const inst = instantiate("Grid", args), ctx = context(inst), f = family(familyId);
       if (!(await import("../src/catalog.ts")).available(f, inst).ok) continue;
-      const p = f.canonical(f.support(ctx)[0], ctx), ev = evaluator({ familyId, params: p }, inst);
-      const levels = exactLevels(familyId, p, inst)!;
-      const rng = seededRng(`exact:${familyId}:${inst.key}`);
-      const ords = Array.from({ length: n }, () => ev(codec.encode(T.spawn(inst, rng))));
-      for (const o of ords) assert.ok(levels.some(([l]) => cmpOrdinal(l, o) === 0), `${familyId} on ${inst.key}: ordinal ${JSON.stringify(o)} is not an exact level`);
-      for (const [l, log2G] of levels) {
-        const G = 2 ** log2G;
-        if (G < 2 ** -9) continue;
-        const hits = ords.filter(o => cmpOrdinal(o, l) >= 0).length, sd = Math.sqrt(n * G * (1 - G)) + 1;
-        assert.ok(Math.abs(hits - n * G) <= 5 * sd, `${familyId} on ${inst.key}: μ{u ≥ ${JSON.stringify(l)}} exact ${G}, MC ${hits / n}`);
-      }
-      if (f.exemplar) {
-        const top = ev(f.exemplar(p, ctx));
-        assert.ok(levels.some(([l]) => cmpOrdinal(l, top) === 0), `${familyId}: exemplar ordinal not an exact level`);
-      }
+      const p = f.canonical(f.support(ctx)[0], ctx), a = analyticFor(familyId, p, inst);
+      assert.ok(a && a.kind === "exact", `${familyId} on ${inst.key}`);
+      assert.equal(parts(familyId, p, inst).exact, a!.id);
+      const s = compareWithSpawns(a!, { familyId, params: p }, inst, 20000);
+      assert.deepEqual(s.unlisted, [], `${familyId} on ${inst.key}: spawned ordinals missing from the analytic`);
+      assert.deepEqual(s.disagreements, [], `${familyId} on ${inst.key}`);
     }
   }
 });
@@ -282,7 +321,7 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   const { UNIFORM_PRIOR, displayScale } = await import("../src/calibration.ts");
   const inst = instantiate("Int", { min: 0, max: 9999 });
   const uniform = buildTable("digit-devotee", { d: 7 }, inst).table; // exact enumeration: G_uniform is exact
-  assert.equal(uniform.estimator.budget, "exact");
+  assert.match(String(uniform.estimator.budget), /^exact(:|$)/); // exact enumeration or digit-devotee's exact analytic
   const pool = { id: "synthetic", instance: inst.key, wires: [7777, 7770, 1234, 7, 0, 77] };
   const mix = mixtureTable(uniform, pool, inst);
   const count = (k: number) => pool.wires.filter(x => String(x).split("").filter(c => c === "7").length >= k).length;
@@ -312,6 +351,33 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   assert.equal(tableJson(mixtureTable(uniform, pool, inst)), tableJson(mix));
   for (let i = 1; i < mix.levels.length; i++) assert.ok(mix.levels[i][1] > mix.levels[i - 1][1]);
   // Not shipped: the registry serves uniform tables only unless a mixture is shipped.
-  assert.equal(tableFor("digit-devotee", { d: 7 }, inst, prior), undefined);
+  assert.equal(tableFor(shippedTables(inst.key), { familyId: "digit-devotee", params: { d: 7 } }, inst, prior), undefined);
   assert.throws(() => mixtureTable(uniform, { ...pool, wires: [-5] }, inst));
+});
+
+test("shipped priors: uniform first, then every prior the manifest has tables for", async () => {
+  const { shippedPriors, UNIFORM_PRIOR } = await import("../src/calibration.ts");
+  const priors = shippedPriors(MANIFEST);
+  assert.deepEqual(priors[0], UNIFORM_PRIOR);
+  const listed = new Set(Object.values(MANIFEST.instances).flatMap(e => Object.keys(e.priors ?? {})));
+  assert.deepEqual(priors.slice(1).map(p => `${p.id}@${p.version}`).sort(), [...listed].sort(), "no prior with tables is left out");
+  assert.equal(new Set(priors.map(p => p.id)).size, priors.length, "one entry per prior id");
+});
+
+test("every shape the type can instantiate is playable, shipped tables or not; only retired shapes are not", async () => {
+  const { playableInstantiations, isPlayableInstantiation, firstUseSeconds, offeredInstantiations } = await import("../src/calibration.ts");
+  const { instantiate } = await import("@workspace/game-types");
+  const grid = playableInstantiations("Grid");
+  assert.equal(grid.length, 48, "sizes 4–7 × 4 symbol sets × 3 colour sets");
+  assert.equal(grid[0]!.key, instantiate("Grid", {}).key, "the type's default first");
+  assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
+  assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);
+  assert.deepEqual(playableInstantiations("Int").map(i => i.key), ["Int(-2147483648,2147483647)", "Int(-2147483648,9999)", "Int(0,2147483647)", "Int(0,9999)"]);
+  assert.deepEqual(playableInstantiations("string").map(i => i.key), ["string(128)", "string(16)"]);
+  // Shipping is diagnostics now: an Int range nobody calibrated is still playable.
+  const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
+  assert.ok(!shipped.has("Int(0,2147483647)") && isPlayableInstantiation(instantiate("Int", { min: 0, max: 2147483647 })));
+  // The first-use estimate is the measured cloud wall time (architecture.md §9): per Grid size, nearest size otherwise.
+  assert.deepEqual([4, 5, 6, 7].map(size => firstUseSeconds(instantiate("Grid", { size, symbols: "base10", colours: "rgb" }))), [35, 30, 30, 95]);
+  assert.equal(firstUseSeconds(instantiate("string", { maxLength: 20 })), 15);
 });

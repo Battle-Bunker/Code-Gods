@@ -53,3 +53,18 @@ export const register = internalAction({
     return { name, size: bytes.byteLength, replaced };
   },
 });
+
+/**
+ * Delete a runtime asset by name: its row and its stored bytes (e.g. the measurement-only probe-pyodide.bin.gz).
+ * Internal (deploy key / admin): `npx convex run runtime/assets:remove '{"name": "..."}'`. Returns what was removed.
+ */
+export const remove = internalMutation({
+  args: { name: v.string() },
+  handler: async (ctx, { name }) => {
+    const row = await ctx.db.query("runtimeAssets").withIndex("by_name", q => q.eq("name", name)).unique();
+    if (!row) return { removed: null };
+    await ctx.storage.delete(row.storageId);
+    await ctx.db.delete(row._id);
+    return { removed: { name: row.name, size: row.size, sha256: row.sha256 } };
+  },
+});

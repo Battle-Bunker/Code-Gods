@@ -130,7 +130,8 @@ async function reserveAssistant(ctx: MutationCtx, roomId: Id<"rooms">, subject: 
     return { ok: false, reason: "allowance", message: `The room's assistant allowance (${limit} tokens per player per game) is smaller than one step may need (${tokens}); ask the owner to raise it.` };
   }
   if (used + tokens > limit) {
-    return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is used up: ${used} of ${limit} tokens used, and the next step may need up to ${tokens}.` };
+    const n = (x: number) => Math.max(0, x).toLocaleString("en");
+    return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is too low for another step: ${n(used)} of ${n(limit)} tokens used (${n(limit - used)} left), and the next step may need up to ${n(tokens)}. The room owner can raise it.` };
   }
   const shared = await poolRow(ctx, roomId, ROOM_POOL, epoch);
   if ((shared?.reservedUsd ?? 0) + usd > ASSISTANT_GAME_USD + 1e-12) {
@@ -165,16 +166,21 @@ export const settle = internalMutation({
   args: {
     pool, roomId: v.id("rooms"), gameId: v.optional(v.id("games")), subject: v.optional(v.string()), epoch: v.optional(v.string()),
     reservedTokens: v.number(), inputTokens: v.number(), outputTokens: v.number(), reservedUsd: v.optional(v.number()), usd: v.optional(v.number()),
+    /** The assistant pool: the allowance tokens to keep (cache-weighted, lib/ai-player usageCost); default input + output. */
+    tokens: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const actual = args.inputTokens + args.outputTokens;
-    if (![args.inputTokens, args.outputTokens].every(n => Number.isSafeInteger(n) && n >= 0) || actual > args.reservedTokens) fail("BAD_REQUEST", "Invalid AI usage");
+    const valid = (n: number) => Number.isSafeInteger(n) && n >= 0;
     if (args.pool === "assistant") {
+      // The assistant keeps its actual cost even past the reservation (an estimate that was low): the allowance and
+      // the USD counters may then end slightly above their limits, and the next reservation is refused.
+      const actual = args.tokens ?? args.inputTokens + args.outputTokens;
+      if (![args.inputTokens, args.outputTokens, actual].every(valid) || (args.usd !== undefined && !(Number.isFinite(args.usd) && args.usd >= 0))) fail("BAD_REQUEST", "Invalid AI usage");
       const epoch = args.epoch ?? "";
       const doc = await poolRow(ctx, args.roomId, args.subject ?? "", epoch);
       if (doc) await ctx.db.patch(doc._id, { usedTokens: Math.max(0, doc.usedTokens - (args.reservedTokens - actual)) });
       const refund = (args.reservedUsd ?? 0) - (args.usd ?? Infinity);
-      if (Number.isFinite(refund) && refund > 0) {
+      if (Number.isFinite(refund) && refund !== 0) {
         const shared = await poolRow(ctx, args.roomId, ROOM_POOL, epoch);
         if (shared) await ctx.db.patch(shared._id, { reservedUsd: Math.max(0, (shared.reservedUsd ?? 0) - refund) });
         const daily = await ctx.db.query("aiUsage").withIndex("by_day", q => q.eq("day", utcDay(Date.now()))).unique();
@@ -182,6 +188,8 @@ export const settle = internalMutation({
       }
       return;
     }
+    const actual = args.inputTokens + args.outputTokens;
+    if (![args.inputTokens, args.outputTokens].every(valid) || actual > args.reservedTokens) fail("BAD_REQUEST", "Invalid AI usage");
     const room = await ctx.db.get(args.roomId);
     if (!room || room.currentGameId !== args.gameId) return; // a later game has its own counters
     await ctx.db.patch(room._id, {

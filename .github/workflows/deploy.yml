@@ -3,17 +3,64 @@
 #   push to main    → GitHub Environment "production"  → the production deployment
 # Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
 # selects the deployment. Setup and recovery: PILOT.md, "Automatic deploys".
+# The gate (root typecheck, offline unit suites, sandbox tests) blocks every production deploy. On develop it runs
+# in the parallel `checks` job instead: it marks the commit red on failure but never holds back the dev deploy, which
+# keeps only the cheap checks (env var names, the functions typecheck in `convex deploy`, the worker build, the
+# bundle pin, the post-deploy smoke test).
 name: Deploy
 
 on:
   push:
     branches: [develop, main]
+    paths-ignore: ['**/*.md', 'docs/**', '.agents/**', '.claude/**']   # docs-only pushes don't deploy
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  checks:
+    if: github.ref_name == 'develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: checks-development
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # tsc --build incremental state (~31s cold, ~15s warm). Every library's dist goes with its build info: restoring the
+      # info without the output makes tsc report TS6305 ("output file has not been built from source") for every importer.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/tsconfig.tsbuildinfo
+            lib/*/dist
+            artifacts/*/tsconfig.tsbuildinfo
+          key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
+          restore-keys: tsbuild2-
+      - run: pnpm run typecheck
+      - run: pnpm run test:offline
+      - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
+        run: pnpm --filter @workspace/game-utilities calibrate --check
+      - uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - run: pnpm --filter @workspace/game-runtime build:python
+      - run: pnpm --filter @workspace/game-runtime test
+
   deploy:
     if: github.ref_name == 'develop' || github.ref_name == 'main'
     runs-on: ubuntu-latest
@@ -21,7 +68,7 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     concurrency:
       group: deploy-${{ github.ref_name == 'main' && 'production' || 'development' }}
-      cancel-in-progress: false
+      cancel-in-progress: ${{ github.ref_name != 'main' }}   # a newer develop push supersedes; production never cancels
     defaults:
       run:
         shell: bash
@@ -37,13 +84,22 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ---- gate: typecheck and the offline unit suites (no backend) ----
-      - run: pnpm run typecheck
-      - name: Unit tests
-        run: |
-          pnpm --filter @workspace/engine test:unit
-          for pkg in ai-player game-core game-types game-utilities object-views player-web code-gods; do pnpm --filter "@workspace/$pkg" test; done
-          pnpm run test:artifact
+      # ---- gate (production only; develop runs it in the parallel `checks` job) ----
+      - if: github.ref_name == 'main'
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib/*/tsconfig.tsbuildinfo
+            lib/*/dist
+            artifacts/*/tsconfig.tsbuildinfo
+          key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
+          restore-keys: tsbuild2-
+      - if: github.ref_name == 'main'
+        run: pnpm run typecheck
+      - if: github.ref_name == 'main'
+        run: pnpm run test:offline
+      - if: github.ref_name == 'main'
+        run: pnpm --filter @workspace/game-utilities calibrate --check
 
       # ---- the pinned Python runtime bundle ----
       - uses: actions/cache@v4
@@ -54,7 +110,11 @@ jobs:
       - if: steps.cpython.outputs.cache-hit != 'true'
         run: pnpm --filter @workspace/game-runtime setup:python
       - run: pnpm --filter @workspace/game-runtime build:python
-      - run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
+      - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
+        working-directory: lib/game-runtime
+        run: node scripts/build-worker.mjs --check
+      - if: github.ref_name == 'main'
+        run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
 
       # ---- deploy (from here on the deploy key is in the environment) ----
       - name: Check the deployment's env vars
@@ -80,7 +140,12 @@ jobs:
         working-directory: artifacts/engine
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex deploy
+        run: npx convex deploy --typecheck enable   # never skip the functions typecheck: on develop it is the gate
+
+      - name: Upload the calibration tables   # right after the push: the new code reads tables from storage (unchanged files are skipped)
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter @workspace/engine upload-calibration
 
       - name: Better Auth JWKS (first deploy only)
         working-directory: artifacts/engine
@@ -97,6 +162,18 @@ jobs:
           printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS
 
+      - name: Sync the system game setups with the code (idempotent)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run setups:ensureSeeded
+
+      - name: Migrate stored settings and room setups to setups-v2 (idempotent; convex/migrations.ts)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run migrations/node:setupsV2
+
       - name: Upload the Python runtime bundle
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
@@ -105,7 +182,7 @@ jobs:
       - name: Build and upload the static sites
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter @workspace/engine deploy-static
+        run: pnpm --filter @workspace/engine deploy-static --if-changed   # skips a site whose identical build is live
 
       - name: Smoke test
         working-directory: artifacts/engine
@@ -118,3 +195,6 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
           npx convex run runtime/probe:smoke
+          # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
+          npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}},"refresh":true}' \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r));if(!r.key||!r.tables)process.exit(1)})'

@@ -26,10 +26,11 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   assert.deepEqual([listed.ownerName, listed.phase, listed.memberCount, listed.shortCode], ["Lobby Host", "lobby", 3, shortCode]);
   await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).utilityCatalog, "catalog computed after creation", 30000);
 
-  // Settings: optimistic on the revision; owner only; unoffered instantiations refused.
+  // Settings: optimistic on the revision; owner only; invalid instantiations refused (any valid one is playable: its
+  // tables are prepared on its first game).
   assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision + 7, settings: { ...INT_TS } })), /refresh/);
   assert.match(await rejects(ada.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS } })), /owner/i);
-  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS, typeArgs: { min: 0, max: 5 } } })), /not offered/);
+  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS, typeArgs: { min: 5, max: 0 } } })), /typeArgs/);
   const first = await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS, startingObjectCount: 4 } });
   assert.equal(first.revision, room.revision + 1);
   room = await host.c.query(api.rooms.get, { room: roomId });

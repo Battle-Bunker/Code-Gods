@@ -32,6 +32,16 @@ through its public API with real identities; mock nothing inside the engine. Bro
 that needs a browser: HMR, rendering, multi-app isolation. Never add an e2e check for something an engine test
 can catch.
 
+**The assistant against a real provider** (opt-in, costs money). The engine suites script the mock provider, so
+they never need a key. To check what only a real model shows (streaming, real tool-use blocks, usage within the
+reservation, history replay), run `pnpm --filter @workspace/engine assistant:live` (needs
+`CODE_GODS_ANTHROPIC_API_KEY` in the shell; AI seats stay mocked), then `pnpm --filter @workspace/engine
+test:assistant-live` (about USD 0.15; `CG_ASSISTANT_MODEL=gpt-4.1-mini` for OpenAI, about USD 0.01; it skips while
+mocked), then `assistant:mock`. When an estimate or price changes, add the live run's numbers to the recorded samples
+in `lib/ai-player/test/chat-cost.test.ts`. Restarting `dev` also returns
+the assistant to the mock. Never print the key; `assistant:status` reports the mode without it. Test fixes with the
+mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live runs short and few.
+
 ## Repo rules
 
 - **Disclosure is a contract.** Any new player-facing query or event field gets a disclosure assertion:
