@@ -7,53 +7,97 @@
  */
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
-import { RuntimeError, type ScriptResult } from "@workspace/game-runtime";
+import { RuntimeError, SCRIPT_LIMITS, type ScriptResult } from "@workspace/game-runtime";
 import type { DatasetRequest } from "@workspace/player-client/datasets";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { messageOf } from "../lib/errors";
+import { fail, messageOf } from "../lib/errors";
 import { principalV, type Principal } from "../lib/rooms";
 import { bindRuntime, scriptRuntimeFor } from "../runtime/node";
 import { resolveDatasets } from "./datasets";
 import { CODE_LIMITS } from "./limits";
+import { splitRunResult } from "./keys";
 
 const language = v.union(v.literal("python"), v.literal("typescript"));
 export const runArgs = {
-  roomId: v.string(), language, source: v.string(), title: v.optional(v.string()),
+  roomId: v.string(), language: v.optional(language), title: v.optional(v.string()),
+  /** The script's source, or `script`: the key of a saved script (scripts/<name>) to run. */
+  source: v.optional(v.string()), script: v.optional(v.string()),
   /** DatasetRequest[] as JSON (validated by the tool's schema). */
   datasetsJson: v.string(), paramsJson: v.optional(v.string()), cpuMs: v.optional(v.number()),
+  /** The human's objects to load into the run's store: keys and "prefix*" scopes. */
+  load: v.optional(v.array(v.string())),
+  /** Save the source as the object scripts/<saveAs> after a successful run (counted in the quota). */
+  saveAs: v.optional(v.string()),
 };
+type RunArgs = { roomId: string; language?: "python" | "typescript"; title?: string; source?: string; script?: string; datasetsJson: string;
+  paramsJson?: string; cpuMs?: number; load?: string[]; saveAs?: string };
 
-/** What run_code returns to the model: bounded; the whole result is in the run's row (get_code_run, the code-output panel). */
+/** What run_code returns to the model: bounded; the whole result is the object runs/<runId> (get_code_run, the code-output panel). */
 export type RunOutcome = {
   TRUNCATED?: string;
   runId: string; status: "ok" | "error"; title: string | null;
   error?: { code: string; message: string };
   result?: unknown; resultPreview?: string; resultChars?: number;
   output: string; outputTruncated: boolean;
+  /** The run's store writes: committed keys, or why the engine refused them (then nothing was written). */
+  store?: { written: string[]; deleted: string[] } | { refused: string };
   cpuMs: number; wallMs: number; inputBytes: number;
   show: string;
 };
 
 const clip = (text: string, max: number) => (text.length > max ? text.slice(0, max) : text);
+const SCRIPT_NAME = /^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/;
 
-export async function runCode(ctx: ActionCtx, principal: Principal, args: { roomId: string; language: "python" | "typescript"; source: string; title?: string;
-  datasetsJson: string; paramsJson?: string; cpuMs?: number }): Promise<RunOutcome> {
+/** A JSON value as stored: inline in its row when small, else uploaded to file storage first. */
+async function stored(ctx: ActionCtx, key: string, valueJson: string) {
+  const bytes = Buffer.byteLength(valueJson);
+  if (valueJson.length <= CODE_LIMITS.inlineValueChars) return { key, valueJson, bytes };
+  return { key, storageId: await ctx.storage.store(new Blob([valueJson], { type: "application/json" })), bytes };
+}
+
+/** The loaded objects as the runtime's store text {scope, objects}, fetching blobs from storage. */
+async function loadStore(ctx: ActionCtx, principal: Principal, scopes: string[]): Promise<{ text: string; values: Map<string, unknown> }> {
+  const rows: { key: string; valueJson: string | null; storageId: Id<"_storage"> | null }[] = scopes.length ? await ctx.runQuery(internal.code.objects.loadAs, { principal, scopes }) : [];
+  const values = new Map<string, unknown>();
+  for (const r of rows) {
+    const text = r.valueJson ?? (r.storageId ? await (await ctx.storage.get(r.storageId))?.text() : undefined);
+    if (text !== undefined) values.set(r.key, JSON.parse(text) as unknown);
+  }
+  return { text: JSON.stringify({ scope: scopes, objects: Object.fromEntries(values) }), values };
+}
+
+export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArgs): Promise<RunOutcome> {
   const started = performance.now();
-  const { runId, cpuMs } = await ctx.runMutation(internal.code.runs.start, {
-    principal, roomId: args.roomId, language: args.language, source: args.source, ...(args.title ? { title: args.title } : {}),
-    datasetsJson: args.datasetsJson, ...(args.paramsJson ? { paramsJson: args.paramsJson } : {}), cpuMs: args.cpuMs ?? CODE_LIMITS.cpuMsDefault,
+  if (args.saveAs !== undefined && !SCRIPT_NAME.test(args.saveAs)) return fail("BAD_REQUEST", "saveAs is a script name: 1-64 letters, digits, _ - .");
+  // A saved script: the object scripts/<name> holds {language, source, title}.
+  let source = args.source, lang = args.language, title = args.title;
+  if (args.script !== undefined) {
+    if (source !== undefined) return fail("BAD_REQUEST", "Give source or script, not both");
+    const { values } = await loadStore(ctx, principal, [args.script]);
+    const saved = values.get(args.script) as { language?: string; source?: string; title?: string } | undefined;
+    if (!saved || typeof saved.source !== "string" || (saved.language !== "python" && saved.language !== "typescript")) {
+      return fail("NOT_FOUND", `No saved script ${JSON.stringify(args.script)} (save one with run_code saveAs)`);
+    }
+    source = saved.source; lang = saved.language; title ??= saved.title;
+  }
+  if (source === undefined || lang === undefined) return fail("BAD_REQUEST", "run_code needs a language and a source, or a saved script");
+  const scopes = args.load ?? [];
+  const { runId, cpuMs, roomId } = await ctx.runMutation(internal.code.runs.start, {
+    principal, roomId: args.roomId, language: lang, source, ...(title ? { title } : {}),
+    datasetsJson: args.datasetsJson, ...(args.paramsJson ? { paramsJson: args.paramsJson } : {}), objectsJson: JSON.stringify(scopes),
+    cpuMs: args.cpuMs ?? CODE_LIMITS.cpuMsDefault,
   });
   const show = `open_panel {panelId: "code-output", params: {runId: "${runId}"}} shows this run to the player`;
-  const base = { runId, title: args.title ?? null, show };
+  const base = { runId, title: title ?? null, show };
   let inputBytes = 0;
   const failed = async (error: { code: string; message: string }, usedMs: number): Promise<RunOutcome> => {
     const wallMs = Math.round(performance.now() - started);
     await ctx.runMutation(internal.code.runs.finish, { runId, status: "error", error, cpuMs: usedMs, wallMs, inputBytes });
     return { ...base, status: "error", error, output: "", outputTruncated: false, cpuMs: usedMs, wallMs, inputBytes };
   };
-  let input: string;
+  let input: string, store: string;
   try {
     const datasets = await resolveDatasets(ctx, principal, args.roomId, JSON.parse(args.datasetsJson) as DatasetRequest[]);
     input = JSON.stringify({ ...datasets, params: args.paramsJson ? JSON.parse(args.paramsJson) as unknown : {} });
@@ -64,27 +108,64 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: { room
   if (inputBytes > CODE_LIMITS.inputBytes) {
     return failed({ code: "DATASETS", message: `The datasets are ${(inputBytes / 1048576).toFixed(1)} MiB of JSON; the limit is ${CODE_LIMITS.inputBytes / 1048576} MiB: ask for fewer datasets or a smaller limit` }, 0);
   }
-  // Deterministic: the same script over the same data draws the same random numbers.
-  const seed = "0x" + createHash("sha256").update(args.language).update("\0").update(args.source).update("\0").update(input).digest("hex").slice(0, 16);
+  try { store = (await loadStore(ctx, principal, scopes)).text; }
+  catch (error) { return failed({ code: "OBJECTS", message: `Loading the objects failed: ${messageOf(error)}`.slice(0, 500) }, 0); }
+  if (Buffer.byteLength(store) > SCRIPT_LIMITS.storeBytes) {
+    return failed({ code: "OBJECTS", message: `The objects loaded are ${(Buffer.byteLength(store) / 1048576).toFixed(2)} MiB of JSON; a run loads at most ${SCRIPT_LIMITS.storeBytes / 1048576} MiB: name fewer keys or a narrower prefix` }, 0);
+  }
+  // Deterministic: the same script over the same data and objects draws the same random numbers.
+  const seed = "0x" + createHash("sha256").update(lang).update("\0").update(source).update("\0").update(input).update("\0").update(store).digest("hex").slice(0, 16);
   let run: ScriptResult;
-  if (args.language === "python") await bindRuntime(ctx);
+  if (lang === "python") await bindRuntime(ctx);
   const scriptStarted = performance.now();
   try {
-    run = await scriptRuntimeFor(args.language).script(args.source, input, { cpuMs, seed });
+    run = await scriptRuntimeFor(lang).script(source, input, { cpuMs, seed, store });
   } catch (error) {
     const code = error instanceof RuntimeError ? error.code : "INTERNAL";
     // A failed run reports no CPU, so it is charged the time the sandbox spent on it (wall time, at most its budget):
-    // a script that loops and then raises still pays for the loop.
+    // a script that loops and then raises still pays for the loop. Its store writes are discarded.
     return failed({ code, message: messageOf(error).slice(0, 1000) }, Math.min(cpuMs, Math.round(performance.now() - scriptStarted)));
+  }
+  // The run's store writes (UNTRUSTED guest output: the guest can tamper with its own store): parsed defensively here,
+  // and every key, size and the quota checked in commitAs. Blobs uploaded for a set that is not committed are deleted.
+  let storeOutcome: RunOutcome["store"];
+  const uploaded: Id<"_storage">[] = [];
+  try {
+    let writes: { put: Map<string, unknown>; delete: string[] } | null = null;
+    try {
+      const raw = JSON.parse(run.writes) as { put?: unknown; delete?: unknown };
+      const put = raw.put && typeof raw.put === "object" && !Array.isArray(raw.put) ? raw.put as Record<string, unknown> : null;
+      if (put && Array.isArray(raw.delete) && raw.delete.every(k => typeof k === "string")) writes = { put: new Map(Object.entries(put)), delete: raw.delete as string[] };
+    } catch { /* malformed: refused below */ }
+    if (!writes) storeOutcome = { refused: "The script's store writes were malformed (did it replace the store's internals?); nothing was written" };
+    else {
+      // saveAs wins over a write of the same key by the script.
+      if (args.saveAs !== undefined) writes.put.set(`scripts/${args.saveAs}`, { language: lang, source, ...(title ? { title } : {}) });
+      if (writes.put.size || writes.delete.length) {
+        const texts = [...writes.put].map(([key, value]) => [key, JSON.stringify(value)] as const);
+        // A write set commitAs will refuse anyway (too many keys, a value too large) is sent as sizes only: nothing is
+        // uploaded, and the refusal is still checked and recorded in one place.
+        const doomed = texts.length + writes.delete.length > CODE_LIMITS.writesPerRun || texts.some(([, t]) => Buffer.byteLength(t) > CODE_LIMITS.valueBytes);
+        const puts = doomed ? texts.map(([key, t]) => ({ key, valueJson: "null", bytes: Buffer.byteLength(t) }))
+          : await Promise.all(texts.map(async ([key, t]) => { const p = await stored(ctx, key, t); if (p.storageId) uploaded.push(p.storageId); return p; }));
+        const committed = await ctx.runMutation(internal.code.objects.commitAs, { principal, roomId, runId, puts, deletes: writes.delete });
+        uploaded.length = 0;   // commitAs owns them now: kept when applied, deleted when refused
+        storeOutcome = committed.ok ? { written: committed.written, deleted: committed.deleted } : { refused: committed.reason };
+      }
+    }
+  } catch (error) {
+    for (const id of uploaded) await ctx.storage.delete(id).catch(() => {});
+    return failed({ code: "OBJECTS", message: `Saving the script's store writes failed; nothing was written: ${messageOf(error)}`.slice(0, 500) }, run.cpuMs);
   }
   const wallMs = Math.round(performance.now() - started);
   const clipped = run.result.length > CODE_LIMITS.rowResultChars || run.output.length > CODE_LIMITS.rowOutputChars;
-  let fullId: Id<"_storage"> | undefined;
-  if (clipped) fullId = await ctx.storage.store(new Blob([JSON.stringify({ result: run.result, output: run.output })], { type: "application/json" }));
+  // The whole result is the object runs/<runId>, in the same per-user store the panel and later scripts read.
+  const full = await stored(ctx, `runs/${runId}`, `{"result":${run.result},"output":${JSON.stringify(run.output)}}`);
+  await ctx.runMutation(internal.code.objects.putRunResult, { runId, ...(full.valueJson ? { valueJson: full.valueJson } : {}), ...(full.storageId ? { storageId: full.storageId } : {}), bytes: full.bytes });
   await ctx.runMutation(internal.code.runs.finish, {
     runId, status: "ok", resultJson: clip(run.result, CODE_LIMITS.rowResultChars), output: clip(run.output, CODE_LIMITS.rowOutputChars),
-    resultChars: run.result.length, outputChars: run.output.length, clipped, outputTruncated: run.outputTruncated, ...(fullId ? { fullId } : {}),
-    cpuMs: run.cpuMs, wallMs, inputBytes,
+    resultChars: run.result.length, outputChars: run.output.length, clipped, outputTruncated: run.outputTruncated,
+    ...(storeOutcome ? { storeJson: JSON.stringify(storeOutcome) } : {}), cpuMs: run.cpuMs, wallMs, inputBytes,
   });
   const small = run.result.length <= CODE_LIMITS.previewResultChars;
   const cut: string[] = [];
@@ -96,6 +177,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: { room
     ...base, status: "ok",
     ...(small ? { result: JSON.parse(run.result) as unknown } : { resultPreview: run.result.slice(0, CODE_LIMITS.previewResultChars), resultChars: run.result.length }),
     output: run.output.slice(0, CODE_LIMITS.previewOutputChars), outputTruncated: run.outputTruncated,
+    ...(storeOutcome ? { store: storeOutcome } : {}),
     cpuMs: run.cpuMs, wallMs, inputBytes,
   };
 }
@@ -106,12 +188,17 @@ export const runAs = internalAction({
   handler: (ctx, { principal, ...args }): Promise<RunOutcome> => runCode(ctx, principal, args),
 });
 
-/** A run's whole {result, output} from file storage (get_code_run past the row's prefix). */
+/**
+ * A run's whole result and output, from its object runs/<runId> (get_code_run past the row's prefix). The result is
+ * cut out of the stored text exactly as the run produced it, so offsets match the row's prefix. Runs from before the
+ * object store kept {result, output} as text in `fullId`.
+ */
 export const fullText = internalAction({
   args: { principal: principalV, roomId: v.string(), runId: v.string() },
   handler: async (ctx, args): Promise<{ result: string; output: string } | null> => {
-    const id: Id<"_storage"> | null = await ctx.runQuery(internal.code.runs.fullOf, args);
-    const blob = id ? await ctx.storage.get(id) : null;
-    return blob ? JSON.parse(await blob.text()) as { result: string; output: string } : null;
+    const full: { valueJson: string | null; storageId: Id<"_storage"> | null; legacy: boolean } | null = await ctx.runQuery(internal.code.runs.fullOf, args);
+    const text = full?.valueJson ?? (full?.storageId ? await (await ctx.storage.get(full.storageId))?.text() : undefined);
+    if (!text) return null;
+    return splitRunResult(text, full!.legacy);
   },
 });

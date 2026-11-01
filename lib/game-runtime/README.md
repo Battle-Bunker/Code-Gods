@@ -336,6 +336,15 @@ const { result, output, outputTruncated, usedRandom, cpuMs } =
 | budget | CPU post-check, then the pool's hard wall (nothing interrupts a Python loop): `cpuMs` + 1–5 s, the worker is terminated and replaced from the snapshot (about 100 ms) | QuickJS's interrupt handler stops at `cpuMs`; the hard wall covers one long native call |
 | memory | 128 MiB of linear memory (MemoryError → `LIMIT`) | 128 MiB QuickJS heap, 1 MiB stack |
 
+**State: an object store, no files.** `options.store` is JSON text `{scope: [key | "prefix*"], objects: {key: value}}`
+(≤ 4 MiB): the owner's objects the host loaded for this run. The guest's global `store` reads them
+(`store.get(key, default)`; a key outside the scope raises `StoreError`), buffers `store.put` / `store.delete`
+(JSON values, or bytes as `{"$hex"}`; keys of `[A-Za-z0-9_./-]`, none under `runs/`), and lists them
+(`store.list(prefix)`). A successful run returns its writes as `writes`, JSON `{put: {key: value}, delete: [key]}`
+(≤ 2 MiB). They are UNTRUSTED: the host validates and commits them (artifacts/engine/convex/code/objects.ts). A failed
+run returns none. There is no file system: the WASI host denies every file import after bootstrap, `open` and the
+file modules are absent in Python, and QuickJS has no `std` / `os`.
+
 Both: a fresh guest per run, the virtual clock from 2026-01-01T00:00:00Z, `random` / `Math.random` seeded by
 `seed`, `usedRandom` reported. `json.loads` / `JSON.parse` of the input is trusted and outside the budget; the
 module, `main(data)` and the JSON encoding of its result are inside it. Non-finite numbers become `null`; a

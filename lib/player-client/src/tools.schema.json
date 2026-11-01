@@ -3049,7 +3049,7 @@
       "type": "object",
       "properties": {
         "language": {
-          "description": "python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript.",
+          "description": "python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript. Required with source.",
           "type": "string",
           "enum": [
             "python",
@@ -3057,10 +3057,31 @@
           ]
         },
         "source": {
-          "description": "The script: defines main(data) and returns JSON data (a list of rows for a table).",
+          "description": "The script: defines main(data) and returns JSON data (a list of rows for a table). Give this or script.",
           "type": "string",
           "minLength": 1,
           "maxLength": 65536
+        },
+        "script": {
+          "description": "Run a saved script instead: its key, e.g. scripts/top5 (saved with saveAs).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "load": {
+          "description": "Keys of the player's stored objects to load into the script's store, or prefixes ending in * (e.g. notes/*); only these are readable (store.get). Not the objects dataset.",
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 129
+          }
+        },
+        "saveAs": {
+          "description": "Save this source as the object scripts/<saveAs> after a successful run.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$"
         },
         "datasets": {
           "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history.",
@@ -3148,10 +3169,6 @@
           "maximum": 20
         }
       },
-      "required": [
-        "language",
-        "source"
-      ],
       "additionalProperties": false
     },
     "output": {
@@ -3227,6 +3244,62 @@
       "required": [
         "runId"
       ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_code_objects": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "limit": {
+          "default": 100,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
       "additionalProperties": false
     },
     "output": {

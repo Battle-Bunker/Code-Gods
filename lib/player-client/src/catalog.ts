@@ -203,6 +203,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     tools: ["whoami"], palette: { label: "Show who I am", group: "account", keywords: ["account", "identity", "credential", "expiry"], surfaces: BOTH },
   },
   // ----- code (analytics runs; docs/assistant/code-execution.md) -----
+  "code.objects.list": {
+    kind: "query", audience: "player",
+    human: { title: "Show my stored objects", tooltip: "What your assistant's scripts saved for you: keys, sizes and how much of your store is used." },
+    ai: { description: "The human's object store (the only persistence a run_code script has): keys under a prefix with sizes and times (never values), the store's usage and its limits." },
+    tools: ["list_code_objects"], palette: null, why: "Objects are written and read by the assistant's scripts; there is nothing to run by hand.",
+  },
   "code.runs.list": {
     kind: "query", audience: "player",
     human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this room, newest first, with this game's budget." },

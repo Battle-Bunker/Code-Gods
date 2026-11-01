@@ -6,27 +6,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
+import { splitRunResult } from "@workspace/engine/convex/code/keys";
 import { useRoom } from "@/sdk";
 import { PanelEmpty, Section, type PanelProps } from "./kit";
 
 import { cellText, columnsOf, tableOf, MAX_ROWS, type Json } from "./code-table";
 
-function useFullResult(fullUrl: string | null, clipped: boolean): { result: string; output: string } | null {
+function useFullResult(fullUrl: string | null, clipped: boolean, legacy: boolean): { result: string; output: string } | null {
   const [full, setFull] = useState<{ result: string; output: string } | null>(null);
   useEffect(() => {
     setFull(null);   // never show another run's result while this one loads
     if (!clipped || !fullUrl) return;
     let live = true;
-    fetch(fullUrl).then(r => r.json() as Promise<{ result: string; output: string }>).then(v => { if (live) setFull(v); }, () => {});
+    // The object runs/<runId>: the run's exact result JSON and its output.
+    fetch(fullUrl).then(r => r.text()).then(text => { if (live) setFull(splitRunResult(text, legacy)); }, () => {});
     return () => { live = false; };
-  }, [fullUrl, clipped]);
+  }, [fullUrl, clipped, legacy]);
   return full;
 }
 
 export default function CodeOutput({ params }: PanelProps<"code-output">) {
   const { roomId } = useRoom();
   const run = useQuery(api.code.runs.get, { roomId, ...(params.runId ? { runId: params.runId } : {}) });
-  const full = useFullResult(run?.fullUrl ?? null, run?.clipped ?? false);
+  const full = useFullResult(run?.fullUrl ?? null, run?.clipped ?? false, run?.fullLegacy ?? false);
   const resultText = full?.result ?? run?.resultJson ?? null;
   const parsed = useMemo((): Json | undefined => {
     if (!resultText) return undefined;

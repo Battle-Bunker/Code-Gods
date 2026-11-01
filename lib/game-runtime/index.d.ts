@@ -80,6 +80,12 @@ export interface ScriptOptions {
   cpuMs?: number;
   /** Seeds `random` / `Math.random` (64-bit decimal or 0x-hex string); default "0". */
   seed?: string;
+  /**
+   * The owner's objects this run may read, as JSON text {scope: [key | "prefix*"], objects: {key: JSON value}}
+   * (≤ SCRIPT_LIMITS.storeBytes; bytes as {"$hex": ...}). The guest's `store` (get, put, delete, list) reads them and
+   * buffers writes; nothing touches a file system. Default: nothing loaded.
+   */
+  store?: string;
 }
 export interface ScriptResult {
   /** main's return value as JSON text (ASCII, ≤ SCRIPT_LIMITS.resultBytes); non-finite numbers became null. UNTRUSTED. */
@@ -90,9 +96,11 @@ export interface ScriptResult {
   usedRandom: boolean;
   /** CPU used by the budgeted phase, ms. */
   cpuMs: number;
+  /** The run's store writes as JSON text {put: {key: value}, delete: [key]} (≤ SCRIPT_LIMITS.writesBytes). UNTRUSTED: the host validates keys, sizes and quotas before committing. */
+  writes: string;
 }
 export const SCRIPT_GRAMMAR_IDS: Readonly<{ python: "python-script-v1"; typescript: "typescript-script-v1" }>;
-export const SCRIPT_LIMITS: Readonly<{ sourceBytes: number; inputBytes: number; resultBytes: number; outputBytes: number; cpuMsDefault: number; cpuMsMax: number }>;
+export const SCRIPT_LIMITS: Readonly<{ sourceBytes: number; inputBytes: number; resultBytes: number; outputBytes: number; storeBytes: number; writesBytes: number; cpuMsDefault: number; cpuMsMax: number }>;
 
 export type RuntimeErrorCode = "CONFIG" | "COMPILE" | "DOMAIN" | "EXECUTION" | "LIMIT" | "CAPACITY" | "UNAVAILABLE";
 export class RuntimeError extends Error { readonly code: RuntimeErrorCode; constructor(code: RuntimeErrorCode, message: string); }

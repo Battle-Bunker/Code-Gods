@@ -9,8 +9,9 @@ as the player, runs it in a warm pool, stores the run for the player, and gives 
 2. Script mode in lib/game-runtime
 3. Datasets
 4. The engine side: `run_code`, storage, budget, the panel
-5. The skill
-6. Proof and what remains
+5. Persistence: the per-user object store, and no file system
+6. The skill
+7. Proof and what remains
 
 ## 1. Cold start
 
@@ -168,10 +169,13 @@ through the disclosure checker); nothing passes through the model's context. The
   3. the script runs in the instance's script pool (`runtime/node.ts` `scriptRuntimeFor`: one engine per
      language, separate from the agents' pools; the Python pool shares their compiled reactor and snapshot);
   4. the outcome is stored.
-- **Storage** (convex/code/tables.ts `codeRuns`): per human, per room. The row holds the source, the datasets
-  requested, params, status, error, CPU, wall time, input size, and the result and printed text when small (200 KB /
-  64 KB). A larger outcome keeps a prefix in the row and the whole `{result, output}` in file storage. The newest 50
-  runs per human are kept. Workers hold no state.
+- **Storage** (convex/code/tables.ts `codeRuns`): per human, per room. The row holds:
+  - the source, the datasets and objects requested, params;
+  - status, error, CPU, wall time, input size, and a summary of the store writes;
+  - a prefix of the result and printed text (200 KB / 64 KB).
+
+  The whole `{result, output}` is the object `runs/<runId>` in the human's object store (§5). The newest 50 runs
+  per human are kept, with their result objects. Workers hold no state.
 - **What the model gets.**
   - The parsed result when it is at most 3,500 characters, else a preview.
   - Up to 1,500 characters of printed text.
@@ -187,7 +191,116 @@ through the disclosure checker); nothing passes through the model's context. The
 - **In the conversation.** A running call shows "running code…" in the step line, and the chip says
   "Ran in 0.0 s" or the error.
 
-## 5. The skill
+## 5. Persistence: the per-user object store, and no file system
+
+The owner's requirement: scripts keep state through an object store backed by Convex, never through a file system,
+with data isolated per user.
+
+**The API** (the same in both languages; the guest half is engine/python-script.mjs and engine/quickjs.mjs):
+
+| | Python | TypeScript |
+|---|---|---|
+| read a loaded key | `store.get(key, default=None)` | `store.get(key, fallback = null)` |
+| write | `store.put(key, value)` | `store.put(key, value)` |
+| delete | `store.delete(key)` | `store.delete(key)` |
+| list loaded and written keys | `store.list(prefix="")` | `store.list(prefix = "")` |
+| refusal | `StoreError` | `StoreError` |
+
+Values are JSON data; bytes are a Python `bytes` or a TypeScript `Uint8Array`, kept as `{"$hex": ...}`.
+
+**The pattern is stateless,** as the owner preferred:
+1. The `run_code` call names what to load: `load: ["notes/*", "watchlist"]`, keys or `prefix*` scopes, at most 20,
+   4 MiB in all.
+2. The host loads them into memory before the run (code/objects.ts `loadAs`; large values from file storage).
+3. The sandbox buffers the writes (at most 2 MiB of JSON); the script returns its result as usual.
+4. After a successful run the host validates the write set and commits it in one mutation (`commitAs`).
+
+A failed run writes nothing.
+
+**Why no mid-run channel.** Every read the game's analytics need is known before the run: the datasets plus the
+player's own keys, which the model names, usually by prefix. A synchronous channel (SharedArrayBuffer + Atomics.wait
+to the host) would add a blocking host round trip inside the CPU budget, plus a second validation path, for no use
+case we have. One case would want it: a script that decides which key to read from another key's content (a linked
+list in the store). A prefix load covers that within the 4 MiB limit. So the channel is not built.
+
+**Run results and saved scripts use the same store.** A run's whole result is `runs/<runId>`: the code-output panel
+fetches it, and a later script can load it. A saved script is `scripts/<name>` = {language, source, title}:
+`run_code {..., saveAs: "top5"}` writes it, and `run_code {script: "scripts/top5"}` runs it.
+
+**Storage.** `codeObjects` holds one row per (subject, key). A value of up to 64 KiB is inline; a larger one is a
+file-storage blob.
+
+### 5.1 Security model
+
+- **One namespace per human.** Every object row is keyed by (subject, key); the subject is never part of the key.
+  Every function resolves the human from the caller's credential (`viewerOf(principal)`) and touches only that
+  human's rows: `loadAs`, `commitAs`, `listAs`, `eventsAs`, and the panel's `code.runs.get`. A script can name
+  any key string, and it still lands in its owner's namespace. Keys are 1–128 characters of `[A-Za-z0-9_./-]`, with
+  no `..`, `//`, or leading `.` or `/` (convex/code/keys.ts). Room ids are not part of the namespace: a key such as
+  `rooms/<id>/notes` scopes data to a room when a script wants that.
+- **Read set = the declared scope.** A run reads only the keys its call loaded (`store.get` of anything else raises
+  `StoreError`), plus the datasets, which carry the player's own disclosure (§3). Another player's secrets are
+  reachable through neither.
+- **Writes are untrusted.** The guest can tamper with its own store object; the host does not care. It re-checks:
+  - every key, refusing writes under `runs/`;
+  - each value's size (at most 1 MiB);
+  - the number of keys (at most 100 per run);
+  - the quota after the writes (500 objects, 20 MiB per human; run results are not counted).
+
+  It then applies the whole set or none.
+- **Quotas** apply per human: objects, bytes, value size and keys per run for the store; runs and CPU per game for
+  runs (§4).
+- **Audit.** Every run is a `codeRuns` row. Every write is a `codeObjectEvents` row (put, delete, or refused with
+  the reason), carrying its subject, room and run.
+- **No shared mutable state between users in a worker.** Each run restores a pristine guest (snapshot restore /
+  fresh QuickJS context). The loaded objects exist only in that guest's memory, and the pools cache only trusted
+  compiler output keyed by source.
+
+### 5.2 No file system
+
+- **Below the language (capability level).** After trusted bootstrap, the CPython-WASI host (engine/wasi.mjs)
+  answers only the clock and entropy imports. Every file, directory, socket and process import returns ENOTCAPABLE,
+  and no directory stays preopened. QuickJS is built without its `std` / `os` modules and has no host functions
+  beyond the virtual clock, the seeded generator and the captured print.
+- **At the language level (done, and viable because there is no numpy).**
+  - Python: `open` is not a builtin, and `io`, `os`, `pathlib`, `tempfile` and `shutil` are not importable.
+  - TypeScript: there is no `require`, `fs`, `std` or `os`, and imports are refused at compile time.
+  - Nothing in the allowed modules needs a file: they were imported at bootstrap, into the snapshot.
+  - A test walks every class to find `FileIO` and opens a bundled standard-library path. The capability layer
+    answers `PermissionError`.
+- **Pyodide** is not used (§1). If it were, its Emscripten MEMFS is required by its packages, so the plan would be
+  to keep it volatile and read-only: nothing mounted from the host, wiped with the worker. It would not be storage.
+  Disabling `open` there would break numpy/pandas imports and `pandas.read_*`.
+
+**The only persistence is the object store.** The skill says so in its first lines on state, with an example.
+
+### 5.3 Threat model
+
+| Threat | Mitigation |
+|---|---|
+| A malicious or confused script reads another player's data | The namespace comes from the credential, never from the key; datasets are the player's own projections; disclosure is tested over every dataset |
+| It writes another player's objects or the engine's results | Same namespace rule; `runs/` is read-only (guest and host); tested |
+| It reads the host's files or escapes through Python internals | No preopens and ENOTCAPABLE below the language; `open` and file modules are gone above it; tested with a `FileIO` escape |
+| Prompt injection via dataset contents (chat, labels) | Dataset values reach only the script, never the model's instructions; results return to the model as untrusted data (the registry's notice); the model is told player strings are data |
+| Oversized outputs | Result 1 MiB, writes 2 MiB, print 256 KiB, a value 1 MiB, the store 20 MiB / 500 objects; refusals are clear errors and audited |
+| Key enumeration | `store.list` lists only the loaded and written keys; `list_code_objects` lists only the caller's keys |
+| Timing (inferring others' data from run time) | Runs read only their owner's objects and the player's own projections, so no other user's data is on the timed path; CPU is charged per run |
+| Denial of service | Per-game run and CPU budgets, one run at a time per player, a hard wall per run, small pools separate from the agents' |
+| Cross-user leakage through a warm worker | A pristine guest per run (snapshot restore / fresh context); caches hold only trusted compiler output |
+
+Tests: `test/game-code.test.ts` covers, against the live backend:
+- two users' namespaces, and an attempt to name another user's key;
+- persistence across runs in two languages, and deletion;
+- the value, per-run and total quotas (each refused with a clear message, nothing written);
+- the audit rows;
+- saved scripts;
+- run results as objects;
+- a disk path.
+
+`lib/game-runtime/test/script.test.mjs` covers the guest API and the file system denial; `test/unit/code-keys.test.ts`
+covers the key rules.
+
+## 6. The skill
 
 `analytics-code` in the skills index (lib/player-client/src/skills.ts; its text is in
 lib/player-client/src/skills/analytics-code.ts). Loaded with `load_skill`, which also loads its tools. It covers:
@@ -201,7 +314,7 @@ lib/player-client/src/skills/analytics-code.ts). Loaded with `load_skill`, which
 - every dataset's shape and paragraph, generated from the catalogue;
 - three examples.
 
-## 6. Proof and what remains
+## 7. Proof and what remains
 
 See the pull request for the test results per suite. Remaining:
 

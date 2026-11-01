@@ -241,6 +241,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `auth.device.deny` | mutation | infrastructure | Deny a device code | Refuses the player app; it gets nothing. | — (Consent is given on the /device page only.) |
 | `auth.testing.probe` | query | test | Probe authentication | A test-only check of the signed-in identity on local deployments. | — (Test only.) |
 | `auth.user.me` | query | infrastructure | Show who I am | Your name, god id and, for a player app, its room and rights. | `whoami` |
+| `code.objects.list` | query | player | Show my stored objects | What your assistant's scripts saved for you: keys, sizes and how much of your store is used. | `list_code_objects` |
 | `code.runs.list` | query | player | Show my code runs | The analytics scripts your assistant ran for you in this room, newest first, with this game's budget. | `list_code_runs` |
 | `code.runs.get` | query | player | Show a code run | One analytics run's source, result table and printed output. | `get_code_run` |
 | `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game` |

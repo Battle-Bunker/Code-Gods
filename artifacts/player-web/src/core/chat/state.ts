@@ -146,6 +146,7 @@ export const STEP_VERBS = {
   run_code: ["ran code", "running code", "run code"],
   get_code_run: ["read a code result", "reading a code result", "read a code result"],
   list_code_runs: ["listed your code runs", "listing your code runs", "list your code runs"],
+  list_code_objects: ["listed your stored objects", "listing your stored objects", "list your stored objects"],
   load_skill: ["read up on it", "reading up on it", "read up on it"],
 } as const satisfies Record<ToolName, readonly [string, string, string]>;
 
