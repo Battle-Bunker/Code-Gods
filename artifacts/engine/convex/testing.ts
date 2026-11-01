@@ -196,6 +196,16 @@ export const rawAssistantPool = internalQuery({
   },
 });
 
+/** An assistant turn's raw row (its generation and status), to race its step mutations. */
+export const rawAssistantTurn = internalQuery({
+  args: { turnId: v.id("assistantTurns") },
+  handler: async (ctx, { turnId }) => {
+    dev();
+    const turn = await ctx.db.get(turnId);
+    return { gen: turn?.gen ?? -1, status: turn?.status ?? null };
+  },
+});
+
 export const rawRoom = internalQuery({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {

@@ -120,12 +120,30 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "assistant.send": {
     kind: "mutation", audience: "player",
     human: { title: "Ask the assistant", tooltip: "Sends your message; the assistant answers and acts as you with the rights you chose." },
-    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. FORBIDDEN while the owner's allowance is 0; CONFLICT while a turn is active, or for a thread of an earlier game (each game starts a fresh conversation)." },
+    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. While a turn is active the message is queued for it (at most 5): it joins the turn after its current step's tool results, or starts the next turn; a waiting card is declined by it. clientId makes a retry the same message. FORBIDDEN while the owner's allowance is 0; CONFLICT for a thread of an earlier game (each game starts a fresh conversation) or another thread than the busy one." },
     tools: [], palette: { label: "Ask the assistant…", group: "help", keywords: ["ask", "assistant", "help", "ai"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.editQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Edit a queued message", tooltip: "Changes a message waiting for your assistant before it reads it." },
+    ai: { description: "Change the text of one of the human's queued assistant messages; a delivered one changes nothing." },
+    tools: [], palette: null, why: "Edited on the queued message in the assistant pane.",
+  },
+  "assistant.removeQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Remove a queued message", tooltip: "Takes back a message your assistant has not read yet." },
+    ai: { description: "Remove one of the human's queued assistant messages before it is delivered; a delivered one stays." },
+    tools: [], palette: null, why: "Removed on the queued message in the assistant pane.",
+  },
+  "assistant.sendQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Send held messages", tooltip: "Sends the messages you queued before you stopped the assistant." },
+    ai: { description: "Start a turn with the human's queued messages that a Stop held (the assistant must be idle in this game)." },
+    tools: [], palette: null, why: "Sent from the held messages in the assistant pane.",
   },
   "assistant.cancel": {
     kind: "mutation", audience: "player",
-    human: { title: "Stop the assistant", tooltip: "Stops the current answer; a card waiting for you is cancelled at once." },
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer and cancels a waiting card; messages you queued stay held until you send." },
     ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
     tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: P }, why: NO_SELF_DRIVE,
   },
