@@ -72,7 +72,7 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `card_windmill` | (2) | suits stepping round each quarter-turn orbit | block (orbits) | 4^4 enumeration per orbit | E | ✅ |
 | `royal_court` | (2) | picture-card component holding the centre | conn | — | H | · |
 | `bullseye` | (2) | one-colour rings, alternating, from outside in | block (rings) | chain over rings | E | ✅‡ |
-| `snake_charmer` | scalar | longest unbranched my-colour component | conn | — | R | · |
+| `snake_charmer` | scalar | longest unbranched my-colour component | conn | — (exact maximum known: longest induced path, solutions.md §6) | R | · |
 | `tetromino_tamer` | (2) | my-colour components of size 4 (of my shape) | conn (small) | animal enumeration + inclusion–exclusion; Poisson | H | · |
 | `rainbow_bands` | (2) | anti-diagonals in their rainbow colour | block (diagonals) | Binomial per diagonal | E | ✅‡ |
 | `constellation` | scalar | largest 8-connected cluster of my value | conn | percolation transfer | H | · |
@@ -105,7 +105,7 @@ Cells are iid uniform over S symbols × C colours; a cell's value is the digit (
 | `colour_value_ladder` | scalar | value and colour order agree across edges | local | — | H | · |
 | `stripe_painter` | (2) | one-colour rows, alternating | block (rows) + chain | chain over rows (previous row one-colour) | E | ✅ |
 | `feuding_families` | (2) | cells of two colours not touching the other | local (3 letters) | 3-letter transfer with two counts | H | · |
-| `colour_mixer` | (2) | mixed cells touching both parents | local (4 letters) | transfer, 4^N states | H | · |
+| `colour_mixer` | (2) | mixed cells touching both parents | local (3 letters suffice) | 3-letter transfer, 5^N states (exact maximum done by max-plus, solutions.md §6) | H | · |
 | `fair_weaver` | (2) | lines with balanced colour counts | rows+cols | rows exact × columns ≈ | R | · |
 | `lantern_lighter` | scalar | my-colour cells alone in their row and column | rows+cols (counts) | DP over rows, state = per-column count ∈ {0, 1, ≥2} (3^N) | M | · |
 | `best_friends` | scalar | edges joining my two colours | local (3 letters) | 3-letter row transfer (tail-toolkit.md) | M | 🔒 |

@@ -5,6 +5,7 @@ import {
   pyCard, range, recipes, recolour, symForValue, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { LONGEST_SNAKES } from "../../analytic/maxima.ts";
 
 const other = (g: GridSpec, ...cs: number[]) => range(g.C).find(k => !cs.includes(k))!;
 
@@ -684,9 +685,10 @@ const snakeCharmer = gridFamily<IslandsP>({
       }
       return best;
     }`),
+  // The longest induced path of the N×N grid, found by exact search (src/analytic/maxima.ts): a proven maximum.
   exemplar: (p, g) => {
-    const N = g.N, o = (p.C + 1) % g.C;
-    return wire(g, full(N, 0), fromFn(N, (r, c) => (r % 2 === 0 || c === (Math.floor(r / 2) % 2 === 0 ? N - 1 : 0) ? p.C : o)));
+    const N = g.N, o = (p.C + 1) % g.C, snake = new Set(LONGEST_SNAKES[N]);
+    return wire(g, full(N, 0), fromFn(N, (r, c) => (snake.has(r * N + c) ? p.C : o)));
   },
 });
 

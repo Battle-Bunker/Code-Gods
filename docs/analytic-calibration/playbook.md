@@ -185,6 +185,20 @@ connectivity partition of the frontier (non-crossing partitions; Catalan-many). 
 - **Initial values and empty objects.** Read the card's initial `best`/`run` (often 1, not 0), the empty string, x =
   0 (`digits(0)` is [0]; palindromist's base loop gives no digits), and early returns (`column_addition` scores
   [0, 0] when the top row is all zeros).
+- **The exemplar must be a proven maximum.** `exemplar` claims the top of the ordinal: the estimator records whether
+  its table reached it (`meta.topReached`), lookups extrapolate above the top level, and families listed in
+  test/calibration.test.ts `EXACT_EXEMPLARS` must reach their table's top. A greedy or hill-climbed construction is
+  not enough: eight families had exemplars below their own sampled tops, among them `tetromino_tamer`,
+  `snake_charmer`, `colour_mixer`, `magic_window` and `nest-builder`. Derive the maximum the way you would derive the
+  survival function:
+  - an upper bound that a construction attains;
+  - an exact search with branch and bound (`longestSnake` in src/analytic/maxima.ts);
+  - a **max-plus transfer matrix**, the counting DP of T8 with (max, +) in place of (+, ×) and argmax backtracking.
+    This is exact for local rules over a small reduced alphabet (`mixerOptimum`).
+
+  Store the proven optimum as a constant with the search beside it, add a test that re-proves small N, add the
+  family to `EXACT_EXEMPLARS`, and refresh the tables' flag with `scripts/refresh-top-reached.ts <family>` (the key
+  does not cover the exemplar).
 - **Rows vs both.** Many families take an axis param; solve the rows variant exactly and return null (`NoSolution`)
   for the others, so they fall back to the estimator.
 - **Performance.** `Dist` keys are strings; a DP with more than ~10^5 live states × 10^2 transitions per step needs
