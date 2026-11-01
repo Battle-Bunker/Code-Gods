@@ -17,7 +17,7 @@
  * Pure: the caller supplies the tables (the engine's for a live game; the shipped ones in tests and the experiment).
  */
 import type { Instantiation, ObjectValue } from "@workspace/game-types";
-import { available, context, evaluator, familiesFor, paramsKey } from "./catalog.ts";
+import { applicable, context, evaluator, familiesFor, paramsKey } from "./catalog.ts";
 import { penaltyMeanBits, softHinge, surprisal, tableFor, UNIFORM_PRIOR, type InstanceTables, type PriorRef } from "./calibration.ts";
 import type { Params, UtilityFamily } from "./types.ts";
 
@@ -25,13 +25,18 @@ export type Role = "reward" | "penalty";
 /** One draw a god might hold: a family and one parameter set of its support. */
 export interface Candidate { readonly familyId: string; readonly params: Params; readonly role: Role }
 
-/** Everything the dealer could deal in this instantiation: every available family (not excluded) × its support. */
+/**
+ * Everything the dealer could deal in this instantiation: every applicable family (not excluded) × each parameter set of
+ * its support that is itself applicable (the one checker dealing uses, catalog.ts `applicable`).
+ */
 export function candidatesFor(inst: Instantiation, options: { exclude?: readonly string[]; excludeDefence?: readonly string[]; defenceGoals?: boolean } = {}): Candidate[] {
   const ctx = context(inst);
   const out: Candidate[] = [];
-  const add = (f: UtilityFamily<any>, role: Role) => { for (const params of f.support(ctx)) out.push({ familyId: f.id, params, role }); };
-  for (const f of familiesFor(inst.objectType, "reward")) if (available(f, inst).ok && !options.exclude?.includes(f.id)) add(f, "reward");
-  if (options.defenceGoals) for (const f of familiesFor(inst.objectType, "penalty")) if (available(f, inst).ok && !options.excludeDefence?.includes(f.id)) add(f, "penalty");
+  const add = (f: UtilityFamily<any>, role: Role) => {
+    for (const params of f.support(ctx)) if (applicable(f, inst, params).ok) out.push({ familyId: f.id, params, role });
+  };
+  for (const f of familiesFor(inst.objectType, "reward")) if (applicable(f, inst).ok && !options.exclude?.includes(f.id)) add(f, "reward");
+  if (options.defenceGoals) for (const f of familiesFor(inst.objectType, "penalty")) if (applicable(f, inst).ok && !options.excludeDefence?.includes(f.id)) add(f, "penalty");
   return out;
 }
 
