@@ -113,6 +113,11 @@ export function unwrap(result: unknown): Unwrapped {
   }
   // The untrusted envelope ({untrusted, notice, data}) holds the tool's own result in `data` (a page cursor beside it stays).
   const data = "data" in rest && Object.keys(rest).length === 1 ? rest.data : rest;
+  // A failure reported inside the data (a command's failed run, a script's error).
+  if (isRecord(data) && isRecord(data.error)) {
+    const error = data.error as { code?: unknown; message?: unknown };
+    notes.push({ kind: "note", tone: "error", text: `${typeof error.code === "string" ? `${error.code}: ` : ""}${typeof error.message === "string" ? error.message : "The call failed"}` });
+  }
   return { data, notes };
 }
 
@@ -160,7 +165,6 @@ const agentView: View = (args, data) => {
   if (Array.isArray(v.diagnostics) && v.diagnostics.length) sections.push({ kind: "list", title: "Diagnostics", items: v.diagnostics.map(scalarText) });
   const other = { ...rest(v, ["cost", "energy", "affordable", "expectedActCost", "decisionBits", "changeRate", "invalidRate", "randomized", "diagnostics", "valid"]) as Json };
   if (hasKeys(other)) sections.push(...output(other, "Price details"));
-  if (isRecord(d.error)) sections.push({ kind: "note", tone: "error", text: `${scalarText(d.error.code)}: ${scalarText(d.error.message)}` });
   return sections;
 };
 
@@ -184,7 +188,6 @@ const TOOL_DETAIL: Record<string, View> = {
     if (typeof d.output === "string" && d.output) sections.push({ kind: "text", title: d.outputTruncated ? "Printed output (cut)" : "Printed output", text: d.output });
     if (d.result !== undefined) sections.push(...output(d.result, "Result"));
     if (typeof d.resultPreview === "string") sections.push({ kind: "text", title: "Result (preview)", text: d.resultPreview });
-    if (isRecord(d.error)) sections.push({ kind: "note", tone: "error", text: `${scalarText(d.error.code)}: ${scalarText(d.error.message)}` });
     sections.push(...output(rest(d, ["output", "outputTruncated", "result", "resultPreview", "error"]), "Run"));
     return sections;
   },

@@ -79,6 +79,8 @@ test("any other tool gets the generic view: labelled entries, lists of records a
 test("errors, declined calls and calls waiting for the player say so", () => {
   const failed = toolDetail(call("get_receipt", { commandId: "x" }, JSON.stringify({ error: { code: "NOT_FOUND", message: "No such command" } }), { status: "error" }));
   assert.deepEqual(failed[0], { kind: "note", tone: "error", text: "NOT_FOUND: No such command" });
+  const failedRun = toolDetail(call("summon_agent", { source: SOURCE }, envelope({ status: "failed", commandId: "c", error: { code: "UNAVAILABLE", message: "Runtime down" }, message: "Not applied." })));
+  assert.deepEqual(failedRun[0], { kind: "note", tone: "error", text: "UNAVAILABLE: Runtime down" }, "an error inside the envelope's data");
   assert.match((toolDetail(call("summon_agent", { source: SOURCE }, null, { status: "awaiting_confirmation" }))[0] as { text: string }).text, /Waiting for your confirmation/);
   assert.match((toolDetail(call("send_chat", { text: "hi" }, null, { status: "denied" }))[0] as { text: string }).text, /You declined/);
 });
