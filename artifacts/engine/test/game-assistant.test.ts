@@ -455,7 +455,7 @@ test("the transcript is a query of (room, game): a new game's has no thread, wha
   assert.equal((await bob.c.query(api.assistant.transcript, { roomId, gameId: g1, threadId: first.threadId })).thread, null, "never another player's");
 
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
-  const g2 = (await ann.c.action(api.owner.start, { roomId })).gameId as string;
+  const g2 = (await startGame(ann, roomId)).gameId;
   assert.equal((await ann.c.query(api.assistant.status, { roomId })).game, g2);
   for (const args of [{}, { threadId: first.threadId }]) {
     const t2 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g2, ...args });
