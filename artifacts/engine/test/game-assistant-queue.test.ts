@@ -1,6 +1,6 @@
 /**
  * The assistant's message queue (convex/assistant.ts send/editQueued/removeQueued/sendQueued, assistant/store.ts
- * deliverQueued; docs/surface-architecture.md §6 "Queued messages") against the live local backend with the scripted
+ * deliverQueued, assistant/turns.ts; docs/surface-architecture.md §6 "Queued messages") against the live local backend with the scripted
  * mock ChatProvider. A `/mock {json}` message scripts the model's steps; `echo` answers with what the model was given
  * (`later`: the text of the turn's user messages after its prompt, i.e. queued messages delivered after tool results).
  *

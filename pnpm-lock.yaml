@@ -394,6 +394,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
 
   artifacts/player-web:
     dependencies:

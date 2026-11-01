@@ -9,6 +9,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { fail } from "./lib/errors";
+import { shortCodeFor } from "./lib/rooms";
 import { seed as seedSetups } from "./setups";
 
 const dev = () => {
@@ -231,6 +232,44 @@ export const seedChat = internalMutation({
   handler: async (ctx, { roomId, authorId, texts, timestamp }) => {
     dev();
     for (const text of texts) await ctx.db.insert("chat", { roomId, authorId, authorName: authorId, kind: "human", text, timestamp });
+  },
+});
+
+/**
+ * A room with a long history (test/game-perf.test.ts): `copies` copies of one of its ended games, each with the game's
+ * deities, agents, objects (object ids remapped; agent and deity references in the log still name the source game's),
+ * event log (tick batches and object events) and its chat. History for the hot queries to ignore, not a replayable
+ * game. One call writes `copies` (at most 10) × the game's rows; call it repeatedly for more. A game too big to copy
+ * whole is refused, never copied in part.
+ */
+export const cloneEndedGame = internalMutation({
+  args: { gameId: v.id("games"), copies: v.number() },
+  handler: async (ctx, { gameId, copies }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    if (game?.phase !== "ended") fail("CONFLICT", "only an ended game is cloned");
+    if (!Number.isInteger(copies) || copies < 1 || copies > 10) fail("BAD_REQUEST", "copies is 1 to 10 per call");
+    const all = <T>(rows: T[], max: number, what: string) => rows.length > max ? fail("CONFLICT", `the game has over ${max} ${what}: too big to clone`) : rows;
+    const deities = all(await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(9), 8, "deities");
+    const agents = all(await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(201), 200, "agents");
+    const objects = all(await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(501), 500, "objects");
+    const batches = all(await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).take(501), 500, "tick batches");
+    const events = all(await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(1001), 1000, "object events");
+    const chat = all(await ctx.db.query("chat").withIndex("by_room", q => q.eq("roomId", game.roomId)).take(1001), 1000, "chat messages in its room")
+      .filter(m => m.gameId === gameId);
+    const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
+    for (let i = 0; i < copies; i++) {
+      const guid = crypto.randomUUID();
+      const id = await ctx.db.insert("games", { ...strip(game), guid, ...await shortCodeFor(ctx, "games", guid) });
+      for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });
+      for (const a of agents) await ctx.db.insert("agents", { ...strip(a), gameId: id });
+      const objectIds = new Map<string, Doc<"objects">["_id"]>();
+      for (const o of objects) objectIds.set(o._id, await ctx.db.insert("objects", { ...strip(o), gameId: id }));
+      for (const b of batches) await ctx.db.insert("tickBatches", { ...strip(b), gameId: id });
+      for (const e of events) await ctx.db.insert("objectEvents", { ...strip(e), gameId: id, objectId: objectIds.get(e.objectId) ?? e.objectId });
+      for (const m of chat) await ctx.db.insert("chat", { ...strip(m), gameId: id });
+    }
+    return { games: copies, batches: batches.length, events: events.length, objects: objects.length, chat: chat.length };
   },
 });
 

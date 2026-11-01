@@ -187,12 +187,23 @@ export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators
   const python = header("#") + base.python + ENCODE_CALLS_PY + avail.map(m => m.guest.python).join("\n");
   const jsText = header("//") + base.js + ENCODE_CALLS_JS + avail.map(m => m.guest.js).join("\n");
   const dts = header("//") + base.dts + ENCODE_CALLS_DTS + avail.map(m => m.guest.dts).join("\n");
-  return Object.freeze({
-    python, js: jsText, dts,
-    helpers: Object.freeze([...base.helpers, ...avail.flatMap(m => m.guest.docs)]),
-    pricing: Object.freeze({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }),
-    hash: sha256(`${python}\0${jsText}\0${dts}`),
-  });
+  return withDerived({ python, js: jsText, dts, helpers: Object.freeze([...base.helpers, ...avail.flatMap(m => m.guest.docs)]) },
+    () => ({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }));
+}
+
+/** Compute once, on first use. */
+function once<T>(f: () => T): () => T {
+  let done = false, value: T;
+  return () => { if (!done) { value = f(); done = true; } return value; };
+}
+/**
+ * A prelude with its derived fields (the pricing vocabulary and the hash) computed on first read, not on assembly:
+ * the instance description (InstanceInfo.helpers) needs only the helper docs, and the engine's hot queries describe
+ * the room's instance on every execution (Convex keeps no memo between executions). Reads see the same frozen values.
+ */
+function withDerived(texts: Pick<PreludeParts, "python" | "js" | "dts" | "helpers">, pricing: () => PreludeParts["pricing"]): PreludeParts {
+  const vocab = once(() => Object.freeze(pricing())), hash = once(() => sha256(`${texts.python}\0${texts.js}\0${texts.dts}`));
+  return Object.freeze({ ...texts, get pricing() { return vocab(); }, get hash() { return hash(); } });
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -314,9 +325,6 @@ export function withCommitClause(parts: PreludeParts): PreludeParts {
   const python = parts.python + COMMIT_CLAUSE_PY, js = parts.js + COMMIT_CLAUSE_JS, dts = parts.dts + COMMIT_CLAUSE_DTS;
   const add = (v: PricingVocab, name: string): PricingVocab => Object.freeze({ ...v, api: sortedUnique([...v.api, name]),
     params: sortedUnique([...v.params, "moves"]), strings: sortedUnique([...v.strings, "if-improves"]) });
-  return Object.freeze({
-    python, js, dts, helpers: Object.freeze([...parts.helpers, COMMIT_CLAUSE_HELPER]),
-    pricing: Object.freeze({ python: add(parts.pricing.python, "only_if_better"), typescript: add(parts.pricing.typescript, "onlyIfBetter") }),
-    hash: sha256(`${python}\0${js}\0${dts}`),
-  });
+  return withDerived({ python, js, dts, helpers: Object.freeze([...parts.helpers, COMMIT_CLAUSE_HELPER]) },
+    () => ({ python: add(parts.pricing.python, "only_if_better"), typescript: add(parts.pricing.typescript, "onlyIfBetter") }));
 }

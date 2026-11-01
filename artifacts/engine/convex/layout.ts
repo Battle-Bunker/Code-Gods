@@ -19,7 +19,7 @@ import {
   DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, panelPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetPanelParams,
   placeSchema, setPanePanel, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
-import { canonicalJson } from "@workspace/game-utilities";
+import { canonicalJson } from "@workspace/game-utilities/canonical-json";
 import { PANEL_IDS, isPanelId, panelCatalog, parsePanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import type { Viewer } from "./auth/access";
 import { fail } from "./lib/errors";

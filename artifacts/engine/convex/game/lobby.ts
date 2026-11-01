@@ -10,7 +10,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
-import { endTurnsForNewGame } from "../assistant/store";
+import { endTurnsForNewGame } from "../assistant/turns";
 import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
 import { putCatalog } from "../lib/rooms";

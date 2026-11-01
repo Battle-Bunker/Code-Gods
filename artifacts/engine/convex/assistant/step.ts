@@ -33,8 +33,9 @@ import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { ENGINE_NOTES, LIMITS, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, repeatsOf, resultLimit, summarize, withEngineNote, argsLimit } from "./rules";
-import { log } from "./store";
+import { callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, repeatsOf, resultLimit, summarize, argsLimit } from "./rules";
+import { ENGINE_NOTES, LIMITS, withEngineNote } from "./limits";
+import { log } from "./turns";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
 

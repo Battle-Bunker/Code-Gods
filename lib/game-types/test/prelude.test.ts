@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-import { GRID, INT, OBJECT_TYPES, STRING, availableMutators, instanceInfo, seededRng, type Instantiation } from "../src/index.ts";
+import { GRID, INT, OBJECT_TYPES, STRING, availableMutators, instanceInfo, seededRng, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
 import { buildFixture } from "./parity-fixture.ts";
 
 const JS_GLOBALS = new Set([...Object.getOwnPropertyNames(globalThis), "escape", "unescape", "print", "name", "length", "self", "window"]);
@@ -132,4 +132,23 @@ test("parity fixture (consumed by test/parity.py)", () => {
   const dir = new URL("./fixtures/", import.meta.url);
   mkdirSync(dir, { recursive: true });
   writeFileSync(new URL("prelude-parity.json", dir), JSON.stringify(fixture));
+});
+
+// The derived fields (pricing vocabulary, hash) are computed on first read (prelude.ts withDerived, so describing an
+// instance stays cheap); every way of reading them sees the same frozen values, as when they were plain fields.
+test("a prelude's hash and pricing read the same, frozen, through every access path", () => {
+  for (const type of OBJECT_TYPES) {
+    const inst = type.instantiate(type.representatives()[0]);
+    for (const p of [type.prelude(inst), withCommitClause(type.prelude(inst))]) {
+      assert.equal(p.hash, sha256(`${p.python}\0${p.js}\0${p.dts}`), `${inst.key}: the hash is of the three texts`);
+      assert.equal(p.pricing, p.pricing, "one vocabulary object, however often it is read");
+      assert.ok(Object.isFrozen(p) && Object.isFrozen(p.pricing), "frozen");
+      const plain = JSON.parse(JSON.stringify(p));
+      assert.equal(plain.hash, p.hash);
+      assert.deepEqual(plain.pricing, JSON.parse(JSON.stringify(p.pricing)));
+      assert.deepEqual(Object.keys({ ...p }).sort(), ["dts", "hash", "helpers", "js", "pricing", "python"]);
+      assert.equal(Object.fromEntries(Object.entries(p)).hash, p.hash);
+    }
+    assert.ok(withCommitClause(type.prelude(inst)).pricing.typescript.api.includes("onlyIfBetter"), "the clause adds its name");
+  }
 });
