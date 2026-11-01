@@ -164,7 +164,7 @@ owner with explicit consent; a different choice revokes the old one and creates 
 player credential that created it. It is listed and revocable on the engine UI like any other credential; it is never a
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
-**Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/step.ts`).
+**Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/turns.ts`, `assistant/step.ts`, `assistant/limits.ts`).
 - `send` (requireMember read; FORBIDDEN while the owner's allowance is 0) inserts the user message and the turn and
   schedules `assistant/step:run({turnId, gen})`; while the human's turn in this game is active it queues the message
   instead (below).

@@ -22,6 +22,7 @@
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { applicable, canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
+import { canonicalJson } from "./canonical-json.ts";
 import { cardProgram } from "./families/card.ts";
 import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
@@ -179,16 +180,8 @@ export interface CalibrationManifest {
 // deterministic keys
 // ------------------------------------------------------------------------------------------------
 
-/** JSON with sorted object keys at every depth, no whitespace. */
-export function canonicalJson(x: unknown): string {
-  if (Array.isArray(x)) return `[${x.map(canonicalJson).join(",")}]`;
-  if (x && typeof x === "object") {
-    const o = x as Record<string, unknown>;
-    return `{${Object.keys(o).sort().filter(k => o[k] !== undefined).map(k => `${JSON.stringify(k)}:${canonicalJson(o[k])}`).join(",")}}`;
-  }
-  if (typeof x === "number" && !Number.isFinite(x)) throw new Error("canonicalJson: non-finite number");
-  return JSON.stringify(x);
-}
+export { canonicalJson };
+
 
 /** Everything a table key depends on. */
 export interface TableKeyParts {

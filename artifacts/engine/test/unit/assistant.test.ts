@@ -9,8 +9,9 @@ import { createHash } from "node:crypto";
 import { CORE_TOOLS, OWNER_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { SKILLS } from "@workspace/player-client/skills";
 import { activeTools, assistantSystemPrompt } from "@workspace/ai-player";
+import { LIMITS } from "../../convex/assistant/limits.ts";
 import {
-  LIMITS, argsLimit, buildHistory, callLimitProblem, clipJson, commandIdFor, loadTools, loadableTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, uuidv5,
+  argsLimit, buildHistory, callLimitProblem, clipJson, commandIdFor, loadTools, loadableTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, uuidv5,
 } from "../../convex/assistant/rules.ts";
 import { TOOLS, toolJsonSchemas } from "@workspace/player-client/tools";
 
@@ -222,7 +223,7 @@ test("tool results the model needs whole get room: the writing-agents skill and 
 });
 
 test("an engine note goes first in a stored result, which stays JSON", async () => {
-  const { withEngineNote } = await import("../../convex/assistant/rules.ts");
+  const { withEngineNote } = await import("../../convex/assistant/limits.ts");
   const noted = JSON.parse(withEngineNote(JSON.stringify({ untrusted: true, data: { a: 1 } }), "Wrap up now."));
   assert.deepEqual(Object.keys(noted), ["ENGINE_NOTE", "untrusted", "data"]);
   assert.equal(noted.ENGINE_NOTE, "Wrap up now.");

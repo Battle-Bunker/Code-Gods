@@ -6,7 +6,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LIMITS, QUEUED_NOTE, UNANSWERED_NOTES, buildHistory, historyStart, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
+import { LIMITS } from "../../convex/assistant/limits.ts";
+import { QUEUED_NOTE, UNANSWERED_NOTES, buildHistory, historyStart, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
 
 const think = (signature: string) => ({ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature } });
 const user = (id: string, turnId: string, text: string): HistoryRow => ({ id, turnId, role: "user", text });

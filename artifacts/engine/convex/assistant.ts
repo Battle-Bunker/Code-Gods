@@ -15,7 +15,7 @@
  *
  * Everything the assistant works from is per (human, game): threads (with their turns, briefings, messages, tool calls
  * and cards), the allowance (ai/seats.ts) and code runs and stored objects (convex/code). Starting a game ends the last
- * game's active turns (assistant/store.ts endTurnsForNewGame), and the new game lists no thread until the human starts
+ * game's active turns (assistant/turns.ts endTurnsForNewGame), and the new game lists no thread until the human starts
  * one; an earlier game's thread can be read, never continued. The pane reads `transcript` with the game `status` names,
  * so its query's arguments change with the game, and a transcript of one game is never another's: the server answers
  * with that game's thread only, whatever thread id the client holds, and `send` refuses a game that is no longer current.
@@ -23,7 +23,7 @@
  * Callers: browser sessions and player credentials of a room member (the hosted client and dev-server apps).
  * The first send creates (or reuses) the human's assistant credential for the room with the permission they chose
  * (default act; never above their own; owner only for the current owner with explicit consent). The turn loop runs
- * in assistant/step.ts and assistant/store.ts.
+ * in assistant/step.ts, assistant/store.ts and assistant/turns.ts.
  */
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -36,8 +36,8 @@ import { ASSISTANT_LOBBY as LOBBY, allowanceOf, assistantEpoch } from "./ai/seat
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { findGame, requireHistoricReaderAs, requireMember, requireRoom } from "./lib/rooms";
-import { LIMITS, isActive } from "./assistant/rules";
-import { CANCEL_GRACE_MS, callsOf, denyCall, finishTurn, log, openTurn, queuedIn, resume } from "./assistant/store";
+import { LIMITS, isActive } from "./assistant/limits";
+import { CANCEL_GRACE_MS, callsOf, denyCall, finishTurn, log, openTurn, queuedIn, resume } from "./assistant/turns";
 
 type Ctx = QueryCtx | MutationCtx;
 const permissionV = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
