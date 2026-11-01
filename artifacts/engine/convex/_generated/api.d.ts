@@ -106,6 +106,7 @@ import type * as runtime_warm from "../runtime/warm.js";
 import type * as setups from "../setups.js";
 import type * as setups_node from "../setups/node.js";
 import type * as testing from "../testing.js";
+import type * as version from "../version.js";
 
 import type {
   ApiFromModules,
@@ -212,6 +213,7 @@ declare const fullApi: ApiFromModules<{
   setups: typeof setups;
   "setups/node": typeof setups_node;
   testing: typeof testing;
+  version: typeof version;
 }>;
 
 /**

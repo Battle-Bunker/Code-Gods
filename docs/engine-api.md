@@ -34,7 +34,9 @@ Every function authenticates with a 10-minute RS256 JWT. There are two kinds, to
   expired: reconnect.
 - **Permissions:** `read` < `act` < `owner`. An owner credential also needs the human to be the room's
   current owner. Errors are `ConvexError` with `data = {code, message}`; the codes are
-  `UNAUTHENTICATED`, `FORBIDDEN`, `CONFLICT`, `INVALID`, `NOT_FOUND` and so on.
+  `UNAUTHENTICATED`, `FORBIDDEN`, `CONFLICT`, `INVALID`, `NOT_FOUND` and so on. `CLIENT_OUTDATED` means the
+  request can only come from a client built for an earlier engine: update or reload the client rather than retry
+  ("Deployed versions" below).
 - **Admins** have a verified Google email listed in `ADMIN_EMAILS`.
 
 ```ts
@@ -271,6 +273,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
 | `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
+| `version.current` | query | infrastructure | Show deployed versions | The engine UI, player client and engine functions builds now live, so open pages can update themselves. | — |
 | `calibration.node.tables` | action | infrastructure | Load calibration tables | The calibration tables of a utility and its defence goal, for scoring values in the browser. | — (The player client's evaluator loads these itself; agents score values with evaluate_value.) |
 | `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a game setup, or changes the room's setup; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
@@ -323,7 +326,8 @@ NOT_FOUND).
   (never approved). A turn that fails or runs out of allowance holds its queued messages. At most 5 queued (BAD_REQUEST
   beyond); CONFLICT for another conversation than the busy one, or a `permission` other than the busy turn's. The
   same `clientId` again returns the same message (even after an edit). Messages a Stop held go first in the
-  next send's turn (`docs/surface-architecture.md` §6 "Queued messages").
+  next send's turn (`docs/surface-architecture.md` §6 "Queued messages"). CLIENT_OUTDATED when an earlier game's
+  `threadId` comes without `gameId` (only a client from before per-game transcripts sends that).
 - `assistant.editQueued({queueId, text ≤ 4000})` / `assistant.removeQueued({queueId})` mutations → `{status}`: change or
   take back a queued message; a delivered one changes nothing (`{status: "delivered"}`).
 - `assistant.sendQueued({roomId, threadId?})` mutation → `{threadId, turnId}`: start a turn with the held messages of
@@ -354,6 +358,25 @@ NOT_FOUND).
 
 Internal: `assistant/step:run({turnId, gen})` (one Node action per model step), `assistant/store:*` (the turn loop's
 mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", …})`.
+
+### Deployed versions (`version`)
+Open pages learn of a deploy and update themselves (`lib/player-client/src/update.ts`).
+- `version.current({own?: {site: engine|player, build}})` query (anyone, signed in or not) → per site `engine` (the
+  engine UI at `/`), `player` (the player client at `/client/`) and `functions`: `{build, deployedAt}|null`, plus, with
+  `own`, `known`: whether that build was ever deployed here. `scripts/deploy-static.mjs` stamps each static build's
+  index.html with its id (`<meta name="code-gods-build" content="…">`, a hash of every file of the build) and records it
+  after the upload; the deploy workflow records the commit as the `functions` build after `convex deploy`.
+- A page whose build is known but is not the live one is outdated. A hosted page then reloads at a safe moment and keeps
+  its URL: at once when hidden or idle (60 s without input), after a 5-second "Updated — reloading in…" countdown
+  (restarted by any input) when nobody is typing and no draft is open, otherwise at the next safe moment with a
+  "Reload now" banner; never while a mutation or action is in flight. Registered drafts (the assistant composer's) are
+  saved for the reload and restored after it. Text in a textarea or editor, in the focused field, or in an element
+  marked `data-unsaved="true"` is never reloaded over automatically. A call rejected with `CLIENT_OUTDATED`, or (on a
+  build known to be old) with the argument or unknown-function errors a newer server gives an older client, updates
+  at once. An unknown build (a dev server, or one uploaded a moment before it is recorded) never reloads itself.
+- Other clients choose for themselves with `watchEngineVersion(client, cb, own?)` from `@workspace/player-client/update`
+  (and `assessBuild`, `incompatibility`); a dev server of the player client only shows a dismissible note.
+- Internal: `version.record({site, build})` (deploys only).
 
 ### Other modules
 - `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, stats, roomActiveGame). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.

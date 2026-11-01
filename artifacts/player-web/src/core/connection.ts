@@ -17,6 +17,7 @@
  */
 import { ConvexReactClient } from "convex/react";
 import { createPlayerAuth, type PlayerAuth } from "@workspace/player-client/browser";
+import { keepCurrent } from "./updates";
 
 export type Mode = "devserver" | "hosted";
 export type Connection = {
@@ -73,7 +74,11 @@ export function connection(): Promise<Connection> {
 export function convexClient(url: string): ConvexReactClient {
   // No "changes may not be saved" prompt on leaving: layout saves and commands are sent before the page unloads,
   // and the browser's generic dialog only alarms (the engine UI disables it too, for its sign-in redirect).
-  return g.__cgConvex ??= new ConvexReactClient(url, { unsavedChangesWarning: false });
+  if (!g.__cgConvex) {
+    g.__cgConvex = new ConvexReactClient(url, { unsavedChangesWarning: false });
+    keepCurrent(g.__cgConvex);   // a deploy updates this page (./updates.ts)
+  }
+  return g.__cgConvex;
 }
 
 /** The page's Convex client, once `convexClient` has made it (the SDK's host transport reaches the engine with it). */
