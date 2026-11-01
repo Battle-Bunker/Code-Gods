@@ -16,6 +16,7 @@ import { ArrowDown, ChevronDown, ChevronRight, Send, Square } from "lucide-react
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Phase } from "@workspace/player-client/panels";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
+import { startTracker } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
 import { useNow, useSituation } from "@/core/game/situation";
@@ -64,6 +65,9 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const permission: Permission = c.permission ?? status?.credential?.permission ?? (status?.maxPermission === "read" ? "read" : "act");
   const blocked = permission === "owner" && !c.ownerConsent && !status?.credential;
   useEffect(() => { if (pending && userCount(timeline) > pending.users) setPending(null); }, [timeline, pending]);
+  // An approved start_game shows as the room's pending start everywhere (overview, palette), like the owner's own click.
+  const startCall = calls.findLast(call => call.tool === "start_game");
+  useEffect(() => { if (startCall) startTracker.follow(roomId, startCall._id, startCall.status); }, [roomId, startCall?._id, startCall?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { composer.setStatus(!status ? "" : !enabled ? "off" : card ? "waiting for you" : active ? "thinking…" : ""); }, [status, enabled, card, active]);
 
   // Grow the pane while a card waits, so the card and the composer both fit; give the space back after.

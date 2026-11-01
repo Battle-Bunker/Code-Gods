@@ -74,6 +74,8 @@ export interface EngineScope {
   currentSetup?: string;
   minPlayers: number;
   maxPlayers: number;
+  /** This browser's start of the room is pending (@workspace/player-client/start): the click registered, the room has not changed yet. */
+  starting?: boolean;
   /** How this viewer sees grids (lib/object-views' Grid renderer); digits when absent. */
   gridRenderer?: GridRendererId;
 }
@@ -145,6 +147,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   const states: Partial<Record<PublicFunctionPath, (base: Availability) => Availability>> = {
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
+      : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
       : room!.members.length < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${room!.members.length} ${room!.members.length === 1 ? "has" : "have"} joined.`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),

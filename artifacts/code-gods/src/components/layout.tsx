@@ -6,17 +6,18 @@
  * A page passes what it shows (its room, its game); the commands are built from that once, and the page's own
  * buttons run them by id through `usePage().run`, so a button and its palette row do the same thing.
  */
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAction, useConvex, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
+import { startTracker, startView, trackStart, type StartView } from "@workspace/player-client/start";
 import { useAuth } from "@/hooks/use-auth";
 import { useManifest } from "@/hooks/use-manifest";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope } from "@/lib/commands";
-import { errMsg, rid } from "@/lib/errors";
+import { errMsg } from "@/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/lib/types";
 import { rulesFor } from "@/components/game-rules";
 import { Tip } from "@/components/action";
@@ -54,6 +55,8 @@ interface PageApi {
   setups?: Setup[];
   /** The actions behind the commands, for controls that pass their own argument (the Setup select, an AI row's Remove). */
   act: EngineActions;
+  /** This room's pending start (@workspace/player-client/start): the Start button and the next step show it at once. */
+  start: StartView;
 }
 const PageCtx = createContext<PageApi | null>(null);
 export function usePage(): PageApi {
@@ -114,6 +117,10 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
 
   const fail = useCallback((what: string, e: unknown) => toast({ title: `${what} failed`, description: errMsg(e), variant: "destructive" }), [toast]);
   const roomId = room?.id;
+  const startRequest = useSyncExternalStore(startTracker.subscribe, () => (roomId ? startTracker.get(roomId) : null));
+  const start_ = startView(startRequest, room, startTracker.now());
+  // Only the click itself: a preparation in progress has its own reason (lib/commands.ts reads room.preparing).
+  const starting = start_.phase === "starting";
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
   /**
@@ -135,7 +142,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
-    gridRenderer,
+    gridRenderer, starting,
   };
   const act: EngineActions = {
     navigate: to => navigate(to),
@@ -146,7 +153,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     join: () => join({ room: need(room).shortCode }),
     leave: () => leave({ roomId: need(roomId) }),
     setReady: ready => setReady({ roomId: need(roomId), ready }),
-    start: () => start({ roomId: need(roomId), requestId: rid() }),
+    // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
+    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
     resume: () => resume({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
     addAi: async templateId => {
@@ -194,13 +202,13 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     origin: window.location.origin,
   };
   // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
-  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, setups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, setups, starting]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
   const openPalette = (init?: PaletteOpenInit) => setPalette({ open: true, init });
   const api_: PageApi = {
-    ctx, manifest, setups, openPalette, openSheet: setSheet, act,
+    ctx, manifest, setups, openPalette, openSheet: setSheet, act, start: start_,
     command: id => byId.get(id),
     unavailable: id => { const c = byId.get(id); if (!c) return "Not available here."; const a = c.available(ctx); return a.ok ? null : a.reason; },
     run: id => {

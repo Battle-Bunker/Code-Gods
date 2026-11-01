@@ -4,6 +4,7 @@
  * nothing here draws a frame of its own.
  */
 import { useMemo, type ReactNode } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { PANELS, type PanelId, type PanelParams, type Phase } from "@workspace/player-client/panels";
 import type { LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
@@ -56,10 +57,12 @@ export function TextButton({ children, onClick, disabled, testId, tone, title }:
 }
 
 /** The one primary action of a panel (the next step, Send, Summon): --primary is reserved for it. */
-export function PrimaryButton({ children, onClick, disabled, testId, type = "button" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; testId?: string; type?: "button" | "submit" }) {
+/** `busy`: a request is pending; a spinner, aria-busy, and no clicks (a double click sends nothing twice). */
+export function PrimaryButton({ children, onClick, disabled, busy, testId, type = "button" }: { children: ReactNode; onClick?: () => void; disabled?: boolean; busy?: boolean; testId?: string; type?: "button" | "submit" }) {
   return (
-    <button type={type} onClick={onClick} disabled={disabled} data-testid={testId}
-      className="inline-flex items-center justify-center gap-2 bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground disabled:pointer-events-none disabled:opacity-35">
+    <button type={type} onClick={e => { if (busy) e.preventDefault(); else onClick?.(); }} disabled={disabled} aria-busy={busy || undefined} aria-disabled={busy || undefined} data-testid={testId}
+      className={`inline-flex items-center justify-center gap-2 bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground disabled:pointer-events-none disabled:opacity-35 ${busy ? "cursor-progress opacity-80" : ""}`}>
+      {busy && <Spinner aria-hidden className="size-3.5" />}
       {children}
     </button>
   );

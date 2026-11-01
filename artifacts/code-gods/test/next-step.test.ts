@@ -54,3 +54,15 @@ test("while the game prepares its rule tables everyone sees the progress; a fail
   assert.deepEqual(nextStep("ada", failed), { status: "Preparing the game failed; start again to retry.", primary: "owner.start", secondary: ["ui.nav.playerClient"] });
   assert.equal(nextStep("bob", failed).status, "Preparing the game failed; Ada can retry.");
 });
+
+test("the owner's click shows at once: Starting the game, the same primary button (rendered busy), until the room shows the game or its preparation", () => {
+  const ready = room(["ada", "bob", "cy"]);
+  assert.deepEqual(nextStep("ada", ready, { start: { phase: "starting", source: "owner" } }),
+    { status: "Starting the game: dealing secret goals…", primary: "owner.start", secondary: ["ui.nav.playerClient"] });
+  assert.match(nextStep("ada", ready, { start: { phase: "starting", source: "assistant" } }).status, /assistant/);
+  assert.equal(nextStep("bob", ready, { start: { phase: "starting", source: "owner" } }).status, "Waiting for Ada to start the game.", "only the owner's own click is local");
+  const failed = { ...ready, preparing: { ready: 3, total: 18, error: "boom" } };
+  assert.equal(nextStep("ada", failed, { start: { phase: "starting", source: "owner" } }).status, "Starting the game: dealing secret goals…", "a retry is starting, not the old failure");
+  const preparing = { ...ready, preparing: { ready: 12, total: 18 } };
+  assert.equal(nextStep("ada", preparing, { start: { phase: "preparing", ready: 12, total: 18 } }).status, "Preparing rule tables: 12 of 18 ready.", "the room's own progress wins");
+});

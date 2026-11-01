@@ -7,6 +7,7 @@ import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useOwnerActions } from "@/core/game/owner";
 import { useSituation } from "@/core/game/situation";
+import { useStartView } from "@/core/game/start";
 import { paletteStore } from "@/core/palette/store";
 import { nextStep } from "./next-step";
 
@@ -15,8 +16,10 @@ export function useNextStep(paneId: string, phase: Phase) {
   const { agents } = useMyAgents({ hz: 1 });
   const dock = useDockActions();
   const owner = useOwnerActions();
-  const step = nextStep({ phase, seated: situation.seated, isOwner: situation.isOwner, members: situation.members, agents: agents.length });
+  const start = useStartView();
+  const step = nextStep({ phase, seated: situation.seated, isOwner: situation.isOwner, members: situation.members, agents: agents.length, start });
   const go = () => {
+    if (step.busy) return;
     const action = step.action;
     if (action.kind === "panel") dock.show(action.panelId);
     else if (action.kind === "forge") dock.forgeEdit();

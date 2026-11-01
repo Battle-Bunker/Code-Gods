@@ -6,8 +6,9 @@ import { useMemo } from "react";
 import { useAction, useConvex, useMutation } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
+import { START_TIMEOUT_MS, startTracker, trackStart } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
-import { notify, notifyError } from "@/core/notices";
+import { noticeStore, notify, notifyError } from "@/core/notices";
 
 export function useOwnerActions() {
   const { roomId } = useRoom();
@@ -22,11 +23,20 @@ export function useOwnerActions() {
     const room = roomId as Id<"rooms">;
     const done = (text: string) => <T,>(p: Promise<T>) => p.then(r => { notify(text); return r; }, e => { notifyError(e); return undefined; });
     return {
-      start: () => start({ roomId, requestId: crypto.randomUUID() }).then(r => {
-        // A shape new to this server first prepares its rule tables; the game then starts by itself.
-        notify("status" in r && r.status === "preparing" ? `Preparing the game's rule tables (${r.ready} of ${r.total} ready); it starts by itself.` : "Game started: planning begins.");
-        return r;
-      }, e => { notifyError(e); return undefined; }),
+      // The pending start shows at once wherever a start control is (core/game/start.ts); a second click is refused.
+      start: () => {
+        let shown: number | undefined;
+        const settle = () => { if (shown !== undefined) noticeStore.dismiss(shown); };
+        // Shown until the start settles (a cold start can outlast a notice's usual few seconds).
+        const run = (requestId: string) => { shown = noticeStore.push("Starting the game…", "info", START_TIMEOUT_MS); return start({ roomId, requestId }); };
+        return trackStart(startTracker, roomId, run).then(r => {
+          settle();
+          if (!r) return undefined;
+          // A shape new to this server first prepares its rule tables; the game then starts by itself.
+          notify("status" in r && r.status === "preparing" ? `Preparing the game's rule tables (${r.ready} of ${r.total} ready); it starts by itself.` : "Game started: planning begins.");
+          return r;
+        }, e => { settle(); notifyError(e); return undefined; });
+      },
       endGame: () => end({ roomId: room }).then(r => {
         notify(r && "cancelled" in r ? "The game's preparation was ended." : "Game ended.");
         return r;

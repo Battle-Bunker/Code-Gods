@@ -19,6 +19,7 @@ import { SAFE_MODE } from "@/shell/safe-mode";
 import { composer } from "@/core/chat/composer";
 import { useGameCommands, useRunner } from "@/core/game/runner";
 import { useOwnerActions } from "@/core/game/owner";
+import { useStartView } from "@/core/game/start";
 import { useSituation } from "@/core/game/situation";
 import { notify, notifyError } from "@/core/notices";
 import { playerCommands, type PaletteActions, type PaletteState } from "./commands";
@@ -48,6 +49,8 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const removePanel = useMutation(api.panels.remove);
   const rollback = useMutation(api.panels.rollback);
   const gridRenderer = useGridRenderer();
+  const start = useStartView();
+  const starting = start.phase === "idle" ? undefined : start.phase;
 
   const state = useMemo((): PaletteState => {
     const panelCount = panelPanesOf(dock.layout).length;
@@ -58,7 +61,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     }));
     const obs = s.obs;
     return {
-      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing,
+      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing, starting,
       agents: (obs?.agents ?? []).map((a, i) => ({ id: a.id, label: `agent ${i + 1} (${a.language}, ${a.acts} acts)` })),
       unknownOutcome: !!runner.unknown, busy: !!runner.busy, assistantOn: !!status?.enabled,
       roomCode: obs?.roomShortCode ?? s.room?.shortCode, gameCode: obs?.gameShortCode,
@@ -69,7 +72,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
       gridRenderer,
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),
