@@ -94,6 +94,7 @@ import type * as rooms from "../rooms.js";
 import type * as runtime_assets from "../runtime/assets.js";
 import type * as runtime_node from "../runtime/node.js";
 import type * as runtime_probe from "../runtime/probe.js";
+import type * as runtime_probeScripts from "../runtime/probeScripts.js";
 import type * as runtime_tables from "../runtime/tables.js";
 import type * as setups from "../setups.js";
 import type * as setups_node from "../setups/node.js";
@@ -192,6 +193,7 @@ declare const fullApi: ApiFromModules<{
   "runtime/assets": typeof runtime_assets;
   "runtime/node": typeof runtime_node;
   "runtime/probe": typeof runtime_probe;
+  "runtime/probeScripts": typeof runtime_probeScripts;
   "runtime/tables": typeof runtime_tables;
   setups: typeof setups;
   "setups/node": typeof setups_node;

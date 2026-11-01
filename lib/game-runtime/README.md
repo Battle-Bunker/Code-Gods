@@ -315,6 +315,37 @@ preludes (`("prelude", key, digest)`) and player modules in one LRU
 its own copy of the compiler worker's output under the same key (128 entries, 4 MiB), so
 execution workers receive only trusted JavaScript. Results are never cached.
 
+## Script mode (python-script-v1, typescript-script-v1)
+
+A second programme type beside the agent, for analytics (the assistant's `run_code`;
+docs/assistant/code-execution.md): a **script** defines `main(data)` and returns JSON. The host passes
+`data` as JSON text; nothing else reaches the guest.
+
+```ts
+const r = createRuntime({ language: "python" });
+const { result, output, outputTruncated, usedRandom, cpuMs } =
+  await r.script("def main(data):\n    return sorted(data['xs'])[:3]\n", JSON.stringify({ xs: [3, 1, 2] }), { cpuMs: 10000, seed: "7" });
+// result: '[1,2,3]' (JSON text, ASCII, UNTRUSTED); output: what print / console.log wrote
+```
+
+| | Python | TypeScript |
+|---|---|---|
+| engine | the same pinned CPython-WASI bundle and initialized snapshot as agents: the script guest (`engine/python-script.mjs`) is trusted text compiled after the snapshot restore, so the bundle pin and every agent result are unchanged | the pinned TypeScript 5.9.3 erases types (`transpileScript`: syntax errors located, types never checked; imports, exports, `import()`, modules and reference directives refused), QuickJS runs it |
+| modules | the agents' preloaded modules (math, statistics, collections, itertools, functools, operator, json, re, decimal, fractions, random, time, hashlib) plus bisect and numbers, as read-only proxies; no numpy | ES2022 built-ins; no Intl, Node, DOM, timers or modules |
+| captured text | `print` | `console.log` / `info` / `warn` / `error` / `debug` (non-strings as JSON) |
+| budget | CPU post-check, then the pool's hard wall (nothing interrupts a Python loop): `cpuMs` + 1–5 s, the worker is terminated and replaced from the snapshot (about 100 ms) | QuickJS's interrupt handler stops at `cpuMs`; the hard wall covers one long native call |
+| memory | 128 MiB of linear memory (MemoryError → `LIMIT`) | 128 MiB QuickJS heap, 1 MiB stack |
+
+Both: a fresh guest per run, the virtual clock from 2026-01-01T00:00:00Z, `random` / `Math.random` seeded by
+`seed`, `usedRandom` reported. `json.loads` / `JSON.parse` of the input is trusted and outside the budget; the
+module, `main(data)` and the JSON encoding of its result are inside it. Non-finite numbers become `null`; a
+result that is not JSON (a set, a function, a BigInt) is `EXECUTION`. Limits (`SCRIPT_LIMITS`): source 64 KiB,
+input 4 MiB, result 1 MiB (else `LIMIT`), captured text 256 KiB (clipped, `outputTruncated`), CPU 10 s by default
+and at most 20 s. Errors: `COMPILE` (syntax; TypeScript module syntax), `EXECUTION` (raised, with the line in
+Python; no `main`; not JSON), `LIMIT` (CPU, memory, result size), `DOMAIN` (the input is not JSON text within the
+limit), `CONFIG` (options). TypeScript pools cache transpiled scripts like agents' compilations; the compiler
+worker serves both. Tests: `test/script.test.mjs`.
+
 ## Computational module inventory
 
 `test/python-host.test.mjs` ("runner: calls, the standard library ...") executes
