@@ -463,6 +463,9 @@ test("the transcript is a query of (room, game): a new game's has no thread, wha
   }
   assert.equal((await ann.c.query(api.assistant.transcript, { roomId, gameId: g1 })).thread._id, first.threadId, "game 1's stays readable for game 1");
   assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, gameId: g1, text: "late" })), "CONFLICT", "a message meant for the last game is not sent");
+  // Only a client from before per-game transcripts names an old game's thread without the game: it must update, not retry.
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: "late" })), "CLIENT_OUTDATED");
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, gameId: g2, threadId: first.threadId, text: "late" })), "CONFLICT", "a current client is told the thread is old");
   const second = await ann.c.mutation(api.assistant.send, { roomId, gameId: g2, text: mock([{ text: "two" }]) });
   await until(ann, second, DONE, "game 2's turn");
   const t2 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g2 });
@@ -500,7 +503,7 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
   assert.equal(status.activeTurn, null);
   assert.deepEqual([status.allowance.epoch, status.allowance.used], [game2.gameId, 0], "a fresh allowance for the new game");
   assert.deepEqual(await ann.c.query(api.assistant.threads, { roomId }), [], "no conversation yet in this game");
-  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: "continue" })), "CONFLICT", "game 1's thread cannot be continued");
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, gameId: game2.gameId, threadId: first.threadId, text: "continue" })), "CONFLICT", "game 1's thread cannot be continued");
 
   // A new conversation: nothing earlier in its history, no run or note of game 1; the saved script stays the player's.
   const fresh = await ann.c.mutation(api.assistant.send, { roomId, text: mock([

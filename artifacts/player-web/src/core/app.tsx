@@ -11,6 +11,7 @@ import type { FunctionReturnType } from "convex/server";
 import { connectRoom, connection, convexClient, fetchAppAccessToken, playerAuth, type Connection } from "./connection";
 import { autoRedirectAllowed, hostedStep, roomKey } from "./hosted-flow";
 import { RoomProvider } from "@/sdk/context";
+import { MyGoalProvider } from "@/sdk/goal";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "./core-boundary";
 import { errorText, roomLookup } from "./room-lookup";
@@ -309,9 +310,11 @@ function Play({ roomId, permission, mode }: { roomId: string; permission: "read"
   const room = useMemo(() => ({ roomId, permission, mode }), [roomId, permission, mode]);
   return (
     <RoomProvider room={room}>
-      <CoreBoundary>
-        <PlayerShell />
-      </CoreBoundary>
+      <MyGoalProvider>
+        <CoreBoundary>
+          <PlayerShell />
+        </CoreBoundary>
+      </MyGoalProvider>
     </RoomProvider>
   );
 }

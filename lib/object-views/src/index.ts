@@ -9,3 +9,4 @@ export * from "./settings.ts";
 export * from "./scoring.tsx";
 export * from "./card.tsx";
 export * from "./pickers.tsx";
+export * from "./explain/index.ts";

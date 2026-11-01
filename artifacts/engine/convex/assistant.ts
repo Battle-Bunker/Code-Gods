@@ -153,7 +153,11 @@ export const send = mutation({
     if (threadId) {
       const thread = await ctx.db.get(threadId);
       if (!thread || thread.subject !== viewer.subject || thread.roomId !== room._id) fail("NOT_FOUND", "Thread not found");
-      if (thread.epoch !== epoch) fail("CONFLICT", "That conversation belongs to an earlier game: start a new one for this game");
+      if (thread.epoch !== epoch) {
+        // Current clients always name the game; only one from before per-game transcripts names an old thread without it.
+        if (args.gameId === undefined) fail("CLIENT_OUTDATED", "This page is out of date: it is updating to the latest version. Send your message again once it has.");
+        fail("CONFLICT", "That conversation belongs to an earlier game: start a new one for this game");
+      }
     }
     const now = Date.now();
     if (busy) {

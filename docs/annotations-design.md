@@ -80,6 +80,8 @@ interface Fact { text: string; ok: boolean }                 // a condition the 
 interface Spot { cell: Cell; label: string; tone: Tone }      // emphasis inside a piece (a mine, a frame breaker)
 type Tone = "gain" | "loss" | "zero";
 
+interface Link { from: Cell; to: Cell; ok: boolean }        // a connector (mirror pair) drawn as an arc
+
 interface Part {                     // one piece of the rule: what the card loops over
   id: string;                        // stable: "trio:1,0:right"
   shape: "cell" | "pair" | "line" | "block" | "region" | "ring" | "window";
@@ -88,6 +90,7 @@ interface Part {                     // one piece of the rule: what the card loo
   title: string;                     // "SET", "not a SET", "3 + 7 = 10"
   facts: Fact[];
   spots?: Spot[];
+  links?: Link[];
 }
 
 interface Explanation {              // the whole board, independent of focus
@@ -270,3 +273,9 @@ Steps (4×4, base 10, rgb):
 | 🧮 Magic Accountant | row / column | line sums, tuple with a negative tie-break |
 | 🏰 Kingdom | region | max over regions |
 | 🖼️ Picture Frame | ring (whole edge) | all-or-nothing, notes for cells that never matter |
+| 🪞 Mirrormancer | row / column with pair arcs | connectors (`links`), tuple tie-break |
+
+Where to look: the gallery page `artifacts/player-web/annotations.html` (dev server: `pnpm --filter @workspace/player-web
+dev`, then `/annotations.html`; `?family=<id>` for one) and its browser check `pnpm --filter @workspace/player-web
+e2e:annotations`. In a game, the goal card (`my-card` panel) shows the annotated example, and every grid's hover view
+explains the grid with the player's own goal (`MyGoalProvider` in `src/core/app.tsx`).

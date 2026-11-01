@@ -31,7 +31,7 @@ test("the catalogue lists exactly the public functions in the engine's sources, 
   const found = walkPublicFunctions();
   assert.deepEqual([...CATALOG_PATHS].sort(), [...found.keys()].sort());
   for (const [path, kind] of found) assert.equal(CATALOG[path as keyof typeof CATALOG].kind, kind, `${path} is a ${kind}`);
-  assert.equal(found.size, 75);
+  assert.equal(found.size, 76);
   assert.ok(found.has("layout.current") && found.has("layout.set") && !found.has("panels.place") && !found.has("panels.layout"));
 });
 

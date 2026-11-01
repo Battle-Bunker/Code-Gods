@@ -29,3 +29,4 @@ export {
   candidatesFor, candidateColumn, fitMixture, logPriors, nnls, SIGMA_FLOOR_BITS,
   type Candidate, type DrawClass, type FitInput, type FitResult, type Hint, type Hypothesis, type Role,
 } from "./inference.ts";
+export * from "./explain/index.ts";
