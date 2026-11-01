@@ -27,6 +27,8 @@ export type SummonParts = { structure: number; names: number; literals: number; 
 export type Examination = {
   cost: number; parts: SummonParts; complexityFunctionId: string;
   decisionBits: number; expectedActCost: number; breakdown: CostBreakdown; randomized: boolean;
+  /** Measured on the reference objects: the share of acts that change the object, and that fail or are invalid. */
+  changeRate: number; invalidRate: number;
   diagnostics: string[]; runs: number; measureMs: number;
 };
 
@@ -109,6 +111,7 @@ export async function examineAgent(settings: GameSettings, language: Language, s
   return {
     cost: price.cost, parts: price.parts, complexityFunctionId: inspection.complexityFunctionId,
     decisionBits: measured.decisionBits, expectedActCost: measured.expectedActCost, breakdown, randomized: measured.randomized,
+    changeRate: d.changeRate, invalidRate: d.invalidRate,
     diagnostics, runs, measureMs,
   };
 }

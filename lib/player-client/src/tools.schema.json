@@ -610,6 +610,33 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -812,6 +839,33 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -940,6 +994,33 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -1053,6 +1134,33 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -1155,6 +1263,33 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",
@@ -1261,6 +1396,33 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -1366,6 +1528,33 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",

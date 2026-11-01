@@ -29,10 +29,10 @@ async function errorCode(promise: Promise<unknown>): Promise<string> {
 }
 
 /** A room of three humans (first is owner) with the assistant enabled, optionally in a started game. */
-async function assistantRoom(names: [string, string, string], { budget = 500_000, start = true } = {}) {
+async function assistantRoom(names: [string, string, string], { budget = 500_000, start = true, roomSettings = settings as Record<string, unknown> } = {}) {
   const members = await gods(...names);
   await touch(members[0]);
-  const { roomId } = await roomWith(members, settings);
+  const { roomId } = await roomWith(members, roomSettings);
   if (budget) await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: budget });
   const game = start ? await startGame(members[0], roomId) : null;
   return { members, roomId, game };
@@ -134,6 +134,64 @@ test("load_tools puts index tools in context for the rest of the thread; load_sk
   const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
   const a = await until(ann, again, DONE, "the next turn finishes");
   assert.ok(JSON.parse(finalText(a)).tools.includes("validate_agent"));
+});
+
+/** The room of the 1WB8 loop: a 4×4 Grid with Python agents (61 helpers, 22 mutators: a large writing-agents skill). */
+const GRID = { languages: ["python"], objectType: "Grid", typeArgs: { colours: "rgb", size: 4, symbols: "base10" },
+  startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9 };
+const FAILING_PY = "def agent(grid):\n    return [paint(cell_at(0, 0), \"red\")]";
+
+test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails, and repeating it stops the turn with a message", { timeout: 240_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Loop", "Bob Loop", "Cyd Loop"], { roomSettings: GRID });
+  const mine = await ann.c.query(api.player.observation, { roomId });
+  const validate = { name: "validate_agent", input: { source: FAILING_PY, language: "python" } };
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "load_skill", input: { name: "writing-agents" } }] },
+    { tools: [validate] }, { tools: [validate] }, { tools: [validate] }, { tools: [validate] },
+    { text: "never reached" },
+  ]) });
+  const t = await until(ann, sent, DONE, "the turn finishes", 180_000);
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["load_skill", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"], ["validate_agent", "ok"]],
+    "the third identical validation ends the turn: the fourth never runs");
+  assert.equal(t.turn.status, "done");
+  assert.equal(t.turn.error?.code, "REPEATING");
+  assert.match(t.turn.error.message, /same validate agent call 3 times/);
+  assert.ok(!finalText(t).includes("never reached"));
+
+  const skill = JSON.parse(t.calls[0].resultJson);
+  assert.equal(skill.TRUNCATED, undefined, "the skill is not cut");
+  assert.ok(skill.data.body.includes("paint(") && skill.data.body.includes("grid.cell(row, col)"), "the mutators and the read helpers (how to reach a cell)");
+  assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), "the player's whole utility source");
+
+  const [first, second, third] = t.calls.slice(1).map((c: any) => JSON.parse(c.resultJson));
+  assert.equal(first.data.receipt.validation.valid, true, "the engine still calls it valid (it compiles)");
+  assert.equal(first.data.receipt.validation.invalidRate, 1);
+  assert.ok(Math.abs(first.data.receipt.validation.energy - mine.self.energy) < 60, "the player's energy when validated");
+  assert.equal(typeof first.data.receipt.validation.affordable, "boolean");
+  assert.equal(first.data.assessment.verdict, "fails");
+  assert.match(first.data.assessment.summary, /^Fails or is invalid on 100% of reference objects: .*NameError: name 'cell_at' is not defined/);
+  assert.match(t.calls[1].summary, /^Fails or is invalid on 100%/, "the chip says it fails, not Accepted");
+  assert.equal(first.ENGINE_NOTE, undefined);
+  assert.match(second.ENGINE_NOTE, /already called validate_agent with these exact arguments once/);
+  assert.match(third.ENGINE_NOTE, /2 times/);
+
+  // The next turn's history says why the last one stopped.
+  const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "ok" }]) });
+  await until(ann, next, DONE, "the next turn finishes");
+});
+
+test("before the turn's last model step, the last result tells the model to answer the player now", { timeout: 240_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Last", "Bob Last", "Cyd Last"]);
+  // Eleven tool steps of distinct reads (no repeats), then the twelfth and last step answers.
+  const reads = Array.from({ length: 11 }, (_, n) => ({ tools: [{ name: "get_observation", input: { objectsLimit: n + 1 } }] }));
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([...reads, { text: "Here is where I got to." }]) });
+  const t = await until(ann, sent, DONE, "the turn finishes", 180_000);
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  assert.equal(t.turn.error, null, "it finished within the step limit");
+  const notes = t.calls.map((c: any) => JSON.parse(c.resultJson).ENGINE_NOTE);
+  assert.deepEqual(notes.slice(0, 10), Array(10).fill(undefined));
+  assert.match(notes[10], /next step is the last of this turn. Do not call tools/);
+  assert.equal(finalText(t), "Here is where I got to.");
 });
 
 test("a step cut by the default output ceiling is billed, never acted on, and run again with the full ceiling", { timeout: 180_000 }, async () => {

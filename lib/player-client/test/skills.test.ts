@@ -50,3 +50,13 @@ test("bodies carry their guidance and live parts, within the limit, and survive 
   assert.match(skillBody("game-rules", {}), /call get_rules/);
   assert.match(skillBody("writing-agents", {}), /call get_observation/);
 });
+
+test("writing-agents: many long mutators never crowd out the read helpers (the 1WB8 Grid: 22 mutators, 39 read helpers)", () => {
+  const long = (n: number, group: string) => ({ group, name: { python: `${group}_${n}` }, signature: { python: `${group}_${n}(where, colour, other_way=False)` },
+    kid: "A long description of what this helper does to the grid, row by row, wrapping round the rainbow, as the Grid helpers' descriptions are.".slice(0, 140) });
+  const many = [...Array.from({ length: 22 }, (_, n) => long(n, "mutator")), ...Array.from({ length: 39 }, (_, n) => long(n, "read"))];
+  const body = skillBody("writing-agents", { observation: { ...observation, language: "python", languages: ["python"], instance: { helpers: many } } });
+  assert.ok(body.includes("mutator_21("), "every mutator");
+  assert.ok(body.includes("Read helpers:") && body.includes("read_0("), "the read helpers too");
+  assert.ok(body.includes("def u(x)"), "and the utility source");
+});

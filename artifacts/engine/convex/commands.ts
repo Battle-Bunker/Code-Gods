@@ -49,6 +49,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
   }
   const result = examined?.result && { cost: examined.result.cost, parts: examined.result.parts, decisionBits: examined.result.decisionBits,
     expectedActCost: examined.result.expectedActCost, breakdown: examined.result.breakdown, randomized: examined.result.randomized,
+    changeRate: examined.result.changeRate, invalidRate: examined.result.invalidRate,
     diagnostics: examined.result.diagnostics };
   return ctx.runMutation(internal.game.commands.apply, {
     roomId: prepared.roomId, asAi, principal, envelope,

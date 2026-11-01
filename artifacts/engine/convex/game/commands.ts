@@ -70,6 +70,7 @@ const examinedV = v.object({
     cost: v.number(), parts: v.any(), decisionBits: v.number(), expectedActCost: v.number(),
     breakdown: v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
     randomized: v.boolean(), diagnostics: v.array(v.string()),
+    changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()),
   })),
 });
 
@@ -127,7 +128,8 @@ export const claimExamination = internalMutation({
 });
 
 type Examined = { gameId: string; source: string; language: Language; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
-  breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[] } };
+  breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[];
+  changeRate?: number; invalidRate?: number } };
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
@@ -177,8 +179,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     const e = examined.result;
     if (command.type === "validate") {
+      const energy = godEnergy(game, deity.spent, now);
       return { valid: true, cost: e.cost, parts: e.parts, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost,
-        breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)) };
+        breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
+        ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
+        energy, affordable: energy >= e.cost };
     }
     if (godEnergy(game, deity.spent, now) < e.cost) fail("CONFLICT", "Insufficient energy");
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);

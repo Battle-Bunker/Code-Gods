@@ -3,7 +3,7 @@
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
 import { CORE_TOOLS, LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
-import { findSkill } from "@workspace/player-client/skills";
+import { SKILL_LIMITS, findSkill } from "@workspace/player-client/skills";
 import { LOAD_TOOLS, loadedToolNames, type ChatAssistantBlock, type ChatMessage, type ChatToolResult } from "@workspace/ai-player/chat";
 import { bound } from "../agent/bound.ts";
 
@@ -38,6 +38,11 @@ export const LIMITS = {
   /** Model context: the thread's history is cut (oldest first) to this many characters. */
   historyChars: 60_000,
   historyMessages: 60,
+  /**
+   * The same tool with the same arguments and the same result as earlier in the turn: the first repeat is answered
+   * with an engine note, the `repeatStop`-th repeat ends the turn (the model is going round in circles).
+   */
+  repeatStop: 2,
 } as const;
 
 export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
@@ -200,11 +205,60 @@ export function argsLimit(tool: string): number {
   return LIMITS.argsChars;
 }
 
+/**
+ * A tool result's stored (and model-visible) size. Documentation the model must read whole gets room: a skill body
+ * (up to SKILL_LIMITS.body characters, JSON-escaped) and the rules with the helper reference. Cutting the
+ * writing-agents skill at 8 KB once dropped every helper signature and the player's utility, and the model guessed.
+ */
+export function resultLimit(tool: string): number {
+  // Escaping at most doubles a body (every character a newline or a quote), plus the envelope.
+  if (tool === "load_skill") return 2 * SKILL_LIMITS.body + 1_000;
+  if (tool === "get_rules") return 24_000;
+  return LIMITS.resultChars;
+}
+
+/** A stored result with the engine's note in front (the model reads it first); notes accumulate. */
+export function withEngineNote(resultJson: string, note: string): string {
+  let parsed: unknown;
+  try { parsed = JSON.parse(resultJson); } catch { parsed = resultJson; }
+  const body = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : { value: parsed };
+  const { ENGINE_NOTE: earlier, ...rest } = body;
+  return JSON.stringify({ ENGINE_NOTE: typeof earlier === "string" ? `${earlier} ${note}` : note, ...rest });
+}
+
+/** The engine notes (not from the player or a tool). */
+export const ENGINE_NOTES = {
+  repeat: (tool: string, times: number) => `Engine note: you already called ${tool} with these exact arguments ${times === 1 ? "once" : `${times} times`} in this turn and got this same result. Repeating it will not change anything: use what you have, try something different, or answer the player.`,
+  lastStep: "Engine note: your next step is the last of this turn. Do not call tools: answer the player now in text: what you did, what you found (with the numbers), and what you suggest next.",
+} as const;
+
+const DERIVED = new Set(["commandId", "requestId", "waitMs"]);
+/** Result fields that change with the clock alone (god energy grows every second), and the engine's own notes. */
+const VOLATILE = new Set(["ENGINE_NOTE", "energy", "affordable", "assessment"]);
+const withoutVolatile = (value: unknown): unknown => Array.isArray(value) ? value.map(withoutVolatile)
+  : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).filter(([k]) => !VOLATILE.has(k)).map(([k, v]) => [k, withoutVolatile(v)])) : value;
+/** A call's identity for repeat detection: the tool, its arguments without the ids the engine derives, its result without them. */
+function repeatKey(call: { tool: string; argsJson: string; resultJson?: string | null }): string {
+  const args = parseObject(call.argsJson);
+  const ids = ["commandId", "requestId"].map(k => args[k]).filter((v): v is string => typeof v === "string" && v.length > 0);
+  // Compare what the tool found, not the clock: an earlier repeat's result carries the engine's note, and a
+  // validation's energy (and so its assessment) grows between two identical calls.
+  let result = JSON.stringify(withoutVolatile(parseObject(call.resultJson ?? "{}")));
+  for (const id of ids) result = result.split(id).join("");
+  return JSON.stringify([call.tool, Object.entries(args).filter(([k]) => !DERIVED.has(k)).sort(([a], [b]) => a.localeCompare(b)), result]);
+}
+/** How many earlier successful calls of the turn were this same call with this same result. */
+export function repeatsOf(earlier: readonly { tool: string; argsJson: string; status: string; resultJson?: string | null }[], call: { tool: string; argsJson: string; resultJson?: string | null }): number {
+  const key = repeatKey(call);
+  return earlier.filter(c => c.status === "ok" && c.tool === call.tool && repeatKey(c) === key).length;
+}
+
 /** A tool result's one-line activity-chip summary (shown to the thread's human only; never logged). */
 export function summarize(tool: string, result: { data: unknown }): string {
-  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string; summary?: string; reused?: boolean; paneId?: string };
+  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; assessment?: { summary?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string; summary?: string; reused?: boolean; paneId?: string };
   const line = (text: string) => text.length > 200 ? `${text.slice(0, 199)}…` : text;
   if (isCommandTool(tool)) {
+    if (data.status === "received" && data.assessment?.summary) return line(data.assessment.summary);
     if (data.status === "received") return line(`${data.receipt?.accepted ? "Accepted" : "Rejected"}: ${data.receipt?.message ?? ""}`.trim());
     if (data.status === "pending") return line(`Pending: ${data.message ?? ""}`);
     return line(`${data.status === "failed" ? "Failed" : "Not found"}: ${data.message ?? ""}`);
@@ -250,9 +304,9 @@ function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | n
 }
 
 /** How an earlier turn ended, for its note: its status, or why a "done" or "failed" turn stopped short. */
-export type TurnEnding = TurnStatus | "step_limit" | "deadline";
+export type TurnEnding = TurnStatus | "step_limit" | "deadline" | "repeating";
 export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnEnding =>
-  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : status;
+  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : errorCode === "REPEATING" ? "repeating" : status;
 
 /**
  * The note closing an earlier turn that ended before its answer, so the model neither takes the player's message as
@@ -261,6 +315,7 @@ export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnE
 export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
   budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant allowance ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
   step_limit: "Engine note (not from the player): the turn above stopped at the step limit, possibly before you finished. If the player's next message does not make it moot, say briefly where you stopped.",
+  repeating: "Engine note (not from the player): the engine stopped the turn above because you repeated the same tool call with the same result. Do not repeat it; if the player's next message does not make it moot, say briefly where you got stuck.",
   deadline: "Engine note (not from the player): the turn above ran past its time limit before you finished. Treat the player's message above as unanswered unless their next message makes it moot.",
   failed: "Engine note (not from the player): the turn above failed before you finished answering it (a provider or tool error). Treat the player's message above as unanswered unless their next message makes it moot.",
   cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",

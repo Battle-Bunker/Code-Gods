@@ -18,6 +18,7 @@ import { rulesText } from "@workspace/player-client/rules";
 import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
 import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
+import { assessValidation } from "@workspace/player-client/validation";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { envelopeHash } from "../game/commands";
@@ -38,7 +39,7 @@ type Observation = R<typeof observationFor>;
 type RoomState = R<typeof roomFor>;
 type Job = { status: "running" | "failed"; error: { code: string; message: string } | null } | null;
 type ReceiptStatus =
-  | { status: "received"; commandId: string; receipt: CommandResult }
+  | { status: "received"; commandId: string; receipt: CommandResult; assessment?: ReturnType<typeof assessValidation> }
   | { status: "pending"; commandId: string; message: string }
   | { status: "failed"; commandId: string; error: { code: string; message: string }; message: string }
   | { status: "not_found"; commandId: string; message: string };
@@ -57,6 +58,15 @@ const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Pro
   const o = await observe(ctx, principal, roomId);
   return { gameId: o.gameId, language: o.language };
 };
+
+/**
+ * A validation's receipt with what it means (player-client validation.ts): works, fails, never changes anything or
+ * does not compile, the price against the player's energy, and the next step. Other outcomes pass unchanged.
+ */
+function assessed(status: ReceiptStatus, validation: boolean): ReceiptStatus {
+  if (status.status !== "received" || !(validation || status.receipt.validation)) return status;
+  return { ...status, assessment: assessValidation(status.receipt) };
+}
 
 /** The stored outcome of a command: its receipt, a pending or failed background run, or nothing. */
 async function receiptStatus(ctx: ActionCtx, principal: Principal, who: Who, commandId: string): Promise<ReceiptStatus> {
@@ -91,7 +101,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   if (prepared.prior) {
     // Hash the parsed envelope, as the engine does (zod fixes the key order).
     if (prepared.prior.hash !== envelopeHash(envelopeSchema.parse(envelope))) fail("CONFLICT", "Command ID was reused with different content");
-    return { data: { status: "received", commandId: envelope.commandId, receipt: prepared.prior.result } };
+    return { data: assessed({ status: "received", commandId: envelope.commandId, receipt: prepared.prior.result }, name === "validate_agent") };
   }
   const job = { roomId: who.roomId, subject: who.subject, commandId: envelope.commandId };
   const { started }: { started: boolean } = await ctx.runMutation(internal.agent.store.startJob, { credentialId: who.credentialId, ...job });
@@ -99,7 +109,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   const deadline = Date.now() + Number(args.waitMs ?? DEFAULT_WAIT_MS);
   for (let attempt = 0; ; attempt++) {
     const status = await receiptStatus(ctx, principal, who, envelope.commandId);
-    if (status.status !== "pending" && status.status !== "not_found") return { data: status };
+    if (status.status !== "pending" && status.status !== "not_found") return { data: assessed(status, name === "validate_agent") };
     const left = deadline - Date.now();
     if (left <= 0) {
       return { data: { status: "pending", commandId: envelope.commandId, message: "Still running. Call get_receipt with this commandId to get the result." } };
@@ -245,7 +255,7 @@ export const EXECUTORS: Executors = {
       await ctx.runQuery(internal.rooms.chatHistoryAs, { principal, roomId: who.roomId, cursor, limit });
     return { data: { messages }, nextCursor };
   },
-  get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
+  get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: assessed(await receiptStatus(ctx, principal, who, commandId), false) }),
   // A skill's guidance with the live parts it reads, through the same executors as the human (a failed read is left
   // out; the body says which tool to call instead).
   load_skill: async (ctx, p, { name }) => {

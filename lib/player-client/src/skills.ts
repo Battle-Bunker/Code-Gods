@@ -35,27 +35,30 @@ export const findSkill = (name: string): SkillEntry | undefined => (SKILLS as re
 export const skillIndexLines = () => SKILLS.map(k => `- ${k.name}: ${k.description}`);
 
 /** Body limits (characters): a loaded skill rides on every later step of the thread. */
-export const SKILL_LIMITS = { body: 14_000, rules: 8_000, source: 3_000, helpers: 4_000, helper: 200, panels: 4_000 } as const;
+export const SKILL_LIMITS = { body: 20_000, rules: 8_000, source: 3_000, helpers: 9_000, helper: 200, panels: 4_000 } as const;
 
 type Json = Record<string, unknown>;
 const rec = (v: unknown): Json => v && typeof v === "object" && !Array.isArray(v) ? v as Json : {};
 const str = (v: unknown): string | undefined => typeof v === "string" ? v : typeof v === "number" && Number.isFinite(v) ? String(v) : undefined;
 const cut = (text: string, max: number) => text.length > max ? `${text.slice(0, max)}… [cut]` : text;
 
-/** A language's mutators and read helpers, one signature a line, bounded. */
+/**
+ * A language's mutators and read helpers, one signature a line, bounded: each group gets half of the helpers budget,
+ * so a game's many long mutator descriptions never crowd out the read helpers (how an agent reads a cell).
+ */
 export function helperLines(instance: unknown, language: string, limits: { helpers: number; helper: number } = SKILL_LIMITS): string[] {
   const helpers = Array.isArray(rec(instance).helpers) ? (rec(instance).helpers as unknown[]).map(rec) : [];
   const lines: string[] = [];
-  let used = 0;
   for (const group of ["mutator", "read"]) {
     const of = helpers.filter(h => h.group === group);
     if (!of.length) continue;
+    let used = 0;
     lines.push(group === "mutator" ? "Mutators (an agent returns a list of these calls):" : "Read helpers:");
     for (const h of of) {
       const signature = str(rec(h.signature)[language]) ?? str(rec(h.name)[language]);
       if (!signature) continue;
       const line = cut(`  ${signature}${h.kid ? ` — ${str(h.kid)}` : ""}`, limits.helper);
-      if (used + line.length > limits.helpers) { lines.push("  … more in get_observation (instance.helpers)"); return lines; }
+      if (used + line.length > limits.helpers / 2) { lines.push("  … more in get_observation (instance.helpers)"); break; }
       used += line.length;
       lines.push(line);
     }
@@ -91,8 +94,8 @@ const WRITING_AGENTS = `WRITING AN AGENT.
 3. Write ordinary code in one of the allowed languages (pass it as language to validate_agent and summon_agent) that defines agent(obj) and returns a LIST of at most 16 mutator calls (only the helper names below; never a new object). Every object value is unique: a change onto an existing value fails.
 4. Keep it cheap: simple code costs fewer summon bits and fewer decision bits per act.
 5. Show the draft in the forge panel: open_panel {panelId: "forge", params: {source}}.
-6. validate_agent (free, takes seconds): report whether it compiles, its summon cost and cost per act against the player's energy.
-7. Summon (summon_agent; the in-client assistant's calls are confirmed by the player on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
+6. validate_agent (free, takes seconds): its assessment says whether the agent works on the reference objects (verdict works, fails, no_change or rejected; a compiled agent that raises on every object fails), its summon price against the player's energy and its cost per act, and the next step. Fix a failing draft from the error and the signatures below; after three failures, show the player the draft and the error.
+7. Once it works, stop validating and report: the code, what it does, price against energy, cost per act. Summon (summon_agent with the identical source and language; the in-client assistant's calls are confirmed by the player on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
 Running agents: watch bits-over-time and the feed; destroy_agent an agent that loses bits; energy already spent is not refunded.`;
 
 const SCREEN = `THE PLAYER'S SCREEN. The client is a dock of panes: built-in panels (with parameters), the player's own stored panels, and the in-client assistant's conversation (one pane, never closable; when you are that assistant, "the chat", "this chat" or "you" about the screen means it; move_pane moves it). The public chat is the public-chat panel.

@@ -31,7 +31,7 @@ import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { LIMITS, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, argsLimit } from "./rules";
+import { ENGINE_NOTES, LIMITS, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, repeatsOf, resultLimit, summarize, withEngineNote, argsLimit } from "./rules";
 import { log } from "./store";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
@@ -93,11 +93,19 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
 }
 
 /**
- * Resolve the step's open tool calls in order. Returns "paused" (waiting for a confirmation), "cancelled", or
- * "resolved" (every call has an outcome).
+ * Resolve the step's open tool calls in order. Returns "paused" (waiting for a confirmation), "cancelled", "resolved"
+ * (every call has an outcome) or {repeating} (a call repeated an earlier one LIMITS.repeatStop times: stop the turn).
+ *
+ * A result can carry the engine's notes (rules.ts ENGINE_NOTES), stored with it so the model's history replays them:
+ * a repeat of an earlier call with the same result, and on the last call before the turn's final model step, to
+ * answer the player now instead of running out of steps silently.
  */
-async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, c: Context, who: Who | null): Promise<"paused" | "cancelled" | "resolved"> {
+async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, c: Context, who: Who | null): Promise<"paused" | "cancelled" | "resolved" | { repeating: string; times: number }> {
   const principal = { credentialId: c.turn.credentialId };
+  const finished = (status: string) => status === "ok" || status === "error" || status === "denied";
+  const lastOpen = Math.max(...c.calls.filter(x => !finished(x.status)).map(x => x.index));
+  const finalStepNext = c.turn.step >= c.turn.maxSteps - 1;
+  let repeating: { repeating: string; times: number } | undefined;
   for (const call of [...c.calls].sort((a, b) => a.index - b.index)) {
     if (call.status === "ok" || call.status === "error" || call.status === "denied") continue;
     if (call.status === "awaiting_confirmation") return "paused";
@@ -116,18 +124,24 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
     if (call.tool === LOAD_TOOLS) outcome = who ? loadTools(who.permission, args) : { status: "error", summary: "Not loaded", resultJson: JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." } }) };
     else try {
       const result: ToolResult = await runTool(ctx, principal, call.tool, args);
-      outcome = { status: "ok", summary: summarize(call.tool, result), resultJson: clipJson(result, LIMITS.resultChars) };
+      outcome = { status: "ok", summary: summarize(call.tool, result), resultJson: clipJson(result, resultLimit(call.tool)) };
     } catch (error) {
       const e = toolError(error);
       outcome = { status: "error", summary: `${e.code}: ${e.message}`.slice(0, 200), resultJson: clipJson({ error: e }, LIMITS.resultChars) };
     }
+    if (outcome.status === "ok") {
+      const repeats = repeatsOf(c.calls.filter(x => x.id !== call.id), { tool: call.tool, argsJson: call.argsJson, resultJson: outcome.resultJson });
+      if (repeats) outcome.resultJson = withEngineNote(outcome.resultJson, ENGINE_NOTES.repeat(call.tool, repeats));
+      if (repeats >= LIMITS.repeatStop) repeating ??= { repeating: call.tool, times: repeats + 1 };
+    }
+    if (call.index === lastOpen && finalStepNext) outcome.resultJson = withEngineNote(outcome.resultJson, ENGINE_NOTES.lastStep);
     log("tool", { turnId, tool: call.tool, outcome: outcome.status });
     const end = await ctx.runMutation(internal.assistant.store.endCall, { turnId, gen, callDocId: call.id, ...outcome });
     if (end.cancelled) return "cancelled";
     call.status = outcome.status;
     call.resultJson = outcome.resultJson;
   }
-  return "resolved";
+  return repeating ?? "resolved";
 }
 
 /**
@@ -159,6 +173,11 @@ function flusher(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, mess
   };
 }
 
+/** The turn's ending when the model keeps repeating one call: shown to the player under the transcript. */
+const repeatingStop = ({ repeating, times }: { repeating: string; times: number }) => ({
+  code: "REPEATING", message: `Stopped: the assistant made the same ${repeating.replace(/_/g, " ")} call ${times} times and got the same result each time. Ask again, perhaps with more detail, to continue.`,
+});
+
 export const run = internalAction({
   args: { turnId: v.id("assistantTurns"), gen: v.number() },
   handler: async (ctx, { turnId, gen }): Promise<void> => {
@@ -178,11 +197,12 @@ export const run = internalAction({
       const resolved = await resolveCalls(ctx, turnId, gen, c, who);
       if (resolved === "cancelled") return void await finish("cancelled");
       if (resolved === "paused") return;
+      if (typeof resolved === "object") return void await finish("done", repeatingStop(resolved));
       await ctx.runMutation(internal.assistant.store.next, { turnId, gen });
       return;
     }
     if (c.turn.lastStop === "end_turn") return void await finish("done");
-    if (c.turn.step >= c.turn.maxSteps) return void await finish("done", { code: "STEP_LIMIT", message: `Stopped after ${c.turn.maxSteps} steps; ask again to continue.` });
+    if (c.turn.step >= c.turn.maxSteps) return void await finish("done", { code: "STEP_LIMIT", message: `Stopped after ${c.turn.maxSteps} steps, before finishing; ask again to continue.` });
     if (!who) return void await finish("failed", { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." });
 
     // 2. One model step. The first one fetches the briefing (kept for the whole turn, so its history stays append-only).
@@ -314,6 +334,7 @@ export const run = internalAction({
     const resolved = await resolveCalls(ctx, turnId, gen, fresh, who);
     if (resolved === "cancelled") return void await finish("cancelled");
     if (resolved === "paused") return;
+    if (typeof resolved === "object") return void await finish("done", repeatingStop(resolved));
     await ctx.runMutation(internal.assistant.store.next, { turnId, gen });
   },
 });
