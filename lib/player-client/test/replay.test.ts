@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GameSettings } from "@workspace/game-core";
-import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
+import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
 
 const settings = { agentEnergyPerSecond: 1, agentBatteryActs: 2, startingEnergy: 100, energyPerSecond: 2 } as unknown as GameSettings;
 const charge = (total: number) => ({ decision: total, erasure: 0, motion: 0, floor: 0, total, naming: 0 });
@@ -125,4 +125,72 @@ test("an unattributed transformation changes the object but invents no agent", (
 
 test("a replay of another API version is refused rather than misread", () => {
   assert.throws(() => buildReplay([{ ...page([]), version: REPLAY_VERSION + 1 }]), /not supported/);
+});
+
+test("score series: every god's exact total after every event, downsampled only past maxPoints", () => {
+  const replay = buildReplay([page([
+    { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
+      { type: "phase", phase: "running", worldSeconds: 0 },
+      { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [3, 2] },
+      { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 2, agentId: "a", ownerId: "you", calls: [], cost: charge(1), net: [-1, 4] },
+    ] },
+  ])]);
+  const s = scoreSeries(replay);
+  // A point before any event, then one per event: 0 → (phase) 0 → 6,6 → −4, 0.
+  assert.deepEqual(s.cursor, [0, 1, 2, 3]);
+  assert.deepEqual(s.world, [0, 0, 0, 2]);
+  assert.deepEqual(s.totals, [[0, 0, 6, -4], [0, 0, 6, 0]]);
+  const few = scoreSeries(replay, 2);
+  assert.equal(few.cursor.length, 2);
+  assert.equal(few.cursor.at(-1), 3, "the last point is the end, exactly");
+});
+
+test("key moments: phases, each god's first summon and the largest swings, in log order", () => {
+  const replay = buildReplay([page([
+    { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
+      { type: "phase", phase: "planning", worldSeconds: 0 },
+      summon("a1", "me"),
+      { type: "phase", phase: "running", worldSeconds: 0 },
+      // me 3 × 2 = 6, you 2 × 3 = 6: both +6.
+      { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [3, 2] },
+      // me 1 × 9 = 9, you 9 × 1 = 9: both +3.
+      { type: "object.transformed", objectId: "o1", value: 3, before: 1, version: 1, worldSeconds: 3, agentId: "b", ownerId: "you", calls: [], cost: charge(1), net: [1, 9] },
+      { type: "phase", phase: "ended", worldSeconds: 5, reason: "owner" },
+    ] },
+  ])]);
+  const moments = keyMoments(replay);
+  assert.deepEqual(moments.filter(m => m.kind === "phase").map(m => m.cursor), [1, 3, 6], "planning, running, ended (cursor: events applied)");
+  assert.deepEqual(moments.filter(m => m.kind === "summon").map(m => [m.cursor, m.god]), [[2, 0]]);
+  assert.deepEqual(moments.filter(m => m.kind === "swing").map(m => [m.cursor, m.god, m.delta]), [[4, 0, 6], [4, 1, 6], [5, 0, 3], [5, 1, 3]]);
+  assert.ok(moments.every((m, i) => i === 0 || moments[i - 1].cursor <= m.cursor), "in log order");
+});
+
+test("lead changes: a new sole leader is a moment; ties are not", () => {
+  const replay = buildReplay([page([
+    { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
+      // me 1 × 2 = 2, you 2 × 1 = 2 (tie).
+      { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [1, 2] },
+      // o2: me 3 × 1 = 3, you 1 × 3 = 3 → 5/5 tie.
+      { type: "object.spawned", objectId: "o2", value: 2, version: 0, worldSeconds: 1, net: [3, 1] },
+      // o1 → [4, 2]: me 4×2 = 8, you 2×4 = 8; totals 11/11 tie. o1 → [5, 1]: me 5, you 5 → 8/8.
+      // A third god would break symmetry; with two gods payoffs are symmetric, so leads come from peerCare floors:
+      // o2 → [3, -2]: me 3 × max(0, −2) = 0, you −2 × 3 = −6 → me 2 (o1) + 0, you 2 − 6 = −4: me leads.
+      { type: "object.transformed", objectId: "o2", value: 3, before: 2, version: 1, worldSeconds: 2, agentId: "a", ownerId: "me", calls: [], cost: charge(1), net: [3, -2] },
+    ] },
+  ])]);
+  const leads = keyMoments(replay).filter(m => m.kind === "lead");
+  assert.deepEqual(leads.map(m => [m.cursor, m.god]), [[3, 0]]);
+});
+
+test("a leader who is tied and then pulls ahead again has not changed: one lead moment, not two", () => {
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 3, events: [
+    // me 3 × 1 = 3, you 1 × 3 = 3: tied. o2 [3, −2]: me 3 × 0 = 0, you −2 × 3 = −6 → me 3, you −3: me leads.
+    { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [3, 1] },
+    { type: "object.spawned", objectId: "o2", value: 2, version: 0, worldSeconds: 1, net: [3, -2] },
+    // o2 → [3, 1]: me 3 × 1 = 3, you 1 × 3 = 3 → 6/6: tied.
+    { type: "object.transformed", objectId: "o2", value: 3, before: 2, version: 1, worldSeconds: 2, agentId: "a", ownerId: "me", calls: [], cost: charge(1), net: [3, 1] },
+    // o2 → [3, −2] again: me leads again.
+    { type: "object.transformed", objectId: "o2", value: 4, before: 3, version: 2, worldSeconds: 3, agentId: "a", ownerId: "me", calls: [], cost: charge(1), net: [3, -2] },
+  ] }])]);
+  assert.deepEqual(keyMoments(replay).filter(m => m.kind === "lead").map(m => [m.cursor, m.god]), [[2, 0]]);
 });

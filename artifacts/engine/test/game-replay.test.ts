@@ -41,6 +41,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   // Live: nothing is revealed, to anyone.
   for (const god of [host, ada]) assert.match(await rejects(god.c.query(api.player.replay, { roomId, gameId: game.gameId })), /opens when the game ends/);
+  assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, false, "the client plays a live game on the room's screen");
 
   const transforms = async (n: number) => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "transform").length >= n;
   const snapshots: any[] = [];
@@ -69,6 +70,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
       cursor = { afterSeq: page.nextCursor, chatAfter: page.chatCursor, ...(page.eventOffset !== undefined ? { eventOffset: page.eventOffset } : {}) };
     }
   };
+  assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
   assert.ok(final.batches.every((b: any) => b.schema === 3), "every batch carries the event schema");
   const roster: string[] = final.game.roster.map((m: any) => m.id);
