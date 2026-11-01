@@ -20,6 +20,7 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { startTracker } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
+import { replayPlayhead, useReplayController } from "@/core/replay/parts";
 import { useNow, useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
@@ -104,6 +105,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
     }
   }, [card, paneId, store]);
 
+  // In a replay (core/replay), each message carries the moment on screen, so the assistant reads "here" as that moment.
+  const replay = useReplayController();
   const submit = async (text: string) => {
     const message = text.trim();
     if (!message || !status || blocked) return;
@@ -113,6 +116,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
     try {
       const firstUse = !status.credential;
       const sent = await send({ roomId: room, gameId: status.game, text: message, clientId: crypto.randomUUID(), ...(threadId ? { threadId } : {}),
+        ...(replay ? { replay: replayPlayhead(replay) } : {}),
         ...(firstUse || status.credential?.permission !== permission ? { permission } : {}), ...(permission === "owner" ? { ownerConsent: c.ownerConsent } : {}) });
       // A fresh conversation is chosen from now on; the default (the game's active, then latest) already follows the send.
       if (chosen === "new") composer.setThread(status.game, sent.threadId);

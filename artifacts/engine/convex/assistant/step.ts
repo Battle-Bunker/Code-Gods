@@ -94,6 +94,17 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   return assistantBriefing({ observation, layout, preparing });
 }
 
+/**
+ * The replay on the human's screen when they wrote (docs/replay-design.md §8): which ended game, which moment, seen as
+ * whom, and where to read it. An ended game is fully revealed to its players, so the assistant may use everything in it.
+ */
+export function replayBriefing(r: { gameId: string; shortCode: string; cursor: number; events: number; worldSeconds: number; pov?: { godId: string; name: string } }): string {
+  return `\n<replay>The player is watching the replay of ended game ${r.shortCode} (gameId ${r.gameId}), at event ${r.cursor} of ${r.events}, `
+    + `world time ${Math.round(r.worldSeconds * 10) / 10} s${r.pov ? `, seen as ${r.pov.name}` : ""}. "Here", "now" and "this moment" mean that point of the replay, not the live game. `
+    + `An ended game is fully revealed to its players: read it with get_replay (gameId ${r.gameId}; the events up to the playhead are its first ${r.cursor}) `
+    + `or analyse it with run_code's replay dataset ({name: "replay", gameId}).</replay>`;
+}
+
 const finished = (status: string) => status === "ok" || status === "error" || status === "denied";
 
 /**
@@ -233,7 +244,8 @@ export const run = internalAction({
 
     // 2. One model step. The first one fetches the briefing (kept for the whole turn, so its history stays append-only).
     if (!c.hasBriefing) {
-      const { cancelled } = await ctx.runMutation(internal.assistant.store.setBriefing, { turnId, gen, briefing: await briefingFor(ctx, c.turn.credentialId) });
+      const briefing = await briefingFor(ctx, c.turn.credentialId) + (c.turn.replay ? replayBriefing(c.turn.replay) : "");
+      const { cancelled } = await ctx.runMutation(internal.assistant.store.setBriefing, { turnId, gen, briefing });
       if (cancelled) return void await finish("cancelled");
       const reloaded = await loadContext(ctx, turnId, gen);
       if ("stop" in reloaded) { if (reloaded.stop === "stale" && reloaded.status === "cancelling") await finish("cancelled"); return; }

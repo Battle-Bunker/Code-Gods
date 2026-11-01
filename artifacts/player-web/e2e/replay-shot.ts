@@ -35,7 +35,7 @@ const owner = (action: string, extra: Record<string, unknown> = {}) => bob.actio
 await admin.mutation(fn.m("aiTemplates:ensureSeeded"), {});
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
-await bob.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000 });
+await bob.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 200_000 });
 await owner("start");
 let gameId = "", gameCode = "", language = "python";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {
@@ -111,6 +111,22 @@ const mid = Math.floor(events * 0.6);
   assert.match(await page.textContent("[data-testid=text-replay-agent-source]") ?? "", /slide/);
   await page.screenshot({ path: `${OUT}/replay-agent-code.png` });
   await page.click("[data-testid=button-replay-agent-close]");
+  // The assistant receives the playhead: a message sent from the replay briefs it with the game and the moment on screen.
+  const at = await cursorOf(page);
+  await page.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ echo: true }] })}`);
+  await page.press("[data-testid=input-assistant]", "Enter");
+  const briefing = await (async () => {
+    for (let i = 0; i < 60; i++, await sleep(500)) {
+      const threads = await bob.query(fn.q("assistant:threads"), { roomId }) as { _id: string }[];
+      for (const t of threads) {
+        const thread = await bob.query(fn.q("assistant:thread"), { threadId: t._id }) as { messages: { role: string; text: string }[] };
+        const reply = thread.messages.find(m => m.role === "assistant" && m.text.includes("<replay>"));
+        if (reply) return (JSON.parse(reply.text).context as string[])[0];
+      }
+    }
+    return "";
+  })();
+  assert.ok(briefing.includes(`game ${gameCode}`) && briefing.includes(`at event ${at} of ${events}`), `the assistant was briefed with the playhead: ${briefing.slice(-400)}`);
   // Another player's point of view: the transport switches every panel to theirs.
   await page.selectOption("[data-testid=select-replay-pov]", "1");
   assert.equal(await page.getAttribute(T, "data-pov"), "1");

@@ -25,6 +25,12 @@ export function useReplayChanged(): ReadonlyMap<string, Changed> {
   return useSyncExternalStore(c ? c.subscribe : noop, () => (c ? c.changed : EMPTY));
 }
 
+/** The playhead as assistant.send takes it (docs/replay-design.md §8): the game, the moment and the point of view. */
+export function replayPlayhead(c: ReplayController) {
+  const v = c.get();
+  return { gameId: c.replay.game.id, cursor: v.cursor, events: c.end, worldSeconds: v.state.world, povGodId: c.replay.game.roster[v.pov]?.id };
+}
+
 /** The agent whose code is open (one dialog for every place that opens one). */
 export const AgentCodeContext = createContext<(agentId: string) => void>(() => {});
 

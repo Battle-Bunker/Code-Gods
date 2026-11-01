@@ -35,7 +35,7 @@ import { credentialProblem } from "./auth/principal";
 import { ASSISTANT_LOBBY as LOBBY, allowanceOf, assistantEpoch } from "./ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
-import { requireMember, requireRoom } from "./lib/rooms";
+import { findGame, requireHistoricReaderAs, requireMember, requireRoom } from "./lib/rooms";
 import { LIMITS, isActive } from "./assistant/rules";
 import { CANCEL_GRACE_MS, callsOf, denyCall, finishTurn, log, openTurn, queuedIn, resume } from "./assistant/store";
 
@@ -127,6 +127,13 @@ export const send = mutation({
     /** The game the message is for (status.game, as the pane showed it): refused once another game is current. */
     gameId: v.optional(v.string()),
     clientId: v.optional(v.string()),
+    /**
+     * The replay on the human's screen when they sent it (docs/replay-design.md §8): an ENDED game of this room they
+     * may open, the playhead's event cursor (of `events`), its world time and the point-of-view god. A message queued
+     * behind a running turn joins that turn, whose briefing is already written: only a message that opens a turn
+     * briefs the assistant with its replay.
+     */
+    replay: v.optional(v.object({ gameId: v.string(), cursor: v.number(), events: v.number(), worldSeconds: v.number(), povGodId: v.optional(v.string()) })),
   },
   handler: async (ctx, args): Promise<{ threadId: Id<"assistantThreads">; turnId: Id<"assistantTurns"> | null; queueId: Id<"assistantQueue"> | null; queued: boolean }> => {
     const room = await requireRoom(ctx, args.roomId);
@@ -148,6 +155,7 @@ export const send = mutation({
     }
     const epoch = assistantEpoch(room);
     if (args.gameId !== undefined && args.gameId !== epoch) fail("CONFLICT", "A new game has started: your message was not sent. Send it again to start this game's conversation");
+    const replay = args.replay ? await replayContext(ctx, room, viewer, args.replay) : undefined;
     const busy = await busyTurn(ctx, room, viewer.subject);
     let threadId = args.threadId;
     if (threadId) {
@@ -183,12 +191,31 @@ export const send = mutation({
     const held = await queuedIn(ctx, threadId);
     const row = await insertQueued(ctx, { room, subject: viewer.subject, epoch, threadId, clientId: args.clientId, text });
     const queueId = row._id;
-    const turnId = await openTurn(ctx, { room, threadId, subject: viewer.subject, credentialId }, [...held, row].map(r => ({ text: r.text, row: r })));
+    const turnId = await openTurn(ctx, { room, threadId, subject: viewer.subject, credentialId, ...(replay ? { replay } : {}) }, [...held, row].map(r => ({ text: r.text, row: r })));
     await touchActivity(ctx);
     log("send", { turnId, roomId: room._id, credentialId, held: held.length });
     return { threadId, turnId, queueId, queued: false };
   },
 });
+
+/**
+ * The replay a message was sent from, resolved for the turn's briefing: a game of this room (NOT_FOUND otherwise) that
+ * has ended (CONFLICT: a live game has no replay, and nothing of it may be revealed) and that the human may open (its
+ * players and the room owner, as every past game).
+ */
+async function replayContext(ctx: MutationCtx, room: Doc<"rooms">, viewer: Viewer,
+  at: { gameId: string; cursor: number; events: number; worldSeconds: number; povGodId?: string }) {
+  const game = await findGame(ctx, at.gameId);
+  if (!game || game.roomId !== room._id) return fail("NOT_FOUND", "That game is not a game of this room");
+  if (game.phase !== "ended") return fail("CONFLICT", "A replay opens when its game ends");
+  requireHistoricReaderAs(viewer, room, game);
+  const finite = (n: number) => (Number.isFinite(n) && n >= 0 ? n : 0);
+  const pov = at.povGodId ? game.roster.find(m => m.id === at.povGodId) : undefined;
+  return {
+    gameId: game._id as string, shortCode: game.shortCode, cursor: Math.floor(finite(at.cursor)), events: Math.floor(finite(at.events)),
+    worldSeconds: finite(at.worldSeconds), ...(pov ? { pov: { godId: pov.id, name: pov.name } } : {}),
+  };
+}
 
 /** A queued message of the caller's (NOT_FOUND for anyone else's). */
 async function ownQueued(ctx: Ctx, queueId: Id<"assistantQueue">) {
