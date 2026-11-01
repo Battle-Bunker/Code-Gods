@@ -144,6 +144,13 @@ convex.onUpdate(api.player.observation, { roomId: session.roomId }, obs => rende
 await convex.action(api.commands.submit, { roomId: session.roomId, envelope: { version: VERSION, commandId: crypto.randomUUID(), command: { type: "chat", text: "hi" } } });
 ```
 
+**Staying current.** `watchEngineVersion(convex, version => …)` from `@workspace/player-client/update` reports the
+engine's deployed versions now and after every deploy (`version.current`, engine-api.md "Deployed versions"). A
+client compares `version.functions.build` with the first value it saw to learn that the engine changed, and treats a
+`CLIENT_OUTDATED` error (`incompatibility(error)`) as "update me", not as something to retry. Nothing reloads a
+client on its own: a dev server with hot reloading can show a note (as the reference client's dev server does) or
+ignore it. The engine-hosted builds use `startAutoUpdate` from the same module to reload themselves safely.
+
 The example app is in `clients/hello/` (README: a Replit quickstart). The typed catalogue of every public function is
 `lib/player-client/src/catalog.ts`; its generated table is in `engine-api.md`. The protocol types and Zod schemas are
 in `lib/player-client/src/protocol.ts`.

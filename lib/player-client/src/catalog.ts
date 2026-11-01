@@ -287,6 +287,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it; list_setups lists the game setups." },
     tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: E },
   },
+  "version.current": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Show deployed versions", tooltip: "The engine UI, player client and engine functions builds now live, so open pages can update themselves." },
+    ai: { description: "Per site (engine UI, player client, functions): the live build id, when it was deployed and the recent build ids. Clients compare their own build with it to update after a deploy (lib/player-client/src/update.ts); agents need nothing from it." },
+    tools: [], palette: null,
+  },
   "calibration.node.tables": {
     kind: "action", audience: "infrastructure",
     human: { title: "Load calibration tables", tooltip: "The calibration tables of a utility and its defence goal, for scoring values in the browser." },

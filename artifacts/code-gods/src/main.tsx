@@ -4,6 +4,7 @@ import { ConvexReactClient } from 'convex/react';
 import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { loadConvexUrl } from '@/lib/convex';
+import { guardConvexClient, ownBuild, startAutoUpdate } from '@workspace/player-client/update';
 
 import './index.css';
 
@@ -16,11 +17,16 @@ const root = createRoot(document.getElementById('root')!, {
 
 loadConvexUrl().then(
   (url) => {
+    const client = new ConvexReactClient(url, { unsavedChangesWarning: false });
+    // A deploy updates this page at a safe moment, keeping the route (lib/player-client/src/update.ts); a dev server
+    // (no build id) only gets a note. A call refused because this page is too old updates it at once.
+    const updates = startAutoUpdate({ client, site: 'engine', reload: ownBuild() !== null });
+    guardConvexClient(client, (error) => updates.reportError(error));
     root.render(
       <ErrorBoundary>
         {/* No "changes may not be saved" prompt: it fired on the sign-in redirect whenever an action (the manifest
             load) was still in flight, and the configure page keeps its own draft in localStorage. */}
-        <App client={new ConvexReactClient(url, { unsavedChangesWarning: false })} />
+        <App client={client} />
       </ErrorBoundary>,
     );
   },

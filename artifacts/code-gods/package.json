@@ -9,7 +9,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
-    "e2e": "node --experimental-strip-types e2e/smoke.ts"
+    "e2e": "node --experimental-strip-types e2e/smoke.ts",
+    "e2e:update": "node --experimental-strip-types e2e/auto-update.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",

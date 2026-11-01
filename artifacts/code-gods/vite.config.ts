@@ -2,6 +2,7 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
+import { buildIdPlugin } from '@workspace/player-client/vite-build-id';
 
 // Defaults: dev server on port 18323, base "/" (the engine's static hosting serves this UI at "/").
 const rawPort = process.env.PORT || '18323';
@@ -27,6 +28,8 @@ const siteOrigin = new URL(siteUrl).origin;
 export default defineConfig({
   base: basePath,
   plugins: [
+    // The build's id in index.html: open pages of an older build update themselves (lib/player-client/src/update.ts).
+    buildIdPlugin(),
     react(),
     tailwindcss(),
   ],

@@ -22,7 +22,8 @@
  * reaches the build as CODE_GODS_SITE_URL (the build-side name; an exported CODE_GODS_SITE_URL is used when the
  * deployment has none): the frame CSP then names that origin too (besides 'self'). Each upload is atomic
  * (the previous version stays live if it fails) and garbage-collects the previous upload. SPA fallback stays on.
- * The two sites build and upload concurrently. With --if-changed, a site whose build is byte-identical to its last
+ * After each upload the build id in its index.html is recorded (`version:record`), so open pages of an older build
+ * update themselves (lib/player-client/src/update.ts). The two sites build and upload concurrently. With --if-changed, a site whose build is byte-identical to its last
  * upload (the URLs above are baked into the build, so they count) isn't uploaded again; a build that differs in any
  * byte, even a minifier's harmless variation, uploads as usual.
  */
@@ -68,6 +69,22 @@ export function distHash(dir) {
     hash.update(`${f}\0${bytes.length}\0`).update(bytes);
   }
   return hash.digest("hex");
+}
+
+/**
+ * The build id the Vite build wrote into dist/index.html (`<meta name="code-gods-build">`, lib/player-client/src/
+ * vite-build-id.ts), or null. Recorded with `version:record` after each upload: open pages of an older build update
+ * themselves (lib/player-client/src/update.ts). Same pattern as readBuildMeta in lib/player-client/src/build-meta.ts.
+ */
+export function buildIdOf(dist) {
+  let html;
+  try { html = readFileSync(join(dist, "index.html"), "utf8"); } catch { return null; }
+  return /<meta name="code-gods-build" content="([^"]+)"/.exec(html)?.[1] ?? null;
+}
+
+/** Records the live build of a site (engine | player) so open pages learn of the deploy. */
+function recordBuild(name, build, prodFlag) {
+  run("npx", ["convex", "run", "version:record", JSON.stringify({ site: name, build }), ...prodFlag], { stdio: ["ignore", "ignore", "inherit"] });
 }
 
 const markerName = name => `STATIC_SHA256_${name.toUpperCase()}`;
@@ -123,14 +140,19 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       await runAsync("pnpm", ["--filter", site.pkg, "run", "build"], buildOptions(site, cloudUrl, siteUrl, publicUrl));
       dist = resolve(site.dir, "dist/public");
     }
-    const hash = distHash(dist);
+    const hash = distHash(dist), build = buildIdOf(dist);
     if (ifChanged && readMarker(name, { prod }) === hash) {
+      // Recorded again anyway (a no-op when it is already the live build): the live build is always in version:current.
+      if (build) recordBuild(name, build, prodFlag);
       console.log(`[deploy-static] ${name} unchanged (${hash.slice(0, 12)}), upload skipped`);
       return;
     }
     await runAsync("npx", ["@convex-dev/static-hosting", "upload", "--component", site.component, "--dist", dist, ...prodFlag]);
     // Recorded on every upload, with or without --if-changed, so the marker always names the live build.
     run("npx", ["convex", "env", "set", markerName(name), hash, ...prodFlag], { stdio: ["ignore", "ignore", "inherit"] });
-    console.log(`[deploy-static] ${name} → ${siteUrl.replace(/\/$/, "")}${site.base}`);
+    // After the upload, never before: a page told of a build that is not served yet would reload into the old one.
+    if (build) recordBuild(name, build, prodFlag);
+    else console.warn(`[deploy-static] ${name}: no build id in index.html; open pages will not update themselves`);
+    console.log(`[deploy-static] ${name} → ${siteUrl.replace(/\/$/, "")}${site.base}${build ? ` (build ${build})` : ""}`);
   }));
 }

@@ -6,6 +6,7 @@ import { build as viteBuild, defineConfig, type Plugin } from 'vite';
 import { devServerHosts, tokenHandler } from '@workspace/player-client/engine';
 import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
 import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
+import { buildIdPlugin } from '@workspace/player-client/vite-build-id';
 
 const isBuild = process.argv.includes("build");
 // Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/client/". The app never assumes
@@ -134,6 +135,8 @@ export default defineConfig({
     },
     framePlugin(),
     ...pageCspPlugins(),
+    // The build's id in index.html: open pages of an older build update themselves (lib/player-client/src/update.ts).
+    buildIdPlugin(),
     react(),
     tailwindcss(),
   ],

@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { distHash } from "../../scripts/deploy-static.mjs";
+import { buildIdOf, distHash } from "../../scripts/deploy-static.mjs";
+import { readBuildMeta } from "@workspace/player-client/build-meta";
 
 function tree(files: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), "dist-"));
@@ -52,4 +53,15 @@ test("distHash: the hash follows the tree, not the directory's own name", () => 
     renameSync(a, moved);
     assert.equal(distHash(moved), before);
   } finally { rmSync(moved, { recursive: true, force: true }); rmSync(a, { recursive: true, force: true }); }
+});
+
+test("buildIdOf: the id the Vite plugin wrote into index.html (as the browser reads it), else null", () => {
+  const html = `<!doctype html><head>\n  <meta name="code-gods-build" content="0f1e2d3c4b5a6978">\n  </head>`;
+  const built = tree({ ...SITE, "index.html": html }), old = tree(SITE);
+  try {
+    assert.equal(buildIdOf(built), "0f1e2d3c4b5a6978");
+    assert.equal(buildIdOf(built), readBuildMeta(html), "deploy-static and the page agree");
+    assert.equal(buildIdOf(old), null);
+    assert.equal(buildIdOf(join(old, "missing")), null);
+  } finally { rmSync(built, { recursive: true }); rmSync(old, { recursive: true }); }
 });
