@@ -232,7 +232,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `assistant.confirm` | mutation | player | Decide a confirmation | Approves or denies an action the assistant asked permission for. | — (Decided on the confirmation card in the assistant pane, never elsewhere.) |
 | `assistant.setPrefs` | mutation | player | Set assistant preferences | Lets summons the assistant validated run without a card up to this many bits (0 asks every time). | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.status` | query | player | Show assistant status | Whether the assistant is on, its allowance, model, credential and active turn. | — (A live subscription a page renders; there is nothing to run.) |
-| `assistant.threads` | query | player | Switch conversation | Your assistant conversations in this room, newest first. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.threads` | query | player | Switch conversation | Your assistant conversations in this room's current game, newest first. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.thread` | query | player | Show a conversation | One conversation's messages, tool calls and confirmation cards. | — (A live subscription a page renders; there is nothing to run.) |
 | `auth.credentials.list` | query | infrastructure | Show connected apps | Every app, connector and assistant acting as you, with its room, rights and expiry. | — |
 | `auth.credentials.revoke` | mutation | infrastructure | Revoke a connected app | Cuts that app's access on its next call; you can reconnect it later. | — |
@@ -242,7 +242,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `auth.testing.probe` | query | test | Probe authentication | A test-only check of the signed-in identity on local deployments. | — (Test only.) |
 | `auth.user.me` | query | infrastructure | Show who I am | Your name, god id and, for a player app, its room and rights. | `whoami` |
 | `code.objects.list` | query | player | Show my stored objects | What your assistant's scripts saved for you: keys, sizes and how much of your store is used. | `list_code_objects` |
-| `code.runs.list` | query | player | Show my code runs | The analytics scripts your assistant ran for you in this room, newest first, with this game's budget. | `list_code_runs` |
+| `code.runs.list` | query | player | Show my code runs | The analytics scripts your assistant ran for you in this game, newest first, with its budget. | `list_code_runs` |
 | `code.runs.get` | query | player | Show a code run | One analytics run's source, result table and printed output. | `get_code_run` |
 | `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game` |
 | `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |

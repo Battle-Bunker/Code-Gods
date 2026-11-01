@@ -1,11 +1,12 @@
 /**
- * Code runs: a human's analytics scripts and their results, per room (docs/assistant/code-execution.md §4).
+ * Code runs: a human's analytics scripts and their results, per room and game (docs/assistant/code-execution.md §4).
  *
  *   list, get              read (the human's own runs; the code-output panel subscribes to get)
  *   start, finish          internal: the run action (code/execute.ts) records a run around the sandbox
  *
  * Every read has an internal twin `<fn>As` taking `principal: {credentialId}` for the agent registry. Another human's
- * runs are never visible (NOT_FOUND). The budget is per human per game: CODE_LIMITS.runsPerGame runs started and
+ * runs are never visible (NOT_FOUND). Lists and the default run are the room's current game's; the assistant's reads
+ * (the `As` twins) reach no run of an earlier game, while the human's own `get` still opens one by its id. The budget is per human per game: CODE_LIMITS.runsPerGame runs started and
  * CODE_LIMITS.cpuMsPerGame of CPU, checked when a run starts.
  */
 import { v } from "convex/values";
@@ -15,6 +16,7 @@ import type { Viewer } from "../auth/access";
 import { fail } from "../lib/errors";
 import { principalV, requireMemberAs, requireRoom, viewerOf } from "../lib/rooms";
 import { CODE_LIMITS } from "./limits";
+import { codeEpoch } from "./keys";
 import { deleteRunResult, runResultOf } from "./objects";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -25,8 +27,6 @@ async function memberRoom(ctx: Ctx, viewer: Viewer, roomRef: string) {
   await requireMemberAs(ctx, viewer, room, "read");
   return room;
 }
-/** The budget epoch of a room now: its current game, or this room's lobby (before its first game). */
-const epochOf = (room: Doc<"rooms">) => room.currentGameId ?? `lobby:${room._id}`;
 
 /** Runs of an epoch, with the budget they used (a run still "running" past staleMs counts as used, not as running). */
 async function budgetOf(ctx: Ctx, subject: string, epoch: string) {
@@ -57,22 +57,25 @@ const listArgs = { roomId: v.string(), limit: v.optional(v.number()) };
 async function listImpl(ctx: QueryCtx, viewer: Viewer, { roomId, limit }: { roomId: string; limit?: number }) {
   const room = await memberRoom(ctx, viewer, roomId);
   const n = Math.max(1, Math.min(50, Math.floor(limit ?? 10)));
-  const rows = await ctx.db.query("codeRuns").withIndex("by_subject_room", q => q.eq("subject", viewer.subject).eq("roomId", room._id)).order("desc").take(n);
-  const budget = await budgetOf(ctx, viewer.subject, epochOf(room));
+  const epoch = codeEpoch(room);
+  const rows = await ctx.db.query("codeRuns").withIndex("by_subject_epoch", q => q.eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").take(n);
+  const budget = await budgetOf(ctx, viewer.subject, epoch);
   return { runs: rows.map(summary), budget: { used: { runs: budget.runs, cpuSeconds: budget.cpuMs / 1000 }, left: budget.left,
     limits: { runs: CODE_LIMITS.runsPerGame, cpuSeconds: CODE_LIMITS.cpuMsPerGame / 1000 } } };
 }
 
 const getArgs = { roomId: v.string(), runId: v.optional(v.string()) };
-async function getImpl(ctx: QueryCtx, viewer: Viewer, { roomId, runId }: { roomId: string; runId?: string }) {
+/** `thisGame`: the assistant's read, which reaches only the room's current game. */
+async function getImpl(ctx: QueryCtx, viewer: Viewer, { roomId, runId }: { roomId: string; runId?: string }, thisGame: boolean) {
   const room = await memberRoom(ctx, viewer, roomId);
   let row: Doc<"codeRuns"> | null;
   if (runId) {
     const id = ctx.db.normalizeId("codeRuns", runId);
     row = id ? await ctx.db.get(id) : null;
     if (!row || row.subject !== viewer.subject || row.roomId !== room._id) return fail("NOT_FOUND", "No such code run of yours in this room");
+    if (thisGame && row.epoch !== codeEpoch(room)) return fail("NOT_FOUND", "No such code run of yours in this game");
   } else {
-    row = await ctx.db.query("codeRuns").withIndex("by_subject_room", q => q.eq("subject", viewer.subject).eq("roomId", room._id)).order("desc").first();
+    row = await ctx.db.query("codeRuns").withIndex("by_subject_epoch", q => q.eq("subject", viewer.subject).eq("epoch", codeEpoch(room))).order("desc").first();
     if (!row) return null;
   }
   return {
@@ -81,22 +84,23 @@ async function getImpl(ctx: QueryCtx, viewer: Viewer, { roomId, runId }: { roomI
     /** The whole {result, output} JSON (the object runs/<runId>) when the row holds only a prefix: fetch it (the URL is the human's own). */
     fullUrl: row.clipped ? await fullUrlOf(ctx, row) : null,
     /** The URL's text is a run from before the object store: {"result": "<JSON text>", "output"} (keys.ts splitRunResult). */
-    fullLegacy: row.clipped && !(await runResultOf(ctx, row.subject, row._id)) && !!row.fullId,
+    fullLegacy: row.clipped && !(await runResultOf(ctx, row)) && !!row.fullId,
   };
 }
 export type RunDetail = NonNullable<Awaited<ReturnType<typeof getImpl>>>;
 async function fullUrlOf(ctx: QueryCtx, row: Doc<"codeRuns">) {
-  const full = await runResultOf(ctx, row.subject, row._id);
+  const full = await runResultOf(ctx, row);
   const id = full?.storageId ?? row.fullId;   // fullId: a run from before the object store ({result: text, output})
   return id ? await ctx.storage.getUrl(id) : null;
 }
 
-/** The caller's recent code runs in this room (newest first) and this game's budget. */
+/** The caller's recent code runs in this room's current game (newest first) and its budget. */
 export const list = query({ args: listArgs, handler: async (ctx, a) => listImpl(ctx, await viewerOf(ctx), a) });
 export const listAs = internalQuery({ args: { principal: principalV, ...listArgs }, handler: async (ctx, { principal, ...a }) => listImpl(ctx, await viewerOf(ctx, principal), a) });
-/** One of the caller's runs (default: the latest in this room), with its source, result and output; null when none. */
-export const get = query({ args: getArgs, handler: async (ctx, a) => getImpl(ctx, await viewerOf(ctx), a) });
-export const getAs = internalQuery({ args: { principal: principalV, ...getArgs }, handler: async (ctx, { principal, ...a }) => getImpl(ctx, await viewerOf(ctx, principal), a) });
+/** One of the caller's runs in this room (default: the latest of its current game), with its source, result and output; null when none. */
+export const get = query({ args: getArgs, handler: async (ctx, a) => getImpl(ctx, await viewerOf(ctx), a, false) });
+/** The registry's get_code_run: a run of the room's current game only. */
+export const getAs = internalQuery({ args: { principal: principalV, ...getArgs }, handler: async (ctx, { principal, ...a }) => getImpl(ctx, await viewerOf(ctx, principal), a, true) });
 
 /** A run's whole result object, runs/<runId> (the registry pages through it): inline JSON or a storage id. */
 export const fullOf = internalQuery({
@@ -106,8 +110,8 @@ export const fullOf = internalQuery({
     const room = await memberRoom(ctx, viewer, roomId);
     const id = ctx.db.normalizeId("codeRuns", runId);
     const row = id ? await ctx.db.get(id) : null;
-    if (!row || row.subject !== viewer.subject || row.roomId !== room._id) return null;
-    const full = await runResultOf(ctx, viewer.subject, row._id);
+    if (!row || row.subject !== viewer.subject || row.roomId !== room._id || row.epoch !== codeEpoch(room)) return null;
+    const full = await runResultOf(ctx, row);
     if (full) return { ...full, legacy: false };
     return row.fullId ? { valueJson: null, storageId: row.fullId, legacy: true } : null;
   },
@@ -127,7 +131,7 @@ export const start = internalMutation({
   handler: async (ctx, { principal, roomId, cpuMs, ...run }): Promise<{ runId: Id<"codeRuns">; roomId: Id<"rooms">; cpuMs: number; epoch: string; gameId: string | null }> => {
     const viewer = await viewerOf(ctx, principal);
     const room = await memberRoom(ctx, viewer, roomId);
-    const epoch = epochOf(room);
+    const epoch = codeEpoch(room);
     const budget = await budgetOf(ctx, viewer.subject, epoch);
     if (budget.running) fail("RATE_LIMITED", "Another code run of yours is still running; wait for it to finish");
     if (budget.runs >= CODE_LIMITS.runsPerGame) fail("RATE_LIMITED", `You have used this game's ${CODE_LIMITS.runsPerGame} code runs`);
@@ -139,7 +143,7 @@ export const start = internalMutation({
     for (const row of old.slice(CODE_LIMITS.keptRuns)) {
       if (row.epoch === epoch) continue;   // this game's rows count against its budget
       if (row.fullId) await ctx.storage.delete(row.fullId);
-      await deleteRunResult(ctx, row.subject, row._id);
+      await deleteRunResult(ctx, row);
       await ctx.db.delete(row._id);
     }
     return { runId, roomId: room._id, cpuMs: Math.max(1, Math.min(cpuMs, CODE_LIMITS.cpuMsMax, left)), epoch, gameId: room.currentGameId ?? null };

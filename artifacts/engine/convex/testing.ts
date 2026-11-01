@@ -125,6 +125,35 @@ export const makeLegacy = internalMutation({
   },
 });
 
+/**
+ * The assistant state of one human as it was before (player, game) keys (the assistant-per-game migration's input):
+ * threads and stored objects without an epoch, one usage total, and optionally `merge`'s second thread folded into its
+ * first (a conversation continued across games, as the client once allowed).
+ */
+export const makeAssistantLegacy = internalMutation({
+  args: { subject: v.string(), merge: v.optional(v.array(v.id("assistantThreads"))) },
+  handler: async (ctx, { subject, merge }) => {
+    dev();
+    if (merge) {
+      const [keep, from] = merge;
+      for (const turn of await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", from)).collect()) {
+        await ctx.db.patch(turn._id, { threadId: keep });
+        for (const m of await ctx.db.query("assistantMessages").withIndex("by_turn", q => q.eq("turnId", turn._id)).collect()) await ctx.db.patch(m._id, { threadId: keep });
+        for (const c of await ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", turn._id)).collect()) await ctx.db.patch(c._id, { threadId: keep });
+      }
+      await ctx.db.delete(from);
+    }
+    for (const t of await ctx.db.query("assistantThreads").collect()) if (t.subject === subject) await ctx.db.patch(t._id, { epoch: undefined });
+    let objects = 0, bytes = 0;
+    for (const r of await ctx.db.query("codeObjects").withIndex("by_subject_key", q => q.eq("subject", subject)).collect()) {
+      await ctx.db.patch(r._id, { epoch: undefined });
+      if (!r.key.startsWith("runs/")) { objects++; bytes += r.bytes; }
+    }
+    for (const u of await ctx.db.query("codeObjectUsage").withIndex("by_subject", q => q.eq("subject", subject)).collect()) await ctx.db.delete(u._id);
+    await ctx.db.insert("codeObjectUsage", { subject, objects, bytes });
+  },
+});
+
 /** End games (all live ones when `gameIds` is omitted) so finished tests leave no loops running. */
 export const endGames = internalMutation({
   args: { gameIds: v.optional(v.array(v.id("games"))) },

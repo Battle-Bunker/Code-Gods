@@ -189,7 +189,7 @@ const CODE_EXECUTORS = {
     return { data: { runId, part, offset, text: slice, totalChars: text.length, nextOffset: next < text.length ? next : null } };
   },
   list_code_runs: async (ctx, { principal, who }, { limit }) => ({ data: await ctx.runQuery(internal.code.runs.listAs, { principal, roomId: who.roomId, limit }) }),
-  list_code_objects: async (ctx, { principal }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, ...(prefix ? { prefix } : {}), limit }) }),
+  list_code_objects: async (ctx, { principal, who }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, roomId: who.roomId, ...(prefix ? { prefix } : {}), limit }) }),
 } satisfies Pick<Executors, "run_code" | "get_code_run" | "list_code_runs" | "list_code_objects">;
 
 export const EXECUTORS: Executors = {

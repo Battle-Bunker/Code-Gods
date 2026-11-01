@@ -20,11 +20,14 @@ export const CODE_LIMITS = {
   previewOutputChars: 1_500,
   /** Runs kept per player (older rows and their runs/<id> result objects are deleted). */
   keptRuns: 50,
-  /** The object store, per human (runs/ results not counted): objects, total bytes, one value, keys a run may write. */
+  /** The object store, per human and game, saved scripts included (runs/ results not counted): objects, total bytes,
+   * one value, keys a run may write. */
   objectsPerUser: 500,
   objectBytesPerUser: 20 * 1024 * 1024,
   valueBytes: 1024 * 1024,
   writesPerRun: 100,
+  /** Earlier games whose objects a human keeps (with the current one): older games' objects are deleted. */
+  keptGames: 5,
   /** A value this size or smaller lives in its row; a larger one in file storage. */
   inlineValueChars: 64 * 1024,
   /** Scopes a run may load, and the loaded objects' JSON (the runtime's storeBytes). */

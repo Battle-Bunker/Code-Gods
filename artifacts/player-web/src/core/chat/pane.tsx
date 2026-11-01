@@ -23,7 +23,7 @@ import { useNow, useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
 import { runPaletteCommand } from "@/core/palette/registry";
-import { composer, useComposer, type Permission } from "./composer";
+import { composer, threadFor, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
   TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, userCount, withPending, withSteps,
@@ -47,7 +47,11 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const status = useQuery(api.assistant.status, { roomId: room });
   const threads = useQuery(api.assistant.threads, { roomId: room });
   const c = useComposer();
-  const threadId = c.thread === "new" ? null : c.thread ?? status?.activeTurn?.threadId ?? threads?.[0]?._id ?? null;
+  // The conversation is this game's: a thread chosen in the room's last game is never shown or continued here.
+  const game = status?.allowance.epoch ?? null;
+  useEffect(() => { if (game) composer.enterGame(game); }, [game]);
+  const chosen = threadFor(c, game);
+  const threadId = chosen === "new" ? null : chosen ?? status?.activeTurn?.threadId ?? threads?.[0]?._id ?? null;
   const thread = useQuery(api.assistant.thread, threadId ? { threadId: threadId as Id<"assistantThreads"> } : "skip");
   const send = useMutation(api.assistant.send);
   const cancel = useMutation(api.assistant.cancel);

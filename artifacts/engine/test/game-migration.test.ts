@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { complexityFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
-import { admin, api, gods, internal, roomWith, touch } from "./game-helpers.ts";
+import { admin, api, gods, internal, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
 
 /**
  * The pre-setups-v2 shape of some settings: a defence rate, defence ids among the excluded families, and one language
@@ -80,4 +80,51 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   }
 
   assert.deepEqual(await migrate(), { setups: 0, rooms: 0, games: 0 }, "idempotent");
+});
+
+const migrateAssistant = (): Promise<Record<string, number>> => admin.action(internal.migrations.assistantPerGame, {});
+
+test("assistant-per-game: legacy threads and stored objects join the game they belonged to, split where a thread spans games", { timeout: 300_000 }, async () => {
+  const [ann, bob, cyd] = await gods("Legacy Ann", "Legacy Bob", "Legacy Cyd");
+  await touch(ann);
+  const { roomId } = await roomWith([ann, bob, cyd], {
+    languages: ["typescript"], objectType: "Int",
+    typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  });
+  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  const say = async (god: God, text: string) => {
+    const sent = await god.c.mutation(api.assistant.send, { roomId, text: `/mock ${JSON.stringify({ steps: [{ text }] })}` });
+    await waitFor(async () => (await god.c.query(api.assistant.thread, { threadId: sent.threadId })).turns.every((t: any) => t.status === "done") || null, text, 60_000, 150);
+    return sent.threadId as string;
+  };
+  const credentialId = await admin.mutation(internal.testing.seedCredential, { subject: ann.subject, roomId, permission: "act" }) as string;
+  const run = (source: string, saveAs?: string) => admin.action(internal.code.execute.runAs, { principal: { credentialId }, roomId, datasetsJson: "[]", language: "typescript", source, ...(saveAs ? { saveAs } : {}) });
+
+  const game1 = await ann.c.action(api.owner.start, { roomId });
+  const thread1 = await say(ann, "in game one");
+  assert.equal((await run("function main(d) { store.put('notes/one', 1); return 1; }", "kept")).status, "ok");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const game2 = await ann.c.action(api.owner.start, { roomId });
+  const thread2 = await say(ann, "in game two");
+  assert.equal((await run("function main(d) { store.put('notes/two', 2); return 2; }")).status, "ok");
+  // Before (player, game) keys: one conversation continued across both games, objects and usage unpartitioned.
+  await admin.mutation(internal.testing.makeAssistantLegacy, { subject: ann.subject, merge: [thread1, thread2] });
+  assert.deepEqual(await ann.c.query(api.assistant.threads, { roomId }), [], "an unmigrated thread is in no game");
+
+  const first = await migrateAssistant();
+  assert.ok(first.threads >= 1 && first.objects >= 3 && first.usage >= 1, JSON.stringify(first));
+  const texts = async (threadId: string) => (await ann.c.query(api.assistant.thread, { threadId })).messages.map((m: any) => m.text);
+  assert.deepEqual((await ann.c.query(api.assistant.threads, { roomId, gameId: game1.gameId })).map((t: any) => t._id), [thread1], "the thread stays with the game it started in");
+  assert.deepEqual(await texts(thread1), ["/mock {\"steps\":[{\"text\":\"in game one\"}]}", "in game one"]);
+  const now = await ann.c.query(api.assistant.threads, { roomId });
+  assert.equal(now.length, 1);
+  assert.notEqual(now[0]._id, thread1, "game 2's turns moved to a thread of their own");
+  assert.deepEqual([now[0].gameId, (await texts(now[0]._id)).at(-1)], [game2.gameId, "in game two"]);
+  // Objects: the saved script is the player's, each note its game's.
+  const listed = await ann.c.query(api.code.objects.list, { roomId });
+  assert.deepEqual(listed.objects.map((o: any) => o.key).filter((k: string) => !k.startsWith("runs/")), ["notes/two", "scripts/kept"]);
+  assert.deepEqual(listed.usage, { objects: 2, bytes: listed.objects.filter((o: any) => !o.key.startsWith("runs/")).reduce((n: number, o: any) => n + o.bytes, 0) }, "usage is recounted per partition");
+  assert.equal((await ann.c.query(api.code.objects.list, {})).objects.filter((o: any) => o.key.startsWith("notes/")).length, 2, "the whole store still holds game 1's note");
+
+  assert.deepEqual(await migrateAssistant(), { threads: 0, objects: 0, usage: 0 }, "idempotent");
 });
