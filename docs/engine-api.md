@@ -84,6 +84,10 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
   a revoked, expired or unknown one adds `error="invalid_token"`.
 - **Permissions.** `tools/list` lists only the tools the grant allows; every call is checked again in
   Convex. An owner grant whose human no longer owns the room is not a principal at all.
+- **Listing.** Each tool carries its full description and input schema, plus a one-line form in
+  `_meta["io.codegods/short"]` for clients that build a lightweight index. The guidance for a kind of task is a
+  skill: the server instructions index them (`game-rules`, `writing-agents`, `screen`, `game-setups`) and
+  `load_skill {name}` returns one with the room's live data (docs/assistant/token-efficiency.md).
 - **Results.** `structuredContent` (also as JSON text) is `{untrusted: true, notice, data, nextCursor?,
   truncated?}`: `data` is game data written by players. Paged tools return `nextCursor` (pass it back as
   their cursor argument; null at the end); results are bounded to about 80 KB. A refusal is a tool result
@@ -102,6 +106,7 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `evaluate_value` | read | `value` → `{ordinal, rewardBits, netBits, penalty?}` with YOUR utility in the current game |
 | `get_chat` | read | `cursor?, limit≤100` → `{messages}`, `nextCursor` (an opaque string: the next older page; null at the end) |
 | `get_receipt` | read | `commandId` → `{status: received\|pending\|failed\|not_found, receipt?, error?}` |
+| `load_skill` | read | `{name}` (`game-rules`, `writing-agents`, `screen`, `game-setups`) → `{name, body}`: the skill's guidance with the live parts it reads as the caller (the room's rules; the room language's helpers and the caller's utility source; the panel catalogue) |
 | `validate_agent`, `summon_agent` | act | `source, language?, commandId (summon: required), gameId?, waitMs≤120000 (default 90000)` |
 | `destroy_agent` | act | `agentId, commandId, gameId?` |
 | `set_ready`, `send_chat` | act | `ready` / `text`, `commandId?` |
