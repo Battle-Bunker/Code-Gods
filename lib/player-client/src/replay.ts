@@ -243,3 +243,66 @@ export function godEnergyAt(replay: Replay, state: ReplayState, index: number): 
   const at = Math.min(Math.max(state.at, replay.game.startedAt), end);
   return s.startingEnergy + (at - replay.game.startedAt) / 1000 * s.energyPerSecond - state.spent[index];
 }
+
+/**
+ * Every god's exact total over the game, for score curves: a point before the first event and one after each event
+ * (roster order in `totals`), downsampled to at most `maxPoints` (the last state in each bucket, and always the end)
+ * only for drawing; `stateAt` stays exact at every event.
+ */
+export function scoreSeries(replay: Replay, maxPoints = 2000) {
+  const n = replay.log.length, gods = replay.game.roster.length;
+  const step = Math.max(1, Math.ceil(n / (Math.max(2, maxPoints) - 1)));
+  const cursor: number[] = [], world: number[] = [], totals: number[][] = Array.from({ length: gods }, () => []);
+  const push = (c: number, w: number, t: readonly number[]) => { cursor.push(c); world.push(w); t.forEach((v, i) => totals[i].push(v)); };
+  const state = emptyState(gods);
+  push(0, 0, state.totals);
+  replay.log.forEach((entry, i) => {
+    applyEntry(state, entry, replay.game.settings, replay.roster);
+    if ((i + 1) % step === 0 || i === n - 1) push(i + 1, state.world, state.totals);
+  });
+  return { cursor, world, totals };
+}
+
+/** A moment worth jumping to; `cursor` is the events applied once it has happened. */
+export type KeyMoment = {
+  cursor: number; world: number;
+  kind: "phase" | "summon" | "lead" | "swing";
+  /** The god it is about (roster index), when one. */
+  god?: number;
+  /** phase: the phase; swing: the change of that god's total. */
+  phase?: string; delta?: number; reason?: string;
+};
+
+/**
+ * The game's key moments, in log order: every phase change, each god's first summon, every new sole leader (one who
+ * retakes the lead after a tie has not changed), and
+ * the `swings` largest single-event changes of any god's total.
+ */
+export function keyMoments(replay: Replay, swings = 8): KeyMoment[] {
+  const out: KeyMoment[] = [], changes: KeyMoment[] = [];
+  const state = emptyState(replay.game.roster.length);
+  const summoned = new Set<string>();
+  // The last SOLE leader: a tie does not reset it, so retaking the lead after a tie is not a change.
+  let leader = -1;
+  replay.log.forEach((entry, i) => {
+    const before = [...state.totals];
+    applyEntry(state, entry, replay.game.settings, replay.roster);
+    const cursor = i + 1, world = state.world, ev = entry.event;
+    if (ev.type === "phase") out.push({ cursor, world, kind: "phase", phase: ev.phase, ...(ev.reason ? { reason: ev.reason } : {}) });
+    if (ev.type === "agent.summoned" && !summoned.has(ev.ownerId)) {
+      summoned.add(ev.ownerId);
+      const god = replay.roster.get(ev.ownerId);
+      if (god !== undefined) out.push({ cursor, world, kind: "summon", god });
+    }
+    if (ev.type !== "object.spawned" && ev.type !== "object.transformed") return;
+    state.totals.forEach((t, god) => { if (t !== before[god]) changes.push({ cursor, world, kind: "swing", god, delta: t - before[god] }); });
+    const best = Math.max(...state.totals);
+    const leaders = state.totals.flatMap((t, god) => (t === best ? [god] : []));
+    if (leaders.length === 1 && leaders[0] !== leader) {
+      leader = leaders[0];
+      out.push({ cursor, world, kind: "lead", god: leader });
+    }
+  });
+  const top = [...changes].sort((a, b) => Math.abs(b.delta!) - Math.abs(a.delta!)).slice(0, swings);
+  return [...out, ...top].sort((a, b) => a.cursor - b.cursor || (a.god ?? -1) - (b.god ?? -1));
+}

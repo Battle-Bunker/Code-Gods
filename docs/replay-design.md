@@ -13,7 +13,7 @@ This document records how the engine makes that possible (§1–§3: the event l
 replay API) and how the player client presents it (§4 onwards: the replay view).
 
 Status: §1–§3 shipped with the event-log completeness change (PR #80) and the transparent replay (schema 3, replay API
-version 2). §4–§10 are the view's design; the mockups are
+version 2, PR #98); the replay page shipped as §4a. §4–§10 remain the design for the rest; its mockups are
 in `docs/screenshots/replay/` (`mockup.html`, rendered by `render.mjs`).
 
 ## 1. Re-simulate or play back?
@@ -152,6 +152,47 @@ descriptor and agent source, the AI seat's prompt and the end deadline. `test/mc
 
 The frozen end state's own reads (observation, events, history: PR #47) keep their projection: they serve the player's
 own panels. Everything else about an ended game is in its replay.
+
+## 4a. What shipped first: the replay page (Phase 3)
+
+| The middle of a real game | An agent's code from the timeline | Phone |
+|---|---|---|
+| ![Replay](screenshots/replay/replay-mid.png) | ![Agent code](screenshots/replay/replay-agent-code.png) | ![Phone](screenshots/replay/replay-phone.png) |
+
+The first build is the replay **page** of an ended game, `{base}rooms/:room/games/:game` (`artifacts/player-web/src/core/replay/`),
+above its final state. An ended game opens there, the room's latest one included (`games.resolve` reports `ended`); a
+live game still plays on the room's screen. The page is the owner's "timeline of events that plays at configurable
+speed or event by event", fully revealed:
+
+- **Transport strip** (sticky): previous/next key moment, previous/next event, play/pause, speed (¼× to 64× world
+  seconds per second; quiet stretches longer than two seconds of playback are skipped), the world clock, the event
+  counter, a scrubber over events with key-moment ticks, and Link. Keys: Space, ←/→, Shift+←/→, Home/End, `[`/`]`.
+- **Board**: every object at the playhead, ranked by the payoff of the god chosen in "seen as" (default: you), with
+  that god's bits × the others' care; the object the last event touched is highlighted.
+- **Events**: the log around the playhead, each event a sentence naming the god behind it (in that god's colour), a
+  transformation drawn before → after with its calls, and `code` opening the agent's source, owner, language, price
+  and acts. Clicking an event moves the playhead there.
+- **Scores**: every god's exact total over world time (`scoreSeries`, one point per event, downsampled only for
+  drawing past 2,000 points), lead changes as dashed rules, the playhead; the standings and every god's energy at the
+  playhead. Clicking the chart seeks.
+- **Agents** at the playhead (every god's, destroyed ones faded), **chat** synced to the playhead (later messages
+  faded, a click seeks), and **every player's goal card** with its score at the playhead, AI seats with their model and
+  instructions.
+- **Deep links**: `?e=<event>` or `?t=<world seconds>`, `&speed=`, `&play=1`, `&as=<god id>`; the URL follows the
+  playhead whenever it stops.
+
+The page loads every replay page before it opens (a progress line counts the events read), then folds the log once:
+the playhead, a deep link past the first page and the curves all need the whole log. Scrubbing while loading (§9) is
+for the dock mode.
+
+Checked in a browser on a real local game by `artifacts/player-web/e2e/replay-shot.ts` (an ended game opens at its
+end with every goal card; `?e=` reopens that event; next steps one; the URL follows; an agent's code opens from the
+timeline; play moves the playhead), which also renders the screenshots above.
+
+**Not yet:** the replay mode of the dock (§4 below: the built-in and stored panels served from the replay through
+`useSdkQuery`), the Timeline as a dock panel, animated board changes (§6; changes are highlighted, not animated), and
+the assistant's playhead context (§8). The page uses the same reducer and API the dock mode will, so these are
+additions, not rewrites.
 
 ## 4. The view: a replay mode of the dock, not a separate app
 

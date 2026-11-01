@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseRoute, routeHref } from "../src/core/routes.ts";
+import { carriedSearch, parseRoute, routeHref } from "../src/core/routes.ts";
 
 test("routes parse under any base path", () => {
   for (const base of ["/client/", "/", "/some/proxy/"]) {
@@ -51,4 +51,10 @@ test("engine UI links point at the engine's site, wherever the client runs (a de
   assert.equal(enginePageHref("https://dep.convex.site", { room: "AB12" }), "https://dep.convex.site/rooms/AB12");
   assert.equal(enginePageHref("https://dep.convex.site/", { room: "AB 12", game: "G9" }), "https://dep.convex.site/rooms/AB%2012/games/G9");
   assert.equal(enginePageHref(undefined, { room: "AB12" }), "/rooms/AB12", "unknown engine: this origin (the hosted client)");
+});
+
+test("navigation carries the page's own parameters, never a replay's position (it belongs to one game's page)", () => {
+  assert.equal(carriedSearch("?panels=off&e=40&as=g2&speed=8&play=1&t=3"), "?panels=off");
+  assert.equal(carriedSearch("?e=40"), "");
+  assert.equal(carriedSearch(""), "");
 });

@@ -46,7 +46,7 @@ export async function publicGameView(ctx: QueryCtx, game: Doc<"games">, room: Do
   };
 }
 
-/** Resolve a game link: its canonical codes and whether it is the room's current game or a historical one. */
+/** Resolve a game link: its canonical codes, whether it is the room's current game or a historical one, and whether it has ended (its replay is open). */
 export const resolve = query({
   args: { code: v.string() },
   handler: async (ctx, { code }) => {
@@ -54,6 +54,7 @@ export const resolve = query({
     return {
       id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId, roomShortCode: room?.shortCode ?? null,
       status: !room ? "unavailable" as const : isHistoric(room, game) ? "historical" as const : "current" as const,
+      ended: game.phase === "ended",
     };
   },
 });

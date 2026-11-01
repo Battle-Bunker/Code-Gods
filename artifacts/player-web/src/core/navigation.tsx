@@ -3,7 +3,7 @@
  * (Vite's BASE_URL: "/client/" hosted by the engine, "/" on a dev server). No router library: four routes.
  */
 import { useCallback, useEffect, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent } from "react";
-import { parseRoute, routeHref, type ClientRoute, type ParsedRoute } from "./routes";
+import { carriedSearch, parseRoute, routeHref, type ClientRoute, type ParsedRoute } from "./routes";
 
 export const BASE = import.meta.env.BASE_URL;
 const listeners = new Set<() => void>();
@@ -36,7 +36,7 @@ export function useClientRoute(): ClientRoute {
 }
 
 /** The href of a route, keeping the page's own query parameters (?panels=off) across navigation. */
-export const hrefTo = (route: Exclude<ClientRoute, { kind: "legacyGame" }>) => routeHref(BASE, route, location.search);
+export const hrefTo = (route: Exclude<ClientRoute, { kind: "legacyGame" }>) => routeHref(BASE, route, carriedSearch(location.search));
 
 /** An in-app link: a real href (open in a new tab works), navigated without a page load on a plain click. */
 export function Link({ to, onClick, ...rest }: { to: Exclude<ClientRoute, { kind: "legacyGame" }> } & AnchorHTMLAttributes<HTMLAnchorElement>) {
