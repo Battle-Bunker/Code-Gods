@@ -433,6 +433,12 @@ probe merges; "ready" includes the client round trip). Before = §9.1 (one actio
 | Int(0,2147483647), many-faced | 8 pieces | 9 | 11.7–12.5 s | 13.0 s | 89.2 s |
 | string(16) | 5 | 10 | 2.2–9.2 s | 9.7 s | 11.7 s |
 
+Confirmed after the 10 s target deployed (PR #70): Grid(4,base10,rgby) 18.1 s (30 actions; twin_friends now 2 pieces,
+12–16 s), Grid(5,base12,rgb) 10.1 s (27 actions, every table 8 pieces). Through the engine's own fan-out
+(`calibration/compute:prepare` on a range nobody had computed, Int(0,2147483646), with truncation-saint, many-faced and
+an analytic digit-devotee; claims, scheduled pieces, `pieceFinished`, `merge`, polled every ~5 s): analytic at once,
+both sampled tables ready after 35 s (merges 48 and 58 ms), warm resolution 60 ms (B2: 252 s).
+
 What this says:
 
 - **The split works where the wall was one slow table**: 6×6 128 → 21 s, 5×5 70 → 25 s, Int 237 → 32 s.
