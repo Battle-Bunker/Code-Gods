@@ -120,3 +120,33 @@ test("a real turn streams; the next resolves a tool through the registry over th
   }
   console.log(`[live] allowance used ${status.allowance.used}; turn 1: ${t.flushes.length} flushes; turn 3 answer: ${w.text.replace(/\s+/g, " ").slice(0, 200)}`);
 });
+
+test("a real model ranks the player's top objects with run_code and shows the table in a code-output pane", { skip, timeout: 360_000 }, async () => {
+  const members = await gods("Ria Live", "Sam Live", "Tom Live");
+  await touch(members[0]);
+  const { roomId } = await roomWith(members, settings);
+  const [ria] = members;
+  await ria.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 200_000, assistantModel: MODEL });
+  await ria.c.action(api.owner.start, { roomId });
+  const sent = await ria.c.mutation(api.assistant.send, { roomId, text: "Rank my top 5 objects by payoff and show a table." });
+  const t = await follow(ria, sent);
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const calls = t.calls.map((c: any) => `${c.tool}:${c.status}:${c.summary}`);
+  const runs = t.calls.filter((c: any) => c.tool === "run_code");
+  assert.ok(runs.length >= 1, `run_code was called: ${calls.join(" | ")} — ${t.text.slice(0, 300)}`);
+  const ok = runs.map((c: any) => JSON.parse(c.resultJson).data).find((d: any) => d.status === "ok");
+  assert.ok(ok, `a run succeeded: ${calls.join(" | ")}`);
+  // The expectation is the player's own observation: the top 5 object ids by payoff.
+  const observation = await ria.c.query(api.player.observation, { roomId });
+  const top = [...observation.objects].sort((a: any, b: any) => b.payoff - a.payoff).slice(0, 5).map((o: any) => o.id);
+  const shown = JSON.stringify(ok.result ?? ok.resultPreview);
+  for (const id of top) assert.ok(shown.includes(id), `the run's result names ${id}: ${shown.slice(0, 400)}`);
+  const opened = t.calls.find((c: any) => c.tool === "open_panel" && c.status === "ok" && JSON.parse(c.argsJson).panelId === "code-output");
+  assert.ok(opened, `the result was shown in code-output: ${calls.join(" | ")}`);
+  const current = await ria.c.query(api.layout.current, { roomId });
+  const pane = Object.values(current.layout.panes).find((p: any) => p.panelId === "code-output") as any;
+  assert.ok(pane, "a code-output pane is on screen");
+  const run = await ria.c.query(api.code.runs.get, { roomId, ...(pane.params?.runId ? { runId: pane.params.runId } : {}) });
+  assert.equal(run.status, "ok");
+  console.log(JSON.stringify({ calls, cpuMs: run.cpuMs, usage: t.turn.usage, text: t.text.slice(0, 300) }));
+});

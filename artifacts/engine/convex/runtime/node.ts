@@ -104,3 +104,18 @@ const runtimes: Partial<Record<Language, GameRuntime>> = {};
 export function runtimeFor(language: Language): GameRuntime {
   return (runtimes[language] ??= createRuntime(RUNTIME_OPTIONS[language]));
 }
+
+/**
+ * Analytics scripts (run_code; docs/assistant/code-execution.md §2): pools of their own, so a ten-second script never
+ * delays an agent's act. One engine each. The Python pool shares the agents' compiled reactor and initialized snapshot
+ * (same `assets` hook, so no second bootstrap: about 100 ms to start a worker); the TypeScript pool has one QuickJS
+ * executor and a compiler worker that only transpiles and stops after 60 s idle.
+ */
+export const SCRIPT_OPTIONS: Record<Language, RuntimeOptions> = {
+  python: { language: "python", workers: 1, queueLimit: 8, assets: pythonBundle },
+  get typescript(): RuntimeOptions { return { language: "typescript", workers: 1, queueLimit: 8, typescriptFiles: typescriptFiles() }; },
+};
+const scriptRuntimes: Partial<Record<Language, GameRuntime>> = {};
+export function scriptRuntimeFor(language: Language): GameRuntime {
+  return (scriptRuntimes[language] ??= createRuntime(SCRIPT_OPTIONS[language]));
+}

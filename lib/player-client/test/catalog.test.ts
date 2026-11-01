@@ -31,7 +31,7 @@ test("the catalogue lists exactly the public functions in the engine's sources, 
   const found = walkPublicFunctions();
   assert.deepEqual([...CATALOG_PATHS].sort(), [...found.keys()].sort());
   for (const [path, kind] of found) assert.equal(CATALOG[path as keyof typeof CATALOG].kind, kind, `${path} is a ${kind}`);
-  assert.equal(found.size, 64);
+  assert.equal(found.size, 66);
   assert.ok(found.has("layout.current") && found.has("layout.set") && !found.has("panels.place") && !found.has("panels.layout"));
 });
 
@@ -63,7 +63,7 @@ test("tools and entries agree in both directions; kinds match annotations", () =
   // The registry covers every tool name the catalogue mentions.
   const mentioned = new Set(CATALOG_PATHS.flatMap(p => CATALOG[p].tools));
   for (const name of mentioned) assert.ok(tool(name), `${name} exists`);
-  assert.equal(mentioned.size, TOOLS.length - 1, "every tool but evaluate_value (engine-internal) is reachable from an entry");
+  assert.equal(mentioned.size, TOOLS.length - 2, "every tool but evaluate_value and run_code (engine-internal) is reachable from an entry");
 });
 
 test("human text is short, verb-first and never model instructions; AI text is bounded; titles are unique", () => {

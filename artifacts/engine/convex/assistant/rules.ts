@@ -193,6 +193,7 @@ export function outputCeiling(turnCeiling: number | undefined, messages: ChatMes
  */
 export function argsLimit(tool: string): number {
   if (tool === "save_panel") return 70_000;
+  if (tool === "run_code") return 72_000;
   if (tool === "validate_agent" || tool === "summon_agent") return 20_000;
   // A forge draft (open_panel forge {source}) is an agent source too.
   if (tool === "open_panel" || tool === "set_panel_params") return 20_000;
@@ -218,6 +219,10 @@ export function summarize(tool: string, result: { data: unknown }): string {
   }
   if (tool === "load_skill") return line(`Read the ${String((data as { name?: unknown }).name ?? "")} skill`);
   if (OWNER.has(tool) && data.requestId) return "Done";
+  if (tool === "run_code") {
+    const run = data as { status?: string; cpuMs?: number; error?: { code?: string; message?: string } };
+    return run.status === "ok" ? `Ran in ${((run.cpuMs ?? 0) / 1000).toFixed(1)} s` : line(`${run.error?.code ?? "Error"}: ${run.error?.message ?? "the script failed"}`);
+  }
   if (findTool(tool)?.annotations.readOnlyHint) return "Read";
   return "Done";
 }

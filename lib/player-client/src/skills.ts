@@ -10,6 +10,7 @@
  * test/skills.test.ts checks every skill renders within SKILL_LIMITS from empty and from realistic data.
  */
 import { PRIMER_AGENTS, PRIMER_SCORING } from "./primer.ts";
+import { ANALYTICS_CODE_SKILL } from "./skills/analytics-code.ts";
 
 export type SkillRead = "rules" | "observation" | "layout";
 /** `tools`: the registry tools the skill's task calls (as the Agent Skills spec's allowed-tools): loading the skill loads those the grant may use. */
@@ -22,6 +23,8 @@ export const SKILLS = [
   { name: "screen", description: "The player's screen: panes, every built-in panel with its parameters, and when to open, change, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: listing, copying, saving and switching the room's setup (owners), and what each choice changes.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
+  { name: "analytics-code", description: "Tables, rankings and statistics over the game's data with run_code (shown in code-output): dataset shapes, libraries, examples. Load for any table.", reads: [],
+    tools: ["run_code", "get_code_run", "list_code_runs"] },
 ] as const satisfies readonly SkillEntry[];
 export type SkillName = (typeof SKILLS)[number]["name"];
 export const SKILL_NAMES = SKILLS.map(s => s.name) as unknown as readonly [SkillName, ...SkillName[]];
@@ -130,6 +133,8 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     const catalog = panelCatalogLines(data.layout);
     parts.push(catalog.length ? ["Built-in panels (open_panel {panelId, params}; get_layout has each parameter's JSON Schema):", ...catalog].join("\n")
       : "The panel catalogue could not be read: call get_layout.");
+  } else if (name === "analytics-code") {
+    parts.push(ANALYTICS_CODE_SKILL);
   } else {
     parts.push(SETUPS);
   }

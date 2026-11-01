@@ -11,6 +11,10 @@
     "./benchmark": {
       "types": "./benchmark.d.ts",
       "default": "./benchmark.mjs"
+    },
+    "./bundle": {
+      "types": "./engine/bundle.d.ts",
+      "default": "./engine/bundle.mjs"
     }
   },
   "scripts": {

@@ -27,6 +27,7 @@ import { CATALOG, type CatalogEntry } from "./catalog.ts";
 import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
 import { placeSchema } from "./layout.ts";
+import { DATASET_NAMES } from "./datasets.ts";
 import { VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -278,7 +279,43 @@ export const LAYOUT_TOOLS = [
     input: obj({ paneId }), output: result(layoutData) }),
 ] as const;
 
-export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS] as const;
+/**
+ * Code execution (docs/assistant/code-execution.md): analytics scripts over datasets the engine resolves as the player,
+ * in the agents' sandbox (convex/code). Reads only: a script cannot act in the game, so no confirmation card; a
+ * per-player budget of runs and CPU per game applies. The analytics-code skill (skills.ts; load_skill) has the dataset
+ * shapes, libraries, conventions and examples. All three tools sit in the index, loaded on demand.
+ */
+const datasetName = z.enum(DATASET_NAMES);
+const datasetRequest = z.union([datasetName, obj({
+  name: datasetName,
+  gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset)."),
+  limit: z.number().int().min(1).max(2000).optional().describe("events, trajectories, game_history: at most this many tick batches."),
+})]);
+const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
+export const CODE_TOOLS = [
+  def({ name: "run_code", short: "Run a Python or TypeScript analytics script server-side over named datasets (reads only).", title: "Run analytics code", functions: [], permission: "read", annotations: read,
+    about: "Run a short Python or TypeScript analytics script server-side in the sandbox: it defines main(data), where data holds the datasets you name "
+      + "(fetched by the engine as the player; they never pass through this conversation) plus params. Returns main's JSON result and printed text, "
+      + "clipped (TRUNCATED; get_code_run has the rest), and a runId; open_panel {panelId: code-output, params: {runId}} shows it to the player as a table. "
+      + "Reads only; a per-game budget of runs and CPU applies. Call load_skill {name: analytics-code} first for the dataset shapes and conventions.",
+    input: obj({
+      language: language.describe("python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript."),
+      source: z.string().min(1).max(65536).describe("The script: defines main(data) and returns JSON data (a list of rows for a table)."),
+      datasets: z.array(datasetRequest).max(DATASET_NAMES.length).default([]).describe(`Inputs, each data[name]: ${DATASET_NAMES.join(", ")}.`),
+      params: z.record(z.string(), z.unknown()).optional().describe("Extra JSON values, as data.params."),
+      title: z.string().trim().min(1).max(80).optional().describe("A short name for the run (the panel's caption)."),
+      cpuSeconds: z.number().min(0.1).max(20).optional().describe("CPU budget in seconds (default 10)."),
+    }), output: result(anyData) }),
+  def({ name: "get_code_run", short: "Page through a code run's full result, printed output or source.", title: "Read a code run", functions: ["code.runs.get"], permission: "read", annotations: read,
+    note: "A slice of a run's full result JSON, printed output or source, from offset (nextOffset pages on); or its summary without part.",
+    input: obj({ runId, part: z.enum(["result", "output", "source"]).optional(), offset: z.number().int().min(0).default(0),
+      length: z.number().int().min(100).max(6000).default(4000) }), output: result(anyData) }),
+  def({ name: "list_code_runs", short: "The player's recent code runs in this room and the game's run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
+    note: "Your recent runs in this room, newest first, with this game's budget left.",
+    input: obj({ limit: z.number().int().min(1).max(50).default(10) }), output: result(anyData) }),
+] as const;
+
+export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS, CODE_TOOLS] as const;
 /**
  * The tools an assistant keeps loaded at every step (the cached prefix): the reads and screen changes nearly every
  * question uses, public chat, and the skill loader. Every other tool is a line of the index, loaded on demand.

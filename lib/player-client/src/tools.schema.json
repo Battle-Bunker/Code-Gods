@@ -674,7 +674,8 @@
             "game-rules",
             "writing-agents",
             "screen",
-            "game-setups"
+            "game-setups",
+            "analytics-code"
           ]
         }
       },
@@ -2675,7 +2676,8 @@
             "public-chat",
             "forge",
             "results",
-            "rules"
+            "rules",
+            "code-output"
           ]
         },
         "slug": {
@@ -3015,6 +3017,282 @@
           ],
           "additionalProperties": false
         },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "run_code": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "language": {
+          "description": "python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript.",
+          "type": "string",
+          "enum": [
+            "python",
+            "typescript"
+          ]
+        },
+        "source": {
+          "description": "The script: defines main(data) and returns JSON data (a list of rows for a table).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "datasets": {
+          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history.",
+          "default": [],
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "objects",
+                  "my_utility",
+                  "agents",
+                  "leaderboard",
+                  "observation",
+                  "events",
+                  "trajectories",
+                  "chat",
+                  "settings",
+                  "rules",
+                  "games",
+                  "game_history"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": [
+                      "objects",
+                      "my_utility",
+                      "agents",
+                      "leaderboard",
+                      "observation",
+                      "events",
+                      "trajectories",
+                      "chat",
+                      "settings",
+                      "rules",
+                      "games",
+                      "game_history"
+                    ]
+                  },
+                  "gameId": {
+                    "description": "events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset).",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "limit": {
+                    "description": "events, trajectories, game_history: at most this many tick batches.",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2000
+                  }
+                },
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "params": {
+          "description": "Extra JSON values, as data.params.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "title": {
+          "description": "A short name for the run (the panel's caption).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "cpuSeconds": {
+          "description": "CPU budget in seconds (default 10).",
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 20
+        }
+      },
+      "required": [
+        "language",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_code_run": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "runId": {
+          "description": "A run's id (run_code's runId, or list_code_runs).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "part": {
+          "type": "string",
+          "enum": [
+            "result",
+            "output",
+            "source"
+          ]
+        },
+        "offset": {
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "length": {
+          "default": 4000,
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 6000
+        }
+      },
+      "required": [
+        "runId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_code_runs": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "default": 10,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
         "nextCursor": {
           "description": "Pass back as the cursor argument for the next page; null when there is none.",
           "anyOf": [
