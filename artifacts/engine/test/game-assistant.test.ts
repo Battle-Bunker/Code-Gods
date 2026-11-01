@@ -503,7 +503,7 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
   assert.equal(status.activeTurn, null);
   assert.deepEqual([status.allowance.epoch, status.allowance.used], [game2.gameId, 0], "a fresh allowance for the new game");
   assert.deepEqual(await ann.c.query(api.assistant.threads, { roomId }), [], "no conversation yet in this game");
-  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: "continue" })), "CONFLICT", "game 1's thread cannot be continued");
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, gameId: game2.gameId, threadId: first.threadId, text: "continue" })), "CONFLICT", "game 1's thread cannot be continued");
 
   // A new conversation: nothing earlier in its history, no run or note of game 1; the saved script stays the player's.
   const fresh = await ann.c.mutation(api.assistant.send, { roomId, text: mock([

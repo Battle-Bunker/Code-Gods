@@ -1,15 +1,17 @@
 /**
  * Updating a running client after a deploy, so nobody has to know about deploys or refresh.
  *
- * The signal: every hosted build carries its id in index.html (`<meta name="code-gods-build">`, written by the
- * Vite plugin in `./vite-build-id`), and deploy-static records each uploaded build in the engine. The public query
- * `version:current` answers, per site ("engine" UI at /, "player" client at /client/, and "functions"), the live
- * build and the recent ones. A page whose build is a recent but not the live one is outdated.
+ * The signal: every hosted build carries its id in index.html (`<meta name="code-gods-build">`, a hash of the whole
+ * build stamped by the engine's scripts/deploy-static.mjs), and deploy-static records each uploaded build in the
+ * engine. The public query `version:current` answers, per site ("engine" UI at /, "player" client at /client/, and
+ * "functions"), the live build, and whether the asking page's own build was ever deployed (`known`). A known build
+ * that is not the live one is outdated.
  *
  * - **Hosted builds** (`startAutoUpdate` with `reload: true`) update themselves at a safe moment: at once when the
  *   tab is hidden or idle, after a short visible countdown when nobody is typing and no draft is open, and otherwise
- *   at the next safe moment, with a one-click banner meanwhile. Drafts registered with `registerDraft` are saved
- *   before the reload and restored after it; other non-empty text input blocks the automatic reload altogether.
+ *   at the next safe moment, with a one-click banner meanwhile; never while a request is in flight. Drafts registered
+ *   with `registerDraft` are saved before the reload and restored after it; text in a textarea or editor, in the
+ *   focused field, or in an element marked `data-unsaved="true"` blocks the automatic reload altogether.
  *   `location.reload()` keeps the URL, so the route survives.
  * - **Compatibility guard**: a call the server rejects because the client is too old (the error code
  *   `CLIENT_OUTDATED`, or the argument/unknown-function errors a newer server gives an older client) takes the
@@ -26,14 +28,16 @@ import { BUILD_META, readBuildMeta } from "./build-meta.ts";
 export { BUILD_META, readBuildMeta };
 export type HostedSite = "engine" | "player";
 export type VersionSite = HostedSite | "functions";
-/** One site's live build, and its recent builds newest first (the live one included). */
-export interface SiteVersion { build: string; deployedAt: number; recent: string[] }
-export type EngineVersion = Record<VersionSite, SiteVersion | null>;
+/** One site's live build and when it was recorded. */
+export interface SiteVersion { build: string; deployedAt: number }
+/** `version:current`: per site the live build; `known` when asked with a page's own build (was it ever deployed?). */
+export type EngineVersion = Record<VersionSite, SiteVersion | null> & { known?: boolean };
+export interface OwnBuild { site: HostedSite; build: string }
 
 export const UPDATE_TIMING = {
   /** No pointer or key input for this long: the tab is idle and reloads at once. */
   idleMs: 60_000,
-  /** The visible "Updated: reloading in…" countdown on an untouched page. */
+  /** The visible "Updated: reloading in…" countdown on an untouched page; any input starts it again. */
   countdownMs: 5_000,
   /** A keystroke this recent holds even an urgent reload. */
   typingMs: 2_000,
@@ -46,13 +50,14 @@ export const UPDATE_TIMING = {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * current: this is the live build. outdated: an earlier recorded build. unknown: no build id (dev server), nothing
- * recorded, or a build not recorded yet (uploaded a moment before deploy-static records it): never act on unknown.
+ * current: this is the live build. outdated: a build deployed here before (`known`). unknown: no build id (dev
+ * server), nothing recorded, or a build not recorded (yet: uploaded a moment before deploy-static records it, or
+ * another deployment's): never act on unknown.
  */
-export function assessBuild(own: string | null, site: SiteVersion | null): "current" | "outdated" | "unknown" {
+export function assessBuild(own: string | null, site: SiteVersion | null, known: boolean | undefined): "current" | "outdated" | "unknown" {
   if (!own || !site) return "unknown";
   if (own === site.build) return "current";
-  return site.recent.includes(own) ? "outdated" : "unknown";
+  return known ? "outdated" : "unknown";
 }
 
 export type Incompatibility = "client-outdated" | "shape";
@@ -67,8 +72,8 @@ export function incompatibility(error: unknown): Incompatibility | null {
 }
 
 /** What to update to, and whether it is urgent; null: stay. */
-export function updateTarget(own: string | null, site: SiteVersion | null, seen: Incompatibility | null): { target: string; urgent: boolean } | null {
-  const state = assessBuild(own, site);
+export function updateTarget(own: string | null, site: SiteVersion | null, known: boolean | undefined, seen: Incompatibility | null): { target: string; urgent: boolean } | null {
+  const state = assessBuild(own, site, known);
   if (state === "outdated") return { target: site!.build, urgent: seen !== null };
   // The functions can go out minutes before the static site: a current build waits for the next one to be recorded.
   if (state === "current" || !own) return null;
@@ -88,19 +93,24 @@ export interface Safety {
   draftOpen: boolean;
   /** Text input that nothing persists: never reload over it automatically. */
   unsaved: boolean;
+  /** A mutation or action is in flight: a reload would drop it. */
+  busy: boolean;
   urgent: boolean;
   /** When the visible countdown started, or null. */
   countdownSince: number | null;
 }
-export type Decision = { action: "reload" } | { action: "countdown"; remainingMs: number } | { action: "wait"; reason: "unsaved" | "draft" };
+export type Decision = { action: "reload" } | { action: "countdown"; remainingMs: number } | { action: "wait"; reason: "unsaved" | "draft" | "busy" };
 
 /** The safe-moment rule. */
 export function decideUpdate(s: Safety): Decision {
   if (s.unsaved) return { action: "wait", reason: "unsaved" };
+  if (s.busy) return { action: "wait", reason: "busy" };
   if (s.hidden || s.now - s.lastInputAt >= UPDATE_TIMING.idleMs) return { action: "reload" };
   if (s.urgent) return s.now - s.lastKeyAt < UPDATE_TIMING.typingMs ? { action: "wait", reason: "draft" } : { action: "reload" };
   if (s.draftOpen || s.editing) return { action: "wait", reason: "draft" };
-  const remainingMs = s.countdownSince === null ? UPDATE_TIMING.countdownMs : UPDATE_TIMING.countdownMs - (s.now - s.countdownSince);
+  // Counted from the later of the countdown's start and the last input: a player clicking or dragging is never cut off.
+  const since = Math.max(s.countdownSince ?? s.now, s.lastInputAt);
+  const remainingMs = UPDATE_TIMING.countdownMs - (s.now - since);
   return remainingMs <= 0 ? { action: "reload" } : { action: "countdown", remainingMs };
 }
 
@@ -115,25 +125,27 @@ export function mayReload(mark: ReloadMark | null, target: string, now: number):
 // ---------------------------------------------------------------------------------------------
 
 type QueryRef = typeof api.version.current;
+type QueryArgs = { own?: OwnBuild };
 /** A ConvexClient (`convex/browser`) or ConvexReactClient (`convex/react`). */
 export type VersionClient =
-  | { onUpdate(query: QueryRef, args: Record<string, never>, cb: (v: EngineVersion) => void, onError?: (e: Error) => void): unknown }
-  | { watchQuery(query: QueryRef, args: Record<string, never>): { onUpdate(cb: () => void): () => void; localQueryResult(): EngineVersion | undefined } };
+  | { onUpdate(query: QueryRef, args: QueryArgs, cb: (v: EngineVersion) => void, onError?: (e: Error) => void): unknown }
+  | { watchQuery(query: QueryRef, args: QueryArgs): { onUpdate(cb: () => void): () => void; localQueryResult(): EngineVersion | undefined } };
 
 /**
  * Calls `onVersion` with the engine's deployed versions now and after every deploy. Returns an unsubscribe function.
- * For any client: compare `version.functions` with the first value to learn the engine changed, or your page's
- * build id (`ownBuild()`) with `version.engine`/`version.player` through `assessBuild`.
+ * For any client: compare `version.functions` with the first value to learn the engine changed; a hosted page passes
+ * its own build (`ownBuild()`) and reads `assessBuild(own, version[site], version.known)`.
  */
-export function watchEngineVersion(client: VersionClient, onVersion: (version: EngineVersion) => void): () => void {
+export function watchEngineVersion(client: VersionClient, onVersion: (version: EngineVersion) => void, own?: OwnBuild): () => void {
+  const args: QueryArgs = own ? { own } : {};
   if ("watchQuery" in client) {
-    const watch = client.watchQuery(api.version.current, {});
+    const watch = client.watchQuery(api.version.current, args);
     const emit = () => { try { const v = watch.localQueryResult(); if (v) onVersion(v); } catch { /* a failed read: wait for the next */ } };
     const stop = watch.onUpdate(emit);
     emit();
     return stop;
   }
-  const sub = client.onUpdate(api.version.current, {}, onVersion, () => { /* transient: the subscription retries */ });
+  const sub = client.onUpdate(api.version.current, args, onVersion, () => { /* transient: the subscription retries */ });
   return () => {
     if (typeof sub === "function") sub();
     else (sub as { unsubscribe?: () => void } | undefined)?.unsubscribe?.();
@@ -199,7 +211,8 @@ function textOf(el: HTMLElement): string {
 
 /**
  * Unsaved text: a non-empty textarea or editor, the focused text field once it has text, or anything marked
- * `data-unsaved="true"`; never an element a registered draft covers or one marked `data-update-safe`.
+ * `data-unsaved="true"`; never an element a registered draft covers or one marked `data-update-safe`. (Other inputs
+ * are not counted: a controlled input cannot tell typed text from a prefilled value.)
  */
 function pageSafety(): Pick<Safety, "editing" | "draftOpen" | "unsaved"> {
   const covered = (el: Element) => el.closest("[data-update-safe]") || [...drafts.values()].some(d => el.matches(d.selector));
@@ -209,7 +222,7 @@ function pageSafety(): Pick<Safety, "editing" | "draftOpen" | "unsaved"> {
   if (!unsaved) {
     for (const el of document.querySelectorAll<HTMLElement>(TEXT_INPUT)) {
       if (covered(el) || !textOf(el).trim() || !(el.matches('textarea, [contenteditable]') || el === active)) continue;
-      if (el.offsetParent === null && el !== active) continue;   // hidden fields are not the player's draft
+      if (el.getClientRects().length === 0 && el !== active) continue;   // undisplayed fields are not the player's draft
       unsaved = true; break;
     }
   }
@@ -277,6 +290,11 @@ export function startAutoUpdate(options: AutoUpdateOptions): AutoUpdate {
     banner.style.display = "flex";
   }
 
+  const site = () => (version ? version[options.site] : null);
+  const busy = () => {
+    try { return (options.client as { connectionState?: () => { hasInflightRequests?: boolean } }).connectionState?.().hasInflightRequests === true; }
+    catch { return false; }
+  };
   function readMark(): ReloadMark | null { try { return JSON.parse(session()?.getItem(MARK) ?? "null"); } catch { return null; } }
   function reload(target: string | null) {
     saveDrafts();
@@ -290,10 +308,15 @@ export function startAutoUpdate(options: AutoUpdateOptions): AutoUpdate {
       render(!dismissed && (changed || seen) ? "The engine was updated: this client may be out of date." : null, true);
       return;
     }
-    const goal = updateTarget(own, version ? version[options.site] : null, seen);
-    if (!goal) { countdownSince = null; render(seen === "client-outdated" ? "Updating to the new version…" : null); return; }
+    const goal = updateTarget(own, site(), version?.known, seen);
+    if (!goal) {
+      countdownSince = null;
+      if (timer) { clearInterval(timer); timer = null; }   // the next version or error evaluates again
+      render(seen === "client-outdated" ? "Updating to the new version…" : null);
+      return;
+    }
     const t = Date.now();
-    const decision = decideUpdate({ now: t, hidden: document.visibilityState === "hidden", lastInputAt, lastKeyAt, ...pageSafety(), urgent: goal.urgent, countdownSince });
+    const decision = decideUpdate({ now: t, hidden: document.visibilityState === "hidden", lastInputAt, lastKeyAt, ...pageSafety(), busy: busy(), urgent: goal.urgent, countdownSince });
     if (decision.action === "reload") {
       if (mayReload(readMark(), goal.target, t)) return reload(goal.target);
       countdownSince = null;
@@ -317,12 +340,15 @@ export function startAutoUpdate(options: AutoUpdateOptions): AutoUpdate {
     version = v;
     if (functionsAtLoad === undefined) functionsAtLoad = v.functions?.build ?? null;
     evaluate();
-  });
+  }, own ? { site: options.site, build: own } : undefined);
 
   const controller: AutoUpdate = {
     reportError(error) {
       const why = incompatibility(error);
       if (!why || seen === "client-outdated") return;
+      // A shape error counts only while this build is known to be old: on a current build it is a bug, not a cue,
+      // and it must not make every later update urgent.
+      if (why === "shape" && assessBuild(own, site(), version?.known) !== "outdated") return;
       seen = why;
       evaluate();
     },

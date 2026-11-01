@@ -361,19 +361,20 @@ mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", �
 
 ### Deployed versions (`version`)
 Open pages learn of a deploy and update themselves (`lib/player-client/src/update.ts`).
-- `version.current()` query (anyone, signed in or not) → per site `engine` (the engine UI at `/`), `player` (the player
-  client at `/client/`) and `functions`: `{build, deployedAt, recent[]}|null`, `recent` being the last 20 build ids,
-  newest first. Each hosted build carries its id in its index.html (`<meta name="code-gods-build" content="…">`, a
-  hash of the build's files, written by `lib/player-client/src/vite-build-id.ts`); `scripts/deploy-static.mjs` records
-  it after each upload, and the deploy workflow records the commit as the `functions` build after `convex deploy`.
-- A page whose build is in `recent` but is not `build` is outdated. A hosted page then reloads at a safe moment and
-  keeps its URL: at once when hidden or idle (60 s without input), after a 5-second "Updated — reloading in…"
-  countdown when nobody is typing and no draft is open, otherwise at the next safe moment with a "Reload now" banner.
-  Registered drafts (the assistant composer's) are saved for the reload and restored after it; other text in a field
-  never gets reloaded over automatically. A call rejected with `CLIENT_OUTDATED`, or with the argument or
-  unknown-function errors a newer server gives an older client, updates at once. A build not in `recent` (a dev
-  server, or one uploaded a moment before it is recorded) never reloads itself.
-- Other clients choose for themselves with `watchEngineVersion(client, cb)` from `@workspace/player-client/update`
+- `version.current({own?: {site: engine|player, build}})` query (anyone, signed in or not) → per site `engine` (the
+  engine UI at `/`), `player` (the player client at `/client/`) and `functions`: `{build, deployedAt}|null`, plus, with
+  `own`, `known`: whether that build was ever deployed here. `scripts/deploy-static.mjs` stamps each static build's
+  index.html with its id (`<meta name="code-gods-build" content="…">`, a hash of every file of the build) and records it
+  after the upload; the deploy workflow records the commit as the `functions` build after `convex deploy`.
+- A page whose build is known but is not the live one is outdated. A hosted page then reloads at a safe moment and keeps
+  its URL: at once when hidden or idle (60 s without input), after a 5-second "Updated — reloading in…" countdown
+  (restarted by any input) when nobody is typing and no draft is open, otherwise at the next safe moment with a
+  "Reload now" banner; never while a mutation or action is in flight. Registered drafts (the assistant composer's) are
+  saved for the reload and restored after it. Text in a textarea or editor, in the focused field, or in an element
+  marked `data-unsaved="true"` is never reloaded over automatically. A call rejected with `CLIENT_OUTDATED`, or (on a
+  build known to be old) with the argument or unknown-function errors a newer server gives an older client, updates
+  at once. An unknown build (a dev server, or one uploaded a moment before it is recorded) never reloads itself.
+- Other clients choose for themselves with `watchEngineVersion(client, cb, own?)` from `@workspace/player-client/update`
   (and `assessBuild`, `incompatibility`); a dev server of the player client only shows a dismissible note.
 - Internal: `version.record({site, build})` (deploys only).
 

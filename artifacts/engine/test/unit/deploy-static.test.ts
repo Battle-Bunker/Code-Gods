@@ -4,10 +4,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { buildIdOf, distHash } from "../../scripts/deploy-static.mjs";
+import { distHash, stampBuildId } from "../../scripts/deploy-static.mjs";
 import { readBuildMeta } from "@workspace/player-client/build-meta";
 
 function tree(files: Record<string, string>) {
@@ -55,13 +55,24 @@ test("distHash: the hash follows the tree, not the directory's own name", () => 
   } finally { rmSync(moved, { recursive: true, force: true }); rmSync(a, { recursive: true, force: true }); }
 });
 
-test("buildIdOf: the id the Vite plugin wrote into index.html (as the browser reads it), else null", () => {
-  const html = `<!doctype html><head>\n  <meta name="code-gods-build" content="0f1e2d3c4b5a6978">\n  </head>`;
-  const built = tree({ ...SITE, "index.html": html }), old = tree(SITE);
+test("stampBuildId: an id over every file, written where the page reads it; stamping again changes nothing", () => {
+  const page = "<!doctype html><html><head><title>x</title></head><body></body></html>";
+  const a = tree({ ...SITE, "index.html": page }), same = tree({ ...SITE, "index.html": page });
+  const frame = tree({ ...SITE, "index.html": page, "panel-runtime.js": "v2" }), html = tree({ ...SITE, "index.html": page.replace("x", "y") });
+  const none = tree(SITE), headless = tree({ ...SITE, "index.html": "<p>no head</p>" });
   try {
-    assert.equal(buildIdOf(built), "0f1e2d3c4b5a6978");
-    assert.equal(buildIdOf(built), readBuildMeta(html), "deploy-static and the page agree");
-    assert.equal(buildIdOf(old), null);
-    assert.equal(buildIdOf(join(old, "missing")), null);
-  } finally { rmSync(built, { recursive: true }); rmSync(old, { recursive: true }); }
+    const id = stampBuildId(a);
+    assert.match(id!, /^[0-9a-f]{16}$/);
+    const stamped = readFileSync(join(a, "index.html"), "utf8");
+    assert.equal(readBuildMeta(stamped), id, "the page reads the id deploy-static wrote (lib/player-client/src/build-meta.ts)");
+    const hash = distHash(a);
+    assert.equal(stampBuildId(a), id, "idempotent, so --skip-build and --if-changed see the same build");
+    assert.equal(distHash(a), hash);
+    assert.equal(stampBuildId(same), id, "a byte-identical build gets the same id");
+    assert.notEqual(stampBuildId(frame), id, "a file outside the main bundle (the panel frame) counts");
+    assert.notEqual(stampBuildId(html), id, "index.html itself counts");
+    assert.equal(stampBuildId(none), null);
+    assert.equal(stampBuildId(headless), null);
+    assert.equal(stampBuildId(join(none, "missing")), null);
+  } finally { for (const d of [a, same, frame, html, none, headless]) rmSync(d, { recursive: true }); }
 });

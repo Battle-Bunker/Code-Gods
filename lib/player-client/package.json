@@ -22,8 +22,7 @@
     "./browser": "./src/browser.ts",
     "./validation": "./src/validation.ts",
     "./update": "./src/update.ts",
-    "./build-meta": "./src/build-meta.ts",
-    "./vite-build-id": "./src/vite-build-id.ts"
+    "./build-meta": "./src/build-meta.ts"
   },
   "scripts": {
     "cli": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/cli.ts",

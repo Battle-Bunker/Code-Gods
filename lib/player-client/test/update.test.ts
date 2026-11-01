@@ -11,41 +11,51 @@ import {
   UPDATE_TIMING as T, assessBuild, decideUpdate, incompatibility, mayReload, readBuildMeta, updateTarget, type Safety, type SiteVersion,
 } from "../src/update.ts";
 
-const site = (build: string, ...older: string[]): SiteVersion => ({ build, deployedAt: 1, recent: [build, ...older] });
+const site = (build: string): SiteVersion => ({ build, deployedAt: 1 });
 
-test("assessBuild: current when the latest build, outdated only when an earlier recorded build, else unknown", () => {
-  assert.equal(assessBuild("B", site("B", "A")), "current");
-  assert.equal(assessBuild("A", site("B", "A")), "outdated");
+test("assessBuild: current when the live build, outdated only when deployed here before, else unknown", () => {
+  assert.equal(assessBuild("B", site("B"), true), "current");
+  assert.equal(assessBuild("A", site("B"), true), "outdated");
   // Uploaded but not yet recorded (the moment between upload and record), or a build never deployed here: no action.
-  assert.equal(assessBuild("C", site("B", "A")), "unknown");
+  assert.equal(assessBuild("C", site("B"), false), "unknown");
+  assert.equal(assessBuild("C", site("B"), undefined), "unknown");
   // A dev server has no build id; nothing recorded yet.
-  assert.equal(assessBuild(null, site("B", "A")), "unknown");
-  assert.equal(assessBuild("A", null), "unknown");
-  // A rollback to A records A again: a tab on B is now behind.
-  assert.equal(assessBuild("B", site("A", "B", "A")), "outdated");
+  assert.equal(assessBuild(null, site("B"), true), "unknown");
+  assert.equal(assessBuild("A", null, true), "unknown");
 });
 
-test("updateTarget: an outdated build targets the latest; an incompatible call is urgent; a current build waits for the next", () => {
-  assert.deepEqual(updateTarget("A", site("B", "A"), null), { target: "B", urgent: false });
-  assert.deepEqual(updateTarget("A", site("B", "A"), "shape"), { target: "B", urgent: true });
-  assert.deepEqual(updateTarget("A", site("B", "A"), "client-outdated"), { target: "B", urgent: true });
+test("updateTarget: an outdated build targets the live one; an incompatible call is urgent; a current build waits for the next", () => {
+  assert.deepEqual(updateTarget("A", site("B"), true, null), { target: "B", urgent: false });
+  assert.deepEqual(updateTarget("A", site("B"), true, "shape"), { target: "B", urgent: true });
+  assert.deepEqual(updateTarget("A", site("B"), true, "client-outdated"), { target: "B", urgent: true });
   // The functions went out before the static site: nothing newer to load yet.
-  assert.equal(updateTarget("B", site("B", "A"), "client-outdated"), null);
+  assert.equal(updateTarget("B", site("B"), true, "client-outdated"), null);
   // A validation error from a build the server does not know as old is not evidence of an old client.
-  assert.equal(updateTarget("C", site("B", "A"), "shape"), null);
-  assert.equal(updateTarget("C", site("B", "A"), null), null);
-  // The server says this client is too old, but its build was never recorded: reload once to the live page.
-  assert.deepEqual(updateTarget("C", site("B", "A"), "client-outdated"), { target: "incompatible:C", urgent: true });
-  assert.equal(updateTarget(null, site("B"), "client-outdated"), null, "a dev server is never reloaded");
+  assert.equal(updateTarget("C", site("B"), false, "shape"), null);
+  assert.equal(updateTarget("C", site("B"), false, null), null);
+  // The server says this client is too old, but its build was never recorded: reload once to whatever is live.
+  assert.deepEqual(updateTarget("C", site("B"), false, "client-outdated"), { target: "incompatible:C", urgent: true });
+  assert.equal(updateTarget(null, site("B"), false, "client-outdated"), null, "a dev server is never reloaded");
 });
 
 const NOW = 1_000_000;
-const calm: Safety = { now: NOW, hidden: false, lastInputAt: NOW - 5_000, lastKeyAt: 0, editing: false, draftOpen: false, unsaved: false, urgent: false, countdownSince: null };
+const calm: Safety = { now: NOW, hidden: false, lastInputAt: NOW - 10_000, lastKeyAt: 0, editing: false, draftOpen: false, unsaved: false, busy: false, urgent: false, countdownSince: null };
 
 test("decideUpdate: a visible, untouched page counts down, then reloads", () => {
   assert.deepEqual(decideUpdate(calm), { action: "countdown", remainingMs: T.countdownMs });
   assert.deepEqual(decideUpdate({ ...calm, countdownSince: NOW - 2_000 }), { action: "countdown", remainingMs: T.countdownMs - 2_000 });
   assert.deepEqual(decideUpdate({ ...calm, countdownSince: NOW - T.countdownMs }), { action: "reload" });
+});
+
+test("decideUpdate: any input during the countdown starts it again, so a player clicking or dragging is never cut off", () => {
+  assert.deepEqual(decideUpdate({ ...calm, countdownSince: NOW - T.countdownMs, lastInputAt: NOW - 1_000 }), { action: "countdown", remainingMs: T.countdownMs - 1_000 });
+  assert.deepEqual(decideUpdate({ ...calm, countdownSince: NOW - 4_000, lastInputAt: NOW }), { action: "countdown", remainingMs: T.countdownMs });
+});
+
+test("decideUpdate: never while a request is in flight, however safe otherwise", () => {
+  for (const s of [{ hidden: true }, { lastInputAt: 0 }, { urgent: true }, { countdownSince: 0 }]) {
+    assert.deepEqual(decideUpdate({ ...calm, ...s, busy: true }), { action: "wait", reason: "busy" });
+  }
 });
 
 test("decideUpdate: an open draft or a focused field waits while the player is there", () => {
@@ -89,16 +99,4 @@ test("incompatibility: the CLIENT_OUTDATED code, or the shape errors an old clie
 test("readBuildMeta: the build id Vite wrote into index.html, else null", () => {
   assert.equal(readBuildMeta(`<head>\n<meta name="code-gods-build" content="0123abcd">\n</head>`), "0123abcd");
   assert.equal(readBuildMeta(`<head><meta name="viewport" content="x"></head>`), null);
-});
-
-test("bundleBuildId: follows every emitted byte and name, ignores index.html and key order", async () => {
-  const { bundleBuildId } = await import("../src/vite-build-id.ts");
-  const js = { type: "chunk" as const, fileName: "assets/index-1.js", code: "console.log(1)" };
-  const css = { type: "asset" as const, fileName: "assets/index-2.css", source: new Uint8Array([98, 111]) };
-  const html = { type: "asset" as const, fileName: "index.html", source: "<html>" };
-  const id = bundleBuildId({ [js.fileName]: js, [css.fileName]: css, [html.fileName]: html });
-  assert.match(id, /^[0-9a-f]{16}$/);
-  assert.equal(bundleBuildId({ [html.fileName]: { ...html, source: "<html lang=en>" }, [css.fileName]: css, [js.fileName]: js }), id);
-  assert.notEqual(bundleBuildId({ [js.fileName]: { ...js, code: "console.log(2)" }, [css.fileName]: css }), id);
-  assert.notEqual(bundleBuildId({ "assets/index-3.js": js, [css.fileName]: css }), id);
 });

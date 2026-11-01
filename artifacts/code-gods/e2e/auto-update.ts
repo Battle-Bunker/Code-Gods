@@ -5,7 +5,8 @@
  *   pnpm --filter @workspace/code-gods run e2e:update
  *
  * Build A of the engine UI is built and deployed with deploy-static, as CI does, and a page is opened on a deep route.
- * Build B (A with another build id) is then deployed through the same script, which records it in `version:current`.
+ * Build B (A with one file changed) is then deployed through the same script, which stamps its id and records it in
+ * `version:current`.
  * While the page holds unsaved text it must stay on A and say a new version is ready; once the text is gone it counts
  * down and reloads by itself into B, on the same URL. At the end A is deployed again (a rollback).
  * Environment: CODE_GODS_SITE_URL (default http://127.0.0.1:$CONVEX_LOCAL_SITE_PORT, else :3211), SKIP_DEPLOY=1 to reuse
@@ -66,9 +67,9 @@ try {
   if (!process.env.SKIP_DEPLOY) deploy();
   const a = buildOf(dist);
   assert.ok(a, "build A carries its id in index.html");
-  const b = `${a.slice(0, 8)}${"b".repeat(8)}`;
+  // Build B: build A with one file changed (deploy-static stamps B's own id).
   cpSync(dist, copyB, { recursive: true });
-  writeFileSync(path.join(copyB, "index.html"), readFileSync(path.join(copyB, "index.html"), "utf8").replace(a, b));
+  writeFileSync(path.join(copyB, "robots.txt"), `${readFileSync(path.join(copyB, "robots.txt"), "utf8")}\n# build B\n`);
 
   const page = await (await browser.newContext()).newPage();
   const route = `${SITE}/rooms/NOPE42?tab=settings#here`;
@@ -84,6 +85,8 @@ try {
   });
 
   deploy(["--skip-build", "--engine-dist", copyB]);
+  const b = buildOf(copyB);
+  assert.ok(b && b !== a, "build B has its own id");
   console.log(`# deployed B (${b}) over A (${a})`);
   const banner = page.locator("[data-testid=update-banner]");
   await until(async () => (await banner.isVisible()) && /saved your work/.test(await banner.innerText()), "the banner asks to save first");
