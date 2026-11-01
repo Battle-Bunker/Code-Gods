@@ -11,11 +11,6 @@ export { cardProgram } from "./families/card.ts";
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
 export { INT_FAMILIES } from "./families/int.ts";
 export { STRING_FAMILIES } from "./families/string.ts";
-export type {
-  Annotation, AnnotationKind, AnnotationTone, AnnotatedCell, AnnotatedSpan, BadgeAnnotation, CellsAnnotation, DigitsAnnotation,
-  RegionAnnotation, SpansAnnotation,
-} from "./annotations.ts";
-export { ANNOTATORS, annotatorFor, type Annotator, type FamilyId } from "./families/annotators.ts";
 export {
   ANALYTIC_MAX_ERROR_BITS, assertAnalytic, assertAnalyticHeader, lazySurvival, addMass, binomial, cmpOrdinals, combine, distOf, exactSurvival, iidSum, lineChainCount,
   logFactorial, mapDist, maxOfEqualMultinomial, multinomial, pairOrdinal, pointMass, poissonTail, rowTransferCount, sumOrdinals,

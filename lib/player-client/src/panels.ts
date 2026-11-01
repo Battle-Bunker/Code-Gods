@@ -67,12 +67,10 @@ export const PANELS = {
       limit: z.number().int().min(3).max(60).default(12),
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),
-      /** Mark what makes up each object's score: "mine" (your own utility, the default) or "none". */
-      annotate: z.enum(["mine", "none"]).default("mine"),
     }),
     summary: p => line([`Top ${p.limit} by ${{ payoff: "payoff", mine: "your bits", othersCare: "others' care" }[p.sortBy]}`,
       ...when(p.filter !== "all", ({ positive: "positive only", contested: "only ones both care about", chips: "only ones others care about" } as Record<string, string>)[p.filter] ?? p.filter),
-      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid"), ...when(p.annotate === "none", "no marks")]),
+      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid")]),
   }),
   "others-care": def({
     id: "others-care", title: "What others care about", blurb: "Where the others' interests lie, from totals only.", phases: WORLD,
@@ -155,12 +153,20 @@ export const panel = (id: PanelId): PanelDefinition => PANELS[id] as PanelDefini
  */
 export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "objects");
 
+/** Parameters a panel used to have. Stored layouts may still carry them, and the schemas are strict, so they are dropped before parsing. */
+const RETIRED_PARAMS: Partial<Record<PanelId, readonly string[]>> = { objects: ["annotate"] };
+
 /**
- * Parse a panel's parameters: the defaults when none are given; the parsed output (defaults filled) when valid; else
+ * Parse a panel's parameters: the defaults when none are given; retired keys (RETIRED_PARAMS) ignored; the parsed output (defaults filled) when valid; else
  * `null` and the issues, so a tool can answer BAD_REQUEST and a reader can fall back to the defaults.
  */
 export function parsePanelParams(id: PanelId, params: unknown): { ok: true; params: Record<string, unknown> } | { ok: false; issues: string[] } {
-  const parsed = panel(id).params.safeParse(params ?? {});
+  let input = params ?? {};
+  const retired = RETIRED_PARAMS[id];
+  if (retired && typeof input === "object" && !Array.isArray(input)) {
+    input = Object.fromEntries(Object.entries(input).filter(([k]) => !retired.includes(k)));
+  }
+  const parsed = panel(id).params.safeParse(input);
   if (parsed.success) return { ok: true, params: parsed.data as Record<string, unknown> };
   return { ok: false, issues: parsed.error.issues.slice(0, 5).map(i => `${i.path.join(".") || "(root)"}: ${i.message}`) };
 }
