@@ -347,8 +347,6 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
   // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum plus the
   // version's live disclosure noise, settings.peerNoiseBits), by hand.
-  const snap = await raw(game.gameId);
-  const roster: string[] = snap.game.roster.map((m: any) => m.id), me = roster.indexOf(ada.subject);
   const ownOf = (net: number[]) => net[me], othersOf = (net: number[]) => net.reduce((x, n, i) => (i === me ? x : x + n), 0);
   // Page through the whole series (each page is whole rows, cut to the result bound).
   const series: any = { rows: 0, columns: {} };
@@ -359,6 +357,9 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     series.rows += page.data.rows;
     offset = page.nextCursor ?? null;
   }
+  // The raw state after the series was read: every row the series returned is in it (the game keeps running).
+  const snap = await raw(game.gameId);
+  const roster: string[] = snap.game.roster.map((m: any) => m.id), me = roster.indexOf(ada.subject);
   assert.equal(series.others, 2);
   const byKey = new Map(snap.objectEvents.map((r: any) => [`${r.objectId}:${r.version}`, r]));
   const cols = series.columns;
