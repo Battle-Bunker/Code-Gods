@@ -1,6 +1,18 @@
 import OpenAI from "openai";
-export interface ModelRequest { system:string; data:string; maxOutputTokens:number; signal:AbortSignal }
+/** `responseSchema`: a JSON schema the reply must follow, where the provider can enforce it (Anthropic structured outputs). */
+export interface ModelRequest { system:string; data:string; maxOutputTokens:number; signal:AbortSignal; responseSchema?:Record<string,unknown> }
 export interface ModelResult { text:string; inputTokens:number; outputTokens:number }
+/**
+ * Why an AI turn failed, in a class safe to show every player: never the model's text, a key or a provider message.
+ * invalid_reply: the reply was not a valid decision; incomplete_reply: cut off (max tokens) or refused;
+ * provider_error: the provider call failed (rate limit, overload, network); budget_exhausted: no reservation;
+ * turn_failed: anything else (a command or the game changed under the turn).
+ */
+export type AIFailureReason = "invalid_reply" | "incomplete_reply" | "provider_error" | "budget_exhausted" | "turn_failed";
+export class AITurnError extends Error {
+  readonly reason:AIFailureReason;
+  constructor(reason:AIFailureReason, message:string, options?:{cause?:unknown}) { super(message, options); this.name="AITurnError"; this.reason=reason; }
+}
 export interface ModelProvider {
   estimateMaxUsd(inputTokens:number,outputTokens:number):number;
   complete(request:ModelRequest):Promise<ModelResult>;
@@ -19,7 +31,7 @@ export function openAIProvider(client:OpenAI,model:string,prices:{inputUsdPerMil
         max_completion_tokens:request.maxOutputTokens,response_format:{type:"json_object"},
       },{signal:request.signal,maxRetries:0});
       const choice=result.choices[0];
-      if(choice?.finish_reason!=="stop" || !choice.message.content || !result.usage) throw new Error("Incomplete model response or missing usage");
+      if(choice?.finish_reason!=="stop" || !choice.message.content || !result.usage) throw new AITurnError("incomplete_reply","Incomplete model response or missing usage");
       return {text:choice.message.content,inputTokens:result.usage.prompt_tokens,outputTokens:result.usage.completion_tokens};
     },
   };

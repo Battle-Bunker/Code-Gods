@@ -1,12 +1,12 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { PlayerClient, type CommandResult, type Envelope, type PlayerTransport } from "@workspace/player-client";
-import { SYSTEM, decisionSchema, modelObservation } from "./policy.ts";
-import type { ModelProvider } from "./provider.ts";
+import { SYSTEM, decisionJsonSchema, decisionSchema, modelObservation } from "./policy.ts";
+import { AITurnError, type AIFailureReason, type ModelProvider } from "./provider.ts";
 export type AIEvent =
   | {type:"reservation";godId:string;reservedTokens:number;reservedUsd:number}
   | {type:"usage";godId:string;inputTokens:number;outputTokens:number;reservedUsd:number}
   | {type:"status";godId:string;status:"thinking"|"acting"|"stopped"|"backoff"}
-  | {type:"failure";godId:string;code:"turn_failed"|"provider_missing"|"budget_exhausted"}
+  | {type:"failure";godId:string;code:AIFailureReason|"provider_missing"}
   | {type:"command";godId:string;commandId:string;accepted:boolean};
 export interface ControllerOptions {
   roomId:string; godId:string; transport:PlayerTransport; provider:ModelProvider;
@@ -54,17 +54,22 @@ export class AIController {
       const inputBound=Buffer.byteLength(this.system)+Buffer.byteLength(data)+2048, outputBound=8192;
       let reservation;
       try { reservation=await this.options.budget.reserve(inputBound+outputBound,this.options.provider.estimateMaxUsd(inputBound,outputBound)); }
-      catch(error) {this.options.onEvent({type:"failure",godId:this.options.godId,code:"budget_exhausted"});throw error;}
+      catch(error) {throw new AITurnError("budget_exhausted",error instanceof Error?error.message:"AI budget exhausted",{cause:error});}
       this.options.onEvent({type:"reservation",godId:this.options.godId,...reservation});
       this.options.onEvent({type:"status",godId:this.options.godId,status:"thinking"});
-      const response=await this.options.provider.complete({system:this.system,data,maxOutputTokens:outputBound,signal:bounded});
+      const response=await this.options.provider.complete({system:this.system,data,maxOutputTokens:outputBound,signal:bounded,responseSchema:decisionJsonSchema(observation.languages)})
+        .catch(error=>{throw error instanceof AITurnError?error:new AITurnError("provider_error","AI provider call failed",{cause:error});});
       this.options.onEvent({type:"usage",godId:this.options.godId,inputTokens:response.inputTokens,outputTokens:response.outputTokens,reservedUsd:reservation.reservedUsd});
       if(!Number.isSafeInteger(response.inputTokens)||response.inputTokens<0||!Number.isSafeInteger(response.outputTokens)||response.outputTokens<0||response.inputTokens>inputBound||response.outputTokens>outputBound) throw new Error("Provider exceeded reservation contract");
       // Return unused token allowance only after trustworthy provider usage.
       // Missing usage/network failures keep their conservative reservation.
       await reservation.settle?.(response.inputTokens+response.outputTokens,{inputTokens:response.inputTokens,outputTokens:response.outputTokens});
-      if(Buffer.byteLength(response.text)>40000) throw new Error("Model response too large");
-      const decision=decisionSchema.parse(JSON.parse(response.text));
+      if(Buffer.byteLength(response.text)>40000) throw new AITurnError("invalid_reply","Model response too large");
+      // The model's text stays out of the message, which players may see as a class: it can carry the seat's private
+      // reasoning. The parse error (the server log's diagnosis) is kept as the cause.
+      let decision;
+      try { decision=decisionSchema.parse(JSON.parse(response.text)); }
+      catch(error) { throw new AITurnError("invalid_reply","The model's reply was not a valid decision",{cause:error}); }
       this.options.onEvent({type:"status",godId:this.options.godId,status:"acting"});
       for(const action of decision.actions) {
         bounded.throwIfAborted();
@@ -79,7 +84,7 @@ export class AIController {
         await this.send(this.client.prepare(action,observation),bounded);
       }
     } catch(error) {
-      if(!signal.aborted) this.options.onEvent({type:"failure",godId:this.options.godId,code:"turn_failed"});
+      if(!signal.aborted) this.options.onEvent({type:"failure",godId:this.options.godId,code:error instanceof AITurnError?error.reason:"turn_failed"});
       throw error;
     } finally {this.busy=false;}
   }
