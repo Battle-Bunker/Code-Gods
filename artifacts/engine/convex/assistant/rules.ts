@@ -196,23 +196,23 @@ export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
 
 /**
  * The thread as model messages. Rules (Claude 5 thinking blocks are valid only while everything before them is
- * byte-identical, so the history must be append-only within a turn):
- *   - the current turn: the user's message after its briefing, then each step's own blocks verbatim (thinking and the
- *     model's raw tool input) and its tool results;
- *   - earlier turns: the same without thinking (a leading run of thinking may be dropped) and without briefings;
+ * byte-identical, and the provider's prompt cache is a prefix match, so the history is append-only, across turns too):
+ *   - every turn: the user's message after that turn's briefing, then each step's own blocks verbatim (thinking and
+ *     the model's raw tool input) and its tool results, exactly as its own steps sent them (so a new turn reads the
+ *     earlier ones from the prompt cache instead of rewriting them);
  *   - earlier turns are cut whole, oldest first, by their own size only, so the cut never moves during a turn;
  *   - every tool use gets a result (an error when its call never finished);
  *   - an earlier turn that ended without its answer (allowance, failure, cancellation) closes with UNANSWERED_NOTES.
  * Rows from before stored blocks existed are rebuilt from their text and calls.
  */
-export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefing?: string | null; endings?: Record<string, TurnEnding> }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
+export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefings?: Record<string, string | null | undefined>; endings?: Record<string, TurnEnding> }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
   const byMessage = new Map<string, HistoryCall[]>();
   for (const c of calls) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
   const groups: { turnId: string; messages: ChatMessage[] }[] = [];
   for (const m of rows) {
-    const isCurrent = m.turnId === current.turnId;
     if (m.role === "user") {
-      const content = isCurrent && current.briefing ? [{ type: "text" as const, text: current.briefing }, { type: "text" as const, text: m.text }] : m.text;
+      const briefing = current.briefings?.[m.turnId];
+      const content = briefing ? [{ type: "text" as const, text: briefing }, { type: "text" as const, text: m.text }] : m.text;
       groups.push({ turnId: m.turnId, messages: [{ role: "user", content }] });
       continue;
     }
@@ -220,8 +220,7 @@ export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: 
     if (!group || group.turnId !== m.turnId) continue; // the window starts inside an older turn
     const used = (byMessage.get(m.id) ?? []).sort((a, b) => a.index - b.index);
     let content = storedBlocks(m.contentJson);
-    if (content) { if (!isCurrent) content = content.filter(b => b.type !== "thinking"); }
-    else {
+    if (!content) {
       const finished = used.filter(c => FINISHED.includes(c.status));
       content = [...(m.text ? [{ type: "text" as const, text: m.text }] : []),
         ...finished.map(c => ({ type: "tool_use" as const, id: c.callId, name: c.tool, input: parseObject(c.argsJson) }))];

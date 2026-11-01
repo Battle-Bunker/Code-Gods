@@ -87,7 +87,7 @@ async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
   return buildHistory(
     rows.map(m => ({ id: m._id, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
     calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
-    { turnId: turn._id, briefing: turn.briefing ?? null, endings },
+    { turnId: turn._id, briefings: Object.fromEntries([turn, ...earlier].flatMap(t => t?.briefing ? [[t._id, t.briefing]] : [])), endings },
   );
 }
 

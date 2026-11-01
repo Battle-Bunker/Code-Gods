@@ -53,6 +53,14 @@ function providerFor(modelId: string | null): ChatProvider {
     : createDirectOpenAIChatProvider(key, config.id, prices);
 }
 
+/**
+ * The provider's prompt-cache routing key (OpenAI prompt_cache_key): the stable prefix itself (system prompt and tool
+ * set, which differ by player, room and grant), so every thread of a player shares its cached prefix; a key per
+ * thread made each new thread's first step a cache miss.
+ */
+const cacheKeyOf = (system: string, tools: { name: string }[]) =>
+  createHash("sha256").update(JSON.stringify([system, tools.map(t => t.name)])).digest("hex").slice(0, 32);
+
 /** The cost a validate_agent call of this turn reported for exactly this source and language (for auto-approved summons). */
 function validatedCost(calls: CallRow[], args: Record<string, unknown>): number | undefined {
   for (const c of calls) {
@@ -216,7 +224,7 @@ export const run = internalAction({
     const flush = flusher(ctx, turnId, gen, messageId, () => abort.abort());
     let result: ChatResult;
     try {
-      result = await provider.stream({ system, messages, tools, maxOutputTokens: outputBound, signal: abort.signal, onText: d => flush.push(d), cacheKey: createHash("sha256").update(`assistant-thread:${c.threadId}`).digest("hex").slice(0, 32) });
+      result = await provider.stream({ system, messages, tools, maxOutputTokens: outputBound, signal: abort.signal, onText: d => flush.push(d), cacheKey: cacheKeyOf(system, tools) });
     } catch (error) {
       await flush.stop();
       clearTimeout(timeout);

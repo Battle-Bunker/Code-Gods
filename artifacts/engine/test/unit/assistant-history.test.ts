@@ -15,16 +15,16 @@ const step = (id: string, turnId: string, content: unknown[]): HistoryRow =>
 const call = (messageId: string, callId: string, tool: string, args: Record<string, unknown>, result = '{"untrusted":true,"data":{}}', index = 0): HistoryCall =>
   ({ messageId, callId, index, tool, argsJson: JSON.stringify(args), status: "ok", resultJson: result });
 
-test("the current turn replays the model's blocks verbatim (thinking and raw tool input); earlier turns drop thinking and briefing", () => {
+test("every turn replays the model's blocks verbatim (thinking and raw tool input) after its own briefing, earlier turns included", () => {
   const rows = [
     user("u1", "A", "hi"), step("m1", "A", [think("s1"), { type: "text", text: "hello" }]),
     user("u2", "B", "suggest an agent"),
     step("m2", "B", [think("s2"), { type: "text", text: "Checking." }, { type: "tool_use", id: "toolu_1", name: "validate_agent", input: { source: "x" } }]),
   ];
   const calls = [call("m2", "toolu_1", "validate_agent", { source: "x", commandId: "derived-id", waitMs: 60000 }, '{"ok":1}')];
-  assert.deepEqual(buildHistory(rows, calls, { turnId: "B", briefing: "<briefing>Power Hoarder</briefing>" }), [
-    { role: "user", content: "hi" },
-    { role: "assistant", content: [{ type: "text", text: "hello" }] },
+  assert.deepEqual(buildHistory(rows, calls, { turnId: "B", briefings: { A: "<briefing>A</briefing>", B: "<briefing>Power Hoarder</briefing>" } }), [
+    { role: "user", content: [{ type: "text", text: "<briefing>A</briefing>" }, { type: "text", text: "hi" }] },
+    { role: "assistant", content: [think("s1"), { type: "text", text: "hello" }] },
     { role: "user", content: [{ type: "text", text: "<briefing>Power Hoarder</briefing>" }, { type: "text", text: "suggest an agent" }] },
     { role: "assistant", content: [think("s2"), { type: "text", text: "Checking." }, { type: "tool_use", id: "toolu_1", name: "validate_agent", input: { source: "x" } }] },
     { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_1", content: '{"ok":1}' }] },
@@ -37,14 +37,13 @@ test("within a turn each step's history extends the previous one byte-for-byte, 
   const big = "x".repeat(LIMITS.historyChars / 8);
   for (let t = 0; t < 12; t++) rows.push(user(`u${t}`, `T${t}`, big), step(`m${t}`, `T${t}`, [think(`old${t}`), { type: "text", text: big }]));
   rows.push(user("uC", "C", "go"));
-  let previous = JSON.stringify(buildHistory(rows, calls, { turnId: "C", briefing: "<briefing/>" }));
+  let previous = JSON.stringify(buildHistory(rows, calls, { turnId: "C", briefings: { C: "<briefing/>" } }));
   for (let s = 0; s < 8; s++) {
     rows.push(step(`c${s}`, "C", [think(`c${s}`), { type: "tool_use", id: `toolu_${s}`, name: "get_observation", input: {} }]));
     calls.push(call(`c${s}`, `toolu_${s}`, "get_observation", {}, JSON.stringify({ data: "y".repeat(8000) })));
-    const history = buildHistory(rows, calls, { turnId: "C", briefing: "<briefing/>" });
+    const history = buildHistory(rows, calls, { turnId: "C", briefings: { C: "<briefing/>" } });
     const json = JSON.stringify(history);
     assert.ok(json.startsWith(previous.slice(0, -1)), `step ${s} appends to step ${s - 1}`);
-    assert.ok(!json.includes("old"), "earlier turns' thinking is never replayed");
     previous = json;
   }
   const cut = buildHistory(rows, calls, { turnId: "C" });
@@ -77,7 +76,7 @@ test("an earlier turn that ended without its answer closes with an engine note; 
     user("u4", "D", "now?"),
   ];
   const calls = [call("m2", "toolu_1", "get_observation", {})];
-  const history = buildHistory(rows, calls, { turnId: "D", briefing: "<briefing/>", endings: { A: "budget_exhausted", B: "cancelled", C: "done", D: "running" } });
+  const history = buildHistory(rows, calls, { turnId: "D", briefings: { D: "<briefing/>" }, endings: { A: "budget_exhausted", B: "cancelled", C: "done", D: "running" } });
   const notes = history.flatMap(m => m.role === "user" && typeof m.content !== "string" ? m.content.flatMap(b => b.type === "text" && b.text.startsWith("Engine note") ? [b.text] : []) : []);
   assert.deepEqual(notes, [UNANSWERED_NOTES.budget_exhausted, UNANSWERED_NOTES.cancelled], "A's and B's notes, in order; none for C or D");
   assert.match(UNANSWERED_NOTES.budget_exhausted!, /allowance ran out[\s\S]*UNANSWERED/);
@@ -93,4 +92,18 @@ test("an earlier turn that ended without its answer closes with an engine note; 
   assert.match(UNANSWERED_NOTES.step_limit!, /step limit/);
   // Without endings (older callers) nothing changes.
   assert.ok(!JSON.stringify(buildHistory(rows, calls, { turnId: "D" })).includes("Engine note"));
+});
+
+test("a new turn's history starts with the previous turn's last step byte-for-byte, so it reads the thread from the prompt cache", () => {
+  const rows: HistoryRow[] = [user("u1", "A", "suggest an agent")];
+  const calls: HistoryCall[] = [];
+  const briefings = { A: "<briefing>A</briefing>", B: "<briefing>B, later</briefing>" };
+  rows.push(step("m1", "A", [think("a1"), { type: "tool_use", id: "toolu_1", name: "validate_agent", input: { source: "x" } }]));
+  calls.push(call("m1", "toolu_1", "validate_agent", { source: "x", commandId: "id" }, '{"ok":1}'));
+  rows.push(step("m2", "A", [think("a2"), { type: "text", text: "Valid." }]));
+  const lastOfA = buildHistory(rows, calls, { turnId: "A", briefings, endings: {} });
+  rows.push(user("u2", "B", "thanks"));
+  const firstOfB = buildHistory(rows, calls, { turnId: "B", briefings, endings: { A: "done" } });
+  assert.deepEqual(firstOfB.slice(0, lastOfA.length), lastOfA, "turn A exactly as its last step sent it: briefing, thinking, raw input, results");
+  assert.deepEqual(firstOfB.slice(lastOfA.length), [{ role: "user", content: [{ type: "text", text: "<briefing>B, later</briefing>" }, { type: "text", text: "thanks" }] }]);
 });
