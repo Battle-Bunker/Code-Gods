@@ -1,5 +1,5 @@
 /**
- * The assistant pane across games, in one page of the hosted player client (/player/ on the engine's site), never
+ * The assistant pane across games, in one page of the hosted player client (/client/ on the engine's site), never
  * reloaded: the assistant's context is per (player, game), so when the room's next game starts the pane must follow
  * the reactive game and show an empty, fresh assistant: no earlier transcript, no phase lines, no error, and sending
  * works at once.
@@ -70,7 +70,7 @@ await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, 
 const page = await context.newPage();
 const pageErrors: string[] = [];
 page.on("pageerror", e => pageErrors.push(e.message));
-await page.goto(`${SITE}/player/?room=${shortCode}`);
+await page.goto(`${SITE}/client/rooms/${shortCode}`);
 await page.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
 // A reload would drop this marker (a same-document URL change would not).
 await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
