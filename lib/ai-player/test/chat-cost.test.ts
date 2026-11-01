@@ -24,6 +24,19 @@ test("usageCost prices cache reads and writes and counts allowance tokens at the
   assert.equal(usageCost(gptMini, { inputTokens: 8_000, cacheReadTokens: 4_096, cacheWriteTokens: 0, outputTokens: 100 }).tokens, 3_904 + 1_024 + 100);
 });
 
+test("allowance tokens are exact where the price ratio is: no token added by floating-point noise", () => {
+  // The mock's prices (src/chat-mock.ts): reads 0.1x, writes 1.25x. In floating point 70 * 0.001 / 0.01 is
+  // 7.000000000000001 and 12 * 0.0125 / 0.01 is 15.000000000000002, which a bare ceil turned into 8 and 16:
+  // the engine's assistant suite then saw its hand-derived allowance one token off, for some input sizes only.
+  const mock = { inputUsdPerMillion: 0.01, outputUsdPerMillion: 0.01, cacheReadUsdPerMillion: 0.001, cacheWriteUsdPerMillion: 0.0125 };
+  // 100 input: 70 read (7), 12 written (15), 18 uncached; 5 output.
+  assert.equal(usageCost(mock, { inputTokens: 100, cacheReadTokens: 70, cacheWriteTokens: 12, outputTokens: 5 }).tokens, 18 + 7 + 15 + 5);
+  // A real fraction still rounds up: 71 reads are 7.1 tokens, billed 8.
+  assert.equal(usageCost(mock, { inputTokens: 71, cacheReadTokens: 71, cacheWriteTokens: 0, outputTokens: 0 }).tokens, 8);
+  // The worst case: 12 tokens all written to the cache are 15.
+  assert.equal(worstCaseCost(mock, 12, 0).tokens, 15);
+});
+
 test("worstCaseCost counts every input token at its dearest price (an Anthropic cache write) plus the output ceiling", () => {
   const worst = worstCaseCost(sonnet, 10_000, 8_192);
   assert.equal(worst.tokens, 12_500 + 8_192);

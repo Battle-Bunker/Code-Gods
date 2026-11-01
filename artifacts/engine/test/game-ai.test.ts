@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { admin, api, clientFor, gods, internal, raw, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, clientFor, gods, internal, raw, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 const settings = {
   languages: ["typescript"], objectType: "Int",
@@ -20,11 +20,12 @@ async function aiRoom(aiBudget: number) {
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
   const { godId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" });
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget });
-  const game = await host.c.action(api.owner.start, { roomId });
+  // The deal may need a table computed first (a "preparing" start): wait for the game.
+  const game = await startGame(host, roomId);
   return { host, ada, roomId, godId, game };
 }
 
-test("a mock AI seat validates, summons a valid agent and chats, within its budgets", { timeout: 180000 }, async () => {
+test("a mock AI seat validates, summons a valid agent and chats, within its budgets", { timeout: 300000 }, async () => {
   const { ada, roomId, godId, game } = await aiRoom(300_000);
   await waitFor(async () => (await raw(game.gameId)).agents.some((a: any) => a.ownerId === godId), "the AI seat summons an agent", 90000, 500);
   const obs = await ada.c.query(api.player.observation, { roomId });
@@ -45,7 +46,7 @@ test("a mock AI seat validates, summons a valid agent and chats, within its budg
   assert.ok(receipts.agents.every((a: any) => a.ownerId !== godId || a.source.includes("add(1)")));
 });
 
-test("an AI seat without budget for a call never reaches the provider", { timeout: 120000 }, async () => {
+test("an AI seat without budget for a call never reaches the provider", { timeout: 240000 }, async () => {
   const { roomId, godId, game } = await aiRoom(50);
   await waitFor(async () => {
     const { members } = await admin.query(internal.testing.rawRoom, { roomId });

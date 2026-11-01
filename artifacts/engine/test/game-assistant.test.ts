@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, touch, waitFor, TS, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, startGame, touch, waitFor, TS, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { commandIdFor } from "../convex/assistant/rules.ts";
 
@@ -34,7 +34,7 @@ async function assistantRoom(names: [string, string, string], { budget = 500_000
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
   if (budget) await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: budget });
-  const game = start ? await members[0].c.action(api.owner.start, { roomId }) : null;
+  const game = start ? await startGame(members[0], roomId) : null;
   return { members, roomId, game };
 }
 
@@ -398,7 +398,7 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
 
   // Game 2 in the same room: the waiting turn ends with game 1, its card denied; an approval afterwards runs nothing.
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
-  const game2 = await ann.c.action(api.owner.start, { roomId });
+  const game2 = await startGame(ann, roomId);
   const ended = await until(ann, waiting, DONE, "the waiting turn ends when the next game starts");
   assert.equal(ended.turn.status, "cancelled");
   assert.equal(ended.calls[0].status, "denied");
