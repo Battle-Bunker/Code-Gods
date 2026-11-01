@@ -50,6 +50,14 @@ export const assistantTables = {
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     /** The player's situation, fetched once before the turn's first model step and put in front of their message. */
     briefing: v.optional(v.string()),
+    /**
+     * Sent while the human was watching a replay (docs/replay-design.md §8): the ended game and the moment on screen,
+     * resolved at send time, for the turn's briefing.
+     */
+    replay: v.optional(v.object({
+      gameId: v.string(), shortCode: v.string(), cursor: v.number(), events: v.number(), worldSeconds: v.number(),
+      pov: v.optional(v.object({ godId: v.string(), name: v.string() })),
+    })),
     /** The first message seq of the earlier history this turn replays, fixed at its first step (rules.ts historyStart). */
     historyFromSeq: v.optional(v.number()),
     /** The output ceiling of the turn's later steps, raised after a step was cut (rules.ts outputCeiling). */

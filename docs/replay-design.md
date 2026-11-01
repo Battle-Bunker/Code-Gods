@@ -199,8 +199,14 @@ The transport strip replaces the live header ("seen as" switches every panel to 
 panel** (`timeline`, a built-in panel; opened when the replay opens) holds the score chart and the event list; the
 objects panel **animates** each change the playhead crosses (the row flashes and slides, a grid outlines the cells
 that moved). The layout is the human's own arrangement; changes in a replay stay in that tab. The log records net
-bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits. Still to come: the assistant's
-playhead context (§8).
+bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits.
+
+**The assistant receives the playhead (§8):** in replay mode, the chat pane sends each message with the moment on
+screen (`assistant.send`'s `replay`: the game, the event cursor, the world time, the point-of-view god). The engine
+checks it is an ended game of the room the human may open, keeps it on the turn, and the turn's briefing gains a
+`<replay>` section: which game, which event and world time, seen as whom, that "here" means that moment, and to read
+it with `get_replay` or `run_code`'s `replay` dataset. A message queued behind a running turn joins that turn, whose
+briefing is already written.
 
 ## 4. The view: a replay mode of the dock, not a separate app
 

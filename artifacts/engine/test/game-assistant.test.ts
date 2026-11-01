@@ -596,3 +596,22 @@ test("a provider refusal (out of credit) tells the player who can fix it and giv
   assert.equal(b.turn.error.message, "The model call failed: stream cut");
   assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
 });
+
+test("watching a replay, the human's message carries the playhead: the briefing names the ended game, the moment and the point of view", { timeout: 180_000 }, async () => {
+  const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Replay", "Bob Replay", "Cyd Replay"]);
+  const at = { gameId: game!.gameId, cursor: 12, events: 40, worldSeconds: 3.5, povGodId: bob.subject };
+  // A live game has no replay: nothing of it is revealed, so a playhead in it is refused.
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, text: "hi", replay: at })), "CONFLICT");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ echo: true }]), replay: at });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const [briefing] = JSON.parse(t.messages.find((m: any) => m.role === "assistant").text).context as string[];
+  for (const expected of [`game ${game!.shortCode}`, "event 12 of 40", "3.5 s", "seen as Bob Replay", "get_replay", game!.gameId]) {
+    assert.ok(briefing.includes(expected), `the briefing has ${expected}: ${briefing}`);
+  }
+  // A game of another room is no playhead of this one.
+  const other = await assistantRoom(["Dee Other", "Eve Other", "Fay Other"]);
+  await other.members[0].c.mutation(api.rooms.endActiveGame, { roomId: other.roomId });
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, text: "hi", replay: { ...at, gameId: other.game!.gameId } })), "NOT_FOUND");
+});

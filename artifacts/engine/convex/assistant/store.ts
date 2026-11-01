@@ -90,12 +90,13 @@ async function appendUserMessages(ctx: MutationCtx, turn: { _id: Id<"assistantTu
 }
 
 /** Start a turn in a thread with these user messages (assistant.send, and the queue's next turn). */
-export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threadId: Id<"assistantThreads">; subject: string; credentialId: Id<"credentials"> }, items: { text: string; row?: QueueRow }[]) {
+export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threadId: Id<"assistantThreads">; subject: string; credentialId: Id<"credentials">; replay?: Doc<"assistantTurns">["replay"] }, items: { text: string; row?: QueueRow }[]) {
   const now = Date.now();
   const turnId = await ctx.db.insert("assistantTurns", {
     threadId: at.threadId, roomId: at.room._id, subject: at.subject, ...(at.room.activeGameId ? { gameId: at.room.activeGameId } : {}), credentialId: at.credentialId,
     status: "running", gen: 0, step: 0, maxSteps: LIMITS.maxSteps, deadline: now + LIMITS.turnMs,
     usage: { inputTokens: 0, outputTokens: 0, reservedTokens: 0, reservedUsd: 0, billedTokens: 0 }, tools: [], createdAt: now, updatedAt: now,
+    ...(at.replay ? { replay: at.replay } : {}),
   });
   await appendUserMessages(ctx, { _id: turnId, threadId: at.threadId }, items);
   await ctx.db.patch(at.threadId, { activeTurnId: turnId, updatedAt: now });
@@ -204,7 +205,7 @@ export const context = internalQuery({
     const calls = await callsOf(ctx, turnId);
     return {
       turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject,
-        outputCeiling: turn.outputCeiling ?? null },
+        outputCeiling: turn.outputCeiling ?? null, replay: turn.replay ?? null },
       roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
       calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null,
