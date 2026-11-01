@@ -12,6 +12,7 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import { buildReplay, cursorAtWorld, type ReplayPage } from "@workspace/player-client/replay";
 import { RoomProvider } from "@/sdk/context";
 import { ReplaySourceContext } from "@/sdk/replay-source";
+import { MyGoalProvider } from "@/sdk/goal";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "@/core/core-boundary";
 import { Link, hrefTo } from "../navigation";
@@ -107,7 +108,10 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <ReplayControllerContext.Provider value={controller}>
           <AgentCodeContext.Provider value={setAgent}>
             <CoreBoundary>
-              <PlayerShell replay={{ header }} />
+              {/* The point-of-view god's goal explains every grid, as the live client's own goal does (sdk/goal.tsx). */}
+              <MyGoalProvider>
+                <PlayerShell replay={{ header }} />
+              </MyGoalProvider>
             </CoreBoundary>
             {agent && <AgentCode controller={controller} agentId={agent} onClose={() => setAgent(null)} />}
           </AgentCodeContext.Provider>

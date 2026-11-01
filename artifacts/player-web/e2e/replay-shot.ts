@@ -52,6 +52,9 @@ await sleep(14_000);
 await submit({ type: "chat", text: "Row 1 is paying off nicely." });
 await sleep(10_000);
 await bob.mutation(fn.m("rooms:endActiveGame"), { roomId });
+// A known starting layout (the arrangement follows a human between rooms, so another run's would carry over).
+const { DEFAULT_LAYOUT } = await import("@workspace/player-client/layout");
+await bob.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("running") });
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
