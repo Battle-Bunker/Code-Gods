@@ -254,9 +254,9 @@ export const thread = query({
 
 /**
  * The caller's conversation in one game of the room (the assistant pane's subscription, with status.game): `threadId`
- * when it is theirs in that game, else that game's thread with an active turn, else its latest; `thread: null` and no
- * rows when the game has none. A thread of another game is never answered, so a client still naming the last game's
- * thread gets this game's (or none).
+ * when it is theirs in that game, else that game's thread with the caller's active turn, else its latest; `thread: null`
+ * and no rows when the game has none. A thread of another game is never answered: a client still naming the last
+ * game's thread gets this game's (or none).
  */
 export const transcript = query({
   args: { roomId: v.id("rooms"), gameId: v.string(), threadId: v.optional(v.id("assistantThreads")) },
@@ -264,10 +264,11 @@ export const transcript = query({
     const room = await requireRoom(ctx, roomId);
     const { viewer } = await requireMember(ctx, room, "read");
     const epoch = await gameKey(ctx, room, gameId);
-    const named = threadId ? await ctx.db.get(threadId) : null;
-    const rows = named ? [] : await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").take(20);
-    const thread = named && named.subject === viewer.subject && named.roomId === room._id && named.epoch === epoch ? named
-      : named ? null : rows.find(t => t.activeTurnId) ?? rows[0] ?? null;
+    const mine = (t: Doc<"assistantThreads"> | null) => t && t.subject === viewer.subject && t.roomId === room._id && t.epoch === epoch ? t : null;
+    const named = threadId ? mine(await ctx.db.get(threadId)) : null;
+    const latest = named ? null : await latestTurn(ctx, room._id, viewer.subject);
+    const active = latest && isActive(latest.status) ? mine(await ctx.db.get(latest.threadId)) : null;
+    const thread = named ?? active ?? (await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", epoch)).order("desc").first());
     return thread ? threadView(ctx, thread) : { thread: null, turns: [], messages: [], toolCalls: [] };
   },
 });

@@ -113,7 +113,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
       const firstUse = !status.credential;
       const sent = await send({ roomId: room, gameId: status.game, text: message, ...(threadId ? { threadId } : {}),
         ...(firstUse || status.credential?.permission !== permission ? { permission } : {}), ...(permission === "owner" ? { ownerConsent: c.ownerConsent } : {}) });
-      composer.setThread(status.game, sent.threadId);
+      // A fresh conversation is chosen from now on; the default (the game's active, then latest) already follows the send.
+      if (chosen === "new") composer.setThread(status.game, sent.threadId);
     } catch (e) { setError(errorText(e)); setPending(null); composer.setDraft(message); }
   };
 

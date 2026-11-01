@@ -70,10 +70,11 @@ await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, 
 const page = await context.newPage();
 const pageErrors: string[] = [];
 page.on("pageerror", e => pageErrors.push(e.message));
-let navigations = 0;
-page.on("framenavigated", f => { if (f === page.mainFrame()) navigations++; });
 await page.goto(`${SITE}/player/?room=${shortCode}`);
 await page.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
+// A reload would drop this marker (a same-document URL change would not).
+await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
+const sameDocument = () => page.evaluate(() => (window as unknown as { __cgMarker?: number }).__cgMarker === 42);
 
 const pane = "[data-testid=assistant-pane]";
 const paneText = () => page.textContent(pane).then(t => t ?? "");
@@ -100,7 +101,7 @@ await check("game 2 starts in the same page: the pane shows an empty, fresh assi
   const text = await paneText();
   assert(!/Game over|The world is running/.test(text), `phase lines of the last game stay: ${text.slice(0, 200)}`);
   assert((await page.locator(`${pane} [data-testid=text-assistant-error]`).count()) === 0, "an error is shown");
-  assert(navigations === 1, "the page reloaded");
+  assert(await sameDocument(), "the page reloaded");
 });
 
 await check("game 2: the first message is answered in a new conversation, with nothing of game 1", async () => {
@@ -109,7 +110,7 @@ await check("game 2: the first message is answered in a new conversation, with n
   assert(!text.includes("answer of game one"), "game 1's transcript is back");
   assert((await page.locator(`${pane} [data-testid=text-assistant-error]`).count()) === 0, `an error: ${await page.textContent(`${pane} [data-testid=text-assistant-error]`).catch(() => "")}`);
   assert((await page.locator(`${pane} [data-testid=assistant-user-message]`).count()) === 1, "one message in game 2's transcript");
-  assert(navigations === 1, "the page reloaded");
+  assert(await sameDocument(), "the page reloaded");
 });
 
 await check("no uncaught page errors", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));

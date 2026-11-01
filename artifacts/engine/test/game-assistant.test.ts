@@ -468,6 +468,8 @@ test("the transcript is a query of (room, game): a new game's has no thread, wha
   const t2 = await ann.c.query(api.assistant.transcript, { roomId, gameId: g2 });
   assert.deepEqual(t2.messages.map((m: any) => m.text).at(-1), "two");
   assert.ok(!t2.messages.some((m: any) => m.text === "one"));
+  assert.equal((await ann.c.query(api.assistant.transcript, { roomId, gameId: g2, threadId: first.threadId })).thread._id, second.threadId,
+    "naming the last game's thread gets this game's conversation");
   assert.equal(await errorCode(ann.c.query(api.assistant.transcript, { roomId, gameId: "not-a-game" })), "NOT_FOUND");
 });
 
