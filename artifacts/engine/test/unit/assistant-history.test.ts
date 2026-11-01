@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LIMITS, UNANSWERED_NOTES, buildHistory, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
+import { LIMITS, UNANSWERED_NOTES, buildHistory, historyStart, turnEnding, type HistoryCall, type HistoryRow } from "../../convex/assistant/rules.ts";
 
 const think = (signature: string) => ({ type: "thinking", provider: "anthropic", block: { type: "thinking", thinking: "", signature } });
 const user = (id: string, turnId: string, text: string): HistoryRow => ({ id, turnId, role: "user", text });
@@ -106,4 +106,17 @@ test("a new turn's history starts with the previous turn's last step byte-for-by
   const firstOfB = buildHistory(rows, calls, { turnId: "B", briefings, endings: { A: "done" } });
   assert.deepEqual(firstOfB.slice(0, lastOfA.length), lastOfA, "turn A exactly as its last step sent it: briefing, thinking, raw input, results");
   assert.deepEqual(firstOfB.slice(lastOfA.length), [{ role: "user", content: [{ type: "text", text: "<briefing>B, later</briefing>" }, { type: "text", text: "thanks" }] }]);
+});
+
+test("the history window's start moves only when the earlier turns outgrow the limits, then far enough to stay put for a while", () => {
+  const limits = { chars: 1000, messages: 20 };
+  // Earlier turns: first message seq, JSON size, message count.
+  const turns = (n: number, chars = 150, messages = 3) => Array.from({ length: n }, (_, i) => ({ seq: 1 + i * messages, chars, messages }));
+  assert.equal(historyStart(turns(6), 0, limits), 0, "900 characters fit: the start stays where it was");
+  const moved = historyStart(turns(7), 0, limits);
+  assert.equal(moved, turns(7)[4].seq, "1,050 characters: whole turns are dropped until at most half the limit is left (3 turns, 450)");
+  for (let n = 8; n <= 10; n++) assert.equal(historyStart(turns(n), moved, limits), moved, `turn ${n + 1} keeps the start (and its cached prefix)`);
+  assert.ok(historyStart(turns(11), moved, limits) > moved, "until the kept turns outgrow the limit again");
+  assert.equal(historyStart(turns(7, 10, 3), 0, limits), turns(7)[4].seq, "the message limit moves it the same way (21 messages)");
+  assert.equal(historyStart([{ seq: 1, chars: 5000, messages: 2 }], 0, limits), Infinity, "a single oversized earlier turn leaves no earlier history");
 });

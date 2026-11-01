@@ -20,11 +20,12 @@ if (!key) throw new Error("CODE_GODS_ANTHROPIC_API_KEY is required");
 const client = new Anthropic({ apiKey: key });
 
 type Tool = { name: string; description: string; inputSchema: Record<string, unknown> };
-async function count(parts: { system?: string; tools?: Tool[]; user?: string }) {
+/** `user` blocks go in one user message, as the engine sends a briefing and the player's text. */
+async function count(parts: { system?: string; tools?: Tool[]; user?: string[] }) {
   const r = await client.messages.countTokens({
     model, ...(parts.system ? { system: parts.system } : {}),
     ...(parts.tools?.length ? { tools: parts.tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Tool.InputSchema })) } : {}),
-    messages: [{ role: "user", content: parts.user ?? "hi" }],
+    messages: [{ role: "user", content: (parts.user ?? ["hi"]).map(text => ({ type: "text" as const, text })) }],
   });
   return r.input_tokens;
 }
@@ -39,12 +40,14 @@ const rows: [string, number, number][] = [];
 const withTools = await count({ tools });
 rows.push([`tools (${tools.length})`, JSON.stringify(tools).length, withTools - bare]);
 rows.push(["system prompt", system.length, (await count({ system })) - bare]);
-if (briefing) rows.push(["briefing", briefing.length, (await count({ user: `${briefing}\nhi` })) - bare]);
-const total = await count({ tools, system, ...(briefing ? { user: `${briefing}\nhi` } : {}) });
+if (briefing) rows.push(["briefing", briefing.length, (await count({ user: [briefing, "hi"] })) - bare]);
+const total = await count({ tools, system, ...(briefing ? { user: [briefing, "hi"] } : {}) });
 console.log(`model ${model}, permission ${permission}; bare request ${bare} tokens`);
 for (const [name, chars, tokens] of rows) console.log(`${name.padEnd(22)} ${String(chars).padStart(7)} chars ${String(tokens).padStart(7)} tokens`);
 console.log(`${"all of the above".padEnd(22)} ${"".padStart(13)} ${String(total - bare).padStart(7)} tokens`);
 if (process.argv.includes("--per-tool")) {
-  const each = await Promise.all(tools.map(async t => [t.name, JSON.stringify(t).length, (await count({ tools: [t] })) - bare] as const));
+  // One at a time: count_tokens is rate limited. A single tool includes the fixed tool-use preamble (about 360 tokens).
+  const each: (readonly [string, number, number])[] = [];
+  for (const t of tools) each.push([t.name, JSON.stringify(t).length, (await count({ tools: [t] })) - bare]);
   for (const [name, chars, tokens] of each.sort((a, b) => b[2] - a[2])) console.log(`  ${name.padEnd(20)} ${String(chars).padStart(6)} chars ${String(tokens).padStart(6)} tokens`);
 }

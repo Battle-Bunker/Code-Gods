@@ -6,8 +6,8 @@
  *
  *   node --experimental-transform-types scripts/assistant-driver.ts [model] [--fixture]
  *
- * --fixture also writes the first turn's briefing inputs to scripts/fixtures/briefing-running.json (for
- * scripts/assistant-tokens.ts). Each question runs in a fresh thread unless it starts with "+" (same thread).
+ * --fixture also writes the briefing's inputs (get_rules, get_observation, get_layout as the player) to
+ * scripts/fixtures/briefing-running.json (for scripts/assistant-tokens.ts); --fixture-only writes it and stops (free). Each question runs in a fresh thread unless it starts with "+" (same thread).
  */
 import { createHash, randomBytes } from "node:crypto";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -17,7 +17,7 @@ import { SITE_, admin, api, gods, internal, roomWith, touch, waitFor } from "../
 const model = process.argv.slice(2).find(a => !a.startsWith("--")) ?? "claude-sonnet-5-5";
 const prices = AI_MODEL_CATALOG.find(m => m.id === model) as { inputUsdPerMillion: number; outputUsdPerMillion: number; cacheReadUsdPerMillion?: number; cacheWriteUsdPerMillion?: number };
 if (!prices) throw new Error(`unknown model ${model}`);
-export const QUESTIONS = [
+const QUESTIONS = [
   "What should I do first?",
   "+How am I doing so far?",
   "How does scoring work, in two sentences?",
@@ -37,7 +37,7 @@ const [me] = members;
 await me.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 1_000_000, assistantModel: model });
 await me.c.action(api.owner.start, { roomId });
 
-if (process.argv.includes("--fixture")) {
+if (process.argv.includes("--fixture") || process.argv.includes("--fixture-only")) {
   // The briefing's inputs, read over MCP as this player (a seeded device credential), like the engine reads them.
   const token = `cgc_${randomBytes(32).toString("base64url")}`;
   await admin.mutation(internal.testing.seedCredential, { subject: me.subject, roomId, permission: "act", tokenHash: createHash("sha256").update(token).digest("hex") });

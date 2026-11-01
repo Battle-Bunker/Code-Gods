@@ -45,6 +45,8 @@ export const assistantTables = {
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     /** The player's situation, fetched once before the turn's first model step and put in front of their message. */
     briefing: v.optional(v.string()),
+    /** The first message seq of the earlier history this turn replays, fixed at its first step (rules.ts historyStart). */
+    historyFromSeq: v.optional(v.number()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
   }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"]),
 

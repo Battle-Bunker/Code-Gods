@@ -145,7 +145,10 @@ Two cache leaks showed in the baseline:
 
 Every turn is replayed exactly as its steps sent it: its briefing, the model's thinking and raw tool input, and the
 tool results. A new turn therefore reads the earlier ones from the prompt cache. Earlier turns are still cut whole
-(oldest first) by the history size limit; a cut restarts the cache once, like compaction. The OpenAI cache key is a
+(oldest first) by the history size limit. The window's start is fixed once per turn (`historyStart`, stored as the
+turn's `historyFromSeq`): it stays the previous turn's until the earlier turns outgrow the limits, then moves far
+enough to leave half the limits, so a long thread restarts its cache once every several turns instead of on every
+turn. The OpenAI cache key is a
 hash of the stable prefix (system prompt and tool names), so every thread of a player shares one cache.
 
 ### 3.2 A lightweight tool index with a loader (PR 2)
