@@ -39,6 +39,8 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
 
   return (
     <div className="space-y-6" data-testid="panel-overview">
+      {/* After a game ended, the next one may be preparing its rule tables. */}
+      {s.room?.preparing && <PreparingNote preparing={s.room.preparing} />}
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>{situation}</p>
         <p>{middle}</p>

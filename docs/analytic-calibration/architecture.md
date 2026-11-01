@@ -3,8 +3,9 @@
 **Status.** Phase A (the family-side interface, the probability toolkit and the verification harness) is merged
 (PR #51, `lib/game-utilities/src/analytic.ts`, `analytic-verify.ts`, `test/analytic.test.ts`), with six families
 solved and verified on 48 shapes (PR #54). Phase B1 (the computed-table cache, the per-table compute action,
-`resolveTables` and the `prepare` entry point, with measured first-use latency, §9) is merged; B2–D below are the
-design the engine converges on; each names the code it touches. The mathematics lives in `tail-toolkit.md`
+`resolveTables` and the `prepare` entry point, with measured first-use latency, §9) is merged, and so is Phase B2 (the
+two-half start with the room's preparing state, retries and the coordinator, `playableInstantiations`, the UI, and the
+cloud latencies of §9); B3–D below are the design the engine converges on; each names the code it touches. The mathematics lives in `tail-toolkit.md`
 (rare-event tools, the trustworthiness of the sampling estimator) and `playbook.md` (the catalogue of solved
 families, by the Opus session). This document stands alone: a future agent adding a rule, or wiring the engine, should
 need nothing else to know *where* a probability comes from and *what to do when there is none yet*.
@@ -91,12 +92,12 @@ budget label `exact:<id>` or `approx:<id>`, `meta.topReached` from the exemplar 
 false })` forces the sampling path and keys the result by `mcTableKey` (the current key minus the analytic id): that is
 how reference tables are built.
 
-## 3. The engine flow (Phase B, to build)
+## 3. The engine flow (Phase B, built in B1 and B2)
 
-Today (`artifacts/engine/convex/owner.ts start`, `engine/node.ts deal`, `engine/calibration.ts tablesFor`): the
-instantiation's file is loaded from Convex storage, the selector deals only draws with a fresh table (`hasTable`), and
-settings are rejected unless *every* dealable draw of the shape has a table (`offeredInstantiations`). The new flow
-removes the last two constraints.
+Before B2 the selector dealt only draws with a fresh shipped table (`hasTable`) and settings were rejected unless
+*every* dealable draw of the shape had one (`offeredInstantiations`). B2 removed both: `owner.ts startGame` deals from
+every available family and resolves the deal's tables as below; `engine/node.ts assertShape` refuses only invalid or
+retired shapes (and a non-uniform prior without shipped tables, which are never computed).
 
 ### 3.1 Resolution order for one draw
 
@@ -129,11 +130,17 @@ removes the last two constraints.
   measured with the harness against the K = 1 tables before it becomes the default (expected: within the K = 1 nominal
   se at every depth band, §6). Until measured, K = 1 and the per-draw fan-out alone keep first use inside the planning
   window (60 s default) for a 5×5 Grid.
-- **Coordinator.** No long-running coordinator: every compute action ends by calling one mutation,
-  `calibration.cache.finished(key, table | error, buildMs)`, which marks the row (merged). B2 adds: for every room
-  waiting on that key (§3.4), check whether its pending set is empty and if so schedule the start's second half. Failure: the row gets
-  `status: "failed", error, attempts`; the starter retries once, then the room's start fails with a message naming the
-  draw. Nothing is left half-written: the table JSON is written in the same mutation that flips the status.
+- **Coordinator** (built). No long-running coordinator: every compute action ends by calling one mutation,
+  `calibration.cache.finished(key, table | error, buildMs)`, which marks the row and then, for every room waiting on
+  that key (`calibrationWaits` rows, written by `game.lobby.beginPreparing`), removes the key from the room's
+  `preparing.pending` and, when it was the last, schedules `owner.completeStart`. A failure that a room waits for is
+  retried with backoff (`retryDelayMs`: 5 s, then 15 s) up to `MAX_ATTEMPTS = 3`; then the row is `failed` and every
+  waiting room's `preparing.error` names the draw ("The rule table for snap {} on Grid(…) could not be prepared after 3
+  attempts (…). Start again to retry, or choose another shape."). A failed key gets a fresh round of attempts after
+  `FAILED_COOLDOWN_MS` (10 min). A computing row older than `STALE_COMPUTING_MS` (11 min: Node actions stop at 10) is a
+  crashed action and is restarted by the next claim; `completeStart` runs as a watchdog every minute while a room
+  prepares (its claims restart such keys) and reports a preparation older than 30 minutes. Nothing is left
+  half-written: the table JSON is written in the same mutation that flips the status.
 
 ### 3.3 The computed cache
 
@@ -150,10 +157,12 @@ calibrationComputed: {
 
 A table is a document, not a storage blob: a Convex document holds 1 MiB, lookups by key are a single indexed read,
 and the row doubles as the job record. The existing per-instance files in storage stay as the warm layer and are
-re-exported from the cache on demand (`scripts/export-cache.ts`, §5). **Pruning** (B2): a nightly cron drops `ready`
-rows not used for 90 days; stale `computing` rows are already restarted by `claim`.
+re-exported from the cache on demand (`scripts/export-cache.ts`, §5). **Pruning** (built in B2): a daily cron
+(`calibration.cache.prune`, index `by_status_used`) drops `ready` and `failed` rows not used for 90 days; stale
+`computing` rows are restarted by `claim`. A process keeps the computed tables it has read in memory for the hot paths
+of a started game (scoring ticks, a player's own score); a start always reads the rows, which marks them used.
 
-### 3.4 Dealing and the "preparing" state
+### 3.4 Dealing and the "preparing" state (built in B2)
 
 `owner.start` becomes two halves:
 
@@ -161,23 +170,37 @@ rows not used for 90 days; stale `computing` rows are already restarted by `clai
    is fixed first (so the preparing state cannot change what a god gets), then `resolveTable` runs for every reward and
    defence draw. If every table resolved synchronously (analytic, warm or cached: the common case after the first game
    on a shape), the start continues exactly as today.
-2. **Prepare.** Otherwise the room records `preparing: { requestId, deals, pending: key[], total, startedAt }` and the
-   start returns `{ status: "preparing" }`. Clients already subscribe to the room; the lobby shows "Preparing n of m
-   rule tables for Grid(7,cards,rainbow6)… (first time on this server)" from `total − pending.length`. When the last
-   key lands, `finished` schedules `game.lobby.completeStart(roomId, requestId)`, which loads the tables, spawns the
-   starting objects and commits the game as today (`commitStart`). The planning clock starts then, not during
-   preparation.
+2. **Prepare.** Otherwise `game.lobby.beginPreparing` records on the room `preparing: { requestId, ownerId, revision,
+   memberIds, deals, pending: key[], total, estimateSeconds, dealer, startedAt, error? }` (keys that landed or failed
+   between the action's check and the mutation are settled there, so no landing is missed) and the start returns
+   `{ status: "preparing", ready, total, estimateSeconds, dealtAs, message }`. Clients already subscribe to the room;
+   `rooms.get` projects `preparing` as progress only (`lib/projection.ts preparingView`: never the deal), and the room
+   page, the player client's overview and results panels and the assistant's briefing show "The game is preparing its
+   rule tables, 12 of 18 ready…". When the last key lands, `finished` schedules `owner.completeStart(roomId,
+   requestId)`, which resolves the tables, spawns the starting objects and commits the game (`commitStart` with
+   `prepared`: no caller identity, the preparation must still be the room's, and the dealt gods must all still be
+   members; anyone who joined meanwhile spectates). The planning clock starts then, not during preparation. Settings
+   are frozen while a room prepares; `rooms.endActiveGame` with no game ends the preparation; a repeated start reports
+   it (and, with the same requestId, the game once started).
 
 Scoring ticks (`engine/tick.ts`) and the agent's own-table action (`calibration/node.ts tables`) use the same
 `resolveTable`; by construction every draw of a started game has a table, so they never wait.
 
-### 3.5 What "offered" becomes
+### 3.5 What "offered" becomes (built in B2)
 
-`offeredInstantiations(manifest, type)` currently hides every shape with a missing table. It becomes
-`playableInstantiations(type)`: every non-retired instantiation (3×3 stays retired by `RETIRED_GRID_SIZES`), and
-`coverage` becomes informational: `{ ready, analytic, toCompute }` counts shown as a badge on the settings page
-("All 169 rule tables ready" / "140 ready, 29 prepared on first use"). `assertOffered` becomes `assertPlayable`
-(valid type args only). `excludedFamilies` keeps its meaning (never dealt) and no longer affects what is offered.
+`playableInstantiations(type)` (game-utilities) lists every combination of the type's parameter choices (component
+options, integer presets), the default first, minus `RETIRED_GRID_SIZES` (3×3); `isPlayableInstantiation` accepts
+any other valid arguments too (a custom Int range). The settings model's domain (`SettingsDomain.playable`,
+`isPlayable`) is built from them on the engine and the configure page alike. `manifest.get` lists `playable` shapes
+with `prepare: { toCompute, seconds } | null` (draws neither shipped nor analytic, and `firstUseSeconds`, the measured
+cloud wall of §9) and `synergy`; the configure page enables every playable value and shows "The first game on this shape
+on this server prepares up to 12 rule tables (about 4 min 20 s) before planning starts; later games start at once."
+`offeredInstantiations` and `coverage` stay, for diagnostics (`manifest.get offered`). `assertOffered` became
+`assertShape`. `excludedFamilies` keeps its meaning (never dealt) and no longer affects what is playable.
+
+Synergy for the Aligned Lottery (Phase C not built): where no matrix exists the dealer deals exactly like the Divine
+Lottery, as before; `engine/node.ts dealerOf` says so, and the configure page, the room's preparing state and the
+start result show "No synergy has been measured for … : the Aligned Lottery deals like the Divine Lottery".
 
 ## 4. Per-pair quantities: synergy on demand (Phase C)
 
@@ -266,8 +289,8 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 | Phase | Lands | Touches | Size |
 |---|---|---|---|
 | A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
-| B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR (this) |
-| B2 | two-half `start`, room `preparing`, lobby UI progress, `playableInstantiations`, settings badge | `owner.ts`, `game/lobby.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods` settings | medium |
+| B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR #56 |
+| B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods`, `artifacts/player-web` panels, the briefing | this PR |
 | B3 | within-draw replicates (estimator v4) after measuring fidelity with the harness | `scripts/estimator.ts`, compute action | small |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
 | D | `export-cache.ts`; docs and README say "warm cache" | scripts | small |
@@ -290,12 +313,35 @@ Warm resolution of four draws (file, analytic or cache): 2 ms.
 
 **The local backend runs the scheduled Node actions one after another**: the recorded action start offsets on the 7×7
 run were 0.0, 19.1, 40.3 and 75.9 s, each starting as the previous finished, so the wall time is the *sum* of the
-builds, not their maximum. The Convex cloud runs scheduled actions concurrently; the same probe on the dev deployment
-(`npx convex run calibration/compute:prepare '{"settings": …, "draws": …}'` with the deploy key) should give about the
-largest single build plus scheduling, i.e. ≈ 3 s for a 4×4, ≈ 7 s for a 5×5 and ≈ 36 s for a 7×7 game's draws. That
-measurement is the first thing to record when B2 lands; until it is, treat 7×7 first use as needing either the warm
-cache (the 48 shipped shapes) or the within-draw split of §3.2.
+builds, not their maximum.
 
-What this says for the design: the per-draw fan-out is sufficient for 4×4 and 5×5 inside a 60 s planning window even
-with local-style serialisation; 6×6 and 7×7 want either cloud concurrency or the replicate split (B3), and every shape
-is instant the second time.
+## 9.1 Measured on the cloud (Phase B2, dev deployment)
+
+`artifacts/engine/scripts/first-use-probe.ts` on the dev deployment (2026-11-01): for each shape it deals a 6-god game
+(Divine Lottery, defence goals on for Grid), keeps the draws without an analytic answer and runs one
+`calibration/compute:run` per table **concurrently** (default budgets, no computed cache: `run` writes nothing without a
+claim row, so the probe is repeatable). "Call" is the client-side round trip, about 2–5 s above the build (CLI start,
+action cold start).
+
+| shape | draws (analytic) | sampled tables | per-table build | wall to all ready |
+|---|---|---|---|---|
+| Grid(4,base10,rgby) | 12 (5) | 6 | 10.7–28.6 s (sum 99 s) | 34.2 s |
+| Grid(5,base12,rgb) | 12 (6) | 5 | 21.1–66.8 s (sum 165 s) | 70.1 s |
+| Grid(6,base10,rgb) | 12 (7) | 4 | 43.9–125.7 s (sum 290 s) | 128.1 s |
+| Grid(7,base16,rgby) | 12 (9) | 3 | 137.4–258.0 s (sum 537 s) | 260.4 s |
+| Int(0,2147483647) | 6 (3) | 3 | 8.1–94.9 s (`many-faced` the slow one) | 98.9 s |
+| string(16) | 6 (2) | 4 | 7.4–9.2 s | 11.7 s |
+
+What this says:
+
+- **The cloud runs the fan-out concurrently**: the wall is the slowest table plus a few seconds, never the sum (7×7:
+  260 s wall for 537 s of builds).
+- **A cloud Node action builds a table about 5× slower than this container's local backend** (4×4 tables: 11–29 s
+  against 2–3 s; 7×7: 137–258 s against 19–36 s). The prediction of §9 (the largest local build) was therefore
+  optimistic by that factor.
+- With the planning clock starting only once the tables are ready, a first game waits ≈ 35 s on a 4×4, ≈ 70 s on a
+  5×5, ≈ 2 min on a 6×6 and ≈ 4–5 min on a 7×7 shape; one slow family dominates (`straight_shooter` 67 s on 5×5,
+  `swiss_cheese` 258 s on 7×7). That is acceptable as a one-off with the preparing state, and every Grid shape is
+  shipped today (PR #57), so it only applies to new rules, a changed card, or a new type's shapes. **B3** (the
+  within-draw replicate split of §3.2) is what brings 6×6 and 7×7 first use under a minute; the slowest table is the
+  one to split. `FIRST_USE_SECONDS` (game-utilities calibration.ts) holds these walls for the UI's estimate.

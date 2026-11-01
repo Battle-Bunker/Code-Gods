@@ -20,11 +20,13 @@
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
  * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
- * three controls with uncalibrated values disabled and explained; defence goals switched on with one unticked; goal
- * dealing, prior, act targeting, then Int / TypeScript with its grammar and summon price, 1 s planning), saves it for
+ * three controls with every playable value enabled; defence goals switched on with one unticked; goal
+ * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
+ * note shows, with its grammar and summon price, 1 s planning), saves it for
  * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player, which asks for the AI budget in the
  * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
- * app and shows owner commands dimmed to members; alice starts the game and every viewer is taken to the game page,
+ * app and shows owner commands dimmed to members; alice starts the game, the room shows its rule tables being
+ * prepared (the computed cache of that range is forgotten first), and every viewer is then taken to the game page,
  * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
  * the room on First steps at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
  * /api/device/request (the credential appears under Connected apps and is revoked), and an owner request needs the
@@ -79,6 +81,12 @@ if (!process.env.SKIP_DEPLOY) {
 // Helpers
 // ---------------------------------------------------------------------------------------------
 type Page = any;
+/** Test fixture (local deployment only): forget the on-demand tables of one instantiation (calibration.cache.forget). */
+function forgetComputed(instance: string) {
+  const r = spawnSync("npx", ["convex", "run", "calibration/cache:forget", JSON.stringify({ instance })], { cwd: path.join(root, "artifacts/engine"), encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`calibration/cache:forget failed: ${r.stderr}`);
+}
+
 const results: string[] = [];
 async function check(name: string, fn: () => Promise<void>) {
   await fn();
@@ -247,13 +255,11 @@ try {
       const nameBox = await a.getByTestId("field-name").boundingBox(), worldBox = await a.getByTestId("section-world").boundingBox();
       assert.ok(nameBox && worldBox && nameBox.y < worldBox.y, "the name comes first");
       assert.equal(await a.getByTestId("select-typeArgs").count(), 0, "no combined shape dropdown");
-      // First steps is Grid(4,base10,rgb): 5×5 keeps digits and three colours (calibrated); 6×6 has no tables for them.
+      // First steps is Grid(4,base10,rgb): every size 4–7 is playable (tables are prepared on demand), none disabled.
       await a.getByTestId("choice-arg-size-5").waitFor({ timeout: 120_000 });   // a fresh engine boots both sandboxes on the first manifest.get
-      assert.equal(await a.getByTestId("choice-arg-size-5").isDisabled(), false);
-      const six = a.getByTestId("choice-arg-size-6");
-      assert.equal(await six.isDisabled(), true, "uncalibrated: disabled, not hidden");
-      assert.match(await six.getAttribute("data-disabled-reason") ?? "", /^No calibration tables for Grid 6×6 · Digits 0–9 · Red, green, blue yet$/);
-      await a.getByTestId("reasons-size").filter({ hasText: /6×6: No calibration tables/ }).waitFor();
+      for (const size of [4, 5, 6, 7]) assert.equal(await a.getByTestId(`choice-arg-size-${size}`).isDisabled(), false, `${size}×${size} is playable`);
+      assert.equal(await a.getByTestId("reasons-size").count(), 0, "nothing to explain");
+      assert.equal(await a.getByTestId("note-first-use").count(), 0, "every Grid shape is shipped: no first-use note");
       for (const id of ["choice-arg-symbols-cards", "choice-arg-colours-rgby"]) await a.getByTestId(id).waitFor();
       await a.getByTestId("choice-arg-size-5").click();
       assert.equal(await a.getByTestId("choice-arg-size-5").getAttribute("aria-checked"), "true");
@@ -283,6 +289,14 @@ try {
       await a.getByTestId("choice-objectType-Int").click();
       await a.getByTestId("arg-min").waitFor();
       await a.getByTestId("arg-max").waitFor();
+      // A range with no shipped tables (it used to be disabled): playable, with the first game's preparation noted.
+      await a.getByTestId("choice-arg-min-0").click();
+      assert.equal(await a.getByTestId("choice-arg-max-2147483647").getAttribute("aria-checked"), "true");
+      await a.getByTestId("note-first-use").filter({ hasText: /first game on this shape on this server prepares up to \d+ rule tables \(about 1 min 40 s\)/ }).waitFor();
+      // Only rules with sampled tables may be dealt, so the first game here must prepare (an all-analytic deal starts at once).
+      for (const id of ["digit-devotee", "tailwright", "firstborn", "power-hoarder", "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain"]) {
+        await a.getByTestId(`toggle-family-${id}`).uncheck();
+      }
       // Int has no defence goals: nothing switches them off behind alice's back; the field says so, and she does.
       await a.getByTestId("error-defenceGoals").filter({ hasText: /no defence goals to deal/ }).waitFor();
       await a.getByTestId("switch-defenceGoals").click();
@@ -362,9 +376,14 @@ try {
     });
 
     let gameCode = "";
-    await check(`${name}: alice starts the game; every viewer is taken to the game page, which updates live`, async () => {
+    await check(`${name}: alice starts the game; the room prepares its rule tables, then every viewer is taken to the game page, which updates live`, async () => {
+      forgetComputed("Int(0,2147483647)");   // so this run's first game on the range computes again
       await a.getByTestId("button-start").click();
-      await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
+      // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
+      await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
+      await a.getByTestId("panel-preparing").waitFor();
+      await shot(a, `room-preparing-${name}`);
+      await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 480_000 });
       await b.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");

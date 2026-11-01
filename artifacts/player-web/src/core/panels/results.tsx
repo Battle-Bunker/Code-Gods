@@ -28,7 +28,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const rows: Row[] = live
     ? [...board].sort((a, b) => b.totalPayoff - a.totalPayoff).map((r, i) => ({ id: r.godId, name: r.label, isAI: r.isAI, total: r.totalPayoff, rank: i + 1 }))
     : (record?.leaderboard ?? []).map(r => ({ id: r.deityId, name: r.name, isAI: r.kind === "ai", total: r.totalPayoff, rank: r.rank }));
-  const preparing = phase === "lobby" && !params.gameId ? room?.preparing : null;
+  const preparing = (phase === "lobby" || phase === "ended") && !params.gameId ? room?.preparing : null;
   if (!rows.length) {
     if (params.gameId && past && !record) return <PanelEmpty>That game isn't in this room's history.</PanelEmpty>;
     return (
