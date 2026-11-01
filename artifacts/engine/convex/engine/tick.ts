@@ -120,9 +120,9 @@ export const run = internalAction({
         object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
-          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster) });
+          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), seed: p.seed.toString() });
       } else {
-        events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost,
+        events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString(),
           reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300) });
       }
     };

@@ -1,10 +1,19 @@
 # Replays
 
-A player can open any game of a room they were seated in and replay it, tick by tick, seeing exactly what they could
-see while it ran. This document records how the engine makes that possible (§1–§3: the event log, its schema and the
+A player can open any ENDED game of a room they were seated in and replay it, tick by tick, with nothing hidden:
+every player's utility, every agent's code, whose agent made every move, every score at every moment.
+
+**The rule (the owner's, 2026-11-01): information hiding applies only during live games; ended games are fully
+transparent in replays.** While a game runs, every read stays the player's own projection (aggregate-only opponent
+information, own agents' sources only, no seeds, no end deadline). Once it has ended, its replay reveals everything,
+so players (and their assistants) can study how the others played. The boundary is the game's `ended` phase, enforced
+by the engine: `player.replay` refuses a live game.
+
+This document records how the engine makes that possible (§1–§3: the event log, its schema and the
 replay API) and how the player client presents it (§4 onwards: the replay view).
 
-Status: §1–§3 shipped with the event-log completeness change (PR #80). §4–§10 are the view's design; the mockups are
+Status: §1–§3 shipped with the event-log completeness change (PR #80) and the transparent replay (schema 3, replay API
+version 2). §4–§10 are the view's design; the mockups are
 in `docs/screenshots/replay/` (`mockup.html`, rendered by `render.mjs`).
 
 ## 1. Re-simulate or play back?
@@ -88,52 +97,60 @@ within Convex's limits (batches stay under 400 events, about 140 KB per doc). Co
 becomes so, the place is `appendEvents` (column-packing the `transform` events of a batch), behind a schema bump.
 
 **Test.** `artifacts/engine/test/game-replay.test.ts` plays a game with summons, chat in planning and while running,
-a destroy, a pause and an owner end; captures the engine's raw state at four moments; and for each of the three
-seated gods rebuilds, from that god's `player.replay` pages cut at the snapshot's last batch, every object (value,
-version, own bits, peer aggregate, payoff), every own agent (acts, spending, energy account; destroyed ones as
-destroyed), the god's summon spending, the phase and every god's total. Union over the gods, that is every agent and
-every score in the game. The reducer's own rules are unit-tested in `lib/player-client/test/replay.test.ts`.
+a destroy, a pause and an owner end, and captures the engine's raw state at four moments. While the game runs, the
+replay is refused. After the end, every seated player gets the same replay, and one player's pages, cut at each
+snapshot's last batch, rebuild the whole raw state there: every object (value, version, every god's net bits), every
+agent (owner, source, acts, spending, energy account; destroyed ones as destroyed), every god's summon spending and
+exact total, and the phase. The reducer's own rules are unit-tested in `lib/player-client/test/replay.test.ts`.
 
-## 3. The replay API (public, for every client)
+**Seeds (schema 3).** Each transform and fail event carries the act's seed, `deriveSeed(salt, ["play", gameId,
+agentId, actIndex])` as a decimal string. It is an HMAC of the season salt, so revealing it reveals nothing about the
+salt, which stays secret because it seeds every live game of the season. With the seed, an agent's act can be re-run
+in the sandbox to study it; the replay itself never needs to.
 
-`player.replay({ roomId, gameId, afterSeq?, limit? })`, a Convex query. Third-party clients call it like any other
-public function (docs/engine-api.md); the reference reducer is `@workspace/player-client/replay`.
+## 3. The replay API (public, for every client and assistant)
+
+`player.replay({ roomId, gameId, afterSeq?, chatAfter?, eventOffset?, limit?, maxEvents? })`, a Convex query. Third-party
+clients call it like any other public function (docs/engine-api.md); the reference reducer is
+`@workspace/player-client/replay`. Assistants read it through the `get_replay` tool (small pages) and, for analysis
+over a whole game, through `run_code`'s `replay` dataset (the game flattened: header, gods, every event, chat).
 
 - **Who:** a player seated in that game (its roster). Other room members, spectators of the game included, get
   `FORBIDDEN`; non-members get the room's usual refusal.
-- **Paging:** pages of up to `limit` batches (default and maximum 100), stopping early past 4,000 events (the query
-  reads batch by batch, so it never reads more than it returns). Start with neither cursor; continue with
-  `afterSeq: nextCursor, chatAfter: chatCursor` until `done` (the game has ended and the page reaches the end of its
-  log). A live game's replay is never done: poll with the last cursors, as with `player.events`.
-- **Result:**
-  - `version`: the replay API version (1). The reducer refuses a version it does not know.
-  - `game`: id, short code, phase, `startedAt`, `planningEndsAt`, `endedAt`, `endReason`, `worldSeconds`, settings,
-    setup, roster (`{id, name, kind}`), object instance, season commitment; on the first page `logSchema` (the log's
-    schema) and `currentLogSchema`.
-  - `self`: the caller's god id, roster index and own utility card.
-  - `batches`: `{seq, at, worldFrom, worldTo, totals?, events}`. Events are the caller's projection, the same as
-    `player.events`, plus `agent.summoned` and `agent.destroyed`.
+- **When:** only once the game has ended. A live game's replay is `CONFLICT` ("The replay opens when the game
+  ends"), so none of its hidden information leaves through this door; the `replay` dataset is `null` for it.
+- **Paging:** pages of up to `limit` batches (default and maximum 100), stopping before `maxEvents` events (default
+  and maximum 4,000; the query reads batch by batch, so it never reads more than it returns). A batch larger than a
+  page is split: the page's last batch carries the events it holds and the page returns `eventOffset`. Start with no
+  cursor; continue with `afterSeq: nextCursor, chatAfter: chatCursor, eventOffset` until `done` (the log is read
+  and so is the chat to the end; `maxChat` caps a page's messages). `get_replay` packs the three into one opaque
+  `cursor` and shrinks its pages until they fit a tool result.
+- **Result (version 2):**
+  - `version`: the replay API version. The reducer refuses a version it does not know.
+  - `game`: id, short code, phase, `startedAt`, `planningEndsAt`, `endedAt`, `endReason`, `worldSeconds`, `endAtWorld`,
+    settings, setup, roster (`{id, name, kind}`), object instance, season commitment, engine stats; on the first page
+    `logSchema` (the log's schema) and `currentLogSchema`.
+  - `viewer`: the caller's god id and roster index (the view's default point of view, nothing more).
+  - `gods` (first page): every god's dealt utility descriptor and kid card, final summon spending, whether it paused,
+    and an AI seat's library agent (name, provider, model, prompt).
+  - `batches`: `{seq, at, worldFrom, worldTo, from?, events}` (the stored `totals` are not served: every god's exact total follows from `net` after every event); every event in full: `object.spawned` and
+    `object.transformed` with `net` (every god's net bits after it, roster order), transforms and `agent.failed` with
+    the agent, its owner, the calls, the charge and the seed; `agent.summoned` with owner, language, source, price, act
+    cost and starting account; `agent.destroyed` with owner; `phase` with its reason.
   - `chat`: the game's messages after `chatAfter` up to the page's last batch (to the end on the last page), at most
-    500, each with `worldSeconds` when stamped. Chat never runs ahead of the page's events, so a live replay picks up
-    new messages as its log grows.
-  - `nextCursor`, `chatCursor`, `latestCursor`, `done`.
-- **Mixed logs.** `logSchema` is the first batch's schema. A game that was live during the deploy of schema 2 reports
-  1: its replay lacks the agents summoned before the deploy (the caller's own still appear, from their acts, without
-  a source) and its leaderboard curve starts at the deploy.
+    500, each with `worldSeconds` when stamped.
+  - `nextCursor`, `eventOffset?`, `chatCursor`, `latestCursor`, `done`.
+- **Mixed logs.** `logSchema` is the first batch's schema. Below 2 the log has no summons, totals or chat stamps (for
+  the part recorded before the deploy): agents appear from their acts, attributed but without their source; below 3
+  acts have no seed.
 
-**Disclosure (the contract, tested in `test/game-disclosure.test.ts` and `test/game-replay.test.ts`).** A replay shows
-only what the player was entitled to see while the game ran:
+**Tests of the boundary.** `test/game-disclosure.test.ts`: every live read and every ended-game read other than the
+replay stays aggregate-only for the viewer; the live replay is refused; the ended replay contains every other god's
+descriptor and agent source, the AI seat's prompt and the end deadline. `test/mcp.test.ts`: the same through
+`get_replay`. `test/game-code.test.ts`: the `replay` dataset is null while live and holds every agent's code after.
 
-- per object: the value, its version, the player's own net bits, the peers' sum (`peerNetBits`), their care and the
-  player's payoff; never another god's per-object bits or descriptor;
-- the player's own utility card; never another god's;
-- every agent's appearance (`agent.summoned`, `mine`) and disappearance, because the live agent count and the agent
-  ids in transformations already showed them; never another god's agent source, language, price, account, calls,
-  charges or failures, and never which god owns another agent;
-- the public leaderboard totals, phases with their reasons, and public chat;
-- never seeds, the season salt, AI prompts or `endAtWorld`.
-
-Agent sources stay private to their owner after the game ends, as in the frozen end state (PR #47).
+The frozen end state's own reads (observation, events, history: PR #47) keep their projection: they serve the player's
+own panels. Everything else about an ended game is in its replay.
 
 ## 4. The view: a replay mode of the dock, not a separate app
 
@@ -168,13 +185,17 @@ Why this shape:
 against the live observation at the end of a game): phase `ended` (whatever the phase was at the playhead, so every
 action is refused the way the frozen end state refuses it; the real phase at the playhead shows in the strip),
 `economy.worldSeconds` = the playhead, `self.energy` = `godEnergyAt`, objects from the state (own, peer, care, payoff),
-own agents alive at the playhead with energy settled to the playhead and their source, leaderboard from the totals,
-transformations = own transforms from the log up to the playhead (the last 500), chat = messages up to the playhead.
-`player.events` and `player.trajectories` are answered from the log prefix in their own shapes. `player.myUtility`
-is answered from the replay's header (the own descriptor is the player's own; the replay header carries it once
-§3's `self` grows it), so the what-if panel and the evaluator work on past games too.
+the point-of-view god's agents alive at the playhead with energy settled to the playhead and their source, the
+leaderboard from the exact totals, transformations up to the playhead (the last 500), chat up to the playhead.
+`player.events` and `player.trajectories` are answered from the log prefix in their own shapes, and
+`player.myUtility` from `gods`, so the what-if panel and the evaluator work on past games too.
 
-**Read-only.** The forge shows a selected own agent's source with Validate and Summon off ("This is a replay");
+**Point of view.** Because the replay is transparent, the observation can be synthesized for ANY god: a "Seen as"
+menu in the strip (default: you) switches every panel to another player's view of the game, with that god's card,
+bits, agents and payoffs, so a player can watch the game through each opponent's eyes. The Timeline shows every god
+at once (§5).
+
+**Read-only.** The forge shows a selected agent's source (anyone's) with Validate and Summon off ("This is a replay");
 pause, chat input and owner actions are hidden behind the same reason the frozen end state gives. The palette marks
 game actions unavailable. The assistant stays: it is the player's, and in replay mode its context gains the playhead
 (§8).
@@ -194,12 +215,13 @@ bottom) is the instrument:
   and recovery take no world time, so they draw as a notch (a vertical band of zero width with "paused 60 s by Bo");
   planning is a band at 0. The wall time of the playhead shows in the strip. An "events" axis (uniform per event) is a
   parameter for dense stretches.
-- **Curves** (one scale per meaning, in the colours every panel already uses): Σ own net bits (petrol blue), Σ the
-  others' net bits (raspberry), and the score Σ own bits × the others' care (amber, thicker; the product is what the
-  player is ranked by). Everything after the playhead is drawn faded, so the shape of the whole game is visible while
+- **Curves** (one scale per meaning, in the colours every panel already uses): for the point-of-view god, Σ own net
+  bits (petrol blue), Σ the others' net bits (raspberry), and the score Σ own bits × the others' care (amber, thicker;
+  the product is what the player is ranked by); scores are exact at every event, not stepped. A parameter overlays
+  every god's score (the race's lines) instead. Everything after the playhead is drawn faded, so the shape of the whole game is visible while
   the past stays legible. A parameter overlays the leaderboard totals (the race's lines) instead.
-- **Marker lanes** above the curves, each with its own glyph so they never compete: agents (own summon: filled
-  diamond; another player's agent appearing: hollow diamond; a destroy: a cross), chat (a small bubble per message),
+- **Marker lanes** above the curves, each with its own glyph so they never compete: agents (a summon: a diamond in its
+  owner's colour, clicking it opens the agent's code; a destroy: a cross), chat (a small bubble per message),
   swings (an amber triangle at each of the largest changes of own score, labelled with the change), and lead changes
   (a dashed rule through the curves). Spawns are not markers: there are hundreds; they show as a density tick strip
   under the axis.
@@ -223,10 +245,9 @@ cells are outlined and the change animates over 300 ms (a slide moves its row or
 string the old value cross-fades to the new. At high speed (more than about 20 changes per second of playback)
 animation gives way to the flash alone.
 
-Stepping by event opens the **This change** card (`step.png`): before and after side by side, the agent, and for the
-player's own agent the calls, the charge and the change in own bits, others' bits and payoff. For another player's
-agent the card shows only what was public: the values, the agent id, and the change in the player's own bits and in
-the others' sum. The card is a mode of the feed panel (`feed` with `focus: "cursor"`), not a new panel.
+Stepping by event opens the **This change** card (`step.png`): before and after side by side, the agent and its
+owner, the calls, the charge, the seed, and the change in every god's bits and payoff. Clicking the agent opens its
+code. The card is a mode of the feed panel (`feed` with `focus: "cursor"`), not a new panel.
 
 ## 7. Routes, deep links and entry points
 
@@ -237,13 +258,14 @@ the others' sum. The card is a mode of the feed panel (`feed` with `focus: "curs
   stepping). The URL is updated with `replaceState` when the playhead stops, never while playing.
 - Entry points: the results panel's past games list ("Replay"), the room page's game list, the end-of-game results
   ("Watch the replay"), and the palette ("Replay a game I played…", from the catalogue entry of `player.replay`).
-- A live game's page is the live client; its own replay (scrubbing back during play) is out of scope for now: the
-  API supports it (§3, a live log is never done), the view does not offer it yet.
+- A live game's page is the live client. There is no replay of a live game: it would reveal what live play hides.
 
 ## 8. The assistant in a replay
 
 The assistant pane stays, private as ever. In replay mode the client passes the playhead (world seconds, event
-index) with each message, and `get_game_history` already serves the log; the assistant can explain a moment ("why
+index) with each message. The assistant reads the whole revealed game through `get_replay` and, for analysis
+(how did Ada's agents earn their points? which mutators paid off for whom?), through `run_code` with the `replay`
+dataset. It can explain a moment ("why
 did my score jump here?") and move the view through the layout tools (open Key moments, set the Timeline's overlay).
 A future `seek_replay` tool would let it move the playhead; it is a client-side view change like `open_panel` and
 needs no engine function. Key moments (`moments.png`) are computed client-side: the start, the first change by another
@@ -269,11 +291,11 @@ of the overview panel (`overview` with `focus: "moments"`).
 ## 10. Edge cases
 
 - **Legacy logs** (`logSchema` 1, or a game that was live during the schema-2 deploy): the strip shows a notice that
-  other players' agents, the leaderboard curve and exact chat times are missing for the part recorded before; own
-  agents appear from their acts without their source; the race overlay is unavailable.
+  agents' code and exact chat times are missing for the part recorded before; agents appear from their acts,
+  attributed, without their source. Scores are exact throughout (they come from the per-god net bits).
 - **Recovery and idle parking** show as notches like pauses, labelled with their reason; world time does not move
   during them, so the axis is unaffected.
 - **Spectators** (members who were not seated) get no replay, by the API's contract; the room page's game list shows
   them the public game page instead.
-- **An AI seat's game** replays like anyone's: the AI's agents are another player's agents.
-- **Disclosure** is the API's (§3); the client adds nothing: everything it shows is a fold of the player's own pages.
+- **An AI seat** replays like any god, with its library agent's name, model and prompt in the roster.
+- **Disclosure** is the API's (§3): nothing until the game ends, everything after.

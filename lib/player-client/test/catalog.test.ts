@@ -45,7 +45,7 @@ test("every player or owner affordance reaches the assistant through a tool, or 
   // The gaps the design names are the only ones without a tool among player/owner entries.
   const noTool = CATALOG_PATHS.filter(p => (CATALOG[p].audience === "player" || CATALOG[p].audience === "owner") && !CATALOG[p].tools.length).sort();
   assert.deepEqual(noTool, ["assistant.cancel", "assistant.confirm", "assistant.send", "assistant.setPrefs", "assistant.status", "assistant.thread", "assistant.threads",
-    "games.resolve", "games.view", "panels.setEnabled", "player.game", "player.replay", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
+    "games.resolve", "games.view", "panels.setEnabled", "player.game", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
 });
 
 test("tools and entries agree in both directions; kinds match annotations", () => {
