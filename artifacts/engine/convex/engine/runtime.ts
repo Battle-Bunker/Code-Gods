@@ -105,9 +105,17 @@ export function probeLanguage(language: Language): Promise<{ ok: true } | { ok: 
  * one mutation, no writes when all are ready). `keepWarm`: a proactive caller, which also refreshes a ready runtime
  * so a Node instance stays warm. Never boots anything itself: no caller waits on a sandbox.
  */
-export function ensureSandboxes(ctx: ActionCtx, languages: readonly Language[], keepWarm = false): Promise<LanguageSandbox[]> {
+export async function ensureSandboxes(ctx: ActionCtx, languages: readonly Language[], keepWarm = false): Promise<LanguageSandbox[]> {
+  const unique = [...new Set(languages)];
+  if (!keepWarm) {
+    // The common case (validate, summon, run_code): every language already booted at this version; a query says so.
+    const found = await ctx.runQuery(internal.runtime.readiness.rows, { languages: unique });
+    if (found.every(({ row }) => row?.state === "ready" && row.version === runtimeVersion(row.language))) {
+      return found.map(({ language, row }) => ({ language, state: "ready" as const, ...(row!.readyAt !== undefined ? { readyAt: row!.readyAt } : {}) }));
+    }
+  }
   return ctx.runMutation(internal.runtime.readiness.ensure, {
-    runtimes: [...new Set(languages)].map(language => ({ language, version: runtimeVersion(language), ...(RUNTIME_ASSETS[language] ? { asset: RUNTIME_ASSETS[language]!.name } : {}) })),
+    runtimes: unique.map(language => ({ language, version: runtimeVersion(language), ...(RUNTIME_ASSETS[language] ? { asset: RUNTIME_ASSETS[language]!.name } : {}) })),
     ...(keepWarm ? { keepWarm } : {}),
   });
 }

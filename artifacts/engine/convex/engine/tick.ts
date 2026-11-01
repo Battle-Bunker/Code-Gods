@@ -35,8 +35,9 @@ type ActResult = { calls: string } | { error: string };
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
 
-/** How often a planning phase held for a warming sandbox checks again. */
+/** How often a planning phase held for a warming (or failed: its retries back off) sandbox checks again. */
 const HOLD_POLL_MS = 1000;
+const HOLD_FAILED_POLL_MS = 5000;
 
 /** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
 const MAX_SIMULATE_MS = 4000;
@@ -79,7 +80,10 @@ export const run = internalAction({
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
       const end = phase === "planning" ? planningEnd(deadline, sandboxes) : { at: deadline };
-      if ("hold" in end) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + HOLD_POLL_MS });
+      if ("hold" in end) {
+        const failed = sandboxes.some(s => s.state === "failed");
+        return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
+      }
       phase = "running"; lastTick = Math.min(now, end.at);
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }

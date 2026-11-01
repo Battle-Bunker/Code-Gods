@@ -89,6 +89,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
     source = saved.source; lang = saved.language; title ??= saved.title;
   }
   if (source === undefined || lang === undefined) return fail("BAD_REQUEST", "run_code needs a language and a source, or a saved script");
+  // The language's runtime must have booted on this deployment (the script pool shares the agents' compiled runtime).
   const notReady = await sandboxGate(ctx, lang);
   if (notReady) { const { message, ...rest } = notReady; return { status: "not_ready", message, notReady: rest }; }
   const scopes = args.load ?? [];

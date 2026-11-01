@@ -110,6 +110,11 @@ test("a sandbox that fails to boot says why: in the observation, at validate, an
     const message = await rejects(host.c.action(api.owner.start, { roomId }));
     assert.match(message, /Python runtime is unavailable: the probe agent crashed/);
   } finally { await rewarm(); }
+  // A keep-warm refresh that fails on one instance does not take a version that has booted away from every game.
+  const ready = await pythonRow();
+  const refresh = await admin.mutation(internal.runtime.readiness.settle, { language: "python", token: ready.attemptAt, version: ready.version, ok: false, reason: "transient", bootMs: 5 });
+  assert.equal(refresh.applied, true);
+  assert.equal((await pythonRow()).state, "ready");
   // Past the backoff the boot is retried, and starts work again.
   const again = await host.c.action(api.owner.start, { roomId });
   assert.ok(again.gameId);

@@ -8,7 +8,7 @@ import { v } from "convex/values";
 import type { Language } from "@workspace/game-core";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
-import { internalMutation, type QueryCtx } from "../_generated/server";
+import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import { languageV } from "../lib/language";
 import { effectiveSandbox, needsWarm, type SandboxView } from "../lib/sandboxes";
 
@@ -23,6 +23,12 @@ async function rowOf(ctx: QueryCtx, language: Language): Promise<ReadinessDoc | 
 export async function readinessRows(ctx: QueryCtx, languages: readonly Language[]) {
   return Promise.all(languages.map(async language => ({ language, row: await rowOf(ctx, language) })));
 }
+
+/** The rows for these languages (Node callers compare versions: engine/runtime.ts ensureSandboxes's fast path). */
+export const rows = internalQuery({
+  args: { languages: v.array(languageV) },
+  handler: async (ctx, { languages }) => readinessRows(ctx, languages),
+});
 
 /** What players see per language (queries cannot know the code's version, so they trust the rows). */
 export async function sandboxViews(ctx: QueryCtx, languages: readonly Language[]): Promise<LanguageSandbox[]> {
@@ -44,16 +50,21 @@ export const ensure = internalMutation({
     const now = Date.now();
     const out: LanguageSandbox[] = [];
     for (const { language, version, asset } of runtimes) {
+      let row = await rowOf(ctx, language);
       if (asset) {
         const stored = await ctx.db.query("runtimeAssets").withIndex("by_name", q => q.eq("name", asset)).unique();
         if (!stored || stored.sha256 !== version) {
-          out.push({ language, state: "failed", reason: stored
-            ? `the uploaded runtime bundle is not the version this deployment pins (run upload-runtime)`
-            : `the runtime bundle is not uploaded to this deployment (run upload-runtime)` });
+          const reason = stored
+            ? "the uploaded runtime bundle is not the version this deployment pins (run upload-runtime)"
+            : "the runtime bundle is not uploaded to this deployment (run upload-runtime)";
+          // Recorded (so every reader sees it), not booted; attempts 0: an upload is noticed within one short backoff.
+          const failed = { language, version, state: "failed" as const, reason, attemptAt: now, attempts: 0, readyAt: undefined };
+          if (!row) await ctx.db.insert("runtimeReadiness", failed);
+          else if (row.state !== "failed" || row.reason !== reason || row.version !== version) await ctx.db.patch(row._id, failed);
+          out.push({ language, state: "failed", reason });
           continue;
         }
       }
-      let row = await rowOf(ctx, language);
       if (needsWarm(row, { now, version, keepWarm })) {
         const same = row?.version === version;
         const patch = {
@@ -84,6 +95,11 @@ export const settle = internalMutation({
     if (ok) {
       const readyAt = row.version === version && row.readyAt !== undefined ? row.readyAt : now;
       await ctx.db.patch(row._id, { version, state: "ready", reason: undefined, attempts: 0, readyAt, bootMs });
+    } else if (row.state === "ready" && row.version === version) {
+      // A keep-warm refresh failed on one instance: this version has booted, so one transient failure does not take the
+      // language away from every game. A broken runtime still shows in the act's own host error.
+      console.warn(`Agent sandbox ${language} keep-warm boot failed (still ready): ${reason}`);
+      await ctx.db.patch(row._id, { bootMs });
     } else {
       console.warn(`Agent sandbox ${language} failed to boot: ${reason}`);
       await ctx.db.patch(row._id, { version, state: "failed", reason: (reason ?? "unknown error").slice(0, 500), attempts: row.attempts + 1, readyAt: undefined, bootMs });

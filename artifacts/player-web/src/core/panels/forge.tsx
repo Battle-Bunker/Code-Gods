@@ -95,7 +95,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
       </div>
-      {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground"><Loader2 size={12} className="animate-spin" />{sandbox.text}</p>}
+      {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">{sandbox.warming && <Loader2 size={12} className="animate-spin" />}{sandbox.text}</p>}
       {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
       <div data-testid="panel-validation" className="text-sm">
         {current ? (

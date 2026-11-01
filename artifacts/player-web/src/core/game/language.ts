@@ -24,9 +24,9 @@ export function forgeLanguage(allowed: readonly Language[], ...preferred: (Langu
  * Whether the forge can validate and summon in `language` now: its agent sandbox must be ready (observation.sandboxes).
  * Warming or failed turns both buttons off and says why. An observation without sandboxes (an older engine) is ready.
  */
-export function forgeSandbox(obs: { sandboxes?: readonly { language: string; state: string; reason?: string }[] } | null | undefined, language: Language): { ready: boolean; text?: string } {
+export function forgeSandbox(obs: { sandboxes?: readonly { language: string; state: string; reason?: string }[] } | null | undefined, language: Language): { ready: boolean; warming?: boolean; text?: string } {
   const sandbox = obs?.sandboxes?.find(s => s.language === language);
   if (!sandbox || sandbox.state === "ready") return { ready: true };
   if (sandbox.state === "failed") return { ready: false, text: `Agent sandbox failed to start: ${sandbox.reason ?? "unknown error"}. It is retried automatically.` };
-  return { ready: false, text: "Agent sandbox warming up…" };
+  return { ready: false, warming: true, text: "Agent sandbox warming up…" };
 }

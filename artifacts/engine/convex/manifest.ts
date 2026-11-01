@@ -16,7 +16,7 @@ import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
 import { calibrationManifest } from "./engine/calibration";
 import { priorIds } from "./engine/node";
-import { bindRuntime, ensureSandboxes } from "./engine/runtime";
+import { ensureSandboxes } from "./engine/runtime";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
 
 const shape = (inst: Instantiation) => {
@@ -47,7 +47,6 @@ function objectTypesManifest(calibration: CalibrationManifest) {
 export const get = action({
   args: {},
   handler: async (ctx) => {
-    await bindRuntime(ctx);
     const calibration = await calibrationManifest(ctx);
     // Deployed runtimes, without booting any (a cold boot is 1-2 s): opening the settings is also the cheapest moment
     // to warm them (throttled deployment-wide by runtime/readiness.ts), so a start finds them ready.

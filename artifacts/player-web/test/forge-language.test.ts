@@ -26,7 +26,7 @@ test("the default is the agent's own language when allowed, otherwise the first 
 
 test("the forge waits for the language's agent sandbox: warming and failed turn Validate and Summon off and say why", () => {
   const sandboxes = [{ language: "python", state: "warming" }, { language: "typescript", state: "ready" }, { language: "haskell", state: "failed", reason: "no bundle" }];
-  assert.deepEqual(forgeSandbox({ sandboxes }, "python"), { ready: false, text: "Agent sandbox warming up…" });
+  assert.deepEqual(forgeSandbox({ sandboxes }, "python"), { ready: false, warming: true, text: "Agent sandbox warming up…" });
   assert.deepEqual(forgeSandbox({ sandboxes }, "typescript"), { ready: true });
   assert.deepEqual(forgeSandbox({ sandboxes }, "haskell" as never), { ready: false, text: "Agent sandbox failed to start: no bundle. It is retried automatically." });
   // An engine from before readiness reports nothing: the sandbox is taken as ready.
