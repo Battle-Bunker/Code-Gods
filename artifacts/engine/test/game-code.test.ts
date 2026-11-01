@@ -84,6 +84,16 @@ test("run_code: a script over datasets resolved as the player, stored for them o
   const other = await roomWith([eve]);
   const eveCred = await credential(eve, other.roomId);
   assert.equal(await errorCode(run(eveCred, roomId, { language: "python", source: RANK_PY })), "FORBIDDEN");
+  // The replay dataset: null while the game is live; once it has ended, the whole game, Bob's agent's code included.
+  const replayCode = "def main(d):\n    r = d['replay']\n    return None if r is None else {'gods': len(r['gods']), 'sources': [e['source'] for e in r['events'] if e['type'] == 'agent.summoned']}\n";
+  const liveReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(liveReplay.status, "ok", JSON.stringify(liveReplay.error));
+  assert.equal(liveReplay.result, null, "a live game's replay stays closed");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const endedReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(endedReplay.status, "ok", JSON.stringify(endedReplay.error));
+  assert.equal(endedReplay.result.gods, 3);
+  assert.ok(endedReplay.result.sources.some((src: string) => src.includes(SECRET)), "an ended game's replay has every agent's code");
 });
 
 test("run_code: errors are stored and explained, large results go to storage, the budget holds", { timeout: 300_000 }, async () => {

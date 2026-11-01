@@ -1,12 +1,12 @@
 /**
- * Disclosure (plan §6, product rule: aggregate-only). For one viewer, every player-facing result, live and
+ * Disclosure (plan §6, product rule: aggregate-only while a game is live; an ended game's replay is fully transparent). For one viewer, every player-facing result, live and
  * historical, is searched for other gods' private data: their per-object net bits, utility descriptors,
  * agent sources, AI prompts, the event log's per-god vectors, the season salt and the end deadline.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, playerClient, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 
@@ -48,9 +48,6 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       room: await client.query(api.rooms.get, { room: shortCode }),
       view: await client.query(api.games.view, { code: game.shortCode }),
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
-      // The replay (docs/replay-design.md): the first page (header, own card, chat) and a later one.
-      replay: await client.query(api.player.replay, { roomId, gameId: game.gameId, limit: 5 }),
-      replayLater: await client.query(api.player.replay, { roomId, gameId: game.gameId, afterSeq: 2, limit: 100 }),
     };
   };
   const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
@@ -65,11 +62,12 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   assert.equal(live.myUtility.instantiationKey, "Grid(5,base10,rgby)");
   assert.equal(live.observation.agents.length, 1);
   assert.ok(live.observation.agents[0].source.includes("slide(row(0), 1)"));
-  // The replay has every summon, but a source only for the viewer's own agent.
-  const batches = new Map(live.replay.batches.concat(live.replayLater.batches).map((b: any) => [b.seq, b]));
-  const summons = [...batches.values()].flatMap((b: any) => b.events).filter((e: any) => e.type === "agent.summoned");
-  assert.ok(summons.length >= 3, "every god's summon is in the replay (the AI seat may summon too)");
+  // Live events show that every agent appeared, but a source only for the viewer's own agent.
+  const summons = live.eventsFromStart.events.filter((e: any) => e.type === "agent.summoned");
+  assert.ok(summons.length >= 3, "every god's summon is in the event log (the AI seat may summon too)");
   assert.deepEqual(summons.filter((e: any) => "source" in e).map((e: any) => e.mine), [true], "only the viewer's own summon carries its source");
+  // Information hiding is the rule while the game is live: its full replay is refused.
+  assert.match(await rejects(ada.c.query(api.player.replay, { roomId, gameId: game.gameId })), /opens when the game ends/);
   const theirs = live.events.events.concat(live.eventsFromStart.events).filter((e: any) => e.type === "object.transformed" && !e.mine);
   assert.ok(theirs.length > 0, "others' transformations are visible");
   assert.ok(theirs.every((e: any) => !("calls" in e) && !("cost" in e)), "only an agent's owner learns its calls and costs");
@@ -95,4 +93,10 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const after = await collect(ada);
   for (const [label, result] of Object.entries(after)) await check(`ended ${label}`, result);
+  // ...except the replay, which reveals everything once the game has ended: every god's descriptor, every agent's
+  // source, every god's per-object net bits, the end deadline, the AI seat's prompt (docs/replay-design.md §3).
+  const replay = JSON.stringify(await ada.c.query(api.player.replay, { roomId, gameId: game.gameId, limit: 100 }));
+  const ended = await raw(game.gameId);
+  for (const marker of [SECRET_BO, SECRET_HOST, "Play strategically", JSON.stringify(ended.game.endAtWorld)]) assert.ok(replay.includes(marker), `the ended replay reveals ${marker}`);
+  for (const d of ended.deities) assert.ok(replay.includes(JSON.stringify(d.utility.params)), `the ended replay reveals ${d.godId}'s utility`);
 });

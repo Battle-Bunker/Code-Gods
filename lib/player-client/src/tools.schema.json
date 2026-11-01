@@ -400,6 +400,65 @@
       "additionalProperties": false
     }
   },
+  "get_replay": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "cursor": {
+          "description": "The previous page's nextCursor (omit for the first page).",
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "gameId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "get_my_utility": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -3281,9 +3340,9 @@
           "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$"
         },
         "datasets": {
-          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history.",
+          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history, replay.",
           "default": [],
-          "maxItems": 12,
+          "maxItems": 13,
           "type": "array",
           "items": {
             "anyOf": [
@@ -3301,7 +3360,8 @@
                   "settings",
                   "rules",
                   "games",
-                  "game_history"
+                  "game_history",
+                  "replay"
                 ]
               },
               {
@@ -3321,17 +3381,18 @@
                       "settings",
                       "rules",
                       "games",
-                      "game_history"
+                      "game_history",
+                      "replay"
                     ]
                   },
                   "gameId": {
-                    "description": "events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset).",
+                    "description": "events, trajectories: a game of this room (default: the current game); game_history, replay: required (an id from the games dataset).",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128
                   },
                   "limit": {
-                    "description": "events, trajectories, game_history: at most this many tick batches.",
+                    "description": "events, trajectories, game_history, replay: at most this many tick batches.",
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2000

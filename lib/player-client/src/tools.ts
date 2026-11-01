@@ -142,6 +142,10 @@ export const READ_TOOLS = [
   def({ name: "get_game_history", short: "The event log of a game of the room; past games only for their players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games) and pages by afterSeq.",
     input: obj({ gameId: id, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(50).default(20) }), output: result(anyData) }),
+  def({ name: "get_replay", short: "An ended game the player played in, fully revealed: every utility, agent's code and act.", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
+    note: "Takes the gameId (list_games); pass nextCursor back as cursor. For whole-game analysis use run_code's replay dataset.",
+    input: obj({ gameId: id, cursor: z.string().max(200).optional().describe("The previous page's nextCursor (omit for the first page).") }),
+    output: result(anyData) }),
   def({ name: "get_my_utility", short: "The player's utility descriptor (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
     note: "The observation's self.utility has the readable name, summary and source.",
     input: obj({}), output: result(anyData) }),
@@ -293,8 +297,8 @@ export const LAYOUT_TOOLS = [
 const datasetName = z.enum(DATASET_NAMES);
 const datasetRequest = z.union([datasetName, obj({
   name: datasetName,
-  gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset)."),
-  limit: z.number().int().min(1).max(2000).optional().describe("events, trajectories, game_history: at most this many tick batches."),
+  gameId: id.optional().describe("events, trajectories: a game of this room (default: the current game); game_history, replay: required (an id from the games dataset)."),
+  limit: z.number().int().min(1).max(2000).optional().describe("events, trajectories, game_history, replay: at most this many tick batches."),
 })]);
 const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
 export const CODE_TOOLS = [

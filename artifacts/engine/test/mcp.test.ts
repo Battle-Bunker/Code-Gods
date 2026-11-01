@@ -344,9 +344,22 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const own = secret.scores.find((s: any) => s.god === ada.subject);
     assert.ok(Math.abs(value.data.netBits - own.netBits) < 1e-9, "evaluate_value = own net bits");
   }
+  // get_replay: refused while the game is live (nothing hidden leaks through it), fully revealing once it has ended.
+  const liveReplay = await call(token, "get_replay", { gameId: game.gameId });
+  assert.ok(liveReplay.error && /opens when the game ends/.test(JSON.stringify(liveReplay)), JSON.stringify(liveReplay).slice(0, 300));
+  await check("mcp live get_replay", liveReplay);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   await check("mcp ended list_games", await call(token, "list_games", {}));
   await check("mcp ended history", await call(token, "get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }));
+  let endedReplay = "";
+  for (let args: Record<string, unknown> = { gameId: game.gameId }, n = 0; n < 6; n++) {
+    const page = await call(token, "get_replay", args);
+    assert.ok(!page.error, JSON.stringify(page).slice(0, 300));
+    endedReplay += JSON.stringify(page);
+    if (page.nextCursor === null) break;
+    args = { gameId: game.gameId, cursor: page.nextCursor };
+  }
+  assert.ok(endedReplay.includes(SECRET_BO) && endedReplay.includes(SECRET_HOST), "an ended game's replay shows every agent's code");
 });
 
 // ---------------------------------------------------------------------------------------------

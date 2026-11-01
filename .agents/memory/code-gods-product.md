@@ -14,6 +14,12 @@ Individual opponents' object utilities are not directly shared: clients receive 
 
 **How to apply:** Preserve these disclosure boundaries throughout events, snapshots, history and analytics; do not claim aggregate values prevent mathematical inference.
 
+Information hiding applies only during live games; ended games are fully transparent in replays. Once a game has ended, its replay (`player.replay`, the `get_replay` tool, `run_code`'s `replay` dataset) shows its players every god's utility (descriptor and card) and per-object net bits, whose agent made every move, every agent's code, language and price, exact scores at every event, each act's seed, the end deadline, chat and AI seats' details.
+
+**Why:** The owner (2026-11-01): "Replays should be fully transparent with no information hiding at all. Every game event should become inspectable to assistants from past games... The actual code of all agents spawned should be visible to all in the replay."
+
+**How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's players and the room owner (the past-game read rule).
+
 The user approved sandbox-compatible computational libraries for the MVP: supported Python computational modules and TypeScript's ECMAScript built-ins, with documented exclusions and no host access.
 
 **Why:** Full native standard-library compatibility would require additional isolated execution infrastructure.

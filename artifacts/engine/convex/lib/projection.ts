@@ -202,13 +202,37 @@ export function projectBatches(batches: readonly Batch[], godId: string, index: 
 }
 
 /**
- * The replay's pages (player.replay): the viewer's projected events grouped by batch, with each batch's wall time,
- * world window and the public leaderboard totals after it.
+ * One logged event in full, for the replay of an ENDED game (player.replay): ended games are fully transparent, so
+ * nothing is projected away. `net` is every roster god's net bits after the event (roster order); `ownerId`
+ * attributes every act and agent; `seed` is the act's derived seed (schema 3).
  */
-export function replayBatches(batches: readonly Batch[], godId: string, index: number) {
+export function replayEvent(ev: Ev) {
+  switch (ev.t) {
+    case "phase": return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
+    case "spawn": return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
+    case "transform": return {
+      type: "object.transformed" as const, objectId: ev.objectId, before: ev.before, value: ev.value, version: ev.version, worldSeconds: ev.world,
+      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: ev.cost, net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "fail": return {
+      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: ev.cost,
+      ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "summon": return {
+      type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
+      summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits,
+      breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+    };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
+  }
+}
+export type ReplayEventOut = ReturnType<typeof replayEvent>;
+
+/** The replay's pages: every event of each batch in full, with the batch's wall time and world window (totals follow exactly from `net`). */
+export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
   return batches.map(b => ({
-    seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo, ...(b.totals ? { totals: b.totals } : {}),
-    events: b.events.flatMap(ev => { const p = projectEvent(ev, godId, index); return p ? [p] : []; }),
+    seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo, ...(b.from ? { from: b.from } : {}),
+    events: b.events.map(replayEvent),
   }));
 }
 
