@@ -58,3 +58,14 @@ export function parseRoute(base: string, pathname: string, search: string): Pars
   if (third === "games" && extra.length === 0) return { route: { kind: "game", room, game } };
   return to({ kind: "room", room });
 }
+
+/**
+ * A page of the engine UI (artifacts/code-gods/src/lib/routes.ts): on the engine's own site, which is another origin
+ * when the client runs on a dev server or any other host (`site` from the dev server's token endpoint or the hosted
+ * connection; connection.ts engineSite). Without one, this origin (the hosted client on the engine).
+ */
+export function enginePageHref(site: string | undefined, page: { room: string; game?: string }): string {
+  const root = site ? site.replace(/\/+$/, "") : "";
+  const room = `/rooms/${encodeURIComponent(page.room)}`;
+  return `${root}${room}${page.game ? `/games/${encodeURIComponent(page.game)}` : ""}`;
+}

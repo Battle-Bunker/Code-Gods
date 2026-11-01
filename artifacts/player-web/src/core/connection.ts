@@ -25,11 +25,11 @@ export type Connection = {
   /** Dev-server mode: the credential's room (Convex id) and permission. */
   roomId?: string;
   permission?: "read" | "act" | "owner";
-  /** Hosted mode: the engine's site URL. */
+  /** The engine's site URL (hosted mode; a dev server's token endpoint reports it too). */
   siteUrl?: string;
 };
 
-type TokenResponse = { token: string; expiresAt: number; convexUrl: string; roomId: string; permission: Connection["permission"] };
+type TokenResponse = { token: string; expiresAt: number; convexUrl: string; siteUrl?: string; roomId: string; permission: Connection["permission"] };
 type Global = typeof globalThis & { __cgConnection?: Promise<Connection>; __cgConvex?: ConvexReactClient; __cgAuth?: PlayerAuth };
 const g = globalThis as Global;
 
@@ -49,9 +49,17 @@ export function engineUrl(): string {
   return (import.meta.env.VITE_CODE_GODS_ENGINE_URL as string | undefined) || location.origin;
 }
 
+/** The engine's site URL once the connection is known (links to the engine UI: routes.ts enginePageHref). */
+let site: string | undefined;
+export const engineSite = () => site;
+
 async function detect(): Promise<Connection> {
   const app = await fetchAppToken();
-  if (app) return { mode: "devserver", convexUrl: app.convexUrl, roomId: app.roomId, permission: app.permission };
+  if (app) {
+    site = app.siteUrl;
+    return { mode: "devserver", convexUrl: app.convexUrl, roomId: app.roomId, permission: app.permission, ...(app.siteUrl ? { siteUrl: app.siteUrl } : {}) };
+  }
+  site = playerAuth().engineUrl;
   const configured = import.meta.env.VITE_CONVEX_URL as string | undefined;
   if (configured) return { mode: "hosted", convexUrl: configured, siteUrl: playerAuth().engineUrl };
   return { mode: "hosted", convexUrl: await playerAuth().convexUrl(), siteUrl: playerAuth().engineUrl };
