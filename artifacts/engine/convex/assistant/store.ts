@@ -54,7 +54,12 @@ export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<T
     });
   }
   log("finish", { turnId: turn._id, status, code: error?.code, steps: turn.step, inputTokens: turn.usage.inputTokens, outputTokens: turn.usage.outputTokens });
-  await startQueuedTurn(ctx, turn);
+  if (status === "done" || status === "cancelled") await startQueuedTurn(ctx, turn);
+  else {
+    // A turn that failed or ran out of allowance would fail its queued messages the same way: they are held for the
+    // player to send (or remove) once they see why.
+    for (const row of await queuedIn(ctx, turn.threadId, { held: false })) await ctx.db.patch(row._id, { held: true, updatedAt: now });
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -99,9 +104,10 @@ export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threa
 }
 
 /**
- * After a turn ends: the thread's queued messages that a Stop did not hold start the next turn at once, in order (a
- * turn that ended with no tool step had no boundary to take them). Not when the thread is an earlier game's or the
- * owner has turned the assistant off: they stay queued, visible, until the player sends or removes them.
+ * After a turn ends done (or cancelled: messages sent while it stopped): the thread's queued messages that a Stop did
+ * not hold start the next turn at once, in order (a turn that ended with no tool step had no boundary to take them).
+ * Not when the thread is an earlier game's or the owner has turned the assistant off: they stay queued, visible,
+ * until the player sends or removes them.
  */
 async function startQueuedTurn(ctx: MutationCtx, turn: Turn) {
   const rows = await queuedIn(ctx, turn.threadId, { held: false });
@@ -379,10 +385,13 @@ export const awaitConfirmation = internalMutation({
 export const declineForMessage = internalMutation({
   args: { turnId: v.id("assistantTurns"), gen: v.number(), callDocId: v.id("assistantToolCalls") },
   handler: async (ctx, { turnId, gen, callDocId }) => {
-    if (!await liveTurn(ctx, turnId, gen)) return { cancelled: true };
+    const turn = await liveTurn(ctx, turnId, gen);
+    if (!turn) return { cancelled: true, declined: false };
+    // The message may have been removed since the step read the queue: then the card is shown as usual.
+    if (!(await queuedIn(ctx, turn.threadId, { held: false })).length) return { cancelled: false, declined: false };
     const call = await ctx.db.get(callDocId);
     if (call && (call.status === "pending" || call.status === "awaiting_confirmation")) await denyCall(ctx, call, "message");
-    return { cancelled: false };
+    return { cancelled: false, declined: true };
   },
 });
 

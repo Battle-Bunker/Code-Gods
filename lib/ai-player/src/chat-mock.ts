@@ -5,7 +5,7 @@
  * The latest user message of the conversation (the one that started the turn; not a tool-result message) picks the
  * script from its last text block (earlier blocks, such as the engine's briefing, are its context):
  *   `/mock {"steps":[step, …]}` or `/mock [step, …]`, where a step is one model call:
- *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message",
+ *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk, or before a fail), "tools": [{"name", "input"}], "fail": "message",
  *       "status": 400..599 (with fail: the HTTP status of a provider SDK error, as when the request is refused),
  *       "cutBelow": N (the answer is cut, ChatCutError, when the step's output ceiling is below N),
  *       "echo": true (answer with JSON {system, tools: the names in context (core and loaded), context: the prompt's other text blocks, earlier: earlier
@@ -81,7 +81,11 @@ export function mockChatProvider(): ChatProvider {
       const cacheReadTokens = Math.floor(inputTokens * (current?.cache?.read ?? 0)), cacheWriteTokens = Math.floor(inputTokens * (current?.cache?.write ?? 0));
       const usage = { inputTokens, cacheReadTokens, cacheWriteTokens };
       if (!current) return { content: [], stopReason: "end_turn", ...usage, outputTokens: 1 };
-      if (current.fail) throw Object.assign(new Error(current.fail), current.status ? { status: current.status } : {});
+      if (current.fail) {
+        // A failure after delayMs (a provider that stalls, then errors), as an abort would end it then.
+        if (current.delayMs) await sleep(current.delayMs, request.signal).catch(() => { throw new ChatAbortedError({ input: usage, outputChars: 0, reasoningMs: 0 }); });
+        throw Object.assign(new Error(current.fail), current.status ? { status: current.status } : {});
+      }
       if (current.cutBelow !== undefined && request.maxOutputTokens < current.cutBelow) throw new ChatCutError({ ...usage, outputTokens: request.maxOutputTokens });
       let text = "";
       // Earlier turns' user text (their briefings left out: the current one is in context, and they would crowd the echo).

@@ -166,7 +166,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
         </div>
       )}
       {card && <ConfirmCard key={card._id} call={card} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
-      {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} card={!!card} roomId={room} onError={setError} />}
+      {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} card={!!card} roomId={room}
+        threadId={threadId as Id<"assistantThreads"> | null} onError={setError} />}
       {error && <p className="px-3 pb-1 text-xs text-destructive" data-testid="text-assistant-error">{error}</p>}
       {enabled
         ? <Composer active={active} onSend={() => void submit(c.draft)} onStop={() => latestTurn && void cancel({ turnId: latestTurn._id }).catch(e => setError(errorText(e)))}
@@ -358,16 +359,18 @@ type Queued = { _id: string; threadId: string; text: string; held: boolean };
  * The player's messages waiting for their assistant (assistant.status queued): each editable and removable until the
  * assistant reads it; the ones a Stop held can be sent now (or go with the next message).
  */
-function QueueList({ queued, active, card, roomId, onError }: { queued: Queued[]; active: boolean; card: boolean; roomId: Id<"rooms">; onError: (e: string) => void }) {
+function QueueList({ queued, active, card, roomId, threadId, onError }: {
+  queued: Queued[]; active: boolean; card: boolean; roomId: Id<"rooms">; threadId: Id<"assistantThreads"> | null; onError: (e: string) => void;
+}) {
   const sendQueued = useMutation(api.assistant.sendQueued);
-  const note = queueNote({ count: queued.length, active, card, held: queued.some(q => q.held) });
+  const note = queueNote({ count: queued.length, active, card });
   if (!note) return null;
   return (
     <div className="space-y-1 border-t border-[hsl(var(--card-border))] px-3 py-2" data-testid="assistant-queue">
       <div className="flex items-center gap-2">
         <p className="text-[11px] text-muted-foreground" data-testid="text-assistant-queue-note">{note}</p>
         {!active && (
-          <button type="button" data-testid="button-queue-send" onClick={() => void sendQueued({ roomId }).catch(e => onError(errorText(e)))}
+          <button type="button" data-testid="button-queue-send" onClick={() => void sendQueued({ roomId, ...(threadId ? { threadId } : {}) }).then(r => composer.setThread(r.threadId), e => onError(errorText(e)))}
             className="ml-auto border border-[hsl(var(--input))] px-2 py-0.5 text-[11px] font-semibold">Send now</button>
         )}
       </div>
@@ -380,11 +383,17 @@ function QueuedItem({ item, onError }: { item: Queued; onError: (e: string) => v
   const edit = useMutation(api.assistant.editQueued);
   const remove = useMutation(api.assistant.removeQueued);
   const [draft, setDraft] = useState<string | null>(null);
+  /** Set once an edit is saved or discarded, so the blur of the closing textarea does nothing more. */
+  const closed = useRef(false);
   const id = item._id as Id<"assistantQueue">;
-  const save = () => {
+  const open = () => { closed.current = false; setDraft(item.text); };
+  const close = (keep: boolean) => {
+    if (closed.current) return;
+    closed.current = true;
     const text = draft?.trim();
     setDraft(null);
-    if (text && text !== item.text) void edit({ queueId: id, text }).catch(e => onError(errorText(e)));
+    if (!keep || !text || text === item.text) return;
+    void edit({ queueId: id, text }).then(r => { if (r.status !== "queued") onError("Your assistant had already read that message; the edit was not applied."); }, e => onError(errorText(e)));
   };
   return (
     <div className="flex items-start gap-2 border border-dashed border-[hsl(var(--input))] px-2 py-1 text-sm" data-testid="assistant-queued">
@@ -392,9 +401,9 @@ function QueuedItem({ item, onError }: { item: Queued; onError: (e: string) => v
       {draft === null
         ? <p className="min-w-0 flex-1 whitespace-pre-wrap break-words" data-testid="text-queued">{item.text}</p>
         : <textarea autoFocus value={draft} maxLength={4000} rows={2} onChange={e => setDraft(e.target.value)} data-testid="input-queued"
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); } if (e.key === "Escape") setDraft(null); }} onBlur={save}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); close(true); } if (e.key === "Escape") { e.preventDefault(); close(false); } }} onBlur={() => close(true)}
             className="min-w-0 flex-1 resize-none bg-transparent text-sm outline-none" />}
-      <button type="button" aria-label="Edit the queued message" data-testid="button-queued-edit" onClick={() => setDraft(item.text)} className="text-muted-foreground hover:text-foreground"><Pencil size={12} /></button>
+      <button type="button" aria-label="Edit the queued message" data-testid="button-queued-edit" onClick={open} className="text-muted-foreground hover:text-foreground"><Pencil size={12} /></button>
       <button type="button" aria-label="Remove the queued message" data-testid="button-queued-remove" onClick={() => void remove({ queueId: id }).catch(e => onError(errorText(e)))}
         className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
     </div>

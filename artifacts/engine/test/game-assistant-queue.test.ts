@@ -198,3 +198,20 @@ test("the queue is bounded and needs the assistant on; an earlier conversation o
   assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "one too many" })), "BAD_REQUEST");
   await ann.c.mutation(api.assistant.cancel, { turnId: sent.turnId });
 });
+
+test("a turn that fails holds its queued messages instead of spending them on a turn bound to fail; the queue keeps the busy turn's rights", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Ann Fail", "Bob Fail", "Cyd Fail"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ fail: "provider down", delayMs: 3000 }]) });
+  await waitFor(async () => (await turnOf(ann, sent.threadId, sent.turnId)).messages.some((m: any) => m.role === "assistant" && m.status === "streaming"), "the step opens", 60_000, 100);
+  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, permission: "read", text: "just watch" })), "CONFLICT",
+    "a change of rights is not slipped into the running turn's queue");
+  const queued = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "try again", clientId: "fail-1" });
+  await ann.c.mutation(api.assistant.editQueued, { queueId: queued.queueId, text: "try again, please" });
+  assert.equal((await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "try again", clientId: "fail-1" })).queueId, queued.queueId,
+    "a retry after an edit is still the same message");
+  const t = await until(ann, sent, DONE, "the turn fails");
+  assert.equal(t.turn.status, "failed");
+  await sleep(1000);
+  assert.deepEqual((await queuedOf(ann, roomId)).map((q: any) => [q.text, q.held]), [["try again, please", true]], "held, not spent");
+  assert.equal((await thread(ann, sent.threadId)).turns.length, 1);
+});

@@ -122,10 +122,9 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
       // The player has a message queued: never stop on a card they did not see; decline it (never approve) and let
       // the message, delivered after this step's results, say what they want.
       if (c.queued > 0) {
-        const { cancelled } = await ctx.runMutation(internal.assistant.store.declineForMessage, { turnId, gen, callDocId: call.id });
+        const { cancelled, declined } = await ctx.runMutation(internal.assistant.store.declineForMessage, { turnId, gen, callDocId: call.id });
         if (cancelled) return "cancelled";
-        call.status = "denied";
-        continue;
+        if (declined) { call.status = "denied"; continue; }
       }
       const { cancelled } = await ctx.runMutation(internal.assistant.store.awaitConfirmation, { turnId, gen, callDocId: call.id });
       return cancelled ? "cancelled" : "paused";

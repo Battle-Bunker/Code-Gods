@@ -4,7 +4,7 @@
  *
  *   mutation assistant:send     ({roomId, text, threadId?, permission?, ownerConsent?, clientId?}) → {threadId, turnId|null, queueId, queued}
  *   mutation assistant:editQueued   ({queueId, text}) / removeQueued ({queueId}) → {status}
- *   mutation assistant:sendQueued   ({roomId}) → {threadId, turnId}: the messages a Stop held
+ *   mutation assistant:sendQueued   ({roomId, threadId?}) → {threadId, turnId}: the messages a Stop (or a failed turn) held
  *   mutation assistant:cancel   ({turnId})                                              → {status}
  *   mutation assistant:confirm  ({toolCallId, decision: "approve" | "deny"})           → {status}
  *   mutation assistant:setPrefs ({roomId, autoApproveSummonBits})
@@ -93,6 +93,29 @@ async function latestTurn(ctx: Ctx, roomId: Id<"rooms">, subject: string) {
 }
 
 /**
+ * The human's active turn in the room's current game, or null. A turn of the last game being stopped because this one
+ * started (endTurnsForNewGame) acts no more: not busy.
+ */
+async function busyTurn(ctx: Ctx, room: Doc<"rooms">, subject: string) {
+  const latest = await latestTurn(ctx, room._id, subject);
+  if (!latest || !isActive(latest.status)) return null;
+  const ending = latest.status === "cancelling" && (await ctx.db.get(latest.threadId))?.epoch !== assistantEpoch(room);
+  return ending ? null : latest;
+}
+
+/** A new queued message (assistant.send). */
+async function insertQueued(ctx: MutationCtx, at: { room: Doc<"rooms">; subject: string; epoch: string; threadId: Id<"assistantThreads">; clientId?: string; text: string }) {
+  const now = Date.now();
+  const row = { roomId: at.room._id, subject: at.subject, epoch: at.epoch, threadId: at.threadId, ...(at.clientId ? { clientId: at.clientId } : {}), text: at.text,
+    status: "queued" as const, createdAt: now, updatedAt: now };
+  return { ...row, _id: await ctx.db.insert("assistantQueue", row), _creationTime: now };
+}
+
+/** The human's queued messages in this game, oldest first. */
+const queuedForKey = (ctx: Ctx, roomId: Id<"rooms">, subject: string, epoch: string) =>
+  ctx.db.query("assistantQueue").withIndex("by_key_status", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch).eq("status", "queued")).take(LIMITS.queued * 4);
+
+/**
  * Send a message: it starts a turn, or, while the human's assistant is working in this game (streaming, running tools,
  * waiting on a card, stopping), it is queued for that turn (docs/surface-architecture.md §6 "Queued messages"): it
  * joins the turn at its next step boundary, or starts the next turn when this one ends. A card waiting for the
@@ -115,7 +138,8 @@ export const send = mutation({
       // A retried send: the message it already was (queued or delivered), never a second one.
       const seen = await ctx.db.query("assistantQueue").withIndex("by_client", q => q.eq("subject", viewer.subject).eq("clientId", args.clientId)).first();
       if (seen) {
-        if (seen.roomId !== room._id || seen.text !== text) fail("CONFLICT", "That clientId was used for another message");
+        // (Its text may differ: the player may have edited it since.)
+        if (seen.roomId !== room._id) fail("CONFLICT", "That clientId was used for another message");
         return { threadId: seen.threadId, turnId: seen.status === "delivered" ? seen.turnId ?? null : null, queueId: seen._id, queued: seen.status === "queued" };
       }
     }
@@ -124,10 +148,7 @@ export const send = mutation({
     }
     const epoch = assistantEpoch(room);
     if (args.gameId !== undefined && args.gameId !== epoch) fail("CONFLICT", "A new game has started: your message was not sent. Send it again to start this game's conversation");
-    const latest = await latestTurn(ctx, room._id, viewer.subject);
-    // A turn of the last game being stopped because this one started (endTurnsForNewGame) acts no more: not busy.
-    const ending = latest?.status === "cancelling" && (await ctx.db.get(latest.threadId))?.epoch !== epoch;
-    const busy = latest && isActive(latest.status) && !ending ? latest : null;
+    const busy = await busyTurn(ctx, room, viewer.subject);
     let threadId = args.threadId;
     if (threadId) {
       const thread = await ctx.db.get(threadId);
@@ -137,11 +158,12 @@ export const send = mutation({
     const now = Date.now();
     if (busy) {
       if (threadId && threadId !== busy.threadId) fail("CONFLICT", "Your assistant is answering in another conversation of this game: queue messages there, or stop it first");
+      // A queued message runs with the busy turn's rights: a change of rights waits until the assistant is idle.
+      const rights = (await ctx.db.get(busy.credentialId))?.permission;
+      if (args.permission && args.permission !== rights) fail("CONFLICT", `Your assistant is working with ${rights ?? "its current"} rights: stop it or let it finish before changing them`);
       const queued = await queuedIn(ctx, busy.threadId);
       if (queued.length >= LIMITS.queued) fail("BAD_REQUEST", `At most ${LIMITS.queued} messages can wait for your assistant; edit or remove one`);
-      const queueId = await ctx.db.insert("assistantQueue", {
-        roomId: room._id, subject: viewer.subject, epoch, threadId: busy.threadId, ...(args.clientId ? { clientId: args.clientId } : {}), text, status: "queued", createdAt: now, updatedAt: now,
-      });
+      const { _id: queueId } = await insertQueued(ctx, { room, subject: viewer.subject, epoch, threadId: busy.threadId, clientId: args.clientId, text });
       // A card waiting for the player is declined by their message (never approved); the turn goes on and reads it.
       if (busy.status === "awaiting_confirmation") {
         for (const call of await callsOf(ctx, busy._id)) if (call.status === "awaiting_confirmation") await denyCall(ctx, call, "message");
@@ -155,10 +177,8 @@ export const send = mutation({
     threadId ??= await ctx.db.insert("assistantThreads", { roomId: room._id, subject: viewer.subject, title: text.slice(0, 60), epoch, createdAt: now, updatedAt: now });
     // Messages a Stop held in this thread go first, in order, then this one.
     const held = await queuedIn(ctx, threadId);
-    const queueId = await ctx.db.insert("assistantQueue", {
-      roomId: room._id, subject: viewer.subject, epoch, threadId, ...(args.clientId ? { clientId: args.clientId } : {}), text, status: "queued", createdAt: now, updatedAt: now,
-    });
-    const row = (await ctx.db.get(queueId))!;
+    const row = await insertQueued(ctx, { room, subject: viewer.subject, epoch, threadId, clientId: args.clientId, text });
+    const queueId = row._id;
     const turnId = await openTurn(ctx, { room, threadId, subject: viewer.subject, credentialId }, [...held, row].map(r => ({ text: r.text, row: r })));
     await touchActivity(ctx);
     log("send", { turnId, roomId: room._id, credentialId, held: held.length });
@@ -202,14 +222,14 @@ export const removeQueued = mutation({
 
 /** Send the messages a Stop held, as a new turn of their conversation (the assistant must be idle in this game). */
 export const sendQueued = mutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
-    const room = await requireRoom(ctx, roomId);
+  args: { roomId: v.id("rooms"), threadId: v.optional(v.id("assistantThreads")) },
+  handler: async (ctx, args) => {
+    const room = await requireRoom(ctx, args.roomId);
     const { viewer } = await requireMember(ctx, room, "read");
     if (!(room.assistantBudget ?? 0)) fail("FORBIDDEN", "The room owner has not enabled the assistant in this room");
-    const latest = await latestTurn(ctx, room._id, viewer.subject);
-    if (latest && isActive(latest.status)) fail("CONFLICT", "Your assistant is still working: the queued messages reach it at its next step");
-    const rows = await ctx.db.query("assistantQueue").withIndex("by_key_status", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", assistantEpoch(room)).eq("status", "queued")).take(LIMITS.queued * 4);
+    if (await busyTurn(ctx, room, viewer.subject)) fail("CONFLICT", "Your assistant is still working: the queued messages reach it at its next step");
+    // The given conversation's queued messages (the one on screen), else the oldest one's.
+    const rows = (await queuedForKey(ctx, room._id, viewer.subject, assistantEpoch(room))).filter(r => !args.threadId || r.threadId === args.threadId);
     if (!rows.length) fail("NOT_FOUND", "No queued messages");
     const threadId = rows[0].threadId;
     const credentialId = await assistantCredential(ctx, viewer, room, undefined, false);
@@ -302,7 +322,7 @@ export const status = query({
       isOwner: room.ownerId === viewer.subject, maxPermission: maxPermission(viewer, room),
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
       /** The caller's messages waiting for their assistant in this game, oldest first (held: kept through a Stop). */
-      queued: (await ctx.db.query("assistantQueue").withIndex("by_key_status", q => q.eq("roomId", room._id).eq("subject", viewer.subject).eq("epoch", allowance.epoch).eq("status", "queued")).take(LIMITS.queued * 4))
+      queued: (await queuedForKey(ctx, room._id, viewer.subject, allowance.epoch))
         .map(r => ({ _id: r._id, threadId: r.threadId, text: r.text, held: r.held ?? false, createdAt: r.createdAt })),
     };
   },

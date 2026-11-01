@@ -183,7 +183,8 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
 **Queued messages** (`assistantQueue {roomId, subject, epoch, threadId, clientId?, text, status: queued|delivered|removed, held?, turnId?, messageId?}`,
 keyed by (player, game) like the threads). The composer stays usable while the assistant works:
 - A `send` while the turn is running, waiting on a card or stopping is queued for that turn's conversation (at most 5,
-  each ≤ 4,000 characters; CONFLICT for another conversation of the game). The pane shows it as queued, editable
+  each ≤ 4,000 characters; CONFLICT for another conversation of the game, or with a change of the assistant's rights,
+  which waits until it is idle: a queued message runs with the busy turn's credential). The pane shows it as queued, editable
   (`editQueued`) and removable (`removeQueued`) until delivered. The queue is in Convex, so it survives reloads and
   every tab or app of the player sees it (`assistant.status` `queued`).
 - **Step boundary.** Before each model step that follows a tool step (its calls resolved and their results stored),
@@ -192,8 +193,9 @@ keyed by (player, game) like the threads). The composer stays usable while the a
   (`rules.ts QUEUED_NOTE`): for Anthropic the `tool_result` blocks then text blocks in one user message; for OpenAI the
   `tool` messages right after the assistant's `tool_calls`, then one user message with the texts. The model reads them
   in the same turn and can change course. Not at the step ceiling (they wait for the next turn).
-- **No tool step.** A turn that ends (done, failed, step limit, budget) with messages still queued starts the next turn
-  in the same conversation at once, with all of them as its prompt.
+- **No tool step.** A turn that ends done (its answer, or the step limit) with messages still queued starts the next
+  turn in the same conversation at once, with all of them as its prompt. A turn that failed or ran out of allowance
+  holds them instead (the next turn would fail the same way): the player sends them once they see why.
 - **Exactly once.** Delivery marks each row `delivered` in the same mutation that inserts its message, so of two racing
   deliveries one finds nothing (Convex mutations are serializable). `clientId` (the pane sends a UUID) makes a retried
   send return the same row, queued or delivered, never a second message.
@@ -202,7 +204,8 @@ keyed by (player, game) like the threads). The composer stays usable while the a
   need a card is declined the same way rather than shown, so the player's latest words decide before any card. The
   model then reads the message beside the declined result.
 - **Stop** keeps the messages queued so far, marked `held`: they never go into the stopped turn and start nothing
-  by themselves. They go first in the player's next message's turn, or now with `sendQueued`; the pane says so. A
+  by themselves. They go first in the player's next message's turn, or now with `sendQueued` (the conversation on
+  screen); the pane says so. A
   message sent after Stop, while the step winds down, is not held and starts the next turn when the cancellation lands.
   A new game drops the last game's queue.
 - **Accounting.** A queued message costs nothing until delivered. Its text is then part of the next step's input, so

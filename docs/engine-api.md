@@ -320,13 +320,14 @@ NOT_FOUND).
   replaces it. FORBIDDEN when the owner has not enabled the assistant (allowance 0). While the caller's turn in this
   game is active the message is **queued** (`queued: true`, `turnId: null`): it joins that turn after its current
   step's tool results, or starts the next turn when it ends with none; a card waiting for the player is declined by it
-  (never approved). At most 5 queued (BAD_REQUEST beyond); CONFLICT for another conversation than the busy one. The
-  same `clientId` again returns the same message (CONFLICT if its text differs). Messages a Stop held go first in the
+  (never approved). A turn that fails or runs out of allowance holds its queued messages. At most 5 queued (BAD_REQUEST
+  beyond); CONFLICT for another conversation than the busy one, or a `permission` other than the busy turn's. The
+  same `clientId` again returns the same message (even after an edit). Messages a Stop held go first in the
   next send's turn (`docs/surface-architecture.md` §6 "Queued messages").
 - `assistant.editQueued({queueId, text ≤ 4000})` / `assistant.removeQueued({queueId})` mutations → `{status}`: change or
   take back a queued message; a delivered one changes nothing (`{status: "delivered"}`).
-- `assistant.sendQueued({roomId})` mutation → `{threadId, turnId}`: start a turn with the held messages (CONFLICT while
-  a turn is active, NOT_FOUND with none).
+- `assistant.sendQueued({roomId, threadId?})` mutation → `{threadId, turnId}`: start a turn with the held messages of
+  that conversation (else the oldest one's); CONFLICT while a turn is active, NOT_FOUND with none.
 - `assistant.cancel({turnId})` mutation → `{status}`: `cancelling` (the running step stops at its next flush or between
   tool calls) or `cancelled`. Messages queued so far stay queued, `held`, until the next send or `sendQueued`.
 - `assistant.confirm({toolCallId, decision: approve|deny})` mutation → `{status}`: decides a call waiting for
