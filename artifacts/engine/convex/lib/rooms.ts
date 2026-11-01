@@ -50,6 +50,9 @@ export async function shortCodeFor(ctx: MutationCtx, table: "rooms" | "games", g
   return fail("CONFLICT", "Could not allocate a short code");
 }
 
+/** An AI seat's status between games: on joining (rooms.ts addAi) and when a game ends (engine/loop.ts endGame). */
+export const AI_LOBBY_STATUS = "Ready; awaiting game start";
+
 export async function memberOf(ctx: Ctx, roomId: Id<"rooms">, godId: string) {
   return ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
 }

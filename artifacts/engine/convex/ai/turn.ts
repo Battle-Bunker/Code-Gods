@@ -11,7 +11,7 @@ import { bindRuntime } from "../engine/runtime";
  * chats once.
  */
 import { v } from "convex/values";
-import { AIController, createDirectAnthropicProvider, createDirectOpenAIProvider, type ModelProvider } from "@workspace/ai-player";
+import { AIController, AITurnError, createDirectAnthropicProvider, createDirectOpenAIProvider, type AIFailureReason, type ModelProvider } from "@workspace/ai-player";
 import type { Language } from "@workspace/game-core";
 import type { Observation } from "@workspace/player-client";
 import { internal } from "../_generated/api";
@@ -28,11 +28,16 @@ export const SIMPLE_AGENTS: Record<string, Partial<Record<Language, string>>> = 
   Grid: { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }" },
 };
 
-/** The test provider: deterministic, offline, cheap. Reports token usage from the request size. */
+/**
+ * The test provider: deterministic, offline, cheap. Reports token usage from the request size. A seat whose strategy
+ * has a line `mock-reply: <text>` gets exactly that text back (test/game-ai.test.ts scripts a broken reply with it).
+ */
 export function mockProvider(): ModelProvider {
   return {
     estimateMaxUsd: (input, output) => (input + output) * 1e-8,
     async complete(request) {
+      const scripted = /^mock-reply: (.*)$/m.exec(request.system)?.[1];
+      if (scripted !== undefined) return { text: scripted, inputTokens: Math.ceil((request.system.length + request.data.length) / 4), outputTokens: Math.ceil(scripted.length / 4) };
       const { observation } = JSON.parse(request.data) as { observation: Observation };
       const actions: unknown[] = [];
       if (!observation.chat.some(m => m.godId === observation.self.godId)) {
@@ -47,6 +52,23 @@ export function mockProvider(): ModelProvider {
       return { text, inputTokens: Math.ceil((request.system.length + request.data.length) / 4), outputTokens: Math.ceil(text.length / 4) };
     },
   };
+}
+
+/**
+ * The seat status after a failed turn: a class every player in the room may see. Never the error message, which can
+ * quote the model's reply (the seat's private reasoning) or a provider response.
+ */
+type SeatFailure = AIFailureReason | "provider_missing" | "model_retired";
+export function failureStatus(reason: SeatFailure): string {
+  switch (reason) {
+    case "budget_exhausted": return "AI budget or rate limit reached";
+    case "invalid_reply": return "Turn failed: the model's reply was not a valid move";
+    case "incomplete_reply": return "Turn failed: the model's reply was cut off or declined";
+    case "provider_error": return "Turn failed: the AI provider call failed";
+    case "provider_missing": return "Turn failed: the AI provider is not configured";
+    case "model_retired": return "Turn failed: the seat's model is no longer offered";
+    default: return "Turn failed: the turn could not be completed";
+  }
 }
 
 function providerFor(agent: { provider: string; model: string }): ModelProvider {
@@ -73,9 +95,12 @@ export const run = internalAction({
     const { roomId, agent } = context;
     let status = "Thinking";
     let ok = true;
+    let failure: SeatFailure | undefined;
     try {
+      let provider: ModelProvider;
+      try { provider = providerFor(agent); } catch (error) { failure = mockEnabled() || findModel(agent.provider, agent.model) ? "provider_missing" : "model_retired"; throw error; }
       const controller = new AIController({
-        roomId, godId, provider: providerFor(agent), customPrompt: agent.prompt,
+        roomId, godId, provider, customPrompt: agent.prompt,
         budget: {
           reserve: async (tokens, usd) => {
             const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, { roomId, gameId, tokens, usd });
@@ -95,7 +120,7 @@ export const run = internalAction({
         },
         onEvent: event => {
           if (event.type === "status") status = event.status === "acting" ? "Acting" : event.status === "thinking" ? "Thinking" : status;
-          if (event.type === "failure" && status !== "AI budget exhausted") status = event.code === "budget_exhausted" ? "AI budget exhausted" : "Turn failed";
+          if (event.type === "failure") failure = event.code;
           if (event.type === "command") status = `Sent a command (${event.accepted ? "accepted" : "rejected"})`;
         },
       });
@@ -103,8 +128,10 @@ export const run = internalAction({
       status = status === "Thinking" || status === "Acting" ? "Waiting" : status;
     } catch (error) {
       ok = false;
-      console.warn(`AI turn failed for ${godId}: ${messageOf(error)}`);
-      if (status !== "AI budget exhausted") status = "Turn failed";
+      const reason = failure ?? (error instanceof AITurnError ? error.reason : "turn_failed");
+      const cause = error instanceof Error && error.cause !== undefined ? ` (cause: ${messageOf(error.cause)})` : "";
+      console.warn(`AI turn failed for ${godId} [${reason}]: ${messageOf(error)}${cause}`);
+      status = failureStatus(reason);
     }
     await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok, status });
     return { ok, status };

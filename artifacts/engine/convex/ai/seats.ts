@@ -56,19 +56,24 @@ export const turnContext = internalQuery({
   },
 });
 
-/** Record a turn's outcome and schedule the next one (backoff on failure; stop after five failures). */
+/**
+ * Record a turn's outcome and schedule the next one (backoff on failure; stop after five failures). A failed turn's
+ * status says when the seat retries. A turn that finishes after its game ended leaves the lobby status alone.
+ */
 export const afterTurn = internalMutation({
   args: { gameId: v.id("games"), godId: v.string(), chain: v.number(), ok: v.boolean(), status: v.string(), waitUntil: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const game = await ctx.db.get(args.gameId);
     if (!game) return;
     const member = await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", game.roomId).eq("godId", args.godId)).unique();
-    if (!member || member.aiChain !== args.chain) return;
+    if (!member || member.aiChain !== args.chain || game.phase === "ended") return;
     const failures = args.ok ? 0 : (member.aiFailures ?? 0) + 1;
     const stopped = failures >= MAX_FAILURES;
-    await ctx.db.patch(member._id, { aiFailures: failures, status: stopped ? `Stopped after ${MAX_FAILURES} failed turns (${args.status})` : args.status });
-    if (stopped || game.phase === "ended" || game.phase === "recovery") return;
     const delay = args.waitUntil !== undefined ? Math.max(0, args.waitUntil - Date.now()) + 500 : Math.min(60_000, TURN_MS * 2 ** failures);
+    const status = stopped ? `Stopped after ${MAX_FAILURES} failed turns (${args.status})`
+      : args.ok || game.phase === "recovery" ? args.status : `${args.status}; retrying in ${Math.round(delay / 1000)} s`;
+    await ctx.db.patch(member._id, { aiFailures: failures, status });
+    if (stopped || game.phase === "recovery") return;
     await ctx.scheduler.runAfter(delay, internal.ai.turn.run, { gameId: args.gameId, godId: args.godId, chain: args.chain });
   },
 });

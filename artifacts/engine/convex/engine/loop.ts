@@ -12,7 +12,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
 import { gameRecord } from "../lib/projection";
-import { isIdle, lastHumanActivity } from "../lib/rooms";
+import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 
@@ -66,7 +66,11 @@ export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lif
     summary, nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
   const room = await ctx.db.get(game.roomId);
-  if (room && room.activeGameId === game._id) await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
+  if (room && room.activeGameId === game._id) {
+    await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
+    // AI seats are back in the lobby: a failure (or "Sent a command") from the game's last turn no longer applies.
+    for (const m of await membersOf(ctx, room._id)) if (m.kind === "ai") await ctx.db.patch(m._id, { status: AI_LOBBY_STATUS, aiFailures: 0 });
+  }
 }
 
 /** Freeze a game in recovery (world time stops). `autoResume` games resume when a human returns. */

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ModelProvider } from "./provider.ts";
+import { AITurnError, type ModelProvider } from "./provider.ts";
 
 // Pre-authored provider configuration: do not accept API origins/models from room input.
 // Public standard pricing: https://platform.claude.com/docs/en/about-claude/pricing
@@ -25,12 +25,15 @@ export function anthropicProvider(client: Pick<Anthropic, "messages">, config: {
         max_tokens: request.maxOutputTokens,
         system: request.system,
         messages: [{ role: "user", content: request.data }],
-        // No tools, prompt caching or separately billable features; the model's default thinking applies.
+        // Structured outputs: without them Claude 5 models sometimes answered with a tool call written as text
+        // ("<invoke name=...>"), which is no decision. Works alongside the model's default thinking.
+        ...(request.responseSchema ? { output_config: { format: { type: "json_schema" as const, schema: request.responseSchema } } } : {}),
+        // No tools, prompt caching or separately billable features.
       }, { signal: request.signal, maxRetries: 0 });
       // Claude 5 models think by default: their thinking blocks are skipped (a one-shot call never replays them).
       const answer = result.content.filter(block => block.type !== "thinking" && block.type !== "redacted_thinking");
       if (result.stop_reason !== "end_turn" || !answer.length || answer.some(block => block.type !== "text")) {
-        throw new Error("Incomplete or unsupported Anthropic response");
+        throw new AITurnError("incomplete_reply", "Incomplete or unsupported Anthropic response");
       }
       const text = answer.map(block => block.type === "text" ? block.text : "").join("");
       const usage = result.usage;

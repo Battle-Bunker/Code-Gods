@@ -47,3 +47,15 @@ test("thinking blocks (on by default on Claude 5 models) are skipped; the decisi
   assert.deepEqual(await model.complete(request), { text: '{"actions":[]}', inputTokens: 20, outputTokens: 7 });
   await assert.rejects(mocked(async () => Response.json({ ...response, content: thinking })).complete(request), /Incomplete|unsupported/i, "thinking alone is no answer");
 });
+test("a response schema is sent as structured output (output_config.format), so the reply is always the decision JSON", async () => {
+  const schema = { type: "object", properties: { actions: { type: "array", items: {} } }, required: ["actions"], additionalProperties: false };
+  let body: any;
+  const model = mocked(async (_url, init) => { body = JSON.parse(String(init!.body)); return Response.json(response); });
+  await model.complete({ ...request, responseSchema: schema });
+  assert.deepEqual(body.output_config, { format: { type: "json_schema", schema } });
+  assert.equal(body.tools, undefined);
+});
+test("an incomplete reply is a typed incomplete_reply failure", async () => {
+  const error: any = await mocked(async () => Response.json({ ...response, stop_reason: "max_tokens" })).complete(request).then(() => null, e => e);
+  assert.equal(error.reason, "incomplete_reply");
+});

@@ -15,7 +15,7 @@ import { aiSeatName } from "./lib/aiNames";
 import { publicRoom } from "./lib/projection";
 import { firstSteps } from "./setups";
 import {
-  displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
+  AI_LOBBY_STATUS, displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
 } from "./lib/rooms";
 import { touchActivity } from "./activity";
@@ -243,7 +243,7 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
     const godId = `ai:${crypto.randomUUID()}`;
     const name = aiSeatName(godId, members.map(m => m.name), [template.name]);
     await ctx.db.insert("members", {
-      roomId: room._id, godId, name, kind: "ai", ready: true, joinedAt: Date.now(), status: "Ready; awaiting game start",
+      roomId: room._id, godId, name, kind: "ai", ready: true, joinedAt: Date.now(), status: AI_LOBBY_STATUS,
       aiAgent: { id: template.templateId, name: template.name, provider: template.provider, model: template.model, prompt: template.prompt, revision: template.revision },
     });
     await bump(ctx, room);

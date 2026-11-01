@@ -27,3 +27,22 @@ export function modelObservation(raw:unknown, roomId:string,godId:string):Observ
   if(o.roomId!==roomId || o.self.godId!==godId || !o.self.isAI) throw new Error("AI identity mismatch");
   return {...o,objects:[...o.objects].sort((a,b)=>b.payoff-a.payoff).slice(0,100),agents:o.agents.slice(-20),transformations:o.transformations.slice(-50),chat:o.chat.slice(-30)};
 }
+/**
+ * The decision as a JSON schema for structured outputs (ModelRequest.responseSchema), mirroring decisionSchema with
+ * programs limited to the game's agent languages. Length limits (four actions, source and chat sizes) stay with decisionSchema
+ * and the command schema: structured outputs do not take string or array constraints.
+ */
+export function decisionJsonSchema(languages:readonly string[]):Record<string,unknown> {
+  const command=(type:string,properties:Record<string,unknown>={})=>({
+    type:"object",additionalProperties:false,required:["type",...Object.keys(properties)],
+    properties:{type:{type:"string",const:type},...properties},
+  });
+  const program={language:{type:"string",enum:[...languages]},source:{type:"string"}};
+  return {
+    type:"object",additionalProperties:false,required:["actions"],
+    properties:{actions:{type:"array",items:{anyOf:[
+      command("validate",program),command("summon",program),command("chat",{text:{type:"string"}}),
+      command("ready",{ready:{type:"boolean"}}),command("pause"),command("destroy",{agentId:{type:"string"}}),
+    ]}}},
+  };
+}
