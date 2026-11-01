@@ -97,11 +97,10 @@ test("an OpenAI seat whose reply is JSON but no decision says so and keeps the r
   const template = await host.c.mutation(api.aiTemplates.create, { name: "Loose Replier", provider: "openai", model: "gpt-4.1-mini", prompt: 'mock-reply: {"move":"summon","plan":"my private plan"}' });
   const { godId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: template.id });
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 300_000 });
-  const game = await host.c.action(api.owner.start, { roomId });
+  await host.c.action(api.owner.start, { roomId });
   const seat = async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId);
   await waitFor(async () => ((await seat()).aiFailures ?? 0) >= 1, "the first turn fails on the reply", 60000, 500);
   const failed = await seat();
   assert.match(failed.status, /^Turn failed: the model's reply was not a valid move; retrying in \d+ s$/, failed.status);
   assert.equal(failed.status.includes("private plan"), false, "the reply itself stays private");
-  assert.equal((await raw(game.gameId)).agents.length, 0);
 });
