@@ -93,14 +93,16 @@ function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
         )}
         {frozen && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Changes apply after game {frozen.shortCode} ends.</p>}
         <p className="text-sm text-muted-foreground" data-testid="text-next-game-summary">{current ? `${current.name}: ${current.summary}. ` : ""}{settingsSummary(room.settings, room.objectInstance)}</p>
+        {/* Out of Details: creating a room asks nothing, so this line is where the owner finds the assistant. */}
+        <p className="text-sm" data-testid="text-ai-spending">
+          AI players: {fmt(used)} of {fmt(room.aiBudget)} tokens · Assistant: {room.assistantBudget ? `${fmt(room.assistantBudget)} per player` : "off"}
+          {isOwner && manifest?.aiFunding.configured !== false && <> · <button type="button" className="underline underline-offset-4" onClick={() => openSheet("ai-spending")}
+            data-testid="button-ai-spending">{room.assistantBudget ? "Change" : "Turn on…"}</button></>}
+        </p>
         <details className="text-sm" data-testid="details-next-game">
           <summary className="cursor-pointer select-none">Details</summary>
           <div className="mt-3 space-y-4">
             <SettingsList settings={room.settings} instance={room.objectInstance} />
-            <p className="text-sm" data-testid="text-ai-spending">
-              AI players: {fmt(used)} of {fmt(room.aiBudget)} tokens · Assistant: {room.assistantBudget ? `${fmt(room.assistantBudget)} per player` : "off"}
-              {isOwner && <> · <button type="button" className="underline underline-offset-4" onClick={() => openSheet("ai-spending")} data-testid="button-ai-spending">Change</button></>}
-            </p>
             <UtilityFamilies catalog={catalogOf(room.utilityCatalog)} classes={manifest?.objectTypes.find(t => t.id === room.settings.objectType)?.classes} />
           </div>
         </details>

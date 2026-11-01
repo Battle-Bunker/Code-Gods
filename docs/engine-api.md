@@ -266,7 +266,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
-| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, and can turn the assistant on for its players. | — (A credential is bound to one existing room; rooms are created in the browser.) |
+| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, ready to share its invite link. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
 | `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state`, `load_skill` |
 | `rooms.join` | mutation | player | Join this room | Takes a seat; joining mid-game makes you a spectator until the next game. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |

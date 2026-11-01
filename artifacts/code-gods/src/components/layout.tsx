@@ -1,12 +1,12 @@
 /**
  * Every engine UI page's frame (palette-and-pages.md §3.0): the header (wordmark, breadcrumb with the live dot, the
  * palette trigger, the avatar menu) and the one command palette, plus the secondary surfaces the palette opens
- * (AI spending, connected apps, scoring, past games) and the room-creation and AI-budget dialogs.
+ * (AI spending, connected apps, scoring, past games) and the AI-budget dialog.
  *
  * A page passes what it shows (its room, its game); the commands are built from that once, and the page's own
  * buttons run them by id through `usePage().run`, so a button and its palette row do the same thing.
  */
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { useAction, useConvex, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
@@ -20,7 +20,7 @@ import { errMsg, rid } from "@/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/lib/types";
 import { rulesFor } from "@/components/game-rules";
 import { Tip } from "@/components/action";
-import { AiBudgetDialog, AiSpendingSheet, ConnectedAppsSheet, CreateRoomDialog, PastGamesSheet, ScoringSheet } from "@/components/sheets";
+import { AiBudgetDialog, AiSpendingSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/components/sheets";
 import { ToastAction } from "@/components/ui/toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -94,7 +94,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const convex = useConvex();
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
-  const [creating, setCreating] = useState<"dialog" | "busy" | null>(null);
+  const creating = useRef(false);
   const [pendingAi, setPendingAi] = useState<{ templateId: string; name?: string; busy?: boolean } | null>(null);
 
   const create = useMutation(api.rooms.create);
@@ -116,14 +116,17 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const roomId = room?.id;
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
-  /** Create a room (on the First steps setup) and, when the owner consented in the dialog, turn on the assistant in the same call. */
-  const doCreate = useCallback(async (assistant: { assistantBudget: number; assistantModel: string } | null) => {
-    setCreating("busy");
+  /**
+   * Create a room in one step, on the First steps setup, and open it: its invite link is the owner's first next step.
+   * Nothing is asked first; the assistant is turned on later from the room page (Assistant: off · Turn on…).
+   */
+  const doCreate = useCallback(async () => {
+    if (creating.current) return; // a double click makes one room
+    creating.current = true;
     try {
-      const r = await create(assistant ?? {});
-      setCreating(null);
+      const r = await create({});
       navigate(`/rooms/${r.shortCode}`);
-    } catch (e) { setCreating("dialog"); fail("Creating the room", e); }
+    } catch (e) { fail("Creating the room", e); } finally { creating.current = false; }
   }, [create, navigate, fail]);
 
   const setups = useLive(api.setups.list, user ? {} : "skip").data;
@@ -139,7 +142,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     openTab: url => { window.open(url, "_blank", "noopener"); },
     copy: (text, what) => { navigator.clipboard.writeText(text).then(() => toast({ title: `${what} copied` }), () => toast({ title: `Could not copy the ${what.toLowerCase()}`, variant: "destructive" })); },
     login, logout,
-    createRoom: () => { if (manifest?.aiFunding.configured) setCreating("dialog"); else void doCreate(null); },
+    createRoom: () => { void doCreate(); },
     join: () => join({ room: need(room).shortCode }),
     leave: () => leave({ roomId: need(roomId) }),
     setReady: ready => setReady({ roomId: need(roomId), ready }),
@@ -260,7 +263,6 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       <ConnectedAppsSheet open={sheet === "connected-apps"} onOpenChange={o => setSheet(o ? "connected-apps" : null)} roomCode={room?.shortCode} />
       <ScoringSheet open={sheet === "scoring"} onOpenChange={o => setSheet(o ? "scoring" : null)} objectType={room?.settings.objectType ?? game?.settings.objectType} />
       <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} />
-      <CreateRoomDialog open={!!creating} pending={creating === "busy"} onOpenChange={o => { if (!o && creating !== "busy") setCreating(null); }} manifest={manifest} onCreate={a => void doCreate(a)} />
       {room && (
         <AiBudgetDialog open={!!pendingAi} templateName={pendingAi?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
           onApprove={tokens => {
