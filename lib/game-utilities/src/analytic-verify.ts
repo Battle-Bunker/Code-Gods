@@ -81,6 +81,40 @@ export function compareWithTable(a: AnalyticSurvival, table: CalibrationTable): 
   };
 }
 
+/**
+ * Tolerance on |table − analytic| by depth, from the measured behaviour of the estimator over six families and 48 shapes
+ * (tail-toolkit.md §8): for families whose level sets the kernel can move through, the largest observed errors are 3.4
+ * bits below 48 bits, 4.8 below 64 and 7 above.
+ */
+export const MAX_ABS_DELTA = (bits: number) => (bits < 16 ? 1.2 : bits < 32 ? 2.5 : bits < 48 ? 5 : bits < 64 ? 6 : 10);
+/** A family's tables, pooled, must have RMS z at most this over the levels below 32 bits. */
+export const MAX_RMS_Z_BELOW_32 = 1.5;
+/**
+ * Families whose sampling tables are known to be biased above some depth (tail-toolkit.md §8.2): the analytic is the
+ * ground truth there, so the comparison only bounds the bias. Say why.
+ */
+export const KNOWN_TABLE_BIAS: Record<string, { readonly fromBits: number; readonly maxAbsDelta: number; readonly why: string }> = {
+  rainbow_road: { fromBits: 32, maxAbsDelta: 10, why: "completing a second whole line needs coordinated multi-cell moves the kernel rarely makes" },
+};
+
+/**
+ * The per-table bands every sampling table must meet against a verified analytic (test/analytic.test.ts, and the split
+ * estimator's check, scripts/verify-split.ts): no level the analytic calls unattainable, |Δ| within MAX_ABS_DELTA (or
+ * the family's KNOWN_TABLE_BIAS). The pooled RMS z bound (MAX_RMS_Z_BELOW_32) is the caller's, over a family's tables.
+ */
+export function tableViolations(a: AnalyticSurvival, table: CalibrationTable, c: TableComparison = compareWithTable(a, table)): string[] {
+  const bad: string[] = [];
+  if (c.unattainable.length) bad.push(`table levels the analytic calls unattainable: ${c.unattainable.map(o => JSON.stringify(o)).join(", ")}`);
+  const exact = new Map(a.levels.map(([o, l]) => [keyOfOrdinal(o), -l]));
+  const bias = KNOWN_TABLE_BIAS[table.family];
+  for (const [o, bits] of table.levels) {
+    const ab = exact.get(keyOfOrdinal(o));
+    const allowed = bias && bits >= bias.fromBits ? Math.max(bias.maxAbsDelta, MAX_ABS_DELTA(bits)) : MAX_ABS_DELTA(bits);
+    if (ab !== undefined && Math.abs(bits - ab) > allowed) bad.push(`at ${JSON.stringify(o)} table ${bits.toFixed(2)} vs analytic ${ab.toFixed(2)} bits`);
+  }
+  return bad;
+}
+
 export interface SpawnComparison {
   readonly spawns: number;
   /** Sampled ordinals that are not levels (a formula that misses attainable ordinals). */

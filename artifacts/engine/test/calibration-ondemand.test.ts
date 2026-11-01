@@ -88,3 +88,25 @@ test("a game started on a shape with no shipped file deals, prepares its tables 
   assert.ok(g.objects.length > 0 && g.objects.every((o: { scores: unknown[] }) => o.scores.length === 3));
   await members[0].c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("a slow table is planned in pieces, fanned out, merged and cached: the bytes are those the pieces make in any process", { timeout: 900_000 }, async () => {
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+  // truncation-saint is this range's slowest table (a factorising evaluator: tens of µs per evaluation, 50 s here).
+  const draw = { familyId: "truncation-saint", params: {} };
+  const first = await admin.action(internal.calibration.compute.prepare, { settings, draws: [draw] });
+  assert.equal(first.pending.length, 1);
+  const key = first.pending[0].key;
+  const started = performance.now();
+  const last = await waitFor(async () => {
+    const r = await admin.action(internal.calibration.compute.prepare, { settings, draws: [draw] });
+    return r.pending.length ? undefined : r;
+  }, `the split table of ${draw.familyId}`, 840_000, 2000);
+  const [row] = await admin.mutation(internal.calibration.cache.getMany, { keys: [key] });
+  const table = JSON.parse(row.table);
+  const pieces = table.estimator.split?.replicates ?? 1;
+  assert.ok(pieces > 1, `the planner split the table (planned ${pieces})`);
+  const { budgetFor, buildTable, tableJson } = await import("@workspace/game-utilities/estimator");
+  const f = family(draw.familyId);
+  assert.equal(row.table, tableJson(buildTable(draw.familyId, f.canonical(draw.params, context(inst)), inst, budgetFor("Int"), { plan: { replicates: pieces } }).table));
+  console.log(`# ${draw.familyId} on ${inst.key}: ${pieces} pieces (${(await admin.mutation(internal.calibration.cache.getMany, { keys: [key] }))[0].buildMs?.toFixed(0)} ms merge), ready after ${((performance.now() - started) / 1000).toFixed(1)} s; ready: ${last.ready.map((r: { source: string }) => r.source)}`);
+});

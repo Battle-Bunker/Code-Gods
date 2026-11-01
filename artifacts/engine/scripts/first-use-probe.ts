@@ -1,35 +1,57 @@
 /**
- * Cloud first-use latency of on-demand calibration (docs/analytic-calibration/architecture.md §9): for each shape, deal
- * a game's draws (Divine Lottery, defence goals on where the type has them), keep the ones without an analytic answer, and run one
- * `calibration/compute:run` per table in parallel against the deployment the environment selects (CONVEX_DEPLOY_KEY;
- * none: the local backend). `run` writes nothing unless a claim row exists, so the probe leaves no cache behind and can
- * be repeated.
+ * Cloud first-use latency of on-demand calibration (docs/analytic-calibration/architecture.md §9.1, §9.2): for each
+ * shape, deal a 6-god game (Divine Lottery, seeded per shape; defence goals on where the type has them), keep the draws
+ * without an analytic answer, ask the deployment for each table's split plan (`calibration/compute:plan`, measured
+ * there), then run every piece at once (`calibration/compute:piece`, or `run` for a one-piece table) and merge each
+ * split table here as the engine's `merge` would. Nothing is recorded on the deployment (no claim rows: `run` and
+ * `piece` write nothing without one), so the probe is repeatable on shapes whose tables are shipped. Where the shipped
+ * single-run table of a key exists, the merged table is compared with it (max |Δ bits|, RMS z with both nominal se).
  *
- *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Grid(7,base16,rgby)" [--gods 6]
+ *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Int(0,2147483647)" [--gods 6] [--plan-only]
  */
-import { spawn } from "node:child_process";
-import { analyticFor, context, divineLottery, family, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
-import { randomInt } from "node:crypto";
-
-const rng = { int: (n: number) => randomInt(n), big: (n: bigint) => BigInt(randomInt(Number(n > 2n ** 47n ? 2n ** 47n : n))) };
+import { existsSync, readFileSync } from "node:fs";
+import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
+import { seededRng } from "@workspace/game-types";
+import { analyticFor, context, divineLottery, family, instantiateKey, nominalSe, paramsKey, tableKey, type CalibrationFile, type CalibrationTable } from "@workspace/game-utilities";
+import { budgetFor, mergeReplicates, type ReplicateResult } from "@workspace/game-utilities/estimator";
 
 const args = process.argv.slice(2);
-const godsAt = args.indexOf("--gods");
-const gods = godsAt >= 0 ? Number(args.splice(godsAt, 2)[1]) : 6;
+const flag = (name: string) => { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; };
+const option = (name: string) => { const i = args.indexOf(name); return i < 0 ? undefined : args.splice(i, 2)[1]; };
+const gods = Number(option("--gods") ?? 6), planOnly = flag("--plan-only");
 
-function runAction(fn: string, payload: unknown): Promise<{ ms: number; out: string }> {
-  const started = performance.now();
-  return new Promise((resolve, reject) => {
-    const child = spawn("npx", ["convex", "run", fn, JSON.stringify(payload)], { cwd: new URL("..", import.meta.url).pathname, stdio: ["ignore", "pipe", "pipe"] });
-    let out = "", err = "";
-    child.stdout.on("data", d => { out += d; });
-    child.stderr.on("data", d => { err += d; });
-    child.on("close", code => (code === 0 ? resolve({ ms: performance.now() - started, out }) : reject(new Error(`${fn} exited ${code}: ${err.slice(-500)}`))));
-  });
+const deployKey = process.env.CONVEX_DEPLOY_KEY;
+if (!deployKey) throw new Error("CONVEX_DEPLOY_KEY is required (the deployment to probe)");
+const name = deployKey.split("|")[0]!.split(":")[1];
+const client = new ConvexHttpClient(process.env.CONVEX_URL ?? `https://${name}.convex.cloud`);
+(client as unknown as { setAdminAuth(key: string): void }).setAdminAuth(deployKey);
+const action = <T>(fn: string, payload: Record<string, unknown>) => client.action(makeFunctionReference<"action">(fn), payload) as Promise<T>;
+
+type Plan = { key: string; familyId: string; pieces: number; seconds: number; pieceSeconds: number };
+type PieceOut = { seconds: number; result?: string };
+
+function shipped(instance: string): Map<string, CalibrationTable> {
+  const path = new URL(`../../../lib/game-utilities/data/calibration/v1/${instance}.json`, import.meta.url);
+  if (!existsSync(path)) return new Map();
+  return new Map((JSON.parse(readFileSync(path, "utf8")) as CalibrationFile).tables.map(t => [t.key, t]));
+}
+
+function agreement(split: CalibrationTable, single: CalibrationTable) {
+  const s = new Map(single.levels.map(([o, b]) => [JSON.stringify(o), b]));
+  let max = 0, sz2 = 0, n = 0;
+  for (const [o, b] of split.levels) {
+    const b1 = s.get(JSON.stringify(o));
+    if (b1 === undefined || b1 > 64) continue;
+    const d = b - b1, z = d / Math.sqrt(nominalSe(split, b) ** 2 + nominalSe(single, b1) ** 2 + 2 * 0.02 ** 2);
+    max = Math.max(max, Math.abs(d)); sz2 += z * z; n++;
+  }
+  return { levels: n, maxAbsDelta: +max.toFixed(2), rmsZ: +(n ? Math.sqrt(sz2 / n) : 0).toFixed(2) };
 }
 
 for (const key of args) {
   const inst = instantiateKey(key), ctx = context(inst);
+  const rng = seededRng(`first-use-probe:${inst.key}`);
   const dealt = divineLottery.select(inst, gods, rng, { defenceGoals: inst.objectType === "Grid" });
   const draws = new Map<string, { familyId: string; params: unknown }>();
   let analytic = 0;
@@ -38,17 +60,31 @@ for (const key of args) {
     if (analyticFor(d.familyId, canon, inst)) { analytic++; continue; }
     draws.set(tableKey(d.familyId, canon, inst), { familyId: d.familyId, params: canon });
   }
+  const plans = await action<Plan[]>("calibration/compute:plan", { instance: inst.key, draws: [...draws.values()] });
+  if (planOnly) { console.log(JSON.stringify({ instance: inst.key, plans }, null, 1)); continue; }
+  const ship = shipped(inst.key);
   const started = performance.now();
-  const results = await Promise.all([...draws].map(async ([k, d]) => {
-    const r = await runAction("calibration/compute:run", { key: k, instance: inst.key, familyId: d.familyId, params: d.params });
-    const seconds = (JSON.parse(r.out) as { seconds: number }).seconds;
-    return { family: `${d.familyId} ${paramsKey(d.params as never)}`, buildSeconds: seconds, callSeconds: r.ms / 1000 };
+  const tables = await Promise.all(plans.map(async p => {
+    const d = draws.get(p.key)!;
+    const base = { key: p.key, instance: inst.key, familyId: d.familyId, params: d.params };
+    if (p.pieces === 1) {
+      const out = await action<PieceOut>("calibration/compute:run", base);
+      return { family: `${d.familyId} ${paramsKey(d.params as never)}`, pieces: 1, pieceSeconds: [out.seconds], readySeconds: (performance.now() - started) / 1000, agree: null };
+    }
+    const outs = await Promise.all(Array.from({ length: p.pieces }, (_, index) =>
+      action<PieceOut>("calibration/compute:piece", { ...base, index, pieces: p.pieces, returnResult: true })));
+    const reps = outs.map(o => JSON.parse(o.result!) as ReplicateResult);
+    const table = mergeReplicates(d.familyId, d.params as never, inst, budgetFor(inst.objectType), { replicates: p.pieces }, reps);
+    const single = ship.get(p.key);
+    return { family: `${d.familyId} ${paramsKey(d.params as never)}`, pieces: p.pieces, pieceSeconds: outs.map(o => o.seconds), readySeconds: (performance.now() - started) / 1000, agree: single ? agreement(table, single) : null };
   }));
-  const wall = (performance.now() - started) / 1000;
-  const builds = results.map(r => r.buildSeconds).sort((a, b) => a - b);
+  const wall = Math.max(...tables.map(t => t.readySeconds));
+  const all = tables.flatMap(t => t.pieceSeconds);
   console.log(JSON.stringify({
-    instance: inst.key, draws: dealt.length * (inst.objectType === "Grid" ? 2 : 1), analytic, sampled: draws.size, wallSeconds: +wall.toFixed(1),
-    buildSeconds: { min: +builds[0]!.toFixed(1), max: +builds.at(-1)!.toFixed(1), sum: +builds.reduce((a, b) => a + b, 0).toFixed(1) },
-    tables: results.map(r => `${r.family}: build ${r.buildSeconds.toFixed(1)} s, call ${r.callSeconds.toFixed(1)} s`),
+    instance: inst.key, draws: dealt.length * (inst.objectType === "Grid" ? 2 : 1), analytic, sampled: draws.size,
+    actions: tables.reduce((n, t) => n + t.pieces + (t.pieces > 1 ? 1 : 0), 0), wallSeconds: +wall.toFixed(1),
+    pieceSeconds: { min: +Math.min(...all).toFixed(1), max: +Math.max(...all).toFixed(1) },
+    tables: tables.map(t => `${t.family}: ${t.pieces} piece${t.pieces > 1 ? "s" : ""} ${Math.min(...t.pieceSeconds).toFixed(1)}–${Math.max(...t.pieceSeconds).toFixed(1)} s, ready ${t.readySeconds.toFixed(1)} s${t.agree ? `, vs single ${t.agree.levels} levels max|Δ| ${t.agree.maxAbsDelta} RMS z ${t.agree.rmsZ}` : ""}`),
+    plans: plans.map(p => `${p.familyId}: est ${p.seconds.toFixed(0)} s → ${p.pieces}`),
   }, null, 1));
 }

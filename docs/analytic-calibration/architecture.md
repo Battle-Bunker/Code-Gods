@@ -5,7 +5,9 @@
 solved and verified on 48 shapes (PR #54). Phase B1 (the computed-table cache, the per-table compute action,
 `resolveTables` and the `prepare` entry point, with measured first-use latency, §9) is merged, and so is Phase B2 (the
 two-half start with the room's preparing state, retries and the coordinator, `playableInstantiations`, the UI, and the
-cloud latencies of §9); B3–D below are the design the engine converges on; each names the code it touches. The mathematics lives in `tail-toolkit.md`
+cloud latencies of §9), and so is Phase B3 (each slow table split across replicate actions with an unbiased merge, the
+per-owner rate limit, progress by pieces: §3.2, §9.2); C–D below are the design the engine converges on; each names the
+code it touches. The mathematics lives in `tail-toolkit.md`
 (rare-event tools, the trustworthiness of the sampling estimator) and `playbook.md` (the catalogue of solved
 families, by the Opus session). This document stands alone: a future agent adding a rule, or wiring the engine, should
 need nothing else to know *where* a probability comes from and *what to do when there is none yet*.
@@ -109,9 +111,12 @@ retired shapes (and a non-uniform prior without shipped tables, which are never 
 3. **Warm cache.** The instantiation's shipped file (`calibrationFiles` rows + storage), as today.
 4. **Computed cache.** A row of the `calibrationComputed` table (§3.3) with this key and `status: "ready"`: parse its
    JSON (and check its key).
-5. **Compute.** `calibration.cache.claim` inserts `{ key, status: "computing" }` (a second starter is told to wait;
-   a failed row is retried once; a computing row older than 15 minutes is a crashed action and is restarted),
-   `calibration.compute.run` is scheduled for the key (§3.2), and the draw is reported pending.
+5. **Compute.** Every missing key is planned (§3.2: its cost measured where it runs, split into replicate pieces when it
+   is slow) and claimed in one mutation, `calibration.cache.claimMany`, which inserts `{ key, status: "computing",
+   pieces }` (a second starter is told to wait; a failed row is retried; a computing row older than 11 minutes is a
+   crashed action and is restarted, a split key keeping its ready pieces), applies the owner's rate limit (§3.2) and
+   schedules the work in the same transaction (`compute.run` for a one-piece table, `compute.piece` per piece,
+   costliest first); the draw is reported pending.
 
 ### 3.2 Fan-out
 
@@ -120,16 +125,51 @@ retired shapes (and a non-uniform prior without shipped tables, which are never 
   to 8 defence draws; a first game on a fresh shape therefore runs ≤ 16 actions in parallel, each 13–30 s for a Grid
   (the offline pipeline's measured 13–30 µs per evaluation × ~1M evaluations), 1–3 s for Int and string. Node actions
   have 10 minutes and 512 MiB (docs/convex-migration-plan.md §4); a single table fits with a wide margin.
-- **Within a draw** (optional, for latency): `replicates: K` climbs of `particles / K` particles each, in K actions with
-  seeds `sha256(key, r)`, plus the Monte Carlo body split in K chunks of `nMc / K` spawns. The merge is the estimator's
-  existing clean-up applied to the **union** of all replicate points with weights `1/se²` (weighted isotonic regression
-  then `MIN_STEP_BITS`): each replicate point is an estimate of `log2 G` at its own adaptive level, and pooling them in
-  the isotonic fit is the same operation the single climb already performs on its own stages. Nominal variance per
-  level is unchanged (K replicates of variance ×K, averaged); latency drops ≈ K×. This is a different estimator and
-  must say so: `ESTIMATOR = { id: "mc-ams", version: 4 }` with `budget.replicates` in the key, and its fidelity is
-  measured with the harness against the K = 1 tables before it becomes the default (expected: within the K = 1 nominal
-  se at every depth band, §6). Until measured, K = 1 and the per-draw fan-out alone keep first use inside the planning
-  window (60 s default) for a 5×5 Grid.
+- **Within a draw** (built in B3). The wall of a first use is its slowest table (§9.1: one family sets it, 258 s for a
+  7×7 shape), so a slow table is computed as **R replicate pieces**, R ≤ 8, each an independent run of the estimator on
+  1/R of the budget (nMc/R spawns, minMcCount/R, particles/R, seed `sha256(key, r, R)`), and merged.
+  - *Plan* (`engine/calibration.ts planDraws`, game-utilities `estimateCost`, `planSplit`): the planning action times a
+    few hundred evaluations of the draw's own evaluator (spawns and proposals, after a warm-up; tens of milliseconds) at
+    the speed of the machine the pieces will run on, multiplies by the budget's expected evaluations, and picks
+    R = ⌈seconds / PIECE_TARGET_SECONDS (20 s)⌉, capped by `maxReplicates` (particles / 62). A table under 20 s stays
+    one action (`run`, byte-identical to the offline single run); an enumerated Int range is never split.
+  - *Pieces are unbiased on their own.* The single run chooses each stage's level from its own particles; that adaptive
+    choice biases the product of survival fractions by O(1/particles) (positive in probability), small at 500
+    particles but R times larger at 500/R. Measured with plain replicates (§9.2), the merge then read 0.1–0.9 bits low
+    from 8 bits down, growing with R. So a replicate's climb passes through **fixed levels** chosen by its own **pilot**
+    climb (16 particles, half the sweeps, an independent Rng, from the same start): with levels that do not depend on
+    the particles, multilevel splitting is an unbiased estimate of G for any population (a Feynman–Kac normalising
+    constant, whatever the kernel's mixing). A fixed level no particle reaches is an *extinction*: the replicate
+    estimates 0 beyond it. The climb starts *just above* the body's m-th largest sample with the count there (m − 1
+    without ties), since starting at the m-th largest with m/n overestimates what follows by m/(m − 1) (11 % at m = 11).
+    Past the pilot's last level a replicate climbs adaptively, as the single run does.
+  - *Merge* (`mergeReplicates`, `mergeCurves`; the `merge` action): each replicate's points define a step function
+    Ĝ_r(t); the merge is the probability average Ĝ(t) = Σ w_r Ĝ_r(t) (w_r = the replicate's share of the spawns) at
+    every sampled ordinal up to the shallowest top of the replicates that did not go extinct (extinct ones count 0 past
+    their top), with var(log2 Ĝ) = Σ (w_r Ĝ_r se_r)² / Ĝ² (R replicates of 1/R the particles: the single run's nominal
+    variance). Where every replicate is in its body the merge *is* the single run's body on all nMc spawns (the counts
+    add). Then the single run's clean-up. Replicates climb `REPLICATE_MARGIN_BITS` (4) past targetBits, so the merged
+    table still reaches it.
+  - *Identity.* The key does not change: a split table estimates the same quantity with the same (measured, §9.2)
+    statistics, so the shipped v3 tables stay a valid warm cache, which bumping the estimator version would have
+    discarded. The table records how it was made, `estimator.split = { replicates }`, and is byte-deterministic from
+    the key and the plan, wherever its pieces ran (`test/split.test.ts`, and the engine test that merges a piece
+    retried by the engine with pieces computed in the test process).
+  - *Coordination.* Pieces are rows of `calibrationPieces` (key, index, status, result: the replicate's points as
+    JSON, a few KB). `compute.piece` reports through `cache.pieceFinished`, which advances every waiting room's
+    progress and, when the last piece is ready, schedules `compute.merge`; a failed piece is retried alone with the
+    same backoff (5 s, 15 s) up to 3 attempts, the other pieces untouched; then the key fails as before. A claim that
+    restarts a crashed split key restarts only its pieces that are neither ready nor in flight (or the merge). The
+    merge writes the table through `finished`, which keeps each piece's build time (`pieceMs`) and drops the piece rows.
+- **Rate limit** (built in B3). New computation is limited per owner, in the same `claimMany` transaction (a refused
+  start claims nothing): at most `MAX_PREPARATIONS` (2) of the owner's other rooms may be preparing tables the owner's
+  starts are computing, and a bucket of `PIECE_BUCKET` (200) pieces refilled at `PIECES_PER_MINUTE` (60) must hold the
+  start's new pieces (a start larger than the bucket is admitted when it is full). Waiting on keys someone else computes
+  costs nothing. The owner reads `RATE_LIMITED`: "This game needs 36 new rule-table computations, and this server allows
+  each owner about 60 a minute (12 available now): you have started several new shapes recently. Try again in about 24
+  s, or choose a shape whose tables are ready." or "2 of your rooms are already preparing rule tables for a new shape;
+  this server prepares at most 2 at a time per owner. …". So cycling Int ranges costs an owner about a game's tables a
+  minute, never the deployment.
 - **Coordinator** (built). No long-running coordinator: every compute action ends by calling one mutation,
   `calibration.cache.finished(key, table | error, buildMs)`, which marks the row and then, for every room waiting on
   that key (`calibrationWaits` rows, written by `game.lobby.beginPreparing`), removes the key from the room's
@@ -171,12 +211,13 @@ of a started game (scoring ticks, a player's own score); a start always reads th
    defence draw. If every table resolved synchronously (analytic, warm or cached: the common case after the first game
    on a shape), the start continues exactly as today.
 2. **Prepare.** Otherwise `game.lobby.beginPreparing` records on the room `preparing: { requestId, ownerId, revision,
-   memberIds, deals, pending: key[], total, estimateSeconds, dealer, startedAt, error? }` (keys that landed or failed
+   memberIds, deals, pending: key[], total, estimateSeconds, dealer, startedAt, error?, pieces?: { done, total } }`
+   (`pieces` when some table is split: progress by computation pieces, advanced by each landed piece; keys that landed or failed
    between the action's check and the mutation are settled there, so no landing is missed) and the start returns
    `{ status: "preparing", ready, total, estimateSeconds, dealtAs, message }`. Clients already subscribe to the room;
    `rooms.get` projects `preparing` as progress only (`lib/projection.ts preparingView`: never the deal), and the room
    page, the player client's overview and results panels and the assistant's briefing show "The game is preparing its
-   rule tables, 12 of 18 ready…". When the last key lands, `finished` schedules `owner.completeStart(roomId,
+   rule tables, 12 of 18 ready…" (with split tables, "…, 2 of 3 ready (17 of 24 parts computed)"). When the last key lands, `finished` schedules `owner.completeStart(roomId,
    requestId)`, which resolves the tables, spawns the starting objects and commits the game (`commitStart` with
    `prepared`: no caller identity, the preparation must still be the room's, and the dealt gods must all still be
    members; anyone who joined meanwhile spectates). The planning clock starts then, not during preparation. Settings
@@ -290,8 +331,8 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 |---|---|---|---|
 | A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
 | B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR #56 |
-| B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods`, `artifacts/player-web` panels, the briefing | this PR |
-| B3 | within-draw replicates (estimator v4) after measuring fidelity with the harness | `scripts/estimator.ts`, compute action | small |
+| B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods`, `artifacts/player-web` panels, the briefing | PRs #63, #66 |
+| B3 (done) | within-draw split: replicate pieces with pilot-fixed levels and an unbiased merge (same key, `estimator.split` recorded), cost-measured planner, piece coordinator with per-piece retries, per-owner rate limit, progress by pieces, fidelity and cloud latencies (§9.2) | `scripts/estimator.ts`, `scripts/verify-split.ts`, `calibration/{cache,compute,tables}.ts`, `engine/calibration.ts`, `owner.ts`, `game/lobby.ts`, room and panel progress | this PR |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
 | D | `export-cache.ts`; docs and README say "warm cache" | scripts | small |
 
@@ -351,3 +392,38 @@ What this says:
   shipped today (PR #57), so it only applies to new rules, a changed card, or a new type's shapes. **B3** (the
   within-draw replicate split of §3.2) is what brings 6×6 and 7×7 first use under a minute; the slowest table is the
   one to split. `FIRST_USE_SECONDS` (game-utilities calibration.ts) holds these walls for the UI's estimate.
+
+## 9.2 Phase B3: the split estimator, measured
+
+**Fidelity** (`lib/game-utilities/scripts/verify-split.ts --replicates 8 --instances …`): every family with a verified
+analytic, every canonical params it covers, built as 8 replicates and merged (`exact: false`, keyed like the archived
+references), against the formula; the single run is the archived v3 reference of the same key. Mean Δ / RMS Δ (bits) /
+RMS z by depth band:
+
+| shape (tables) | estimate | 8–16 bits | 16–32 | 32–48 | 48–64 |
+|---|---|---|---|---|---|
+| Grid(4,base10,rgby) (45) | split, R = 8 | +0.06 / 0.22 / 0.77 | +0.08 / 0.36 / 0.79 | +0.34 / 0.78 / 1.24 | +0.77 / 0.93 / 1.25 |
+| | single run (v3) | +0.01 / 0.22 / 0.82 | +0.11 / 0.34 / 0.78 | +0.19 / 0.70 / 1.12 | +0.07 / 0.79 / 1.09 |
+| Grid(6,base10,rgb) (48) | split, R = 8 | −0.09 / 0.20 / 0.71 | −0.00 / 0.30 / 0.67 | +0.21 / 0.47 / 0.77 | +0.33 / 0.64 / 0.86 |
+| | single run (v3) | −0.03 / 0.18 / 0.62 | −0.16 / 0.36 / 0.80 | −0.34 / 0.60 / 0.97 | −0.42 / 0.78 / 1.06 |
+| Grid(7,base16,rgby) (50) | split, R = 8 | −0.01 / 0.22 / 0.75 | −0.03 / 0.33 / 0.75 | +0.04 / 0.60 / 0.96 | −0.01 / 0.85 / 1.14 |
+| | single run (v3) | −0.04 / 0.19 / 0.64 | −0.07 / 0.29 / 0.64 | +0.14 / 0.46 / 0.74 | +0.35 / 0.78 / 1.04 |
+
+Every split table is within the reference bands (`tableViolations`, RMS z ≤ 1.5 per family below 32 bits) on all three
+shapes; below 4 bits and at 4–8 the two agree to the hundredth. The split is as good as the single run to 32 bits and
+comparable beyond: better on 6×6, on par on 7×7, somewhat noisier on 4×4 past 48 bits (few levels there). Merged
+against the single run directly, on 7×7 (common ordinals, z with both nominal se): RMS Δ 0.26 / 0.42 / 0.80 / 1.23
+bits and RMS z 0.62 / 0.66 / 0.90 / 1.17 in the four bands, max |Δ| 1.0 / 1.6 / 4.0 / 5.7. The merged top is on
+average 1.9 bits shallower (a replicate that goes extinct at a fixed level ends early, and the merge stops at the
+shallowest replicate that did not); the extrapolation slope covers the rest, as for any table.
+
+What did not work, for the record. *Plain replicates* (each an adaptive single run on 1/R of the budget, merged the
+same way) read low: on 6×6 at R = 6, −0.12 / −0.30 / −0.41 / −0.70 bits in the four bands (one family's RMS z 1.53
+below 32 bits, over the bound); on 4×4 at R = 12, −0.21 / −0.41 / −0.86 / −0.65. More sweeps per replicate halve it
+at twice the cost; starting each replicate from more distinct body samples does not help. The cause is the adaptive
+level choice (§3.2), which pilot-fixed levels remove: on 4×4 at R = 12 they bring 16–32 and 32–48 to +0.00 and −0.09.
+Past 8 replicates (41 particles each) extinctions make the deepest levels noisy (48–64 bits RMS z 2.0 on 4×4 at
+R = 12), hence the cap of 8.
+
+The unit tests (`test/split.test.ts`) build split tables for three exactly solved families at the cap and hold them to
+the same bands.

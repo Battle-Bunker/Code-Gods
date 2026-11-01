@@ -112,12 +112,15 @@ export function preparingView(p: NonNullable<Doc<"rooms">["preparing"]>) {
   return {
     instance: p.instance, ready: p.total - p.pending.length, total: p.total, startedAt: p.startedAt, estimateSeconds: p.estimateSeconds,
     dealtAs: p.dealer.dealtAs, ...(p.dealer.note ? { dealerNote: p.dealer.note } : {}), ...(p.error ? { error: p.error } : {}),
+    // The computation's pieces, when some table is split into several (architecture.md §3.2).
+    ...(p.pieces ? { pieces: p.pieces } : {}),
   };
 }
-/** "The game is preparing its rule tables: 12 of 18 ready (first game on Grid(7,…) on this server)." */
+/** "The game is preparing its rule tables: 12 of 18 ready, 41 of 60 parts computed (first game on Grid(7,…) on this server)." */
 export function preparingLine(p: ReturnType<typeof preparingView>): string {
   if (p.error) return `Preparing the game failed: ${p.error}`;
-  return `The game is preparing its rule tables: ${p.ready} of ${p.total} ready (the first game on ${p.instance} on this server; about ${p.estimateSeconds} s in all). It starts by itself when they are.`;
+  const parts = p.pieces ? `, ${p.pieces.done} of ${p.pieces.total} parts computed` : "";
+  return `The game is preparing its rule tables: ${p.ready} of ${p.total} ready${parts} (the first game on ${p.instance} on this server; about ${p.estimateSeconds} s in all). It starts by itself when they are.`;
 }
 
 /** One god's private view of one object: its own score and peer aggregates only. */
