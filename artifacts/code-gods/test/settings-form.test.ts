@@ -111,7 +111,7 @@ test("a shape whose first game computes tables says so with the measured time; t
   assert.equal(firstUseNote(GRID, GRID5), null, "every table shipped or analytic: nothing to say");
   assert.equal(firstUseNote(GRID, GRID7), "The first game on this shape on this server prepares up to 12 rule tables (about 4 min 20 s) before planning starts; later games start at once.");
   const int = { id: "Int", params: objectType("Int").params, defaults: objectType("Int").defaults, playable: [{ args: { min: 0, max: 9999 }, prepare: null }] };
-  assert.match(firstUseNote(int, { min: 5, max: 100 })!, /prepares its rule tables \(about 4 min 10 s\)/, "an unlisted range: the type's measured estimate");
+  assert.match(firstUseNote(int, { min: 5, max: 100 })!, /prepares its rule tables \(about 35 s\)/, "an unlisted range: the type's measured estimate");
   assert.equal(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "uniform" }), null, "synergy measured");
   assert.match(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "other" })!, /deals like the Divine Lottery/, "but not under this prior");
   assert.match(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "fair-aligned", priorId: "uniform" })!, /deals like the Divine Lottery/);

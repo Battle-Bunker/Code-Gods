@@ -306,7 +306,7 @@ try {
       // A range with no shipped tables (it used to be disabled): playable, with the first game's preparation noted.
       await a.getByTestId("choice-arg-min-0").click();
       assert.equal(await a.getByTestId("choice-arg-max-2147483647").getAttribute("aria-checked"), "true");
-      await a.getByTestId("note-first-use").filter({ hasText: /first game on this shape on this server prepares up to \d+ rule tables \(about 4 min 10 s\)/ }).waitFor();
+      await a.getByTestId("note-first-use").filter({ hasText: /first game on this shape on this server prepares up to \d+ rule tables \(about 35 s\)/ }).waitFor();
       // Only rules with sampled tables may be dealt, so the first game here must prepare (an all-analytic deal starts at once).
       for (const id of ["digit-devotee", "tailwright", "firstborn", "power-hoarder", "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain"]) {
         await a.getByTestId(`toggle-family-${id}`).uncheck();

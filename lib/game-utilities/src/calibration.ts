@@ -518,13 +518,14 @@ export function playableInstantiations(objectTypeId: string): readonly Instantia
 }
 
 /**
- * Cloud first-use latency (architecture.md §9, measured on the dev deployment with `scripts/first-use-probe.ts`): the
+ * Cloud first-use latency (architecture.md §9.2, measured on the dev deployment with `scripts/first-use-probe.ts`): the
  * wall time, in seconds, from dealing a 6-god game with defence goals on a shape with no tables to every table ready,
- * one Node action per sampled table running concurrently. Rounded up; what the settings page's "first game prepares
- * its tables" note and the room's preparing estimate quote.
+ * slow tables split into up to 8 replicate pieces, all running concurrently. Rounded up, with the slowest family of the
+ * type for Int (truncation-saint, 32 s); what the settings page's "first game prepares its tables" note and the room's
+ * preparing estimate quote. (Before the split, Phase B2: Int 250, Grid 35 / 70 / 130 / 260.)
  */
 export const FIRST_USE_SECONDS: Readonly<Record<string, number | Readonly<Record<number, number>>>> = Object.freeze({
-  Int: 250, string: 15, Grid: Object.freeze({ 4: 35, 5: 70, 6: 130, 7: 260 }),
+  Int: 35, string: 15, Grid: Object.freeze({ 4: 35, 5: 30, 6: 30, 7: 95 }),
 });
 /** The expected wall time of preparing a first game's missing tables on `inst` (seconds, `FIRST_USE_SECONDS`). */
 export function firstUseSeconds(inst: Instantiation): number {
