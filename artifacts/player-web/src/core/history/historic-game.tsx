@@ -1,34 +1,32 @@
 /**
- * {base}rooms/:room/games/:game for an ended game: its replay (src/core/replay: every event, fully revealed, playable
- * and steppable) and, below it, its final state (standings, winners, last objects, chat) from player.game. The engine
- * serves both only to the gods who played in it and the room owner. Nothing here acts: no commands, no panels, no
- * assistant.
+ * An ended game's final state (standings, winners, last objects, chat) from player.game, which the engine serves only
+ * to the gods who played in it and the room owner: the fallback of {base}rooms/:room/games/:game when its replay
+ * (core/replay) cannot load. Nothing here acts.
  */
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@workspace/engine/convex/_generated/api";
 import { Link } from "../navigation";
 import { when } from "./model";
-import { ReplayView } from "../replay/replay-view";
 
 export type GameView = FunctionReturnType<typeof api.player.game>;
 const reason = (r: string | null) => (r === "owner" ? "ended by the owner" : r === "lifetime" ? "its time ran out" : r ? r : "ended");
 
-export function HistoricGame({ game, roomId, roomCode, meId }: { game: GameView; roomId: string; roomCode: string; meId: string | undefined }) {
+export function HistoricGame({ game, roomCode, meId, note }: { game: GameView; roomCode: string; meId: string | undefined; note?: string }) {
   const winners = new Set(game.winners.map(w => w.deityId));
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6" data-testid="historic-game" data-game-id={game.id}>
+    <div className="mx-auto max-w-4xl space-y-6 p-6 md:p-8" data-testid="historic-game" data-game-id={game.id}>
       <header className="space-y-2">
         <p className="text-sm">
           <Link to={{ kind: "room", room: roomCode }} className="underline" data-testid="link-room">Room {roomCode}</Link>
           {" · "}<Link to={{ kind: "games", room: roomCode }} className="underline" data-testid="link-past-games">Past games</Link>
         </p>
-        <h1 className="font-serif text-3xl">Game <span className="font-mono" data-testid="text-game-code">{game.shortCode}</span> <span className="label align-middle" data-testid="text-game-status">ended · read-only replay</span></h1>
+        <h1 className="font-serif text-3xl">Game <span className="font-mono" data-testid="text-game-code">{game.shortCode}</span> <span className="label align-middle" data-testid="text-game-status">ended · read-only</span></h1>
         <p className="text-sm text-muted-foreground" data-testid="text-game-summary">
           Started {when(game.startedAt)}, {reason(game.endReason)} {when(game.endedAt)}, after {game.worldSeconds.toFixed(1)} s of world time.
           {game.seated ? " You played in it." : " You did not play in it."}
         </p>
       </header>
-      <ReplayView roomId={roomId} gameId={game.id} meId={meId} />
+      {note && <p className="text-sm text-destructive" data-testid="text-replay-error">The replay could not be loaded ({note}); this is the game's final state.</p>}
       <section className="space-y-2">
         <h2 className="label">Final standings</h2>
         <table className="w-full border border-[hsl(var(--card-border))] bg-card text-sm" data-testid="table-final-standings">

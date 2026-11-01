@@ -4,6 +4,7 @@
  * never cost ten renders per tick. Every live SDK hook takes `hz` (default 2, clamped to 0.2–5).
  */
 import { useEffect, useRef, useState } from "react";
+import { useReplaySource } from "./replay-source";
 
 export const DEFAULT_HZ = 2;
 export const MAX_HZ = 5;
@@ -15,7 +16,9 @@ export const clampHz = (hz: number | undefined) => Math.min(MAX_HZ, Math.max(0.2
  * never lost.
  */
 export function useThrottled<T>(value: T, hz?: number): T {
-  const period = 1000 / clampHz(hz);
+  // A replay moves faster than the engine's ticks (playback, stepping): every panel follows it at the maximum rate.
+  const replay = useReplaySource();
+  const period = 1000 / (replay ? MAX_HZ : clampHz(hz));
   const [shown, setShown] = useState(value);
   const latest = useRef(value);
   const last = useRef(0);

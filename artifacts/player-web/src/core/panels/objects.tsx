@@ -17,6 +17,7 @@ import { useNow } from "@/core/game/situation";
 import { PanelEmpty, PrimaryButton, TextButton, referObject, useObjectRanks, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, payoffScale, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
+import { useReplayChanged } from "@/core/replay/parts";
 
 const FILTERS: Record<string, (o: LiveObject) => boolean> = {
   all: () => true,
@@ -91,6 +92,10 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
 }
 
 export default function Objects({ paneId, params, phase }: PanelProps<"objects">) {
+  // A replay's playhead just changed these (docs/replay-design.md §6): their rows flash and grids outline the cells that moved.
+  const changed = useReplayChanged();
+  // Only the row showing the value the change reached flashes (panels render at their own rate).
+  const flash = (o: { id: string; value: unknown }) => { const ch = changed.get(o.id); return !!ch && ch.after === o.value; };
   const objects = useObjects({ hz: 1 });
   const card = useMyCard();
   const { ctx, noun } = useObjectContext();
@@ -126,11 +131,12 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
       {header}
       <ol className="divide-y divide-[hsl(var(--card-border))]">
         {shown.map(o => (
-          <li key={o.id} data-testid={`row-object-${o.id}`} className={`min-w-0 py-2 ${highlight.has(o.id) ? "bg-[hsl(var(--primary)/0.06)]" : ""}`}>
+          <li key={flash(o) ? `${o.id}:${changed.get(o.id)!.version}` : o.id} data-testid={`row-object-${o.id}`}
+            className={`min-w-0 py-2 ${highlight.has(o.id) ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${flash(o) ? "replay-changed" : ""}`}>
             <div className="flex min-w-0 items-start gap-3">
               <button type="button" onClick={() => referObject(ranks.get(o.id))} title="Ask your assistant about this object"
                 className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">#{ranks.get(o.id)}</button>
-              <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} {...ctx} showTitle /></span>
+              <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} compareTo={flash(o) ? changed.get(o.id)!.before : undefined} {...ctx} showTitle /></span>
               <PayoffRectangle o={o} scale={scale} strength={relativeStrength(o.payoff, best)} />
               <span className="min-w-0 flex-1 space-y-1">
                 <span className="block font-mono text-[12px] leading-snug text-muted-foreground" data-testid={`text-payoff-${o.id}`}>

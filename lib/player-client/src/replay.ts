@@ -19,7 +19,7 @@
  *
  * Pure: no React, no Convex; browser-safe.
  */
-import { agentBattery, chargeAct, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { agentBattery, allowedLanguages, chargeAct, instantiationOf, isEligible, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -69,7 +69,7 @@ export type ReplayObject = { id: string; value: Wire; version: number; net: numb
 export type ReplayAgent = {
   id: string; ownerId: string; alive: boolean; summonedAt: number; destroyedAt?: number;
   /** From the summon (absent for an agent whose summon predates schema 2). */
-  language?: string; source?: string; summonCost?: number; expectedActCost?: number; decisionBits?: number;
+  language?: string; source?: string; summonCost?: number; expectedActCost?: number; decisionBits?: number; breakdown?: Breakdown; randomized?: boolean;
   acts: number; transforms: number; failures: number; spent: number; account?: AgentAccount;
 };
 export type ReplayState = {
@@ -172,6 +172,7 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       state.agents.set(ev.agentId, {
         id: ev.agentId, ownerId: ev.ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, spent: 0,
         language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, decisionBits: ev.decisionBits, account: ev.account,
+        breakdown: ev.breakdown, randomized: ev.randomized,
       });
       const i = roster.get(ev.ownerId);
       if (i !== undefined) state.spent[i] += ev.summonCost;
@@ -305,4 +306,133 @@ export function keyMoments(replay: Replay, swings = 8): KeyMoment[] {
   });
   const top = [...changes].sort((a, b) => Math.abs(b.delta!) - Math.abs(a.delta!)).slice(0, swings);
   return [...out, ...top].sort((a, b) => a.cursor - b.cursor || (a.god ?? -1) - (b.god ?? -1));
+}
+
+// ------------------------------------------------------------------------------------------------
+// the SDK's answers at a playhead (docs/replay-design.md §4): what the player client's panels read, for any god
+// ------------------------------------------------------------------------------------------------
+
+/** Where the answers are asked from: the room (for ids the shapes carry), the playhead and the point-of-view god. */
+export type ReplayAt = { room: { roomId: string; roomShortCode?: string }; cursor: number; pov: number };
+
+/**
+ * The protocol v3 observation (player.observation's shape) of god `pov` at the playhead. As live, but for any god:
+ * its card, its own and the others' bits per object, its agents with their code and energy settled to the playhead,
+ * its own transformations so far, the leaderboard ranked, chat up to the playhead. The log records net bits only, so
+ * `own.ordinal` and `own.rewardBits` carry the net bits too. The phase is the phase at the playhead.
+ */
+export function replayObservation(replay: Replay, at: ReplayAt, state: ReplayState = stateAt(replay, at.cursor)) {
+  const { game } = replay, settings = game.settings, god = game.roster[at.pov], dealt = replay.gods.find(g => g.index === at.pov);
+  const languages = allowedLanguages(settings) as string[];
+  const view = (net: readonly number[]) => viewOf(net, at.pov);
+  // The point of view's last 500 transformations, read back from the playhead.
+  const transformations: { id: string; agentId: string; before: Wire; after: Wire; calls?: unknown; cost?: number }[] = [];
+  for (let i = Math.min(at.cursor, replay.log.length) - 1; i >= 0 && transformations.length < 500; i--) {
+    const { seq, index, event: ev } = replay.log[i];
+    if (ev.type === "object.transformed" && ev.ownerId === god?.id && ev.agentId) {
+      transformations.push({ id: `${seq}:${index}`, agentId: ev.agentId, before: ev.before, after: ev.value, ...(Array.isArray(ev.calls) ? { calls: ev.calls.slice(0, 16) } : {}), cost: ev.cost.total });
+    }
+  }
+  transformations.reverse();
+  const ranked = game.roster.map((g, i) => ({ godId: g.id, label: g.name, isAI: g.kind === "ai", totalPayoff: state.totals[i] }))
+    .sort((a, b) => b.totalPayoff - a.totalPayoff || a.godId.localeCompare(b.godId));
+  return {
+    version: "code-gods.player.v3" as const, roomId: at.room.roomId, revision: at.cursor, roomShortCode: at.room.roomShortCode, gameShortCode: game.shortCode,
+    seated: true, gameId: game.id, planningEndsAt: game.planningEndsAt, pauseEndsAt: 0,
+    phase: (state.phase === "recovery" ? "paused" : state.phase) as "planning" | "running" | "paused" | "ended",
+    language: languages[0], languages, instance: game.objectInstance,
+    economy: {
+      energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond, agentBatteryActs: settings.agentBatteryActs,
+      maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
+      perActFloorBits: settings.perActFloorBits, commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+    },
+    self: {
+      godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ready: false,
+      pauseUsed: dealt?.pauseUsed ?? false, ...(dealt?.card ? { utility: dealt.card } : {}),
+    },
+    objects: [...state.objects.values()].map(o => {
+      const v = view(o.net);
+      return { id: o.id, value: o.value, own: { ordinal: v.netBits, rewardBits: v.netBits, netBits: v.netBits }, peerNetBits: v.peerNetBits, peerCare: v.peerCare, payoff: v.payoff };
+    }),
+    agents: [...state.agents.values()].filter(a => a.alive && a.ownerId === god?.id).map(a => {
+      const account = a.account && a.expectedActCost !== undefined ? settleAccount(settings, a.account, a.expectedActCost, state.world) : undefined;
+      return {
+        id: a.id, source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0, decisionBits: a.decisionBits ?? 0,
+        expectedActCost: a.expectedActCost ?? 0, breakdown: a.breakdown ?? { decision: 0, erasure: 0, motion: 0, floor: 0 }, randomized: a.randomized ?? false,
+        energy: account?.balance ?? 0, eligible: account && a.expectedActCost !== undefined ? isEligible(account, a.expectedActCost) : false, acts: a.acts, spent: a.spent,
+      };
+    }),
+    transformations,
+    leaderboard: ranked,
+    chat: replay.chat.filter(m => m.world <= state.world).slice(-100).map(m => ({ id: m.id, godId: m.authorId, label: m.authorName, isAI: m.kind === "ai", text: m.text })),
+  };
+}
+
+/** One logged event as player.events projects it, for god `pov`, transparently (calls and costs for every act). */
+function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["game"]["roster"]) {
+  const mine = "ownerId" in ev && ev.ownerId === roster[pov]?.id;
+  const scored = (net: readonly number[]) => { const v = viewOf(net, pov); return { own: { netBits: v.netBits }, peerNetBits: v.peerNetBits, peerCare: v.peerCare, payoff: v.payoff }; };
+  switch (ev.type) {
+    case "phase": return { type: "phase" as const, seq, phase: ev.phase, worldSeconds: ev.worldSeconds, ...(ev.reason ? { reason: ev.reason } : {}) };
+    case "object.spawned": return { type: "object.spawned" as const, seq, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.worldSeconds, ...scored(ev.net) };
+    case "object.transformed": return {
+      type: "object.transformed" as const, seq, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version, worldSeconds: ev.worldSeconds,
+      agentId: ev.agentId ?? "", mine, calls: ev.calls, cost: ev.cost, ...scored(ev.net),
+    };
+    case "agent.failed": return { type: "agent.failed" as const, seq, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.worldSeconds, reason: ev.reason, cost: ev.cost };
+    case "agent.summoned": return {
+      type: "agent.summoned" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, language: ev.language, source: ev.source, summonCost: ev.summonCost,
+      decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+    };
+    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
+  }
+}
+
+/** player.events' shape at the playhead: the events of the last `limit` batches (at most 50, as live) up to it, for god `pov`. */
+export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
+  const upto = Math.min(at.cursor, replay.log.length);
+  const lastSeq = upto ? replay.log[upto - 1].seq : -1;
+  const batches = Math.max(1, Math.min(50, Math.floor(limit)));
+  // Read back from the playhead until `batches` distinct batches are in.
+  let i = upto, seen = 0, seq = Number.NaN;
+  while (i > 0) {
+    const s = replay.log[i - 1].seq;
+    if (s !== seq) { if (seen === batches) break; seen++; seq = s; }
+    i--;
+  }
+  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster));
+  return { gameId: replay.game.id, events, nextCursor: lastSeq, latestCursor: lastSeq, gap: false };
+}
+
+/**
+ * player.trajectories' shape at the playhead: every object's series of god `pov`'s bits, the others' and the payoff,
+ * from batches after `afterSeq`. `epoch` names the point of view: a client's incremental store starts over when it (or
+ * the playhead, going back) changes.
+ */
+export function replayTrajectories(replay: Replay, at: ReplayAt, afterSeq = -1) {
+  const upto = Math.min(at.cursor, replay.log.length);
+  const series = new Map<string, { seq: number; worldSeconds: number; value: Wire; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
+  for (let i = 0; i < upto; i++) {
+    const { seq, event: ev } = replay.log[i];
+    if (seq <= afterSeq || (ev.type !== "object.spawned" && ev.type !== "object.transformed")) continue;
+    const v = viewOf(ev.net, at.pov);
+    let points = series.get(ev.objectId);
+    if (!points) series.set(ev.objectId, points = []);
+    points.push({ seq, worldSeconds: ev.worldSeconds, value: ev.value, ownNetBits: v.netBits, peerNetBits: v.peerNetBits, payoff: v.payoff });
+  }
+  const lastSeq = upto ? replay.log[upto - 1].seq : -1;
+  return { gameId: replay.game.id, objects: [...series].map(([objectId, points]) => ({ objectId, points })), nextCursor: lastSeq, latestCursor: lastSeq, epoch: `pov:${at.pov}` };
+}
+
+/** player.myUtility's shape for god `pov`: its dealt descriptor and what the client's evaluator needs. */
+export function replayMyUtility(replay: Replay, pov: number) {
+  const dealt = replay.gods.find(g => g.index === pov), settings = replay.game.settings;
+  if (!dealt) return null;
+  const utility = dealt.utility as { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
+  return {
+    gameId: replay.game.id, godId: dealt.godId,
+    utility: { familyId: utility.familyId, params: utility.params, ...(utility.penalty ? { penalty: { familyId: utility.penalty.familyId, params: utility.penalty.params } } : {}) },
+    instantiationKey: instantiationOf(settings).key, objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId,
+    penaltyWeight: settings.penaltyWeight, language: allowedLanguages(settings)[0], settings,
+  };
 }

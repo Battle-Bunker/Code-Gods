@@ -8,7 +8,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GameSettings } from "@workspace/game-core";
-import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
+import { observationSchema } from "../src/protocol.ts";
+import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
 
 const settings = { agentEnergyPerSecond: 1, agentBatteryActs: 2, startingEnergy: 100, energyPerSecond: 2 } as unknown as GameSettings;
 const charge = (total: number) => ({ decision: total, erasure: 0, motion: 0, floor: 0, total, naming: 0 });
@@ -193,4 +194,70 @@ test("a leader who is tied and then pulls ahead again has not changed: one lead 
     { type: "object.transformed", objectId: "o2", value: 4, before: 3, version: 2, worldSeconds: 3, agentId: "a", ownerId: "me", calls: [], cost: charge(1), net: [3, -2] },
   ] }])]);
   assert.deepEqual(keyMoments(replay).filter(m => m.kind === "lead").map(m => [m.cursor, m.god]), [[2, 0]]);
+});
+
+test("the SDK's answers at a playhead, for any god: the observation, the event window, trajectories and the utility", () => {
+  const full = { ...settings, languages: ["typescript"], objectType: "Int", typeArgs: { min: 0, max: 9 }, priorId: "uniform", penaltyWeight: 0,
+    energyPerSecond: 2, agentBatteryActs: 2, maxAgentsPerGod: 4 } as unknown as GameSettings;
+  const replay = buildReplay([page([
+    { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
+      { type: "phase", phase: "running", worldSeconds: 0 },
+      { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [3, 2] },
+      summon("a1", "me"),
+    ] },
+    { seq: 1, at: T0 + 4000, worldFrom: 0, worldTo: 4, events: [
+      { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 4, agentId: "a1", ownerId: "me", calls: [["add", { k: 1 }]], cost: charge(5), net: [-1, 4] },
+    ] },
+  ], {
+    game: { ...page([]).game, settings: full, objectInstance: undefined },
+    gods: [{ godId: "me", index: 0, utility: { familyId: "f", params: { a: 1 } }, card: { name: "Mine" }, spent: 30, pauseUsed: false },
+      { godId: "you", index: 1, utility: { familyId: "g", params: { b: 2 } }, card: { name: "Yours" }, spent: 0, pauseUsed: true }],
+    chat: [{ id: "c1", authorId: "you", authorName: "You", kind: "human", text: "hi", timestamp: T0 + 1, worldSeconds: 1 },
+      { id: "c2", authorId: "me", authorName: "Me", kind: "human", text: "later", timestamp: T0 + 9, worldSeconds: 9 }],
+  })]);
+  const at = (cursor: number, pov: number) => ({ room: { roomId: "r", roomShortCode: "R" }, cursor, pov });
+  // As "you" (index 1) after every event: you hold 4 bits on o1, the others (me) −1: their care is 0, your payoff 0.
+  const youEnd = replayObservation(replay, at(4, 1));
+  assert.deepEqual(youEnd.objects, [{ id: "o1", value: 2, own: { ordinal: 4, rewardBits: 4, netBits: 4 }, peerNetBits: -1, peerCare: 0, payoff: 0 }]);
+  assert.deepEqual(youEnd.self, { godId: "you", label: "You", isAI: false, energy: 100 + 4 * 2, ready: false, pauseUsed: true, utility: { name: "Yours" } });
+  assert.deepEqual(youEnd.agents, [], "the point of view's own agents: you summoned none");
+  assert.deepEqual(youEnd.leaderboard.map(r => [r.godId, r.totalPayoff]), [["you", 0], ["me", -4]], "ranked, as live");
+  assert.deepEqual(youEnd.chat.map(c => c.text), ["hi"], "chat up to the playhead (world 4)");
+  assert.equal(youEnd.economy!.worldSeconds, 4);
+  assert.equal(youEnd.phase, "running");
+  // What every panel reads: the protocol's own shape (the fixture's card is a stand-in, so it is left out of the parse).
+  observationSchema.parse({ ...youEnd, self: { ...youEnd.self, utility: undefined } });
+  // As "me" before the transformation: my agent, settled to the playhead (world 0: nothing accrued), no transformations yet.
+  const meMid = replayObservation(replay, at(3, 0));
+  assert.deepEqual(meMid.agents.map(a => [a.id, a.source, a.energy, a.eligible, a.acts]), [["a1", "src of a1", 0, false, 0]]);
+  assert.deepEqual(meMid.transformations, []);
+  assert.deepEqual(replayObservation(replay, at(4, 0)).transformations, [{ id: "1:0", agentId: "a1", before: 1, after: 2, calls: [["add", { k: 1 }]], cost: 5 }]);
+  // Events: the window up to the playhead, each with the point of view's bits; calls are shown for everyone (transparent).
+  const ev = replayEvents(replay, at(4, 1), 20);
+  assert.equal(ev.events.length, 4);
+  assert.deepEqual(ev.events.at(-1), { type: "object.transformed", seq: 1, objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 4, agentId: "a1", mine: false,
+    calls: [["add", { k: 1 }]], cost: charge(5), own: { netBits: 4 }, peerNetBits: -1, peerCare: 0, payoff: 0 });
+  assert.deepEqual([ev.nextCursor, ev.latestCursor], [1, 1]);
+  assert.deepEqual(replayEvents(replay, at(2, 1), 20).events.map(e => e.type), ["phase", "object.spawned"]);
+  // Trajectories: the object's series for the point of view up to the playhead.
+  assert.deepEqual(replayTrajectories(replay, at(4, 0)).objects, [{ objectId: "o1", points: [
+    { seq: 0, worldSeconds: 0, value: 1, ownNetBits: 3, peerNetBits: 2, payoff: 6 }, { seq: 1, worldSeconds: 4, value: 2, ownNetBits: -1, peerNetBits: 4, payoff: -4 }] }]);
+  const mine = replayMyUtility(replay, 1)!;
+  assert.deepEqual([mine.godId, mine.utility, mine.objectType], ["you", { familyId: "g", params: { b: 2 } }, "Int"]);
+});
+
+test("the event window is the last `limit` batches up to the playhead (at most 50, as live); trajectories honour afterSeq and name their point of view", () => {
+  const spawn = (id: string, w: number) => ({ type: "object.spawned" as const, objectId: id, value: w, version: 0, worldSeconds: w, net: [1, 1] });
+  const replay = buildReplay([page([
+    { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [spawn("a", 0), spawn("b", 0)] },
+    { seq: 2, at: T0, worldFrom: 0, worldTo: 1, events: [spawn("c", 1)] },
+    { seq: 5, at: T0, worldFrom: 1, worldTo: 2, events: [spawn("d", 2), spawn("e", 2)] },
+  ])]);
+  const at = (cursor: number) => ({ room: { roomId: "r" }, cursor, pov: 0 });
+  assert.deepEqual(replayEvents(replay, at(5), 2).events.map(e => (e as { objectId: string }).objectId), ["c", "d", "e"], "two batches, whatever their seqs");
+  assert.deepEqual(replayEvents(replay, at(4), 1).events.map(e => (e as { objectId: string }).objectId), ["d"], "up to the playhead");
+  assert.equal(replayEvents(replay, at(5), 500).events.length, 5);
+  const t = replayTrajectories(replay, at(5), 2);
+  assert.deepEqual(t.objects.map(o => o.objectId), ["d", "e"], "after seq 2");
+  assert.equal(t.epoch, "pov:0");
 });

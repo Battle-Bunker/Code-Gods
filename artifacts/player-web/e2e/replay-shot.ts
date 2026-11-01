@@ -1,11 +1,12 @@
 /**
- * Screenshots of the replay view (docs/replay-design.md; docs/screenshots/replay/) from a REAL game on the local
+ * Screenshots of the dock's replay mode (docs/replay-design.md §4; docs/screenshots/replay/) from a REAL game on the local
  * deployment (`pnpm --filter @workspace/engine dev`, then `pnpm --filter @workspace/engine deploy-static`): Bob owns a
  * room with two AI seats, summons two agents, the planning clock is cut short, the world runs for a while with chat,
  * the owner ends the game, and the hosted client opens its replay. It also checks the view's behaviour in a browser:
- * the deep link reopens the same event, stepping moves one event, an agent's code opens from the timeline, play moves
- * the playhead (and starts over from the end), other pages' links carry no replay position, and every player's goal
- * card is shown.
+ * an ended game opens in the dock's replay mode at its end with the Timeline and the built-in panels; the deep link
+ * reopens the same event; a step onto a change animates it on the board; the URL follows; an agent's code opens from
+ * the timeline; the point of view switches; play moves the playhead (and starts over from the end); other pages'
+ * links carry no replay position.
  * Usage: node --experimental-transform-types e2e/replay-shot.ts <out-dir>
  */
 import "../../engine/scripts/local-only.mjs";
@@ -54,56 +55,73 @@ await bob.mutation(fn.m("rooms:endActiveGame"), { roomId });
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
-const shoot = async (width: number, height: number, name: string, query: string, act?: (page: import("playwright").Page) => Promise<void>) => {
+const T = "[data-testid=replay-transport]";
+const cursorOf = async (page: import("playwright").Page) => Number(await page.getAttribute(T, "data-cursor"));
+const open = async (width: number, height: number, query: string) => {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}${query}`);
-  await page.waitForSelector("[data-testid=replay]", { timeout: 60_000 });
-  await page.waitForFunction(() => !document.querySelector("[data-testid=text-replay-event]")?.textContent?.includes("loading"), null, { timeout: 60_000 });
-  if (act) await act(page);
-  await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: false });
+  await page.waitForSelector(T, { timeout: 60_000 });
+  await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
   return { page, context };
 };
 
-const events = Number(await (async () => {
-  const { page, context } = await shoot(1440, 900, "replay-end", "");
-  const n = await page.getAttribute("[data-testid=replay]", "data-events");
-  assert.equal(await page.getAttribute("[data-testid=replay]", "data-cursor"), n, "an ended game opens at its end");
-  assert.ok((await page.locator("[data-testid^=replay-goal-]").count()) === 3, "every player's goal card");
-  // Play at the end starts over.
+let events = 0;
+{
+  // An ended game opens in the dock's replay mode at its end, with the Timeline and the built-in panels showing it.
+  const { page, context } = await open(1440, 900, "");
+  events = Number(await page.getAttribute(T, "data-events"));
+  assert.ok(events > 20, `a real game's log (${events} events)`);
+  assert.equal(await cursorOf(page), events, "an ended game opens at its end");
+  assert.ok((await page.locator("[data-testid^=replay-standing-]").count()) === 3, "every player in the standings");
+  // At the end the first pane follows the phase to the results, as in a live game that ends.
+  await page.waitForFunction(() => document.querySelector("[data-testid=dock]")?.textContent?.includes("Final standings"), null, { timeout: 15_000 });
+  await page.screenshot({ path: `${OUT}/replay-dock-end.png` });
+  // Play at the end starts over; links elsewhere carry no replay position.
   await page.selectOption("[data-testid=select-replay-speed]", "1");
   await page.click("[data-testid=button-replay-play]");
   await sleep(600);
-  assert.ok(Number(await page.getAttribute("[data-testid=replay]", "data-cursor")) < Number(n), "play from the end restarts from the beginning");
-  // Links to other pages do not carry the replay's position.
+  assert.ok(await cursorOf(page) < events, "play from the end restarts from the beginning");
   assert.ok(!(await page.getAttribute("[data-testid=link-past-games]", "href"))?.includes("e="), "the past-games link carries no replay position");
   await context.close();
-  return n;
-})());
-assert.ok(events > 20, `a real game's log (${events} events)`);
+}
 const mid = Math.floor(events * 0.6);
 {
-  const { page, context } = await shoot(1440, 900, "replay-mid", `?e=${mid}`);
-  assert.equal(Number(await page.getAttribute("[data-testid=replay]", "data-cursor")), mid, "the deep link reopens the same event");
-  await page.click("[data-testid=button-replay-next]");
-  assert.equal(Number(await page.getAttribute("[data-testid=replay]", "data-cursor")), mid + 1, "next steps one event");
-  await page.waitForFunction(() => location.search.includes("e="), null, { timeout: 5000 });
-  assert.ok(new URL(page.url()).searchParams.get("e") === String(mid + 1), "the URL follows the playhead");
-  const code = page.locator("[data-testid^=button-replay-agent-]").first();
-  await code.click();
+  const { page, context } = await open(1440, 900, `?e=${mid}`);
+  assert.equal(await cursorOf(page), mid, "the deep link reopens the same event");
+  // Mid-game the first pane follows the phase to the objects, drawn from the replay at the playhead.
+  await page.waitForSelector("[data-testid^=row-object-]", { timeout: 15_000 });
+  // Step until a change animates on the board (a transformation among the next events).
+  let animated = false;
+  for (let i = 0; i < 30 && !animated; i++) {
+    await page.click("[data-testid=button-replay-next]");
+    animated = await page.locator("[data-testid^=row-object-].replay-changed").count() > 0;
+  }
+  assert.ok(animated, "a step onto a change animates its object on the board");
+  assert.ok(await cursorOf(page) > mid, "next steps forward");
+  await page.screenshot({ path: `${OUT}/replay-dock-step.png` });
+  await page.waitForFunction(() => new URL(location.href).searchParams.has("e"), null, { timeout: 5000 });
+  assert.equal(new URL(page.url()).searchParams.get("e"), String(await cursorOf(page)), "the URL follows the playhead");
+  await page.locator("[data-testid^=button-replay-agent-]").first().click();
   await page.waitForSelector("[data-testid=text-replay-agent-source]");
   assert.match(await page.textContent("[data-testid=text-replay-agent-source]") ?? "", /slide/);
   await page.screenshot({ path: `${OUT}/replay-agent-code.png` });
   await page.click("[data-testid=button-replay-agent-close]");
-  await page.click("[data-testid=button-replay-prev-moment]");
+  // Another player's point of view: the transport switches every panel to theirs.
+  await page.selectOption("[data-testid=select-replay-pov]", "1");
+  assert.equal(await page.getAttribute(T, "data-pov"), "1");
   await page.selectOption("[data-testid=select-replay-speed]", "64");
-  const before = Number(await page.getAttribute("[data-testid=replay]", "data-cursor"));
+  const before = await cursorOf(page);
   await page.click("[data-testid=button-replay-play]");
   await sleep(1500);
-  assert.ok(Number(await page.getAttribute("[data-testid=replay]", "data-cursor")) > before, "playing moves the playhead");
+  assert.ok(await cursorOf(page) > before, "playing moves the playhead");
   await context.close();
 }
-await shoot(390, 844, "replay-phone", `?e=${mid}`);
+{
+  const { page, context } = await open(390, 844, `?e=${mid}`);
+  await page.screenshot({ path: `${OUT}/replay-phone.png` });
+  await context.close();
+}
 console.log(JSON.stringify({ out: OUT, room: shortCode, game: gameCode, events }));
 await browser.close();

@@ -1,5 +1,5 @@
 /** The host transport of the SDK (see transport-types.ts): Convex directly, in the player client. */
-import { useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useAction, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
@@ -8,6 +8,7 @@ import type { GameSettings } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { existingConvexClient } from "../core/connection";
 import type { QueryName } from "./bridge-protocol";
+import { useReplaySource } from "./replay-source";
 import type { LoadTables, UseSdkQuery, UseSdkSubmit } from "./transport-types";
 
 export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
@@ -18,11 +19,28 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
   "rooms.get": api.rooms.get,
 };
 
-export const useSdkQuery: UseSdkQuery = (name, args) => useQuery(QUERY_REFS[name], args as never);
+const noSubscription = () => () => {};
+
+/**
+ * A live query; in the dock's replay mode (sdk/replay-source.ts) the replay answers it at the playhead instead, and
+ * the engine is not asked.
+ */
+export const useSdkQuery: UseSdkQuery = (name, args) => {
+  const replay = useReplaySource();
+  const served = !!replay && args !== "skip" && replay.serves(name);
+  const live = useQuery(QUERY_REFS[name], (served ? "skip" : args) as never);
+  const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription,
+    () => (served ? replay!.answer(name, args as Record<string, unknown>) : undefined));
+  return (served ? fromReplay : live) as never;
+};
 
 export const useSdkSubmit: UseSdkSubmit = () => {
   const submit = useAction(api.commands.submit);
-  return useCallback(async (roomId, envelope) => await submit({ roomId, envelope }) as CommandResult, [submit]);
+  const replay = useReplaySource();
+  return useCallback(async (roomId, envelope) => {
+    if (replay) return { commandId: envelope.commandId, accepted: false, message: replay.refusal } as CommandResult;
+    return await submit({ roomId, envelope }) as CommandResult;
+  }, [submit, replay]);
 };
 
 const tableCache = new Map<string, Promise<{ reward: unknown; penalty?: unknown }>>();

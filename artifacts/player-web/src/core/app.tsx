@@ -20,6 +20,7 @@ import { BASE, hrefTo, Link, navigate, useClientRoute } from "./navigation";
 import { parseRoute, type ClientRoute } from "./routes";
 import { PastGames } from "./history/past-games";
 import { HistoricGame, type GameView } from "./history/historic-game";
+import { ReplayGame } from "./replay/replay-game";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -185,13 +186,14 @@ type RoomRoute = Extract<ClientRoute, { room: string }>;
 function Routed({ mode, permission, credentialRoomId }: { mode: Mode; permission: "read" | "act" | "owner"; credentialRoomId?: string }) {
   const route = useClientRoute();
   const me = useQuery(api.auth.user.me, {});
+  const access = useMemo(() => ({ permission, mode }), [permission, mode]);
   if (route.kind === "legacyGame") return <LegacyGame code={route.game} />;
   if (route.kind === "home") return mode === "devserver" ? <CredentialRoom roomId={credentialRoomId!} /> : <ConnectedRooms />;
   return (
     <RoomGate route={route} mode={mode} meId={me?.subject} credentialRoomId={credentialRoomId}>
       {room => route.kind === "room" ? <Play roomId={room.id} permission={permission} mode={mode} />
         : route.kind === "games" ? <PastGames room={room} meId={me?.subject} />
-        : <GameRoute room={room} code={route.game} meId={me?.subject} />}
+        : <GameRoute room={room} code={route.game} meId={me?.subject} access={access} />}
     </RoomGate>
   );
 }
@@ -263,7 +265,7 @@ function RoomGate({ route, mode, meId, credentialRoomId, children }: { route: Ro
  * game, the room's latest included, opens as its replay, read-only; the engine refuses it to anyone but its players and the room owner, and that refusal is shown here.
  * games.resolve decides (one game and its room), so a live game's world is not loaded twice.
  */
-function GameRoute({ room, code, meId }: { room: RoomState; code: string; meId?: string }) {
+function GameRoute({ room, code, meId, access }: { room: RoomState; code: string; meId?: string; access: ReplayAccess }) {
   const queries = useMemo((): Record<string, { query: typeof api.games.resolve; args: { code: string } }> => ({ game: { query: api.games.resolve, args: { code } } }), [code]);
   const result = useQueries(queries).game as FunctionReturnType<typeof api.games.resolve> | Error | undefined;
   const elsewhere = result && !(result instanceof Error) && result.roomId !== room.id;
@@ -272,17 +274,24 @@ function GameRoute({ room, code, meId }: { room: RoomState; code: string; meId?:
   useEffect(() => { if (current) navigate(hrefTo({ kind: "room", room: room.shortCode }), { replace: true }); }, [current, room.shortCode]);
   if (result instanceof Error || elsewhere) return <GameError room={room} code={code} message={elsewhere ? `Game ${code} is not a game of room ${room.shortCode}.` : errorText(result as Error)} />;
   if (!result || current) return <Screen title="Connecting…" testId="status-connecting" />;
-  return <PastGame room={room} game={result.shortCode} requested={code} meId={meId} />;
+  return <PastGame room={room} game={result.shortCode} gameId={result.id} requested={code} meId={meId} access={access} />;
 }
 
-/** A past game's final state (player.game), under its canonical code. */
-function PastGame({ room, game, requested, meId }: { room: RoomState; game: string; requested: string; meId?: string }) {
+type ReplayAccess = { permission: "read" | "act" | "owner"; mode: Mode };
+
+/** An ended game's replay, under its canonical code; its final state (player.game) if the replay cannot load. */
+function PastGame({ room, game, gameId, requested, meId, access }: { room: RoomState; game: string; gameId: string; requested: string; meId?: string; access: ReplayAccess }) {
+  useEffect(() => { if (game !== requested) navigate(hrefTo({ kind: "game", room: room.shortCode, game }), { replace: true }); }, [game, requested, room.shortCode]);
+  return <ReplayGame room={room} gameId={gameId} gameCode={game} access={access} fallback={error => <FinalState room={room} game={game} meId={meId} note={error} />} />;
+}
+
+/** A past game's final state (player.game). */
+function FinalState({ room, game, meId, note }: { room: RoomState; game: string; meId?: string; note: string }) {
   const queries = useMemo((): Record<string, { query: typeof api.player.game; args: { roomId: string; gameId: string } }> => ({ game: { query: api.player.game, args: { roomId: room.id, gameId: game } } }), [room.id, game]);
   const result = useQueries(queries).game as GameView | Error | undefined;
-  useEffect(() => { if (game !== requested) navigate(hrefTo({ kind: "game", room: room.shortCode, game }), { replace: true }); }, [game, requested, room.shortCode]);
   if (result instanceof Error) return <GameError room={room} code={game} message={errorText(result)} />;
   if (!result) return <Screen title="Connecting…" testId="status-connecting" />;
-  return <HistoricGame game={result} roomId={room.id} roomCode={room.shortCode} meId={meId} />;
+  return <HistoricGame game={result} roomCode={room.shortCode} meId={meId} note={note} />;
 }
 
 function GameError({ room, code, message }: { room: RoomState; code: string; message: string }) {

@@ -2934,7 +2934,8 @@
             "forge",
             "results",
             "rules",
-            "code-output"
+            "code-output",
+            "timeline"
           ]
         },
         "slug": {

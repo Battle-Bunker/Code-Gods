@@ -476,7 +476,9 @@ await check("the hosted player client (engine site, /client/) plays as the signe
   await page.getByTestId("historic-game").waitFor({ timeout: 30_000 });
   assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}/games/${code}`, `historic game URL: ${page.url()}`);
   assert((await page.textContent("[data-testid=text-game-status]"))?.includes("read-only"), "read-only");
-  assert(await page.locator("[data-testid=table-final-standings] tr").count() > 0, "final standings");
+  // An ended game opens as its replay in the dock (docs/replay-design.md §4): the transport, and every player's standing.
+  await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
+  assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
   await context.close();
 });
 

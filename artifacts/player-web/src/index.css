@@ -397,6 +397,10 @@
 }
 
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+/* The replay's board animation (core/replay, objects panel): a row its playhead just changed. */
+@keyframes replay-change{0%{background:hsl(42 90% 60% / .55);transform:translateX(4px)}100%{background:transparent;transform:none}}
+.replay-changed{animation:replay-change .9s ease-out}
+@media (prefers-reduced-motion: reduce){.replay-changed{animation:none;background:hsl(42 90% 60% / .25)}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 /* A panel change: a short cross-fade and rise. */
 .rise{animation:rise .2s cubic-bezier(.2,.7,.2,1) both}
