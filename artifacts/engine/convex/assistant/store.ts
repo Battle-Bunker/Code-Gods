@@ -114,7 +114,8 @@ export const context = internalQuery({
     const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", turn.roomId).eq("subject", turn.subject)).unique();
     const calls = await callsOf(ctx, turnId);
     return {
-      turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject },
+      turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject,
+        outputCeiling: turn.outputCeiling ?? null },
       roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
       calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null })),
@@ -141,7 +142,8 @@ export const setBriefing = internalMutation({
     const from = window.rows[0]?.seq ?? 0;
     const start = historyStart(turnSizes(window.rows, window.calls, window.current), previous?.historyFromSeq ?? from);
     const own = window.rows.find(r => r.turnId === turn._id)?.seq ?? 0;
-    await ctx.db.patch(turn._id, { briefing, historyFromSeq: Math.min(start, own), updatedAt: Date.now() });
+    // A thread whose answers were cut keeps the raised output ceiling.
+    await ctx.db.patch(turn._id, { briefing, historyFromSeq: Math.min(start, own), ...(previous?.outputCeiling ? { outputCeiling: previous.outputCeiling } : {}), updatedAt: Date.now() });
     return { cancelled: false };
   },
 });
@@ -225,6 +227,28 @@ export const recordAbortedUsage = internalMutation({
     if (!turn || !message || message.turnId !== turnId || message.billedTokens !== undefined) return;
     await ctx.db.patch(messageId, { ...usage, usageEstimated: true, updatedAt: Date.now() });
     await ctx.db.patch(turnId, { usage: addUsage(turn.usage, usage) });
+  },
+});
+
+/**
+ * A step the output ceiling cut (ChatCutError): billed like any step, never acted on. Its message keeps no text
+ * (the history skips it), and the turn's later steps, and the thread's later turns, get the full ceiling (rules.ts
+ * outputCeiling). It does not count as a step: the retry runs at the full ceiling, where a cut fails the turn.
+ */
+export const cutStep = internalMutation({
+  args: {
+    turnId: v.id("assistantTurns"), gen: v.number(), messageId: v.id("assistantMessages"), inputTokens: v.number(), outputTokens: v.number(),
+    cacheReadTokens: v.number(), cacheWriteTokens: v.number(), billedTokens: v.number(),
+  },
+  handler: async (ctx, { turnId, gen, messageId, ...usage }) => {
+    const turn = await ctx.db.get(turnId);
+    const message = await ctx.db.get(messageId);
+    if (!turn || !message || message.turnId !== turnId) return { cancelled: true };
+    const now = Date.now();
+    await ctx.db.patch(messageId, { ...usage, text: "", status: "error", updatedAt: now });
+    const live = turn.gen === gen && turn.status === "running";
+    await ctx.db.patch(turnId, { usage: addUsage(turn.usage, usage), ...(live ? { outputCeiling: LIMITS.maxOutputTokens } : {}), updatedAt: now });
+    return { cancelled: !live };
   },
 });
 

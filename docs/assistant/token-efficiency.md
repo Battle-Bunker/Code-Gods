@@ -172,7 +172,8 @@ hash of the stable prefix (system prompt and tool names), so every thread of a p
     boundary.
 - **Skills** (`load_skill {name}`, a registry tool, so MCP and the CLI have it too) hold the domain knowledge that sat
   in the system prompt and the per-turn briefing. Each skill's body has static text plus live parts read as the
-  player, and its name and one-line description sit in the index:
+  player, and its name and one-line description sit in the index. A skill declares the tools its task calls; loading
+  the skill loads them where the adapter manages context (OpenAI, mock):
   - `game-rules`: the game primer and the room's rules;
   - `writing-agents`: the agent workflow, the language's mutators and read helpers, and the player's utility source;
   - `screen`: panes, the built-in panel catalogue with parameters, and layout etiquette;
@@ -181,8 +182,9 @@ hash of the stable prefix (system prompt and tool names), so every thread of a p
   on screen.
 - **Step economy**:
   - the prompt says to answer from the briefing when it suffices;
-  - the output ceiling drops from 8,192 to 2,048 tokens, with one automatic retry at the full ceiling when a step is
-    cut;
+  - the output ceiling drops from 8,192 to 2,048 tokens. It rises to 8,192 once a code-writing tool is loaded
+    (validate or summon an agent, save a panel or a setup). A cut step is billed, never acted on, and run once more at
+    the full ceiling;
   - reservations shrink with it.
 
 ### 3.3 MCP parity (PR 3)
@@ -209,6 +211,29 @@ The index, `load_tools`, `load_skill`, MCP and the confirmation rules pick it up
 | develop (baseline) | gpt-4.1-mini | 7 | 9,975 | 0.021 | 20.1 |
 | PR 1: append-only history, prefix cache key | claude-sonnet-5-5 | 8 | 11,502 | 0.133 | 17.4 |
 | PR 1: append-only history, prefix cache key | gpt-4.1-mini | 7 | 6,083 | 0.013 | 32.9 |
+| PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | claude-sonnet-5-5 | 8 | 3,826 | 0.052 | 52.3 |
+| PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | gpt-4.1-mini | 10 | 3,328 | 0.007 | 60.1 |
+
+Per model step after PR 2 (claude-sonnet-5-5, `act` grant, `count_tokens`), against 16,640 before:
+
+| Component | Characters | Tokens |
+|---|---:|---:|
+| 6 loaded tools (loader + core; 29 deferred, not in context) | 5,156 | 2,396 |
+| System prompt with the index (29 tools, 4 skills) | 7,219 | 2,366 |
+| Briefing (live state only) | 1,026 | 450 |
+| **Total** | | **5,212** |
+| Skill when loaded: game-rules / writing-agents / screen / game-setups | | 2,821 / 2,223 / 1,446 / 330 |
+
+What the live runs taught (both are in the design above):
+
+- gpt-4.1-mini loaded the writing-agents skill, then looped on `get_observation` until the step ceiling: it did not
+  follow the two-step "load, then call" protocol. Skills now declare their tools (like the Agent Skills spec's
+  `allowed-tools`), and loading a skill loads them where the adapter manages context. On Anthropic the skill result
+  must stay text (tool_reference blocks cannot share a result with text), so the body names its tools for load_tools;
+  Claude Sonnet 5.5 also called a deferred tool named in the index directly, and the API accepted it.
+- Without the primer's agent section, gpt-4.1-mini wrote `obj.value` for an Int object and failed validation. The
+  primer moved to `lib/player-client/src/primer.ts`: AI seats still get all of it, and the assistant's
+  writing-agents skill carries the agent, energy, commit-clause and determinism parts.
 
 PR 1 alone: the same-thread follow-up now reads 20,499 tokens from the cache and writes 3,759 (was 13,382 and
 8,285), and gpt-4.1-mini's new threads read the shared prefix (8,960 to 19,328 tokens read).

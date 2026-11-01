@@ -6,11 +6,63 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { OWNER_TOOLS } from "@workspace/player-client/tools";
+import { CORE_TOOLS, OWNER_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { activeTools, assistantSystemPrompt } from "@workspace/ai-player";
 import {
-  LIMITS, argsLimit, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, uuidv5,
+  LIMITS, argsLimit, buildHistory, callLimitProblem, clipJson, commandIdFor, loadTools, loadableTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, uuidv5,
 } from "../../convex/assistant/rules.ts";
 import { TOOLS, toolJsonSchemas } from "@workspace/player-client/tools";
+
+test("the tool list is stable and small in context: the loader and the core tools loaded, every other grant tool deferred and indexed", () => {
+  for (const p of ["read", "act", "owner"] as const) {
+    const tools = modelTools(p);
+    assert.equal(JSON.stringify(modelTools(p)), JSON.stringify(tools), "identical at every step and turn (the cached prefix)");
+    assert.equal(tools[0].name, "load_tools");
+    const loaded = tools.filter(t => !t.deferred).map(t => t.name);
+    assert.deepEqual(loaded, ["load_tools", ...toolsFor(p).map(t => t.name).filter(n => (CORE_TOOLS as readonly string[]).includes(n))], "registry order");
+    const deferred = tools.filter(t => t.deferred).map(t => t.name);
+    assert.deepEqual(deferred, loadableTools(p));
+    assert.deepEqual([...loaded.slice(1), ...deferred].sort(), toolsFor(p).map(t => t.name).sort(), "every grant tool stays reachable");
+    const names = (tools[0].inputSchema as any).properties.names;
+    assert.deepEqual(names.items.enum, deferred, "load_tools names exactly the index");
+    const prompt = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: p });
+    for (const name of deferred) assert.ok(prompt.includes(`\n- ${name}: `), `${p}: ${name} is in the index`);
+  }
+  assert.ok(!loadableTools("read").includes("summon_agent") && loadableTools("act").includes("summon_agent"));
+});
+
+test("load_tools loads index tools, skips core ones, refuses what the grant lacks; the history turns a load into references", () => {
+  const ok = loadTools("act", { names: ["validate_agent", "get_observation", "validate_agent"] });
+  assert.equal(ok.status, "ok");
+  assert.deepEqual(JSON.parse(ok.resultJson).loaded, ["validate_agent"]);
+  assert.equal(loadTools("act", { names: ["get_observation"] }).summary, "Already loaded");
+  const refused = loadTools("read", { names: ["summon_agent"] });
+  assert.equal(refused.status, "error");
+  assert.match(JSON.parse(refused.resultJson).error.message, /Not in this grant's index: summon_agent\. Loadable: .*get_rules/);
+  assert.equal(loadTools("act", { names: [] }).status, "error");
+  assert.equal(loadTools("act", {}).status, "error");
+
+  const rows = [{ id: "u", turnId: "T", role: "user" as const, text: "validate" },
+    { id: "m", turnId: "T", role: "assistant" as const, text: "", contentJson: JSON.stringify([{ type: "tool_use", id: "c1", name: "load_tools", input: { names: ["validate_agent"] } }, { type: "tool_use", id: "c2", name: "load_tools", input: { names: ["nope"] } }]) }];
+  const calls = [{ messageId: "m", callId: "c1", index: 0, tool: "load_tools", argsJson: "{}", status: "ok", resultJson: ok.resultJson },
+    { messageId: "m", callId: "c2", index: 1, tool: "load_tools", argsJson: "{}", status: "error", resultJson: refused.resultJson }];
+  const history = buildHistory(rows, calls, { turnId: "T" });
+  assert.deepEqual((history[2].content as any[]).map(b => b.toolReferences), [["validate_agent"], undefined]);
+  const active = activeTools({ tools: modelTools("act"), messages: history }).map(t => t.name);
+  assert.deepEqual(active, [...modelTools("act").filter(t => !t.deferred).map(t => t.name), "validate_agent"], "what an adapter without native deferral offers next");
+});
+
+test("a step's output ceiling: the default, the full one once a code-writing tool the grant has is loaded, the thread's raised one after a cut", () => {
+  const loadedWith = (names: string[]) => [{ role: "user" as const, content: [{ type: "tool_result" as const, toolUseId: "c", content: "{}", toolReferences: names }] }];
+  const act = modelTools("act"), read = modelTools("read");
+  assert.equal(outputCeiling(undefined, [], act), LIMITS.outputTokens);
+  assert.equal(outputCeiling(undefined, loadedWith(["get_rules"]), act), LIMITS.outputTokens);
+  assert.equal(outputCeiling(undefined, loadedWith(["validate_agent"]), act), LIMITS.maxOutputTokens);
+  assert.equal(outputCeiling(undefined, [{ role: "user", content: [{ type: "tool_result", toolUseId: "c", content: "{}", loadsTools: ["validate_agent"] }] }], read), LIMITS.outputTokens,
+    "a skill naming a code-writing tool the grant lacks (read) does not raise it");
+  assert.equal(outputCeiling(LIMITS.maxOutputTokens, [], act), LIMITS.maxOutputTokens);
+  assert.ok(LIMITS.outputTokens <= 2048 && LIMITS.maxOutputTokens === 8192);
+});
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
 const DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
@@ -47,6 +99,7 @@ test("the model sees only the tools its grant may use, without command or reques
   assert.ok(names("act").includes("summon_agent") && names("act").includes("save_panel"));
   assert.ok(!names("act").includes("start_game") && !names("act").includes("get_room_state"), "owner tools absent for act");
   assert.ok(names("owner").includes("start_game"));
+  assert.ok(names("read").includes("load_skill") && names("read").includes("load_tools"));
   for (const t of modelTools("owner")) {
     const schema = t.inputSchema as { properties?: Record<string, unknown>; required?: string[] };
     const keys = [...Object.keys(schema.properties ?? {}), ...(schema.required ?? [])];

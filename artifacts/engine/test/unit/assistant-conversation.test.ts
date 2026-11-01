@@ -67,7 +67,7 @@ const briefings: Record<string, string> = {};
 async function runTurn(api: ReturnType<typeof fakeApi>, rows: HistoryRow[], calls: HistoryCall[], turnId: string, text: string) {
   const system = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: "act" });
   const tools = modelTools("act");
-  const briefing = assistantBriefing({ rules: { rules: "# Code Gods: rules" }, observation: { phase: "planning", language: "python", self: { energy: 100, utility: { name: "Power Hoarder", summary: "Factors of 3." } } } });
+  const briefing = assistantBriefing({ observation: { phase: "planning", language: "python", self: { energy: 100, utility: { name: "Power Hoarder", summary: "Factors of 3." } } } });
   briefings[turnId] = briefing;
   rows.push({ id: `${turnId}-u`, turnId, role: "user", text });
   for (let s = 0; s < 6; s++) {

@@ -1,7 +1,7 @@
 /** The OpenAI chat-completions adapter of the assistant's ChatProvider (chat.ts): streaming text and tool calls. */
 import OpenAI from "openai";
 import {
-  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop,
+  CHARS_PER_TOKEN, ChatAbortedError, ChatCutError, activeTools, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop,
   type ChatProvider, type ChatResult, type Prices,
 } from "./chat.ts";
 
@@ -34,6 +34,7 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
           }
         }
       }
+      const tools = activeTools(request);
       let text = "";
       let finish: string | null = null;
       let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } } | undefined;
@@ -41,7 +42,8 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
       try {
         const stream = await client.chat.completions.create({
           model, messages, max_completion_tokens: request.maxOutputTokens, stream: true, stream_options: { include_usage: true },
-          ...(request.tools.length ? { tools: request.tools.map(t => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.inputSchema } })) } : {}),
+          // No native deferral on Chat Completions: the tools in context are the core ones plus those the history loaded.
+          ...(tools.length ? { tools: tools.map(t => ({ type: "function" as const, function: { name: t.name, description: t.description, parameters: t.inputSchema } })) } : {}),
           ...(request.cacheKey ? { prompt_cache_key: request.cacheKey } : {}),
         }, { signal: request.signal, maxRetries: 0 });
         for await (const chunk of stream) {
@@ -63,8 +65,9 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
       // Usage arrives only in the last chunk: an aborted stream (the SDK may end it quietly) knows only what it
       // streamed; this API shows no hidden reasoning.
       if (request.signal.aborted && !(finish && usage)) throw new ChatAbortedError({ outputChars: text.length + calls.reduce((n, c) => n + c.args.length, 0), reasoningMs: 0 });
-      const stopReason = completeStop(finish, { stop: "end_turn", tool_calls: "tool_use" });
       const counted = checkUsage(usage?.prompt_tokens, usage?.completion_tokens, request.maxOutputTokens, { read: usage?.prompt_tokens_details?.cached_tokens ?? 0 });
+      if (finish === "length") throw new ChatCutError(counted);
+      const stopReason = completeStop(finish, { stop: "end_turn", tool_calls: "tool_use" });
       const content: ChatResult["content"] = text ? [{ type: "text", text }] : [];
       for (const call of calls) {
         let input: unknown;

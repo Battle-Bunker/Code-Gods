@@ -47,6 +47,8 @@ export const assistantTables = {
     briefing: v.optional(v.string()),
     /** The first message seq of the earlier history this turn replays, fixed at its first step (rules.ts historyStart). */
     historyFromSeq: v.optional(v.number()),
+    /** The output ceiling of the turn's later steps, raised after a step was cut (rules.ts outputCeiling). */
+    outputCeiling: v.optional(v.number()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
   }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"]),
 

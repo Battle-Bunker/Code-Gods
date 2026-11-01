@@ -228,7 +228,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     kind: "query", audience: "player",
     human: { title: "Show the dock layout", tooltip: "The panes you see in this room, as every open client of yours renders them." },
     ai: { description: "The human's dock layout for the room: panes (built-in panels with parameters, stored panels, the assistant), their arrangement, who set each built-in panel, and repair warnings. get_layout returns it with the built-in panel catalogue." },
-    tools: ["get_layout"], palette: null, why: "The dock's own subscription; the assistant reads it with get_layout.",
+    tools: ["get_layout", "load_skill"], palette: null, why: "The dock's own subscription; the assistant reads it with get_layout.",
   },
   "layout.set": {
     kind: "mutation", audience: "player",
@@ -313,7 +313,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     kind: "query", audience: "player",
     human: { title: "Inspect the raw observation", tooltip: "Your private view of the game as the engine sends it, once per tick." },
     ai: { description: "The human's private v3 observation: phase, energy and utility card, objects with their own bits and the peers' aggregate, agents, recent transformations, leaderboard, chat and the object instance. The start for anything about the current game." },
-    tools: ["get_observation"], palette: { label: "Inspect the raw observation", group: "view", keywords: ["json", "debug", "observation"], surfaces: P },
+    tools: ["get_observation", "load_skill"], palette: { label: "Inspect the raw observation", group: "view", keywords: ["json", "debug", "observation"], surfaces: P },
   },
   "player.events": {
     kind: "query", audience: "player",
@@ -364,7 +364,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     kind: "query", audience: "player",
     human: { title: "Show the room", tooltip: "Members, settings, chat, budgets and the active game of a room." },
     ai: { description: "A room's public state: settings and revision, members and AI seats, chat, budgets, object instance and the active game. get_rules gives a player the rules part; get_room_state gives the owner all of it." },
-    tools: ["get_rules", "get_room_state"], palette: null, why: SUBSCRIPTION,
+    tools: ["get_rules", "get_room_state", "load_skill"], palette: null, why: SUBSCRIPTION,
   },
   "rooms.join": {
     kind: "mutation", audience: "player",
