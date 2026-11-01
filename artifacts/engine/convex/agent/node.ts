@@ -10,7 +10,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { runEnvelope } from "../commands";
-import { tablesFor } from "../engine/calibration";
+import { gameTables } from "../engine/calibration";
 import { score } from "../engine/node";
 import { bindRuntime } from "../engine/runtime";
 import { fail, messageOf } from "../lib/errors";
@@ -43,7 +43,7 @@ export const evaluate = internalAction({
     const mine: Awaited<ReturnType<typeof myUtilityFor>> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId });
     if (!mine) return fail("CONFLICT", "You are not seated in a current game");
     let tables;
-    try { tables = await tablesFor(ctx, instantiationOf(mine.settings as GameSettings)); } catch (error) {
+    try { tables = await gameTables(ctx, mine.settings as GameSettings, [mine.utility as UtilityDescriptor]); } catch (error) {
       return fail("UNAVAILABLE", `The calibration tables could not be loaded: ${messageOf(error).slice(0, 300)}`);
     }
     let s;

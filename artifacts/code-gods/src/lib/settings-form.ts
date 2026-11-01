@@ -7,14 +7,15 @@
  *   game-core's `applySettingsChange`, exactly as the engine applies a change, so the only dependencies are the
  *   game's own (a language moves its grammar and summon price, a world its default instantiation and the families
  *   that no longer exist); penalty weight and the defence checklist hide while defence goals are off;
- * - one control per type argument (`argChoices`): every value of each argument, the ones that would make the
- *   current combination uncalibrated disabled with the reason, never hidden and never moving another argument;
+ * - one control per type argument (`argChoices`): every value of each argument, never moving another argument; only a
+ *   combination the type refuses (or a retired one, 3×3) is disabled. Calibration is never a condition: a shape whose
+ *   tables are not shipped prepares them on its first game, which `firstUseNote` says (with the measured time);
  * - the family shelves of an instantiation (reward rules and defence goals);
  * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
 import { SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
-import { familiesFor, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
+import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
@@ -132,15 +133,22 @@ function existingFamilies(objectType: string, typeArgs: TypeArgs, role: FamilyRo
   return entries.filter(e => e.role === utilityRole(role));
 }
 
+/** How a first game on a shape goes on this server (manifest.get `playable[].prepare`): tables to compute, about how long. */
+export interface Prepare { toCompute: number; seconds: number }
 /** The manifest's object types, as far as the settings model and the argument controls need them. */
-export interface OfferedTypes { id: string; params?: readonly ParamSchema[]; defaults?: TypeArgs; offered: readonly { args: TypeArgs }[] }
+export interface PlayableTypes {
+  id: string; params?: readonly ParamSchema[]; defaults?: TypeArgs;
+  playable: readonly { args: TypeArgs; prepare?: Prepare | null; synergy?: boolean }[];
+}
 /**
- * The settings model's domain on this page: the instantiations the manifest offers (the engine applies a change with
- * the same list) and the families that exist in each, from the shipped catalogue.
+ * The settings model's domain on this page: the instantiations the manifest lists as playable (the engine applies a
+ * change with the same list), any other valid, non-retired arguments, and the families that exist in each, from the
+ * shipped catalogue.
  */
-export function settingsDomain(types: readonly OfferedTypes[]): SettingsDomain {
+export function settingsDomain(types: readonly PlayableTypes[]): SettingsDomain {
   return {
-    offered: objectType => types.find(t => t.id === objectType)?.offered.map(o => o.args) ?? [],
+    playable: objectType => types.find(t => t.id === objectType)?.playable.map(o => o.args) ?? [],
+    isPlayable: (objectType, typeArgs) => { try { return isPlayableInstantiation(instantiate(objectType, typeArgs)); } catch { return false; } },
     families: (objectType, typeArgs, role) => existingFamilies(objectType, typeArgs, role).map(e => e.id),
     typeFamilies: (objectType, role) => familiesFor(objectType, utilityRole(role)).map(f => f.id),
   };
@@ -160,20 +168,19 @@ export function defenceBlocker(s: Pick<Settings, "objectType" | "typeArgs">): st
 const argKey = (objectType: string, args: TypeArgs) => { try { return instantiate(objectType, args).key; } catch { return null; } };
 const shapeLabel = (objectType: string, args: TypeArgs) => { try { return instanceInfo(instantiate(objectType, args)).label; } catch { return `${objectType} ${Object.values(args).join(" · ")}`; } };
 
-/** One value of one type argument: its label, and whether picking it (the other arguments unchanged) is calibrated. */
+/** One value of one type argument: its label, and whether picking it (the other arguments unchanged) is playable. */
 export interface ArgChoice { value: number | string; label: string; enabled: boolean; reason?: string }
 /**
  * The controls of a type's arguments (Grid: size, symbols, colours; Int: smallest, biggest; string: longest), one per
- * parameter of the manifest's `params`. Each lists the parameter's values that some offered instantiation uses (a
+ * parameter of the manifest's `params`. Each lists the parameter's values that some playable instantiation uses (a
  * component's options, an integer's presets: so the retired 3×3 is not a size), plus the current value. A value is
- * enabled when the combination with the other arguments as they are is offered; otherwise it is disabled with the
- * reason, never hidden, and picking a value never changes another argument.
+ * enabled when the combination with the other arguments as they are is playable (valid and not retired); whether its
+ * tables are shipped does not matter (`firstUseNote`). Picking a value never changes another argument.
  */
-export function argChoices(type: OfferedTypes, args: TypeArgs): { param: ParamSchema; current: number | string; choices: ArgChoice[] }[] {
+export function argChoices(type: PlayableTypes, args: TypeArgs): { param: ParamSchema; current: number | string; choices: ArgChoice[] }[] {
   const full = { ...(type.defaults ?? {}), ...args };
-  const offered = new Set(type.offered.map(o => argKey(type.id, o.args)));
   return (type.params ?? []).map(param => {
-    const used = new Set(type.offered.map(o => ({ ...(type.defaults ?? {}), ...o.args })[param.id]));
+    const used = new Set(type.playable.map(o => ({ ...(type.defaults ?? {}), ...o.args })[param.id]));
     const all: { value: number | string; label: string }[] = param.kind === "component"
       ? param.options.map(o => ({ value: o.id, label: o.label }))
       : (param.presets ?? []).map(v => ({ value: v, label: param.id === "size" ? `${v}×${v}` : v.toLocaleString("en-US") }));
@@ -182,11 +189,41 @@ export function argChoices(type: OfferedTypes, args: TypeArgs): { param: ParamSc
     if (!values.some(v => v.value === current)) values.push({ value: current, label: String(current) });
     const choices = values.map(({ value, label }) => {
       const next = { ...full, [param.id]: value };
-      const enabled = offered.has(argKey(type.id, next));
-      return enabled ? { value, label, enabled } : { value, label, enabled, reason: `No calibration tables for ${shapeLabel(type.id, next)} yet` };
+      let inst;
+      try { inst = instantiate(type.id, next); } catch (e) { return { value, label, enabled: false, reason: `${shapeLabel(type.id, next)} is not a valid shape: ${(e as Error).message}` }; }
+      return isPlayableInstantiation(inst) ? { value, label, enabled: true } : { value, label, enabled: false, reason: `${shapeLabel(type.id, next)} is retired` };
     });
     return { param, current, choices };
   });
+}
+
+/**
+ * The light note under the shape controls when the first game on this shape will compute some of its rule tables
+ * (none are shipped or analytic for those draws): "The first game on this shape prepares its rule tables (about 70 s)
+ * before planning starts; later games start at once." Null when every table is ready. An unlisted shape (a custom Int
+ * range) takes the measured estimate for its type (game-utilities firstUseSeconds).
+ */
+export function firstUseNote(type: PlayableTypes, args: TypeArgs): string | null {
+  const key = argKey(type.id, { ...(type.defaults ?? {}), ...args });
+  if (!key) return null;
+  const listed = type.playable.find(o => argKey(type.id, { ...(type.defaults ?? {}), ...o.args }) === key);
+  const seconds = listed ? listed.prepare?.seconds : firstUseSeconds(instantiate(type.id, { ...(type.defaults ?? {}), ...args }));
+  if (seconds === undefined) return null;
+  const tables = listed?.prepare ? `up to ${listed.prepare.toCompute} rule table${listed.prepare.toCompute === 1 ? "" : "s"}` : "its rule tables";
+  return `The first game on this shape on this server prepares ${tables} (about ${formatSeconds(seconds)}) before planning starts; later games start at once.`;
+}
+/** "45 s", "4 min 20 s". */
+export const formatSeconds = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.floor(s / 60)} min${s % 60 >= 1 ? ` ${Math.round(s % 60)} s` : ""}`);
+
+/**
+ * How the goal dealing will actually deal on this shape: the Aligned Lottery needs measured synergy (shipped for a few
+ * shapes) and deals exactly like the Divine Lottery without it. Null when the chosen dealer deals as named.
+ */
+export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "typeArgs" | "utilitySelectorId">): string | null {
+  if (s.utilitySelectorId !== "fair-aligned" || !type) return null;
+  const key = argKey(type.id, { ...(type.defaults ?? {}), ...s.typeArgs });
+  const listed = type.playable.find(o => argKey(type.id, { ...(type.defaults ?? {}), ...o.args }) === key);
+  return listed?.synergy ? null : "No synergy has been measured for this shape: the Aligned Lottery deals like the Divine Lottery here.";
 }
 
 /** A value in plain words: "25 acts/s", "4 × base10 × rgb", "11 rules", "offered". */

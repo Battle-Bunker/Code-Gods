@@ -8,10 +8,10 @@
  * - Only the setup's owner edits it. Anyone else (and everyone, for a system setup) reads the same form with every
  *   control disabled and one primary action, "Duplicate and edit", which makes their own copy and opens it here.
  * - Every control changes the draft through the settings model (game-core applySettingsChange, with the manifest's
- *   offered instantiations and the shipped family catalogue as its domain): a language moves its grammar and summon
+ *   playable instantiations and the shipped family catalogue as its domain): a language moves its grammar and summon
  *   price, a new world takes its default instantiation and drops the families it lacks, and nothing else moves. The
- *   board shape is one control per type argument; a value whose combination has no calibration tables is disabled
- *   with the reason, never hidden, and never moves another argument.
+ *   board shape is one control per type argument; every playable combination is enabled (only a retired one, 3×3, is
+ *   not), and a shape whose first game computes rule tables says so in a light note with the measured time.
  * - Defence goals are a switch plus a checklist of the defence goals that may be dealt: on, every player gets one.
  * - Save writes the setup (setups.save) and, for the room's owner while no game runs, applies it to the room
  *   (owner.settings {setupId}); budgets approve with consent (rooms.approveAiBudget). Delete is in the review section.
@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt } from "@/lib/errors";
 import {
   BUDGET_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
-  same, settingsDomain, shelfEntries, stepChoices, type OfferedTypes, type Settings, type SettingsKey,
+  dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, type PlayableTypes, type Settings, type SettingsKey,
 } from "@/lib/settings-form";
 import { freeName, ownerLabel } from "@/lib/setup-words";
 
@@ -109,7 +109,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   const roomOnIt = room.setup?.id === setup.id && same(room.settings, draft);
   const dirty = dirtySettings || dirtyName || dirtyBudgets;
   const types = manifest?.objectTypes ?? [];
-  const domain = useMemo(() => settingsDomain((manifest?.objectTypes ?? []) as unknown as OfferedTypes[]), [manifest]);
+  const domain = useMemo(() => settingsDomain((manifest?.objectTypes ?? []) as unknown as PlayableTypes[]), [manifest]);
 
   // Budgets approved elsewhere (the AI spending sheet, another tab) replace the draft's unless edited here.
   const lastRoomBudgets = useRef(roomBudgets);
@@ -141,14 +141,14 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
 
   const errors = draftErrors(draft, domain);
   const currentType = types.find(t => t.id === draft.objectType);
-  const offered = currentType?.offered.find(o => sameArgs({ ...currentType.defaults, ...o.args }, { ...currentType.defaults, ...draft.typeArgs }));
+  const playable = currentType?.playable.find(o => sameArgs({ ...currentType.defaults, ...o.args }, { ...currentType.defaults, ...draft.typeArgs }));
   const budgetErrors = {
     aiBudget: limitError(BUDGET_LIMITS.aiBudget, budgets.aiBudget),
     assistantBudget: limitError({ ...BUDGET_LIMITS.assistantBudget, max: manifest?.aiFunding.assistantBudgetMax ?? BUDGET_LIMITS.assistantBudget.max }, budgets.assistantBudget),
   };
   const trimmed = tidyName(name);
   const nameProblem = !trimmed ? "Give the setup a name." : trimmed.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
-  const settingsInvalid = Object.keys(errors).length > 0 || (!!currentType && !offered);
+  const settingsInvalid = Object.keys(errors).length > 0;
   const invalid = settingsInvalid || !!nameProblem || (dirtyBudgets && (!!budgetErrors.aiBudget || !!budgetErrors.assistantBudget));
   const running = room.activeGame;
   const budgetFrozen = !!running && dirtyBudgets && budgets.aiBudget !== room.aiBudget;
@@ -265,7 +265,6 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
                 <p className="text-muted-foreground">{settingsSummary(draft, instance)}</p>
               </div>
               {errors._form && <ErrorLine message={errors._form} />}
-              {currentType && !offered && <ErrorLine message={`${formatValue("typeArgs", draft.typeArgs)} has no calibration tables on this server: choose a calibrated shape.`} />}
               {budgetsEditable && dirtyBudgets && (
                 <label className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="block-consent">
                   <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-config-consent" />
@@ -297,7 +296,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
             <p className="font-medium">Summary</p>
             <p data-testid="text-summary-setup">{trimmed || setup.name}</p>
             <p className="text-muted-foreground">{owner}</p>
-            <p>{currentType ? `${currentType.emoji} ${currentType.label}` : draft.objectType} · {offered?.label ?? Object.values(draft.typeArgs).join(" · ")}</p>
+            <p>{currentType ? `${currentType.emoji} ${currentType.label}` : draft.objectType} · {playable?.label ?? Object.values(draft.typeArgs).join(" · ")}</p>
             <p>{draft.language === "python" ? "Python" : "TypeScript"}</p>
             <p>Defence goals: {draft.defenceGoals ? "every player" : "off"}</p>
             <p>{fmt(draft.startingObjectCount)} objects, +{draft.spawnRateHz}/s</p>
@@ -444,7 +443,13 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
         );
       }
       const choices = k === "utilitySelectorId" ? settingsOptionsFor("utilitySelectorId", draft.language, draft.objectType).map(o => o.id) : stepChoices(k, draft[k]);
-      return <Question k={k} error={error}><Segmented k={k} value={draft[k] as string} choices={choices} editable={editable} onPick={v => change({ [k]: v })} /></Question>;
+      const note = k === "utilitySelectorId" ? dealerNote(type as unknown as PlayableTypes | undefined, draft) : null;
+      return (
+        <Question k={k} error={error}>
+          <Segmented k={k} value={draft[k] as string} choices={choices} editable={editable} onPick={v => change({ [k]: v })} />
+          {note && <p className="text-xs text-muted-foreground" data-testid="note-dealer">{note}</p>}
+        </Question>
+      );
     }
     case "select": {
       const options = selectOptions(k, draft, manifest);
@@ -469,12 +474,14 @@ function selectOptions(k: SettingsKey, draft: Settings, manifest?: Manifest): { 
 }
 
 /**
- * The object's shape: one control per type argument (Grid: size, symbols and colours). A value that would make the
- * combination uncalibrated is disabled, with the reason as its tooltip and listed under the control; nothing else moves.
+ * The object's shape: one control per type argument (Grid: size, symbols and colours). Every playable combination is
+ * enabled (a retired or invalid one is disabled with the reason as its tooltip and listed under the control); nothing
+ * else moves. A shape whose first game computes rule tables gets a light note with the measured time.
  */
 function ShapeControls({ type, draft, editable, onPick }: { type: ObjectTypeInfo; draft: Settings; editable: boolean; onPick: (args: Settings["typeArgs"]) => void }) {
-  const controls = argChoices(type as unknown as OfferedTypes, draft.typeArgs);
-  const chosen = type.offered.find(o => sameArgs({ ...type.defaults, ...o.args }, { ...type.defaults, ...draft.typeArgs }));
+  const controls = argChoices(type as unknown as PlayableTypes, draft.typeArgs);
+  const chosen = type.playable.find(o => sameArgs({ ...type.defaults, ...o.args }, { ...type.defaults, ...draft.typeArgs }));
+  const note = firstUseNote(type as unknown as PlayableTypes, draft.typeArgs);
   return (
     <div className="space-y-4" data-testid="controls-typeArgs">
       {controls.map(({ param, current, choices }) => {
@@ -501,6 +508,7 @@ function ShapeControls({ type, draft, editable, onPick }: { type: ObjectTypeInfo
           </div>
         );
       })}
+      {note && <p className="text-xs text-muted-foreground" data-testid="note-first-use">{note}</p>}
       {chosen && <div><BadgeChips badges={chosen.badges} /></div>}
     </div>
   );

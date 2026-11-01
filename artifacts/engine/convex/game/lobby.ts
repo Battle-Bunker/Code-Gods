@@ -6,8 +6,9 @@
 import { v } from "convex/values";
 import { sameSettings, validateSettings, type GameSettings } from "@workspace/game-core";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
 import { nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
@@ -16,6 +17,9 @@ import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewe
 import { LEASE_MS } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
+
+/** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
+export const PREPARING_WATCHDOG_MS = 60_000;
 
 /** How a settings commit changes the room's setup: run another one (`apply`), or edit the one it runs (`edit`). */
 const setupChangeV = v.union(v.object({ kind: v.literal("apply"), setupId: v.id("gameSetups") }),
@@ -54,6 +58,7 @@ export const commitSettings = internalMutation({
     if (args.revision !== room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
+    if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing its rule tables; settings are frozen until it starts (or end the preparation)");
     if (args.aiBudget !== undefined && (!Number.isSafeInteger(args.aiBudget) || args.aiBudget < 0 || args.aiBudget > 1_000_000)) {
       fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
     }
@@ -89,13 +94,18 @@ export const setCatalog = internalMutation({
 
 const wire = v.union(v.number(), v.string());
 
-/** Launch: insert the game, its deities and starting objects; snapshot settings and roster; schedule the loop. */
-export const commitStart = internalMutation({
+/**
+ * The start's first half found tables to compute (owner.ts startGame): record the fixed deal and the keys it waits for
+ * on the room, and a wait row per key for calibration/cache.ts finished. Keys that became ready (or failed) between
+ * the action's check and this mutation are settled here, so no landing is missed; when none is left, the second half
+ * is scheduled at once. A watchdog run of the second half follows every minute until the game starts.
+ */
+export const beginPreparing = internalMutation({
   args: {
-    roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
-    seasonCommitment: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
-    deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
-    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number() })),
+    roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.string(),
+    instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
+    deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
+    dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -103,8 +113,81 @@ export const commitStart = internalMutation({
     if (room.revision !== args.revision) fail("CONFLICT", "Settings changed while starting; try again");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");
-    const members = await membersOf(ctx, room._id);
-    if (members.map(m => m.godId).sort().join("\n") !== [...args.memberIds].sort().join("\n")) fail("CONFLICT", "Members changed while starting; try again");
+    if (room.preparing && !room.preparing.error) return room.preparing;   // a concurrent start won
+    await forgetWaits(ctx, room._id);
+    const pending: string[] = [];
+    let failure: string | undefined;
+    for (const key of args.pending) {
+      const row = await ctx.db.query("calibrationComputed").withIndex("by_key", q => q.eq("key", key)).unique();
+      if (row?.status === "ready") continue;
+      if (row?.status === "failed") { failure ??= failureMessage(row, row.error ?? "unknown error"); continue; }
+      pending.push(key);
+      await ctx.db.insert("calibrationWaits", { key, roomId: room._id, requestId: args.requestId });
+    }
+    const preparing = {
+      requestId: args.requestId, ownerId: viewer.subject, startedAt: Date.now(), revision: args.revision, memberIds: args.memberIds,
+      instance: args.instance, total: args.total, pending, estimateSeconds: args.estimateSeconds, deals: args.deals, dealer: args.dealer,
+      ...(failure ? { error: failure } : {}),
+    };
+    await ctx.db.patch(room._id, { preparing, seq: room.seq + 1 });
+    if (failure) await forgetWaits(ctx, room._id);
+    else if (!pending.length) await ctx.scheduler.runAfter(0, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId });
+    else await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId, watchdog: true });
+    await touchActivity(ctx, true);
+    return preparing;
+  },
+});
+
+/** The second half could not launch the prepared game: record why on the room (the owner starts again). */
+export const preparingFailed = internalMutation({
+  args: { roomId: v.id("rooms"), requestId: v.string(), message: v.string() },
+  handler: async (ctx, { roomId, requestId, message }) => preparationFailed(ctx, roomId, requestId, message.slice(0, 2000)),
+});
+
+/** The owner ends a preparation (rooms.endActiveGame with no game running): the deal is dropped, computing continues for the cache. */
+export async function cancelPreparing(ctx: MutationCtx, room: Doc<"rooms">) {
+  await forgetWaits(ctx, room._id);
+  await ctx.db.patch(room._id, { preparing: undefined, seq: room.seq + 1 });
+}
+
+/**
+ * Launch: insert the game, its deities and starting objects; snapshot settings and roster; schedule the loop. A
+ * prepared start (`prepared`: the room's preparing requestId, owner.ts completeStart) runs without the owner's
+ * identity: the owner was checked when the preparation began, and it launches only while that preparation is the
+ * room's (an ended or replaced one returns null). Its roster is the dealt gods, who must all still be members; anyone
+ * who joined meanwhile spectates, as on joining a running game.
+ */
+export const commitStart = internalMutation({
+  args: {
+    roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
+    prepared: v.optional(v.string()),
+    seasonCommitment: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
+    deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
+    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number() })),
+  },
+  handler: async (ctx, args) => {
+    const room = await requireRoom(ctx, args.roomId);
+    let actorId: string;
+    if (args.prepared !== undefined) {
+      if (room.preparing?.requestId !== args.prepared || room.preparing.error) return null;
+      if (room.ownerId !== room.preparing.ownerId) fail("CONFLICT", "The room changed owner while the game was preparing; start again");
+      actorId = room.preparing.ownerId;
+    } else {
+      actorId = (await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room)).viewer.subject;
+      if (room.preparing && !room.preparing.error) fail("CONFLICT", "The game is preparing its rule tables");
+    }
+    if (room.revision !== args.revision) fail("CONFLICT", "Settings changed while starting; try again");
+    const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
+    if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");
+    const allMembers = await membersOf(ctx, room._id);
+    let members = allMembers;
+    if (args.prepared !== undefined) {
+      const current = new Set(allMembers.map(m => m.godId));
+      const gone = args.memberIds.filter(id => !current.has(id));
+      if (gone.length) fail("CONFLICT", `${gone.length === 1 ? "A dealt god" : `${gone.length} dealt gods`} left while the game was preparing; start again`);
+      const dealt = new Set(args.memberIds);
+      members = allMembers.filter(m => dealt.has(m.godId));
+    } else if (members.map(m => m.godId).sort().join("\n") !== [...args.memberIds].sort().join("\n")) fail("CONFLICT", "Members changed while starting; try again");
     const byGod = new Map(members.map(m => [m.godId, m]));
     const settings = room.settings as GameSettings;
     const setupId = room.setupId, setupName = (setupId ? (await ctx.db.get(setupId))?.name : undefined) ?? room.setupName;
@@ -136,14 +219,14 @@ export const commitStart = internalMutation({
     await ctx.db.patch(gameId, { nextBatch: 1 });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     await ctx.db.patch(room._id, {
-      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1,
+      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined,
       aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {
-      await ctx.db.insert("receipts", { roomId: room._id, actorId: viewer.subject, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });
+      await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });
     }
     await touchActivity(ctx, true);
     return result;

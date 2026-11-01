@@ -32,7 +32,11 @@ export const catalogOf = (catalog: unknown): UtilityFamily[] => (Array.isArray(c
 
 /** `manifest.get` returns its object types untyped; this is their shape (convex/manifest.ts). */
 export type OfferedInfo = OfferedLike;
+/** A playable shape (manifest.get `playable`): its first game's preparation here, and whether synergy is measured. */
+export type PlayableInfo = OfferedInfo & { prepare: { toCompute: number; seconds: number } | null; synergy: boolean };
 export interface ObjectTypeInfo extends ObjectTypeInfoLike<OfferedInfo> {
+  /** Every shape a room may choose (tables are prepared on demand); `offered` lists those whose tables are all shipped. */
+  playable: PlayableInfo[];
   label: string; emoji: string; kid: string;
   classes: { id: string; slot: string; superclasses?: string[]; badge: { id: string; emoji: string; label: string; kid: string } }[];
 }

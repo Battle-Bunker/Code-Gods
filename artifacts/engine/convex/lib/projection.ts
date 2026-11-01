@@ -102,7 +102,24 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     objectInstance: objectInstance(settings),
     utilityCatalog: catalog ?? null,
     activeGame: activeGameRef(active),
+    // A start waiting for rule tables computed on demand: progress only (the deal stays private until the game starts).
+    preparing: preparingView(room),
   };
+}
+
+/** The room's preparing state as everyone in it sees it (rooms.preparing), or null. */
+export function preparingView(room: Doc<"rooms">) {
+  const p = room.preparing;
+  if (!p) return null;
+  return {
+    instance: p.instance, ready: p.total - p.pending.length, total: p.total, startedAt: p.startedAt, estimateSeconds: p.estimateSeconds,
+    dealtAs: p.dealer.dealtAs, ...(p.dealer.note ? { dealerNote: p.dealer.note } : {}), ...(p.error ? { error: p.error } : {}),
+  };
+}
+/** "The game is preparing its rule tables: 12 of 18 ready (first game on Grid(7,…) on this server)." */
+export function preparingLine(p: NonNullable<ReturnType<typeof preparingView>>): string {
+  if (p.error) return `Preparing the game failed: ${p.error}`;
+  return `The game is preparing its rule tables: ${p.ready} of ${p.total} ready (the first game on ${p.instance} on this server; about ${p.estimateSeconds} s in all). It starts by itself when they are.`;
 }
 
 /** One god's private view of one object: its own score and peer aggregates only. */

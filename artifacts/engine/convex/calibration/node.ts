@@ -6,7 +6,7 @@ import { manifestEntry, tableFor, type CalibrationFile } from "@workspace/game-u
 import { internal } from "../_generated/api";
 import { action, internalAction } from "../_generated/server";
 import { priorOf } from "../engine/node";
-import { calibrationLoad, forgetCalibrationIndex, tablesFor } from "../engine/calibration";
+import { calibrationLoad, forgetCalibrationIndex, resolveTables, tablesFor } from "../engine/calibration";
 import { fail } from "../lib/errors";
 
 const fileV = v.object({ instance: v.string(), rank: v.number(), sha256: v.string(), storageId: v.id("_storage") });
@@ -52,7 +52,7 @@ const drawV = v.object({ familyId: v.string(), params: v.any() });
 /**
  * The calibration tables of some draws of a game's instantiation (the player client's own utility: its reward channel
  * and its defence goal), as JSON text. The tables are public data (they are in the repository); only the requested
- * ones are sent, never a whole file. Fails when a draw has no fresh table.
+ * ones are sent, never a whole file. Fails when a draw has no fresh table (shipped, analytic or computed earlier).
  */
 export const tables = action({
   args: { settings: v.any(), draws: v.array(drawV) },
@@ -60,11 +60,15 @@ export const tables = action({
     if (draws.length < 1 || draws.length > 2) fail("BAD_REQUEST", "Ask for one or two draws (a utility and its defence goal)");
     let inst;
     try { inst = instantiationOf(settings as GameSettings); } catch (error) { return fail("BAD_REQUEST", `Invalid settings: ${(error as Error).message}`); }
-    const loaded = await tablesFor(ctx, inst);   // first: it loads the manifest, which names the priors priorOf knows
+    await tablesFor(ctx, inst);   // first: it loads the manifest, which names the priors priorOf knows
     const prior = priorOf((settings as GameSettings).priorId);
+    // Shipped, analytic or computed earlier (a started game's draws always are); never computes for a caller.
+    let r;
+    try { r = await resolveTables(ctx, inst, draws, prior, { schedule: false }); } catch (error) { return fail("BAD_REQUEST", (error as Error).message); }
+    if (r.pending.length) fail("NOT_FOUND", `No calibration table for ${r.pending.map(p => p.draw.familyId).join(", ")} in ${inst.key} yet`);
     const found = draws.map(d => {
       let t;
-      try { t = tableFor(loaded, d, inst, prior); } catch (error) { return fail("BAD_REQUEST", (error as Error).message); }
+      try { t = tableFor(r.tables, d, inst, prior); } catch (error) { return fail("BAD_REQUEST", (error as Error).message); }
       return t ?? fail("NOT_FOUND", `No calibration table for ${d.familyId} in ${inst.key}`);
     });
     return JSON.stringify(found);

@@ -1,8 +1,8 @@
 "use node";
 /**
  * Owner actions that need the calibration tables or the sandbox (Node): settings (validated with
- * validateSettings + the offered instantiations, optimistic on the room revision) and the game start (deal
- * utility functions with the selector, spawn and score the starting objects). Each reads a context with the
+ * validateSettings + the playable instantiations, optimistic on the room revision) and the game start (deal
+ * utility functions with the selector, prepare their tables, spawn and score the starting objects). Each reads a context with the
  * owner check, computes, then commits through an internal mutation that re-checks everything.
  *
  * `owner.command` is the room assistant's `room-command`: one entry point for settings, start, resume,
@@ -11,17 +11,20 @@
 import { v } from "convex/values";
 import { instantiationOf, lifetimeSeconds, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { calibrationManifest, tablesFor } from "./engine/calibration";
-import { assertOffered, catalogFor, deal, nextSettings, openUniform, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
+import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
+import { assertShape, catalogFor, deal, dealerOf, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { bindRuntime, languageAvailable } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
 import type { RoomSetupChange } from "./setups";
 import { salienceOf } from "./lib/world";
+import { preparingLine, preparingView } from "./lib/projection";
 import { MAX_GODS } from "./rooms";
+import { PREPARING_WATCHDOG_MS } from "./game/lobby";
 
 export const fillCatalog = internalAction({
   args: { roomId: v.id("rooms") },
@@ -78,31 +81,17 @@ export function aiProviderAvailable(provider: string) {
 }
 
 type Started = { gameId: Id<"games">; shortCode: string; guid: string };
-async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: string; principal?: Principal }): Promise<Started> {
-  const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
-  const room = context.room;
-  if (args.requestId) {
-    const prior = await ctx.runQuery(internal.game.lobby.receiptFor, { roomId: room._id, actorId: context.ownerId, requestId: `start:${args.requestId}` });
-    if (prior) return prior.result as { gameId: Id<"games">; shortCode: string; guid: string };
-  }
-  if (context.activeGame) fail("CONFLICT", "There is already a live game");
-  const members = context.members;
-  if (members.length < 3) fail("BAD_REQUEST", "At least three gods are required");
-  if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight gods can play");
-  const bots = members.filter(m => m.kind === "ai");
-  for (const bot of bots) {
-    if (!bot.aiAgent) fail("BAD_REQUEST", "Every AI seat needs an agent from the library");
-    if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);
-  }
-  if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
-  const settings = room.settings as GameSettings;
-  const manifest = await calibrationManifest(ctx);
-  try { validateSettings(settings, settingsDomain(manifest)); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
-  assertOffered(manifest, settings);
-  if (!await languageAvailable(settings)) fail("UNAVAILABLE", "The selected isolated runtime is unavailable");
-  const tables = await tablesFor(ctx, instantiationOf(settings));   // once per game start (a process cache hit after the first)
-  const dealt = deal(tables, settings, members.length);
-  const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
+/** A start waiting for calibration tables computed on demand (rooms.preparing; the game begins by itself). */
+export type Preparing = { status: "preparing"; instance: string; ready: number; total: number; estimateSeconds: number; dealtAs: string; note?: string; message: string };
+type StartResult = Started | Preparing;
+type Deal = { godId: string; utility: UtilityDescriptor };
+
+/** How long a preparation may run before it is reported failed (a table computing for longer is a stuck backend). */
+export const MAX_PREPARING_MS = 30 * 60_000;
+
+/** Spawn and score the starting objects, then commit the game (the start's last step, both halves). */
+async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly Deal[], tables: InstanceTables,
+  commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string }): Promise<Started | null> {
   const occupied = new Set<ObjectValue>();
   const objects = [];
   for (let i = 0; i < settings.startingObjectCount; i++) {
@@ -114,7 +103,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
   return ctx.runMutation(internal.game.lobby.commitStart, {
-    roomId: room._id, principal: args.principal, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId,
+    ...commit,
     seasonCommitment: seasonCommitment(), endAtWorld: lifetimeSeconds(settings.halfLifeSeconds, openUniform()),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
@@ -122,10 +111,103 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   });
 }
 
-/** Launch the next game from the room (3–8 gods): deals utility functions, spawns the starting objects. */
+function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {
+  const view = preparingView({ preparing: p } as Doc<"rooms">)!;
+  return { status: "preparing", instance: p.instance, ready: view.ready, total: p.total, estimateSeconds: p.estimateSeconds,
+    dealtAs: p.dealer.dealtAs, ...(p.dealer.note ? { note: p.dealer.note } : {}), message: preparingLine(view) };
+}
+
+/**
+ * The game start (docs/analytic-calibration/architecture.md §3.4). The deal is fixed first, from every available
+ * family; then each draw's table is resolved (analytic, shipped, or computed earlier: the common case, and the game
+ * starts at once). Missing tables are claimed and computed by a fan-out of Node actions, one per table; the room
+ * records the deal and its progress (`preparing`) and the call returns `{ status: "preparing" }`. When the last table
+ * lands, calibration/cache.ts finished schedules `completeStart`, which launches the game with that deal: the planning
+ * clock starts then. Idempotent per requestId (a repeated start reports the preparation, then the game).
+ */
+async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: string; principal?: Principal }): Promise<StartResult> {
+  const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
+  const room = context.room;
+  if (args.requestId) {
+    const prior = await ctx.runQuery(internal.game.lobby.receiptFor, { roomId: room._id, actorId: context.ownerId, requestId: `start:${args.requestId}` });
+    if (prior) return prior.result as Started;
+  }
+  if (context.activeGame) fail("CONFLICT", "There is already a live game");
+  // A preparation in progress is reported, not restarted; a failed one may be started afresh.
+  if (room.preparing && !room.preparing.error) return preparingResult(room.preparing);
+  const members = context.members;
+  if (members.length < 3) fail("BAD_REQUEST", "At least three gods are required");
+  if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight gods can play");
+  const bots = members.filter(m => m.kind === "ai");
+  for (const bot of bots) {
+    if (!bot.aiAgent) fail("BAD_REQUEST", "Every AI seat needs an agent from the library");
+    if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);
+  }
+  if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
+  const settings = room.settings as GameSettings;
+  const manifest = await calibrationManifest(ctx);
+  try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
+  assertShape(manifest, settings);
+  if (!await languageAvailable(settings)) fail("UNAVAILABLE", "The selected isolated runtime is unavailable");
+  const inst = instantiationOf(settings);
+  const dealt = deal(settings, members.length);
+  const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
+  let resolved;
+  try { resolved = await resolveTables(ctx, inst, drawsOf(dealt), priorOf(settings.priorId)); } catch (error) {
+    return fail("UNAVAILABLE", `The rule tables for this game could not be prepared: ${(error as Error).message}`);
+  }
+  const commit = { roomId: room._id, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId, principal: args.principal };
+  if (!resolved.pending.length) return (await launch(ctx, settings, deals, resolved.tables, commit))!;
+  const keys = [...new Set(resolved.pending.map(p => p.key))];
+  const total = new Set([...resolved.ready.map(r => r.key), ...keys]).size;
+  const preparing = await ctx.runMutation(internal.game.lobby.beginPreparing, {
+    ...commit, requestId: args.requestId ?? crypto.randomUUID(), instance: inst.key, total, pending: keys,
+    estimateSeconds: firstUseSeconds(inst), deals, dealer: dealerOf(settings),
+  });
+  return preparingResult(preparing);
+}
+
+/**
+ * The start's second half: the tables of the preparing room's deal are all ready (or, as the watchdog, check whether
+ * they are: a computation that crashed is restarted by its claim, and one past MAX_PREPARING_MS is reported). Launches
+ * the game with the recorded deal, or records why it cannot.
+ */
+export const completeStart = internalAction({
+  args: { roomId: v.id("rooms"), requestId: v.string(), watchdog: v.optional(v.boolean()) },
+  handler: async (ctx, { roomId, requestId, watchdog }): Promise<void> => {
+    await bindRuntime(ctx);
+    const room = await ctx.runQuery(internal.game.queries.roomForEngine, { roomId });
+    const p = room?.preparing;
+    if (!room || !p || p.requestId !== requestId || p.error) return;
+    const settings = room.settings as GameSettings;
+    const failWith = (message: string) => ctx.runMutation(internal.game.lobby.preparingFailed, { roomId, requestId, message });
+    let resolved;
+    try {
+      resolved = await resolveTables(ctx, instantiationOf(settings), drawsOf(p.deals.map(d => d.utility as UtilityDescriptor)), priorOf(settings.priorId));
+    } catch (error) { return void await failWith(`The rule tables for this game could not be prepared: ${(error as Error).message}. Start again to retry.`); }
+    if (resolved.pending.length) {
+      if (Date.now() - p.startedAt > MAX_PREPARING_MS) {
+        return void await failWith(`Preparing the rule tables took longer than ${MAX_PREPARING_MS / 60_000} minutes (${resolved.pending.length} of ${p.total} still computing). Start again to retry.`);
+      }
+      if (watchdog) await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
+      return;
+    }
+    try {
+      await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId });
+    } catch (error) {
+      await failWith(`The game could not start: ${(error as Error).message}`);
+    }
+  },
+});
+
+/**
+ * Launch the next game from the room (3–8 gods): deals utility functions, spawns the starting objects. On a shape whose
+ * tables are not all ready yet, returns `{ status: "preparing", ready, total, … }` and the game begins by itself once
+ * they are (the room's `preparing` shows the progress).
+ */
 export const start = action({
   args: { roomId: v.string(), requestId: v.optional(v.string()) },
-  handler: async (ctx, args): Promise<Started> => { await bindRuntime(ctx); return startGame(ctx, args); },
+  handler: async (ctx, args): Promise<StartResult> => { await bindRuntime(ctx); return startGame(ctx, args); },
 });
 
 const commandArgs = {

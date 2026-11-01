@@ -22,7 +22,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
-import { tablesFor } from "./calibration";
+import { gameTables } from "./calibration";
 import { cryptoRng, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
@@ -72,8 +72,8 @@ export const run = internalAction({
       phase = "running"; lastTick = deadline;
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
-    // The game's tables (only a simulating tick needs them): from storage once per process, then from memory.
-    const tables = await tablesFor(ctx, instantiationOf(settings));
+    // The game's tables (only a simulating tick needs them): shipped, analytic or computed at the start; memory after the first.
+    const tables = await gameTables(ctx, settings, snap.deities.map(d => d.utility as UtilityDescriptor));
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);

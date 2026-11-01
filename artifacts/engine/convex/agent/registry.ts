@@ -164,7 +164,8 @@ export const EXECUTORS: Executors = {
   get_rules: async (ctx, { principal, who }) => {
     const room: RoomState = await ctx.runQuery(internal.rooms.getAs, { principal, room: who.roomId });
     return { data: { rules: rulesText(room.settings as unknown as Record<string, unknown>), settings: room.settings, objectInstance: room.objectInstance,
-      activeGame: room.activeGame, note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility)." } };
+      activeGame: room.activeGame, preparing: room.preparing,
+      note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready." } };
   },
   get_observation: async (ctx, { principal, who }, { objectsLimit, objectsCursor }) => {
     const o = await observe(ctx, principal, who.roomId);

@@ -46,5 +46,16 @@ export const calibrationTables = {
     /** Build time of the last attempt (ms), for the latency record. */
     buildMs: v.optional(v.number()),
     lastUsedAt: v.number(),
-  }).index("by_key", ["key"]).index("by_instance", ["instance"]).index("by_status", ["status"]),
+  }).index("by_key", ["key"]).index("by_instance", ["instance"]).index("by_status_used", ["status", "lastUsedAt"]),
+  /**
+   * Rooms waiting for a computed table (owner.ts start, the preparing state): one row per (room start, key). The compute
+   * action's `finished` (calibration/cache.ts) reads them to advance each room's progress and, when its last key lands,
+   * to schedule the start's second half at once.
+   */
+  calibrationWaits: defineTable({
+    key: v.string(),
+    roomId: v.id("rooms"),
+    /** The waiting start (rooms.preparing.requestId). */
+    requestId: v.string(),
+  }).index("by_key", ["key"]).index("by_room", ["roomId"]),
 };

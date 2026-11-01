@@ -7,9 +7,9 @@
  * - language: the grammar and the summon-price function become the language's choices (each language has one);
  * - language: also any other option (goal dealing, spawn function) the new language does not offer takes the first
  *   one it does;
- * - objectType: the type's default instantiation (else the first offered one), and excluded families (reward and
+ * - objectType: the type's default instantiation (else the first playable one), and excluded families (reward and
  *   defence alike) that do not exist in it are dropped;
- * - typeArgs: only an offered instantiation is accepted, and excluded families that do not exist in it are dropped.
+ * - typeArgs: only a playable instantiation is accepted, and excluded families that do not exist in it are dropped.
  * Constraints checked on the changed field: the grammar, goal dealing, summon price and spawn function are among the
  * choices of the current language and object type (settingsOptionsFor); excluded reward families are reward families
  * of the object type and excluded defence families its defence families, and each list keeps only those that exist in
@@ -18,17 +18,26 @@
  * `validateSettings` (the single validator) says whether a value is within bounds. No field is retuned to "suit"
  * another, and nothing is repaired.
  *
- * Which instantiations are offered and which families exist depend on the shipped calibration tables and the
- * utility-family catalogue, which game-core does not import: the caller passes them in as a `SettingsDomain`
- * (the engine from @workspace/game-utilities, the configuration page from the manifest and its catalogue).
+ * Which instantiations are playable (every one the type can instantiate, minus retired shapes: calibration tables are
+ * prepared on demand, never a condition) and which families exist come from the utility-family catalogue, which
+ * game-core does not import: the caller passes them in as a `SettingsDomain` (the engine from
+ * @workspace/game-utilities, the configuration page from the manifest and its catalogue).
  */
 import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
 import type { TypeArgs } from "@workspace/game-types";
 import { DEFAULT_SETTINGS, LANGUAGES, OPTION_KEYS, settingsOptionsFor, type FamilyDomain, type FamilyRole, type GameSettings } from "./settings.ts";
 
 export interface SettingsDomain extends FamilyDomain {
-  /** The type arguments of every instantiation the server offers for an object type (the manifest's `objectTypes[].offered`). */
-  offered(objectType: string): readonly TypeArgs[];
+  /**
+   * The type arguments of the instantiations listed for an object type (game-utilities `playableInstantiations`, the
+   * manifest's `objectTypes[].playable`), the type's default first: what a change of object type picks from.
+   */
+  playable(objectType: string): readonly TypeArgs[];
+  /**
+   * Whether other valid arguments (not listed) may be played too (game-utilities `isPlayableInstantiation`). Absent:
+   * only the listed ones.
+   */
+  isPlayable?(objectType: string, typeArgs: TypeArgs): boolean;
   /** The ids of the utility families of one role that exist (can be dealt) in an instantiation. */
   families(objectType: string, typeArgs: TypeArgs, role: FamilyRole): readonly string[];
   /** The ids of every utility family of one role of an object type, whichever instantiation can deal it. */
@@ -64,12 +73,13 @@ function keyOf(objectType: string, typeArgs: TypeArgs): string {
   try { return instantiate(objectType, typeArgs).key; } catch (error) { throw new SettingsChangeError("typeArgs", `typeArgs: ${(error as Error).message}`); }
 }
 
-/** The offered arguments equal to `typeArgs` (as the domain spells them), or a SettingsChangeError. */
-function offeredArgs(objectType: string, typeArgs: TypeArgs, domain: SettingsDomain): TypeArgs {
+/** The playable arguments equal to `typeArgs` (as the domain spells them, or as the type resolves them), or a SettingsChangeError. */
+function playableArgs(objectType: string, typeArgs: TypeArgs, domain: SettingsDomain): TypeArgs {
   const key = keyOf(objectType, typeArgs);
-  const found = domain.offered(objectType).find(args => keyOf(objectType, args) === key);
-  if (!found) throw new SettingsChangeError("typeArgs", `${key} is not offered: choose one of the listed ${objectType} instantiations`);
-  return found;
+  const found = domain.playable(objectType).find(args => keyOf(objectType, args) === key);
+  if (found) return found;
+  if (domain.isPlayable?.(objectType, typeArgs)) return instantiate(objectType, typeArgs).args;
+  throw new SettingsChangeError("typeArgs", `${key} is not playable: choose one of the listed ${objectType} instantiations`);
 }
 
 /** Excluded families (of both roles) that still exist after an instantiation change. */
@@ -96,10 +106,10 @@ function withObjectType(s: GameSettings, objectType: unknown, domain: SettingsDo
   if (typeof objectType !== "string") throw new SettingsChangeError("objectType", "objectType must be an object type id");
   let defaults: TypeArgs;
   try { defaults = objectTypeDef(objectType).defaults; } catch (error) { throw new SettingsChangeError("objectType", (error as Error).message); }
-  const offered = domain.offered(objectType);
+  const playable = domain.playable(objectType);
   const defaultKey = keyOf(objectType, defaults);
-  const typeArgs = offered.find(args => keyOf(objectType, args) === defaultKey) ?? offered[0];
-  if (!typeArgs) throw new SettingsChangeError("objectType", `No ${objectType} instantiation is offered`);
+  const typeArgs = playable.find(args => keyOf(objectType, args) === defaultKey) ?? playable[0];
+  if (!typeArgs) throw new SettingsChangeError("objectType", `No ${objectType} instantiation is playable`);
   return determinedOptions(keepExisting({ ...s, objectType, typeArgs }, domain));
 }
 
@@ -113,7 +123,7 @@ function withLanguage(s: GameSettings, language: unknown): GameSettings {
  * a whole settings object may be passed (the configuration page's draft, or the room's settings with one field
  * edited: a stale grammar or type arguments then simply follow the changed language or type). Changes apply in
  * dependency order: object type, then type arguments, then language, then every other field. Throws
- * SettingsChangeError for an unknown field, an instantiation that is not offered, an option the language and type do
+ * SettingsChangeError for an unknown field, an instantiation that is not playable, an option the language and type do
  * not offer, or an excluded id that is no family of that role of the object type. Numbers are not range-checked here:
  * `validateSettings` does that.
  */
@@ -127,7 +137,7 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
   if (changed("typeArgs")) {
     const args = given.typeArgs;
     if (!args || typeof args !== "object" || Array.isArray(args)) throw new SettingsChangeError("typeArgs", "typeArgs must be an object of type arguments");
-    next = keepExisting({ ...next, typeArgs: offeredArgs(next.objectType, args as TypeArgs, domain) }, domain);
+    next = keepExisting({ ...next, typeArgs: playableArgs(next.objectType, args as TypeArgs, domain) }, domain);
   }
   if (changed("language")) next = withLanguage(next, given.language);
   for (const key of OPTION_KEYS) {
