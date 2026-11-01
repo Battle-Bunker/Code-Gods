@@ -25,22 +25,11 @@ The chosen renderer's id reaches the component as `renderer`, so one component c
 
 `objectContext(instance)` turns the API's `InstanceInfo` into the context (`objectType`, Grid args).
 
-### Annotations
-
-`ObjectView` takes `annotations` (`src/annotations.ts`; the types come from `@workspace/game-utilities`, which produces
-them): marks that show which parts of an object make up a utility's score, as quiet cues in the page's ink that never
-fight the digits' colours (no washes, glyphs or tone hues). Grid `cells` (weighted) are underlined in digits and outlined
-in tiles; a grid `region` is one outline around the group; string `spans` and Int `digits` (positions from the left, past
-the sign) are underlined; `badge`s are chips after the object. Tones differ by the line's style (`TONE_DECORATION`): good
-solid, bad dotted, neutral dashed. Weight sets its thickness (`underlinePx`) and opacity (`cueOpacity`). The labels make
-the legend, each after its cue drawn inline (`ToneCue`): the grid detail view (`grid-object-legend`), the trigger's
-tooltip and the accessible label ("solid underline: …"), and `AnnotationLegend` for lists. Helpers: `mergeAnnotations`,
-`annotationLegend`, `legendText`, `annotationBadges`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`,
-`cueColour`.
+Object annotations are being rebuilt; see docs/annotations-design.md.
 
 The payoff's two dimensions and its strength have fixed colours (`src/dimensions.ts`): `DIMENSION_COLOURS` (yours,
 others; `dimensionVar`, `--cg-yours` / `--cg-others`) and `SCORE_RAMP` (`rampVar`, `rampHex`, `relativeStrength`;
-`--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`). Who produces annotations: docs/panels.md "Annotations".
+`--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`).
 `TransformationView` shows before → after; on grids the changed cells are outlined. When the type is
 unknown, numbers render as Int, strings that parse as a grid of at least 2×2 as Grid, others as string.
 
@@ -100,8 +89,7 @@ app's `src/index.css` has `@source "../../../lib/object-views/src";`.
 
 - `pnpm --filter @workspace/object-views test`: rarity and penalty wording, locked reasons, catalog
   grouping, settings snapping and badges, dispatch, renderers and the viewer's choice, grid display model,
-  digit lines, the annotation helpers (merging, legend, cell and character marks, region outlines, weight encodings),
-  contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
+  digit lines, contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
   floors, name hues, and that both `index.css` files carry the same values), and the payoff colours and ramp.
 - The Playwright smoke tests of both apps (`pnpm --filter @workspace/code-gods run e2e`, see
   `artifacts/code-gods/e2e/smoke.ts`) exercise these components in the real pages at desktop and phone width.

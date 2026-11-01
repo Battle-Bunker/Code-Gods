@@ -91,7 +91,6 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useObjectHistory(id, {hz})` | one object's `TrajectoryPoint[]` |
 | `useMyUtility()` | your descriptor and the game settings (the evaluator's input); null when not seated |
 | `useEvaluator({enabled?})` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below); `enabled: false` keeps the scoring tables from loading |
-| `useAnnotations(objects, {utility: "mine" \| "none"})` | `Map<objectId, Annotation[]>`: what makes up your score on each object, for `ObjectView`'s `annotations` (below) |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
 | `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/client/`) |
@@ -152,8 +151,7 @@ never send a new one. A summon must not be paid twice.
 | Component or helper | What it draws |
 |---|---|
 | `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
-| `ObjectGrid({objects, badge?, onSelect?, annotations?})` | a wrapping grid of objects with an optional badge and annotations (`o => Annotation[]`) |
-| `ObjectView({value, annotations?})` | one object with annotations drawn on it (see Annotations below) |
+| `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
 | `ObjectView`, `TransformationView`, `useObjectContext()` | the engine UI's renderers, plus their props for this game |
 | `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
 | `Sparkline({values})` | a tiny inline line |
@@ -178,23 +176,7 @@ every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the v
 where one form is essential. The digit colours are per colour set, as the theme tokens `--cg-ink-<set>-<letter>`
 (rainbow6, and grids whose set is unknown: `--cg-ink-R` … `--cg-ink-V`); tiles use the same sets' bright shades.
 
-**Annotations.** An annotation draws the eye to the parts of an object that make up a utility's score. The vocabulary
-(`lib/game-utilities/src/annotations.ts`, re-exported by `@workspace/object-views` with its helpers):
-
-| kind | for | shape | drawn as |
-|---|---|---|---|
-| `cells` | Grid | `{cells: [{r, c, weight?}], tone, label?}` | digits: an underline in the page's ink (thickness and opacity by weight); tiles: an outline in the same ink |
-| `region` | Grid | `{cells, tone, label?}`, a connected group | one outline around the group |
-| `spans` | string | `{spans: [{start, end, weight?}], tone, label?}`, character indices, end exclusive | underlined characters |
-| `digits` | Int | `{positions, weights?, tone, label?}`, positions from the left of the decimal digits, the minus sign not counted | underlined digits |
-| `badge` | any | `{text, tone}` | a small chip after the object |
-
-`tone` is `good` (a solid underline or outline), `bad` (dotted) or `neutral` (dashed). The cues are quiet so they never
-fight the digits' own colours: no washes, no glyphs and no tone hue, only the line's style (the tone) and its thickness
-and opacity (the weight), in the page's ink (`TONE_DECORATION`, `underlinePx`, `cueOpacity`, `cueColour`). The labels form a legend: in a grid's detail view, as the object's
-tooltip, and under the objects panel's caption, each label after its cue drawn inline (`AnnotationLegend`, `ToneCue`,
-`annotationLegend`, `legendText`, which reads "solid underline: supports your score" to screen readers). Helpers:
-`mergeAnnotations`, `cellWeightMap(annotations, size)`, `regionEdges`, `textSegments`, `cueColour`.
+**Annotations.** Object annotations are being rebuilt; see docs/annotations-design.md.
 
 **The payoff's colour coding.** Your bits and what the others care (or their summed bits) wear one colour each wherever
 they appear, so the coding is learnt once: `yours` petrol blue and `others` raspberry (`dimensionVar("yours")`,
@@ -203,37 +185,6 @@ they appear, so the coding is learnt once: `yours` petrol blue and `others` rasp
 scale for both axes (a square when the two are equal), its bottom edge and value in the yours colour and its right
 edge and value in the others colour, filled by the ramp like the relative bar. `Table` columns take a `colour` and
 `ScatterPlot` takes `xColour` / `yColour` for the same coding in your own panels.
-
-```tsx
-const { ctx } = useObjectContext();
-const objects = useObjects({ hz: 1 }).slice(0, 12);
-const marks = useAnnotations(objects, { utility: "mine" });       // computed in idle time, cached per game, player and value
-return <>{objects.map(o => <ObjectView key={o.id} value={o.value} {...ctx} annotations={marks.get(o.id)} />)}</>;
-```
-
-`useAnnotations` uses the family's own annotator when it has one, else a generic **sensitivity analysis**
-(`src/sdk/annotate.ts`): it re-scores the value with each cell (Int: digit; string: character) changed to up to six
-alternatives (half other colours, half other symbols, each spread over its set), at most 300 scorings per object,
-through your local evaluator. A position whose change can lower your net bits supports your score (weight: the largest
-drop); one that no change lowers but some change raises holds it back (weight: the largest rise); weights are relative
-to the strongest position. With a defence goal, a family's own marks gain the cells that feed the goal ("feeds your
-defence goal", from the same analysis of the penalty bits). Pass only the objects you show: annotations are computed
-lazily, one position per idle step, never during a render. Only your own utility can be annotated: the client has no
-one else's.
-
-**A family's own annotator.** Where a family's idea has a clearer picture than per-cell sensitivity (the patch it measures,
-the stripe it counts, the cells that touch), register an annotator beside the families in
-`lib/game-utilities/src/families/annotators.ts`:
-
-```ts
-const kingdom: Annotator = (value, { params }, inst) => { /* decode, find the biggest patch of params.C */ return [{ kind: "region", cells, tone: "good", label: "biggest blue patch (5)" }]; };
-export const ANNOTATORS = { …, kingdom };
-```
-
-An annotator is a pure function `(value, descriptor, instance) => Annotation[]` mirroring the family's TypeScript card;
-it must not throw (`annotatorFor` also guards it). Test it on a literal value with hand-derived marks, and cross-check
-against the card's ordinal (`lib/game-utilities/test/annotators.test.ts`). Families with one today: Green Ones, Homebody,
-Picture Frame, Feuding Families, Kingdom, Stripe Painter (Grid), Digit Devotee (Int), Glyph Glutton (string).
 
 ## Performance rules
 
