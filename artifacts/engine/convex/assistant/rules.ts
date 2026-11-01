@@ -3,7 +3,7 @@
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
 import { CORE_TOOLS, LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
-import { findSkill } from "@workspace/player-client/skills";
+import { SKILL_LIMITS, findSkill } from "@workspace/player-client/skills";
 import { LOAD_TOOLS, loadedToolNames, type ChatAssistantBlock, type ChatMessage, type ChatToolResult } from "@workspace/ai-player/chat";
 import { bound } from "../agent/bound.ts";
 
@@ -38,6 +38,12 @@ export const LIMITS = {
   /** Model context: the thread's history is cut (oldest first) to this many characters. */
   historyChars: 60_000,
   historyMessages: 60,
+  /**
+   * The same tool with the same arguments and the same result as the call just before it: the first repeat is answered
+   * with an engine note; at the `repeatStop`-th repeat in a row the next model step becomes the turn's last (the model
+   * is going round in circles), so it answers the player instead of calling again.
+   */
+  repeatStop: 2,
 } as const;
 
 export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
@@ -200,11 +206,84 @@ export function argsLimit(tool: string): number {
   return LIMITS.argsChars;
 }
 
+/**
+ * A tool result's stored (and model-visible) size. Documentation the model must read whole gets room: a skill body
+ * (up to SKILL_LIMITS.body characters, JSON-escaped) and the rules with the helper reference. Cutting the
+ * writing-agents skill at 8 KB once dropped every helper signature and the player's utility, and the model guessed.
+ */
+export function resultLimit(tool: string): number {
+  // Escaping at most doubles a body (every character a newline or a quote), plus the envelope.
+  if (tool === "load_skill") return 2 * SKILL_LIMITS.body + 1_000;
+  if (tool === "get_rules") return 16_000;
+  return LIMITS.resultChars;
+}
+
+/**
+ * A stored result with the engine's note in front (the model reads it first), after a TRUNCATED notice (the prompt
+ * says a cut result's first field is TRUNCATED); notes accumulate.
+ */
+export function withEngineNote(resultJson: string, note: string): string {
+  let parsed: unknown;
+  try { parsed = JSON.parse(resultJson); } catch { parsed = resultJson; }
+  const body = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : { value: parsed };
+  const { TRUNCATED, ENGINE_NOTE: earlier, ...rest } = body;
+  return JSON.stringify({ ...(TRUNCATED !== undefined ? { TRUNCATED } : {}), ENGINE_NOTE: typeof earlier === "string" ? `${earlier} ${note}` : note, ...rest });
+}
+
+/** The engine notes (not from the player or a tool). */
+export const ENGINE_NOTES = {
+  repeat: (tool: string, times: number) => `Engine note: you just called ${tool} with these exact arguments ${times === 1 ? "once" : `${times} times`} in a row and got this same result. Repeating it will not change anything: use what you have, try something different, or answer the player.`,
+  repeatStop: "Engine note: you are going round in circles, so the engine ends this turn after your next step. Do not call tools: tell the player where you got stuck (what you tried, the result, the error) and what you suggest.",
+  lastStep: "Engine note: your next step is the last of this turn. Do not call tools: answer the player now in text: what you did, what you found (with the numbers), and what you suggest next.",
+} as const;
+
+/** The arguments the engine derives (prepareArgs), per tool: a command's id and wait, an owner request's id. */
+const derivedOf = (tool: string): string[] => isCommandTool(tool) ? ["commandId", "waitMs"] : OWNER.has(tool) && takesRequestId(tool) ? ["requestId"] : [];
+/**
+ * A result as compared for repeats: without the engine's note, and without what changes with the clock alone: a
+ * validation receipt's energy and affordability (god energy grows every second) and the assessment built on them.
+ */
+function stableResult(json: string | null | undefined): unknown {
+  const { ENGINE_NOTE: _, ...result } = parseObject(json ?? "{}");
+  const data = result.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return result;
+  const { assessment: _a, ...d } = data as Record<string, unknown>;
+  const receipt = d.receipt as { validation?: Record<string, unknown> } | undefined;
+  if (receipt?.validation) {
+    const { energy: _e, affordable: _f, ...validation } = receipt.validation;
+    d.receipt = { ...receipt, validation };
+  }
+  return { ...result, data: d };
+}
+/** A still-running command (pending): polling it again is the engine's advice, never a repeat. */
+const pendingResult = (json: string | null | undefined) => (parseObject(json ?? "{}").data as { status?: unknown } | undefined)?.status === "pending";
+/** A call's identity for repeat detection: the tool, its arguments without the ids the engine derives, its result without them. */
+function repeatKey(call: { tool: string; argsJson: string; resultJson?: string | null }): string {
+  const args = parseObject(call.argsJson);
+  const derived = derivedOf(call.tool);
+  const ids = derived.map(k => args[k]).filter((v): v is string => typeof v === "string" && v.length > 0);
+  let result = JSON.stringify(stableResult(call.resultJson));
+  for (const id of ids) result = result.split(id).join("");
+  return JSON.stringify([call.tool, Object.entries(args).filter(([k]) => !derived.includes(k)).sort(([a], [b]) => a.localeCompare(b)), result]);
+}
+/**
+ * How many calls in a row, just before this one (`earlier`, oldest first), were this same successful call with this
+ * same result. Any other call in between ends the run: re-reading unchanged state between other work is not a loop.
+ */
+export function repeatsOf(earlier: readonly { tool: string; argsJson: string; status: string; resultJson?: string | null }[], call: { tool: string; argsJson: string; resultJson?: string | null }): number {
+  if (pendingResult(call.resultJson)) return 0;
+  const key = repeatKey(call);
+  let n = 0;
+  for (let i = earlier.length - 1; i >= 0 && earlier[i].status === "ok" && repeatKey(earlier[i]) === key; i--) n++;
+  return n;
+}
+
 /** A tool result's one-line activity-chip summary (shown to the thread's human only; never logged). */
 export function summarize(tool: string, result: { data: unknown }): string {
-  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string; summary?: string; reused?: boolean; paneId?: string };
+  const data = (result.data ?? {}) as { status?: string; message?: string; receipt?: { accepted?: boolean; message?: string }; assessment?: { summary?: string }; ok?: boolean; version?: number; diagnostics?: unknown[]; requestId?: string; summary?: string; reused?: boolean; paneId?: string };
   const line = (text: string) => text.length > 200 ? `${text.slice(0, 199)}…` : text;
   if (isCommandTool(tool)) {
+    if (data.status === "received" && data.assessment?.summary) return line(data.assessment.summary);
     if (data.status === "received") return line(`${data.receipt?.accepted ? "Accepted" : "Rejected"}: ${data.receipt?.message ?? ""}`.trim());
     if (data.status === "pending") return line(`Pending: ${data.message ?? ""}`);
     return line(`${data.status === "failed" ? "Failed" : "Not found"}: ${data.message ?? ""}`);
@@ -250,9 +329,9 @@ function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | n
 }
 
 /** How an earlier turn ended, for its note: its status, or why a "done" or "failed" turn stopped short. */
-export type TurnEnding = TurnStatus | "step_limit" | "deadline";
+export type TurnEnding = TurnStatus | "step_limit" | "deadline" | "repeating";
 export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnEnding =>
-  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : status;
+  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : errorCode === "REPEATING" ? "repeating" : status;
 
 /**
  * The note closing an earlier turn that ended before its answer, so the model neither takes the player's message as
@@ -261,6 +340,7 @@ export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnE
 export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
   budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant allowance ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
   step_limit: "Engine note (not from the player): the turn above stopped at the step limit, possibly before you finished. If the player's next message does not make it moot, say briefly where you stopped.",
+  repeating: "Engine note (not from the player): the engine stopped the turn above because you repeated the same tool call with the same result. Do not repeat it; if the player's next message does not make it moot, say briefly where you got stuck.",
   deadline: "Engine note (not from the player): the turn above ran past its time limit before you finished. Treat the player's message above as unanswered unless their next message makes it moot.",
   failed: "Engine note (not from the player): the turn above failed before you finished answering it (a provider or tool error). Treat the player's message above as unanswered unless their next message makes it moot.",
   cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",

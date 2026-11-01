@@ -87,6 +87,7 @@ test("an earlier turn that ended without its answer closes with an engine note; 
   ]);
   // A "done" turn that hit the step limit, and a deadline failure, are named as such.
   assert.equal(turnEnding("done", "STEP_LIMIT"), "step_limit");
+  assert.equal(turnEnding("done", "REPEATING"), "repeating");
   assert.equal(turnEnding("failed", "DEADLINE"), "deadline");
   assert.equal(turnEnding("done"), "done");
   assert.match(UNANSWERED_NOTES.step_limit!, /step limit/);

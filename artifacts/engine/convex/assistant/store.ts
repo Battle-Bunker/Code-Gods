@@ -9,7 +9,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import type { ChatMessage } from "@workspace/ai-player";
-import { LIMITS, buildHistory, historyStart, isActive, turnEnding, turnSizes, type TurnStatus } from "./rules";
+import { ENGINE_NOTES, LIMITS, buildHistory, historyStart, isActive, turnEnding, turnSizes, withEngineNote, type TurnStatus } from "./rules";
 
 type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
@@ -118,7 +118,8 @@ export const context = internalQuery({
         outputCeiling: turn.outputCeiling ?? null },
       roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
-      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null })),
+      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null,
+        createdAt: c.createdAt })),
       hasBriefing: turn.briefing !== undefined,
       historyJson: JSON.stringify(await historyOf(ctx, turn)),
     };
@@ -299,9 +300,15 @@ export async function resume(ctx: MutationCtx, turn: Turn) {
 /** Deny a call (by the player, or when its card timed out) and let the turn continue. */
 export async function denyCall(ctx: MutationCtx, call: Call, reason: "player" | "timeout") {
   const message = reason === "player" ? "The player declined this call." : "The player did not confirm this call within two minutes.";
+  let resultJson = JSON.stringify({ error: { code: "DENIED", message } });
+  // The step's last call, before the turn's final model step: the note step.ts resolveCalls gives a call it runs.
+  const turn = await ctx.db.get(call.turnId);
+  if (turn && turn.step >= turn.maxSteps - 1) {
+    const siblings = await ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", call.turnId).gt("index", call.index)).take(LIMITS.callsPerStep + 1);
+    if (!siblings.some(c => c.messageId === call.messageId)) resultJson = withEngineNote(resultJson, ENGINE_NOTES.lastStep);
+  }
   await ctx.db.patch(call._id, {
-    status: "denied", approved: false, updatedAt: Date.now(), summary: reason === "player" ? "Declined" : "Not confirmed in time",
-    resultJson: JSON.stringify({ error: { code: "DENIED", message } }),
+    status: "denied", approved: false, updatedAt: Date.now(), summary: reason === "player" ? "Declined" : "Not confirmed in time", resultJson,
   });
   log("confirm.deny", { turnId: call.turnId, callDocId: call._id, tool: call.tool, reason });
 }
@@ -319,10 +326,12 @@ export const expireConfirmation = internalMutation({
 
 /** Schedule the next step of a live turn (`delayMs` waits out a rate limit). */
 export const next = internalMutation({
-  args: { turnId: v.id("assistantTurns"), gen: v.number(), delayMs: v.optional(v.number()) },
-  handler: async (ctx, { turnId, gen, delayMs }) => {
+  /** `lastStep`: the next model step is the turn's last (the model kept repeating a call; step.ts resolveCalls). */
+  args: { turnId: v.id("assistantTurns"), gen: v.number(), delayMs: v.optional(v.number()), lastStep: v.optional(v.boolean()) },
+  handler: async (ctx, { turnId, gen, delayMs, lastStep }) => {
     const turn = await liveTurn(ctx, turnId, gen);
     if (!turn) return { cancelled: true };
+    if (lastStep) await ctx.db.patch(turn._id, { maxSteps: Math.min(turn.maxSteps, turn.step + 1) });
     await ctx.scheduler.runAfter(delayMs ?? 0, internal.assistant.step.run, { turnId, gen });
     return { cancelled: false };
   },

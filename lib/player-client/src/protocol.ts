@@ -106,6 +106,10 @@ export const resultSchema = z.object({
   validation: z.object({ valid: z.boolean(), cost: finite.nonnegative(), expectedActCost: finite.nonnegative(),
     parts: z.object({ structure: finite, names: finite, literals: finite, moveFlags: finite, literalMoves: finite, commitClause: finite.optional() }).optional(),
     decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
+    // Measured on the reference objects: the share of acts that change the object, and that fail or are invalid.
+    changeRate: finite.min(0).max(1).optional(), invalidRate: finite.min(0).max(1).optional(),
+    // The validating god's energy when it was measured, and whether it covers the summon price.
+    energy: finite.optional(), affordable: z.boolean().optional(),
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
