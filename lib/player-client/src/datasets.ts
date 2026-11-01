@@ -27,9 +27,10 @@ export interface DatasetSpec {
 
 const OBJECT = "{ id: string; value: number | string; payoff: number; own: { netBits: number; rewardBits: number; penaltyBits?: number; ordinal: number }; peerCare: number; peerNetBits: number }";
 /** One projected event (convex/lib/projection.ts projectEvent), tagged with its tick batch's seq. */
-const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.transformed' | 'agent.failed'; phase?: string; objectId?: string; "
+const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.transformed' | 'agent.failed' | 'agent.summoned' | 'agent.destroyed'; phase?: string; objectId?: string; "
   + "value?: number | string; before?: number | string; version?: number; agentId?: string; mine?: boolean; calls?: [string, Record<string, unknown>][]; cost?: number; "
-  + "own?: { netBits: number }; peerNetBits?: number; peerCare?: number; payoff?: number; reason?: string }";
+  + "own?: { netBits: number }; peerNetBits?: number; peerCare?: number; payoff?: number; reason?: string; "
+  + "source?: string; summonCost?: number; expectedActCost?: number /* agent.summoned: source, price and act cost only when mine */ }";
 
 export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
   objects: {
@@ -60,7 +61,8 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
     shape: `${EVENT}[]`, limit: { default: 200, max: 1000 }, gameId: true,
     about: "The game's event log as you see it, one entry per event, oldest first, from the newest `limit` tick batches: spawns and transformations with "
       + "the object's new value and YOUR scores after it (own.netBits, peerCare, payoff); mine: true and calls / cost on your own agents' moves only; "
-      + "agent.failed for your agents' failed acts; phase changes. Use it for what changed when, which mutators paid off, or your agents' activity.",
+      + "agent.failed for your agents' failed acts; agent.summoned and agent.destroyed for every agent (mine: true, with source, language, summonCost, "
+      + "decisionBits, expectedActCost and the starting account, only for yours); phase changes. Use it for what changed when, which mutators paid off, or your agents' activity.",
   },
   trajectories: {
     shape: "{ objectId: string; points: { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[] }[]",

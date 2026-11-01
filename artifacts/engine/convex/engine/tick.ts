@@ -25,7 +25,7 @@ import { isIdle } from "../lib/rooms";
 import { gameTables } from "./calibration";
 import { cryptoRng, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, isAgentFault, WORKERS } from "./runtime";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount } from "../lib/world";
+import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -203,6 +203,8 @@ export const run = internalAction({
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
+      // The leaderboard after the window, for the replay's score curves (the commit keeps it only when scores changed).
+      ...(changed.length || spawns.length ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

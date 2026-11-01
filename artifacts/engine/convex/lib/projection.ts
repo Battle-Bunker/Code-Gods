@@ -161,6 +161,19 @@ type Ev = Batch["events"][number];
  */
 export function projectEvent(ev: Ev, godId: string, index: number) {
   if (ev.t === "phase") return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
+  if (ev.t === "summon") {
+    // Everyone sees that an agent appeared (the public agent count rose; its id shows in transforms); only its owner
+    // learns its source, language, price and account.
+    const mine = ev.ownerId === godId;
+    return {
+      type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
+      ...(mine ? {
+        language: ev.language, source: ev.source, summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost,
+        perActFloorBits: ev.perActFloorBits, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+      } : {}),
+    };
+  }
+  if (ev.t === "destroy") return { type: "agent.destroyed" as const, agentId: ev.agentId, mine: ev.ownerId === godId, worldSeconds: ev.world };
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
     return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: ev.cost };
@@ -186,6 +199,17 @@ export function projectBatches(batches: readonly Batch[], godId: string, index: 
     if (projected) out.push({ ...projected, seq: batch.seq });
   }
   return out;
+}
+
+/**
+ * The replay's pages (player.replay): the viewer's projected events grouped by batch, with each batch's wall time,
+ * world window and the public leaderboard totals after it.
+ */
+export function replayBatches(batches: readonly Batch[], godId: string, index: number) {
+  return batches.map(b => ({
+    seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo, ...(b.totals ? { totals: b.totals } : {}),
+    events: b.events.flatMap(ev => { const p = projectEvent(ev, godId, index); return p ? [p] : []; }),
+  }));
 }
 
 /** Per-object series of the viewer's own bits and peer aggregates (the Panel SDK's trajectories). */

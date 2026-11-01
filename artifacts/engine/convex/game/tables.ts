@@ -33,8 +33,12 @@ const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: 
 const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
 
 /**
- * One entry of the event log. `net` is every roster god's net bits of the object AFTER the event, in roster
- * order: server-private, projected per viewer to its own bits and the peer aggregate.
+ * One entry of the event log (schema EVENT_LOG_SCHEMA, lib/world.ts; docs/replay-design.md §2). `net` is every roster
+ * god's net bits of the object AFTER the event, in roster order: server-private, projected per viewer to its own bits
+ * and the peer aggregate. Together with the game document's fixed header (settings, roster, createdAt, planningEndsAt)
+ * and the chat rows stamped with the game, the log replays the game exactly by playing back recorded outcomes:
+ * nothing is re-run. `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
+ * then follows from its acts' charges (lib/player-client replay.ts).
  */
 export const eventV = v.union(
   v.object({ t: v.literal("spawn"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()) }),
@@ -47,6 +51,12 @@ export const eventV = v.union(
     reason: v.string(), cost: charge,
   }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
+  v.object({
+    t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
+    summonCost: v.number(), decisionBits: v.number(), expectedActCost: v.number(), perActFloorBits: v.number(),
+    breakdown, randomized: v.boolean(), account,
+  }),
+  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
 );
 
 export const gameTables = {
@@ -159,6 +169,13 @@ export const gameTables = {
   tickBatches: defineTable({
     gameId: v.id("games"), seq: v.number(), at: v.number(), worldFrom: v.number(), worldTo: v.number(),
     events: v.array(eventV),
+    /** The event schema this batch was written with (EVENT_LOG_SCHEMA); absent on batches written before schema 2. */
+    schema: v.optional(v.number()),
+    /**
+     * Every roster god's total payoff (the public leaderboard) after this batch, in roster order, on batches that
+     * change scores (spawns, transforms). Public: the same numbers the live leaderboard showed at that commit.
+     */
+    totals: v.optional(v.array(v.number())),
     /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
     perf: v.optional(v.object({ acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()) })),
   }).index("by_game_seq", ["gameId", "seq"]),
@@ -171,6 +188,8 @@ export const gameTables = {
 
   chat: defineTable({
     roomId: v.id("rooms"), authorId: v.string(), authorName: v.string(), kind, text: v.string(), timestamp: v.number(),
+    /** Sent while a game was live (planning to recovery): that game and its world time then, for its replay. */
+    gameId: v.optional(v.id("games")), world: v.optional(v.number()),
   }).index("by_room", ["roomId", "timestamp"]).index("by_room_author", ["roomId", "authorId", "timestamp"]),
 
   receipts: defineTable({

@@ -263,6 +263,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation`, `load_skill` |
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of any game of this room, finished ones included. | `get_game_history` |
+| `player.replay` | query | player | Replay a game I played | Everything needed to replay a game you were seated in, tick by tick, as you could see it. | — (Bulk data for a replay view (docs/replay-design.md); the assistant reads the same log through get_game_history, and the replay panel opens from the room's game list.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
