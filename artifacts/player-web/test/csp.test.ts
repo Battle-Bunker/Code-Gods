@@ -61,3 +61,9 @@ test("frameOrigins: the deployment's site origin, plus CODE_GODS_SITE_URL's when
   assert.equal(directive(frameCsp(["https://a.convex.site", "https://play.example.org"]), "script-src"),
     "script-src 'self' https://a.convex.site https://play.example.org 'unsafe-eval'");
 });
+
+test("a build served from another origin may also reach its engine's site (OAuth, /api/config)", () => {
+  const env = { VITE_CONVEX_URL: "https://happy-otter-123.convex.cloud", VITE_CODE_GODS_ENGINE_URL: "https://happy-otter-123.convex.site/" };
+  assert.equal(directive(pageCsp(env), "connect-src"),
+    "connect-src 'self' https://happy-otter-123.convex.cloud wss://happy-otter-123.convex.cloud https://happy-otter-123.convex.site");
+});

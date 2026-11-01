@@ -19,11 +19,15 @@ A player app configures only the **site URL**. `GET /api/config` returns
 Every function authenticates with a 10-minute RS256 JWT. There are two kinds, told apart by issuer:
 
 - **`browser` scope.** A human signed in on the site with **Google**, through Better Auth served by the
-  deployment (`/api/auth/*`). The session is an HttpOnly cookie on the site origin (24 h), shared by the
-  engine UI at `/` and the hosted player client at `/client/`. Convex JWTs come from
+  deployment (`/api/auth/*`). The session is an HttpOnly cookie on the site origin (24 h), used only by the
+  engine UI at `/` (sign-in, rooms, approvals, credential management). No player client uses it, the hosted
+  one included (docs/external-clients.md). Convex JWTs come from
   `GET /api/auth/convex/token` (issuer `<site>`, audience `convex`). The human's god id is the Better
   Auth user id; signing out ends the session at once, even for an unexpired JWT.
-- **`player` scope.** A player app or room assistant holding a room credential (`cgc_…`). It
+- **`player` scope.** Every player client, on any origin (the hosted `/player/` client, a Replit dev URL,
+  localhost), and every agent: one human, one room, one permission. A browser client gets it from an OAuth
+  connection (below, "MCP OAuth 2.1": the access token is a player JWT, also for Convex functions) or the device
+  flow; `@workspace/player-client/browser` does both. A holder of a room credential (`cgc_…`)
   exchanges the credential with `POST /api/device/token {credential}` → `{token, expiresAt, roomId,
   permission, credentialId, credentialExpiresAt}` (issuer `<site>/api/device`, audience `code-gods`), and
   should refresh about a minute before `expiresAt`. A 401 means the credential was revoked or has
@@ -51,13 +55,18 @@ const convex = new ConvexReactClient(convexUrl);
 | Route | Body → result |
 |---|---|
 | `GET /api/health` | `{ok, version}` |
-| `GET /api/config` | `{convexUrl, siteUrl, version}` (CORS `*`) |
+| `GET /api/config` | `{convexUrl, siteUrl, version}` |
 | `GET /api/.well-known/jwks.json` | the public JWKS of player JWTs |
 | `/api/auth/*` | Better Auth: `POST /api/auth/sign-in/social {provider: "google", callbackURL}` → `{url}` (Google), `GET /api/auth/callback/google`, `POST /api/auth/sign-out`, `GET /api/auth/get-session`, `GET /api/auth/convex/token` → `{token}`, `GET /api/auth/convex/jwks`. Same origin only; callback URLs must be on the site |
 | `POST /api/device/request` | `{challenge (S256, 43 chars), room (id/guid/short code), permission?: read\|act\|owner (default act), label?}` → `{deviceId, deviceSecret, userCode "XXXX-XXXX", verificationUrl "<site>/device?code=…", roomId, roomCode, permission, label, expiresIn: 300, interval: 2}` |
 | `POST /api/device/poll` | `{deviceId, deviceSecret, verifier}` → 200 `{status:"approved", credential, credentialId, roomId, permission, expiresAt}` (once only), 202 pending, 429 slow_down, 403 denied/forbidden, 410 expired, 400 invalid |
 | `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above) |
 | `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}` |
+
+**CORS.** The routes authorized by what a request carries (a secret, a credential or a bearer token) answer any
+origin with `Access-Control-Allow-Origin: *` and an `OPTIONS` preflight, never `Access-Control-Allow-Credentials`:
+`/api/config`, `/api/.well-known/jwks.json`, `/api/device/*`, `/api/oauth/*` and `/.well-known/oauth-*`. The cookie
+routes (`/api/auth/*`) are same-origin only. Convex functions take a bearer JWT from any origin.
 
 Local deployments only (`pnpm --filter @workspace/engine dev`): `POST /api/auth/sign-in/oauth2
 {providerId: "fake", callbackURL}` signs in through the stand-in OIDC server (`scripts/fake-oidc.mjs`); it
@@ -132,18 +141,20 @@ commandId}` and `get_receipt` completes it (`failed` means not applied: resend t
 
 ## MCP OAuth 2.1 (authorization server on the deployment)
 
-Public clients, PKCE S256, one room and one permission per connection (`credentials.kind = "oauth"`).
+Public clients, PKCE S256, one room and one permission per connection (`credentials.kind = "oauth"`). The same
+server connects MCP clients and browser player clients on any origin (docs/external-clients.md): the access token
+is a player JWT for both `/mcp` and Convex functions.
 
 | Route | |
 |---|---|
 | `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | `{resource: "<site>/mcp", authorization_servers: ["<site>"], scopes_supported: [read, act, owner]}` |
 | `GET /.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `token_endpoint_auth_methods_supported: ["none"]`, `client_id_metadata_document_supported: true` |
-| `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: Claude's callback (`https://claude.ai/api/mcp/auth_callback`, `https://claude.com/…`), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `OAUTH_REDIRECT_URIS`. At most 50 registrations per 10 minutes for the whole deployment (429 `temporarily_unavailable` with `Retry-After`); a client that redeems no code within 24 hours is deleted by the hourly sweep |
+| `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: any `https://` URI (exact; no fragment or userinfo), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `OAUTH_REDIRECT_URIS` (another scheme). Clients cache their `client_id`. At most 50 registrations per 10 minutes for the whole deployment (429 `temporarily_unavailable` with `Retry-After`); a client that redeems no code within 24 hours is deleted by the hourly sweep |
 | client ID metadata documents | an `https://` `client_id` is fetched (no redirects, 5 s, 32 KiB, public hosts only) and cached for an hour |
-| `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act), resource=<site>/mcp` → 302 to the engine UI's `/connect?request=…` |
-| `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`) |
+| `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act), resource?` (`<site>`, `<site>/mcp` or none), `room?` (a room id, GUID or short code: preselected on `/connect`) → 302 to the engine UI's `/connect?request=…` |
+| `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`). The hinted room is preselected, and offered to join (`rooms.join`) when the human is not in it. A non-owner's `owner` request starts at `act`. **First party:** a redirect to the site's own origin (the hosted client), for a member, at most `act`, is approved by the page without a click (`autoApprove`); an owner grant always needs the consent checkbox |
 | `GET /oauth/authorize/complete?request=…&completion=…` | → 302 to `redirect_uri?code&state&iss` (or `error=access_denied`). The code is released only with the approving browser's completion secret (403 otherwise), so holding the request key is not enough |
-| `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope}` |
+| `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope, room_id, room_code, credential_id}` |
 | `POST /api/oauth/revoke` | RFC 7009: a refresh or access token → the connection is revoked; always 200 |
 
 The access token is a 60-minute player JWT naming the credential (`cred`), so revocation applies on the next
@@ -158,6 +169,7 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 ### Auth (`auth/*`)
 - `auth/user:me` query → `null` or `{subject, name, scope, isAdmin, roomId?, permission?, credentialId?, label?}`
 - `auth/device:pending({userCode})` query (browser) → `null` or `{roomId, roomCode, permission, label, expiresAt, userCode, status, isRoomOwner, ownerConsentRequired, canApprove}`
+- `agent/connect:pending({request})` query (browser) → `null` or `{clientName, clientId, redirectUri, redirectHost, permission, resource, status, expiresAt, rooms[{roomId, shortCode, isOwner, createdAt}], roomHint: {roomId, shortCode, isOwner, member}|null, roomHintUnknown, firstParty, autoApprove: permission|null}`; `agent/connect:approve({request, roomId, permission, completion, ownerConsent?})`, `agent/connect:deny({request})` mutations (browser)
 - `auth/device:approve({userCode, ownerConsent?})` and `auth/device:deny({userCode})` mutations (browser)
 - `auth/credentials:list()` query → the caller's active credentials `[{credentialId, roomId, roomCode, permission, kind: device|oauth|assistant, clientId?, label, createdAt, expiresAt, lastUsedAt}]`
 - `auth/credentials:revoke({credentialId})` mutation; takes effect on the next call
@@ -200,7 +212,7 @@ Each of these returns the caller's own projection only.
   its players and the room owner (the player client's read-only `/rooms/:room/games/:game`)
 - `player.trajectories({roomId, gameId?, afterSeq?, limit≤200})` query → `{objects[{objectId, points[{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], nextCursor, latestCursor}`
 - `player.myUtility({roomId})` query → `{gameId, godId, utility{familyId, params, penalty?}, instantiationKey, objectType, typeArgs, priorId, penaltyWeight, language (the default), languages, settings}`, or null when the caller isn't seated (own descriptor only)
-- `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT.
+- `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT. Validate and summon (the agent's sandboxed examination) are limited to 30 a minute per human per room, whatever the credential: past it, `RATE_LIMITED` with no receipt (send the identical envelope again later).
 - `receipts.get({roomId, commandId})` query → `CommandResult | null`
 
 ### Stored panels (`panels`)

@@ -449,13 +449,15 @@ await check("the hosted player client (engine site, /client/) plays as the signe
   // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
   await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
-  // An old invite link (/player/?room=) lands on /client/rooms/CODE; an unknown code (rooms.get throws NOT_FOUND) is
-  // answered on the form, not by the page's error boundary.
+  // The hosted client is an OAuth client of its engine (docs/external-clients.md). An old invite link (/player/?room=)
+  // lands on /client/rooms/CODE; an unknown code ends on the engine's /connect page, which says so and offers the
+  // human's own rooms.
   await page.goto(`${SITE}/player/?room=NOSUCHROOM`);
-  await page.getByTestId("text-room-error").filter({ hasText: "No room NOSUCHROOM on this engine." }).waitFor({ timeout: 60_000 });
-  assert(new URL(page.url()).pathname === "/client/rooms/NOSUCHROOM", `legacy link canonicalised: ${page.url()}`);
-  await page.getByTestId("input-room-id").fill(shortCode.toLowerCase());
-  await page.getByTestId("button-open-room").click();
+  await page.waitForURL(url => url.pathname === "/connect", { timeout: 60_000 });
+  await page.getByTestId("text-connect-hint-unknown").waitFor({ timeout: 60_000 });
+  // A room carol is in: /connect approves the engine's own client without a click, and the client plays there.
+  await page.goto(`${SITE}/client/rooms/${shortCode.toLowerCase()}`);
+  await page.waitForURL(url => url.pathname === `/client/rooms/${shortCode}` && !url.searchParams.has("code"), { timeout: 60_000 });
   // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
   await page.waitForFunction(() => { const t = document.querySelector("[data-testid=text-self-label]")?.textContent; return !!t && t !== "—"; }, null, { timeout: 60_000 }).catch(() => {});
   const label = await page.textContent("[data-testid=text-self-label]");

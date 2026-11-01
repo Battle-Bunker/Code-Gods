@@ -3,6 +3,8 @@
  * assistant, and the actions behind every command (the shared command runner, the owner functions, panels.*,
  * layout operations, hand-offs to the composer). Publishes the list for chips and the overview (registry.ts).
  */
+import { enginePageHref } from "@/core/routes";
+import { engineSite } from "@/core/connection";
 import { useEffect, useMemo } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
@@ -113,8 +115,9 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       maximise: actions.maximise, forgeEdit: () => actions.forgeEdit(),
     },
     links: {
-      roomPage: () => `/rooms/${encodeURIComponent(state.roomCode ?? "")}`,
-      gamePage: () => (state.gameCode && state.roomCode ? `/rooms/${encodeURIComponent(state.roomCode)}/games/${encodeURIComponent(state.gameCode)}` : null),
+      // The engine UI lives on the engine's site, not necessarily this page's origin (a dev server, another host).
+      roomPage: () => enginePageHref(engineSite(), { room: state.roomCode ?? "" }),
+      gamePage: () => (state.gameCode && state.roomCode ? enginePageHref(engineSite(), { room: state.roomCode, game: state.gameCode }) : null),
       copyRoomLink: () => { if (state.roomCode) void copy(roomUrl(state.roomCode), "Copied the room link."); },
       safeMode: on => {
         const params = new URLSearchParams(location.search);

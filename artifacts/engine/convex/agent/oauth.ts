@@ -26,7 +26,7 @@ import { pkceChallenge, randomToken, sha256Hex } from "../auth/crypto";
 import { jwks, mintPlayerJwt } from "../auth/jwt";
 import { resourceUrl } from "./mcp";
 import { CIMD_CACHE_MS, DCR_WINDOW_MS } from "./oauthStore";
-import { cimdUrlProblem, envList, parseScope, redirectAllowedForRegistration, redirectMatches } from "./rules";
+import { cimdUrlProblem, envList, parseScope, redirectAllowedForRegistration, redirectMatches, resourceAllowed } from "./rules";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -48,6 +48,8 @@ function back(redirectUri: string, params: Record<string, string | null | undefi
   return redirect(url.toString());
 }
 const extraRedirects = () => envList(process.env.OAUTH_REDIRECT_URIS);
+/** This deployment's site URLs: the public one (SITE_URL) and its own .convex.site URL. */
+const siteUrls = () => [siteUrl(), process.env.CONVEX_SITE_URL ?? ""];
 const guarded = (handler: (ctx: ActionCtx, request: Request) => Promise<Response>) => guardedAs("oauth route", () => json({ error: "server_error" }, 500), handler);
 /** JSON, or a form body (the token and revocation endpoints). */
 const readBody = (request: Request) => readCapped(request, MAX_BODY_BYTES, { form: true });
@@ -63,7 +65,7 @@ function validateClientMetadata(doc: Record<string, unknown>, fallbackName: stri
     return { error: "invalid_redirect_uri", description: "redirect_uris: 1-10 URIs required" };
   }
   if (!uris.every(u => redirectAllowedForRegistration(u, extraRedirects()))) {
-    return { error: "invalid_redirect_uri", description: "Only Claude's connector callback and loopback (http://127.0.0.1:<port>/…, http://localhost:<port>/…) redirect URIs are accepted" };
+    return { error: "invalid_redirect_uri", description: "Redirect URIs must be https (no fragment), loopback http (http://127.0.0.1:<port>/…, http://localhost:<port>/…) or Claude's connector callback" };
   }
   if ((doc.token_endpoint_auth_method ?? "none") !== "none") {
     return { error: "invalid_client_metadata", description: "Only public clients (token_endpoint_auth_method none) are supported" };
@@ -102,14 +104,15 @@ const register = guarded(async (ctx, request) => {
   const metadata = validateClientMetadata(body, "Unnamed MCP client");
   if ("error" in metadata) return oauthError(metadata.error, metadata.description);
   const { clientName: name, redirectUris: uris } = metadata;
-  const clientId = randomToken("cgo_", 24);
-  const registered = await ctx.runMutation(internal.agent.oauthStore.registerClient, { clientId, clientName: name, redirectUris: uris });
+  const registered = await ctx.runMutation(internal.agent.oauthStore.registerClient, {
+    clientId: randomToken("cgo_", 24), clientName: name, redirectUris: uris, metadataHash: await sha256Hex(JSON.stringify([name, uris])),
+  });
   if (!registered.ok) {
     return json({ error: "temporarily_unavailable", error_description: "Too many client registrations right now; try again in a few minutes" }, 429,
       { "Retry-After": String(DCR_WINDOW_MS / 1000 / 2) });
   }
   return json({
-    client_id: clientId, client_id_issued_at: Math.floor(Date.now() / 1000), client_name: name, redirect_uris: uris,
+    client_id: registered.clientId, client_id_issued_at: Math.floor(registered.createdAt / 1000), client_name: name, redirect_uris: uris,
     token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"], scope: SCOPES.join(" "),
   }, 201);
 });
@@ -165,13 +168,16 @@ const authorize = guarded(async (ctx, request) => {
   if (q.get("response_type") !== "code") return error("unsupported_response_type", "response_type must be code");
   const challenge = q.get("code_challenge") ?? "";
   if (q.get("code_challenge_method") !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) return error("invalid_request", "PKCE with code_challenge_method S256 is required");
-  if (q.get("resource") !== resourceUrl()) return error("invalid_target", `resource must be ${resourceUrl()}`);
+  if (!resourceAllowed(q.get("resource"), siteUrls())) return error("invalid_target", `resource must be ${siteUrl()} or ${resourceUrl()}`);
   const permission = parseScope(q.get("scope"));
   if (!permission) return error("invalid_scope", "scope is read, act or owner");
+  // A Code Gods extension: the room to preselect on /connect (id, GUID or short code; resolved there).
+  const roomHint = q.get("room");
+  if (roomHint !== null && (!bounded(roomHint, 1, 64) || !printable(roomHint))) return error("invalid_request", "room must be a room id, GUID or short code");
   const key = randomToken("", 32);
   await ctx.runMutation(internal.agent.oauthStore.createRequest, {
     keyHash: await sha256Hex(key), clientId, clientName: client.clientName, redirectUri, ...(state !== null ? { state } : {}),
-    codeChallenge: challenge, permission, resource: resourceUrl(),
+    codeChallenge: challenge, permission, resource: q.get("resource") ?? resourceUrl(), ...(roomHint ? { roomHint } : {}),
   });
   return redirect(`${siteUrl()}/connect?request=${encodeURIComponent(key)}`);
 });
@@ -196,10 +202,17 @@ const complete = guarded(async (ctx, request) => {
 // Tokens
 // ---------------------------------------------------------------------------------------------
 
-async function tokens(grant: { credentialId: string; subject: string; roomId: string; permission: string }, refreshToken: string) {
+/**
+ * The token response. Besides RFC 6749's fields it names the grant (`room_id`, `room_code`, `credential_id`), so a
+ * player app knows which room it may play without another call.
+ */
+async function tokens(grant: { credentialId: string; subject: string; roomId: string; roomCode: string; permission: string }, refreshToken: string) {
   const { token } = await mintPlayerJwt({ subject: grant.subject, credentialId: grant.credentialId, roomId: grant.roomId, permission: grant.permission },
     ACCESS_TOKEN_TTL_SECONDS);
-  return json({ access_token: token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_SECONDS, refresh_token: refreshToken, scope: grant.permission });
+  return json({
+    access_token: token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_SECONDS, refresh_token: refreshToken, scope: grant.permission,
+    room_id: grant.roomId, room_code: grant.roomCode, credential_id: grant.credentialId,
+  });
 }
 
 const token = guarded(async (ctx, request) => {
@@ -207,7 +220,7 @@ const token = guarded(async (ctx, request) => {
   if (!body) return oauthError("invalid_request", "form body required (max 16 KiB)");
   const clientId = body.client_id;
   if (!bounded(clientId, 1, 512)) return oauthError("invalid_client", "client_id required", 401);
-  if (body.resource !== undefined && body.resource !== resourceUrl()) return oauthError("invalid_target", `resource must be ${resourceUrl()}`);
+  if (!resourceAllowed(body.resource as string | undefined, siteUrls())) return oauthError("invalid_target", `resource must be ${siteUrl()} or ${resourceUrl()}`);
   const refreshToken = randomToken("cgr_");
   if (body.grant_type === "authorization_code") {
     if (!bounded(body.code, 20, 256) || !bounded(body.code_verifier, 43, 128) || !/^[A-Za-z0-9._~-]+$/.test(body.code_verifier)) {

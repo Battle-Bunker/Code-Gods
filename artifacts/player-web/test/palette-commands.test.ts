@@ -162,3 +162,14 @@ test("grids switch between coloured digits and tiles, for this viewer, from the 
   await perform(tiles);
   assert.deepEqual(calls, ['gridRenderer ["tiles"]', 'gridRenderer ["digits"]']);
 });
+
+test("assistant settings offer owner powers only to an owner holding an owner connection (the engine caps the assistant at it)", async () => {
+  const choices = async (over: Partial<State>) => {
+    const p = find(playerCommands(state(over), actions), "ui.assistant.settings").performer;
+    assert.ok(p.kind === "form" && p.page.kind === "pick");
+    return (await p.page.options()).map(o => o.id);
+  };
+  assert.deepEqual(await choices({ isOwner: true, permission: "owner" }), ["act", "read", "owner"]);
+  assert.deepEqual(await choices({ isOwner: true, permission: "act" }), ["act", "read"], "an owner on an act connection");
+  assert.deepEqual(await choices({ isOwner: false, permission: "owner" }), ["act", "read"]);
+});

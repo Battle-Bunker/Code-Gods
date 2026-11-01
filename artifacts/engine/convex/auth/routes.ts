@@ -6,16 +6,28 @@
 import type { HttpRouter } from "convex/server";
 import { internal } from "../_generated/api";
 import { httpAction, type ActionCtx } from "../_generated/server";
-import { bounded as boundedString, guarded as guardedAs, json, printable, readBody } from "../lib/http";
+import { bounded as boundedString, guarded as guardedAs, json as jsonResponse, printable, readBody } from "../lib/http";
 import { DEVICE_POLL_INTERVAL_S, DEVICE_TTL_MS, siteUrl } from "./config";
 import { formatUserCode, pkceChallenge, randomToken, randomUserCode, sha256Hex } from "./crypto";
 import { jwks, mintPlayerJwt } from "./jwt";
 
 const MAX_BODY_BYTES = 8 * 1024;
 
+/**
+ * The device routes are authorized by secrets in the request (device secret + PKCE verifier, or the credential),
+ * never by cookies, so a player app on ANY origin may call them (docs/external-clients.md decision 4): `*`, and
+ * never Access-Control-Allow-Credentials.
+ */
+export const BEARER_CORS = {
+  "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Max-Age": "600",
+};
+const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => jsonResponse(body, status, { ...BEARER_CORS, ...headers });
+
 const readJson = (request: Request) => readBody(request, MAX_BODY_BYTES);
 /** Unexpected failures become a generic 500 (details only in the deployment log). */
 const guarded = (handler: (ctx: ActionCtx, request: Request) => Promise<Response>) => guardedAs("auth route", () => json({ error: "Internal error" }, 500), handler);
+const preflight = httpAction(async () => new Response(null, { status: 204, headers: BEARER_CORS }));
 
 // ---------------------------------------------------------------------------------------------
 // Device approval and credentials
@@ -107,12 +119,10 @@ const deviceRevoke = guarded(async (ctx, request) => {
 // ---------------------------------------------------------------------------------------------
 // Public keys
 // ---------------------------------------------------------------------------------------------
-const jwksRoute = guarded(async () => json(await jwks(), 200, {
-  "Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*",
-}));
+const jwksRoute = guarded(async () => json(await jwks(), 200, { "Cache-Control": "public, max-age=300" }));
 
 /** Unknown /api/* paths are a JSON 404, never the SPA's index.html. */
-const apiNotFound = httpAction(async () => json({ error: "Not found" }, 404));
+const apiNotFound = httpAction(async () => jsonResponse({ error: "Not found" }, 404));
 
 export function registerAuthRoutes(http: HttpRouter) {
   http.route({ path: "/api/device/request", method: "POST", handler: deviceRequest });
@@ -120,5 +130,8 @@ export function registerAuthRoutes(http: HttpRouter) {
   http.route({ path: "/api/device/token", method: "POST", handler: deviceToken });
   http.route({ path: "/api/device/revoke", method: "POST", handler: deviceRevoke });
   http.route({ path: "/api/.well-known/jwks.json", method: "GET", handler: jwksRoute });
+  for (const path of ["/api/device/request", "/api/device/poll", "/api/device/token", "/api/device/revoke", "/api/.well-known/jwks.json", "/api/config"]) {
+    http.route({ path, method: "OPTIONS", handler: preflight });
+  }
   for (const method of ["GET", "POST"] as const) http.route({ pathPrefix: "/api/", method, handler: apiNotFound });
 }

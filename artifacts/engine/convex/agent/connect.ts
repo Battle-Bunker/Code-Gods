@@ -5,6 +5,9 @@
  *   mutation agent/connect:approve ({request, roomId, permission, completion, ownerConsent?})
  *   mutation agent/connect:deny    ({request})
  *
+ * The client may name a `room` (a hint): it is preselected and, when the human is not in it yet, the page offers
+ * to join it first (rooms.join). A first-party request (rules.ts firstPartyGrant) is approved by the page itself.
+ *
  * Like device approval: the human must be a member of the chosen room; the permission may be lowered from
  * the requested scope, never raised; an owner grant needs the room's CURRENT owner and explicit consent
  * (ownership is checked again when the code is redeemed and on every call). After deciding, the page
@@ -19,8 +22,10 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import { requireViewer, type Permission, type Viewer } from "../auth/access";
+import { siteOrigin } from "../auth/config";
 import { sha256Hex } from "../auth/crypto";
-import { memberOf } from "../lib/rooms";
+import { findRoom, memberOf } from "../lib/rooms";
+import { firstPartyGrant, isFirstParty } from "./rules";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
@@ -53,6 +58,16 @@ export const pending = query({
       const room = await ctx.db.get(m.roomId);
       return room ? { roomId: room._id as string, shortCode: room.shortCode, isOwner: room.ownerId === viewer.subject, createdAt: room.createdAt } : null;
     }))).filter(r => r !== null).sort((a, b) => b.createdAt - a.createdAt);
+    // The room the client asked for (`room` on /oauth/authorize): preselected, and joinable from the page.
+    const hinted = request.roomHint ? await findRoom(ctx, request.roomHint) : null;
+    const hint = hinted ? {
+      roomId: hinted._id as string, shortCode: hinted.shortCode, isOwner: hinted.ownerId === viewer.subject,
+      member: !!(await memberOf(ctx, hinted._id, viewer.subject)),
+    } : null;
+    /** What the page approves without a click (rules.ts firstPartyGrant): the hosted client, a member, at most act. */
+    const autoApprove = hint && status === "pending"
+      ? firstPartyGrant({ redirectUri: request.redirectUri, siteOrigin: siteOrigin(), member: hint.member, isOwner: hint.isOwner, requested: request.permission })
+      : null;
     return {
       /** Self-reported by the client: NOT a verified identity. */
       clientName: request.clientName,
@@ -60,6 +75,11 @@ export const pending = query({
       /** Where the browser returns with the authorization code. */
       redirectUri: request.redirectUri, redirectHost: hostOf(request.redirectUri),
       permission: request.permission, resource: request.resource, status, expiresAt: request.expiresAt, rooms,
+      /** The requested room, or null (none asked, or unknown: the human picks one). */
+      roomHint: hint, roomHintUnknown: !!request.roomHint && !hint,
+      /** Is the return address on this engine's own origin (the hosted player client)? */
+      firstParty: isFirstParty(request.redirectUri, siteOrigin()),
+      autoApprove,
     };
   },
 });

@@ -9,9 +9,10 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { START_TIMEOUT_MS, startTracker, trackStart } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { noticeStore, notify, notifyError } from "@/core/notices";
+import { connectRoom } from "@/core/connection";
 
 export function useOwnerActions() {
-  const { roomId } = useRoom();
+  const { roomId, permission, mode } = useRoom();
   const convex = useConvex();
   const start = useAction(api.owner.start);
   const settings = useAction(api.owner.settings);
@@ -21,6 +22,20 @@ export function useOwnerActions() {
   const resume = useMutation(api.rooms.resume);
   return useMemo(() => {
     const room = roomId as Id<"rooms">;
+    // A browser client connects with act by default; owner actions need an owner connection, which the room's owner
+    // approves (with explicit consent) on the engine's /connect page. Ask for it instead of failing.
+    const catalog = async () => {
+      const { agents } = await convex.query(api.aiTemplates.catalog, {});
+      return agents.map(r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
+    };
+    if (mode === "hosted" && permission !== "owner") {
+      const upgrade = () => {
+        notify("Owner actions need owner access: approve it on the engine, then try again.");
+        void connectRoom(roomId, "owner").catch(notifyError);
+        return Promise.resolve(undefined);
+      };
+      return { start: upgrade, endGame: upgrade, resume: upgrade, addAi: upgrade, removeAi: upgrade, setup: upgrade, aiCatalog: catalog };
+    }
     const done = (text: string) => <T,>(p: Promise<T>) => p.then(r => { notify(text); return r; }, e => { notifyError(e); return undefined; });
     return {
       // The pending start shows at once wherever a start control is (core/game/start.ts); a second click is refused.
@@ -51,10 +66,7 @@ export function useOwnerActions() {
           notify("The next game's setup is saved.");
         } catch (error) { notifyError(error); }
       },
-      aiCatalog: async () => {
-        const { agents } = await convex.query(api.aiTemplates.catalog, {});
-        return agents.map(r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
-      },
+      aiCatalog: catalog,
     };
-  }, [roomId, convex, start, settings, addAi, removeAi, end, resume]);
+  }, [roomId, permission, mode, convex, start, settings, addAi, removeAi, end, resume]);
 }

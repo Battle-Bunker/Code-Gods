@@ -4,18 +4,19 @@
  * own panels) in dock/shell.tsx, or a past game read-only (./history).
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
 import { ConvexProviderWithAuth, useConvexAuth, useMutation, useQueries, useQuery } from "convex/react";
+import type { PlayerSession } from "@workspace/player-client/browser";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
-import { authClient, connection, convexClient, fetchAppAccessToken, signIn, type Connection } from "./connection";
+import { connectRoom, connection, convexClient, fetchAppAccessToken, playerAuth, type Connection } from "./connection";
+import { autoRedirectAllowed, hostedStep, roomKey } from "./hosted-flow";
 import { RoomProvider } from "@/sdk/context";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "./core-boundary";
 import { errorText, roomLookup } from "./room-lookup";
 import { Screen } from "./screen";
-import { hrefTo, Link, navigate, useClientRoute } from "./navigation";
-import type { ClientRoute } from "./routes";
+import { BASE, hrefTo, Link, navigate, useClientRoute } from "./navigation";
+import { parseRoute, type ClientRoute } from "./routes";
 import { PastGames } from "./history/past-games";
 import { HistoricGame, type GameView } from "./history/historic-game";
 
@@ -28,14 +29,13 @@ export function App() {
   return <Authenticated conn={conn} />;
 }
 
-/** Convex auth for either mode (see connection.ts): player JWTs from the dev server, or Better Auth hosted. */
+/** Convex auth for either mode (see connection.ts): player JWTs from the dev server, or this room's OAuth connection. */
 function Authenticated({ conn }: { conn: Connection }) {
   const client = convexClient(conn.convexUrl);
   if (conn.mode === "devserver") {
     return <ConvexProviderWithAuth client={client} useAuth={useDevServerAuth}><DevServerMode conn={conn} /></ConvexProviderWithAuth>;
   }
-  // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (see artifacts/code-gods/src/lib/convex.tsx).
-  return <ConvexBetterAuthProvider client={client} authClient={authClient() as unknown as AuthClient}><Hosted /></ConvexBetterAuthProvider>;
+  return <Hosted conn={conn} />;
 }
 
 /** Dev-server mode: the dev server holds the credential and always answers with a player JWT (or refuses). */
@@ -52,21 +52,124 @@ function DevServerMode({ conn }: { conn: Connection }) {
   return <Routed mode="devserver" permission={conn.permission ?? "act"} credentialRoomId={conn.roomId!} />;
 }
 
-/** Hosted mode: sign in on the engine site, then the route picks the room. */
-function Hosted() {
-  const { isLoading, isAuthenticated } = useConvexAuth();
+const framed = () => { try { return window.top !== window.self; } catch { return true; } };
+const tabStorage = () => { try { return window.sessionStorage; } catch { return null; } };
+const messageOf = (e: unknown) => e instanceof Error ? e.message : String(e);
+
+/**
+ * Hosted mode: one OAuth connection per room (hosted-flow.ts; docs/external-clients.md §3.1), the same path any app on
+ * any origin uses. Back from the engine's /connect page, the code is redeemed and the page the human started from
+ * restored. Without a connection for the URL's room the page goes to the engine by itself once (the engine approves
+ * its own client for a member without a click); after a refusal or a revocation it waits for a click, so a connection
+ * revoked on the engine UI is never silently renewed. {base} lists the rooms this browser is connected to.
+ */
+function Hosted({ conn }: { conn: Connection }) {
+  const auth = playerAuth();
+  const route = useClientRoute();
+  const [, setVersion] = useState(0);
+  const [completing, setCompleting] = useState(() => /[?&](code|error)=/.test(location.search) && /[?&]state=/.test(location.search));
   const [error, setError] = useState<string>();
-  if (isLoading) return <Screen title="Connecting…" testId="status-connecting" />;
-  if (!isAuthenticated) {
+  const [manual, setManual] = useState(false);
+  const [device, setDevice] = useState<{ userCode: string; verificationUrl: string }>();
+  const [held, setHeld] = useState<string | null>(null);
+  const room = "room" in route ? route.room : "";
+  const session = completing ? null : room ? auth.session(room) : route.kind === "legacyGame" ? auth.session() : null;
+
+  useEffect(() => auth.onChange(() => setVersion(v => v + 1)), [auth]);
+  // A connection that disappears while in use was revoked or expired: say so and wait for the human.
+  useEffect(() => {
+    if (session) { setHeld(session.credentialId); return; }
+    if (held) { setHeld(null); setManual(true); setError("This connection was revoked or has expired. Connect again to keep playing."); }
+  }, [session?.credentialId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setManual(false); setError(undefined); setDevice(undefined); }, [roomKey(room)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!completing) return;
+    auth.completeSignIn().then(done => {
+      if (!done) return;
+      // /connect may have connected another room than the page named (the human chose it): follow the connection.
+      const back = new URL(done.returnTo || BASE, location.origin);
+      const parsed = parseRoute(BASE, back.pathname, back.search).route;
+      const same = "room" in parsed && roomKey(parsed.room) === roomKey(done.session.roomCode);
+      navigate(same ? `${back.pathname}${back.search}` : hrefTo({ kind: "room", room: done.session.roomCode }), { replace: true });
+    }, e => { setError(messageOf(e)); setManual(true); }).finally(() => setCompleting(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const step = hostedStep({ room, session, framed: framed(), autoAllowed: !manual && !error });
+  useEffect(() => {
+    if (completing || step.step !== "redirect") return;
+    if (autoRedirectAllowed(tabStorage(), room, Date.now())) connectRoom(room).catch(e => { setError(messageOf(e)); setManual(true); });
+    else setManual(true);
+  }, [completing, step.step, room]);
+
+  if (completing || step.step === "redirect") return <Screen title="Connecting…" testId="status-connecting" />;
+  if (step.step === "ask") return <ConnectedRooms error={error} />;
+  if (step.step === "connect") {
+    const viaDevice = () => {
+      setError(undefined);
+      auth.signInWithDevice({ room, permission: "act", label: "Code Gods player client (in a frame)" }).then(pending => {
+        setDevice(pending);
+        pending.session.then(() => { setDevice(undefined); setManual(false); }, e => { setDevice(undefined); setError(messageOf(e)); });
+      }, e => setError(messageOf(e)));
+    };
     return (
-      <Screen title="Sign in to the pantheon">
-        <p>Sign in with Google on this engine. Your full name is shown in the room; chat is public.</p>
+      <Screen title={`Connect to room ${room}`}>
+        <p>This client plays as you in one room, with a connection you approve on the engine ({new URL(conn.siteUrl ?? auth.engineUrl).host}). Sign in there with Google; your full name is shown in the room and chat is public.</p>
         {error && <p className="text-sm text-destructive" data-testid="text-login-error">{error}</p>}
-        <button data-testid="link-login" onClick={() => { void signIn().then(e => { if (e) setError(e); }); }} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in with Google</button>
+        {device ? (
+          <div className="space-y-2" data-testid="panel-device-code">
+            <p>Open <a className="underline" href={device.verificationUrl} target="_blank" rel="noreferrer">{device.verificationUrl}</a> in a browser where you are signed in, and check the code <span className="font-mono">{device.userCode}</span>.</p>
+            <p className="text-sm text-muted-foreground">Waiting for your approval…</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {!step.framed && <button data-testid="link-login" onClick={() => { void connectRoom(room).catch(e => setError(messageOf(e))); }} className="inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold">Sign in and connect</button>}
+            <button data-testid="button-connect-device" onClick={viaDevice} className={step.framed ? "inline-flex bg-primary text-primary-foreground px-4 py-2 font-semibold" : "inline-flex border px-4 py-2"}>Connect with a code{step.framed ? "" : " instead"}</button>
+          </div>
+        )}
+        <p className="text-sm"><Link to={{ kind: "home" }} className="underline">Another room</Link></p>
       </Screen>
     );
   }
-  return <Routed mode="hosted" permission="act" />;
+  return <HostedPlay key={step.session.credentialId} session={step.session} conn={conn} />;
+}
+
+/** Hosted at {base}: the rooms this browser holds a connection for, and a code to open another. */
+function ConnectedRooms({ error }: { error?: string }) {
+  const sessions = playerAuth().sessions().sort((a, b) => a.roomCode.localeCompare(b.roomCode));
+  return (
+    <Screen title="Your rooms" testId="screen-your-rooms">
+      {sessions.length === 0 ? <p className="text-muted-foreground">Open a room with the code its owner sent you. You approve this client on the engine, once per room.</p> : (
+        <ul className="divide-y divide-[hsl(var(--card-border))] border border-[hsl(var(--card-border))] bg-card">
+          {sessions.map(s => (
+            <li key={s.credentialId}>
+              <Link to={{ kind: "room", room: s.roomCode }} className="flex items-baseline gap-3 px-4 py-3 hover:bg-muted" data-testid={`link-room-${s.roomCode}`}>
+                <span className="font-mono font-semibold">{s.roomCode}</span>
+                <span className="text-sm text-muted-foreground">{s.permission} access</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      <RoomCodeForm error={error} />
+    </Screen>
+  );
+}
+
+/** One room's connection: the Convex client authenticates with its player JWT (refreshed by the SDK). */
+function HostedPlay({ session, conn }: { session: PlayerSession; conn: Connection }) {
+  const client = convexClient(conn.convexUrl);
+  const useAuth = useMemo(() => {
+    const value = { isLoading: false, isAuthenticated: true, fetchAccessToken: playerAuth().fetchToken(session) };
+    return () => value;
+  }, [session.credentialId]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <ConvexProviderWithAuth client={client} useAuth={useAuth}><HostedReady session={session} /></ConvexProviderWithAuth>;
+}
+
+function HostedReady({ session }: { session: PlayerSession }) {
+  const { isLoading, isAuthenticated } = useConvexAuth();
+  if (isLoading || !isAuthenticated) return <Screen title="Connecting…" testId="status-connecting" />;
+  return <Routed mode="hosted" permission={session.permission} credentialRoomId={session.roomId} />;
 }
 
 type Mode = "devserver" | "hosted";
@@ -82,7 +185,7 @@ function Routed({ mode, permission, credentialRoomId }: { mode: Mode; permission
   const route = useClientRoute();
   const me = useQuery(api.auth.user.me, {});
   if (route.kind === "legacyGame") return <LegacyGame code={route.game} />;
-  if (route.kind === "home") return mode === "devserver" ? <CredentialRoom roomId={credentialRoomId!} /> : <YourRooms />;
+  if (route.kind === "home") return mode === "devserver" ? <CredentialRoom roomId={credentialRoomId!} /> : <ConnectedRooms />;
   return (
     <RoomGate route={route} mode={mode} meId={me?.subject} credentialRoomId={credentialRoomId}>
       {room => route.kind === "room" ? <Play roomId={room.id} permission={permission} mode={mode} />
@@ -97,28 +200,6 @@ function CredentialRoom({ roomId }: { roomId: string }) {
   const room = useQuery(api.rooms.get, { room: roomId });
   useEffect(() => { if (room) navigate(hrefTo({ kind: "room", room: room.shortCode }), { replace: true }); }, [room]);
   return <Screen title="Connecting…" testId="status-connecting" />;
-}
-
-/** Hosted at {base}: the rooms you are in, and a code to open another. */
-function YourRooms() {
-  const rooms = useQuery(api.rooms.list, {});
-  return (
-    <Screen title="Your rooms" testId="screen-your-rooms">
-      {rooms === undefined ? <p className="text-muted-foreground">Loading…</p> : rooms.length === 0 ? <p className="text-muted-foreground">You are not in a room yet. Open one with the code its owner sent you.</p> : (
-        <ul className="divide-y divide-[hsl(var(--card-border))] border border-[hsl(var(--card-border))] bg-card">
-          {rooms.map(r => (
-            <li key={r.id}>
-              <Link to={{ kind: "room", room: r.shortCode }} className="flex items-baseline gap-3 px-4 py-3 hover:bg-muted" data-testid={`link-room-${r.shortCode}`}>
-                <span className="font-mono font-semibold">{r.shortCode}</span>
-                <span className="text-sm text-muted-foreground">{r.ownerName} · {r.memberCount} gods · {r.phase === "lobby" ? "lobby" : `playing ${r.activeGameShortCode}`}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      <RoomCodeForm />
-    </Screen>
-  );
 }
 
 function RoomCodeForm({ code = "", error }: { code?: string; error?: string }) {
@@ -137,7 +218,8 @@ function RoomCodeForm({ code = "", error }: { code?: string; error?: string }) {
 
 /**
  * The room named in the URL, once it is found and this client may play in it: hosted, a member (else the join
- * screen); dev server, the credential's room (a credential is bound to one room). Canonicalises the code in the URL.
+ * screen; a connection is approved only for a member, so this is rare); dev server, the credential's room (a
+ * credential is bound to one room). Canonicalises the code in the URL.
  */
 function RoomGate({ route, mode, meId, credentialRoomId, children }: { route: RoomRoute; mode: Mode; meId?: string; credentialRoomId?: string; children: (room: RoomState) => ReactNode }) {
   const code = route.room;

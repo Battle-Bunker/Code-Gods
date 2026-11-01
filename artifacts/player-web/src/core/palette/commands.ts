@@ -250,7 +250,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       pick("Your assistant may", [
         { id: "act", label: "Play for me", detail: "Asks before anything public or costly." },
         { id: "read", label: "Only look" },
-        ...(s.isOwner ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
+        // The engine caps the assistant at this client's own permission (assistant.ts maxPermission).
+        ...(s.isOwner && s.permission === "owner" ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
       ], id => a.assistant.setPermission(id as "read" | "act" | "owner")),
       { keywords: ["permission", "rights", "assistant"], ...always(() => assistantOn(s)) }),
   ];

@@ -45,3 +45,10 @@ test("hrefs are built under the base and round-trip", () => {
     assert.deepEqual(parseRoute("/client/", routeHref("/client/", route), "").route, route);
   }
 });
+
+test("engine UI links point at the engine's site, wherever the client runs (a dev server's origin is not the engine)", async () => {
+  const { enginePageHref } = await import("../src/core/routes.ts");
+  assert.equal(enginePageHref("https://dep.convex.site", { room: "AB12" }), "https://dep.convex.site/rooms/AB12");
+  assert.equal(enginePageHref("https://dep.convex.site/", { room: "AB 12", game: "G9" }), "https://dep.convex.site/rooms/AB%2012/games/G9");
+  assert.equal(enginePageHref(undefined, { room: "AB12" }), "/rooms/AB12", "unknown engine: this origin (the hosted client)");
+});

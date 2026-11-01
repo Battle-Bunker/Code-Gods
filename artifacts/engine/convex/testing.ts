@@ -234,3 +234,23 @@ export const legacyAiSeat = internalMutation({
     if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
   },
 });
+
+/** `count` examinations of `godId` in `roomId`, `ageMs` ago (game/commands.ts claimExamination's window). */
+export const seedExaminations = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), count: v.number(), ageMs: v.number() },
+  handler: async (ctx, { roomId, godId, count, ageMs }) => {
+    dev();
+    for (let i = 0; i < count; i++) await ctx.db.insert("examinations", { roomId, godId, at: Date.now() - ageMs });
+  },
+});
+
+/** Move a god's recorded examinations `byMs` into the past. */
+export const ageExaminations = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), byMs: v.number() },
+  handler: async (ctx, { roomId, godId, byMs }) => {
+    dev();
+    for (const row of await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId)).take(500)) {
+      await ctx.db.patch(row._id, { at: row.at - byMs });
+    }
+  },
+});

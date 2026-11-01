@@ -192,6 +192,13 @@ export const gameTables = {
     gameId: v.optional(v.id("games")), world: v.optional(v.number()),
   }).index("by_room", ["roomId", "timestamp"]).index("by_room_author", ["roomId", "authorId", "timestamp"]),
 
+  /**
+   * Agent examinations (validate and summon run the agent a few hundred times in the sandbox) in the last minute,
+   * per human per room: the abuse cap of game/commands.ts claimExamination. Rows older than the window are deleted
+   * by the next claim of the same human.
+   */
+  examinations: defineTable({ roomId: v.id("rooms"), godId: v.string(), at: v.number() }).index("by_room_god_at", ["roomId", "godId", "at"]),
+
   receipts: defineTable({
     roomId: v.id("rooms"), actorId: v.string(), requestId: v.string(), hash: v.string(), result: v.any(), createdAt: v.number(),
   }).index("by_key", ["roomId", "actorId", "requestId"]),
