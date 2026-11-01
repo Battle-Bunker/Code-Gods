@@ -297,10 +297,14 @@ export const CODE_TOOLS = [
     about: "Run a short Python or TypeScript analytics script server-side in the sandbox: it defines main(data), where data holds the datasets you name "
       + "(fetched by the engine as the player; they never pass through this conversation) plus params. Returns main's JSON result and printed text, "
       + "clipped (TRUNCATED; get_code_run has the rest), and a runId; open_panel {panelId: code-output, params: {runId}} shows it to the player as a table. "
-      + "Reads only; a per-game budget of runs and CPU applies. Call load_skill {name: analytics-code} first for the dataset shapes and conventions.",
+      + "It cannot act in the game; its only persistence is the player's object store (load keys, store.put to write; no files). "
+      + "A per-game budget of runs and CPU applies. Call load_skill {name: analytics-code} first for the dataset shapes and conventions.",
     input: obj({
-      language: language.describe("python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript."),
-      source: z.string().min(1).max(65536).describe("The script: defines main(data) and returns JSON data (a list of rows for a table)."),
+      language: language.optional().describe("python (stdlib: math, statistics, collections, itertools, functools, json, re, random, …; no numpy) or typescript. Required with source."),
+      source: z.string().min(1).max(65536).optional().describe("The script: defines main(data) and returns JSON data (a list of rows for a table). Give this or script."),
+      script: z.string().min(1).max(140).optional().describe("Run a saved script instead: its key, e.g. scripts/top5 (saved with saveAs)."),
+      load: z.array(z.string().min(1).max(129)).max(20).optional().describe("Keys of the player's stored objects to load into the script's store, or prefixes ending in * (e.g. notes/*); only these are readable (store.get). Not the objects dataset."),
+      saveAs: z.string().regex(/^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$/).optional().describe("Save this source as the object scripts/<saveAs> after a successful run."),
       datasets: z.array(datasetRequest).max(DATASET_NAMES.length).default([]).describe(`Inputs, each data[name]: ${DATASET_NAMES.join(", ")}.`),
       params: z.record(z.string(), z.unknown()).optional().describe("Extra JSON values, as data.params."),
       title: z.string().trim().min(1).max(80).optional().describe("A short name for the run (the panel's caption)."),
@@ -310,6 +314,9 @@ export const CODE_TOOLS = [
     note: "A slice of a run's full result JSON, printed output or source, from offset (nextOffset pages on); or its summary without part.",
     input: obj({ runId, part: z.enum(["result", "output", "source"]).optional(), offset: z.number().int().min(0).default(0),
       length: z.number().int().min(100).max(6000).default(4000) }), output: result(anyData) }),
+  def({ name: "list_code_objects", short: "The player's stored objects (keys and sizes) and the object store's quota.", title: "List stored objects", functions: ["code.objects.list"], permission: "read", annotations: read,
+    note: "Values are read by a script (run_code load); runs/<runId> keys hold past run results, scripts/<name> saved scripts.",
+    input: obj({ prefix: z.string().max(128).optional(), limit: z.number().int().min(1).max(500).default(100) }), output: result(anyData) }),
   def({ name: "list_code_runs", short: "The player's recent code runs in this room and the game's run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
     note: "Your recent runs in this room, newest first, with this game's budget left.",
     input: obj({ limit: z.number().int().min(1).max(50).default(10) }), output: result(anyData) }),

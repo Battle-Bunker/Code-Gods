@@ -18,6 +18,16 @@ export const CODE_LIMITS = {
   /** Previews returned to the model by run_code. */
   previewResultChars: 3_500,
   previewOutputChars: 1_500,
-  /** Runs kept per player (older rows and their stored results are deleted). */
+  /** Runs kept per player (older rows and their runs/<id> result objects are deleted). */
   keptRuns: 50,
+  /** The object store, per human (runs/ results not counted): objects, total bytes, one value, keys a run may write. */
+  objectsPerUser: 500,
+  objectBytesPerUser: 20 * 1024 * 1024,
+  valueBytes: 1024 * 1024,
+  writesPerRun: 100,
+  /** A value this size or smaller lives in its row; a larger one in file storage. */
+  inlineValueChars: 64 * 1024,
+  /** Scopes a run may load, and the loaded objects' JSON (the runtime's storeBytes). */
+  scopesPerRun: 20,
+  loadBytes: 4 * 1024 * 1024,
 } as const;

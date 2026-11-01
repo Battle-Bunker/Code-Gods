@@ -162,9 +162,11 @@ const LAYOUT_EXECUTORS = {
  * human, in the room the credential is bound to. Reads only. The analytics-code skill (load_skill) has the guidance.
  */
 const CODE_EXECUTORS = {
-  run_code: async (ctx, { principal, who }, { language, source, datasets, params, title, cpuSeconds }) => {
+  run_code: async (ctx, { principal, who }, { language, source, script, load, saveAs, datasets, params, title, cpuSeconds }) => {
     const outcome: RunOutcome = await ctx.runAction(internal.code.execute.runAs, {
-      principal, roomId: who.roomId, language, source, datasetsJson: JSON.stringify(datasets),
+      principal, roomId: who.roomId, datasetsJson: JSON.stringify(datasets),
+      ...(language ? { language } : {}), ...(source !== undefined ? { source } : {}), ...(script !== undefined ? { script } : {}),
+      ...(load ? { load } : {}), ...(saveAs !== undefined ? { saveAs } : {}),
       ...(params ? { paramsJson: JSON.stringify(params) } : {}), ...(title ? { title } : {}), ...(cpuSeconds ? { cpuMs: Math.round(cpuSeconds * 1000) } : {}),
     });
     return { data: outcome };
@@ -185,7 +187,8 @@ const CODE_EXECUTORS = {
     return { data: { runId, part, offset, text: slice, totalChars: text.length, nextOffset: next < text.length ? next : null } };
   },
   list_code_runs: async (ctx, { principal, who }, { limit }) => ({ data: await ctx.runQuery(internal.code.runs.listAs, { principal, roomId: who.roomId, limit }) }),
-} satisfies Pick<Executors, "run_code" | "get_code_run" | "list_code_runs">;
+  list_code_objects: async (ctx, { principal }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, ...(prefix ? { prefix } : {}), limit }) }),
+} satisfies Pick<Executors, "run_code" | "get_code_run" | "list_code_runs" | "list_code_objects">;
 
 export const EXECUTORS: Executors = {
   ...SETUP_EXECUTORS,

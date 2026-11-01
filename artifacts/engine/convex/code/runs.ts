@@ -15,6 +15,7 @@ import type { Viewer } from "../auth/access";
 import { fail } from "../lib/errors";
 import { principalV, requireMemberAs, requireRoom, viewerOf } from "../lib/rooms";
 import { CODE_LIMITS } from "./limits";
+import { deleteRunResult, runResultOf } from "./objects";
 
 type Ctx = QueryCtx | MutationCtx;
 const language = v.union(v.literal("python"), v.literal("typescript"));
@@ -43,6 +44,7 @@ const summary = (r: Doc<"codeRuns">) => ({
   runId: r._id, title: r.title ?? null, language: r.language, status: r.status === "running" && Date.now() - r.startedAt >= CODE_LIMITS.staleMs ? "error" as const : r.status,
   datasets: JSON.parse(r.datasetsJson) as unknown[], error: r.error ?? null, cpuMs: r.cpuMs ?? null, wallMs: r.wallMs ?? null,
   resultChars: r.resultChars ?? null, outputChars: r.outputChars ?? null, clipped: r.clipped ?? false, outputTruncated: r.outputTruncated ?? false,
+  objects: r.objectsJson ? JSON.parse(r.objectsJson) as string[] : [], store: r.storeJson ? JSON.parse(r.storeJson) as unknown : null,
   startedAt: r.startedAt, finishedAt: r.finishedAt ?? null,
 });
 export type RunSummary = ReturnType<typeof summary>;
@@ -76,11 +78,15 @@ async function getImpl(ctx: QueryCtx, viewer: Viewer, { roomId, runId }: { roomI
   return {
     ...summary(row), source: row.source, params: row.paramsJson ? JSON.parse(row.paramsJson) as unknown : null,
     resultJson: row.resultJson ?? null, output: row.output ?? null,
-    /** The whole {result, output} JSON when the row holds only a prefix (fetch it; the URL is the human's own). */
-    fullUrl: row.fullId ? await ctx.storage.getUrl(row.fullId) : null,
+    /** The whole {result, output} JSON (the object runs/<runId>) when the row holds only a prefix: fetch it (the URL is the human's own). */
+    fullUrl: row.clipped ? await fullUrlOf(ctx, row) : null,
   };
 }
 export type RunDetail = NonNullable<Awaited<ReturnType<typeof getImpl>>>;
+async function fullUrlOf(ctx: QueryCtx, row: Doc<"codeRuns">) {
+  const full = await runResultOf(ctx, row.subject, row._id);
+  return full?.storageId ? await ctx.storage.getUrl(full.storageId) : null;
+}
 
 /** The caller's recent code runs in this room (newest first) and this game's budget. */
 export const list = query({ args: listArgs, handler: async (ctx, a) => listImpl(ctx, await viewerOf(ctx), a) });
@@ -89,15 +95,15 @@ export const listAs = internalQuery({ args: { principal: principalV, ...listArgs
 export const get = query({ args: getArgs, handler: async (ctx, a) => getImpl(ctx, await viewerOf(ctx), a) });
 export const getAs = internalQuery({ args: { principal: principalV, ...getArgs }, handler: async (ctx, { principal, ...a }) => getImpl(ctx, await viewerOf(ctx, principal), a) });
 
-/** The stored-result id of a run (the registry reads the whole result from file storage). */
+/** A run's whole result object, runs/<runId> (the registry pages through it): inline JSON or a storage id. */
 export const fullOf = internalQuery({
   args: { principal: principalV, roomId: v.string(), runId: v.string() },
-  handler: async (ctx, { principal, roomId, runId }): Promise<Id<"_storage"> | null> => {
+  handler: async (ctx, { principal, roomId, runId }): Promise<{ valueJson: string | null; storageId: Id<"_storage"> | null } | null> => {
     const viewer = await viewerOf(ctx, principal);
     const room = await memberRoom(ctx, viewer, roomId);
     const id = ctx.db.normalizeId("codeRuns", runId);
     const row = id ? await ctx.db.get(id) : null;
-    return row && row.subject === viewer.subject && row.roomId === room._id ? row.fullId ?? null : null;
+    return row && row.subject === viewer.subject && row.roomId === room._id ? await runResultOf(ctx, viewer.subject, row._id) : null;
   },
 });
 
@@ -111,8 +117,8 @@ export const fullOf = internalQuery({
  */
 export const start = internalMutation({
   args: { principal: principalV, roomId: v.string(), language, source: v.string(), title: v.optional(v.string()),
-    datasetsJson: v.string(), paramsJson: v.optional(v.string()), cpuMs: v.number() },
-  handler: async (ctx, { principal, roomId, cpuMs, ...run }): Promise<{ runId: Id<"codeRuns">; cpuMs: number; epoch: string; gameId: string | null }> => {
+    datasetsJson: v.string(), paramsJson: v.optional(v.string()), objectsJson: v.optional(v.string()), cpuMs: v.number() },
+  handler: async (ctx, { principal, roomId, cpuMs, ...run }): Promise<{ runId: Id<"codeRuns">; roomId: Id<"rooms">; cpuMs: number; epoch: string; gameId: string | null }> => {
     const viewer = await viewerOf(ctx, principal);
     const room = await memberRoom(ctx, viewer, roomId);
     const epoch = epochOf(room);
@@ -127,9 +133,10 @@ export const start = internalMutation({
     for (const row of old.slice(CODE_LIMITS.keptRuns)) {
       if (row.epoch === epoch) continue;   // this game's rows count against its budget
       if (row.fullId) await ctx.storage.delete(row.fullId);
+      await deleteRunResult(ctx, row.subject, row._id);
       await ctx.db.delete(row._id);
     }
-    return { runId, cpuMs: Math.max(1, Math.min(cpuMs, CODE_LIMITS.cpuMsMax, left)), epoch, gameId: room.currentGameId ?? null };
+    return { runId, roomId: room._id, cpuMs: Math.max(1, Math.min(cpuMs, CODE_LIMITS.cpuMsMax, left)), epoch, gameId: room.currentGameId ?? null };
   },
 });
 
@@ -137,7 +144,7 @@ export const finish = internalMutation({
   args: {
     runId: v.id("codeRuns"), status: v.union(v.literal("ok"), v.literal("error")),
     resultJson: v.optional(v.string()), output: v.optional(v.string()), resultChars: v.optional(v.number()), outputChars: v.optional(v.number()),
-    clipped: v.optional(v.boolean()), outputTruncated: v.optional(v.boolean()), fullId: v.optional(v.id("_storage")),
+    clipped: v.optional(v.boolean()), outputTruncated: v.optional(v.boolean()), storeJson: v.optional(v.string()),
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     cpuMs: v.optional(v.number()), wallMs: v.optional(v.number()), inputBytes: v.optional(v.number()),
   },

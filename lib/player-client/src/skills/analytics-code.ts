@@ -25,13 +25,28 @@ and returns main's result as JSON with what the script printed. The datasets nev
 so prefer naming datasets over pasting values into params. Budget: about 10 s CPU per run (cpuSeconds up to 20), a few
 dozen runs and 120 CPU seconds per game; one run at a time. Inputs are at most 4 MiB of JSON, results 1 MiB.
 
+Persistence: the object store, and nothing else. A script has NO files: no open(), no os, no paths, no disk (in
+TypeScript no fs or require). The only way to keep anything between runs is the player's own object store:
+- Read: name the keys or prefixes in run_code's load (e.g. load: ["notes/*", "watchlist"]; not the objects dataset); the engine loads
+  them before the run, and store.get(key, default) reads them. A key not named there raises StoreError.
+- Write: store.put(key, value) and store.delete(key); store.list(prefix) lists the loaded and written keys. Values
+  are JSON data (Python bytes / a TypeScript Uint8Array also work). Writes are committed after a successful run, all
+  or nothing; the result's store field lists them, or says why the engine refused them.
+- Keys: 1-128 of letters, digits, _ - . / (like "notes/day-3"). The store is the player's alone; another player's keys
+  can never be named. Keys under runs/ are past run results (runs/<runId> = {result, output}), read-only. Limits: 500
+  objects and 20 MiB per player, 1 MiB per value, 100 keys written per run. list_code_objects shows what is stored.
+- Saved scripts are objects too: run_code {..., saveAs: "top5"} saves the source as scripts/top5 after a successful
+  run; run_code {script: "scripts/top5", datasets, load} runs it again later.
+Example (python), remember what was seen: datasets: ["objects"], load: ["seen"], source:
+  "def main(data):\n    seen = set(store.get('seen', []))\n    new = [o['id'] for o in data['objects'] if o['id'] not in seen]\n    store.put('seen', sorted(seen | set(new)))\n    return {'new objects': len(new)}\n"
+
 Languages and libraries.
 - python: CPython 3.15 standard library subset, preloaded: math, statistics (mean, median, stdev, correlation,
   linear_regression, quantiles), collections (Counter, defaultdict), itertools, functools, operator, json, re, decimal,
   fractions, random (seeded), time (virtual clock), hashlib, bisect, numbers. No numpy or pandas, no files, network or
-  os/sys. print() is captured.
+  os/sys. print() is captured. The globals store and StoreError are there without an import.
 - typescript: ES2022 (Math, JSON, Array methods, Map/Set, RegExp, Intl is absent). Types are erased, not checked; no
-  imports or exports. console.log is captured.
+  imports or exports. console.log is captured. The globals store and StoreError are there.
 Randomness is seeded from the script and its data, so a rerun gives the same answer.
 
 Output conventions.

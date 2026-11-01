@@ -150,6 +150,8 @@ test("the assistant loads the skill, runs code and shows the result in a code-ou
     { tools: [{ name: "load_skill", input: { name: "analytics-code" } }] },
     { tools: [{ name: "run_code", input: { language: "python", source: RANK_PY, datasets: ["objects"], title: "Top 5 by payoff" } }] },
     { tools: [{ name: "list_code_runs", input: {} }] },
+    { tools: [{ name: "run_code", input: { language: "python", source: "def main(d):\n    store.put('k', 7)\n    return 1\n", saveAs: "readk" } }] },
+    { tools: [{ name: "run_code", input: { script: "scripts/readk", load: ["k"], datasets: [] } }, { name: "list_code_objects", input: { prefix: "scripts/" } }] },
     { text: "Here are your top objects." },
   ] };
   const sent = await dee.c.mutation(api.assistant.send, { roomId, text: `/mock ${JSON.stringify(script)}` });
@@ -162,11 +164,15 @@ test("the assistant loads the skill, runs code and shows the result in a code-ou
   const byTool = Object.fromEntries(t.calls.map((c: any) => [c.tool, c]));
   assert.ok(t.calls.every((c: any) => c.status === "ok"), JSON.stringify(t.calls.map((c: any) => [c.tool, c.status, c.summary])));
   assert.match(JSON.parse(byTool.load_skill.resultJson).data.body, /ANALYTICS CODE/);
-  const outcome = JSON.parse(byTool.run_code.resultJson).data;
+  const runs = t.calls.filter((c: any) => c.tool === "run_code").sort((a: any, b: any) => a.index - b.index || a._creationTime - b._creationTime).map((c: any) => JSON.parse(c.resultJson).data);
+  const outcome = runs[0];
   assert.equal(outcome.status, "ok");
   assert.equal(outcome.result.length, 5);
-  assert.match(byTool.run_code.summary, /^Ran in \d+\.\d s$/);
+  assert.ok(t.calls.filter((c: any) => c.tool === "run_code").every((c: any) => /^Ran in \d+\.\d s$/.test(c.summary)));
   assert.equal(JSON.parse(byTool.list_code_runs.resultJson).data.runs[0].runId, outcome.runId);
+  assert.deepEqual(runs[1].store, { written: ["k", "scripts/readk"], deleted: [] }, "a tool call writes the store and saves the script");
+  assert.equal(runs[2].result, 1, JSON.stringify(runs[2].error));
+  assert.deepEqual(JSON.parse(byTool.list_code_objects.resultJson).data.objects.map((o: any) => o.key), ["scripts/readk"]);
   // The panel, as the assistant would open it.
   const credentialId = await credential(dee, roomId, "act");
   const opened = await admin.mutation(internal.layout.openPanelAs, { principal: { credentialId }, panelId: "code-output", params: { runId: outcome.runId } });
@@ -174,4 +180,75 @@ test("the assistant loads the skill, runs code and shows the result in a code-ou
   const current = await dee.c.query(api.layout.current, { roomId });
   const pane = Object.values(current.layout.panes).find((p: any) => p.panelId === "code-output") as any;
   assert.equal(pane.params.runId, outcome.runId);
+});
+
+test("the object store: per-user namespaces, persistence across runs, deletion, quota refusals, audit, saved scripts", { timeout: 240_000 }, async () => {
+  const { members: [ivy, jon], roomId } = await startedRoom(["Ivy Store", "Jon Store", "Kim Store"]);
+  const ivyCred = await credential(ivy, roomId), jonCred = await credential(jon, roomId);
+  const events = (credentialId: string) => admin.query(internal.code.objects.eventsAs, { principal: { credentialId } });
+
+  // Run 1 writes; run 2 (a new sandbox) reads it back, increments, deletes, and lists.
+  const first = await run(ivyCred, roomId, { language: "python", source: "def main(d):\n    store.put('counter', 1)\n    store.put('notes/a', {'x': 1})\n    store.put('notes/b', 'two')\n    return 'ok'\n" });
+  assert.deepEqual(first.store, { written: ["counter", "notes/a", "notes/b"], deleted: [] });
+  const second = await run(ivyCred, roomId, { language: "typescript", load: ["counter", "notes/*"],
+    source: "function main(d) { const n = store.get('counter'); store.put('counter', n + 1); store.delete('notes/b'); return { n, notes: store.list('notes/') }; }" });
+  assert.deepEqual(second.result, { n: 1, notes: ["notes/a"] }, JSON.stringify(second.error));
+  const third = await run(ivyCred, roomId, { language: "python", load: ["*"], source: "def main(d):\n    return {'counter': store.get('counter'), 'keys': [k for k in store.list() if not k.startswith('runs/')]}\n" });
+  assert.deepEqual(third.result, { counter: 2, keys: ["counter", "notes/a"] });
+  // A run's whole result is the object runs/<runId> in the same store, readable by a later run.
+  const chained = await run(ivyCred, roomId, { language: "python", load: [`runs/${second.runId}`], source: `def main(d):\n    return store.get('runs/${second.runId}')['result']\n` });
+  assert.deepEqual(chained.result, { n: 1, notes: ["notes/a"] });
+
+  // Isolation: Jon names the same keys and sees only his own (empty) namespace; a key cannot name another user.
+  const jons = await run(jonCred, roomId, { language: "python", load: ["*", "counter"], source: "def main(d):\n    return {'counter': store.get('counter'), 'keys': store.list()}\n" });
+  assert.deepEqual(jons.result, { counter: null, keys: [] });
+  const escape = await run(jonCred, roomId, { language: "python", load: ["counter"], source: `def main(d):\n    store.put('${ivy.subject.replace(/[^A-Za-z0-9_-]/g, "_")}/counter', 9)\n    return 1\n` });
+  assert.equal(escape.status, "ok");
+  assert.equal((await run(ivyCred, roomId, { language: "python", load: ["counter"], source: "def main(d):\n    return store.get('counter')\n" })).result, 2, "Ivy's counter is untouched");
+  // Loading another user's key by a crafted scope is refused before the run; so is a disk path.
+  assert.match((await run(jonCred, roomId, { language: "python", load: ["../x"], source: "def main(d):\n    return 1\n" })).error.message, /invalid key/);
+  const disk = await run(jonCred, roomId, { language: "python", source: "def main(d):\n    try:\n        open('/etc/passwd')\n    except NameError as e:\n        return str(e)\n" });
+  assert.match(disk.result, /open/);
+
+  // Quota: a value over 1 MiB, or more keys than a run may write, is refused whole, recorded, and nothing is written.
+  const big = await run(jonCred, roomId, { language: "python", source: "def main(d):\n    store.put('small', 1)\n    store.put('big', 'x' * 1100000)\n    return 1\n" });
+  assert.match(big.store.refused, /one value is at most 1 MiB/);
+  const many = await run(jonCred, roomId, { language: "typescript", source: `function main(d) { for (let i = 0; i < ${CODE_LIMITS.writesPerRun + 1}; i++) store.put('k' + i, i); return 1; }` });
+  assert.match(many.store.refused, new RegExp(`at most ${CODE_LIMITS.writesPerRun} keys`));
+  const listed = await jon.c.query(api.code.objects.list, {});
+  assert.deepEqual(listed.objects.filter((o: any) => !o.key.startsWith("runs/")).map((o: any) => o.key), [escape.store.written[0]], "nothing of the refused sets was written");
+  const audit = await events(jonCred);
+  assert.equal(audit.filter((e: any) => e.op === "refused").length, 2);
+  assert.ok((await events(ivyCred)).some((e: any) => e.op === "delete" && e.key === "notes/b" && e.runId === second.runId), "every write is audited with its run");
+  assert.ok(!(await events(ivyCred)).some((e: any) => e.subject !== ivy.subject), "the audit is per user");
+  // A large value lives in file storage and loads back whole.
+  const blob = await run(ivyCred, roomId, { language: "python", source: "def main(d):\n    store.put('blob', 'y' * 200000)\n    return 1\n" });
+  assert.deepEqual(blob.store, { written: ["blob"], deleted: [] });
+  assert.equal((await run(ivyCred, roomId, { language: "python", load: ["blob"], source: "def main(d):\n    return len(store.get('blob'))\n" })).result, 200000);
+
+  // Saved scripts are objects too: save with saveAs, run by key.
+  const saved = await run(ivyCred, roomId, { language: "python", saveAs: "count", load: ["counter"], source: "def main(d):\n    return store.get('counter')\n", title: "Counter" });
+  assert.ok(saved.store.written.includes("scripts/count"));
+  const rerun = await run(ivyCred, roomId, { script: "scripts/count", load: ["counter"] });
+  assert.equal(rerun.result, 2);
+  assert.equal(rerun.title, "Counter");
+  assert.equal(await errorCode(run(jonCred, roomId, { script: "scripts/count" })), "NOT_FOUND", "another user's saved script does not exist for Jon");
+  const mine = await ivy.c.query(api.code.objects.list, { prefix: "scripts/" });
+  assert.deepEqual(mine.objects.map((o: any) => o.key), ["scripts/count"]);
+  assert.ok(mine.usage.objects >= 4 && mine.limits.objects === CODE_LIMITS.objectsPerUser);
+});
+
+test("the object store: the per-user object quota refuses the write that would exceed it", { timeout: 240_000 }, async () => {
+  const { members: [lea], roomId } = await startedRoom(["Lea Quota", "Lea Two", "Lea Three"]);
+  const cred = await credential(lea, roomId);
+  const per = CODE_LIMITS.writesPerRun;
+  for (let i = 0; i < CODE_LIMITS.objectsPerUser / per; i++) {
+    const r = await run(cred, roomId, { language: "typescript", source: `function main(d) { for (let j = 0; j < ${per}; j++) store.put('q${i}/' + j, j); return 1; }` });
+    assert.equal(r.store.written.length, per, JSON.stringify(r.store));
+  }
+  const over = await run(cred, roomId, { language: "python", source: "def main(d):\n    store.put('one-more', 1)\n    return 1\n" });
+  assert.match(over.store.refused, new RegExp(`would hold ${CODE_LIMITS.objectsPerUser + 1} objects; the limit is ${CODE_LIMITS.objectsPerUser}`));
+  // Replacing an existing key is not a new object; deleting makes room.
+  assert.deepEqual((await run(cred, roomId, { language: "python", source: "def main(d):\n    store.put('q0/0', 'new')\n    return 1\n" })).store, { written: ["q0/0"], deleted: [] });
+  assert.deepEqual((await run(cred, roomId, { language: "python", source: "def main(d):\n    store.delete('q0/1')\n    store.put('one-more', 1)\n    return 1\n" })).store, { written: ["one-more"], deleted: ["q0/1"] });
 });
