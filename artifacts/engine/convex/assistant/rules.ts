@@ -196,23 +196,36 @@ export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
 
 /**
  * The thread as model messages. Rules (Claude 5 thinking blocks are valid only while everything before them is
- * byte-identical, so the history must be append-only within a turn):
- *   - the current turn: the user's message after its briefing, then each step's own blocks verbatim (thinking and the
- *     model's raw tool input) and its tool results;
- *   - earlier turns: the same without thinking (a leading run of thinking may be dropped) and without briefings;
+ * byte-identical, and the provider's prompt cache is a prefix match, so the history is append-only, across turns too):
+ *   - every turn: the user's message after that turn's briefing, then each step's own blocks verbatim (thinking and
+ *     the model's raw tool input) and its tool results, exactly as its own steps sent them (so a new turn reads the
+ *     earlier ones from the prompt cache instead of rewriting them);
  *   - earlier turns are cut whole, oldest first, by their own size only, so the cut never moves during a turn;
  *   - every tool use gets a result (an error when its call never finished);
  *   - an earlier turn that ended without its answer (allowance, failure, cancellation) closes with UNANSWERED_NOTES.
  * Rows from before stored blocks existed are rebuilt from their text and calls.
  */
-export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: { turnId: string; briefing?: string | null; endings?: Record<string, TurnEnding> }, maxChars: number = LIMITS.historyChars): ChatMessage[] {
+type HistoryContext = { turnId: string; briefings?: Record<string, string | null | undefined>; endings?: Record<string, TurnEnding> };
+export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: HistoryContext, maxChars: number = LIMITS.historyChars): ChatMessage[] {
+  const groups = historyGroups(rows, calls, current);
+  const older = groups.filter(g => g.turnId !== current.turnId);
+  const now = groups.filter(g => g.turnId === current.turnId);
+  let total = older.reduce((s, g) => s + groupSize(g), 0);
+  while (older.length && total > maxChars) total -= groupSize(older.shift()!);
+  return [...older, ...now].flatMap(g => g.messages);
+}
+
+const groupSize = (g: { messages: ChatMessage[] }) => JSON.stringify(g.messages).length;
+
+/** Each turn's model messages, in order (buildHistory without the cut). */
+function historyGroups(rows: HistoryRow[], calls: HistoryCall[], current: HistoryContext): { turnId: string; messages: ChatMessage[] }[] {
   const byMessage = new Map<string, HistoryCall[]>();
   for (const c of calls) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
   const groups: { turnId: string; messages: ChatMessage[] }[] = [];
   for (const m of rows) {
-    const isCurrent = m.turnId === current.turnId;
     if (m.role === "user") {
-      const content = isCurrent && current.briefing ? [{ type: "text" as const, text: current.briefing }, { type: "text" as const, text: m.text }] : m.text;
+      const briefing = current.briefings?.[m.turnId];
+      const content = briefing ? [{ type: "text" as const, text: briefing }, { type: "text" as const, text: m.text }] : m.text;
       groups.push({ turnId: m.turnId, messages: [{ role: "user", content }] });
       continue;
     }
@@ -220,8 +233,7 @@ export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: 
     if (!group || group.turnId !== m.turnId) continue; // the window starts inside an older turn
     const used = (byMessage.get(m.id) ?? []).sort((a, b) => a.index - b.index);
     let content = storedBlocks(m.contentJson);
-    if (content) { if (!isCurrent) content = content.filter(b => b.type !== "thinking"); }
-    else {
+    if (!content) {
       const finished = used.filter(c => FINISHED.includes(c.status));
       content = [...(m.text ? [{ type: "text" as const, text: m.text }] : []),
         ...finished.map(c => ({ type: "tool_use" as const, id: c.callId, name: c.tool, input: parseObject(c.argsJson) }))];
@@ -239,12 +251,31 @@ export function buildHistory(rows: HistoryRow[], calls: HistoryCall[], current: 
     const note = g.turnId !== current.turnId ? UNANSWERED_NOTES[current.endings?.[g.turnId] ?? "done"] : undefined;
     if (note) g.messages.push({ role: "user", content: [{ type: "text", text: note }] });
   }
-  const older = groups.filter(g => g.turnId !== current.turnId);
-  const now = groups.filter(g => g.turnId === current.turnId);
-  const size = (g: { messages: ChatMessage[] }) => JSON.stringify(g.messages).length;
-  let total = older.reduce((s, g) => s + size(g), 0);
-  while (older.length && total > maxChars) total -= size(older.shift()!);
-  return [...older, ...now].flatMap(g => g.messages);
+  return groups;
+}
+
+/** Earlier turns as the history window sees them: each turn's first message seq, model-message JSON size and count. */
+export function turnSizes(rows: (HistoryRow & { seq: number })[], calls: HistoryCall[], current: HistoryContext): { seq: number; chars: number; messages: number }[] {
+  const firstSeq = new Map<string, number>();
+  for (const r of rows) if (r.role === "user" && !firstSeq.has(r.turnId)) firstSeq.set(r.turnId, r.seq);
+  return historyGroups(rows, calls, current).filter(g => g.turnId !== current.turnId && firstSeq.has(g.turnId))
+    .map(g => ({ seq: firstSeq.get(g.turnId)!, chars: groupSize(g), messages: g.messages.length }));
+}
+
+/**
+ * Where a new turn's history window starts (the first message seq of the earliest earlier turn it replays). A window
+ * that moves every turn would change the history's first message, and so miss the prompt cache, on every turn of a
+ * long thread. So the start stays the previous turn's while the earlier turns from it fit the limits; once they
+ * outgrow them, whole turns are dropped until at most half the limits are left, which then holds for several turns.
+ * Infinity: no earlier turn is replayed.
+ */
+export function historyStart(earlier: { seq: number; chars: number; messages: number }[], previous: number,
+  limits: { chars: number; messages: number } = { chars: LIMITS.historyChars, messages: LIMITS.historyMessages }): number {
+  const kept = earlier.filter(t => t.seq >= previous);
+  const sum = (k: "chars" | "messages") => kept.reduce((s, t) => s + t[k], 0);
+  if (sum("chars") <= limits.chars && sum("messages") <= limits.messages) return previous;
+  while (kept.length && (sum("chars") > limits.chars / 2 || sum("messages") > limits.messages / 2)) kept.shift();
+  return kept[0]?.seq ?? Infinity;
 }
 
 // ---------------------------------------------------------------------------------------------

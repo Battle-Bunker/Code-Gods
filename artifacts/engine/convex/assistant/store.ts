@@ -9,7 +9,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import type { ChatMessage } from "@workspace/ai-player";
-import { LIMITS, buildHistory, isActive, turnEnding, type TurnStatus } from "./rules";
+import { LIMITS, buildHistory, historyStart, isActive, turnEnding, turnSizes, type TurnStatus } from "./rules";
 
 type Ctx = QueryCtx | MutationCtx;
 type Turn = Doc<"assistantTurns">;
@@ -71,24 +71,35 @@ async function liveTurn(ctx: Ctx, turnId: Id<"assistantTurns">, gen: number) {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * The thread as model messages (rules.ts buildHistory). The window is turn-aligned so it never moves during a turn:
- * all of the current turn, and up to LIMITS.historyMessages earlier messages with their calls.
+ * A turn's window of the thread: its own messages and the earlier ones from `fromSeq`, with their calls, briefings
+ * and endings (rules.ts buildHistory's input). Without a stored start (turns from before historyFromSeq existed), the
+ * earlier window is the last LIMITS.historyMessages messages.
  */
-async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
+async function windowOf(ctx: QueryCtx, turn: Turn, fromSeq: number | undefined) {
   const mine = await ctx.db.query("assistantMessages").withIndex("by_turn", q => q.eq("turnId", turn._id)).take(200);
   const firstSeq = Math.min(...mine.map(m => m.seq), Number.MAX_SAFE_INTEGER);
-  const before = (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId).lt("seq", firstSeq))
-    .order("desc").take(LIMITS.historyMessages)).reverse();
+  const before = fromSeq === undefined
+    ? (await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId).lt("seq", firstSeq)).order("desc").take(LIMITS.historyMessages)).reverse()
+    : await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId).gte("seq", fromSeq).lt("seq", firstSeq)).take(4 * LIMITS.historyMessages);
   const rows = [...before, ...mine.sort((a, b) => a.seq - b.seq)];
   const turnIds = [...new Set(rows.map(m => m.turnId))];
   const calls = (await Promise.all(turnIds.map(id => callsOf(ctx, id)))).flat();
   const earlier = await Promise.all(turnIds.filter(id => id !== turn._id).map(id => ctx.db.get(id)));
   const endings = Object.fromEntries(earlier.flatMap(t => t ? [[t._id, turnEnding(t.status, t.error?.code)]] : []));
-  return buildHistory(
-    rows.map(m => ({ id: m._id, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
-    calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
-    { turnId: turn._id, briefing: turn.briefing ?? null, endings },
-  );
+  return {
+    rows: rows.map(m => ({ id: m._id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
+    calls: calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
+    current: { turnId: turn._id, briefings: Object.fromEntries([turn, ...earlier].flatMap(t => t?.briefing ? [[t._id, t.briefing]] : [])), endings },
+  };
+}
+
+/**
+ * The thread as model messages (rules.ts buildHistory): all of the current turn and the earlier turns from the window
+ * start chosen at its first step (historyStart), so the window never moves during a turn and rarely between turns.
+ */
+async function historyOf(ctx: QueryCtx, turn: Turn): Promise<ChatMessage[]> {
+  const { rows, calls, current } = await windowOf(ctx, turn, turn.historyFromSeq);
+  return buildHistory(rows, calls, current);
 }
 
 /** Everything a step needs, or why it must stop. The history is JSON (model-chosen keys need not be Convex field names). */
@@ -117,13 +128,20 @@ export const context = internalQuery({
 // One model step
 // ---------------------------------------------------------------------------------------------
 
-/** The turn's briefing, written once before its first model step (rules.ts buildHistory puts it in front). */
+/** The turn's briefing and history window start, written once before its first model step (rules.ts buildHistory puts the briefing in front). */
 export const setBriefing = internalMutation({
   args: { turnId: v.id("assistantTurns"), gen: v.number(), briefing: v.string() },
   handler: async (ctx, { turnId, gen, briefing }) => {
     const turn = await liveTurn(ctx, turnId, gen);
     if (!turn) return { cancelled: true };
-    if (turn.briefing === undefined) await ctx.db.patch(turn._id, { briefing, updatedAt: Date.now() });
+    if (turn.briefing !== undefined) return { cancelled: false };
+    // The window start: the previous turn's, moved forward only when the earlier turns outgrow the limits.
+    const [previous] = (await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", turn.threadId)).order("desc").take(2)).filter(t => t._id !== turn._id);
+    const window = await windowOf(ctx, turn, previous?.historyFromSeq);
+    const from = window.rows[0]?.seq ?? 0;
+    const start = historyStart(turnSizes(window.rows, window.calls, window.current), previous?.historyFromSeq ?? from);
+    const own = window.rows.find(r => r.turnId === turn._id)?.seq ?? 0;
+    await ctx.db.patch(turn._id, { briefing, historyFromSeq: Math.min(start, own), updatedAt: Date.now() });
     return { cancelled: false };
   },
 });

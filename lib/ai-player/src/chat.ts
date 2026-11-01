@@ -27,7 +27,7 @@ export type ChatAssistantBlock = ChatText | ChatToolUse | ChatThinking;
 
 export interface ChatRequest {
   system: string;
-  /** A stable, opaque key of the conversation (OpenAI routes requests with one key to the same prompt cache). */
+  /** A stable, opaque key of the request's stable prefix (OpenAI routes requests with one key to the same prompt cache). */
   cacheKey?: string;
   messages: ChatMessage[];
   tools: ChatToolSpec[];

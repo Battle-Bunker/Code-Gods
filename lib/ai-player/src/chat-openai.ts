@@ -14,8 +14,8 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
     async estimateInputTokens(input) { return { tokens: charsEstimate(input, CHARS_PER_TOKEN.openai), counted: false }; },
     /**
      * OpenAI caches stable request prefixes automatically (1024 tokens and up): the tools and the system prompt come
-     * first and never change within a thread, then the append-only history; prompt_cache_key keeps a thread's
-     * requests on the same cache. Cached input is reported as prompt_tokens_details.cached_tokens.
+     * first and never change within a thread, then the append-only history; prompt_cache_key (the engine's hash of
+     * that prefix) keeps every thread of a player on the same cache. Cached input is reported as prompt_tokens_details.cached_tokens.
      */
     async stream(request) {
       checkRequest(request);

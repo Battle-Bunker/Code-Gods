@@ -7,7 +7,8 @@
  *   `/mock {"steps":[step, …]}` or `/mock [step, …]`, where a step is one model call:
  *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message",
  *       "status": 400..599 (with fail: the HTTP status of a provider SDK error, as when the request is refused),
- *       "echo": true (answer with JSON {system, tools: names, context: the prompt's other text blocks}) }
+ *       "echo": true (answer with JSON {system, tools: names, context: the prompt's other text blocks, earlier: earlier
+ *       turns' user text without their briefings}) }
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
  * the turn with no text. Usage is reported from the request and answer sizes (about four characters a token). An aborted
@@ -79,7 +80,8 @@ export function mockChatProvider(): ChatProvider {
       if (!current) return { content: [], stopReason: "end_turn", ...usage, outputTokens: 1 };
       if (current.fail) throw Object.assign(new Error(current.fail), current.status ? { status: current.status } : {});
       let text = "";
-      const earlier = request.messages.slice(0, Math.max(0, promptAt)).flatMap(m => m.role === "user" ? (typeof m.content === "string" ? [m.content] : m.content.flatMap(b => b.type === "text" ? [b.text] : [])) : []);
+      // Earlier turns' user text (their briefings left out: the current one is in context, and they would crowd the echo).
+      const earlier = request.messages.slice(0, Math.max(0, promptAt)).flatMap(m => m.role === "user" ? (typeof m.content === "string" ? [m.content] : m.content.flatMap(b => b.type === "text" && !b.text.startsWith("<briefing>") ? [b.text] : [])) : []);
       const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: request.tools.map(t => t.name), context: blocks.slice(0, -1), earlier })] : current.text;
       const aborted = () => new ChatAbortedError({ input: usage, outputChars: text.length, reasoningMs: 0 });
       for (const chunk of chunks) {

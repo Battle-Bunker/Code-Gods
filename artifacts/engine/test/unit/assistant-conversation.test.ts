@@ -62,14 +62,16 @@ function fakeApi(script: Step[]) {
   return { seen, provider: anthropicChatProvider(new Anthropic({ apiKey: "test-not-a-real-key", fetch, maxRetries: 0 }) as unknown as Parameters<typeof anthropicChatProvider>[0], { model: "claude-sonnet-5-5", inputUsdPerMillion: 2, outputUsdPerMillion: 10 }) };
 }
 
-/** The engine's turn loop in memory: steps until the model ends the turn, storing what step.ts stores. */
+/** The engine's turn loop in memory: steps until the model ends the turn, storing what step.ts stores (briefings too). */
+const briefings: Record<string, string> = {};
 async function runTurn(api: ReturnType<typeof fakeApi>, rows: HistoryRow[], calls: HistoryCall[], turnId: string, text: string) {
   const system = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: "act" });
   const tools = modelTools("act");
   const briefing = assistantBriefing({ rules: { rules: "# Code Gods: rules" }, observation: { phase: "planning", language: "python", self: { energy: 100, utility: { name: "Power Hoarder", summary: "Factors of 3." } } } });
+  briefings[turnId] = briefing;
   rows.push({ id: `${turnId}-u`, turnId, role: "user", text });
   for (let s = 0; s < 6; s++) {
-    const result = await api.provider.stream({ system, tools, messages: buildHistory(rows, calls, { turnId, briefing }), maxOutputTokens: 8192, signal: new AbortController().signal });
+    const result = await api.provider.stream({ system, tools, messages: buildHistory(rows, calls, { turnId, briefings }), maxOutputTokens: 8192, signal: new AbortController().signal });
     const id = `${turnId}-m${s}`;
     rows.push({ id, turnId, role: "assistant", text: result.content.flatMap(b => b.type === "text" ? [b.text] : []).join(""), contentJson: JSON.stringify(result.content) });
     result.content.forEach(b => {
@@ -98,6 +100,6 @@ test("a multi-step turn with thinking (the screenshot's 'Suggest an opening agen
   assert.deepEqual(second.content.filter(b => b.type === "text"), [{ type: "text", text: "81 is worth 4 factors of 3." }]);
   assert.equal(api.seen.rejected, 0, "no thinking block was ever invalidated");
   assert.equal(api.seen.requests, 5, "one request per step, no retries");
-  assert.ok(api.seen.replayedThinking >= 3, "the turn's own thinking was replayed");
+  assert.ok(api.seen.replayedThinking >= 3 + 3 * 2, "each step replays the thread's thinking, the first turn's included in the second");
   assert.ok(JSON.parse(calls.find(c => c.tool === "validate_agent")!.argsJson).commandId, "the call ran with the engine's derived id");
 });
