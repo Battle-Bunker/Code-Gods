@@ -50,9 +50,9 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [],
     language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" });
-  // Refused: an instantiation not offered, an option the language lacks, an unknown field, a family the world lacks,
+  // Refused: an invalid instantiation, an option the language lacks, an unknown field, a family the world lacks,
   // and defence goals in a world with no defence families (Int has none).
-  for (const settings of [{ typeArgs: { min: 0, max: 5 } }, { grammarId: "python-agent-v1" }, { colour: "red" }, { excludedFamilies: ["sudoku_scholar"] },
+  for (const settings of [{ typeArgs: { min: 5, max: 0 } }, { grammarId: "python-agent-v1" }, { colour: "red" }, { excludedFamilies: ["sudoku_scholar"] },
     { defenceGoals: true }, { defenceRate: 0.5 }]) {
     assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: await revision(), settings })), "BAD_REQUEST", JSON.stringify(settings));
   }

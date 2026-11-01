@@ -146,7 +146,7 @@ export const STEP_VERBS = {
   run_code: ["ran code", "running code", "run code"],
   get_code_run: ["read a code result", "reading a code result", "read a code result"],
   list_code_runs: ["listed your code runs", "listing your code runs", "list your code runs"],
-  load_skill: ["read a guide", "reading a guide", "read a guide"],
+  load_skill: ["read up on it", "reading up on it", "read up on it"],
 } as const satisfies Record<ToolName, readonly [string, string, string]>;
 
 function argsOf(call: CallRow): Record<string, unknown> {
@@ -157,6 +157,8 @@ function verbs(call: CallRow): readonly [string, string, string] {
     const panelId = argsOf(call).panelId;
     if (isPanelId(panelId)) { const title = PANELS[panelId].title; return [`showed ${title}`, `showing ${title}`, `show ${title}`]; }
   }
+  // The engine's tool loader (not a registry tool): it readies tools for the next step.
+  if (call.tool === "load_tools") return ["got tools ready", "getting tools ready", "get tools ready"];
   const known = (STEP_VERBS as Record<string, readonly [string, string, string]>)[call.tool];
   if (known) return known;
   const name = call.tool.replace(/_/g, " ");

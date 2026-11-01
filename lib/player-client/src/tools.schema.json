@@ -769,7 +769,7 @@
           "maxLength": 128
         },
         "waitMs": {
-          "description": "How long to wait for the receipt (ms). Past it the answer is {status: 'pending', commandId}: complete it with get_receipt.",
+          "description": "How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.",
           "default": 90000,
           "type": "integer",
           "minimum": 0,
@@ -883,7 +883,7 @@
           ]
         },
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -895,7 +895,7 @@
           "maxLength": 128
         },
         "waitMs": {
-          "description": "How long to wait for the receipt (ms). Past it the answer is {status: 'pending', commandId}: complete it with get_receipt.",
+          "description": "How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.",
           "default": 90000,
           "type": "integer",
           "minimum": 0,
@@ -1003,7 +1003,7 @@
           "maxLength": 128
         },
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -1318,7 +1318,7 @@
       "type": "object",
       "properties": {
         "commandId": {
-          "description": "A fresh UUID per NEW intent. Resend the identical call with the same commandId after a lost answer; it is never applied twice.",
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
@@ -2686,7 +2686,7 @@
           "pattern": "^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$"
         },
         "params": {
-          "description": "A built-in panel's parameters (its JSON Schema is in get_layout; every field is optional with a default except what-if's objectId and calls). Invalid parameters are refused with the schema. Not for stored panels.",
+          "description": "The built-in panel's parameters (schemas in get_layout; all optional except what-if's objectId and calls). Not for stored panels.",
           "type": "object",
           "propertyNames": {
             "type": "string"
@@ -2694,7 +2694,7 @@
           "additionalProperties": {}
         },
         "place": {
-          "description": "Where the pane goes: next to another pane (relativeTo, default: the last built-in panel's pane) in a direction, or 'tab' to join its tab group. Omit to reuse an open pane of the same panel.",
+          "description": "Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.",
           "type": "object",
           "properties": {
             "relativeTo": {

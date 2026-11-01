@@ -10,13 +10,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import { context, family, tableKey } from "@workspace/game-utilities";
-import { admin, internal, waitFor } from "./game-helpers.ts";
+import { familiesFor } from "@workspace/game-utilities";
+import { admin, api, gods, internal, roomWith, touch, waitFor } from "./game-helpers.ts";
 
-/** A shape the repository ships no tables for. */
-const settings = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgby" }, priorId: "uniform" };
-const inst = instantiate("Grid", settings.typeArgs);
-const analyticDraw = { familyId: "hate_colour", params: { colour: 1 } };           // Binomial: analytic, instant
-const sampled = [{ familyId: "snap", params: {} }, { familyId: "odds_evens", params: { X: null } }, { familyId: "hate_blob", params: { C: 2 } }];
+/** A shape the repository ships no tables for (every Grid shape is shipped since PR #57; this Int range is not). */
+const settings = { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, priorId: "uniform" };
+const inst = instantiate("Int", settings.typeArgs);
+const analyticDraw = { familyId: "digit-devotee", params: { d: 7 } };             // digit counts: analytic, instant
+const sampled = [3, 4, 5].map(n => ({ familyId: "smooth-operator", params: { primes: [3, 5, 7, 11, 13].slice(0, n) } }));
 const draws = [analyticDraw, ...sampled];
 
 test("first use on a new shape: analytic draws are ready at once, sampled draws are computed in parallel actions and cached", { timeout: 600_000 }, async () => {
@@ -24,11 +25,11 @@ test("first use on a new shape: analytic draws are ready at once, sampled draws 
   const started = performance.now();
   const first = await admin.action(internal.calibration.compute.prepare, { settings, draws });
   assert.equal(first.instance, inst.key);
-  assert.deepEqual(first.ready.map((r: { familyId: string; source: string }) => [r.familyId, r.source]), [["hate_colour", "analytic"]]);
-  assert.deepEqual(first.pending.map((p: { familyId: string; scheduled: boolean }) => [p.familyId, p.scheduled]).sort(), sampled.map(d => [d.familyId, true]).sort());
+  assert.deepEqual(first.ready.map((r: { familyId: string; source: string }) => [r.familyId, r.source]), [["digit-devotee", "analytic"]]);
+  assert.deepEqual(first.pending.map((p: { familyId: string; scheduled: boolean }) => [p.familyId, p.scheduled]), sampled.map(d => [d.familyId, true]));
   // The keys are the current code's, for the canonical params.
-  for (const p of first.pending) {
-    const f = family(p.familyId), draw = draws.find(d => d.familyId === p.familyId)!;
+  for (const [i, p] of first.pending.entries()) {
+    const f = family(p.familyId), draw = sampled[i]!;
     assert.equal(p.key, tableKey(f.id, f.canonical(draw.params, context(inst)), inst));
   }
   // Poll until every table has landed; a later request must never schedule again.
@@ -61,4 +62,29 @@ test("a shipped shape resolves every draw from the warm file without computing a
   assert.deepEqual(r.ready.map((x: { source: string }) => x.source), ["file", "file"]);
   // A family of another object type is refused before anything is claimed.
   await assert.rejects(admin.action(internal.calibration.compute.prepare, { settings: shipped, draws: [{ familyId: "digit-devotee", params: { d: 7 } }] }), /Int family/);
+});
+
+test("a game started on a shape with no shipped file deals, prepares its tables by a real fan-out of actions, then reaches planning", { timeout: 600_000 }, async () => {
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+  const members = await gods("Fanout Owner", "Fanout Ada", "Fanout Bo");
+  await touch(members[0]);
+  // Only smooth-operator may be dealt: three gods, its three sampled tables, none ready.
+  const excludedFamilies = familiesFor("Int", "reward").map(f => f.id).filter(id => id !== "smooth-operator");
+  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: settings.typeArgs, language: "typescript", excludedFamilies, halfLifeSeconds: 100000 });
+  const started = performance.now();
+  const first = await members[0].c.action(api.owner.start, { roomId, requestId: crypto.randomUUID() });
+  assert.deepEqual([first.status, first.ready, first.total], ["preparing", 0, 3]);
+  let seenProgress = false;
+  const game = await waitFor(async () => {
+    const r = await members[1].c.query(api.rooms.get, { room: roomId });
+    assert.equal(r.preparing?.error, undefined, "no table failed");
+    if (r.preparing && r.preparing.ready > 0 && r.preparing.ready < 3) seenProgress = true;
+    return r.activeGame;
+  }, "the prepared game", 540_000, 500);
+  assert.equal(game.phase, "planning");
+  console.log(`# start on ${inst.key} with 3 tables to compute: planning after ${((performance.now() - started) / 1000).toFixed(1)} s${seenProgress ? " (progress observed)" : ""}`);
+  // Scoring works: the starting objects carry every god's score from the computed tables.
+  const g = await admin.query(internal.testing.rawGame, { gameId: game.id });
+  assert.ok(g.objects.length > 0 && g.objects.every((o: { scores: unknown[] }) => o.scores.length === 3));
+  await members[0].c.mutation(api.rooms.endActiveGame, { roomId });
 });

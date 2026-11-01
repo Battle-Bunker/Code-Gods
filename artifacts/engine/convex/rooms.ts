@@ -18,6 +18,7 @@ import {
   shortCodeFor, viewerOf,
 } from "./lib/rooms";
 import { touchActivity } from "./activity";
+import { cancelPreparing } from "./game/lobby";
 
 export const MAX_GODS = 8;
 
@@ -271,6 +272,7 @@ async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: st
   const room = await requireRoom(ctx, roomId);
   await requireOwnerAs(ctx, viewer, room);
   const game = await activeGame(ctx, room);
+  if (!game && room.preparing) { await cancelPreparing(ctx, room); return { cancelled: "preparing" as const }; }
   if (!game) return fail("CONFLICT", "There is no active game to end");
   await endGame(ctx, game, "owner");
   return { gameId: game._id };

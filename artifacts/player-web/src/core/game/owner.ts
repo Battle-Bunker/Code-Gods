@@ -22,8 +22,15 @@ export function useOwnerActions() {
     const room = roomId as Id<"rooms">;
     const done = (text: string) => <T,>(p: Promise<T>) => p.then(r => { notify(text); return r; }, e => { notifyError(e); return undefined; });
     return {
-      start: () => done("Game started: planning begins.")(start({ roomId, requestId: crypto.randomUUID() })),
-      endGame: () => done("Game ended.")(end({ roomId: room })),
+      start: () => start({ roomId, requestId: crypto.randomUUID() }).then(r => {
+        // A shape new to this server first prepares its rule tables; the game then starts by itself.
+        notify("status" in r && r.status === "preparing" ? `Preparing the game's rule tables (${r.ready} of ${r.total} ready); it starts by itself.` : "Game started: planning begins.");
+        return r;
+      }, e => { notifyError(e); return undefined; }),
+      endGame: () => end({ roomId: room }).then(r => {
+        notify(r && "cancelled" in r ? "The game's preparation was ended." : "Game ended.");
+        return r;
+      }, e => { notifyError(e); return undefined; }),
       resume: () => done("Game resumed.")(resume({ roomId: room })),
       addAi: (templateId: string) => done("AI player seated.")(addAi({ roomId: room, templateId })),
       removeAi: (godId: string) => done("AI player removed.")(removeAi({ roomId: room, godId })),

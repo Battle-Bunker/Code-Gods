@@ -100,3 +100,17 @@ export function outOfPhase(panelId: PanelId, phase: Phase): string {
 export const fmt = (v: number) => (Number.isInteger(v) ? String(v) : Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(1));
 export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 export const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+
+/** The room's preparing state (rooms.get `preparing`), as panels show it. */
+export type PreparingInfo = { ready: number; total: number; instance: string; estimateSeconds: number; dealerNote?: string; error?: string };
+/** "The game is preparing its rule tables, 12 of 18 ready…": the next game's first start on a shape new to this server. */
+export function PreparingNote({ preparing: p }: { preparing: PreparingInfo }) {
+  return (
+    <div className="space-y-1 border-l-2 border-[hsl(var(--accent))] pl-3 text-sm" data-testid="note-preparing" aria-live="polite">
+      {p.error
+        ? <p className="text-destructive" role="alert">Preparing the game failed: {p.error}</p>
+        : <p>The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready. It is the first game on {p.instance} on this server (about {p.estimateSeconds} s); it starts by itself, with planning time after.</p>}
+      {p.dealerNote && <p className="text-xs text-muted-foreground">{p.dealerNote}.</p>}
+    </div>
+  );
+}

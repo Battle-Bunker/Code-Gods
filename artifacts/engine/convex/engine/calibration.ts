@@ -17,14 +17,15 @@
 import { createHash } from "node:crypto";
 import {
   CALIBRATION_FORMAT, UNIFORM_PRIOR, analyticFor, context, family, instanceTables, manifestOf, paramsKey, priorKey, tableFor, tableKey,
-  type CalibrationFile, type CalibrationManifest, type CalibrationTable, type Draw, type InstanceTables, type PriorRef,
+  type CalibrationFile, type CalibrationManifest, type CalibrationTable, type Draw, type InstanceTables, type PriorRef, type UtilityDescriptor,
 } from "@workspace/game-utilities";
 import { buildTable } from "@workspace/game-utilities/estimator";
+import { instantiationOf, type GameSettings } from "@workspace/game-core";
 import type { Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { rememberPriors } from "./node";
+import { priorOf, rememberPriors } from "./node";
 
 export const INDEX_TTL_MS = 60_000;
 export const MAX_INSTANCES = 8;
@@ -135,9 +136,23 @@ export interface Resolution {
   readonly pending: readonly PendingDraw[];
 }
 
-/** Analytic tables, built once per process (milliseconds each; never stored). */
+/** Analytic tables, built once per process (milliseconds each; never stored); computed ones, read once per process. */
 const analyticTables = new Map<string, CalibrationTable>();
-const MAX_ANALYTIC = 2048;
+const computedTables = new Map<string, CalibrationTable>();
+const MAX_ANALYTIC = 2048, MAX_COMPUTED = 2048;
+const remember = (memo: Map<string, CalibrationTable>, max: number, key: string, t: CalibrationTable) => {
+  if (memo.size >= max) memo.delete(memo.keys().next().value!);
+  memo.set(key, t);
+};
+
+export interface ResolveOptions {
+  /**
+   * Claim and schedule the computation of missing tables (default true: the game start). False reports them pending
+   * without computing anything: the paths any caller can reach (scoring ticks, a player's own tables), whose draws a
+   * started game has already prepared.
+   */
+  readonly schedule?: boolean;
+}
 
 /**
  * The tables of `draws` (reward draws and defence goals, raw params) in `inst` under `prior`: from the warm file, the
@@ -147,7 +162,9 @@ const MAX_ANALYTIC = 2048;
  * failed to compute twice, or a non-uniform prior (its tables derive from pools the deployment does not hold, so they
  * are shipped or nothing).
  */
-export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: readonly Draw[], prior: PriorRef = UNIFORM_PRIOR): Promise<Resolution> {
+export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: readonly Draw[], prior: PriorRef = UNIFORM_PRIOR,
+  options: ResolveOptions = {}): Promise<Resolution> {
+  const schedule = options.schedule ?? true;
   const base = await tablesFor(ctx, inst), ctx_ = context(inst), uniform = priorKey(prior) === priorKey(UNIFORM_PRIOR);
   const ready: ResolvedDraw[] = [], pending: PendingDraw[] = [], extra: CalibrationTable[] = [];
   const toCheck: { draw: Draw; canon: Draw["params"]; key: string }[] = [];
@@ -161,13 +178,15 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
       if (!t) {
         const started = performance.now();
         t = buildTable(draw.familyId, canon, inst).table;
-        if (analyticTables.size >= MAX_ANALYTIC) analyticTables.delete(analyticTables.keys().next().value!);
-        analyticTables.set(key, t);
+        remember(analyticTables, MAX_ANALYTIC, key, t);
         ready.push({ draw, key, source: "analytic", buildMs: performance.now() - started });
       } else ready.push({ draw, key, source: "analytic" });
       extra.push(t);
       continue;
     }
+    // The memo serves the hot paths of a started game (ticks); a start reads the cache rows, which also marks them used.
+    const memo = schedule ? undefined : computedTables.get(key);
+    if (memo) { extra.push(memo); ready.push({ draw, key, source: "computed" }); continue; }
     toCheck.push({ draw, canon, key });
   }
   if (toCheck.length) {
@@ -177,16 +196,28 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
       const row = rows.get(c.key);
       if (row?.status === "ready" && row.table) {
         const t = JSON.parse(row.table) as CalibrationTable;
-        if (t.key === c.key) { extra.push(t); ready.push({ draw: c.draw, key: c.key, source: "computed", buildMs: row.buildMs }); continue; }
+        if (t.key === c.key) {
+          remember(computedTables, MAX_COMPUTED, c.key, t);
+          extra.push(t); ready.push({ draw: c.draw, key: c.key, source: "computed", buildMs: row.buildMs }); continue;
+        }
       }
       missing.push(c);
+    }
+    if (!schedule) {
+      for (const { draw, key } of missing) pending.push({ draw, key, scheduled: false });
+      missing.length = 0;
     }
     if (missing.length && !uniform) {
       throw new Error(`No calibration tables for ${missing.map(c => c.draw.familyId).join(", ")} on ${inst.key} under prior ${priorKey(prior)}: tables for this prior are shipped, not computed on demand`);
     }
-    // Independent per table: claim and schedule all of them at once.
+    // Independent per table: claim and schedule all of them at once (each key once: two gods may share a defence goal).
+    const claims = new Map<string, Promise<"compute" | "wait" | "ready" | "failed">>();
     const verdicts = await Promise.all(missing.map(async ({ draw, canon, key }) => {
-      const verdict = await ctx.runMutation(internal.calibration.cache.claim, { key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior) });
+      const known = claims.get(key);
+      if (known) { const verdict = await known; return { draw, canon, key, verdict: verdict === "compute" ? "wait" as const : verdict }; }
+      const claimed = ctx.runMutation(internal.calibration.cache.claim, { key, instance: inst.key, family: draw.familyId, paramsKey: paramsKey(canon), prior: priorKey(prior) });
+      claims.set(key, claimed);
+      const verdict = await claimed;
       if (verdict === "compute") await ctx.scheduler.runAfter(0, internal.calibration.compute.run, { key, instance: inst.key, familyId: draw.familyId, params: canon });
       return { draw, canon, key, verdict };
     }));
@@ -201,3 +232,25 @@ export async function resolveTables(ctx: ActionCtx, inst: Instantiation, draws: 
     : base;
   return { tables, ready, pending };
 }
+
+/** Every draw of some utilities (each reward and its defence goal), in order. */
+export const drawsOf = (utilities: readonly UtilityDescriptor[]): Draw[] => utilities.flatMap(u => [u, ...(u.penalty ? [u.penalty] : [])]);
+
+/**
+ * The tables of a started game's utilities (scoring ticks, a player's own score): ready by construction, since the
+ * start prepared every draw; never schedules anything. Throws when one is missing (a pruned row is recomputed only by a
+ * new start).
+ */
+export async function gameTables(ctx: ActionCtx, settings: GameSettings, utilities: readonly UtilityDescriptor[]): Promise<InstanceTables> {
+  const inst = instantiationOf(settings), prior = priorOf(settings.priorId ?? "uniform");
+  // Every tick of a game asks for the same utilities: resolve them once per process (a table key is its content).
+  const memoKey = `${inst.key}\0${priorKey(prior)}\0${utilities.map(u => paramsKey(u)).join("|")}`;
+  const known = gameTableMemo.get(memoKey);
+  if (known) return known;
+  const r = await resolveTables(ctx, inst, drawsOf(utilities), prior, { schedule: false });
+  if (r.pending.length) throw new Error(`No calibration table for ${r.pending.map(p => p.draw.familyId).join(", ")} in ${inst.key}`);
+  if (gameTableMemo.size >= 64) gameTableMemo.delete(gameTableMemo.keys().next().value!);
+  gameTableMemo.set(memoKey, r.tables);
+  return r.tables;
+}
+const gameTableMemo = new Map<string, InstanceTables>();

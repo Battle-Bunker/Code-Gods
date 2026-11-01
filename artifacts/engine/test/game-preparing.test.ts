@@ -1,0 +1,126 @@
+/**
+ * The two-half game start (docs/analytic-calibration/architecture.md §3.4) on a shape with no shipped tables,
+ * Int(0,2147483647): what would break is a start refused for want of tables, a game that never begins, a failing
+ * table that hangs the room instead of saying so, or a preparing state that leaks the deal. The deal is steered with
+ * excludedFamilies: digit-devotee is analytic for every params (instant), smooth-operator has three sampled tables.
+ * Nothing here waits for a real computation: the keys a test needs not computed are claimed first by the test (as a
+ * computation in flight elsewhere would be), so the room waits on them; test/calibration-ondemand.test.ts runs the
+ * real fan-out end to end.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { instantiate } from "@workspace/game-types";
+import { UNIFORM_PRIOR, canonicalSupport, context, familiesFor, paramsKey, priorKey, tableKey } from "@workspace/game-utilities";
+import { admin, api, gods, internal, rejects, roomWith, touch, waitFor } from "./game-helpers.ts";
+
+const typeArgs = { min: 0, max: 2147483647 };
+const inst = instantiate("Int", typeArgs);
+const only = (...ids: string[]) => familiesFor("Int", "reward").map(f => f.id).filter(id => !ids.includes(id));
+const settingsFor = (...allowed: string[]) => ({ objectType: "Int", typeArgs, language: "typescript", excludedFamilies: only(...allowed), halfLifeSeconds: 100000 });
+const keysOf = (familyId: string) => canonicalSupport(familiesFor("Int", "reward").find(f => f.id === familyId)!, context(inst))
+  .map(p => ({ key: tableKey(familyId, p, inst), paramsKey: paramsKey(p) }));
+
+async function room(label: string, ...allowed: string[]) {
+  const members = await gods(`${label} Owner`, `${label} Ada`, `${label} Bo`);
+  await touch(members[0]);
+  const { roomId } = await roomWith(members, settingsFor(...allowed));
+  return { members, host: members[0], roomId };
+}
+
+test("analytic-only draws on a shape with no shipped file start at once, with nothing computed", async () => {
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+  const { host, roomId } = await room("Analytic", "digit-devotee");
+  const started = await host.c.action(api.owner.start, { roomId, requestId: crypto.randomUUID() });
+  assert.ok(started.gameId, "a game, not a preparation");
+  const r = await host.c.query(api.rooms.get, { room: roomId });
+  assert.equal(r.preparing, null);
+  assert.equal(r.activeGame.phase, "planning");
+  assert.equal(await admin.mutation(internal.calibration.cache.forget, { instance: inst.key }), 0, "no table was computed or claimed");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+test("a shipped shape starts from the warm file without claiming anything", async () => {
+  const shipped = { min: 0, max: 9999 };
+  await admin.mutation(internal.calibration.cache.forget, { instance: instantiate("Int", shipped).key });
+  const members = await gods("Warm Owner", "Warm Ada", "Warm Bo");
+  await touch(members[0]);
+  const { roomId } = await roomWith(members, { objectType: "Int", typeArgs: shipped, language: "typescript", halfLifeSeconds: 100000 });
+  const started = await members[0].c.action(api.owner.start, { roomId });
+  assert.ok(started.gameId);
+  assert.equal(await admin.mutation(internal.calibration.cache.forget, { instance: instantiate("Int", shipped).key }), 0);
+  await members[0].c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+test("missing tables put the room in a visible preparing state; a failing table is retried with backoff, then reported to the owner", { timeout: 120_000 }, async () => {
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+  const keys = keysOf("smooth-operator");
+  assert.equal(keys.length, 3);
+  // Claimed elsewhere: the start waits on them instead of computing.
+  for (const k of keys) {
+    assert.equal(await admin.mutation(internal.calibration.cache.claim, { key: k.key, instance: inst.key, family: "smooth-operator", paramsKey: k.paramsKey, prior: priorKey(UNIFORM_PRIOR) }), "compute");
+  }
+  const { host, members, roomId } = await room("Prepare", "smooth-operator");
+  const requestId = crypto.randomUUID();
+  const first = await host.c.action(api.owner.start, { roomId, requestId });
+  assert.deepEqual([first.status, first.instance, first.ready, first.total, first.estimateSeconds], ["preparing", inst.key, 0, 3, 100]);
+  assert.match(first.message, /^The game is preparing its rule tables: 0 of 3 ready \(the first game on Int\(0,2147483647\) on this server; about 100 s in all\)\. It starts by itself/);
+  // The default dealer is the Aligned Lottery; with no synergy measured here it says it deals like the Divine Lottery.
+  assert.deepEqual([first.dealtAs, /deals like the Divine Lottery/.test(first.note)], ["divine-lottery", true]);
+  // Every member sees the progress, never the deal.
+  const seen = (await members[1].c.query(api.rooms.get, { room: roomId })).preparing;
+  assert.deepEqual(Object.keys(seen).sort(), ["dealtAs", "estimateSeconds", "instance", "ready", "startedAt", "total", ...(seen.dealerNote ? ["dealerNote"] : [])].sort());
+  assert.deepEqual([seen.ready, seen.total, seen.instance], [0, 3, inst.key]);
+  assert.equal((await members[1].c.query(api.rooms.get, { room: roomId })).activeGame, null);
+  // A repeated start reports the same preparation; settings are frozen meanwhile.
+  assert.equal((await host.c.action(api.owner.start, { roomId, requestId: crypto.randomUUID() })).status, "preparing");
+  const revision = (await host.c.query(api.rooms.get, { room: roomId })).revision;
+  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision, settings: { startingObjectCount: 9 } })), /preparing/);
+
+  // The computation of one key fails: retried (attempt 2, then 3) while the room waits; the third failure is reported.
+  const failing = keys[0]!.key;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await admin.mutation(internal.calibration.cache.finished, { key: failing, error: `injected failure ${attempt}`, buildMs: 1 });
+    const r = (await host.c.query(api.rooms.get, { room: roomId })).preparing;
+    if (attempt < 3) assert.equal(r.error, undefined, `still waiting after failure ${attempt}`);
+    else assert.match(r.error, /smooth-operator .* could not be prepared after 3 attempts \(injected failure 3\)\. Start again/);
+  }
+  const rows = await admin.mutation(internal.calibration.cache.getMany, { keys: [failing] });
+  assert.equal(rows[0].status, "failed");
+  // Settings unfreeze once it failed; the owner may end the failed preparation.
+  assert.deepEqual(await host.c.mutation(api.rooms.endActiveGame, { roomId }), { cancelled: "preparing" });
+  assert.equal((await host.c.query(api.rooms.get, { room: roomId })).preparing, null);
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+});
+
+test("when the last awaited table lands the game begins by itself, with the prepared deal and the planning clock starting then", { timeout: 120_000 }, async () => {
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+  const keys = keysOf("smooth-operator");
+  for (const k of keys) await admin.mutation(internal.calibration.cache.claim, { key: k.key, instance: inst.key, family: "smooth-operator", paramsKey: k.paramsKey, prior: priorKey(UNIFORM_PRIOR) });
+  const { host, roomId } = await room("Land", "smooth-operator");
+  const requestId = crypto.randomUUID();
+  assert.equal((await host.c.action(api.owner.start, { roomId, requestId })).status, "preparing");
+  // Land the tables as the compute actions would: a real table per key (the test computes them in its own process).
+  const { budgetFor, buildTable, tableJson } = await import("@workspace/game-utilities/estimator");
+  const support = canonicalSupport(familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!, context(inst));
+  for (const [i, p] of support.entries()) {
+    const t = buildTable("smooth-operator", p, inst, budgetFor("Int")).table;
+    assert.equal(t.key, keys[i]!.key);
+    const landedAt = Date.now();
+    await admin.mutation(internal.calibration.cache.finished, { key: t.key, table: tableJson(t), buildMs: 1 });
+    const r = await host.c.query(api.rooms.get, { room: roomId });
+    // (≥: a retry the previous test scheduled for the same key may land it first.)
+    if (i < support.length - 1) assert.ok(r.preparing.ready >= i + 1, "progress advances per landed table");
+    else {
+      const game = await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).activeGame, "the prepared game starts", 60_000);
+      assert.equal(game.phase, "planning");
+      const g = await admin.query(internal.testing.rawGame, { gameId: game.id });
+      assert.ok(g.game.planningEndsAt >= landedAt + 0.9 * g.game.settings.planningSeconds * 1000, "the planning clock starts when the tables are ready");
+      assert.deepEqual(g.deities.map((d: { utility: { familyId: string } }) => d.utility.familyId), ["smooth-operator", "smooth-operator", "smooth-operator"]);
+      assert.equal((await host.c.query(api.rooms.get, { room: roomId })).preparing, null);
+      // The same requestId now reports the game.
+      assert.equal((await host.c.action(api.owner.start, { roomId, requestId })).gameId, game.id);
+    }
+  }
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  await admin.mutation(internal.calibration.cache.forget, { instance: inst.key });
+});

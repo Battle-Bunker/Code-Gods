@@ -32,7 +32,7 @@ pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # play
 (cd artifacts/engine && npx convex deploy)                                # push again so auth.config.ts inlines both JWKS
 pnpm --filter @workspace/game-runtime setup:python                        # once: the pinned CPython WASI download
 pnpm --filter @workspace/engine upload-runtime --prod                     # the Python runtime bundle → file storage
-pnpm --filter @workspace/engine upload-calibration --prod                 # the calibration tables → file storage
+pnpm --filter @workspace/engine upload-calibration --prod                 # the calibration tables → file storage (a warm cache: a shape without them prepares its tables on its first game)
 pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the engine UI and /player/
 ```
 

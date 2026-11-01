@@ -61,7 +61,7 @@ test("numeric settings are validated", () => {
 
 test("defence goals on with every defence family excluded is refused when the families are known", () => {
   const families = (_t: string, _a: unknown, role: "reward" | "defence") => (role === "defence" ? ["hate_red", "hate_blue"] : ["stripes"]);
-  const domain = { offered: () => [], families, typeFamilies: (_t: string, role: "reward" | "defence") => families("", {}, role) };
+  const domain = { playable: () => [], families, typeFamilies: (_t: string, role: "reward" | "defence") => families("", {}, role) };
   assert.doesNotThrow(() => validateSettings(settings({ defenceGoals: true, excludedDefenceFamilies: ["hate_red"] }), domain));
   assert.throws(() => validateSettings(settings({ defenceGoals: true, excludedDefenceFamilies: ["hate_red", "hate_blue"] }), domain),
     /at least one defence goal/);

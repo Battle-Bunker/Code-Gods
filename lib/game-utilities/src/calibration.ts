@@ -9,7 +9,8 @@
  * instantiation's file (the engine from Convex file storage, artifacts/engine/convex/engine/calibration.ts; tests and
  * scripts from disk, src/calibration-data.ts), wraps it with `instanceTables`, and passes that to `tableFor` /
  * `hasTable`. What exists is described by a `CalibrationManifest` (built from the files with `manifestEntry`), which
- * `coverage` and `offeredInstantiations` take as an argument.
+ * `coverage` and `offeredInstantiations` take as an argument (diagnostics: what is shipped; what can be played is
+ * `playableInstantiations`, whatever is shipped).
  *
  * A table is **fresh** only while its key matches the current code (`tableKey`): the key hashes the family id, the
  * canonical params, the instantiation, the family's TypeScript card source for those params (the body the host
@@ -476,6 +477,56 @@ export function coverage(manifest: CalibrationManifest, inst: Instantiation, exc
   }
   memo.set(memoKey, c = Object.freeze({ instance: inst.key, missing, tables }));
   return c;
+}
+
+/** Whether an instantiation can be played at all: it exists and is not retired. Tables are never a condition. */
+export const isPlayableInstantiation = (inst: Instantiation): boolean =>
+  !(inst.objectType === "Grid" && RETIRED_GRID_SIZES.includes(inst.terms.size));
+
+const playableMemo = new Map<string, readonly Instantiation[]>();
+/**
+ * The instantiations the settings UI lists for an object type (docs/analytic-calibration/architecture.md §3.5): every
+ * combination of its parameters' choices (a component's options, an integer's presets), the type's defaults first,
+ * minus what the type itself refuses and the retired shapes (3×3). Whether tables exist plays no part: a shape with no
+ * shipped tables prepares them on its first game (`firstUseSeconds`). Any other valid arguments are playable too
+ * (`isPlayableInstantiation`), so an owner may still name, say, Int(5,100): this list is what pickers show.
+ */
+export function playableInstantiations(objectTypeId: string): readonly Instantiation[] {
+  let found = playableMemo.get(objectTypeId);
+  if (found) return found;
+  const T = objectType(objectTypeId);
+  let combos: Record<string, number | string>[] = [{ ...T.defaults } as Record<string, number | string>];
+  for (const p of T.params) {
+    const values: (number | string)[] = p.kind === "component" ? p.options.map(o => o.id) : [...(p.presets ?? [])];
+    if (!values.length) continue;
+    combos = combos.flatMap(c => values.map(value => ({ ...c, [p.id]: value })));
+  }
+  const out = new Map<string, Instantiation>();
+  for (const args of [T.defaults, ...combos]) {
+    let inst: Instantiation;
+    try { inst = T.instantiate(args); } catch { continue; }
+    if (isPlayableInstantiation(inst) && !out.has(inst.key)) out.set(inst.key, inst);
+  }
+  playableMemo.set(objectTypeId, found = Object.freeze([...out.values()]));
+  return found;
+}
+
+/**
+ * Cloud first-use latency (architecture.md §9, measured on the dev deployment with `scripts/first-use-probe.ts`): the
+ * wall time, in seconds, from dealing a 6-god game with defence goals on a shape with no tables to every table ready,
+ * one Node action per sampled table running concurrently. Rounded up; what the settings page's "first game prepares
+ * its tables" note and the room's preparing estimate quote.
+ */
+export const FIRST_USE_SECONDS: Readonly<Record<string, number | Readonly<Record<number, number>>>> = Object.freeze({
+  Int: 100, string: 15, Grid: Object.freeze({ 4: 35, 5: 70, 6: 130, 7: 260 }),
+});
+/** The expected wall time of preparing a first game's missing tables on `inst` (seconds, `FIRST_USE_SECONDS`). */
+export function firstUseSeconds(inst: Instantiation): number {
+  const e = FIRST_USE_SECONDS[inst.objectType];
+  if (typeof e === "number") return e;
+  if (!e) return 60;
+  const sizes = Object.keys(e).map(Number).sort((a, b) => a - b), size = inst.terms.size ?? sizes[0]!;
+  return e[size] ?? e[sizes.reduce((best, s) => (Math.abs(s - size) < Math.abs(best - size) ? s : best), sizes[0]!)]!;
 }
 
 export interface OfferOptions {

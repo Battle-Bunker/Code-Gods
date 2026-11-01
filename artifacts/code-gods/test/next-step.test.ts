@@ -45,3 +45,12 @@ test("the game page: players open their client, spectators just watch, the ended
   assert.equal(gameStep("bob", { ...g, status: "ended" }).primary, "ui.nav.room");
   assert.equal(gameStep("bob", { ...g, status: "ended", roomShortCode: null }).primary, null);
 });
+
+test("while the game prepares its rule tables everyone sees the progress; a failed preparation lets the owner start again", () => {
+  const preparing = { ...room(["ada", "bob", "cy"]), preparing: { ready: 12, total: 18 } };
+  assert.deepEqual(nextStep("bob", preparing), { status: "Preparing rule tables: 12 of 18 ready.", primary: "ui.nav.playerClient", secondary: [] });
+  assert.deepEqual(nextStep("ada", preparing).primary, "ui.nav.playerClient", "no second start while it prepares");
+  const failed = { ...preparing, preparing: { ready: 3, total: 18, error: "The rule table for snap {} … could not be prepared" } };
+  assert.deepEqual(nextStep("ada", failed), { status: "Preparing the game failed; start again to retry.", primary: "owner.start", secondary: ["ui.nav.playerClient"] });
+  assert.equal(nextStep("bob", failed).status, "Preparing the game failed; Ada can retry.");
+});

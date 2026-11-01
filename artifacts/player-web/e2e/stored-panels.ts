@@ -427,6 +427,31 @@ await check("after the game ends every built-in panel shows the frozen final sta
   }
 });
 
+await check("while the next game prepares its rule tables (a shape with no shipped file), the overview and results panels say so with the progress", async () => {
+  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
+  const { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
+  const inst = instantiateKey("Int(0,2147483647)");
+  const smooth = familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!;
+  const convex = (fnName: string, args: unknown) => execFileSync("npx", ["convex", "run", fnName, JSON.stringify(args)], { cwd: ENGINE, encoding: "utf8" });
+  convex("calibration/cache:forget", { instance: inst.key });
+  // The three tables are claimed as if computing elsewhere: the room waits on them, nothing is computed here.
+  for (const p of canonicalSupport(smooth, context(inst))) {
+    convex("calibration/cache:claim", { key: tableKey(smooth.id, p, inst), instance: inst.key, family: smooth.id, paramsKey: paramsKey(p), prior: "uniform" });
+  }
+  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
+  await owner("settings", { revision, settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, language: "typescript",
+    excludedFamilies: familiesFor("Int", "reward").map(f => f.id).filter(id => id !== smooth.id) } });
+  const started = await owner("start") as { status?: string; message?: string };
+  assert(started.status === "preparing" && /preparing its rule tables: 0 of 3 ready/.test(started.message ?? ""), `start: ${JSON.stringify(started)}`);
+  const note = page.locator("[data-testid=note-preparing]").first();
+  await note.waitFor({ timeout: 30_000 });
+  const text = await note.innerText();
+  assert(/The game is preparing its rule tables, 0 of 3 ready\. It is the first game on Int\(0,2147483647\) on this server \(about 100 s\)/.test(text), `note: ${text}`);
+  await owner("endGame");   // ends the preparation
+  await page.locator("[data-testid=note-preparing]").first().waitFor({ state: "detached", timeout: 30_000 });
+  convex("calibration/cache:forget", { instance: inst.key });
+});
+
 await check("at phone size (390×844) a panel's pane runs in the stacked layout, with the assistant as a sheet", async () => {
   const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   await phoneContext.addCookies(sessionCookies(session));

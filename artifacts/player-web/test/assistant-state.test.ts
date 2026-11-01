@@ -80,6 +80,7 @@ test("step lines: one line per model step in human verbs, present tense while ru
   assert.deepEqual(stepView(second.calls), { text: "you declined: post to everyone", tone: "muted", open: false });
   assert.deepEqual(stepView([call(0, "m", "validate_agent", "running")]), { text: "testing agent code…", tone: "busy", open: false });
   assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).text, "waiting for you: summon an agent");
+  assert.equal(stepView([call(0, "m", "load_tools", "ok"), call(1, "m", "load_skill", "ok")]).text, "got tools ready · read up on it", "the loaders read as plain steps, not tool names");
   assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).tone, "ask");
   const failed = stepView([call(0, "m", "get_observation", "ok"), call(1, "m", "summon_agent", "error")]);
   assert.deepEqual(failed, { text: "looked at the game · couldn't summon an agent", tone: "error", open: true }, "an error stays open");

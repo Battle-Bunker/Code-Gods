@@ -78,14 +78,18 @@ function validatedCost(calls: CallRow[], args: Record<string, unknown>): number 
 
 /**
  * The player's live situation for the turn's briefing, read as the turn's credential like any tool call: the
- * observation and the layout (absent when a read fails; the briefing says so). The rules are the game-rules skill.
+ * observation and the layout (absent when a read fails; the briefing says so), and with no game running the room's
+ * `preparing` (get_rules). The rules are the game-rules skill.
  */
 async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["credentialId"]): Promise<string> {
   const read = async (tool: string, args: Record<string, unknown>) => {
     try { return (await runTool(ctx, { credentialId }, tool, args)).data; } catch { return undefined; }
   };
   const [observation, layout] = await Promise.all([read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
-  return assistantBriefing({ observation, layout });
+  // With no game running, the next one may be preparing its rule tables (rooms.preparing, through get_rules).
+  const phase = (observation as { phase?: string } | undefined)?.phase;
+  const preparing = phase === "lobby" || phase === "ended" ? ((await read("get_rules", {})) as { preparing?: unknown } | undefined)?.preparing : undefined;
+  return assistantBriefing({ observation, layout, preparing });
 }
 
 /**

@@ -30,6 +30,9 @@ export type SkillName = (typeof SKILLS)[number]["name"];
 export const SKILL_NAMES = SKILLS.map(s => s.name) as unknown as readonly [SkillName, ...SkillName[]];
 export const findSkill = (name: string): SkillEntry | undefined => (SKILLS as readonly SkillEntry[]).find(s => s.name === name);
 
+/** The skills index, one `- name: description` line each (the in-client assistant's prompt and the MCP instructions). */
+export const skillIndexLines = () => SKILLS.map(k => `- ${k.name}: ${k.description}`);
+
 /** Body limits (characters): a loaded skill rides on every later step of the thread. */
 export const SKILL_LIMITS = { body: 14_000, rules: 8_000, source: 3_000, helpers: 4_000, helper: 200, panels: 4_000 } as const;
 
@@ -88,15 +91,15 @@ const WRITING_AGENTS = `WRITING AN AGENT.
 4. Keep it cheap: simple code costs fewer summon bits and fewer decision bits per act.
 5. Show the draft in the forge panel: open_panel {panelId: "forge", params: {source}}.
 6. validate_agent (free, takes seconds): report whether it compiles, its summon cost and cost per act against the player's energy.
-7. Summon (summon_agent, the player confirms on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
-Running agents: watch bits-over-time and the feed; destroy_agent (confirmed) an agent that loses bits; energy already spent is not refunded.`;
+7. Summon (summon_agent; the in-client assistant's calls are confirmed by the player on a card) only when the player asks; always validate first. The new agent's id is in get_observation (agents[].id), never the command id.
+Running agents: watch bits-over-time and the feed; destroy_agent an agent that loses bits; energy already spent is not refunded.`;
 
-const SCREEN = `THE PLAYER'S SCREEN. The client is a dock of panes: built-in panels (with parameters), the player's own stored panels, and this conversation (one pane, never closable; "the chat", "this chat" or "you" about the screen means it; move_pane moves it). The public chat is the public-chat panel.
+const SCREEN = `THE PLAYER'S SCREEN. The client is a dock of panes: built-in panels (with parameters), the player's own stored panels, and the in-client assistant's conversation (one pane, never closable; when you are that assistant, "the chat", "this chat" or "you" about the screen means it; move_pane moves it). The public chat is the public-chat panel.
 - The player picks a pane's panel from a menu but cannot set its parameters: you do. open_panel {panelId, params} shows a built-in panel with parameters you choose; open_panel {slug} shows a stored panel; set_panel_params {paneId, params} replaces one pane's parameters.
 - Without place, open_panel adds no pane: it reuses an open pane of that panel, else switches a built-in panel the player did not choose; a new pane opens only when every built-in panel on screen is the player's. Give place only when the player asks for another pane; at most four built-in panels are open (a fifth is refused: change one instead).
 - Open or re-parameterise a panel when it shows the answer better than words: an object's breakdown or a ranking → objects (highlight); a trend → bits-over-time or race; a draft agent → forge {source}; a move to test → what-if.
 - At most one layout change per answer unless the player asks for an arrangement; at most two per step. Prefer explaining when a visible pane already shows it.
-- Never move or close a pane the player arranged (setBy: human) unless asked. To rearrange use move_pane (loaded with load_tools); close_pane closes a pane the player asked to close. Report exactly what changed (never say you moved a pane when you opened one), then one line on what to look at.
+- Never move or close a pane the player arranged (setBy: human) unless asked. To rearrange use move_pane; close_pane closes a pane the player asked to close. Report exactly what changed (never say you moved a pane when you opened one), then one line on what to look at.
 - An ended game is frozen at its final tick: every panel and read still shows that final state.`;
 
 const SETUPS = `GAME SETUPS. A room always runs one game setup: a named, complete set of settings in one shared collection (list_setups), each owned by its creator or by the system; there is no "custom" state.
@@ -136,6 +139,6 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     parts.push(SETUPS);
   }
   const tools = findSkill(name)?.tools ?? [];
-  if (tools.length) parts.push(`This skill's tools (those the grant allows): ${tools.join(", ")}. Call load_tools for any of them not in your tool list yet.`);
+  if (tools.length) parts.push(`This skill's tools (those the grant allows): ${tools.join(", ")}. In the in-client assistant, call load_tools for any not in your tool list yet.`);
   return cut(parts.join("\n"), SKILL_LIMITS.body);
 }
