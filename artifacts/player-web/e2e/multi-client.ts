@@ -199,6 +199,10 @@ for (const p of PLAYERS) {
   page.on("pageerror", e => pageErrors.push(`${p}: ${e.message}`));
   await page.goto(`http://localhost:${PORTS[p]}/__codegods/launch?key=${LAUNCH_KEYS[p]}`); // the private launch link → the app
   await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
+  // A dev-server app replaces "/" with its credential's room URL (a same-document navigation, which framenavigated
+  // also counts): from here on, one navigation means the page was never reloaded.
+  await page.waitForURL(url => /^\/rooms\/[0-9A-Z]+$/.test(url.pathname), { timeout: 30_000 });
+  navigations[p] = 1;
   await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
   pages[p] = page;
 }
