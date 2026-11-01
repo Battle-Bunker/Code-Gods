@@ -91,6 +91,17 @@ export function viewOfNet(net: readonly number[], index: number, noise = 0) {
   return withPeers(net[index], peer + noise);
 }
 /**
+ * The commit clause's test (docs/public-log-design.md §5.2): does the act strictly raise the owner's payoff on the object
+ * AS THE OWNER SEES IT, own bits exact and the others' sum with each value's live disclosure noise? Deciding on the
+ * exact payoff would leak one bit of the exact others' sum per conditional act; on the disclosed values it reveals only
+ * what the owner is shown (and the noise is a fixed function of the value, so repeating a probe adds nothing).
+ */
+export function commitRaises(before: readonly { god: string; netBits: number }[], after: readonly { god: string; netBits: number }[],
+  ownerId: string, beforeNoise: number, afterNoise: number): boolean {
+  return viewOf(after, ownerId, afterNoise).payoff - viewOf(before, ownerId, beforeNoise).payoff > 0;
+}
+
+/**
  * Every roster god's total payoff as disclosed live (the published scoreboard): each object's payoff computed from its
  * noisy peers' sum (the object's stored `noise`), so a god's published total is consistent with what that god sees.
  */

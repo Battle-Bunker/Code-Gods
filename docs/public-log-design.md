@@ -272,8 +272,8 @@ standard deviation.
   datasets and the tools (all through the same projection functions), and the **published scoreboard**: each god's
   total is computed from the noisy sums (`disclosedTotalsOf`), so a player's own published row equals their live
   score and the scoreboard leaks nothing beyond the disclosed sums.
-- **Exact everywhere server-side** (scoring, the commit clause, stored `net` vectors and batch totals) and in every
-  projection of an ended game.
+- **Exact everywhere server-side** (scoring, stored `net` vectors and batch totals) and in every projection of an ended
+  game. The commit clause is the exception: it decides on the disclosed values (below).
 - **The fit knows the noise** (`noiseBits` = the game's setting while live): the likelihood's σ is at least the
   noise, and `exact` means "explains the data to within the noise".
 
@@ -284,9 +284,21 @@ at 16 even long games rarely pin the set. 8 is "possible but hard". The cost: a 
 care about on a single object is ±8 bits uncertain, so cooperation rests more on talk and on trends than on one
 object's number.
 
-**Residual channels, stated plainly:** the commit clause (an own agent's `only_if_better`) decides on the exact
-payoff, so its success or failure tells the owner one bit about the exact sum on that object; and an agent's
-behaviour cannot be blinded. Neither discloses another god's individual bits.
+**The commit clause decides on the disclosed values.** A conditional act (`only_if_better`) commits only if it raises
+the owner's payoff as the owner sees it: own bits exact, each value's others' sum with its disclosure noise
+(`commitRaises`, lib/world.ts). Deciding on the exact payoff would have been a side channel: each conditional act
+answers "is own(v)·max(0, y(v)) above the current payoff?", so an agent probing one value against objects of
+different payoffs binary-searches the EXACT y(v) in about a dozen acts (one bit each), which reduces the game to the
+σ = 0 rows of §5.1 for every probed value. On the disclosed values the same probing recovers only y(v) + ε(v), and ε
+is a fixed function of v, so repeated or cleverer probing never gets past the noisy value the player is shown when
+the act commits: probing is equivalent to observing values, which the σ = 8 rows already measure. (An agent's
+behaviour itself cannot be blinded; it never discloses another god's individual bits.)
+
+Measured (`inference-experiment.ts --probes N`, σ = 8, 6 trials): giving the viewer N of its values exactly, as the
+old clause's probing would, lifts the same single-σ fit from 33% to 50% exact for three gods at ~50 values (N = 10 or
+30) and leaves six gods at 17–33%; but an attacker would fit the probed values on their own, and §5.1's σ = 0 rows
+show 20 exact values identify a three-god game 90–100% of the time. The leak was nearly complete; with the clause on
+disclosed values, N = 0 by construction.
 
 ## 6. Every object is an independent universe
 

@@ -88,3 +88,17 @@ test("the live disclosure adds an object version's noise to the peers' sum; care
   assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores, noise: 1 }]), [6, 6, -6]);
   assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores }]), totalsOf(["a", "b", "c"], [{ scores }]), "without noise: the exact totals");
 });
+
+test("the commit clause decides on the payoffs the owner sees: own bits exact, the others' sum with each value's disclosure noise", async () => {
+  const { commitRaises } = await import("../../convex/lib/world.ts");
+  // Owner a; others b and c. Before: a 2, others 1 + 1 = 2 → exact payoff 4. After: a 3, others 1 + 0 = 1 → exact 3.
+  const before = [{ god: "a", netBits: 2 }, { god: "b", netBits: 1 }, { god: "c", netBits: 1 }];
+  const after = [{ god: "a", netBits: 3 }, { god: "b", netBits: 1 }, { god: "c", netBits: 0 }];
+  assert.equal(commitRaises(before, after, "a", 0, 0), false, "exact: 3 < 4, kept");
+  // Disclosed: before others 2 − 1.5 = 0.5 → 1; after others 1 + 1 = 2 → 6. The owner sees a rise, so it commits,
+  // whatever the exact payoffs: the clause reveals nothing beyond the noisy values the owner is shown.
+  assert.equal(commitRaises(before, after, "a", -1.5, 1), true);
+  // And the reverse: an exact rise the disclosed numbers do not show is kept.
+  assert.equal(commitRaises(after, before, "a", 0, 0), true, "exact: 4 > 3");
+  assert.equal(commitRaises(after, before, "a", 5, -2), false, "disclosed: before 3·6 = 18, after 2·0 = 0");
+});
