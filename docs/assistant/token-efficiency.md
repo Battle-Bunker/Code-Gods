@@ -189,19 +189,20 @@ hash of the stable prefix (system prompt and tool names), so every thread of a p
 
 ### 3.3 MCP parity (PR 3)
 
-- `tools/list` serves each tool's `short` line plus its argument note (paging, waits, ids), in deterministic registry
-  order with accurate annotations. The longer guidance is in the skills, which `load_skill` serves over MCP like any
-  tool (the room's live helpers and panel catalogue included).
-- The server instructions carry the skills index (name and one line each).
-- Schemas stay in `tools/list`: the spec requires `inputSchema`, and the list must not change per connection or as a
-  side effect of other requests, so a stateless server cannot defer them itself. Clients defer them as they choose:
-  Claude Code lists MCP tools by name and fetches schemas with ToolSearch; Anthropic's MCP connector takes
-  `defer_loading`.
-- Measured with `count_tokens`, a model reading the whole `tools/list`:
-  - `act` grant: 9,853 → 8,571 tokens;
-  - `owner` grant: 12,352 → 10,834 tokens (−13%; the schemas are the rest).
-- Schema prose that repeated across tools was tightened at the same time: `commandId`, `waitMs`, and `open_panel`'s
-  `params` and `place`.
+- The MCP spec requires every listed tool's `inputSchema`, and `tools/list` must not change per connection or as a
+  side effect of other requests. So a stateless server cannot defer schemas itself: clients do. Claude Code lists MCP
+  tools by name and fetches schemas with ToolSearch; Anthropic's MCP connector takes `defer_loading`.
+- `tools/list` keeps each tool's full description, because an MCP client has no in-client prompt to carry the
+  behaviour rules (open_panel's "place only when asked", update_settings' fork-on-edit and stale-revision rules).
+  Deferring clients search those descriptions, so fuller text helps them. Each tool's one-line `short` form rides in
+  `_meta["io.codegods/short"]`, for clients that build their own lightweight index. Order is deterministic and the
+  annotations are accurate.
+- A short-only listing was tried and measured first: it saved only 13% (schemas dominate) and dropped those rules,
+  so it was not kept.
+- The server instructions carry the skills index (the same lines as the in-client prompt) and say when to load each
+  skill. `load_skill` serves the skills over MCP, with the room's live data.
+- Repeated schema prose was tightened (`commandId`, `waitMs`, `open_panel`'s `params` and `place`). A full
+  `tools/list` now costs 9,759 tokens for an `act` grant and 12,258 for `owner` (9,853 and 12,352 before).
 
 ### 3.4 Forward compatibility: a code-execution tool
 
@@ -223,8 +224,8 @@ The index, `load_tools`, `load_skill`, MCP and the confirmation rules pick it up
 | PR 1: append-only history, prefix cache key | gpt-4.1-mini | 7 | 6,083 | 0.013 | 32.9 |
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | claude-sonnet-5-5 | 8 | 3,826 | 0.052 | 52.3 |
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | gpt-4.1-mini | 10 | 3,328 | 0.007 | 60.1 |
-| PR 3 (final: MCP listing, tighter schema prose) | claude-sonnet-5-5 | 9 | 3,938 | 0.051 | 50.8 |
-| PR 3 (final: MCP listing, tighter schema prose) | gpt-4.1-mini | 10 | 3,954 | 0.009 | 50.6 |
+| PR 3 (final: MCP skills index, tighter schema prose) | claude-sonnet-5-5 | 9 | 3,938 | 0.051 | 50.8 |
+| PR 3 (final: MCP skills index, tighter schema prose) | gpt-4.1-mini | 10 | 3,954 | 0.009 | 50.6 |
 
 The runs vary by a few hundred tokens a question with the model's choices (one more step, a skill loaded or not).
 The target, a typical question under 10k billed tokens and 20+ questions per 200k, is met on both models with

@@ -84,10 +84,10 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
   a revoked, expired or unknown one adds `error="invalid_token"`.
 - **Permissions.** `tools/list` lists only the tools the grant allows; every call is checked again in
   Convex. An owner grant whose human no longer owns the room is not a principal at all.
-- **Listing.** Each tool is listed by a one-line description (its `short` form and argument note, with its full
-  input schema). The guidance for a kind of task is a skill: the server instructions index them (`game-rules`,
-  `writing-agents`, `screen`, `game-setups`) and `load_skill {name}` returns one with the room's live data
-  (docs/assistant/token-efficiency.md).
+- **Listing.** Each tool carries its full description and input schema, plus a one-line form in
+  `_meta["io.codegods/short"]` for clients that build a lightweight index. The guidance for a kind of task is a
+  skill: the server instructions index them (`game-rules`, `writing-agents`, `screen`, `game-setups`) and
+  `load_skill {name}` returns one with the room's live data (docs/assistant/token-efficiency.md).
 - **Results.** `structuredContent` (also as JSON text) is `{untrusted: true, notice, data, nextCursor?,
   truncated?}`: `data` is game data written by players. Paged tools return `nextCursor` (pass it back as
   their cursor argument; null at the end); results are bounded to about 80 KB. A refusal is a tool result

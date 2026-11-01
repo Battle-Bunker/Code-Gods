@@ -8,7 +8,7 @@
  * by the token endpoint.
  */
 import { tool as registryTool } from "@workspace/player-client/tools";
-import { SKILLS } from "@workspace/player-client/skills";
+import { skillIndexLines } from "@workspace/player-client/skills";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -126,11 +126,12 @@ test("both protocol eras: the v2 SDK (2026-07-28, server/discover) and the 2025 
   const summon = tools.find(t => t.name === "summon_agent")!;
   assert.equal((summon.inputSchema as any).required.includes("commandId"), true);
   assert.equal(summon.annotations?.readOnlyHint, false);
-  // The lightweight list: each tool's one-line short form (plus its argument note); the guidance is in skills.
+  // Full descriptions (their rules matter without the in-client prompt), and each tool's one-line short form in _meta
+  // for clients that build their own index.
   for (const t of tools) {
     const definition = registryTool(t.name);
-    assert.ok(t.description?.startsWith(definition.short), `${t.name}: listed by its short line`);
-    assert.ok((t.description?.length ?? 0) <= 400, `${t.name}: a short description (${t.description?.length})`);
+    assert.equal(t.description, definition.description, `${t.name}: its full description`);
+    assert.equal((t._meta as Record<string, unknown> | undefined)?.["io.codegods/short"], definition.short, `${t.name}: its short line in _meta`);
   }
   const skill = await modernClient.callTool({ name: "load_skill", arguments: { name: "writing-agents" } });
   assert.match((skill.structuredContent as any).data.body, /validate_agent[\s\S]*Mutators/, "skills load over MCP with the room's live helpers");
@@ -143,7 +144,8 @@ test("both protocol eras: the v2 SDK (2026-07-28, server/discover) and the 2025 
   await legacy.connect(new LegacyTransport(new URL(MCP), { requestInit: { headers: { "x-api-key": token } } }));
   assert.equal(legacy.getServerVersion()?.name, "code-gods");
   const instructions = legacy.getInstructions() ?? "";
-  for (const k of SKILLS) assert.ok(instructions.includes(`${k.name}: ${k.description}`), `the instructions index the ${k.name} skill`);
+  for (const line of skillIndexLines()) assert.ok(instructions.includes(line), `the instructions index ${line}`);
+  assert.match(instructions, /load_skill \{name\} before writing an agent \(writing-agents\)/);
   const legacyTools = (await legacy.listTools()).tools.map(t => t.name);
   assert.ok(legacyTools.includes("get_observation"));
   const rules = await legacy.callTool({ name: "get_rules", arguments: {} });

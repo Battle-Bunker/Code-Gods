@@ -2,7 +2,7 @@
  * What each part of an assistant model step costs, in input tokens, counted by the provider (Anthropic count_tokens;
  * free, no model call). Run from artifacts/engine:
  *
- *   CODE_GODS_ANTHROPIC_API_KEY=… node --experimental-transform-types scripts/assistant-tokens.ts [permission] [model]
+ *   CODE_GODS_ANTHROPIC_API_KEY=… node --experimental-transform-types scripts/assistant-tokens.ts [permission] [model] [--per-tool] [--mcp]
  *
  * Each component is the difference between a request with it and the bare request (one user message "hi"), so the
  * numbers add up to what one step of a turn re-sends. The briefing is measured on scripts/fixtures/briefing-*.json
@@ -15,8 +15,10 @@ import { SKILL_NAMES, skillBody } from "@workspace/player-client/skills";
 import { toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
 import { modelTools } from "../convex/assistant/rules.ts";
 
-const permission = (process.argv[2] ?? "act") as "read" | "act" | "owner";
-const model = process.argv[3] ?? "claude-sonnet-5-5";
+const [permissionArg, modelArg] = process.argv.slice(2).filter(a => !a.startsWith("--"));
+const permission = (permissionArg ?? "act") as "read" | "act" | "owner";
+if (!["read", "act", "owner"].includes(permission)) throw new Error(`permission is read, act or owner, not ${permission}`);
+const model = modelArg ?? "claude-sonnet-5-5";
 const key = process.env.CODE_GODS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
 if (!key) throw new Error("CODE_GODS_ANTHROPIC_API_KEY is required");
 const client = new Anthropic({ apiKey: key });
@@ -57,15 +59,11 @@ if (data) {
   }
 }
 if (process.argv.includes("--mcp")) {
-  // What an MCP client's model reads from tools/list for this grant: the full descriptions (before) or the short
-  // listing (agent/mcp.ts listedDescription), with the registry's complete input schemas either way.
+  // What an MCP client's model reads if it loads the whole tools/list for this grant (agent/mcp.ts: full
+  // descriptions and input schemas); clients that defer tools read the names and load schemas on demand.
   const json = toolJsonSchemas();
-  const listing = (describe: (t: (typeof registry)[number]) => string) => registry.map(t => ({ name: t.name, description: describe(t), inputSchema: json[t.name].input }));
-  const registry = toolsFor(permission);
-  for (const [label, describe] of [["mcp tools/list, full descriptions", (t: (typeof registry)[number]) => t.description], ["mcp tools/list, short listing", (t: (typeof registry)[number]) => [t.short, t.note].filter(Boolean).join(" ")]] as const) {
-    const tools = listing(describe);
-    console.log(`${label.padEnd(36)} ${String(JSON.stringify(tools).length).padStart(7)} chars ${String((await count({ tools })) - bare).padStart(7)} tokens`);
-  }
+  const listed = toolsFor(permission).map(t => ({ name: t.name, description: t.description, inputSchema: json[t.name].input }));
+  console.log(`${"mcp tools/list".padEnd(22)} ${String(JSON.stringify(listed).length).padStart(7)} chars ${String((await count({ tools: listed })) - bare).padStart(7)} tokens`);
 }
 if (process.argv.includes("--per-tool")) {
   // One at a time: count_tokens is rate limited. A single tool includes the fixed tool-use preamble (about 360 tokens).

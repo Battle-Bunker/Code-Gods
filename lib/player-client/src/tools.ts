@@ -82,8 +82,6 @@ export interface ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.Zod
    * loaded on demand with load_tools) and other surfaces that list tools by name. Required of every tool.
    */
   short: string;
-  /** Argument semantics the description ends with (paging, waits, ids), kept apart for lightweight listings. */
-  note?: string;
   /**
    * The public Convex functions this tool reaches (through their internal `As` twins); [] for engine-internal paths.
    * Typed as literal strings here and checked against PublicFunctionPath in catalog.ts (a type import of the generated
@@ -108,7 +106,7 @@ function def<const N extends string, I extends z.ZodType, O extends z.ZodType, c
   const resolvedTitle = title ?? entry?.human.title;
   const description = [about ?? entry?.ai.description, note].filter(Boolean).join(" ");
   if (!resolvedTitle || !description) throw new Error(`Tool ${d.name} needs a catalogue function or its own title and about`);
-  return { ...d, title: resolvedTitle, description, ...(note ? { note } : {}) };
+  return { ...d, title: resolvedTitle, description };
 }
 
 export const READ_TOOLS = [
