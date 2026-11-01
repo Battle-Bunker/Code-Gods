@@ -48,7 +48,7 @@ disclosure rules hold in the engine's queries.
    page can use a human's session. Convex functions (`*.convex.cloud`, HTTP and WebSocket) already take a bearer JWT
    from any origin.
 5. **First-party consent.** When the redirect URI is the hosted client itself (the engine's own origin and the client's
-   path, `/player/` or `/client/`), the human is a member of the hinted room and the grant is at most `act`, `/connect`
+   path, `/client/`), the human is a member of the hinted room and the grant is at most `act`, `/connect`
    approves without a click. No other page of the engine's origin qualifies. The code can only
    reach the engine's own page, and the token is the same as any external app's. An `owner` grant always needs the
    explicit consent checkbox, whoever asks. No other client gets this shortcut. It skips one click; the engine

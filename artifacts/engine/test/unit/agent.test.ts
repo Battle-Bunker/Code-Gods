@@ -58,8 +58,7 @@ test("first-party approval: only the site's own origin, only for a member, never
   assert.equal(isFirstParty(`${site}/client/`, site), true);
   assert.equal(isFirstParty("https://dep.convex.site.evil.example/client/", site), false);
   assert.equal(isFirstParty("http://127.0.0.1:3211/client/", "http://127.0.0.1:3211"), true);
-  assert.equal(isFirstParty(`${site}/player/`, site), true, "the hosted client's current path");
-  for (const other of [`${site}/`, `${site}/connect`, `${site}/rooms/ABCD?x=1`, `${site}/mcp`, `${site}/clientx/`]) {
+  for (const other of [`${site}/player/`, `${site}/`, `${site}/connect`, `${site}/rooms/ABCD?x=1`, `${site}/mcp`, `${site}/clientx/`]) {
     assert.equal(isFirstParty(other, site), false, `another page of the site is not the hosted client: ${other}`);
   }
   assert.equal(firstPartyGrant({ ...base, requested: "act" }), "act");

@@ -44,8 +44,8 @@ export function resourceAllowed(resource: string | null | undefined, sites: stri
   });
 }
 
-/** Where the engine serves its own player client (`/player/` today; `/client/` after the URL-scheme move). */
-export const HOSTED_CLIENT_PATHS = ["/player/", "/client/"] as const;
+/** Where the engine serves its own player client (`/player/*` only redirects there: convex/http.ts). */
+export const HOSTED_CLIENT_PATHS = ["/client/"] as const;
 /**
  * Is this redirect URI the engine's own hosted player client: the site's origin AND the client's path? Any other
  * page of the site is not, so a code can never be auto-approved to a page that might expose its query string.
