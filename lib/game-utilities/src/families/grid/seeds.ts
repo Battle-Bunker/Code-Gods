@@ -121,8 +121,8 @@ type GreenP = { colour: number; value: number };
 const greenOnes = gridFamily<GreenP>({
   id: "seed3_green_ones", name: "Green Ones", emoji: "🍀", theme: "Lucky green ones",
   shape: tuple(2), tags: ["seed", "shortlist"],
-  // grid-lab's sampler always deals green (every colour set has it) and 1 (every symbol set has it).
-  support: g => [{ colour: colourIndex(g, "green"), value: 1 }],
+  // grid-lab's sampler deals green and 1 (every symbol set has it); a set without green (ryb) deals any colour.
+  support: g => (colourIndex(g, "green") >= 0 ? [colourIndex(g, "green")] : range(g.C)).map(colour => ({ colour, value: 1 })),
   canonical: (_, g) => ({ colour: 0, value: g.vmin }),
   summary: (p, g) => `Count the ${cname(g, p.colour)} ${g.cards && p.value === 1 ? "aces" : `${p.value}s`}. `
     + "More is better; a cell with only the right colour or only the right number is a small step.",

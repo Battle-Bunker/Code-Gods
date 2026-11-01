@@ -1,6 +1,6 @@
 /** Shared test helpers: covering instantiations, sampled objects, and the fixture builders the Python tests run on. */
 import {
-  GRID_COLOUR_SETS, GRID_SIZES, GRID_SYMBOL_SETS, instantiate, objectType, seededRng,
+  COLOUR_COMPONENTS, GRID_COLOUR_SETS, GRID_SIZES, GRID_SYMBOL_SETS, instantiate, objectType, seededRng, type GridColourSet,
   type Instantiation, type ObjectValue, type Rng,
 } from "@workspace/game-types";
 import { FAMILIES, available, context, evaluator, type Draw } from "../src/index.ts";
@@ -46,7 +46,7 @@ export function sampleObjects(inst: Instantiation, rng: Rng, n: number, extra: r
   const out: ObjectValue[] = Array.from({ length: n }, () => codec.encode(def.spawn(inst, rng)));
   if (inst.objectType === "Grid") {
     const { size, symbols, colours } = inst.args as { size: number; symbols: string; colours: string };
-    const S = symbols === "cards" ? 52 : Number(symbols.slice(4)), C = colours === "rgb" ? 3 : colours === "rgby" ? 4 : 6;
+    const S = symbols === "cards" ? 52 : Number(symbols.slice(4)), C = COLOUR_COMPONENTS[colours as GridColourSet].count;
     const NN = size * size, grid = (s: (i: number) => number, c: (i: number) => number) =>
       codec.encode({ size, sym: Uint8Array.from({ length: NN }, (_, i) => s(i)), col: Uint8Array.from({ length: NN }, (_, i) => c(i)) });
     for (let k = 0; k < Math.min(C, 3); k++) { const s = rng.int(S); out.push(grid(() => s, () => k)); }

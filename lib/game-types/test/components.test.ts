@@ -90,5 +90,19 @@ test("instantiation terms and classes", () => {
   assert.deepEqual(hex.classes, ["Valued", "Ranked", "Numeral", "Spectral"]);
   assert.equal(hex.terms["symbols.base"], 16);
   assert.equal(hex.key, "Grid(4,base16,rgb)");
-  assert.equal(GRID.instantiate({}).key, "Grid(4,base10,rgb)"); // the beginner board
+  assert.equal(GRID.instantiate({}).key, "Grid(4,base10,ryb)"); // the beginner board
+});
+
+test("red, yellow, blue is the offered three-colour set; rgb stays valid for stored rooms but is not offered", () => {
+  const ryb = COLOUR_COMPONENTS.ryb, rgb = COLOUR_COMPONENTS.rgb;
+  assert.deepEqual(ryb.letters, ["R", "Y", "B"]);
+  assert.deepEqual(ryb.names, ["red", "yellow", "blue"]);
+  // Same structure as rgb (three colours in spectral order, no mixes, no wheel): the same rules and classes.
+  assert.deepEqual([ryb.count, ryb.hues, ryb.mixes, ryb.classes], [rgb.count, rgb.hues, rgb.mixes, rgb.classes]);
+  const colours = GRID.params.find(p => p.id === "colours")!;
+  assert.equal(colours.kind, "component");
+  if (colours.kind !== "component") return;
+  assert.deepEqual(colours.options.map(o => o.id), ["ryb", "rgby", "rainbow6"], "ryb first; rgb not offered");
+  assert.deepEqual(colours.legacy?.map(o => o.id), ["rgb"]);
+  assert.equal(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" }).key, "Grid(4,base10,rgb)", "stored rgb rooms still instantiate");
 });

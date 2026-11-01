@@ -273,7 +273,7 @@ try {
       const nameBox = await a.getByTestId("field-name").boundingBox(), worldBox = await a.getByTestId("section-world").boundingBox();
       assert.ok(nameBox && worldBox && nameBox.y < worldBox.y, "the name comes first");
       assert.equal(await a.getByTestId("select-typeArgs").count(), 0, "no combined shape dropdown");
-      // First steps is Grid(4,base10,rgb): every size 4–7 is playable (tables are prepared on demand), none disabled.
+      // First steps is Grid(4,base10,ryb): every size 4–7 is playable (tables are prepared on demand), none disabled.
       await a.getByTestId("choice-arg-size-5").waitFor({ timeout: 120_000 });   // a fresh engine boots both sandboxes on the first manifest.get
       for (const size of [4, 5, 6, 7]) assert.equal(await a.getByTestId(`choice-arg-size-${size}`).isDisabled(), false, `${size}×${size} is playable`);
       assert.equal(await a.getByTestId("reasons-size").count(), 0, "nothing to explain");

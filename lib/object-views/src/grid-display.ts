@@ -145,26 +145,40 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
 
 export type ShadeScheme = "light" | "dark";
 
-/** OKLCH hue windows (degrees) inside which each colour still reads as its name; the shades stay inside them. */
+/**
+ * OKLCH hue windows (degrees) inside which each colour still reads as its name at digit size; the shades stay inside
+ * them. Blue stops at 252: past it a vivid blue reads as indigo or violet in small text (the old #2900df, h270, read as
+ * near-black), and below 238 a blue dark enough for a light page reads as teal. `LIGHT_NAME_HUES` narrows yellow on
+ * light pages, where a yellow dark enough for 4.5:1 reads as ochre only between 80 and 90 (brown below, olive above).
+ */
 export const NAME_HUES: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
-  red: [18, 38], orange: [45, 68], yellow: [82, 108], green: [130, 165], blue: [240, 272], violet: [295, 330],
+  red: [18, 38], orange: [45, 68], yellow: [80, 108], green: [130, 165], blue: [238, 252], violet: [295, 330],
 });
+export const LIGHT_NAME_HUES: Readonly<Record<string, readonly [number, number]>> = Object.freeze({ ...NAME_HUES, yellow: [80, 90] });
+/** The hue window of a colour name in a scheme. */
+export const nameHues = (name: string, scheme: "light" | "dark"): readonly [number, number] =>
+  (scheme === "light" ? LIGHT_NAME_HUES : NAME_HUES)[name];
 type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
 
 export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
+  ryb: Object.freeze({
+    light: Object.freeze({ R: "#900d2a", Y: "#796006", B: "#0465af" }),
+    dark: Object.freeze({ R: "#fb4e5d", Y: "#f3e323", B: "#31b7fe" }),
+  }),
   rgb: Object.freeze({
-    light: Object.freeze({ R: "#b73305", G: "#247148", B: "#2900df" }),
-    dark: Object.freeze({ R: "#fb5422", G: "#a9fb25", B: "#129fe7" }),
+    light: Object.freeze({ R: "#c20e34", G: "#3e6102", B: "#076798" }),
+    dark: Object.freeze({ R: "#fc5145", G: "#a9fb25", B: "#21a0e0" }),
   }),
   rgby: Object.freeze({
-    light: Object.freeze({ R: "#900f21", Y: "#7c5a03", G: "#086f4e", B: "#1707f9" }),
-    dark: Object.freeze({ R: "#f35868", Y: "#edae12", G: "#29fcb7", B: "#1c91fa" }),
+    light: Object.freeze({ R: "#941128", Y: "#7e5904", G: "#016c4b", B: "#0465af" }),
+    dark: Object.freeze({ R: "#fb4d63", Y: "#f3b01d", G: "#40febb", B: "#1c91fa" }),
   }),
   rainbow6: Object.freeze({
-    light: Object.freeze({ R: "#c20d39", O: "#773a0e", Y: "#695f01", G: "#1d7242", B: "#0555e7", V: "#aa01bc" }),
-    dark: Object.freeze({ R: "#fb4d63", O: "#fe8c1a", Y: "#ecdc1e", G: "#31f9a9", B: "#5cbefe", V: "#cb56f9" }),
+    light: Object.freeze({ R: "#c20d39", O: "#803200", Y: "#765d00", G: "#10703a", B: "#0465af", V: "#8111f9" }),
+    dark: Object.freeze({ R: "#fb4d63", O: "#fe8c1a", Y: "#ecdc1e", G: "#31f9a9", B: "#58bffd", V: "#cb56f9" }),
   }),
 });
+
 
 /** The shades for a grid whose colour set is unknown: rainbow6's, which name every colour letter. */
 export const TEXT_SHADES: Shades = DIGIT_SHADES.rainbow6;

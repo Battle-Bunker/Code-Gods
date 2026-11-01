@@ -19,7 +19,7 @@ const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
 /** A manifest's object types as the engine sends them, hand-cut to three listed instantiations. */
 const types = [
   { id: "Int", defaults: { min: -2147483648, max: 2147483647 }, playable: [{ key: "Int(0,9999)", args: { min: 0, max: 9999 } }] },
-  { id: "Grid", defaults: { size: 4, symbols: "base10", colours: "rgb" }, playable: [{ key: "Grid(5,base10,rgby)", args: GRID5 }, { key: "Grid(7,cards,rainbow6)", args: GRID7 }] },
+  { id: "Grid", defaults: { size: 4, symbols: "base10", colours: "ryb" }, playable: [{ key: "Grid(5,base10,rgby)", args: GRID5 }, { key: "Grid(7,cards,rainbow6)", args: GRID7 }] },
 ];
 
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
@@ -82,7 +82,7 @@ test("the domain lists the manifest's playable instantiations, accepts any other
 
 /** The playable Grid shapes as the engine lists them (every size 4–7 × symbols × colours); some prepare tables first. */
 const GRID = { id: "Grid", params: objectType("Grid").params, defaults: objectType("Grid").defaults,
-  playable: [4, 5, 6, 7].flatMap(size => ["base10", "base12", "base16", "cards"].flatMap(symbols => ["rgb", "rgby", "rainbow6"].map(colours => ({
+  playable: [4, 5, 6, 7].flatMap(size => ["base10", "base12", "base16", "cards"].flatMap(symbols => ["ryb", "rgby", "rainbow6"].map(colours => ({
     args: { size, symbols, colours },
     prepare: size === 7 && symbols === "cards" ? { toCompute: 12, seconds: 260 } : null,
     synergy: size === 5 && symbols === "base10" && colours === "rgby" ? ["uniform"] : [],
@@ -96,6 +96,12 @@ test("the board shape is one control per argument; every playable combination is
   assert.ok([size, symbols, colours].every(c => c!.choices.every(x => x.enabled && !x.reason)), "nothing is disabled for want of tables");
   assert.deepEqual(symbols!.choices.map(c => c.value), ["base10", "base12", "base16", "cards"]);
   assert.deepEqual([size!.current, symbols!.current, colours!.current], [5, "base10", "rgby"]);
+  assert.deepEqual(colours!.choices.map(c => [c.value, c.label]), [["ryb", "Red, yellow, blue"], ["rgby", "Red, yellow, green, blue"], ["rainbow6", "Rainbow (6 colours)"]],
+    "red, yellow, blue is the three-colour set offered; red, green, blue is not");
+  // A stored room on red, green, blue keeps it: listed (by its name) as the current value and still playable.
+  const legacy = argChoices(GRID, { size: 4, symbols: "base10", colours: "rgb" })[2]!;
+  assert.deepEqual(legacy.choices.map(c => [c.value, c.label, c.enabled]),
+    [["ryb", "Red, yellow, blue", true], ["rgby", "Red, yellow, green, blue", true], ["rainbow6", "Rainbow (6 colours)", true], ["rgb", "Red, green, blue", true]]);
   // A retired combination (the current value kept on screen) is disabled with the reason.
   const retired = argChoices(GRID, { size: 3, symbols: "base10", colours: "rgb" })[1]!;
   assert.ok(retired.choices.every(c => !c.enabled && /retired/.test(c.reason!)));

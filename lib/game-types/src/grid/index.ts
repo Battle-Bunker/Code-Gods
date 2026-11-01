@@ -8,7 +8,7 @@ import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rn
 import { draw } from "../util.ts";
 import { decodeGrid, encodeGrid, gridMaxLength, gridTypeKey, type GridTypeArgs, type GridValue } from "./codec.ts";
 import {
-  COLOUR_COMPONENTS, GRID_COLOUR_SETS, GRID_SIZES, GRID_SYMBOL_SETS, SYMBOL_COMPONENTS,
+  COLOUR_COMPONENTS, GRID_COLOUR_SETS, GRID_LEGACY_COLOUR_SETS, GRID_SIZES, GRID_SYMBOL_SETS, SYMBOL_COMPONENTS,
   type GridColourSet, type GridSymbolSet,
 } from "./components.ts";
 import { GRID_MUTATORS } from "./mutators.ts";
@@ -26,7 +26,8 @@ const PARAMS: readonly ParamSchema[] = Object.freeze([
   { kind: "component", id: "symbols", label: "Symbols", slot: "symbols", options: GRID_SYMBOL_SETS.map(id => option(SYMBOL_COMPONENTS[id])),
     question: "What can each cell show?", meaning: "The set of symbols that cells can show and that rules can count.",
     consequence: "Playing cards add suits and face cards, which unlock more rules and make objects harder to read." },
-  { kind: "component", id: "colours", label: "Colours", slot: "colours", options: GRID_COLOUR_SETS.map(id => option(COLOUR_COMPONENTS[id])),
+  { kind: "component", id: "colours", label: "Colours", slot: "colours", options: GRID_COLOUR_SETS.filter(id => !GRID_LEGACY_COLOUR_SETS.includes(id)).map(id => option(COLOUR_COMPONENTS[id])),
+    legacy: GRID_LEGACY_COLOUR_SETS.map(id => option(COLOUR_COMPONENTS[id])),
     question: "Which colours can cells have?", meaning: "The set of colours that cells can have, some of which mix into others.",
     consequence: "More colours unlock more colour rules and mixing moves." },
 ]);
@@ -173,7 +174,7 @@ export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of coloured cells, each with a symbol on it",
   params: PARAMS,
   // Beginner board (lib/grid-lab/docs/explore/gridtypes.md); bigger boards via the settings presets.
-  defaults: Object.freeze({ size: 4, symbols: "base10", colours: "rgb" }),
+  defaults: Object.freeze({ size: 4, symbols: "base10", colours: "ryb" }),
   classes: CLASSES.filter(c => c.slot === "symbols" || c.slot === "colours"),
   instantiate,
   representatives: () => GRID_SIZES.flatMap(size => GRID_SYMBOL_SETS.flatMap(symbols => GRID_COLOUR_SETS.map(colours => ({ size, symbols, colours })))),

@@ -197,7 +197,11 @@ export function argChoices(type: PlayableTypes, args: TypeArgs): { param: ParamS
       : (param.presets ?? []).map(v => ({ value: v, label: param.id === "size" ? `${v}×${v}` : v.toLocaleString("en-US") }));
     const current = full[param.id] as number | string;
     const values = all.filter(v => used.has(v.value) || v.value === current);
-    if (!values.some(v => v.value === current)) values.push({ value: current, label: String(current) });
+    if (!values.some(v => v.value === current)) {
+      // A value no longer offered (a legacy component, such as red, green, blue) keeps its name.
+      const legacy = param.kind === "component" ? param.legacy?.find(o => o.id === current) : undefined;
+      values.push({ value: current, label: legacy?.label ?? String(current) });
+    }
     const choices = values.map(({ value, label }) => {
       const next = { ...full, [param.id]: value };
       let inst;

@@ -3,7 +3,7 @@
 Encoding (all integer indices, so batches are plain uint8 arrays):
   sym[r, c]  symbol index. Digit sets: index == digit value. Cards: index = suit * 13 + rank,
              rank 0..12 (A, 2..10, J, Q, K), suit 0..3 (♠ ♥ ♦ ♣).
-  col[r, c]  colour index in spectral (rainbow) order: rgb R G B; rgby R Y G B; rainbow6 R O Y G B V.
+  col[r, c]  colour index in spectral (rainbow) order: ryb R Y B; rgb R G B; rgby R Y G B; rainbow6 R O Y G B V.
 A batch is a pair of arrays shaped (B, N, N).
 """
 from __future__ import annotations
@@ -13,18 +13,20 @@ from functools import cached_property
 import numpy as np
 
 SYMBOL_SETS = ("base10", "base12", "base16", "cards")
-COLOUR_SETS = ("rgb", "rgby", "rainbow6")
+COLOUR_SETS = ("rgb", "rgby", "rainbow6", "ryb")
 SIZES = (3, 4, 5, 6, 7)
 
 COLOUR_NAMES = {
     "rgb": ("red", "green", "blue"),
     "rgby": ("red", "yellow", "green", "blue"),
     "rainbow6": ("red", "orange", "yellow", "green", "blue", "violet"),
+    "ryb": ("red", "yellow", "blue"),
 }
 COLOUR_LETTERS = {k: tuple(n[0].upper() if n != "violet" else "V" for n in v) for k, v in COLOUR_NAMES.items()}
 # Paint mixing (Mixable): unordered parent pair -> child, by colour name.
 MIXES = {
     "rgb": {},
+    "ryb": {},
     "rgby": {("yellow", "blue"): "green"},
     "rainbow6": {("red", "yellow"): "orange", ("yellow", "blue"): "green", ("red", "blue"): "violet"},
 }

@@ -319,7 +319,7 @@ export function assertObjectValue(
  * - experiments.md (held-out seeds): hits per object per second is the lever that matters, about 0.4–0.7;
  *   more objects and faster spawns get there.
  * - explore/gridtypes.md (2,344 games): the beginner board Grid(4,base10,rgb) also excludes five rules that
- *   are too hard there.
+ *   are too hard there; Grid(4,base10,ryb), which replaced it and has the same structure, takes the same exclusions.
  * - explore/synergy.md §3.1b–c, §5 (held out): not dealing 11 weak families costs no dynamism (+0.010 to
  *   +0.016) and lowers unfairness (0.20 → 0.16). They stay in the catalogue; owners can deal them again.
  * This table is the single source of default dealer exclusions (settings.excludedFamilies).
@@ -343,7 +343,8 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // alternative is the "grid-low-income" seed setup (16 bits/s, floor 1).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
     byKey: {
-      "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      "Grid(4,base10,ryb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },   // the former beginner board
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
       "Grid(7,cards,rainbow6)": { excludedFamilies: WEAK_GRID_FAMILIES.filter(id => id !== "ladder_of_numbers") },
     },
@@ -396,7 +397,7 @@ const seed = (seedId: string, name: string, summary: string, objectType: string,
 
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25 }),
+    "Grid", { size: 4, symbols: "base10", colours: "ryb" }, { interactionRateHz: 25 }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).

@@ -668,6 +668,47 @@
   }
  },
  "colours": {
+  "ryb": {
+   "id": "ryb",
+   "label": "Red, yellow, blue",
+   "emoji": "🟥🟨🟦",
+   "kid": "Three colours",
+   "count": 3,
+   "letters": [
+    "R",
+    "Y",
+    "B"
+   ],
+   "names": [
+    "red",
+    "yellow",
+    "blue"
+   ],
+   "css": [
+    "#d7263d",
+    "#f5d000",
+    "#2667c9"
+   ],
+   "ink": [
+    "#ffffff",
+    "#1a1a1a",
+    "#ffffff"
+   ],
+   "patterns": [
+    "diagonal-up",
+    "horizontal",
+    "vertical"
+   ],
+   "hues": [
+    0,
+    1,
+    2
+   ],
+   "mixes": [],
+   "classes": [
+    "Spectral"
+   ]
+  },
   "rgb": {
    "id": "rgb",
    "label": "Red, green, blue",

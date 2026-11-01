@@ -6,12 +6,17 @@
  * Indices match lib/grid-lab/gridlab/core.py exactly:
  *   symbols  digit sets: index = digit value; cards: index = suit * 13 + rank,
  *            rank 0..12 = A,2..10,J,Q,K and suit 0..3 = ♠ ♥ ♦ ♣ (codes "AS", "TH", "KC", ...)
- *   colours  spectral (rainbow) order: rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V
+ *   colours  spectral (rainbow) order: ryb = R Y B, rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V
+ *
+ * ryb (red, yellow, blue) is the three-colour set new rooms are offered; rgb stays valid (stored rooms, setups and
+ * calibration tables name it) but is no longer offered (GRID_LEGACY_COLOUR_SETS).
  */
 
 export const GRID_SIZES = [3, 4, 5, 6, 7] as const;
 export const GRID_SYMBOL_SETS = ["base10", "base12", "base16", "cards"] as const;
-export const GRID_COLOUR_SETS = ["rgb", "rgby", "rainbow6"] as const;
+export const GRID_COLOUR_SETS = ["ryb", "rgb", "rgby", "rainbow6"] as const;
+/** Colour sets that stay valid for stored rooms but are no longer offered for new ones. */
+export const GRID_LEGACY_COLOUR_SETS: readonly GridColourSet[] = Object.freeze(["rgb"]);
 export type GridSymbolSet = (typeof GRID_SYMBOL_SETS)[number];
 export type GridColourSet = (typeof GRID_COLOUR_SETS)[number];
 
@@ -138,6 +143,7 @@ function colours(id: GridColourSet, names: string[], mixes: [string, string, str
 }
 
 export const COLOUR_COMPONENTS: Readonly<Record<GridColourSet, ColourComponent>> = deep({
+  ryb: colours("ryb", ["red", "yellow", "blue"], [], false, "Red, yellow, blue", "🟥🟨🟦", "Three colours"),
   rgb: colours("rgb", ["red", "green", "blue"], [], false, "Red, green, blue", "🟥🟩🟦", "Three colours"),
   rgby: colours("rgby", ["red", "yellow", "green", "blue"], [["yellow", "blue", "green"]], false,
     "Red, yellow, green, blue", "🟥🟨🟩🟦", "Four colours; yellow and blue mix to green"),

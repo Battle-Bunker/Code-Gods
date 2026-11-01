@@ -77,16 +77,17 @@
      --cg-ink-<letter>, the others as --cg-ink-<set>-<letter>; tested for contrast on these
      surfaces and for distinguishability). This app's .dark keeps the light paper, so it inherits these. */
   --cg-ink-R: #c20d39;
-  --cg-ink-O: #773a0e;
-  --cg-ink-Y: #695f01;
-  --cg-ink-G: #1d7242;
-  --cg-ink-B: #0555e7;
-  --cg-ink-V: #aa01bc;
-  --cg-ink-rgb-R: #b73305; --cg-ink-rgb-G: #247148; --cg-ink-rgb-B: #2900df;
-  --cg-ink-rgby-R: #900f21; --cg-ink-rgby-Y: #7c5a03; --cg-ink-rgby-G: #086f4e; --cg-ink-rgby-B: #1707f9;
+  --cg-ink-O: #803200;
+  --cg-ink-Y: #765d00;
+  --cg-ink-G: #10703a;
+  --cg-ink-B: #0465af;
+  --cg-ink-V: #8111f9;
+  --cg-ink-ryb-R: #900d2a; --cg-ink-ryb-Y: #796006; --cg-ink-ryb-B: #0465af;
+  --cg-ink-rgb-R: #c20e34; --cg-ink-rgb-G: #3e6102; --cg-ink-rgb-B: #076798;
+  --cg-ink-rgby-R: #941128; --cg-ink-rgby-Y: #7e5904; --cg-ink-rgby-G: #016c4b; --cg-ink-rgby-B: #0465af;
   /* The payoff's two dimensions and its strength (lib/object-views DIMENSION_COLOURS and SCORE_RAMP.light). */
-  --cg-yours: #0b6aa0;
-  --cg-others: #b52d6e;
+  --cg-yours: #026b85;
+  --cg-others: #b62268;
   --cg-ramp-low: #e2c5a0;
   --cg-ramp-high: #9a6005;
 

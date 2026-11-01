@@ -35,13 +35,13 @@ export const DATA_DIR = join(HERE, "..", "data", "calibration", CALIBRATION_FORM
 
 /** The curated GridTypes (every symbol set and every colour set; never 3×3, which is retired from play). */
 export const CURATED_GRIDS: readonly TypeArgs[] = [
-  { size: 4, symbols: "base10", colours: "rgb" },        // the Grid default
+  { size: 4, symbols: "base10", colours: "ryb" },        // the Grid default
   { size: 5, symbols: "base10", colours: "rgby" },       // progression presets
   { size: 6, symbols: "base16", colours: "rainbow6" },
   { size: 7, symbols: "cards", colours: "rainbow6" },
   { size: 4, symbols: "base12", colours: "rgby" },       // set coverage
-  { size: 5, symbols: "cards", colours: "rgb" },
-  { size: 5, symbols: "base10", colours: "rgb" },
+  { size: 5, symbols: "cards", colours: "ryb" },
+  { size: 5, symbols: "base10", colours: "ryb" },
   { size: 5, symbols: "cards", colours: "rainbow6" },
   { size: 6, symbols: "base10", colours: "rgby" },
 ];

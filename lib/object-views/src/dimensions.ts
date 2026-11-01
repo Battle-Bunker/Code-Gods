@@ -21,7 +21,7 @@ import type { ShadeScheme } from "./grid-display.ts";
 export type Dimension = "yours" | "others";
 
 export const DIMENSION_COLOURS: Readonly<Record<ShadeScheme, Readonly<Record<Dimension, string>>>> = Object.freeze({
-  light: Object.freeze({ yours: "#0b6aa0", others: "#b52d6e" }),
+  light: Object.freeze({ yours: "#026b85", others: "#b62268" }),
   dark: Object.freeze({ yours: "#25afd2", others: "#de6d9b" }),
 });
 /** The score ramp's ends: low (muted, recedes toward the surface) and high (strong). */

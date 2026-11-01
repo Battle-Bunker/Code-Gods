@@ -10,7 +10,7 @@ import { SettingsChangeError, applySettingsChange, sameSettings, type SettingsDo
 
 const INT_WIDE = { min: -2147483648, max: 2147483647 };
 const INT_SMALL = { min: 0, max: 9999 };
-const GRID4 = { size: 4, symbols: "base10", colours: "rgb" };
+const GRID4 = { size: 4, symbols: "base10", colours: "ryb" };
 const GRID5 = { size: 5, symbols: "base10", colours: "rgby" };
 const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
 
@@ -18,13 +18,13 @@ const FAMILIES: Record<string, string[]> = {
   "Int(-2147483648,2147483647)": ["parity", "digits"],
   "Int(0,9999)": ["parity", "digits", "small"],
   "string(128)": ["vowels"],
-  "Grid(4,base10,rgb)": ["stripes", "corners", "frames"],
+  "Grid(4,base10,ryb)": ["stripes", "corners", "frames"],
   "Grid(5,base10,rgby)": ["stripes", "corners", "ladders"],
   "Grid(7,cards,rainbow6)": ["stripes", "suits"],
 };
 /** Defence (penalty) families per instantiation: the excluded-defence list is checked against these, rewards against FAMILIES. */
 const DEFENCE: Record<string, string[]> = {
-  "Grid(4,base10,rgb)": ["hate_red", "hate_rows"],
+  "Grid(4,base10,ryb)": ["hate_red", "hate_rows"],
   "Grid(5,base10,rgby)": ["hate_red", "hate_rows", "hate_yellow"],
   "Grid(7,cards,rainbow6)": ["hate_red"],
 };

@@ -15,12 +15,14 @@ import type { AnalyticSurvival } from "../../analytic.ts";
 // ------------------------------------------------------------------------------------------------
 
 export const COLOUR_NAMES: Readonly<Record<string, readonly string[]>> = {
+  ryb: ["red", "yellow", "blue"],
   rgb: ["red", "green", "blue"],
   rgby: ["red", "yellow", "green", "blue"],
   rainbow6: ["red", "orange", "yellow", "green", "blue", "violet"],
 };
 /** Paint mixing (Mixable): [parent, parent, child] by colour name. */
 export const MIXES: Readonly<Record<string, readonly (readonly [string, string, string])[]>> = {
+  ryb: [],
   rgb: [],
   rgby: [["yellow", "blue", "green"]],
   rainbow6: [["red", "yellow", "orange"], ["yellow", "blue", "green"], ["red", "blue", "violet"]],

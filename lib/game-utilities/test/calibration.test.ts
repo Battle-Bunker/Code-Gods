@@ -399,6 +399,10 @@ test("every shape the type can instantiate is playable, shipped tables or not; o
   const grid = playableInstantiations("Grid");
   assert.equal(grid.length, 48, "sizes 4–7 × 4 symbol sets × 3 colour sets");
   assert.equal(grid[0]!.key, instantiate("Grid", {}).key, "the type's default first");
+  assert.equal(grid[0]!.key, "Grid(4,base10,ryb)");
+  assert.ok(!grid.some(i => i.args.colours === "rgb"), "red, green, blue is no longer offered (stored rooms keep it)");
+  const { coverage } = await import("../src/calibration.ts");
+  assert.equal(coverage(shippedManifest(), grid[0]!, []).missing.length, 0, "the default shape ships every table: its first game starts at once");
   assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
   assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);
   assert.deepEqual(playableInstantiations("Int").map(i => i.key), ["Int(-2147483648,2147483647)", "Int(-2147483648,9999)", "Int(0,2147483647)", "Int(0,9999)"]);

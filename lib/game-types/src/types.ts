@@ -51,7 +51,9 @@ export interface ParamDoc {
 export type ParamSchema = ParamDoc & (
   /** Choose one registered component (a symbol set, a colour set...). */
   | { readonly kind: "component"; readonly id: string; readonly label: string; readonly slot: string;
-      readonly options: readonly ComponentOption[] }
+      readonly options: readonly ComponentOption[];
+      /** Components that stay valid (stored rooms name them) but are no longer offered: pickers list them only as a current value. */
+      readonly legacy?: readonly ComponentOption[] }
   /** An integer parameter. `presets` are the values the settings UI offers (calibrated values only). */
   | { readonly kind: "int"; readonly id: string; readonly label: string; readonly min: number; readonly max: number;
       readonly presets?: readonly number[] });

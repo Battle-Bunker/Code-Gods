@@ -1,10 +1,10 @@
 /**
- * Re-derives the digits renderer's text shades per colour SET (rgb, rgby, rainbow6) and scheme (light, dark):
+ * Re-derives the digits renderer's text shades per colour SET (ryb, rgb, rgby, rainbow6) and scheme (light, dark):
  *
  *   node --experimental-strip-types lib/object-views/scripts/derive-palettes.ts
  *
  * For each set it searches OKLCH (lightness in the scheme's band, vivid chroma, hue within the window where it still
- * reads as the colour's name) for the shades that maximise `objective`: the smallest pairwise CIEDE2000 (normal vision)
+ * reads as the colour's name, and for blue and yellow on light pages no darker than L_FLOOR) for the shades that maximise `objective`: the smallest pairwise CIEDE2000 (normal vision)
  * PLUS the smallest pairwise OKLab ΔE×100 under protanopia, deuteranopia and tritanopia (Machado 2009; tritanopia
  * stands in for small-field tritanopia at digit size), subject to WCAG 4.6:1 against every surface of the scheme in
  * both apps' index.css. Hill-climbing from seeded restarts: deterministic. It prints the
@@ -12,7 +12,7 @@
  */
 import { readFileSync } from "node:fs";
 import { COLOUR_COMPONENTS, GRID_COLOUR_SETS } from "@workspace/game-types";
-import { NAME_HUES } from "../src/grid-display.ts";
+import { nameHues } from "../src/grid-display.ts";
 import { contrastRatio, deltaE2000, deltaEOk, hexOfOklch, labOf, oklchOf, paletteMetrics } from "../src/colour-science.ts";
 
 
@@ -53,13 +53,19 @@ export const L_BANDS = { light: [0.42, 0.64], dark: [0.62, 0.9] } as const;
 export const CHROMA_FLOOR = 0.1;
 /** Past these lightnesses a hue stops reading as its name (a light red reads as pink). */
 const L_CAP: Record<string, number> = { red: 0.72, violet: 0.74 };
+/**
+ * Below these lightnesses (light scheme) a hue stops reading as its name at digit size: a darker blue reads as navy or
+ * near-black, a darker yellow as brown. Each sits just under the lightest shade that still passes 4.6:1 on the light
+ * surfaces, so these colours stay as light as the contrast floor allows ("reads as its name" beats separation).
+ */
+export const L_FLOOR: Record<"light" | "dark", Record<string, number>> = { light: { blue: 0.49, yellow: 0.49 }, dark: {} };
 
 const maxChroma = (L: number, h: number) => { let c = 0; while (hexOfOklch(L, c + 0.005, h)) c += 0.005; return c; };
 
 interface Candidate { hex: string; chroma: number }
-function candidates(name: string, bg: string[], [L0, L1]: readonly [number, number]): Candidate[] {
-  const [h0, h1] = NAME_HUES[name], out = new Map<string, Candidate>();
-  for (let h = h0; h <= h1; h += 2) for (let L = L0; L <= Math.min(L1, L_CAP[name] ?? 1) + 1e-9; L += 0.01) {
+function candidates(name: string, scheme: "light" | "dark", bg: string[], [L0, L1]: readonly [number, number]): Candidate[] {
+  const [h0, h1] = nameHues(name, scheme), floor = L_FLOOR[scheme][name] ?? 0, out = new Map<string, Candidate>();
+  for (let h = h0; h <= h1; h += 2) for (let L = Math.max(L0, floor); L <= Math.min(L1, L_CAP[name] ?? 1) + 1e-9; L += 0.01) {
     const cMax = maxChroma(L, h);
     for (let C = Math.max(CHROMA_FLOOR, 0.6 * cMax); C <= cMax + 1e-9; C += 0.01) {
       const hex = hexOfOklch(L, C, h);
@@ -85,8 +91,8 @@ export function objective(cols: readonly string[]): number {
   return n + c;
 }
 
-export function derive(names: readonly string[], bg: string[], band: readonly [number, number]): string[] {
-  const pools = names.map(n => candidates(n, bg, band));
+export function derive(names: readonly string[], scheme: "light" | "dark", bg: string[]): string[] {
+  const pools = names.map(n => candidates(n, scheme, bg, L_BANDS[scheme]));
   const n = names.length;
   let best: Candidate[] = [], bestScore = -1;
   for (let restart = 0; restart < 12; restart++) {
@@ -122,7 +128,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log("surfaces", bg);
   for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
     const names = COLOUR_COMPONENTS[set].names;
-    const cols = derive(names, bg[scheme], L_BANDS[scheme]);
+    const cols = derive(names, scheme, bg[scheme]);
     const m = paletteMetrics(cols, bg[scheme]);
     console.log(set, scheme, Object.fromEntries(COLOUR_COMPONENTS[set].letters.map((l, i) => [l, cols[i]])),
       `ΔE2000 ${m.minDeltaE2000.toFixed(1)} protan ${m.minProtan.toFixed(1)} deutan ${m.minDeutan.toFixed(1)} tritan ${m.minTritan.toFixed(1)} contrast ${m.minContrast.toFixed(2)}`,

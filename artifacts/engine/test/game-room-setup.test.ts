@@ -67,7 +67,7 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   const whole = (await host.c.query(api.rooms.get, { room: roomId })).settings;
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { ...whole, objectType: "Grid" } });
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings.typeArgs, room.settings.startingObjectCount], [{ size: 4, symbols: "base10", colours: "rgb" }, before.startingObjectCount]);
+  assert.deepEqual([room.settings.typeArgs, room.settings.startingObjectCount], [{ size: 4, symbols: "base10", colours: "ryb" }, before.startingObjectCount]);
 });
 
 test("a change edits the room's setup when the owner owns it, else their copy, which the room then runs; the game keeps its setup", { timeout: 120_000 }, async () => {

@@ -1,5 +1,5 @@
 /**
- * The display shades of the Grid renderers, per colour SET (rgb, rgby, rainbow6) and scheme: every shade reads on the
+ * The display shades of the Grid renderers, per colour SET (ryb, rgb, rgby, rainbow6) and scheme: every shade reads on the
  * apps' page, card, popover and muted backgrounds of its scheme (WCAG AA, 4.5:1); the shades of one set stay apart
  * for normal vision (CIEDE2000) and under protanopia, deuteranopia and tritanopia (OKLab ΔE×100, Machado 2009; the
  * dataviz method's target is 8, its floor 6 with a secondary cue, which the letter and pattern cues are); each stays
@@ -11,7 +11,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { COLOUR_COMPONENTS, GRID_COLOUR_SETS, type GridColourSet } from "@workspace/game-types";
 import {
-  DIGIT_SHADES, NAME_HUES, TEXT_SHADES, TILE_INK, contrastRatio, deltaE76, gridModel, labHue, labOf, textShadeToken, textShadeVar,
+  DIGIT_SHADES, TEXT_SHADES, TILE_INK, contrastRatio, deltaE76, gridModel, labHue, labOf, nameHues, textShadeToken, textShadeVar,
 } from "../src/grid-display.ts";
 import { deltaE2000, deltaE2000Lab, deltaEOk, oklchOf, paletteMetrics, simulateHex } from "../src/colour-science.ts";
 
@@ -57,15 +57,16 @@ function backgrounds(): { light: Map<string, string>; dark: Map<string, string> 
 const shadesOf = (set: GridColourSet, scheme: "light" | "dark") => COLOUR_COMPONENTS[set].letters.map(l => DIGIT_SHADES[set][scheme][l]);
 
 /**
- * Floors per set and scheme: [min CIEDE2000, min OKLab ΔE×100 under protanopia/deuteranopia, under tritanopia]. Each
- * is above what the previous, per-letter shades reached (rgb light 42.9 / 6.9 / 5.0, rgby 25.5 / 4.3 / 5.0, rainbow6
- * 19.9 / 2.2 / 5.0; dark rgb 42.3 / 4.2 / 6.4, rgby 28.4 / 4.2 / 6.4, rainbow6 26.3 / 3.0 / 6.4), so a regression to
- * them fails.
+ * Floors per set and scheme: [min CIEDE2000, min OKLab ΔE×100 under protanopia/deuteranopia, under tritanopia], just
+ * under what the derivation reaches. Light rgby and rainbow6 sit lower than when blue could be indigo (rgby 6.5 / 7.5,
+ * rainbow6 5 / 7.5): an indigo blue was far from green and violet but read as near-black at digit size, and reading as
+ * its name comes first (the letter and pattern cues carry the rest).
  */
 const FLOORS: Record<GridColourSet, Record<"light" | "dark", [number, number, number]>> = {
-  rgb: { light: [48, 8.5, 8.5], dark: [52, 22, 22] },
-  rgby: { light: [31, 6.5, 7.5], dark: [42, 14, 17] },
-  rainbow6: { light: [22.5, 5, 7.5], dark: [30, 10.5, 11] },
+  ryb: { light: [38, 8, 13], dark: [55, 22, 22] },
+  rgb: { light: [48, 7.5, 7.5], dark: [53, 22, 22] },
+  rgby: { light: [32, 5, 5], dark: [43, 14, 19.5] },
+  rainbow6: { light: [21, 4.2, 4.5], dark: [30, 10.5, 11] },
 };
 
 test("hand-checked colour science: hsl, Lab, CIE76, CIEDE2000 and CVD simulation", () => {
@@ -97,7 +98,7 @@ test("every set has one shade per colour letter in both schemes, inside its name
       assert.deepEqual(Object.keys(DIGIT_SHADES[set][scheme]).sort(), [...letters].sort(), `${set} ${scheme} letters`);
       letters.forEach((l, i) => {
         const [, C, h] = oklchOf(DIGIT_SHADES[set][scheme][l]);
-        const [lo, hi] = NAME_HUES[names[i]];
+        const [lo, hi] = nameHues(names[i], scheme);
         assert.ok(h >= lo - 0.5 && h <= hi + 0.5, `${set} ${scheme} ${names[i]} hue ${h.toFixed(1)} outside ${lo}–${hi}`);
         assert.ok(C >= 0.095, `${set} ${scheme} ${names[i]} chroma ${C.toFixed(3)}: reads grey`);
       });
@@ -127,13 +128,32 @@ test("the shades of each set are far apart for normal vision and under protanopi
     assert.ok(Math.min(m.minProtan, m.minDeutan) >= cvd, `${where}: min CVD ΔE ${Math.min(m.minProtan, m.minDeutan).toFixed(1)} < ${cvd}`);
     assert.ok(m.minTritan >= tritan, `${where}: min tritan ΔE ${m.minTritan.toFixed(1)} < ${tritan}`);
   }
-  // The owner's complaint: blue and green were the hardest pair. In the three-colour set they are now far apart even
-  // for a small-field (tritan) eye, where the old #147137 / #1d5bbd sat at 5.0, under the dataviz floor of 6.
-  assert.ok(deltaEOk("#147137", "#1d5bbd", "tritan") < 5.5);
-  assert.ok(deltaEOk(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B, "tritan") >= 8.5);
-  assert.ok(deltaE2000(DIGIT_SHADES.rgb.light.G, DIGIT_SHADES.rgb.light.B) > deltaE2000("#147137", "#1d5bbd"));
   // Yellow on a light page is a dark gold (L* well under 50), not a washed-out yellow.
-  assert.ok(labOf(DIGIT_SHADES.rainbow6.light.Y)[0] < 50 && labOf(DIGIT_SHADES.rgby.light.Y)[0] < 50);
+  for (const set of ["ryb", "rgby", "rainbow6"] as const) assert.ok(labOf(DIGIT_SHADES[set].light.Y)[0] < 50, set);
+});
+
+test("the three-colour set reads as red, yellow and blue at digit size (the owner's readability report)", () => {
+  const ryb = DIGIT_SHADES.ryb;
+  // Every blue is azure, not indigo: inside 238–252 and, on light pages, no darker than L 0.49. The old rgb blue
+  // #2900df (h270, L0.42) and rgby's #1707f9 (h266) read as a generic dark colour in small text.
+  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+    const [L, , h] = oklchOf(DIGIT_SHADES[set][scheme].B);
+    assert.ok(h >= 237.5 && h <= 252.5 && (scheme === "dark" || L >= 0.485), `${set} ${scheme} blue h${h.toFixed(0)} L${L.toFixed(2)}`);
+  }
+  for (const old of ["#2900df", "#1707f9", "#0555e7"]) assert.ok(oklchOf(old)[2] > 252.5, `${old} was outside the blue window`);
+  // Yellow on light pages is ochre (h 80–90) and as light as 4.5:1 allows, not brown or olive.
+  const [yL, , yh] = oklchOf(ryb.light.Y);
+  assert.ok(yh >= 79.5 && yh <= 90.5 && yL >= 0.485, `ryb light yellow h${yh.toFixed(0)} L${yL.toFixed(2)}`);
+  // Red, yellow and blue stay apart for colour-blind eyes at least as well as red, green and blue under the same
+  // rules, and much better under protanopia and tritanopia.
+  const bg = backgrounds();
+  for (const scheme of ["light", "dark"] as const) {
+    const s = paletteMetrics(shadesOf("ryb", scheme), [...bg[scheme].values()]);
+    const g = paletteMetrics(shadesOf("rgb", scheme), [...bg[scheme].values()]);
+    assert.ok(s.minDeutan >= g.minDeutan - 0.5 && s.minProtan > g.minProtan && s.minTritan >= g.minTritan, scheme);
+  }
+  const s = paletteMetrics(shadesOf("ryb", "light"), [...bg.light.values()]), g = paletteMetrics(shadesOf("rgb", "light"), [...bg.light.values()]);
+  assert.ok(s.minProtan > 1.5 * g.minProtan && s.minTritan > 1.5 * g.minTritan, "light: protan and tritan gain half again");
 });
 
 test("tile fills are the set's bright shades with a dark glyph that reads on each (≥ 4.5:1)", () => {
@@ -172,6 +192,7 @@ test("a glyph's colour is its set's custom property with the light shade as fall
   assert.equal(textShadeVar("R", "rainbow6"), `var(--cg-ink-R, ${DIGIT_SHADES.rainbow6.light.R})`);
   assert.equal(textShadeVar("G", "rgb"), `var(--cg-ink-rgb-G, ${DIGIT_SHADES.rgb.light.G})`);
   assert.equal(textShadeVar("Y", "rgby"), `var(--cg-ink-rgby-Y, ${DIGIT_SHADES.rgby.light.Y})`);
+  assert.equal(textShadeVar("Y", "ryb"), `var(--cg-ink-ryb-Y, ${DIGIT_SHADES.ryb.light.Y})`);
   assert.equal(textShadeVar("?"), "currentColor");
   assert.equal(textShadeVar("O", "rgb"), `var(--cg-ink-O, ${DIGIT_SHADES.rainbow6.light.O})`, "a letter outside the set: the unknown-set shade, like its tile");
 });
