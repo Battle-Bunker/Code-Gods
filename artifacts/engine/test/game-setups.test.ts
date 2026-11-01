@@ -86,12 +86,12 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "   ", settings: quick })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "x".repeat(41), settings: quick })), "BAD_REQUEST");
   const bobs: Setup = await bob.c.action(api.setups.save, { name: "Quick classic", settings: quick });
-  // Settings: complete, valid, offered and within the server's limits; defence goals need one allowed family.
+  // Settings: complete, valid, a playable shape (3×3 is retired) and within the server's limits; defence goals need one allowed family.
   const { language: _l, ...incomplete } = quick;
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Partial", settings: incomplete }))).message ?? "", /missing: language/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Extra", settings: { ...quick, colour: "red" } }))).message ?? "", /Unknown settings: colour/);
   assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Old", settings: { ...quick, defenceRate: 0 } }))).message ?? "", /Unknown settings: defenceRate/);
-  assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Odd board", settings: { ...quick, typeArgs: { size: 3, symbols: "base10", colours: "rgb" } } }))).message ?? "", /not offered/);
+  assert.match((await errorOf(ann.c.action(api.setups.save, { name: "Odd board", settings: { ...quick, typeArgs: { size: 3, symbols: "base10", colours: "rgb" } } }))).message ?? "", /not playable|retired/);
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Negative", settings: { ...quick, planningSeconds: -1 } })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Huge", settings: { ...quick, startingObjectCount: 5000 } })), "BAD_REQUEST");
   assert.equal(await errorCode(ann.c.action(api.setups.save, { name: "Mixed", settings: { ...quick, grammarId: "typescript-agent-v1" } })), "BAD_REQUEST");

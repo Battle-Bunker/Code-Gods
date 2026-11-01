@@ -4,9 +4,9 @@
  * older one.
  */
 import { dimensionVar } from "@workspace/object-views";
-import { LineChart, Obj, Table, useGame, useLeaderboard, useObjects, useTrajectories } from "@/sdk";
+import { LineChart, Obj, Table, useGame, useLeaderboard, useObjects, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
-import { PanelEmpty, Section, fmt, ordinal, referObject, useObjectRanks, type PanelProps } from "./kit";
+import { PanelEmpty, PreparingNote, Section, fmt, ordinal, referObject, useObjectRanks, type PanelProps } from "./kit";
 
 /** Your bits × the others' care, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -21,15 +21,22 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const ranks = useObjectRanks(objects);
   const trajectories = useTrajectories({ hz: 0.5 });
   const me = game?.self.godId;
+  const room = useRoomInfo();
 
   const record = params.gameId ? past?.find(g => g.id === params.gameId || g.shortCode === params.gameId) : phase === "ended" ? undefined : past?.[0];
   const live = !params.gameId && phase === "ended";
   const rows: Row[] = live
     ? [...board].sort((a, b) => b.totalPayoff - a.totalPayoff).map((r, i) => ({ id: r.godId, name: r.label, isAI: r.isAI, total: r.totalPayoff, rank: i + 1 }))
     : (record?.leaderboard ?? []).map(r => ({ id: r.deityId, name: r.name, isAI: r.kind === "ai", total: r.totalPayoff, rank: r.rank }));
+  const preparing = (phase === "lobby" || phase === "ended") && !params.gameId ? room?.preparing : null;
   if (!rows.length) {
     if (params.gameId && past && !record) return <PanelEmpty>That game isn't in this room's history.</PanelEmpty>;
-    return <PanelEmpty>No finished game yet. Results appear here when a game ends.</PanelEmpty>;
+    return (
+      <div className="space-y-4">
+        {preparing && <PreparingNote preparing={preparing} />}
+        <PanelEmpty>No finished game yet. Results appear here when a game ends.</PanelEmpty>
+      </div>
+    );
   }
   const mine = rows.find(r => r.id === me);
   const sorted = [...objects].sort((a, b) => b.payoff - a.payoff);
@@ -39,6 +46,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
     : "You didn't play in this game.";
   return (
     <div className="space-y-5" data-testid="panel-results">
+      {preparing && <PreparingNote preparing={preparing} />}
       <p className="text-base">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
       {params.section !== "mine" && (
         <Section title="Final standings">

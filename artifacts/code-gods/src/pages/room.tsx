@@ -109,6 +109,33 @@ function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
   );
 }
 
+/**
+ * The next game is preparing rule tables computed on demand (its first game on this shape on this server): progress,
+ * the measured estimate, how the goals were dealt, or why it failed. The game page opens by itself when it starts.
+ */
+function Preparing({ preparing: p }: { preparing: NonNullable<RoomState["preparing"]> }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const elapsed = Math.max(0, Math.round((now - p.startedAt) / 1000));
+  const percent = p.total ? Math.round((100 * p.ready) / p.total) : 0;
+  return (
+    <section className="border bg-card px-4 py-3 space-y-2 text-sm" data-testid="panel-preparing" aria-live="polite">
+      {p.error ? (
+        <p className="text-destructive" role="alert" data-testid="text-preparing-error">{p.error}</p>
+      ) : (<>
+        <p data-testid="text-preparing">
+          The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready.
+          {" "}<span className="text-muted-foreground">This is the first game on {p.instance} on this server (about {p.estimateSeconds} s; {elapsed} s so far). It starts by itself; later games on this shape start at once.</span>
+        </p>
+        <div className="h-1.5 bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={p.total} aria-valuenow={p.ready} aria-label="Rule tables ready">
+          <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+        </div>
+      </>)}
+      {p.dealerNote && <p className="text-xs text-muted-foreground" data-testid="text-preparing-dealer">{p.dealerNote}.</p>}
+    </section>
+  );
+}
+
 function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
   const { user } = useAuth();
   const { manifest, run } = usePage();
@@ -133,6 +160,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
           primary={step.primary && <StepAction id={step.primary} primary roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />}
           secondary={step.secondary.map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
       </header>
+      {room.preparing && <Preparing preparing={room.preparing} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <Players room={room} meId={user?.id} isOwner={isOwner} minPlayers={minPlayers} />
         <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Say something to everyone…" : "Join the room to chat"}

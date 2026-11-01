@@ -1,14 +1,14 @@
 /**
  * Where am I: three sentences (the situation, how you're doing, the next step), three big numbers (rank, total
- * payoff, agents acting) and ONE next-step button. Lobby variant: who is here and ready, the owner, and what happens
- * when the game starts. `focus` (set by the assistant) chooses what the middle sentence is about.
+ * payoff, agents acting) and ONE next-step button. Lobby variant: who is here and ready, the owner, what happens
+ * when the game starts, and its rule tables' progress while a first game on a new shape prepares them. `focus` (set by the assistant) chooses what the middle sentence is about.
  */
 import { useMemo } from "react";
 import { useLeaderboard, useObjects } from "@/sdk";
 import { useNow, useSituation } from "@/core/game/situation";
 import type { nextStep } from "./next-step";
 import { useNextStep } from "./use-next-step";
-import { BigNumber, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
+import { BigNumber, PreparingNote, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
 
 export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
   const { step, go, situation: s, agents } = useNextStep(paneId, phase);
@@ -39,6 +39,8 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
 
   return (
     <div className="space-y-6" data-testid="panel-overview">
+      {/* After a game ended, the next one may be preparing its rule tables. */}
+      {s.room?.preparing && <PreparingNote preparing={s.room.preparing} />}
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>{situation}</p>
         <p>{middle}</p>
@@ -65,6 +67,7 @@ function Lobby({ next, onNext }: { next: ReturnType<typeof nextStep>; onNext: ()
         <p>When the owner starts the game, everyone gets a secret goal, then a short planning time to write a first agent before the world runs.</p>
         <p>Next: {next.why}</p>
       </div>
+      {room?.preparing && <PreparingNote preparing={room.preparing} />}
       {room && (
         <ul className="grid gap-1 text-sm sm:grid-cols-2" aria-label="Who is here">
           {room.members.map(m => (

@@ -26,6 +26,8 @@ export interface StepRoom {
   ownerName: string;
   members: readonly { id: string; kind: string }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
+  /** A start waiting for rule tables computed on demand (rooms.get `preparing`). */
+  preparing?: { ready: number; total: number; error?: string } | null;
 }
 export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null }
 
@@ -56,6 +58,13 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
     return seated
       ? { status: `You're playing in game ${g.shortCode}.`, primary: "ui.nav.playerClient", secondary: ["ui.nav.game"] }
       : { status: `Game ${g.shortCode} is running; you'll play in the next one.`, primary: "ui.nav.game", secondary: [] };
+  }
+  const p = room.preparing;
+  if (p) {
+    if (p.error) return owner
+      ? { status: "Preparing the game failed; start again to retry.", primary: "owner.start", secondary: ["ui.nav.playerClient"] }
+      : { status: `Preparing the game failed; ${firstName(room.ownerName)} can retry.`, primary: "ui.nav.playerClient", secondary: [] };
+    return { status: `Preparing rule tables: ${p.ready} of ${p.total} ready.`, primary: "ui.nav.playerClient", secondary: [] };
   }
   const n = room.members.length;
   if (!owner) return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "ui.nav.playerClient", secondary: ["rooms.setReady"] };

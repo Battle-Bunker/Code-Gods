@@ -25,6 +25,8 @@ export type PaletteState = {
   seated: boolean;
   ready: boolean;
   pauseUsed: boolean;
+  /** The next game is preparing its rule tables (rooms.get `preparing`); End ends the preparation. */
+  preparing?: boolean;
   agents: readonly { id: string; label: string }[];
   /** A command whose outcome is unknown waits for its identical retry (the banner under the header). */
   unknownOutcome: boolean;
@@ -184,7 +186,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       performer: pick("Remove which AI player?", () => s.aiSeats, id => a.owner.removeAi(id)),
       available: () => both(betweenGames(s), s.aiSeats.length ? OK : no("No AI player is seated.")),
     },
-    "rooms.endActiveGame": { performer: submit(() => a.owner.endGame()), available: () => (live(s.phase) ? OK : no("No game is running.")) },
+    // With no game running it ends a preparation (the next game computing its rule tables).
+    "rooms.endActiveGame": { performer: submit(() => a.owner.endGame()), available: () => (live(s.phase) || s.preparing ? OK : no("No game is running.")) },
     "rooms.resume": { performer: submit(() => a.owner.resume()), available: () => (s.phase === "paused" ? OK : no("The game is not stopped.")) },
   };
   const fromCatalog = commandsFromCatalog(CATALOG, (path: PublicFunctionPath, _entry: CatalogEntry) => BIND[path]?.performer ?? null, "player")

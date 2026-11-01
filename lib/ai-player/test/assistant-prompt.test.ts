@@ -125,3 +125,13 @@ test("the briefing is bounded and survives a lobby (no game), a failed read or u
   assert.ok(assistantBriefing({ observation: huge, layout }).length <= BRIEFING_LIMITS.total);
   assert.doesNotThrow(() => assistantBriefing({ observation: { self: "nope", instance: { helpers: "nope" } } }));
 });
+
+test("in the lobby, a game preparing its rule tables is in the briefing with its progress, or why it failed", () => {
+  const observation = { phase: "lobby", language: "python", instance: {} };
+  const preparing = { ready: 12, total: 18, instance: "Grid(7,cards,rainbow6)", estimateSeconds: 260 };
+  const text = assistantBriefing({ observation, preparing });
+  assert.match(text, /The game is preparing its rule tables, 12 of 18 ready \(the first game on Grid\(7,cards,rainbow6\) on this server, about 260 s in all\)\. It starts by itself/);
+  assert.match(assistantBriefing({ observation, preparing: { ...preparing, error: "The rule table for snap {} could not be prepared." } }),
+    /Starting the next game failed while preparing its rule tables: The rule table for snap \{\} could not be prepared\. The owner can start again\./);
+  assert.ok(!assistantBriefing({ observation, preparing: null }).includes("preparing its rule tables"), "nothing when nothing prepares");
+});

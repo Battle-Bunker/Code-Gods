@@ -1,7 +1,7 @@
 /**
  * The settings model (src/settings-model.ts): a change moves exactly the fields the game makes depend on it and
  * nothing else. Every expectation is written out by hand against a small hand-made domain (which instantiations are
- * offered, which families exist where), so no calibration table or tuned default leaks into these tests.
+ * playable, which families exist where), so no calibration table or tuned default leaks into these tests.
  */
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -30,7 +30,7 @@ const DEFENCE: Record<string, string[]> = {
 };
 const key = (objectType: string, args: Record<string, unknown>) => `${objectType}(${Object.values(args).join(",")})`;
 const domain: SettingsDomain = {
-  offered: t => ({ Int: [INT_WIDE, INT_SMALL], string: [{ maxLength: 128 }], Grid: [GRID4, GRID5, GRID7] } as Record<string, object[]>)[t] as never ?? [],
+  playable: t => ({ Int: [INT_WIDE, INT_SMALL], string: [{ maxLength: 128 }], Grid: [GRID4, GRID5, GRID7] } as Record<string, object[]>)[t] as never ?? [],
   families: (t, args, role) => (role === "defence" ? DEFENCE : FAMILIES)[key(t, args)] ?? [],
   typeFamilies: (t, role) => [...new Set(Object.entries(role === "defence" ? DEFENCE : FAMILIES).filter(([k]) => k.startsWith(`${t}(`)).flatMap(([, ids]) => ids))],
 };
@@ -52,25 +52,34 @@ test("an object type change takes that type's default instantiation and drops th
   const grid = applySettingsChange({ ...start, excludedFamilies: ["digits", "parity"] }, { objectType: "Grid" }, domain);
   assert.deepEqual(grid, { ...start, objectType: "Grid", typeArgs: GRID4, excludedFamilies: [] },
     "no retuning: 12 objects, 3 bits/s and the selector are the owner's, not Grid's tuned values");
-  // A type whose default instantiation is not offered takes the first offered one.
-  const noDefault: SettingsDomain = { ...domain, offered: t => (t === "Grid" ? [GRID5, GRID7] : domain.offered(t)) };
+  // A type whose default instantiation is not listed takes the first listed one.
+  const noDefault: SettingsDomain = { ...domain, playable: t => (t === "Grid" ? [GRID5, GRID7] : domain.playable(t)) };
   assert.deepEqual(applySettingsChange(start, { objectType: "Grid" }, noDefault).typeArgs, GRID5);
-  assert.throws(() => applySettingsChange(start, { objectType: "Grid" }, { ...domain, offered: () => [] }), /No Grid instantiation is offered/);
+  assert.throws(() => applySettingsChange(start, { objectType: "Grid" }, { ...domain, playable: () => [] }), /No Grid instantiation is playable/);
   assert.throws(() => applySettingsChange(start, { objectType: "Unicorn" }, domain), /Unknown object type/);
   // Back to Int: its default instantiation, and nothing remembered from the Grid detour.
   assert.deepEqual(applySettingsChange(grid, { objectType: "Int" }, domain), { ...start, excludedFamilies: [] });
 });
 
-test("type arguments are accepted only for an offered instantiation; excluded families the new one lacks are dropped", () => {
+test("type arguments are accepted only for a playable instantiation; excluded families the new one lacks are dropped", () => {
   const grid4: GameSettings = { ...start, objectType: "Grid", typeArgs: GRID4, excludedFamilies: ["corners", "frames"] };
   assert.deepEqual(applySettingsChange(grid4, { typeArgs: GRID5 }, domain), { ...grid4, typeArgs: GRID5, excludedFamilies: ["corners"] });
   assert.deepEqual(applySettingsChange(grid4, { typeArgs: GRID7 }, domain), { ...grid4, typeArgs: GRID7, excludedFamilies: [] });
   assert.deepEqual(applySettingsChange(grid4, { typeArgs: { colours: "rgby", symbols: "base10", size: 5 } }, domain).typeArgs,
     { colours: "rgby", symbols: "base10", size: 5 }, "argument order does not matter");
   assert.throws(() => applySettingsChange(grid4, { typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" } }, domain),
-    (e: unknown) => e instanceof SettingsChangeError && e.field === "typeArgs" && /Grid\(6,base16,rainbow6\) is not offered/.test(e.message));
+    (e: unknown) => e instanceof SettingsChangeError && e.field === "typeArgs" && /Grid\(6,base16,rainbow6\) is not playable/.test(e.message));
   assert.throws(() => applySettingsChange(grid4, { typeArgs: { size: 5, symbols: "base10", colours: "plaid" } }, domain), /typeArgs/);
-  assert.throws(() => applySettingsChange(start, { typeArgs: { min: 0, max: 9 } }, domain), /Int\(0,9\) is not offered/);
+  assert.throws(() => applySettingsChange(start, { typeArgs: { min: 0, max: 9 } }, domain), /Int\(0,9\) is not playable/);
+});
+
+test("a domain that accepts unlisted shapes (tables are prepared on demand) takes any valid arguments it approves, as the type resolves them", () => {
+  const open: SettingsDomain = { ...domain, isPlayable: (t, args) => t !== "Grid" || (args as { size?: number }).size !== 3 };
+  assert.deepEqual(applySettingsChange(start, { typeArgs: { max: 9, min: 0 } }, open).typeArgs, { min: 0, max: 9 }, "an unlisted Int range");
+  const grid4: GameSettings = { ...start, objectType: "Grid", typeArgs: GRID4, excludedFamilies: [] };
+  assert.deepEqual(applySettingsChange(grid4, { typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" } }, open).typeArgs, { size: 6, symbols: "base16", colours: "rainbow6" });
+  assert.throws(() => applySettingsChange(grid4, { typeArgs: { size: 3, symbols: "base10", colours: "rgb" } }, open), /is not playable/, "the domain still refuses");
+  assert.throws(() => applySettingsChange(start, { typeArgs: { min: 9, max: 0 } }, open), /typeArgs/, "and the type refuses invalid arguments");
 });
 
 test("the grammar, goal dealing and summon price must be among the choices of the current language and type", () => {

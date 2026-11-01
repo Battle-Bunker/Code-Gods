@@ -363,3 +363,21 @@ test("shipped priors: uniform first, then every prior the manifest has tables fo
   assert.deepEqual(priors.slice(1).map(p => `${p.id}@${p.version}`).sort(), [...listed].sort(), "no prior with tables is left out");
   assert.equal(new Set(priors.map(p => p.id)).size, priors.length, "one entry per prior id");
 });
+
+test("every shape the type can instantiate is playable, shipped tables or not; only retired shapes are not", async () => {
+  const { playableInstantiations, isPlayableInstantiation, firstUseSeconds, offeredInstantiations } = await import("../src/calibration.ts");
+  const { instantiate } = await import("@workspace/game-types");
+  const grid = playableInstantiations("Grid");
+  assert.equal(grid.length, 48, "sizes 4–7 × 4 symbol sets × 3 colour sets");
+  assert.equal(grid[0]!.key, instantiate("Grid", {}).key, "the type's default first");
+  assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
+  assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);
+  assert.deepEqual(playableInstantiations("Int").map(i => i.key), ["Int(-2147483648,2147483647)", "Int(-2147483648,9999)", "Int(0,2147483647)", "Int(0,9999)"]);
+  assert.deepEqual(playableInstantiations("string").map(i => i.key), ["string(128)", "string(16)"]);
+  // Shipping is diagnostics now: an Int range nobody calibrated is still playable.
+  const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
+  assert.ok(!shipped.has("Int(0,2147483647)") && isPlayableInstantiation(instantiate("Int", { min: 0, max: 2147483647 })));
+  // The first-use estimate is the measured cloud wall time (architecture.md §9): per Grid size, nearest size otherwise.
+  assert.deepEqual([4, 5, 6, 7].map(size => firstUseSeconds(instantiate("Grid", { size, symbols: "base10", colours: "rgb" }))), [35, 70, 130, 260]);
+  assert.equal(firstUseSeconds(instantiate("string", { maxLength: 20 })), 15);
+});

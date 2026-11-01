@@ -260,7 +260,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "owner.start": {
     kind: "action", audience: "owner",
     human: { title: "Start the game", tooltip: "Deals secret goals and spawns the world for 3 to 8 players; planning begins at once." },
-    ai: { description: "Owner: launch the next game (3–8 gods seated): deals utility functions, spawns the starting objects and begins planning. Idempotent per requestId." },
+    ai: { description: "Owner: launch the next game (3–8 gods seated): deals utility functions, spawns the starting objects and begins planning. On a shape new to this server it may first return {status: \"preparing\", ready, total, message}: the rule tables are being computed and the game starts by itself when they are (rooms.get `preparing`). Idempotent per requestId." },
     tools: ["start_game"], palette: { label: "Start the game", group: "owner", keywords: ["launch", "begin", "play"], surfaces: BOTH, confirm: "summary" },
   },
   "owner.command": {
@@ -363,7 +363,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "rooms.get": {
     kind: "query", audience: "player",
     human: { title: "Show the room", tooltip: "Members, settings, chat, budgets and the active game of a room." },
-    ai: { description: "A room's public state: settings and revision, members and AI seats, chat, budgets, object instance and the active game. get_rules gives a player the rules part; get_room_state gives the owner all of it." },
+    ai: { description: "A room's public state: settings and revision, members and AI seats, chat, budgets, object instance, the active game and `preparing` (the next game's rule tables being computed: ready of total). get_rules gives a player the rules part; get_room_state gives the owner all of it." },
     tools: ["get_rules", "get_room_state", "load_skill"], palette: null, why: SUBSCRIPTION,
   },
   "rooms.join": {
@@ -419,7 +419,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "rooms.endActiveGame": {
     kind: "mutation", audience: "owner",
     human: { title: "End the game now", tooltip: "Ends the running game for everyone; its final standings are recorded." },
-    ai: { description: "Owner: end the active game now; its final state is recorded like any other ending." },
+    ai: { description: "Owner: end the active game now; its final state is recorded like any other ending. With no game running, ends a preparation (the next game computing its rule tables)." },
     tools: ["end_game"], palette: { label: "End the game now", group: "owner", keywords: ["stop", "finish", "end"], surfaces: BOTH, confirm: "modal" },
   },
   "rooms.resume": {

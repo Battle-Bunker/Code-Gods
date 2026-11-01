@@ -113,12 +113,21 @@ function paneLines(layout: Json): string[] {
   return [`Panes on the player's screen: ${out.join("; ")}.`];
 }
 
+/** The next game preparing its rule tables (rooms.get `preparing`): "the game is preparing its tables, 12 of 18 ready". */
+function preparingLines(value: unknown): string[] {
+  if (!value || typeof value !== "object") return [];
+  const p = rec(value), ready = num(p.ready), total = num(p.total);
+  const error = str(p.error);
+  if (error) return [`Starting the next game failed while preparing its rule tables: ${cut(error, 300)} The owner can start again.`];
+  return [`The game is preparing its rule tables, ${ready ?? "?"} of ${total ?? "?"} ready (the first game on ${str(p.instance) ?? "this shape"} on this server, about ${num(p.estimateSeconds) ?? "?"} s in all). It starts by itself, then planning begins; nobody needs to do anything.`];
+}
+
 /**
  * The player's live situation as text, from the data of get_observation and get_layout (either may be missing: no
- * game, a failed read). Player-written strings (chat, labels of others) are left out; the whole block is marked
+ * game, a failed read), plus the room's `preparing` (get_rules) while no game runs. Player-written strings (chat, labels of others) are left out; the whole block is marked
  * untrusted. Everything slower-changing (the rules, the helpers, the panel catalogue, the utility's source) is a skill.
  */
-export function assistantBriefing({ observation, layout }: { observation?: unknown; layout?: unknown }): string {
+export function assistantBriefing({ observation, layout, preparing }: { observation?: unknown; layout?: unknown; preparing?: unknown }): string {
   const o = rec(observation);
   const self = rec(o.self);
   const utility = rec(self.utility);
@@ -151,6 +160,8 @@ export function assistantBriefing({ observation, layout }: { observation?: unkno
   } else {
     lines.push(`No game is running in this room (lobby): there is no utility or energy yet. The next game's language: ${language}; the game-rules skill has its rules.`);
   }
+  // Only with no game running (lobby, or after one ended): the next game computing its rule tables (get_rules `preparing`).
+  lines.push(...preparingLines(preparing));
   if (layout && typeof layout === "object") lines.push(...paneLines(rec(layout)));
   lines.push("</briefing>");
   return cut(lines.join("\n"), BRIEFING_LIMITS.total - 20);

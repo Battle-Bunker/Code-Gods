@@ -73,6 +73,19 @@ export const gameTables = {
     assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()),
     /** The active game (not ended), and the room's current game slot (active, or the latest until the next launch). */
     activeGameId: v.optional(v.id("games")), currentGameId: v.optional(v.id("games")),
+    /**
+     * A start waiting for calibration tables computed on demand (owner.ts start, docs/analytic-calibration/architecture.md
+     * §3.4): the deal is fixed (`deals`, private: never projected), `pending` lists the table keys not ready yet, and the
+     * game begins (planning clock and all) when the last one lands. `error` is set when a table could not be computed;
+     * the owner starts again (or ends the preparation).
+     */
+    preparing: v.optional(v.object({
+      requestId: v.string(), ownerId: v.string(), startedAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
+      instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
+      deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
+      dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
+      error: v.optional(v.string()),
+    })),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),
 
   members: defineTable({
