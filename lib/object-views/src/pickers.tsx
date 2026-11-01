@@ -89,7 +89,7 @@ function ParamPicker({ type, param, args, onPick, highlighted, disabled }: {
       <fieldset className={`space-y-1 min-w-0 ${ring}`} data-testid={`param-${param.id}`} data-highlight={highlighted || undefined}>
         <legend className="text-xs font-medium mb-1">{param.label}</legend>
         <div className="grid grid-cols-2 gap-1.5">
-          {(param.options ?? []).map(o => {
+          {[...(param.options ?? []), ...(param.legacy ?? []).filter(o => o.id === cur)].map(o => {
             const snap = snapToOffered(type, args, { [param.id]: o.id });
             const sel = cur === o.id;
             const badges = componentBadges(type.id, param, o.id, args);

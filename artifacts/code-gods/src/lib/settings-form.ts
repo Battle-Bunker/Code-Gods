@@ -150,6 +150,8 @@ export interface PlayableTypes {
   id: string; params?: readonly ParamSchema[]; defaults?: TypeArgs;
   /** `synergy`: the priors under which the Aligned Lottery has a measured synergy matrix for the shape. */
   playable: readonly { args: TypeArgs; prepare?: Prepare | null; synergy?: readonly string[] }[];
+  /** Shapes still valid but no longer offered (a legacy component, such as red, green, blue): for stored rooms' notes. */
+  legacy?: readonly { args: TypeArgs; prepare?: Prepare | null }[];
 }
 /**
  * The settings model's domain on this page: the instantiations the manifest lists as playable (the engine applies a
@@ -221,7 +223,7 @@ export function argChoices(type: PlayableTypes, args: TypeArgs): { param: ParamS
 export function firstUseNote(type: PlayableTypes, args: TypeArgs): string | null {
   const key = argKey(type.id, { ...(type.defaults ?? {}), ...args });
   if (!key) return null;
-  const listed = type.playable.find(o => argKey(type.id, { ...(type.defaults ?? {}), ...o.args }) === key);
+  const listed = [...type.playable, ...(type.legacy ?? [])].find(o => argKey(type.id, { ...(type.defaults ?? {}), ...o.args }) === key);
   const seconds = listed ? listed.prepare?.seconds : firstUseSeconds(instantiate(type.id, { ...(type.defaults ?? {}), ...args }));
   if (seconds === undefined) return null;
   const tables = listed?.prepare ? `up to ${listed.prepare.toCompute} rule table${listed.prepare.toCompute === 1 ? "" : "s"}` : "its rule tables";

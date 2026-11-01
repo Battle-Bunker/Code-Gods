@@ -23,11 +23,12 @@ test("ryb deals exactly the families and canonical params rgb deals", () => {
 
 test("every family scores the same board alike on ryb and rgb (colours by index)", () => {
   const rng = seededRng("ryb≡rgb");
-  for (const { rgb, ryb } of [pairs[0], pairs[pairs.length - 1]]) {
-    const def = objectType("Grid"), boards = Array.from({ length: 24 }, () => def.spawn(rgb, rng));
+  for (const { rgb, ryb } of pairs) {
+    const def = objectType("Grid"), boards = Array.from({ length: 12 }, () => def.spawn(rgb, rng));
     const ctx = context(rgb);
     for (const f of familiesFor("Grid").filter(f => available(f, rgb).ok)) {
-      for (const params of f.support(ctx).slice(0, 4)) {
+      const support = f.support(ctx), step = Math.max(1, Math.floor(support.length / 6));
+      for (const params of support.filter((_, i) => i % step === 0)) {
         const a = evaluator({ familyId: f.id, params }, rgb), b = evaluator({ familyId: f.id, params }, ryb);
         for (const g of boards) {
           assert.deepEqual(b(def.codec(ryb).encode(g)), a(def.codec(rgb).encode(g)), `${f.id} ${paramsKey(params)} on ${ryb.key}`);

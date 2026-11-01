@@ -115,6 +115,10 @@ test("the board shape is one control per argument; every playable combination is
 
 test("a shape whose first game computes tables says so with the measured time; the dealer says when it deals like the Divine Lottery", () => {
   assert.equal(firstUseNote(GRID, GRID5), null, "every table shipped or analytic: nothing to say");
+  // A stored room on a legacy shape (red, green, blue) reads the engine's legacy list: its tables are shipped.
+  const RGB4 = { size: 4, symbols: "base10", colours: "rgb" };
+  assert.equal(firstUseNote({ ...GRID, legacy: [{ args: RGB4, prepare: null }] }, RGB4), null);
+  assert.match(firstUseNote({ ...GRID, legacy: [{ args: RGB4, prepare: { toCompute: 3, seconds: 35 } }] }, RGB4)!, /up to 3 rule tables/);
   assert.equal(firstUseNote(GRID, GRID7), "The first game on this shape on this server prepares up to 12 rule tables (about 4 min 20 s) before planning starts; later games start at once.");
   const int = { id: "Int", params: objectType("Int").params, defaults: objectType("Int").defaults, playable: [{ args: { min: 0, max: 9999 }, prepare: null }] };
   assert.match(firstUseNote(int, { min: 5, max: 100 })!, /prepares its rule tables \(about 35 s\)/, "an unlisted range: the type's measured estimate");

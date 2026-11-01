@@ -42,7 +42,7 @@ from pathlib import Path
 import numpy as np
 
 from . import calibrate as cal
-from .core import Grid, GridType, spawn_batch
+from .core import COLOUR_LETTERS as _CORE_LETTERS, Grid, GridType, spawn_batch
 from .defence import hinge
 from .family import Draw
 from .rules import DEFENCE_FAMILIES, shortlist
@@ -62,7 +62,7 @@ FIX_PER_TABLE = 24      # fixture grids checked per table
 SYMBOL_CODES = {
     "cards": [r + s for s in "SHDC" for r in "A23456789TJQK"],
 }
-COLOUR_LETTERS = {"rgb": "RGB", "rgby": "RYGB", "rainbow6": "ROYGBV"}
+COLOUR_LETTERS = {k: "".join(v) for k, v in _CORE_LETTERS.items()}
 
 
 def slug(gt: GridType) -> str:

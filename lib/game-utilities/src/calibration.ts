@@ -518,6 +518,35 @@ export function playableInstantiations(objectTypeId: string): readonly Instantia
   return found;
 }
 
+const legacyMemo = new Map<string, readonly Instantiation[]>();
+/**
+ * The shapes that use a legacy component (one still valid for stored rooms but no longer offered, e.g. Grid's rgb):
+ * each legacy value combined with the other parameters' offered choices. Pickers never list these; the settings page
+ * uses them for a stored room's notes (what its first game prepares).
+ */
+export function legacyInstantiations(objectTypeId: string): readonly Instantiation[] {
+  let found = legacyMemo.get(objectTypeId);
+  if (found) return found;
+  const T = objectType(objectTypeId), out = new Map<string, Instantiation>();
+  for (const legacyParam of T.params) {
+    if (legacyParam.kind !== "component" || !legacyParam.legacy?.length) continue;
+    let combos: Record<string, number | string>[] = [{ ...T.defaults } as Record<string, number | string>];
+    for (const p of T.params) {
+      const values: (number | string)[] = p === legacyParam ? legacyParam.legacy.map(o => o.id)
+        : p.kind === "component" ? p.options.map(o => o.id) : [...(p.presets ?? [])];
+      if (!values.length) continue;
+      combos = combos.flatMap(c => values.map(value => ({ ...c, [p.id]: value })));
+    }
+    for (const args of combos) {
+      let inst: Instantiation;
+      try { inst = T.instantiate(args); } catch { continue; }
+      if (isPlayableInstantiation(inst) && !out.has(inst.key)) out.set(inst.key, inst);
+    }
+  }
+  legacyMemo.set(objectTypeId, found = Object.freeze([...out.values()]));
+  return found;
+}
+
 /**
  * Cloud first-use latency (architecture.md §9.2, measured on the dev deployment with `scripts/first-use-probe.ts`): the
  * wall time, in seconds, from dealing a 6-god game with defence goals on a shape with no tables to every table ready,

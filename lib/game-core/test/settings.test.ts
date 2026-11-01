@@ -182,7 +182,12 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "ryb" }); // beginner board
   assert.ok(grid.excludedFamilies.includes("sudoku_scholar") && grid.excludedFamilies.includes("fair_weaver"));
   // A stored rgb beginner board keeps its tuning (same structure as ryb, so the same rules are too hard there).
-  assert.deepEqual(defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }).excludedFamilies, grid.excludedFamilies);
+  const rgb4 = defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }).excludedFamilies;
+  assert.deepEqual(grid.excludedFamilies.filter(id => id !== "seed3_green_ones"), rgb4);
+  // Green Ones is not dealt by default where there is no green (its card would say "Green Ones: count the red 1s").
+  assert.ok(grid.excludedFamilies.includes("seed3_green_ones") && !rgb4.includes("seed3_green_ones"));
+  assert.ok(defaultSettingsFor("Grid", ["python"], { size: 6, symbols: "cards", colours: "ryb" }).excludedFamilies.includes("seed3_green_ones"));
+  assert.ok(!defaultSettingsFor("Grid", ["python"], { size: 6, symbols: "cards", colours: "rgby" }).excludedFamilies.includes("seed3_green_ones"));
   const classic = defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" });
   assert.equal(classic.excludedFamilies.length, 11); // weak families, every Grid board
   for (const attractor of ["snap", "full_house", "bullseye", "flush_royale", "pinwheel", "stripe_painter"])

@@ -403,6 +403,11 @@ test("every shape the type can instantiate is playable, shipped tables or not; o
   assert.ok(!grid.some(i => i.args.colours === "rgb"), "red, green, blue is no longer offered (stored rooms keep it)");
   const { coverage } = await import("../src/calibration.ts");
   assert.equal(coverage(shippedManifest(), grid[0]!, []).missing.length, 0, "the default shape ships every table: its first game starts at once");
+  const { legacyInstantiations } = await import("../src/calibration.ts");
+  const legacy = legacyInstantiations("Grid");
+  assert.equal(legacy.length, 16, "rgb × sizes 4–7 × 4 symbol sets: stored rooms' shapes");
+  assert.ok(legacy.every(i => i.args.colours === "rgb") && legacy.every(i => coverage(shippedManifest(), i, []).missing.length === 0), "every rgb shape still ships its tables");
+  assert.deepEqual(legacyInstantiations("Int"), []);
   assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
   assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);
   assert.deepEqual(playableInstantiations("Int").map(i => i.key), ["Int(-2147483648,2147483647)", "Int(-2147483648,9999)", "Int(0,2147483647)", "Int(0,9999)"]);

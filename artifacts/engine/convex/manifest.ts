@@ -11,7 +11,7 @@ import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
  */
 import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS, defaultSettingsFor } from "@workspace/game-core";
 import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-types";
-import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
+import { analyticFor, coverage, firstUseSeconds, legacyInstantiations, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
 import { calibrationManifest } from "./engine/calibration";
@@ -38,6 +38,8 @@ function objectTypesManifest(calibration: CalibrationManifest) {
     classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
     // The same list the settings model is given on the server (engine/settingsDomain.ts).
     playable: playableInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst), synergy: priorIds(calibration).filter(p => synergyFor(inst, p)) })),
+    // Shapes on a legacy component (Grid's rgb), still valid for stored rooms but never offered: their notes only.
+    legacy: legacyInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst) })),
     // Diagnostics: the shapes whose every dealable table is shipped in file storage.
     offered: offeredInstantiations(calibration, T.id).map(shape),
   })));

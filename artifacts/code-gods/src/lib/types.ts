@@ -37,6 +37,8 @@ export type PlayableInfo = OfferedInfo & { prepare: { toCompute: number; seconds
 export interface ObjectTypeInfo extends ObjectTypeInfoLike<OfferedInfo> {
   /** Every shape a room may choose (tables are prepared on demand); `offered` lists those whose tables are all shipped. */
   playable: PlayableInfo[];
+  /** Shapes on a legacy component (red, green, blue): valid for stored rooms, never offered. */
+  legacy?: (OfferedInfo & { prepare: { toCompute: number; seconds: number } | null })[];
   label: string; emoji: string; kid: string;
   classes: { id: string; slot: string; superclasses?: string[]; badge: { id: string; emoji: string; label: string; kid: string } }[];
 }

@@ -6,7 +6,7 @@
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
-import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
+import { COLOUR_COMPONENTS, instantiate, objectType as objectTypeDef, type GridColourSet } from "@workspace/game-types";
 import type { Codec, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
 export type { ObjectValue, TypeArgs } from "@workspace/game-types";
@@ -331,6 +331,8 @@ export const WEAK_GRID_FAMILIES: readonly string[] = Object.freeze([
   "number_sandwich", "picture_frame", "bridge_builder", "ladder_of_numbers",
 ]);
 
+const noGreen = (inst: Instantiation) => inst.args.colours !== undefined && !COLOUR_COMPONENTS[inst.args.colours as GridColourSet]?.names.includes("green");
+
 export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly all?: Partial<GameSettings>;
   readonly of?: (inst: Instantiation) => Partial<GameSettings>;
@@ -342,8 +344,10 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" seed setup (16 bits/s, floor 1).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
+    // Green Ones counts green cells; a set without green (ryb) would deal it under another colour, so it isn't dealt there.
+    of: inst => (noGreen(inst) ? { excludedFamilies: [...WEAK_GRID_FAMILIES, "seed3_green_ones"] } : {}),
     byKey: {
-      "Grid(4,base10,ryb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      "Grid(4,base10,ryb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver", "seed3_green_ones"] },
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },   // the former beginner board
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
       "Grid(7,cards,rainbow6)": { excludedFamilies: WEAK_GRID_FAMILIES.filter(id => id !== "ladder_of_numbers") },

@@ -17,6 +17,8 @@ export interface ParamSchemaLike {
   label: string;
   slot?: string;
   options?: readonly ComponentOptionLike[];
+  /** Components still valid but no longer offered (shown only as a current value). */
+  legacy?: readonly ComponentOptionLike[];
   min?: number;
   max?: number;
   presets?: readonly number[];

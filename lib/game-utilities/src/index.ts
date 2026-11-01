@@ -27,6 +27,6 @@ export {
 } from "./analytic-verify.ts";
 export {
   tableFor, hasTable, instanceTables, analyticFor, tableKey, tableKeyParts, keyFromParts, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,
-  offeredInstantiations, playableInstantiations, isPlayableInstantiation, firstUseSeconds, FIRST_USE_SECONDS, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
+  offeredInstantiations, playableInstantiations, legacyInstantiations, isPlayableInstantiation, firstUseSeconds, FIRST_USE_SECONDS, shippedPriors, UNIFORM_PRIOR, CALIBRATION_FORMAT, priorKey, canonicalJson,
   type CalibrationFile, type CalibrationManifest, type CalibrationTable, type InstanceTables, type PriorRef,
 } from "./calibration.ts";
