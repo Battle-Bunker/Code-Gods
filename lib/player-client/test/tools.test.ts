@@ -7,14 +7,14 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
+import { CORE_TOOLS, SHORT_MAX, TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
 import { CATALOG } from "../src/catalog.ts";
 import { PANEL_IDS } from "../src/panels.ts";
 import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
 const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_trajectories", "list_games", "get_game_history", "get_my_utility",
-  "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout"];
+  "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout", "load_skill"];
 const ACT = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game", "wake_engine",
   "save_setup", "duplicate_setup", "delete_setup", "save_panel", "rollback_panel", "delete_panel", "open_panel", "set_panel_params", "move_pane", "close_pane"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
@@ -47,6 +47,19 @@ test("descriptions come from the catalogue unless a tool wraps a shared function
   assert.equal(tool("wake_engine").description, CATALOG["activity.touch"].ai.description, "a tool without a note is the catalogue text");
   assert.match(tool("summon_agent").description, /confirms first/);
   for (const t of TOOLS) assert.ok(t.title.length >= 3 && t.title.length <= 60, `${t.name} has a short title`);
+});
+
+test("every tool has a one-line short form for the index; the core set is a few existing tools including the skill loader", () => {
+  const shorts = new Set<string>();
+  for (const t of TOOLS) {
+    assert.ok(t.short.length >= 20 && t.short.length <= SHORT_MAX, `${t.name}: short is 20..${SHORT_MAX} characters (${t.short.length})`);
+    assert.match(t.short, /^[A-Z][^\n]*\.$/, `${t.name}: one sentence`);
+    assert.doesNotMatch(t.short, /confirm/i, `${t.name}: the index adds "(confirmed)" itself`);
+    assert.ok(!shorts.has(t.short), `${t.name}: short lines are distinct`);
+    shorts.add(t.short);
+  }
+  assert.ok(CORE_TOOLS.length <= 6 && CORE_TOOLS.every(name => TOOL_NAMES.includes(name)) && CORE_TOOLS.includes("load_skill"));
+  assert.ok(tool("open_panel").description.length <= 450, "a core tool's description is short; its guidance lives in the screen skill");
 });
 
 test("layout tools: open_panel takes a built-in panel id from the enum or a stored panel's slug; places are validated; ids are bounded", () => {

@@ -11,7 +11,12 @@
  *   - returns reasoning blocks opaque and in order (ChatThinking), and replays the ones it produced verbatim. Callers
  *     keep a conversation append-only within a turn, so a replayed block's prefix never changes.
  */
-export type ChatToolSpec = { name: string; description: string; inputSchema: Record<string, unknown> };
+/**
+ * A tool the model may call. A `deferred` tool is not in the model's context until a `load_tools` result names it
+ * (ChatToolResult.toolReferences): Anthropic sends it with defer_loading and expands the references itself (the
+ * cached prefix never changes); adapters without native deferral offer only `activeTools`.
+ */
+export type ChatToolSpec = { name: string; description: string; inputSchema: Record<string, unknown>; deferred?: boolean };
 export type ChatText = { type: "text"; text: string };
 export type ChatToolUse = { type: "tool_use"; id: string; name: string; input: Record<string, unknown> };
 /**
@@ -19,7 +24,13 @@ export type ChatToolUse = { type: "tool_use"; id: string; name: string; input: R
  * byte-for-byte in the same place, and only to the provider that produced it. Other adapters drop it.
  */
 export type ChatThinking = { type: "thinking"; provider: "anthropic"; block: Record<string, unknown> };
-export type ChatToolResult = { type: "tool_result"; toolUseId: string; content: string; isError?: boolean };
+/**
+ * `toolReferences`: the deferred tools a load_tools result loads (Anthropic shows it as tool_reference blocks only;
+ * `content` is its text for adapters that show text). `loadsTools`: deferred tools a result with text of its own (a
+ * loaded skill) also puts in context where the adapter manages context itself (activeTools); Anthropic, whose
+ * deferred tools stay callable, shows the text.
+ */
+export type ChatToolResult = { type: "tool_result"; toolUseId: string; content: string; isError?: boolean; toolReferences?: string[]; loadsTools?: string[] };
 export type ChatMessage =
   | { role: "user"; content: string | (ChatText | ChatToolResult)[] }
   | { role: "assistant"; content: ChatAssistantBlock[] };
@@ -98,8 +109,33 @@ export function worstCaseCost(prices: Prices, inputTokens: number, outputTokens:
   return { usd: (inputTokens * dearestInput(prices) + outputTokens * prices.outputUsdPerMillion) / 1_000_000, tokens: Math.ceil(inputTokens * dearestInput(prices) / prices.inputUsdPerMillion) + outputTokens };
 }
 
-/** The size the characters-per-token estimates are measured against: the system prompt, the history and the tools as JSON. */
-export const inputChars = (input: ChatInput) => input.system.length + JSON.stringify(input.messages).length + JSON.stringify(input.tools).length;
+/** The assistant's tool loader (run by the engine, not a registry tool): its results load index tools' definitions. */
+export const LOAD_TOOLS = "load_tools";
+
+/** The deferred tools the history has loaded, in the order of their first load. */
+export function loadedToolNames(messages: ChatMessage[]): string[] {
+  const names: string[] = [];
+  for (const m of messages) {
+    if (m.role !== "user" || typeof m.content === "string") continue;
+    for (const b of m.content) {
+      if (b.type === "tool_result" && !b.isError) for (const name of [...b.toolReferences ?? [], ...b.loadsTools ?? []]) if (!names.includes(name)) names.push(name);
+    }
+  }
+  return names;
+}
+/**
+ * The tools in the model's context: every tool that is not deferred, then the deferred ones the history loaded, in
+ * load order (so the list only grows within a thread, and a provider without native deferral keeps a stable prefix
+ * between loads).
+ */
+export function activeTools(input: Pick<ChatInput, "tools" | "messages">): ChatToolSpec[] {
+  const loaded = loadedToolNames(input.messages);
+  const byName = new Map(input.tools.map(t => [t.name, t]));
+  return [...input.tools.filter(t => !t.deferred), ...loaded.flatMap(name => { const t = byName.get(name); return t?.deferred ? [t] : []; })];
+}
+
+/** The size the characters-per-token estimates are measured against: the system prompt, the history and the tools in context as JSON. */
+export const inputChars = (input: ChatInput) => input.system.length + JSON.stringify(input.messages).length + JSON.stringify(activeTools(input).map(({ deferred: _, ...t }) => t)).length;
 /**
  * Characters of `inputChars` per input token, measured from live usage (test/chat-cost.test.ts keeps the samples)
  * and rounded down so an estimate errs high: claude-sonnet-5-5 2.65–2.70 (tool schemas and JSON-escaped history
@@ -147,6 +183,17 @@ export function checkUsage(inputTokens: unknown, outputTokens: unknown, maxOutpu
   if (!count(inputTokens) || !count(outputTokens) || (outputTokens as number) > maxOutputTokens || !count(read) || !count(write) ||
       (read as number) + (write as number) > (inputTokens as number)) throw new Error("Invalid or missing provider usage");
   return { inputTokens: inputTokens as number, outputTokens: outputTokens as number, cacheReadTokens: read as number, cacheWriteTokens: write as number };
+}
+
+/**
+ * A step the output ceiling cut (Anthropic max_tokens, OpenAI length): never acted on, but billed, so the caller can
+ * settle its usage and retry with a higher ceiling.
+ */
+export class ChatCutError extends Error {
+  constructor(readonly usage: ChatUsage) {
+    super("The answer reached the output ceiling");
+    this.name = "ChatCutError";
+  }
 }
 
 /** A complete answer's stop, mapped from the provider's; anything else (a cut, a refusal) is an error. */

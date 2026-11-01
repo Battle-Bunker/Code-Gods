@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Anthropic from "@anthropic-ai/sdk";
-import { ChatAbortedError, worstCaseCost, anthropicChatProvider, createDirectAnthropicChatProvider, inputChars, providerFailure, type ChatRequest } from "../src/index.ts";
+import { ChatAbortedError, ChatCutError, worstCaseCost, anthropicChatProvider, createDirectAnthropicChatProvider, inputChars, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const config = { model: "claude-sonnet-5-5", inputUsdPerMillion: 2, outputUsdPerMillion: 10 };
 const sse = (events: Record<string, unknown>[]) =>
@@ -149,10 +149,33 @@ test("a plain answer ends the turn", async () => {
   assert.deepEqual(result, { content: [{ type: "text", text: "Done." }], stopReason: "end_turn", inputTokens: 20, outputTokens: 3, cacheReadTokens: 0, cacheWriteTokens: 0 });
 });
 
-test("max_tokens, refusals and other stops are errors, never a complete answer", async () => {
-  for (const stop of ["max_tokens", "refusal", "pause_turn", "stop_sequence"]) {
+test("refusals and other stops are errors, never a complete answer; a max_tokens cut is a ChatCutError carrying its usage", async () => {
+  for (const stop of ["refusal", "pause_turn", "stop_sequence"]) {
     await assert.rejects(provider(async () => stream([start(), ...text(0, "Half"), ...end(stop)])).stream(request()), /stop|incomplete/i, stop);
   }
+  await assert.rejects(provider(async () => stream([start(), ...text(0, "Half"), ...end("max_tokens", 100)])).stream(request()),
+    (e: unknown) => e instanceof ChatCutError && e.usage.outputTokens === 100 && e.usage.inputTokens > 0);
+});
+
+test("deferred tools are sent with defer_loading; a load_tools result is only tool_reference blocks, for deferred tools of the request", async () => {
+  let body: any;
+  const tools = [
+    { name: "load_tools", description: "Load", inputSchema: { type: "object", properties: {} } },
+    { name: "validate_agent", description: "Validate", inputSchema: { type: "object", properties: {} }, deferred: true },
+    { name: "get_rules", description: "Rules", inputSchema: { type: "object", properties: {} }, deferred: true },
+  ];
+  const messages: ChatRequest["messages"] = [
+    { role: "user", content: "Validate my agent" },
+    { role: "assistant", content: [{ type: "tool_use", id: "toolu_1", name: "load_tools", input: { names: ["validate_agent", "gone"] } }] },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_1", content: '{"loaded":["validate_agent","gone"]}', toolReferences: ["validate_agent", "gone"] }] },
+    { role: "assistant", content: [{ type: "tool_use", id: "toolu_2", name: "load_tools", input: { names: ["gone"] } }] },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "toolu_2", content: '{"loaded":["gone"]}', toolReferences: ["gone"] }] },
+  ];
+  await provider(async (_u, init) => { body = JSON.parse(String(init!.body)); return stream([start(), ...text(0, "ok"), ...end("end_turn")]); }).stream(request({ tools, messages }));
+  assert.deepEqual(body.tools.map((t: any) => [t.name, t.defer_loading ?? false]), [["load_tools", false], ["validate_agent", true], ["get_rules", true]]);
+  assert.ok(body.tools.every((t: any) => !t.cache_control), "a deferred tool never carries cache_control (a 400)");
+  assert.deepEqual(body.messages[2].content[0].content, [{ type: "tool_reference", tool_name: "validate_agent" }], "references only, and only to tools the request defers");
+  assert.equal(body.messages[4].content[0].content, '{"loaded":["gone"]}', "a result naming no deferred tool falls back to its text");
 });
 
 test("usage beyond the output ceiling or a malformed count is rejected", async () => {

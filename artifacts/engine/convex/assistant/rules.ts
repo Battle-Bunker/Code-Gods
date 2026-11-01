@@ -2,8 +2,9 @@
  * Pure rules of the in-client assistant (docs/surface-architecture.md §6), shared by the turn loop and the unit
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
-import { LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
-import type { ChatAssistantBlock, ChatMessage, ChatToolResult } from "@workspace/ai-player";
+import { CORE_TOOLS, LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
+import { findSkill } from "@workspace/player-client/skills";
+import { LOAD_TOOLS, loadedToolNames, type ChatAssistantBlock, type ChatMessage, type ChatToolResult } from "@workspace/ai-player/chat";
 import { bound } from "../agent/bound.ts";
 
 export const LIMITS = {
@@ -20,8 +21,14 @@ export const LIMITS = {
   /** Streaming flushes: about every 250 ms or 400 characters. */
   flushMs: 250,
   flushChars: 400,
-  /** Output ceiling per model step (thinking included), and how long a summon/validate tool call waits for its receipt. */
+  /**
+   * Output ceiling per model step (thinking included): `outputTokens` by default (it bounds the step's reservation, not
+   * its bill), `maxOutputTokens` once a step was cut or a tool that writes code is loaded (outputCeiling).
+   */
+  outputTokens: 2048,
   maxOutputTokens: 8192,
+  /** At most this many tools per load_tools call. */
+  loadTools: 16,
   /** A step's stored model blocks (assistantMessages.contentJson; at most 3 bytes a character keeps the document under 1 MiB); larger ones are replayed without thinking. */
   contentChars: 200_000,
   /** Tool calls run per model step, and layout (dock) tools among them; more are answered with an error. */
@@ -112,19 +119,68 @@ export function prepareArgs(tool: string, args: Record<string, unknown>, id: str
 // Tools offered to the model
 // ---------------------------------------------------------------------------------------------
 
-export type ModelTool = { name: string; description: string; inputSchema: Record<string, unknown> };
+export type ModelTool = { name: string; description: string; inputSchema: Record<string, unknown>; deferred?: boolean };
 let schemas: ReturnType<typeof toolJsonSchemas> | undefined;
 const ENGINE_IDS = ["commandId", "requestId"];
+const CORE = new Set<string>(CORE_TOOLS);
+type Permission = "read" | "act" | "owner";
 
-/** The registry's tools a grant may use, as model tool definitions; the ids the engine derives are removed. */
-export function modelTools(permission: "read" | "act" | "owner"): ModelTool[] {
+/** The index tools a grant may load: every tool it may use beyond the core set. */
+export const loadableTools = (permission: Permission) => toolsFor(permission).filter(t => !CORE.has(t.name)).map(t => t.name);
+
+/** The engine's tool loader (not a registry tool: it changes the model's context, not the game). */
+function loadToolsDefinition(permission: Permission): ModelTool {
+  return {
+    name: LOAD_TOOLS,
+    description: "Load the full definitions of tools from the INDEX by name; call them from your next step on. Load every tool the task needs in one call.",
+    inputSchema: { type: "object", additionalProperties: false, required: ["names"], properties: {
+      names: { type: "array", minItems: 1, maxItems: LIMITS.loadTools, uniqueItems: true, items: { type: "string", enum: loadableTools(permission) } },
+    } },
+  };
+}
+
+/**
+ * What the model is offered at every step of every turn (a stable list, so it stays in the prompt cache): the tool
+ * loader, then the registry's tools a grant may use, all but the core set deferred (in context only once loaded);
+ * the ids the engine derives are removed.
+ */
+export function modelTools(permission: Permission): ModelTool[] {
   schemas ??= toolJsonSchemas();
-  return toolsFor(permission).map(t => {
+  const registry = toolsFor(permission).map(t => {
     const { $schema: _, ...schema } = schemas![t.name].input as Record<string, unknown> & { properties?: Record<string, unknown>; required?: string[] };
     const properties = Object.fromEntries(Object.entries((schema.properties ?? {}) as Record<string, unknown>).filter(([k]) => !ENGINE_IDS.includes(k)));
     const required = ((schema.required ?? []) as string[]).filter(k => !ENGINE_IDS.includes(k));
-    return { name: t.name, description: `${t.title}. ${t.description}`, inputSchema: { ...schema, properties, ...(required.length ? { required } : { required: undefined }) } };
+    return { name: t.name, description: `${t.title}. ${t.description}`, inputSchema: { ...schema, properties, ...(required.length ? { required } : { required: undefined }) },
+      ...(CORE.has(t.name) ? {} : { deferred: true }) };
   }).map(t => ({ ...t, inputSchema: JSON.parse(JSON.stringify(t.inputSchema)) as Record<string, unknown> }));
+  return [loadToolsDefinition(permission), ...registry];
+}
+
+/**
+ * A load_tools call's outcome: the tools it loads (the history turns them into tool references), or an error naming
+ * what may be loaded. Core tools are already loaded and are skipped.
+ */
+export function loadTools(permission: Permission, args: Record<string, unknown>): { status: "ok" | "error"; summary: string; resultJson: string } {
+  const names = Array.isArray(args.names) ? args.names.filter((n): n is string => typeof n === "string") : [];
+  const loadable = loadableTools(permission);
+  const unknown = names.filter(n => !loadable.includes(n) && !CORE.has(n));
+  if (!names.length || unknown.length || names.length > LIMITS.loadTools) {
+    const message = !names.length ? "Give the names of the tools to load (names: [...])"
+      : unknown.length ? `Not in this grant's index: ${unknown.join(", ")}. Loadable: ${loadable.join(", ")}.`
+      : `At most ${LIMITS.loadTools} tools per call`;
+    return { status: "error", summary: "Nothing loaded", resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message } }) };
+  }
+  const loaded = [...new Set(names.filter(n => !CORE.has(n)))];
+  return { status: "ok", summary: loaded.length ? `Loaded ${loaded.join(", ")}` : "Already loaded",
+    resultJson: JSON.stringify({ loaded, note: loaded.length ? "Loaded: call them from your next step on." : "These tools are always loaded." }) };
+}
+
+/** Tools whose arguments carry code or whole documents: a step that may call them gets the full output ceiling. */
+const WRITES_CODE = new Set(["validate_agent", "summon_agent", "save_panel", "save_setup"]);
+/** A step's output ceiling: the turn's raised one after a cut, the full one once a code-writing tool is loaded, else the default. */
+export function outputCeiling(turnCeiling: number | undefined, messages: ChatMessage[]): number {
+  if (turnCeiling) return Math.min(turnCeiling, LIMITS.maxOutputTokens);
+  return loadedToolNames(messages).some(n => WRITES_CODE.has(n)) ? LIMITS.maxOutputTokens : LIMITS.outputTokens;
 }
 
 /**
@@ -156,6 +212,7 @@ export function summarize(tool: string, result: { data: unknown }): string {
     if (tool === "move_pane") return line(`Moved ${data.summary ?? "a pane"}`);
     return line(`${data.reused ? "Updated" : "Showed"} ${data.summary ?? "a pane"}`);
   }
+  if (tool === "load_skill") return line(`Read the ${String((data as { name?: unknown }).name ?? "")} skill`);
   if (OWNER.has(tool) && data.requestId) return "Done";
   if (findTool(tool)?.annotations.readOnlyHint) return "Read";
   return "Done";
@@ -171,6 +228,12 @@ export type HistoryCall = { messageId: string; callId: string; index: number; to
 const FINISHED = ["ok", "error", "denied"];
 const NOT_RUN = JSON.stringify({ error: { code: "NOT_RUN", message: "This call did not run." } });
 const parseObject = (json: string): Record<string, unknown> => { try { return JSON.parse(json) as Record<string, unknown>; } catch { return {}; } };
+
+/** The tools a stored load_tools result loaded. */
+function loadedOf(json: string | null | undefined): string[] {
+  const loaded = parseObject(json ?? "{}").loaded;
+  return Array.isArray(loaded) ? loaded.filter((n): n is string => typeof n === "string") : [];
+}
 
 function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | null {
   if (!json) return null;
@@ -243,7 +306,10 @@ function historyGroups(rows: HistoryRow[], calls: HistoryCall[], current: Histor
     const results: ChatToolResult[] = content.flatMap(b => {
       if (b.type !== "tool_use") return [];
       const c = used.find(x => x.callId === b.id && FINISHED.includes(x.status));
-      return [{ type: "tool_result" as const, toolUseId: b.id, content: c ? c.resultJson ?? "{}" : NOT_RUN, ...(c?.status === "ok" ? {} : { isError: true }) }];
+      const references = c?.status === "ok" && c.tool === LOAD_TOOLS ? loadedOf(c.resultJson) : [];
+      const skillTools = c?.status === "ok" && c.tool === "load_skill" ? findSkill(String(parseObject(c.argsJson).name))?.tools ?? [] : [];
+      return [{ type: "tool_result" as const, toolUseId: b.id, content: c ? c.resultJson ?? "{}" : NOT_RUN, ...(c?.status === "ok" ? {} : { isError: true }),
+        ...(references.length ? { toolReferences: references } : {}), ...(skillTools.length ? { loadsTools: [...skillTools] } : {}) }];
     });
     if (results.length) group.messages.push({ role: "user", content: results });
   }

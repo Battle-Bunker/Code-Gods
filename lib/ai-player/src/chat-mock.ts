@@ -7,15 +7,16 @@
  *   `/mock {"steps":[step, …]}` or `/mock [step, …]`, where a step is one model call:
  *     { "text": "…" | ["chunk", …], "delayMs": 0..60000 (before each chunk), "tools": [{"name", "input"}], "fail": "message",
  *       "status": 400..599 (with fail: the HTTP status of a provider SDK error, as when the request is refused),
- *       "echo": true (answer with JSON {system, tools: names, context: the prompt's other text blocks, earlier: earlier
- *       turns' user text without their briefings}) }
+ *       "cutBelow": N (the answer is cut, ChatCutError, when the step's output ceiling is below N),
+ *       "echo": true (answer with JSON {system, tools: the names in context (core and loaded), context: the prompt's other text blocks, earlier: earlier
+ *       turns' user text without their briefings, maxOutputTokens}) }
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
  * the turn with no text. Usage is reported from the request and answer sizes (about four characters a token). An aborted
  * stream reports its input usage and the characters it streamed (ChatAbortedError), as the Anthropic adapter does.
  */
 import { z } from "zod";
-import { CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, inputChars, type ChatMessage, type ChatProvider, type ChatRequest, type ChatResult } from "./chat.ts";
+import { CHARS_PER_TOKEN, ChatAbortedError, ChatCutError, activeTools, charsEstimate, inputChars, type ChatMessage, type ChatProvider, type ChatRequest, type ChatResult } from "./chat.ts";
 
 const stepSchema = z.object({
   text: z.union([z.string(), z.array(z.string())]).optional().transform(t => t === undefined ? [] : typeof t === "string" ? [t] : t),
@@ -24,6 +25,7 @@ const stepSchema = z.object({
   fail: z.string().max(500).optional(),
   status: z.number().int().min(400).max(599).optional(),
   echo: z.boolean().optional(),
+  cutBelow: z.number().int().min(1).max(100_000).optional(),
   cache: z.object({ read: z.number().min(0).max(1).default(0), write: z.number().min(0).max(1).default(0) }).strict().refine(c => c.read + c.write <= 1).optional(),
 }).strict();
 const scriptSchema = z.object({ steps: z.array(stepSchema).max(20) }).strict();
@@ -79,10 +81,11 @@ export function mockChatProvider(): ChatProvider {
       const usage = { inputTokens, cacheReadTokens, cacheWriteTokens };
       if (!current) return { content: [], stopReason: "end_turn", ...usage, outputTokens: 1 };
       if (current.fail) throw Object.assign(new Error(current.fail), current.status ? { status: current.status } : {});
+      if (current.cutBelow !== undefined && request.maxOutputTokens < current.cutBelow) throw new ChatCutError({ ...usage, outputTokens: request.maxOutputTokens });
       let text = "";
       // Earlier turns' user text (their briefings left out: the current one is in context, and they would crowd the echo).
       const earlier = request.messages.slice(0, Math.max(0, promptAt)).flatMap(m => m.role === "user" ? (typeof m.content === "string" ? [m.content] : m.content.flatMap(b => b.type === "text" && !b.text.startsWith("<briefing>") ? [b.text] : [])) : []);
-      const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: request.tools.map(t => t.name), context: blocks.slice(0, -1), earlier })] : current.text;
+      const chunks = current.echo ? [JSON.stringify({ system: request.system, tools: activeTools(request).map(t => t.name), context: blocks.slice(0, -1), earlier, maxOutputTokens: request.maxOutputTokens })] : current.text;
       const aborted = () => new ChatAbortedError({ input: usage, outputChars: text.length, reasoningMs: 0 });
       for (const chunk of chunks) {
         if (current.delayMs) await sleep(current.delayMs, request.signal).catch(() => { throw aborted(); });

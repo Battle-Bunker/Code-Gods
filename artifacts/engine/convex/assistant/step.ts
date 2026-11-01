@@ -18,7 +18,7 @@
 import { createHash } from "node:crypto";
 import { v } from "convex/values";
 import {
-  ChatAbortedError, abortedOutputTokens, assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider,
+  ChatAbortedError, ChatCutError, LOAD_TOOLS, abortedOutputTokens, assistantBriefing, assistantSystemPrompt, createDirectAnthropicChatProvider, createDirectOpenAIChatProvider,
   inputReservation, mockChatProvider, providerFailure, usageCost, worstCaseCost,
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse, type Prices,
 } from "@workspace/ai-player";
@@ -31,7 +31,7 @@ import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { LIMITS, callLimitProblem, clipJson, commandIdFor, modelTools, needsConfirmation, prepareArgs, summarize, argsLimit } from "./rules";
+import { LIMITS, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, summarize, argsLimit } from "./rules";
 import { log } from "./store";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
@@ -77,15 +77,15 @@ function validatedCost(calls: CallRow[], args: Record<string, unknown>): number 
 }
 
 /**
- * The player's situation for the turn's briefing, read as the turn's credential like any tool call: the room's rules
- * and the observation (absent in the lobby or when a read fails; the briefing says so).
+ * The player's live situation for the turn's briefing, read as the turn's credential like any tool call: the
+ * observation and the layout (absent when a read fails; the briefing says so). The rules are the game-rules skill.
  */
 async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["credentialId"]): Promise<string> {
   const read = async (tool: string, args: Record<string, unknown>) => {
     try { return (await runTool(ctx, { credentialId }, tool, args)).data; } catch { return undefined; }
   };
-  const [rules, observation, layout] = await Promise.all([read("get_rules", {}), read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
-  return assistantBriefing({ rules, observation, layout });
+  const [observation, layout] = await Promise.all([read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
+  return assistantBriefing({ observation, layout });
 }
 
 /**
@@ -108,7 +108,9 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
     if (start.cancelled) return "cancelled";
     if (!start.go) continue;
     let outcome: { status: "ok" | "error"; summary: string; resultJson: string };
-    try {
+    // The tool loader changes only the model's context (the history turns its result into tool references).
+    if (call.tool === LOAD_TOOLS) outcome = who ? loadTools(who.permission, args) : { status: "error", summary: "Not loaded", resultJson: JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." } }) };
+    else try {
       const result: ToolResult = await runTool(ctx, principal, call.tool, args);
       outcome = { status: "ok", summary: summarize(call.tool, result), resultJson: clipJson(result, LIMITS.resultChars) };
     } catch (error) {
@@ -197,7 +199,7 @@ export const run = internalAction({
     // actual usage afterwards, so it only decides whether the allowance has room for the step.
     const estimate = await provider.estimateInputTokens({ system, messages, tools });
     const inputBound = inputReservation(estimate);
-    const outputBound = LIMITS.maxOutputTokens;
+    const outputBound = outputCeiling(c.turn.outputCeiling ?? undefined, messages);
     const worst = worstCaseCost(provider.prices, inputBound, outputBound);
     const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, {
       pool: "assistant", roomId: c.roomId, subject: c.turn.subject, tokens: worst.tokens, usd: worst.usd,
@@ -228,6 +230,18 @@ export const run = internalAction({
     } catch (error) {
       await flush.stop();
       clearTimeout(timeout);
+      if (error instanceof ChatCutError && !abort.signal.aborted) {
+        // The output ceiling cut the answer: bill it, never act on it, and run the step again with the full ceiling
+        // (once: a cut at the full ceiling fails the turn).
+        const cost = usageCost(provider.prices, error.usage);
+        await settle(cost, { inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens });
+        log("step", { turnId, step: c.turn.step, outcome: "cut", outputBound, inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens, billedTokens: cost.tokens });
+        const { cancelled } = await ctx.runMutation(internal.assistant.store.cutStep, { turnId, gen, messageId, ...error.usage, billedTokens: cost.tokens });
+        if (cancelled) return void await finish("cancelled");
+        if (outputBound >= LIMITS.maxOutputTokens) return void await finish("failed", { code: "MODEL", message: "The answer was too long for one step; ask for less at a time." });
+        await ctx.runMutation(internal.assistant.store.next, { turnId, gen });
+        return;
+      }
       if (error instanceof ChatAbortedError && abort.signal.aborted) {
         // A cancelled (or timed-out) stream reports no usage. Bill the best known: the input the provider reported
         // when the stream opened, else the estimate at its dearest price; the output the streamed text and reasoning

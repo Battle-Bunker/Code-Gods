@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import OpenAI from "openai";
-import { ChatAbortedError, worstCaseCost, openAIChatProvider, createDirectOpenAIChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
+import { ChatAbortedError, ChatCutError, worstCaseCost, openAIChatProvider, createDirectOpenAIChatProvider, providerFailure, type ChatRequest } from "../src/index.ts";
 
 const prices = { inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6 };
 const chunk = (delta: Record<string, unknown>, finish_reason: string | null = null) =>
@@ -88,12 +88,28 @@ test("an abort rejects with the characters streamed (OpenAI reports usage only a
   assert.deepEqual(error.partial, { outputChars: 7, reasoningMs: 0 });
 });
 
-test("length and content-filter stops are errors; missing usage is an error", async () => {
-  for (const finish of ["length", "content_filter"]) {
-    await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, finish), usage(1, 1)])).stream(request()), /stop|incomplete/i);
-  }
+test("a content-filter stop is an error; a length cut is a ChatCutError with its usage; missing usage is an error", async () => {
+  await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, "content_filter"), usage(1, 1)])).stream(request()), /stop|incomplete/i);
+  await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, "length"), usage(7, 100)])).stream(request()),
+    (e: unknown) => e instanceof ChatCutError && e.usage.inputTokens === 7 && e.usage.outputTokens === 100);
   await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, "stop")])).stream(request()), /usage/i);
   await assert.rejects(provider(async () => stream([chunk({ content: "x" }), chunk({}, "stop"), usage(1, 500)])).stream(request()), /usage/i);
+});
+
+test("without native deferral the request offers the core tools, then the ones load_tools results loaded, in load order", async () => {
+  let body: any;
+  const tool = (name: string, deferred = false) => ({ name, description: name, inputSchema: { type: "object", properties: {} }, ...(deferred ? { deferred } : {}) });
+  const tools = [tool("load_tools"), tool("get_observation"), tool("validate_agent", true), tool("get_rules", true), tool("move_pane", true)];
+  const messages: ChatRequest["messages"] = [
+    { role: "user", content: "Hi" },
+    { role: "assistant", content: [{ type: "tool_use", id: "call_1", name: "load_tools", input: { names: ["move_pane", "validate_agent"] } }] },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "call_1", content: '{"loaded":["move_pane","validate_agent"]}', toolReferences: ["move_pane", "validate_agent"] }] },
+    { role: "assistant", content: [{ type: "tool_use", id: "call_2", name: "load_tools", input: { names: ["get_rules"] } }] },
+    { role: "user", content: [{ type: "tool_result", toolUseId: "call_2", content: "{}", toolReferences: ["get_rules"], isError: true }] },
+  ];
+  await provider(async (_u, init) => { body = JSON.parse(String(init!.body)); return stream([chunk({ content: "ok" }), chunk({}, "stop"), usage(1, 1)]); }).stream(request({ tools, messages }));
+  assert.deepEqual(body.tools.map((t: any) => t.function.name), ["load_tools", "get_observation", "move_pane", "validate_agent"], "a failed load loads nothing");
+  assert.equal(body.messages[3].content, '{"loaded":["move_pane","validate_agent"]}', "the load result's text");
 });
 
 test("unparseable tool arguments are an error", async () => {

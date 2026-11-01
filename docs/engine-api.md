@@ -238,7 +238,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game` |
 | `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |
 | `games.view` | query | player | Watch a game | The public view of a game: salience, standings, roster and winners. | — (The public game page's subscription; the human's private view is get_observation.) |
-| `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout` |
+| `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
 | `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
 | `calibration.node.tables` | action | infrastructure | Load calibration tables | The calibration tables of a utility and its defence goal, for scoring values in the browser. | — (The player client's evaluator loads these itself; agents score values with evaluate_value.) |
@@ -251,7 +251,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `panels.rollback` | mutation | player | Roll back a panel | Makes an older version current again, as a new version. | `rollback_panel` |
 | `panels.setEnabled` | mutation | player | Turn a panel on or off | Hides a panel in every client without deleting it, or shows it again. | — (The assistant opens and closes panes with open_panel and close_pane; hiding a panel for good is the human's choice.) |
 | `panels.remove` | mutation | player | Delete a panel | Deletes a panel and all its versions; this cannot be undone. | `delete_panel` |
-| `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation` |
+| `player.observation` | query | player | Inspect the raw observation | Your private view of the game as the engine sends it, once per tick. | `get_observation`, `load_skill` |
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of any game of this room, finished ones included. | `get_game_history` |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
@@ -259,7 +259,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
 | `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, and can turn the assistant on for its players. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
-| `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state` |
+| `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state`, `load_skill` |
 | `rooms.join` | mutation | player | Join this room | Takes a seat; joining mid-game makes you a spectator until the next game. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
 | `rooms.leave` | mutation | player | Leave this room | Gives up your seat; you can join again later. | — (Leaving would revoke the very credential the assistant acts through.) |
 | `rooms.setReady` | mutation | player | Mark me ready | Tells the room you are ready for the next game; it gates nothing. | `set_ready` |

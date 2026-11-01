@@ -1,8 +1,8 @@
 /** The Anthropic Messages adapter of the assistant's ChatProvider (chat.ts): streaming text, tool use and adaptive thinking. */
 import Anthropic from "@anthropic-ai/sdk";
 import {
-  CHARS_PER_TOKEN, ChatAbortedError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop, mergeTurns,
-  type ChatInput, type ChatMessage, type ChatProvider, type ChatResult, type ChatUsage, type Prices,
+  CHARS_PER_TOKEN, ChatAbortedError, ChatCutError, charsEstimate, checkPrices, checkRequest, checkUsage, completeStop, mergeTurns,
+  type ChatInput, type ChatMessage, type ChatProvider, type ChatResult, type ChatToolResult, type ChatUsage, type Prices,
 } from "./chat.ts";
 
 type Config = { model: string } & Prices;
@@ -10,11 +10,20 @@ type Config = { model: string } & Prices;
 /** Assistant thinking at a moderate depth: enough to write agents, cheap enough for chat. */
 const THINKING = { thinking: { type: "adaptive" as const }, output_config: { effort: "medium" as const } };
 
-function toParams(messages: ChatMessage[], keepThinking: boolean): Anthropic.MessageParam[] {
+/**
+ * A load_tools result is only tool_reference blocks (the API refuses text beside them), each naming a deferred tool
+ * of the request; one naming no deferred tool (the grant changed) falls back to the result's text.
+ */
+function resultContent(b: ChatToolResult, deferred: ReadonlySet<string>): string | Anthropic.ToolReferenceBlockParam[] {
+  const refs = b.isError ? [] : (b.toolReferences ?? []).filter(name => deferred.has(name));
+  return refs.length ? refs.map(tool_name => ({ type: "tool_reference" as const, tool_name })) : b.content;
+}
+
+function toParams(messages: ChatMessage[], keepThinking: boolean, deferred: ReadonlySet<string> = new Set()): Anthropic.MessageParam[] {
   return mergeTurns(messages).map(m => ({
     role: m.role,
     content: typeof m.content === "string" ? m.content : m.content.flatMap(b =>
-      b.type === "tool_result" ? [{ type: "tool_result" as const, tool_use_id: b.toolUseId, content: b.content, ...(b.isError ? { is_error: true } : {}) }]
+      b.type === "tool_result" ? [{ type: "tool_result" as const, tool_use_id: b.toolUseId, content: resultContent(b, deferred), ...(b.isError ? { is_error: true } : {}) }]
       : b.type === "tool_use" ? [{ type: "tool_use" as const, id: b.id, name: b.name, input: b.input }]
       : b.type === "thinking" ? (keepThinking && b.provider === "anthropic" ? [b.block] : [])
       : [{ type: "text" as const, text: b.text }]),
@@ -28,8 +37,10 @@ function toParams(messages: ChatMessage[], keepThinking: boolean): Anthropic.Mes
  */
 const CACHE = { type: "ephemeral" as const };
 const systemBlocks = (system: string): Anthropic.TextBlockParam[] => [{ type: "text", text: system, cache_control: CACHE }];
+/** Every tool, the deferred ones with defer_loading: out of the cached prefix and the model's context until loaded. */
 const toolParams = (input: ChatInput): Anthropic.Tool[] =>
-  input.tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Tool.InputSchema }));
+  input.tools.map(t => ({ name: t.name, description: t.description, input_schema: t.inputSchema as Anthropic.Tool.InputSchema, ...(t.deferred ? { defer_loading: true } : {}) }));
+const deferredOf = (input: ChatInput) => new Set(input.tools.filter(t => t.deferred).map(t => t.name));
 
 /** A 400 about replayed thinking blocks (a changed prefix or another model's signature): decided before any output. */
 const rejectsThinking = (error: unknown) => error instanceof Anthropic.BadRequestError && /signature/i.test(error.message) && /thinking/i.test(error.message);
@@ -42,7 +53,7 @@ export function anthropicChatProvider(client: Pick<Anthropic, "messages">, confi
     async estimateInputTokens(input, signal) {
       try {
         const counted = await client.messages.countTokens({
-          model, system: systemBlocks(input.system), messages: toParams(input.messages, true), tools: toolParams(input), ...THINKING,
+          model, system: systemBlocks(input.system), messages: toParams(input.messages, true, deferredOf(input)), tools: toolParams(input), ...THINKING,
         }, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(3000)]) : AbortSignal.timeout(3000), maxRetries: 0 });
         if (Number.isSafeInteger(counted.input_tokens) && counted.input_tokens > 0) return { tokens: counted.input_tokens, counted: true };
       } catch { /* the estimate below */ }
@@ -56,7 +67,7 @@ export function anthropicChatProvider(client: Pick<Anthropic, "messages">, confi
       let input: Omit<ChatUsage, "outputTokens"> | undefined, outputChars = 0, reasoningMs = 0, reasoningSince: number | null = null;
       const attempt = async (keepThinking: boolean) => {
         const stream = client.messages.stream({
-          model, max_tokens: request.maxOutputTokens, system: systemBlocks(request.system), messages: toParams(request.messages, keepThinking),
+          model, max_tokens: request.maxOutputTokens, system: systemBlocks(request.system), messages: toParams(request.messages, keepThinking, deferredOf(request)),
           tools: toolParams(request), cache_control: CACHE, ...THINKING,
         }, { signal: request.signal, maxRetries: 0 });
         stream.on("streamEvent", event => {
@@ -85,10 +96,11 @@ export function anthropicChatProvider(client: Pick<Anthropic, "messages">, confi
         if (!hasThinking || !rejectsThinking(error)) throw error;
         try { message = await attempt(false); } catch (retryError) { throw request.signal.aborted ? aborted() : retryError; }
       }
-      const stopReason = completeStop(message.stop_reason, { end_turn: "end_turn", tool_use: "tool_use" });
       const usage = message.usage;
       const read = usage.cache_read_input_tokens ?? 0, write = usage.cache_creation_input_tokens ?? 0;
       const counted = checkUsage(usage.input_tokens + read + write, usage.output_tokens, request.maxOutputTokens, { read, write });
+      if (message.stop_reason === "max_tokens") throw new ChatCutError(counted);
+      const stopReason = completeStop(message.stop_reason, { end_turn: "end_turn", tool_use: "tool_use" });
       const content: ChatResult["content"] = [];
       for (const block of message.content) {
         if (block.type === "text") { if (block.text) content.push({ type: "text", text: block.text }); }

@@ -15,6 +15,7 @@ import {
 } from "@workspace/player-client/tools";
 import { rulesText } from "@workspace/player-client/rules";
 import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
+import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
@@ -206,6 +207,22 @@ export const EXECUTORS: Executors = {
     return { data: { messages }, nextCursor };
   },
   get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
+  // A skill's guidance with the live parts it reads, through the same executors as the human (a failed read is left
+  // out; the body says which tool to call instead).
+  load_skill: async (ctx, p, { name }) => {
+    const reads = findSkill(name)?.reads ?? [];
+    const read = async (part: SkillRead) => {
+      if (!reads.includes(part)) return undefined;
+      try {
+        const page = part === "rules" ? await EXECUTORS.get_rules(ctx, p, {})
+          : part === "observation" ? await EXECUTORS.get_observation(ctx, p, { objectsLimit: 1, objectsCursor: 0 })
+          : await EXECUTORS.get_layout(ctx, p, {});
+        return page.data;
+      } catch { return undefined; }
+    };
+    const [rules, observation, layout] = await Promise.all([read("rules"), read("observation"), read("layout")]);
+    return { data: { name, body: skillBody(name, { rules, observation, layout }) } };
+  },
   // ----- act -----
   validate_agent: (ctx, p, args) => command(ctx, p, "validate_agent", args),
   summon_agent: (ctx, p, args) => command(ctx, p, "summon_agent", args),
