@@ -15,7 +15,7 @@
  * so the outcome is the sequential one.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, personalView, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { chargeAct, instantiationOf, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
@@ -26,7 +26,7 @@ import { gameTables } from "./calibration";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -43,7 +43,6 @@ const HOLD_FAILED_POLL_MS = 5000;
 const MAX_SIMULATE_MS = 4000;
 
 const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(id => scores.find(s => s.god === id)?.netBits ?? 0);
-const ownPayoff = (scores: readonly Score[], godId: string) => personalView(new Map(scores.map(s => [s.god, s.netBits])), godId).payoff;
 
 /** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
 function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
@@ -117,11 +116,12 @@ export const run = internalAction({
       let outcome = actOutcome(settings, p.before, result);
       let next: Score[] | undefined;
       if (outcome.ok && outcome.commit) {
-        // The commit clause: commit only if the act strictly raises the owner's own payoff on this object.
+        // The commit clause: commit only if the act strictly raises the owner's payoff on this object as the owner sees it
+        // (the others' sums with their values' disclosure noise: no side channel to the exact sums).
         if (!settings.commitClause) outcome = { ok: false, reason: "this room does not offer the commit clause", cost: outcome.cost };
         else if (!occupied.has(outcome.value)) {
           next = scoresOf(tables, settings, deals, outcome.value);
-          if (!(ownPayoff(next, agent.ownerId) - ownPayoff(object.scores, agent.ownerId) > 0)) {
+          if (!commitRaises(object.scores, next, agent.ownerId, object.noise ?? 0, disclosureNoise(settings, game.noiseKey, outcome.value))) {
             outcome = { ok: false, reason: "the commit clause kept the object: it would not raise your points", cost: outcome.cost };
           }
         }

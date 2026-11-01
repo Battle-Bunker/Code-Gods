@@ -30,6 +30,13 @@ const SHAPE = arg("shape", "Grid(4,base10,rgby)");
 const ROUND = Number(arg("round", "0"));
 /** The disclosure noise levels to compare (the game's peerNoiseBits options): Gaussian σ in bits. */
 const NOISES = arg("noises", "0").split(",").map(Number);
+/**
+ * The commit-clause side channel (docs/public-log-design.md §5.2): with a clause that decided on the EXACT payoff, an
+ * agent binary-searches a value's exact others' sum in about a dozen conditional acts. `--probes N` gives the viewer N
+ * of its observed values exactly, as such probing would; the shipped clause decides on the disclosed values, which
+ * makes probing equivalent to observing (N = 0).
+ */
+const PROBES = Number(arg("probes", "0"));
 
 /** A seeded RNG (mulberry32) for reproducible trials. */
 function seeded(seed: number): Rng & { u(): number } {
@@ -45,7 +52,7 @@ const tables = shippedTables(inst.key);
 const T = objectType(inst.objectType), codec = T.codec(inst);
 const bitsOf = (d: UtilityDescriptor, v: ObjectValue) => surprisal(tableFor(tables, d, inst)!, evaluator(d, inst)(v));
 const candidates = candidatesFor(inst);
-console.log(`${inst.key}: ${candidates.length} candidate draws, ${new Set(candidates.map(c => c.familyId)).size} families; ${TRIALS} trials per row${ROUND ? `; others' bits rounded to ${ROUND} bit` : ""}\n`);
+console.log(`${inst.key}: ${candidates.length} candidate draws, ${new Set(candidates.map(c => c.familyId)).size} families; ${TRIALS} trials per row${ROUND ? `; others' bits rounded to ${ROUND} bit` : ""}${PROBES ? `; ${PROBES} values probed exactly (the old commit clause)` : ""}\n`);
 
 type Row = { exact: number; families: number; recall: number; pTrue: number; pFalse: number; spectrum: number; ms: number };
 /** Standard normal from the seeded uniform (Box–Muller). */
@@ -62,7 +69,7 @@ function trial(seed: number, others: number, spawns: number, pushed: number, hin
   }
   const values = [...seen];
   const exactY = values.map(v => deal.slice(1).reduce((s, d) => s + bitsOf(d, v), 0));
-  const noisy = exactY.map(x => x + (noise > 0 ? noise * gauss(rng.u) : 0));
+  const noisy = exactY.map((x, t) => x + (noise > 0 && t >= PROBES ? noise * gauss(rng.u) : 0));
   const y = ROUND > 0 ? noisy.map(x => Math.round(x / ROUND) * ROUND) : noisy;
   const started = performance.now();
   const columns = candidates.flatMap(candidate => { const column = candidateColumn(candidate, values, tables, inst, 1); return column ? [{ candidate, column }] : []; });
