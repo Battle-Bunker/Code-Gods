@@ -11,6 +11,7 @@ import { requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
+import { aiSeatName } from "./lib/aiNames";
 import { publicRoom } from "./lib/projection";
 import { firstSteps } from "./setups";
 import {
@@ -219,7 +220,10 @@ export const approveAiBudget = mutation({
   },
 });
 
-/** Add an AI seat from the template library; the seat snapshots the template (name, provider, model, prompt, revision). */
+/**
+ * Add an AI seat from the template library; the seat snapshots the template (name, provider, model, prompt, revision)
+ * and gets its own name, unique in the room and fixed for the seat's life (lib/aiNames.ts).
+ */
 export const addAi = mutation({
   args: { roomId: v.id("rooms"), templateId: v.string() },
   handler: async (ctx, args) => addAiFor(ctx, await requireViewer(ctx), args),
@@ -232,16 +236,18 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
     const room = await requireRoom(ctx, roomId);
     await requireOwnerAs(ctx, viewer, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
-    if ((await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "Maximum eight gods");
+    const members = await membersOf(ctx, room._id);
+    if (members.length >= MAX_GODS) fail("CONFLICT", "Maximum eight gods");
     const template = await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique();
     if (!template || template.deleted) fail("NOT_FOUND", "AI agent not found");
     const godId = `ai:${crypto.randomUUID()}`;
+    const name = aiSeatName(godId, members.map(m => m.name), [template.name]);
     await ctx.db.insert("members", {
-      roomId: room._id, godId, name: template.name, kind: "ai", ready: true, joinedAt: Date.now(), status: "Ready; awaiting game start",
+      roomId: room._id, godId, name, kind: "ai", ready: true, joinedAt: Date.now(), status: "Ready; awaiting game start",
       aiAgent: { id: template.templateId, name: template.name, provider: template.provider, model: template.model, prompt: template.prompt, revision: template.revision },
     });
     await bump(ctx, room);
-    return { godId };
+    return { godId, name };
 }
 
 export const removeAi = mutation({

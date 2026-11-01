@@ -358,6 +358,12 @@ try {
       await a.getByTestId("button-dialog-approve-ai").click();
       await a.locator('[data-testid^="row-member-ai:"]').waitFor();
       await b.locator('[data-testid^="row-member-ai:"]').waitFor();
+      // The seat has its own name (lib/aiNames.ts), not its template's; its row menu's tooltip stays on-screen.
+      assert.doesNotMatch(await a.locator('[data-testid^="row-member-ai:"]').first().innerText(), /Sonnet Strategist/);
+      await a.locator('[data-testid^="button-ai-menu-"]').first().hover();
+      const tip = await a.locator('[data-radix-popper-content-wrapper]:has([role="tooltip"])').first().boundingBox();
+      assert.ok(tip && tip.x >= 0 && tip.x + tip.width <= viewport.width, `the remove tooltip fits the viewport: ${JSON.stringify(tip)}`);
+      await a.mouse.move(0, 0);
       // AI spending lives in a sheet reached from Details.
       await expand(a, "details-next-game");
       await a.getByTestId("button-ai-spending").click();

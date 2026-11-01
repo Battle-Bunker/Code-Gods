@@ -12,11 +12,18 @@
  *    "Room <code>'s setup" holding its settings, which it then runs;
  *  - games (and an ended game's stored `summary`): an unmodified setup origin becomes `setupId`/`setupName` (the
  *    summary's `setup`); `settingsOrigin` is cleared.
+ *
+ * ai-seat-names (`migrations:aiSeatNames`, which pages through `aiSeatNamesPage`): an AI seat still named after its
+ * template (every seat added before lib/aiNames.ts, so two seats of one template shared a name) gets a unique seat
+ * name; the room's chat, its games' rosters and its ended games' stored results follow, so history reads the same.
+ * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { freeName, setupSummary } from "./setups";
 
@@ -94,5 +101,61 @@ export const setupsV2Page = internalMutation({
     if (!page.isDone) return { next: { phase, cursor: page.continueCursor }, changed };
     const following = PHASES[PHASES.indexOf(phase) + 1];
     return { next: following ? { phase: following, cursor: null } : null, changed };
+  },
+});
+
+/** Rename one room's legacy AI seats (named after their template); returns how many seats were renamed. */
+export async function renameAiSeats(ctx: MutationCtx, room: Doc<"rooms">): Promise<number> {
+  const members = await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", room._id)).collect();
+  const legacy = (m: Doc<"members">) => m.kind === "ai" && !!m.aiAgent && m.name.trim().toLowerCase() === m.aiAgent.name.trim().toLowerCase();
+  if (!members.some(legacy)) return 0;
+  const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", room._id)).collect();
+  if (games.some(g => g.phase !== "ended")) return 0;
+  const roomId = room._id;
+  const names = new Map<string, string>();
+  for (const m of members) {
+    if (!legacy(m)) continue;
+    const taken = members.filter(o => o.godId !== m.godId && !(legacy(o) && !names.has(o.godId))).map(o => names.get(o.godId) ?? o.name);
+    const name = aiSeatName(m.godId, taken, [m.aiAgent!.name]);
+    names.set(m.godId, name);
+    await ctx.db.patch(m._id, { name });
+  }
+  if (!names.size) return 0;
+  for (const [godId, name] of names) {
+    const said = await ctx.db.query("chat").withIndex("by_room_author", q => q.eq("roomId", roomId).eq("authorId", godId)).collect();
+    for (const row of said) if (row.authorName !== name) await ctx.db.patch(row._id, { authorName: name });
+  }
+  for (const game of games) {
+    if (!game.roster.some(r => names.has(r.id))) continue;
+    await ctx.db.patch(game._id, {
+      roster: game.roster.map(r => (names.has(r.id) ? { ...r, name: names.get(r.id)! } : r)),
+      ...(game.summary ? { summary: renameInRecord(game.summary, names) } : {}),
+    });
+  }
+  return names.size;
+}
+
+export const aiSeatNamesPage = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }): Promise<{ next: string | null; changed: number }> => {
+    // Small pages: a renamed room also reads its games and its seats' chat.
+    const page = await ctx.db.query("rooms").paginate({ cursor, numItems: 20 });
+    let changed = 0;
+    for (const room of page.page) changed += await renameAiSeats(ctx, room);
+    return { next: page.isDone ? null : page.continueCursor, changed };
+  },
+});
+
+/** Every page; returns how many AI seats were renamed (zero on a second run). */
+export const aiSeatNames = internalAction({
+  args: {},
+  handler: async (ctx): Promise<number> => {
+    let cursor: string | null = null, changed = 0;
+    do {
+      const result: { next: string | null; changed: number } = await ctx.runMutation(internal.migrations.aiSeatNamesPage, { cursor });
+      changed += result.changed;
+      cursor = result.next;
+    } while (cursor);
+    return changed;
   },
 });

@@ -193,3 +193,15 @@ export const seedChat = internalMutation({
     for (const text of texts) await ctx.db.insert("chat", { roomId, authorId, authorName: authorId, kind: "human", text, timestamp });
   },
 });
+
+/** Make an AI seat look as it did before seat names: named after its template, with a chat line under that name. */
+export const legacyAiSeat = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), chat: v.optional(v.string()) },
+  handler: async (ctx, { roomId, godId, chat }) => {
+    dev();
+    const seat = await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
+    if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
+    await ctx.db.patch(seat._id, { name: seat.aiAgent.name });
+    if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
+  },
+});
