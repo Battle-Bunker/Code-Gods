@@ -10,7 +10,7 @@
  *
  * What would break: a state change written without a log event (a summon or destroy, a charge, a spawn), events
  * logged out of commit order, a replay served while the game is live, something hidden from an ended game's replay,
- * a replay served to a room member who was not seated.
+ * a replay served to a room member who neither played nor owns the room.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -126,5 +126,5 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
 
   // Room members who were not seated in the game get no replay.
   await late.c.mutation(api.rooms.join, { room: shortCode });
-  assert.match(await rejects(late.c.query(api.player.replay, { roomId, gameId: game.gameId })), /not seated/);
+  assert.match(await rejects(late.c.query(api.player.replay, { roomId, gameId: game.gameId })), /Only the gods who played in it and the room owner/);
 });

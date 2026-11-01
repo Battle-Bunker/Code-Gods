@@ -134,7 +134,7 @@ const REPLAY_PAGE_BATCHES = 100, REPLAY_PAGE_EVENTS = 4000, REPLAY_CHAT = 500;
  * full (every god's net bits, the agent and god behind every act, every agent's source, language and price, each act's
  * seed), and the first page every god's utility descriptor and card, AI seats' library agents (prompts included), the
  * game's end deadline and its season commitment. Refused (CONFLICT) while the game is live. Page with
- * `afterSeq: nextCursor, chatAfter: chatCursor` until `done`. Room members who were not seated in the game get FORBIDDEN.
+ * `afterSeq: nextCursor, chatAfter: chatCursor` until `done`. For the game's players and the room owner; other members get FORBIDDEN.
  */
 const replayArgs = {
   roomId: v.string(), gameId: v.string(), afterSeq: v.optional(v.number()), chatAfter: v.optional(v.number()), limit: v.optional(v.number()),
@@ -153,7 +153,8 @@ export const replayAs = internalQuery({
 export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number }) {
   const { room, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
   if (!game) return fail("NOT_FOUND", "Game not found in this room");
-  if (index < 0) return fail("FORBIDDEN", "Replays are for the game's players; you were not seated in this game");
+  // As for every past game (lib/rooms requireHistoricReaderAs): its players and the room's owner.
+  if (index < 0 && room.ownerId !== caller.subject) return fail("FORBIDDEN", "Only the gods who played in it and the room owner can open a game's replay");
   // The boundary of the transparency: nothing of a live game is revealed (its live reads keep hiding as before).
   if (game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
   const limit = Math.max(1, Math.min(REPLAY_PAGE_BATCHES, Math.floor(args.limit ?? REPLAY_PAGE_BATCHES)));

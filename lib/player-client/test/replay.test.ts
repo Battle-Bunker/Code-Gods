@@ -114,6 +114,15 @@ test("a log from before summons were recorded still lists every agent, attribute
   assert.deepEqual([agent.ownerId, agent.acts, agent.spent, agent.source], ["you", 1, 3, undefined]);
 });
 
+test("an unattributed transformation changes the object but invents no agent", () => {
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 1, events: [
+    { type: "object.spawned", objectId: "o", value: 1, version: 0, worldSeconds: 0, net: [1, 1] },
+    { type: "object.transformed", objectId: "o", value: 2, before: 1, version: 1, worldSeconds: 1, calls: [], cost: charge(1), net: [2, 1] },
+  ] }])]);
+  const s = stateAt(replay, 2);
+  assert.deepEqual([s.objects.get("o")!.value, s.agents.size], [2, 0]);
+});
+
 test("a replay of another API version is refused rather than misread", () => {
   assert.throws(() => buildReplay([{ ...page([]), version: REPLAY_VERSION + 1 }]), /not supported/);
 });

@@ -1,6 +1,6 @@
 # Replays
 
-A player can open any ENDED game of a room they were seated in and replay it, tick by tick, with nothing hidden:
+A player can open any ENDED game they played in (and a room's owner any of its games) and replay it, tick by tick, with nothing hidden:
 every player's utility, every agent's code, whose agent made every move, every score at every moment.
 
 **The rule (the owner's, 2026-11-01): information hiding applies only during live games; ended games are fully
@@ -115,8 +115,9 @@ clients call it like any other public function (docs/engine-api.md); the referen
 `@workspace/player-client/replay`. Assistants read it through the `get_replay` tool (small pages) and, for analysis
 over a whole game, through `run_code`'s `replay` dataset (the game flattened: header, gods, every event, chat).
 
-- **Who:** a player seated in that game (its roster). Other room members, spectators of the game included, get
-  `FORBIDDEN`; non-members get the room's usual refusal.
+- **Who:** the gods who played in that game (its roster) and the room's owner, as for every past game
+  (`lib/rooms.ts requireHistoricReaderAs`). Other room members, spectators of the game included, get `FORBIDDEN`;
+  non-members get the room's usual refusal.
 - **When:** only once the game has ended. A live game's replay is `CONFLICT` ("The replay opens when the game
   ends"), so none of its hidden information leaves through this door; the `replay` dataset is `null` for it.
 - **Paging:** pages of up to `limit` batches (default and maximum 100), stopping before `maxEvents` events (default

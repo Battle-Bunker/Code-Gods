@@ -34,7 +34,8 @@ type Breakdown = { decision: number; erasure: number; motion: number; floor: num
 export type ReplayEvent =
   | { type: "phase"; phase: "planning" | "running" | "paused" | "recovery" | "ended"; worldSeconds: number; reason?: string }
   | { type: "object.spawned"; objectId: string; value: Wire; version: number; worldSeconds: number; net: number[] }
-  | { type: "object.transformed"; objectId: string; before: Wire; value: Wire; version: number; worldSeconds: number; agentId: string; ownerId: string;
+  // agentId/ownerId are always present in an ended game's replay; a client folding other (live, unattributed) pages may lack them.
+  | { type: "object.transformed"; objectId: string; before: Wire; value: Wire; version: number; worldSeconds: number; agentId?: string; ownerId?: string;
     calls: unknown; cost: Charge; net: number[]; seed?: string }
   | { type: "agent.failed"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; reason: string; cost: Charge; seed?: string }
   | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; summonCost: number; decisionBits: number;
@@ -163,7 +164,7 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       const prior = state.objects.get(ev.objectId);
       setObject(state, { id: ev.objectId, value: ev.value, version: ev.version, net: ev.net, spawnedAt: prior?.spawnedAt ?? entry.world, changedAt: entry.world,
         lastAgentId: ev.agentId, lastOwnerId: ev.ownerId });
-      charge(agentOf(ev.agentId, ev.ownerId), ev.cost, true);
+      if (ev.agentId) charge(agentOf(ev.agentId, ev.ownerId ?? ""), ev.cost, true);
       break;
     }
     case "agent.failed": charge(agentOf(ev.agentId, ev.ownerId), ev.cost, false); break;

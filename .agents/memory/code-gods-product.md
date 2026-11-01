@@ -18,7 +18,7 @@ Information hiding applies only during live games; ended games are fully transpa
 
 **Why:** The owner (2026-11-01): "Replays should be fully transparent with no information hiding at all. Every game event should become inspectable to assistants from past games... The actual code of all agents spawned should be visible to all in the replay."
 
-**How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's seated players.
+**How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's players and the room owner (the past-game read rule).
 
 The user approved sandbox-compatible computational libraries for the MVP: supported Python computational modules and TypeScript's ECMAScript built-ins, with documented exclusions and no host access.
 
