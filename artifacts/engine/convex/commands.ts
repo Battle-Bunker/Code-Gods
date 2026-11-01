@@ -32,6 +32,8 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
   let examined: { gameId: string; source: string; language: Language; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
   if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
+    // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
+    await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
       const e = await examineAgent(prepared.examine.settings, command.language, command.source, prepared.examine.live);
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, result: e };

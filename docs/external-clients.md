@@ -19,7 +19,7 @@ disclosure rules hold in the engine's queries.
 | Can a browser app on another origin sign in? | **No.** `/api/device/*` sent no CORS headers and had no preflight, so a page on `xyz.replit.dev` could not request, poll or exchange a credential. OAuth registration accepted only Claude's callbacks, loopback and an operator allowlist, so a page on `https://xyz.replit.dev/` could not be a redirect target. `authorize` required `resource=<site>/mcp`. The only path was a Node dev server holding the credential (`tokenHandler`). | ❌ fixed (§3.2–3.3) |
 | Are tokens scoped, short-lived and revocable? | Yes: one credential = one human × one room × one permission (`read` < `act` < `owner`). Every call re-checks revocation (`access.ts` `viewerForCredential`). Bearer JWTs last 10 min (device) or 60 min (OAuth). OAuth refresh tokens rotate, and a reuse revokes the connection. Every credential is listed on the engine UI ("Your player apps") and revocable there. | ✅ |
 | Does a client get the same information as any other? | Yes. Disclosure is enforced in the projections (`player.*`), whoever calls them (`test/game-disclosure.test.ts`, the MCP disclosure test). | ✅ |
-| Rate limits | Per **human**, not per credential: chat (1/s), panel saves, code runs, the assistant and AI pools, device requests (20 pending per room), DCR (50 per 10 min per deployment), energy. More credentials do not buy a human more. Validate runs are not rate limited (§5). | ✅ / gap noted |
+| Rate limits | Per **human**, not per credential: chat (1/s), panel saves, code runs, the assistant and AI pools, device requests (20 pending per room), DCR (50 per 10 min per deployment), energy. More credentials do not buy a human more. Validate runs were not limited at all. | ✅ / gap fixed: 30 agent checks a minute (§5) |
 | Realtime | A `ConvexClient`/`ConvexReactClient` with a player JWT subscribes over the WebSocket to the same queries. It already worked in dev-server mode. | ✅ |
 | SDK | `@workspace/player-client` is a browser-safe workspace package: the protocol, `PlayerClient` and the typed catalogue. It had no browser sign-in, so every browser app had to reimplement OAuth/PKCE or depend on a Node dev server. It is not published to npm. | ❌ fixed (§4) |
 | MCP from a browser | `/mcp` checks `Origin` against an allowlist (the MCP spec's DNS-rebinding MUST) and has no preflight. | kept on purpose (§3.4) |
@@ -104,7 +104,8 @@ The dev-server mode is unchanged: the credential lives in the Node dev server, a
   human's projection. Every engine function re-checks the credential and the room membership, and an owner grant
   works only while the human owns the room. It cannot approve connections, list or revoke other credentials,
   create rooms or reach other rooms: those need the browser session, which only the engine site's origin has.
-  Rate limits are per human, so a loop in one client cannot exceed the human's limits.
+  Rate limits are per human, so a loop in one client cannot exceed the human's limits. That includes 30 agent
+  checks (validate and summon) a minute.
 - **A token leaked from a public Repl.** The damage is bounded by room × permission × lifetime. An access JWT lasts at
   most 60 min, but revocation stops it on its next call. A leaked refresh token used by an attacker rotates; when the
   real app next refreshes, the reuse revokes the connection for both. Revoke from "Your player apps" on the engine
@@ -149,8 +150,10 @@ in `lib/player-client/src/protocol.ts`.
 
 ## 5. Follow-ups
 
-- Validate (and summon examinations) have no per-human rate limit: a looping client can burn sandbox time.
-  Recommended limit: about 30 examinations a minute per human per room.
+- **Done (2026-11-01):** validate and summon examinations, which run the agent a few hundred times in the sandbox,
+  are capped at 30 a minute per human per room, across every credential and surface (`game/commands.ts`
+  `claimExamination`, `test/game-limits.test.ts`). A refusal is `RATE_LIMITED` with no receipt, so the identical
+  envelope works once the minute has passed.
 - DCR's deployment-wide limit (50 new registrations per 10 minutes) lets anyone block new apps for a while. Repeat
   registrations of an app already known are free (deduplicated by metadata), and client ID metadata documents avoid
   DCR entirely. Per-IP limits need the platform to expose the client address.

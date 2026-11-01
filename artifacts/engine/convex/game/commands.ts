@@ -18,6 +18,9 @@ import { godEnergy, worldNow } from "../lib/world";
 import { languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
+/** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
+export const EXAMINATIONS_PER_MINUTE = 30;
+const EXAMINATION_WINDOW_MS = 60_000;
 
 export const envelopeHash = (envelope: Envelope) => sha256(JSON.stringify(envelope));
 const receiptKey = (commandId: string) => `client:${commandId}`;
@@ -98,6 +101,28 @@ export const apply = internalMutation({
     }
     await ctx.db.insert("receipts", { roomId: room._id, actorId: member.godId, requestId: receiptKey(envelope.commandId), hash, result: receipt, createdAt: Date.now() });
     return receipt;
+  },
+});
+
+/**
+ * Count one agent examination for this god in this room, before the Node action runs it, or throw RATE_LIMITED
+ * (no receipt is stored, so the identical envelope can be sent again later). Per god, not per credential: every
+ * client and agent of one human shares the cap. Old rows of this god are deleted as it goes.
+ */
+export const claimExamination = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string() },
+  handler: async (ctx, { roomId, godId }) => {
+    const now = Date.now();
+    for (const old of await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId).lt("at", now - EXAMINATION_WINDOW_MS)).take(64)) {
+      await ctx.db.delete(old._id);
+    }
+    const recent = await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId).gte("at", now - EXAMINATION_WINDOW_MS))
+      .take(EXAMINATIONS_PER_MINUTE);
+    if (recent.length >= EXAMINATIONS_PER_MINUTE) {
+      const wait = Math.max(1, Math.ceil((recent[0].at + EXAMINATION_WINDOW_MS - now) / 1000));
+      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate and summon together); try again in ${wait} s with the same command`);
+    }
+    await ctx.db.insert("examinations", { roomId, godId, at: now });
   },
 });
 
