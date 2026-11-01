@@ -7,6 +7,8 @@
  *   2. otherwise ask the model: reserve from the assistant pool, stream (flushing text about every 250 ms or 400
  *      characters through a mutation that also reports cancellation), settle the usage, record its tool calls;
  *   3. run those calls (step 1), then schedule the next step, or finish (model stop, step ceiling, deadline, budget).
+ *      The start of a model step after a tool step is the step boundary: messages the player queued meanwhile join
+ *      the turn there, after the step's tool results (store.ts deliverQueued), so that model step reads them.
  *
  * Before the turn's first model step, the briefing (the player's utility, energy, helpers, the room's rules and the
  * panes on their screen) is read through the same registry and stored with the turn. The model's blocks of each step are stored verbatim and replayed
@@ -117,6 +119,14 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
     const definition = findTool(call.tool);
     const permitted = !!definition && !!who && mayUse(who.permission, definition);
     if (permitted && !call.approved && needsConfirmation(call.tool, args, { autoApproveSummonBits: c.autoApproveSummonBits, validatedCost: validatedCost(c.calls, args) })) {
+      // The player has a message queued: never stop on a card they did not see; decline it (never approve) and let
+      // the message, delivered after this step's results, say what they want.
+      if (c.queued > 0) {
+        const { cancelled } = await ctx.runMutation(internal.assistant.store.declineForMessage, { turnId, gen, callDocId: call.id });
+        if (cancelled) return "cancelled";
+        call.status = "denied";
+        continue;
+      }
       const { cancelled } = await ctx.runMutation(internal.assistant.store.awaitConfirmation, { turnId, gen, callDocId: call.id });
       return cancelled ? "cancelled" : "paused";
     }
@@ -211,6 +221,16 @@ export const run = internalAction({
         : { code: "STEP_LIMIT", message: `Stopped after ${c.turn.maxSteps} steps, before finishing; ask again to continue.` });
     }
     if (!who) return void await finish("failed", { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." });
+    // The step boundary: the latest step's tool calls are all resolved and the next model step has not started (here
+    // after `next`, a decided or declined card, or a rate-limit wait). Messages the player queued join the turn now.
+    if (c.queued > 0 && c.turn.lastStop === "tool_use") {
+      const { delivered } = await ctx.runMutation(internal.assistant.store.deliverQueued, { turnId, gen });
+      if (delivered) {
+        const reloaded = await loadContext(ctx, turnId, gen);
+        if ("stop" in reloaded) { if (reloaded.stop === "stale" && reloaded.status === "cancelling") await finish("cancelled"); return; }
+        c = reloaded;
+      }
+    }
 
     // 2. One model step. The first one fetches the briefing (kept for the whole turn, so its history stays append-only).
     if (!c.hasBriefing) {

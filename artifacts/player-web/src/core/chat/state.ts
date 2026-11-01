@@ -233,3 +233,15 @@ export function prettyArgs(json: string): string {
 }
 
 export const TURN_ACTIVE = ["running", "awaiting_confirmation", "cancelling"];
+
+/**
+ * The line over the player's queued messages (convex/assistant.ts send while a turn is active): when the assistant
+ * will read them. Null with none queued.
+ */
+export function queueNote({ count, active, card, held }: { count: number; active: boolean; card: boolean; held: boolean }): string | null {
+  if (!count) return null;
+  const it = count === 1 ? "it" : "them";
+  if (held && !active) return `Held · you stopped the assistant; send ${it} now or with your next message`;
+  const label = count === 1 ? "Queued" : `${count} queued`;
+  return card ? `${label} · this declines the card above; your assistant reads ${it} next` : `${label} · your assistant reads ${it} after its current step`;
+}

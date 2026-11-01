@@ -44,6 +44,8 @@ export const LIMITS = {
    * is going round in circles), so it answers the player instead of calling again.
    */
   repeatStop: 2,
+  /** Messages a player may have queued at once (each ≤ userTextChars). */
+  queued: 5,
 } as const;
 
 export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";

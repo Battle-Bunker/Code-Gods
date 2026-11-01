@@ -231,12 +231,12 @@ test("streaming text grows in the message document before the step ends", { time
   assert.equal(finalText(await turnOf(ann, sent.threadId, sent.turnId)), "one two three four ");
 });
 
-test("one active turn per human and room: a second send conflicts, another player runs concurrently", { timeout: 120_000 }, async () => {
+test("one active turn per human and room: a second send is queued for it (test/game-assistant-queue.test.ts), another player runs concurrently", { timeout: 120_000 }, async () => {
   const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { start: false });
   const slow = mock([{ text: ["a", "b", "c"], delayMs: 1000 }]);
   const first = await ann.c.mutation(api.assistant.send, { roomId, text: slow });
-  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, text: "again" })), "CONFLICT");
-  assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: "again" })), "CONFLICT");
+  const queued = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "later" }]) });
+  assert.deepEqual([queued.queued, queued.turnId, queued.threadId], [true, null, first.threadId], "no second turn: queued in the active conversation");
   const other = await bob.c.mutation(api.assistant.send, { roomId, text: slow });
   const [a, b] = await Promise.all([until(ann, first, DONE, "Ann's turn"), until(bob, other, DONE, "Bob's turn")]);
   assert.equal(a.turn.status, "done");

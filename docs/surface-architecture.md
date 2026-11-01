@@ -165,8 +165,9 @@ player credential that created it. It is listed and revocable on the engine UI l
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
 **Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/step.ts`).
-- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0; CONFLICT while the human's previous turn in the
-  room is active) inserts the user message and the turn and schedules `assistant/step:run({turnId, gen})`.
+- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0) inserts the user message and the turn and
+  schedules `assistant/step:run({turnId, gen})`; while the human's turn in this game is active it queues the message
+  instead (below).
 - One scheduled Node action per model step, chained with `gen`; a step whose `gen` or status is stale exits. A step:
   resolves the previous step's tool calls → reserves from the assistant pool → streams from the provider, flushing the
   text into the message about every 250 ms or 400 characters through a mutation that also reports cancellation →
@@ -178,6 +179,35 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
   approval or a re-run step never applies a command twice.
 - A cron (`assistant sweeper`, every minute) fails turns past their deadline, finishes cancellations whose step died
   and denies unanswered confirmations.
+
+**Queued messages** (`assistantQueue {roomId, subject, epoch, threadId, clientId?, text, status: queued|delivered|removed, held?, turnId?, messageId?}`,
+keyed by (player, game) like the threads). The composer stays usable while the assistant works:
+- A `send` while the turn is running, waiting on a card or stopping is queued for that turn's conversation (at most 5,
+  each ≤ 4,000 characters; CONFLICT for another conversation of the game). The pane shows it as queued, editable
+  (`editQueued`) and removable (`removeQueued`) until delivered. The queue is in Convex, so it survives reloads and
+  every tab or app of the player sees it (`assistant.status` `queued`).
+- **Step boundary.** Before each model step that follows a tool step (its calls resolved and their results stored),
+  queued messages become user messages of the turn, in order (`assistant/store:deliverQueued`). The history puts them
+  in the user message that carries that step's tool results, after the results and an engine note
+  (`rules.ts QUEUED_NOTE`): for Anthropic the `tool_result` blocks then text blocks in one user message; for OpenAI the
+  `tool` messages right after the assistant's `tool_calls`, then one user message with the texts. The model reads them
+  in the same turn and can change course. Not at the step ceiling (they wait for the next turn).
+- **No tool step.** A turn that ends (done, failed, step limit, budget) with messages still queued starts the next turn
+  in the same conversation at once, with all of them as its prompt.
+- **Exactly once.** Delivery marks each row `delivered` in the same mutation that inserts its message, so of two racing
+  deliveries one finds nothing (Convex mutations are serializable). `clientId` (the pane sends a UUID) makes a retried
+  send return the same row, queued or delivered, never a second message.
+- **Cards.** A queued message never approves anything. It declines a card that is waiting (the result tells the model
+  the player sent a message instead and to ask again if still wanted), and while a message is queued a call that would
+  need a card is declined the same way rather than shown, so the player's latest words decide before any card. The
+  model then reads the message beside the declined result.
+- **Stop** keeps the messages queued so far, marked `held`: they never go into the stopped turn and start nothing
+  by themselves. They go first in the player's next message's turn, or now with `sendQueued`; the pane says so. A
+  message sent after Stop, while the step winds down, is not held and starts the next turn when the cancellation lands.
+  A new game drops the last game's queue.
+- **Accounting.** A queued message costs nothing until delivered. Its text is then part of the next step's input, so
+  that step's reservation estimate (made after delivery) includes it and settles to what the step cost, as for any
+  message.
 
 **Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
 same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel`, `delete_setup` and every owner tool wait for a card:

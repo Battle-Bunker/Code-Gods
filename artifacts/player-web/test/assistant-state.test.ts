@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps, type CallRow, type MessageRow,
+  allowanceMeter, allowanceNote, buildTimeline, queueNote, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps, type CallRow, type MessageRow,
 } from "../src/core/chat/state.ts";
 
 const msg = (seq: number, role: "user" | "assistant", text: string, over: Partial<MessageRow> = {}): MessageRow =>
@@ -116,4 +116,12 @@ test("the allowance note is silent below 80 % and speaks after", () => {
   assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant allowance left");
   assert.match(allowanceNote(1000, 1000)!, /^Allowance used up/);
   assert.equal(allowanceNote(0, 0), null, "off is said elsewhere");
+});
+
+test("the queue line says when queued messages reach the assistant: next step, a declined card, held after Stop", () => {
+  assert.equal(queueNote({ count: 0, active: true, card: false, held: false }), null);
+  assert.equal(queueNote({ count: 1, active: true, card: false, held: false }), "Queued · your assistant reads it after its current step");
+  assert.equal(queueNote({ count: 2, active: true, card: false, held: false }), "2 queued · your assistant reads them after its current step");
+  assert.equal(queueNote({ count: 1, active: true, card: true, held: false }), "Queued · this declines the card above; your assistant reads it next");
+  assert.equal(queueNote({ count: 1, active: false, card: false, held: true }), "Held · you stopped the assistant; send it now or with your next message");
 });
