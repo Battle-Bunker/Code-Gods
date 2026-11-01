@@ -72,9 +72,13 @@ pyodideCold followed, from its own fresh module, after the probe asset was uploa
 
 Cold on dev, then: egress is a quarter of a second for either bundle. For CPython it is followed by about 0.13 s of
 verify and compile and about 1 s of bootstrap. For Pyodide it is followed by about 10.6 s of CPU in interpreter and
-package init. The dev instance went to 771 MiB without being stopped (the README's 512 MiB figure is the documented
-action limit, so that headroom is not something to build on). The Pyodide probe asset stays in dev's file storage
-as `probe-pyodide.bin.gz` (14 MB, measurement only).
+package init.
+
+**Measured peak: 771 MiB RSS** on the dev instance, with the two script pools (443 MiB) plus Pyodide loaded and run.
+The action was not stopped. This is a measured fact about that run, not headroom: the documented limit for a Convex
+Node action is 512 MiB (lib/game-runtime/README.md "Convex measurements"), and nothing here relies on exceeding it.
+The probe asset `probe-pyodide.bin.gz` (14 MB, measurement only) was removed from dev's file storage afterwards with
+`runtime/assets:remove`.
 
 ### 1.3 The answer to the owner's question
 
@@ -271,6 +275,11 @@ file-storage blob.
 - **Pyodide** is not used (§1). If it were, its Emscripten MEMFS is required by its packages, so the plan would be
   to keep it volatile and read-only: nothing mounted from the host, wiped with the worker. It would not be storage.
   Disabling `open` there would break numpy/pandas imports and `pandas.read_*`.
+
+**Screenshots** (mock assistant, through the composer): turn 1 ranks the player's objects and saves the ranking with
+`store.put('rankings/top5', …)` (and the script, `saveAs`); turn 2 loads `rankings/*`, re-reads it and compares it with
+the payoffs now. `docs/screenshots/code-results/phone-390x844.png` and `desktop-1440x900.png` show the Code results
+panel after turn 2; `artifacts/player-web/e2e/code-results-shots.ts` regenerates them.
 
 **The only persistence is the object store.** The skill says so in its first lines on state, with an example.
 
