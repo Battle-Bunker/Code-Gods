@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { complexityFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
-import { admin, api, gods, internal, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 /**
  * The pre-setups-v2 shape of some settings: a defence rate, defence ids among the excluded families, and one language
@@ -46,7 +46,7 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   await admin.mutation(internal.testing.makeLegacy, { setupId: own.id, settings: legacy(seedSetupSettings("grid-classic"), 1, ["hate_colour"]) });
   // An ended game started from Classic, before setupIds.
   const played = await roomWith([host, ada, bo], { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 });
-  const game = await host.c.action(api.owner.start, { roomId: played.roomId });
+  const game = await startGame(host, played.roomId);
   await host.c.mutation(api.rooms.endActiveGame, { roomId: played.roomId });
   await admin.mutation(internal.testing.makeLegacy, { gameId: game.gameId, settings: legacy(seedSetupSettings("grid-classic"), 0.25), settingsOrigin: { kind: "setup", id: classic.id, modified: false } });
 
@@ -100,11 +100,11 @@ test("assistant-per-game: legacy threads and stored objects join the game they b
   const credentialId = await admin.mutation(internal.testing.seedCredential, { subject: ann.subject, roomId, permission: "act" }) as string;
   const run = (source: string, saveAs?: string) => admin.action(internal.code.execute.runAs, { principal: { credentialId }, roomId, datasetsJson: "[]", language: "typescript", source, ...(saveAs ? { saveAs } : {}) });
 
-  const game1 = await ann.c.action(api.owner.start, { roomId });
+  const game1 = await startGame(ann, roomId);
   const thread1 = await say(ann, "in game one");
   assert.equal((await run("function main(d) { store.put('notes/one', 1); return 1; }", "kept")).status, "ok");
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
-  const game2 = await ann.c.action(api.owner.start, { roomId });
+  const game2 = await startGame(ann, roomId);
   const thread2 = await say(ann, "in game two");
   assert.equal((await run("function main(d) { store.put('notes/two', 2); return 2; }")).status, "ok");
   // Before (player, game) keys: one conversation continued across both games, objects and usage unpartitioned.

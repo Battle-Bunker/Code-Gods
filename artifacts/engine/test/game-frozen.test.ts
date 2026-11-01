@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, raw, roomWith, sleep, touch, waitFor, TS } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
   languages: ["typescript"], objectType: "Int",
@@ -26,7 +26,7 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   await touch(host);
   const { roomId } = await roomWith([host, ann, bob], settings);
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: typeof ann, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   assert.equal((await send(ann, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
   assert.equal((await send(bob, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);

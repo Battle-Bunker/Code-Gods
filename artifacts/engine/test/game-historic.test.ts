@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, playerClient, raw, rejects, roomWith, touch } from "./game-helpers.ts";
+import { admin, api, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
@@ -15,7 +15,7 @@ test("a historic game opens read-only for its participants and the owner, and fo
   const [host, ada, bo, cy] = await gods("Historic Host", "Historic Ada", "Historic Bo", "Historic Cy Latecomer");
   await touch(host);
   const { roomId, shortCode } = await roomWith([host, ada, bo], INT_TS);
-  const game1 = await host.c.action(api.owner.start, { roomId });
+  const game1 = await startGame(host, roomId);
   const SECRET = "historic_bo_marker";
   const summon = await bo.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: game1.gameId,
     command: { type: "summon", language: "typescript", source: `function agent(n) { const ${SECRET} = 1; return [add(${SECRET})]; }` } } });
@@ -32,7 +32,7 @@ test("a historic game opens read-only for its participants and the owner, and fo
   assert.equal((await cy.c.query(api.player.game, { roomId, gameId: game1.shortCode })).current, true, "the just-ended current game stays readable to members");
 
   // Game 2 starts: game 1 is now historic.
-  const game2 = await host.c.action(api.owner.start, { roomId });
+  const game2 = await startGame(host, roomId);
 
   // A participant opens it, by id or short code, as its final state.
   const final = await ada.c.query(api.player.game, { roomId, gameId: game1.shortCode });

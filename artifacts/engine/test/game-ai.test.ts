@@ -77,7 +77,7 @@ test("a seat whose model answers with no decision says why, retries, and is read
   const template = await host.c.mutation(api.aiTemplates.create, { name: "Broken Replier", provider: "anthropic", model: "claude-sonnet-5-5", prompt: `mock-reply: ${reply}` });
   const { godId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: template.id });
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 300_000 });
-  await host.c.action(api.owner.start, { roomId });
+  await startGame(host, roomId);
   const seat = async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId);
   await waitFor(async () => ((await seat()).aiFailures ?? 0) >= 1, "the first turn fails on the reply", 60000, 500);
   const failed = await seat();
@@ -98,7 +98,7 @@ test("an OpenAI seat whose reply is JSON but no decision says so and keeps the r
   const template = await host.c.mutation(api.aiTemplates.create, { name: "Loose Replier", provider: "openai", model: "gpt-4.1-mini", prompt: 'mock-reply: {"move":"summon","plan":"my private plan"}' });
   const { godId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: template.id });
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 300_000 });
-  await host.c.action(api.owner.start, { roomId });
+  await startGame(host, roomId);
   const seat = async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId);
   await waitFor(async () => ((await seat()).aiFailures ?? 0) >= 1, "the first turn fails on the reply", 60000, 500);
   const failed = await seat();
