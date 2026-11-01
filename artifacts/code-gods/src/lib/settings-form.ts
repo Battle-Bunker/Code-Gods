@@ -138,7 +138,8 @@ export interface Prepare { toCompute: number; seconds: number }
 /** The manifest's object types, as far as the settings model and the argument controls need them. */
 export interface PlayableTypes {
   id: string; params?: readonly ParamSchema[]; defaults?: TypeArgs;
-  playable: readonly { args: TypeArgs; prepare?: Prepare | null; synergy?: boolean }[];
+  /** `synergy`: the priors under which the Aligned Lottery has a measured synergy matrix for the shape. */
+  playable: readonly { args: TypeArgs; prepare?: Prepare | null; synergy?: readonly string[] }[];
 }
 /**
  * The settings model's domain on this page: the instantiations the manifest lists as playable (the engine applies a
@@ -213,17 +214,20 @@ export function firstUseNote(type: PlayableTypes, args: TypeArgs): string | null
   return `The first game on this shape on this server prepares ${tables} (about ${formatSeconds(seconds)}) before planning starts; later games start at once.`;
 }
 /** "45 s", "4 min 20 s". */
-export const formatSeconds = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${Math.floor(s / 60)} min${s % 60 >= 1 ? ` ${Math.round(s % 60)} s` : ""}`);
+export function formatSeconds(seconds: number): string {
+  const s = Math.round(seconds);
+  return s < 90 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ""}`;
+}
 
 /**
  * How the goal dealing will actually deal on this shape: the Aligned Lottery needs measured synergy (shipped for a few
  * shapes) and deals exactly like the Divine Lottery without it. Null when the chosen dealer deals as named.
  */
-export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "typeArgs" | "utilitySelectorId">): string | null {
+export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "typeArgs" | "utilitySelectorId" | "priorId">): string | null {
   if (s.utilitySelectorId !== "fair-aligned" || !type) return null;
   const key = argKey(type.id, { ...(type.defaults ?? {}), ...s.typeArgs });
   const listed = type.playable.find(o => argKey(type.id, { ...(type.defaults ?? {}), ...o.args }) === key);
-  return listed?.synergy ? null : "No synergy has been measured for this shape: the Aligned Lottery deals like the Divine Lottery here.";
+  return listed?.synergy?.includes(s.priorId) ? null : "No synergy has been measured for this shape: the Aligned Lottery deals like the Divine Lottery here.";
 }
 
 /** A value in plain words: "25 acts/s", "4 × base10 × rgb", "11 rules", "offered". */

@@ -39,6 +39,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -81,10 +82,23 @@ if (!process.env.SKIP_DEPLOY) {
 // Helpers
 // ---------------------------------------------------------------------------------------------
 type Page = any;
-/** Test fixture (local deployment only): forget the on-demand tables of one instantiation (calibration.cache.forget). */
-function forgetComputed(instance: string) {
-  const r = spawnSync("npx", ["convex", "run", "calibration/cache:forget", JSON.stringify({ instance })], { cwd: path.join(root, "artifacts/engine"), encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`calibration/cache:forget failed: ${r.stderr}`);
+/** Run an internal engine function on the local deployment (test fixtures: calibration.cache, compute.run). */
+function convexRun(fn: string, args: unknown) {
+  const r = spawnSync("npx", ["convex", "run", fn, JSON.stringify(args)], { cwd: path.join(root, "artifacts/engine"), encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`${fn} failed: ${r.stderr}`);
+}
+/**
+ * Forget the on-demand tables of an instantiation and claim every table the given reward families can need there, so
+ * a start waits on them; returns the compute.run jobs that land them.
+ */
+function claimDealable(instance: string, families: string[]) {
+  convexRun("calibration/cache:forget", { instance });
+  const inst = instantiateKey(instance), ctx = context(inst);
+  return families.flatMap(id => canonicalSupport(familiesFor(inst.objectType, "reward").find(f => f.id === id)!, ctx).map(p => {
+    const key = tableKey(id, p, inst);
+    convexRun("calibration/cache:claim", { key, instance, family: id, paramsKey: paramsKey(p), prior: "uniform" });
+    return { key, instance, familyId: id, params: p };
+  }));
 }
 
 const results: string[] = [];
@@ -377,12 +391,15 @@ try {
 
     let gameCode = "";
     await check(`${name}: alice starts the game; the room prepares its rule tables, then every viewer is taken to the game page, which updates live`, async () => {
-      forgetComputed("Int(0,2147483647)");   // so this run's first game on the range computes again
+      // So this run's first game on the range prepares again, and deterministically: every table its deal can need is
+      // claimed first (as if computing elsewhere), so the room waits until this script runs the compute actions.
+      const pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
       await a.getByTestId("button-start").click();
       // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
       await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
       await a.getByTestId("panel-preparing").waitFor();
       await shot(a, `room-preparing-${name}`);
+      for (const job of pending) convexRun("calibration/compute:run", job);   // the real per-table action; finished() launches the game
       await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 480_000 });
       await b.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();

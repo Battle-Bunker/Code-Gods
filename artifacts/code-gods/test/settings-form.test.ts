@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
 import { objectType } from "@workspace/game-types";
 import {
-  SECTIONS, argChoices, choiceLabel, dealerNote, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  SECTIONS, argChoices, choiceLabel, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel, searchSetups } from "../src/lib/setup-words.ts";
@@ -85,7 +85,7 @@ const GRID = { id: "Grid", params: objectType("Grid").params, defaults: objectTy
   playable: [4, 5, 6, 7].flatMap(size => ["base10", "base12", "base16", "cards"].flatMap(symbols => ["rgb", "rgby", "rainbow6"].map(colours => ({
     args: { size, symbols, colours },
     prepare: size === 7 && symbols === "cards" ? { toCompute: 12, seconds: 260 } : null,
-    synergy: size === 5 && symbols === "base10" && colours === "rgby",
+    synergy: size === 5 && symbols === "base10" && colours === "rgby" ? ["uniform"] : [],
   })))) };
 
 test("the board shape is one control per argument; every playable combination is enabled, shipped tables or not", () => {
@@ -112,9 +112,11 @@ test("a shape whose first game computes tables says so with the measured time; t
   assert.equal(firstUseNote(GRID, GRID7), "The first game on this shape on this server prepares up to 12 rule tables (about 4 min 20 s) before planning starts; later games start at once.");
   const int = { id: "Int", params: objectType("Int").params, defaults: objectType("Int").defaults, playable: [{ args: { min: 0, max: 9999 }, prepare: null }] };
   assert.match(firstUseNote(int, { min: 5, max: 100 })!, /prepares its rule tables \(about 1 min 40 s\)/, "an unlisted range: the type's measured estimate");
-  assert.equal(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned" }), null, "synergy measured");
-  assert.match(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "fair-aligned" })!, /deals like the Divine Lottery/);
-  assert.equal(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "divine-lottery" }), null);
+  assert.equal(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "uniform" }), null, "synergy measured");
+  assert.match(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "other" })!, /deals like the Divine Lottery/, "but not under this prior");
+  assert.match(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "fair-aligned", priorId: "uniform" })!, /deals like the Divine Lottery/);
+  assert.equal(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "divine-lottery", priorId: "uniform" }), null);
+  assert.deepEqual([35, 89.6, 119.6, 120, 260].map(formatSeconds), ["35 s", "1 min 30 s", "2 min", "2 min", "4 min 20 s"], "rounded once, never \"1 min 60 s\"");
 });
 
 test("the setup combobox: search by name, owner or summary; whose it is; why Edit is unavailable", () => {

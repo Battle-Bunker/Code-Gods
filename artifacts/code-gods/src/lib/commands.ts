@@ -55,6 +55,8 @@ export interface CmdRoom {
   members: readonly { id: string; name: string; kind: string; ready: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   aiBudget: number; assistantBudget: number;
+  /** The next game is preparing its rule tables (rooms.get `preparing`). */
+  preparing?: { error?: string } | null;
 }
 export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
@@ -143,13 +145,15 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   const states: Partial<Record<PublicFunctionPath, (base: Availability) => Availability>> = {
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
+      : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
       : room!.members.length < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${room!.members.length} ${room!.members.length === 1 ? "has" : "have"} joined.`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(room!.members.length >= scope.maxPlayers ? no(`The room is full (${scope.maxPlayers} players).`) : ok))),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
-    "rooms.endActiveGame": () => ownerOnly(() => running ? ok : no("No game is running.")),
+    // With no game running it ends a preparation (the next game computing its rule tables).
+    "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing ? ok : no("No game is running.")),
     "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
     "rooms.approveAiBudget": () => ownerOnly(() => ok),
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),

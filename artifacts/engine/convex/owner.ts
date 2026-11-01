@@ -112,7 +112,7 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
 }
 
 function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {
-  const view = preparingView({ preparing: p } as Doc<"rooms">)!;
+  const view = preparingView(p);
   return { status: "preparing", instance: p.instance, ready: view.ready, total: p.total, estimateSeconds: p.estimateSeconds,
     dealtAs: p.dealer.dealtAs, ...(p.dealer.note ? { note: p.dealer.note } : {}), message: preparingLine(view) };
 }

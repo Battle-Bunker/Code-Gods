@@ -110,3 +110,10 @@ test("New setup duplicates the room's current setup (no generic Custom: every ne
   assert.deepEqual(avail(scope({ room: room(["ada"]) }), "ui.newSetup"),
     { ok: false, reason: "The room's setup was deleted: open Configure the room's setup to keep its settings as yours.", fix: "ui.nav.configure" });
 });
+test("while the next game prepares its rule tables the owner can end the preparation, and Start waits for it", () => {
+  const preparing = { ...room(["ada", "bob", "cy"]), preparing: {} };
+  assert.deepEqual(avail(scope({ room: preparing }), "rooms.endActiveGame"), { ok: true });
+  assert.equal(avail(scope({ room: preparing }), "owner.start").ok, false);
+  assert.equal(avail(scope({ room: { ...preparing, preparing: { error: "failed" } } }), "owner.start").ok, true, "a failed preparation may be started again");
+  assert.equal(avail(scope({ room: room(["ada", "bob", "cy"]) }), "rooms.endActiveGame").ok, false, "nothing to end");
+});

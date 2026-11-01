@@ -5,7 +5,7 @@ import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
  * the type can instantiate, minus retired shapes: game-utilities playableInstantiations, the list the settings model
  * is given on the server), each saying how its first game here goes (`prepare`: how many rule tables would be
  * computed on demand, and about how long that takes; none for a shape whose tables are shipped or analytic) and
- * whether the Aligned Lottery has measured synergy for it. `offered` keeps the shapes whose every table is shipped, for
+ * the priors under which the Aligned Lottery has measured synergy for it (`synergy`). `offered` keeps the shapes whose every table is shipped, for
  * diagnostics. Also the pre-authored dropdown options, available runtimes and AI funding status. Game setups are a
  * table of their own (convex/setups.ts).
  */
@@ -37,7 +37,7 @@ function objectTypesManifest(calibration: CalibrationManifest) {
     id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
     classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
     // The same list the settings model is given on the server (engine/settingsDomain.ts).
-    playable: playableInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst), synergy: !!synergyFor(inst) })),
+    playable: playableInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst), synergy: priorIds(calibration).filter(p => synergyFor(inst, p)) })),
     // Diagnostics: the shapes whose every dealable table is shipped in file storage.
     offered: offeredInstantiations(calibration, T.id).map(shape),
   })));

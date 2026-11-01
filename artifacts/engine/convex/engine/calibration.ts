@@ -242,8 +242,15 @@ export const drawsOf = (utilities: readonly UtilityDescriptor[]): Draw[] => util
  * new start).
  */
 export async function gameTables(ctx: ActionCtx, settings: GameSettings, utilities: readonly UtilityDescriptor[]): Promise<InstanceTables> {
-  const inst = instantiationOf(settings);
-  const r = await resolveTables(ctx, inst, drawsOf(utilities), priorOf(settings.priorId ?? "uniform"), { schedule: false });
+  const inst = instantiationOf(settings), prior = priorOf(settings.priorId ?? "uniform");
+  // Every tick of a game asks for the same utilities: resolve them once per process (a table key is its content).
+  const memoKey = `${inst.key}\0${priorKey(prior)}\0${utilities.map(u => paramsKey(u)).join("|")}`;
+  const known = gameTableMemo.get(memoKey);
+  if (known) return known;
+  const r = await resolveTables(ctx, inst, drawsOf(utilities), prior, { schedule: false });
   if (r.pending.length) throw new Error(`No calibration table for ${r.pending.map(p => p.draw.familyId).join(", ")} in ${inst.key}`);
+  if (gameTableMemo.size >= 64) gameTableMemo.delete(gameTableMemo.keys().next().value!);
+  gameTableMemo.set(memoKey, r.tables);
   return r.tables;
 }
+const gameTableMemo = new Map<string, InstanceTables>();

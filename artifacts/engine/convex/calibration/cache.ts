@@ -89,8 +89,9 @@ export const finished = internalMutation({
       return true;
     }
     const message = (error ?? "unknown error").slice(0, 2000);
-    if (waits.length && row.attempts < MAX_ATTEMPTS) {
-      // Someone is waiting: try again after a pause (a busy or restarted backend is the usual cause).
+    if (row.attempts < MAX_ATTEMPTS) {
+      // Try again after a pause (a busy or restarted backend is the usual cause). Not only when a room already waits:
+      // the start's wait rows are written just after it schedules the computation, so an early failure has none yet.
       const delay = retryDelayMs(row.attempts);
       await ctx.db.patch(row._id, { status: "computing", startedAt: now + delay, attempts: row.attempts + 1, error: message, buildMs });
       await ctx.scheduler.runAfter(delay, internal.calibration.compute.run, { key, instance: row.instance, familyId: row.family, params: JSON.parse(row.paramsKey) });
