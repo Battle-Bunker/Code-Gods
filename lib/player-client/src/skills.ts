@@ -131,6 +131,6 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     parts.push(SETUPS);
   }
   const tools = findSkill(name)?.tools ?? [];
-  if (tools.length) parts.push(`This skill loads its tools (those the grant allows): ${tools.join(", ")}; call them directly.`);
+  if (tools.length) parts.push(`This skill's tools (those the grant allows): ${tools.join(", ")}. Call load_tools for any of them not in your tool list yet.`);
   return cut(parts.join("\n"), SKILL_LIMITS.body);
 }

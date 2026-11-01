@@ -149,6 +149,10 @@ test("a step cut by the default output ceiling is billed, never acted on, and ru
   assert.equal(steps[1].text, "A long answer.");
   assert.deepEqual(t.calls.map((c: any) => c.tool), ["get_observation"], "only the retry's call exists");
   assert.equal(t.turn.usage.billedTokens, steps.reduce((sum: number, m: any) => sum + m.billedTokens, 0), "the turn bills every step, the cut one included");
+  assert.equal(t.turn.step, 2, "the cut step does not count against the step ceiling");
+  // The thread keeps the raised ceiling for its next turns.
+  const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
+  assert.equal(JSON.parse(finalText(await until(ann, next, DONE, "the next turn"))).maxOutputTokens, 8192);
 });
 
 test("streaming text grows in the message document before the step ends", { timeout: 120_000 }, async () => {

@@ -211,7 +211,6 @@ The index, `load_tools`, `load_skill`, MCP and the confirmation rules pick it up
 | develop (baseline) | gpt-4.1-mini | 7 | 9,975 | 0.021 | 20.1 |
 | PR 1: append-only history, prefix cache key | claude-sonnet-5-5 | 8 | 11,502 | 0.133 | 17.4 |
 | PR 1: append-only history, prefix cache key | gpt-4.1-mini | 7 | 6,083 | 0.013 | 32.9 |
-
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | claude-sonnet-5-5 | 8 | 3,826 | 0.052 | 52.3 |
 | PR 2: tool index and loader, skills, live-only briefing, 2,048 ceiling | gpt-4.1-mini | 10 | 3,328 | 0.007 | 60.1 |
 
@@ -229,8 +228,9 @@ What the live runs taught (both are in the design above):
 
 - gpt-4.1-mini loaded the writing-agents skill, then looped on `get_observation` until the step ceiling: it did not
   follow the two-step "load, then call" protocol. Skills now declare their tools (like the Agent Skills spec's
-  `allowed-tools`), and loading a skill loads them where the adapter manages context. Claude Sonnet 5.5 called a
-  deferred tool named in the index directly, and the API accepted it.
+  `allowed-tools`), and loading a skill loads them where the adapter manages context. On Anthropic the skill result
+  must stay text (tool_reference blocks cannot share a result with text), so the body names its tools for load_tools;
+  Claude Sonnet 5.5 also called a deferred tool named in the index directly, and the API accepted it.
 - Without the primer's agent section, gpt-4.1-mini wrote `obj.value` for an Int object and failed validation. The
   primer moved to `lib/player-client/src/primer.ts`: AI seats still get all of it, and the assistant's
   writing-agents skill carries the agent, energy, commit-clause and determinism parts.

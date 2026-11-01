@@ -52,12 +52,15 @@ test("load_tools loads index tools, skips core ones, refuses what the grant lack
   assert.deepEqual(active, [...modelTools("act").filter(t => !t.deferred).map(t => t.name), "validate_agent"], "what an adapter without native deferral offers next");
 });
 
-test("a step's output ceiling: the default, the full one once a code-writing tool is loaded, the turn's raised one after a cut", () => {
+test("a step's output ceiling: the default, the full one once a code-writing tool the grant has is loaded, the thread's raised one after a cut", () => {
   const loadedWith = (names: string[]) => [{ role: "user" as const, content: [{ type: "tool_result" as const, toolUseId: "c", content: "{}", toolReferences: names }] }];
-  assert.equal(outputCeiling(undefined, []), LIMITS.outputTokens);
-  assert.equal(outputCeiling(undefined, loadedWith(["get_rules"])), LIMITS.outputTokens);
-  assert.equal(outputCeiling(undefined, loadedWith(["validate_agent"])), LIMITS.maxOutputTokens);
-  assert.equal(outputCeiling(LIMITS.maxOutputTokens, []), LIMITS.maxOutputTokens);
+  const act = modelTools("act"), read = modelTools("read");
+  assert.equal(outputCeiling(undefined, [], act), LIMITS.outputTokens);
+  assert.equal(outputCeiling(undefined, loadedWith(["get_rules"]), act), LIMITS.outputTokens);
+  assert.equal(outputCeiling(undefined, loadedWith(["validate_agent"]), act), LIMITS.maxOutputTokens);
+  assert.equal(outputCeiling(undefined, [{ role: "user", content: [{ type: "tool_result", toolUseId: "c", content: "{}", loadsTools: ["validate_agent"] }] }], read), LIMITS.outputTokens,
+    "a skill naming a code-writing tool the grant lacks (read) does not raise it");
+  assert.equal(outputCeiling(LIMITS.maxOutputTokens, [], act), LIMITS.maxOutputTokens);
   assert.ok(LIMITS.outputTokens <= 2048 && LIMITS.maxOutputTokens === 8192);
 });
 

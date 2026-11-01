@@ -199,7 +199,7 @@ export const run = internalAction({
     // actual usage afterwards, so it only decides whether the allowance has room for the step.
     const estimate = await provider.estimateInputTokens({ system, messages, tools });
     const inputBound = inputReservation(estimate);
-    const outputBound = outputCeiling(c.turn.outputCeiling ?? undefined, messages);
+    const outputBound = outputCeiling(c.turn.outputCeiling ?? undefined, messages, tools);
     const worst = worstCaseCost(provider.prices, inputBound, outputBound);
     const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, {
       pool: "assistant", roomId: c.roomId, subject: c.turn.subject, tokens: worst.tokens, usd: worst.usd,
@@ -234,7 +234,7 @@ export const run = internalAction({
         // The output ceiling cut the answer: bill it, never act on it, and run the step again with the full ceiling
         // (once: a cut at the full ceiling fails the turn).
         const cost = usageCost(provider.prices, error.usage);
-        await settle(cost, { inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens });
+        await settle(cost, { inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens }).catch(() => log("budget", { turnId, reason: "settle_failed" }));
         log("step", { turnId, step: c.turn.step, outcome: "cut", outputBound, inputTokens: error.usage.inputTokens, outputTokens: error.usage.outputTokens, billedTokens: cost.tokens });
         const { cancelled } = await ctx.runMutation(internal.assistant.store.cutStep, { turnId, gen, messageId, ...error.usage, billedTokens: cost.tokens });
         if (cancelled) return void await finish("cancelled");

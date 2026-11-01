@@ -177,10 +177,14 @@ export function loadTools(permission: Permission, args: Record<string, unknown>)
 
 /** Tools whose arguments carry code or whole documents: a step that may call them gets the full output ceiling. */
 const WRITES_CODE = new Set(["validate_agent", "summon_agent", "save_panel", "save_setup"]);
-/** A step's output ceiling: the turn's raised one after a cut, the full one once a code-writing tool is loaded, else the default. */
-export function outputCeiling(turnCeiling: number | undefined, messages: ChatMessage[]): number {
+/**
+ * A step's output ceiling: the thread's raised one after a cut, the full one once a code-writing tool the grant may
+ * use (one of `tools`) is loaded, else the default.
+ */
+export function outputCeiling(turnCeiling: number | undefined, messages: ChatMessage[], tools: readonly { name: string }[]): number {
   if (turnCeiling) return Math.min(turnCeiling, LIMITS.maxOutputTokens);
-  return loadedToolNames(messages).some(n => WRITES_CODE.has(n)) ? LIMITS.maxOutputTokens : LIMITS.outputTokens;
+  const offered = new Set(tools.map(t => t.name));
+  return loadedToolNames(messages).some(n => WRITES_CODE.has(n) && offered.has(n)) ? LIMITS.maxOutputTokens : LIMITS.outputTokens;
 }
 
 /**

@@ -142,7 +142,8 @@ export const setBriefing = internalMutation({
     const from = window.rows[0]?.seq ?? 0;
     const start = historyStart(turnSizes(window.rows, window.calls, window.current), previous?.historyFromSeq ?? from);
     const own = window.rows.find(r => r.turnId === turn._id)?.seq ?? 0;
-    await ctx.db.patch(turn._id, { briefing, historyFromSeq: Math.min(start, own), updatedAt: Date.now() });
+    // A thread whose answers were cut keeps the raised output ceiling.
+    await ctx.db.patch(turn._id, { briefing, historyFromSeq: Math.min(start, own), ...(previous?.outputCeiling ? { outputCeiling: previous.outputCeiling } : {}), updatedAt: Date.now() });
     return { cancelled: false };
   },
 });
@@ -231,8 +232,8 @@ export const recordAbortedUsage = internalMutation({
 
 /**
  * A step the output ceiling cut (ChatCutError): billed like any step, never acted on. Its message keeps no text
- * (the history skips it), and the turn's later steps get the full ceiling (rules.ts outputCeiling). It counts as a
- * step, so cuts cannot loop past the step ceiling.
+ * (the history skips it), and the turn's later steps, and the thread's later turns, get the full ceiling (rules.ts
+ * outputCeiling). It does not count as a step: the retry runs at the full ceiling, where a cut fails the turn.
  */
 export const cutStep = internalMutation({
   args: {
@@ -246,7 +247,7 @@ export const cutStep = internalMutation({
     const now = Date.now();
     await ctx.db.patch(messageId, { ...usage, text: "", status: "error", updatedAt: now });
     const live = turn.gen === gen && turn.status === "running";
-    await ctx.db.patch(turnId, { usage: addUsage(turn.usage, usage), ...(live ? { step: turn.step + 1, outputCeiling: LIMITS.maxOutputTokens } : {}), updatedAt: now });
+    await ctx.db.patch(turnId, { usage: addUsage(turn.usage, usage), ...(live ? { outputCeiling: LIMITS.maxOutputTokens } : {}), updatedAt: now });
     return { cancelled: !live };
   },
 });

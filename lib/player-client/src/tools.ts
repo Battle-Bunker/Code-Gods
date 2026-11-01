@@ -151,7 +151,7 @@ export const READ_TOOLS = [
     note: "Status received (with the engine's result), pending (still running), failed (not applied: resend the identical call) or not_found.",
     input: obj({ commandId: uuid }), output: result(receiptData) }),
   def({ name: "load_skill", short: "Load a skill (domain guidance with live data) by name from the skills index.", title: "Load a skill", functions: ["rooms.get", "player.observation", "layout.current"], permission: "read", annotations: read,
-    about: `Load one skill: guidance for a kind of task plus the live data it needs, read as the human. Skills: ${SKILLS.map(k => `${k.name} (${k.description})`).join(" ")}`,
+    about: `Load one skill: guidance for a kind of task plus the live data it needs, read as the human. Skills: ${SKILLS.map(k => k.name).join(", ")} (each described in the skills index).`,
     input: obj({ name: z.enum(SKILL_NAMES).describe("The skill's name.") }), output: result(z.object({ name: z.string(), body: z.string() })) }),
 ] as const;
 
