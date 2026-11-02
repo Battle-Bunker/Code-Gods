@@ -38,7 +38,7 @@ const RANK_PY = "def main(data):\n    rows = sorted(data['objects'], key=lambda 
 test("run_code: a script over datasets resolved as the player, stored for them only, within disclosure", { timeout: 240_000 }, async () => {
   const { members: [ann, bob], roomId, gameId } = await startedRoom(["Ann Coder", "Bob Coder", "Cal Coder"]);
   const SECRET = "bob_code_marker";
-  const summoned = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, gameId) });
+  const summoned = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, gameId) });
   assert.equal(summoned.accepted, true, summoned.message);
   const cred = await credential(ann, roomId);
 

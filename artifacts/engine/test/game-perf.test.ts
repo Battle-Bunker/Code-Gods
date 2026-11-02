@@ -66,7 +66,7 @@ test("the hot queries read and cost no more in a room with forty past games than
   for (let g = 0; g < 2; g++) {
     const game = await startGame(host, old.roomId);
     const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId: old.roomId, envelope: envelope(command, game.gameId) });
-    for (const god of [ada, bo]) assert.equal((await send(god, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+    for (const god of [ada, bo]) assert.equal((await send(god, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
     await send(ada, { type: "chat", text: `game ${g}` });
     await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });
     await waitFor(async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "transform").length >= 60,

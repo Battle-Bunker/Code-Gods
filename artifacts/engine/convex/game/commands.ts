@@ -193,11 +193,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
       summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, perActFloorBits: settings.perActFloorBits,
       breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(world),
     };
-    const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, ...record, acts: 0, spent: 0 });
+    const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, name: command.name, ...(command.description ? { description: command.description } : {}), ...record, acts: 0, spent: 0 });
     await ctx.db.patch(deity._id, { spent: deity.spent + e.cost });
     // The summon is in the event log with the agent's whole record (its source stays its owner's), so a replay has
     // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
-    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, ...record }], world, world);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
     await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1, nextBatch });
     return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
   }

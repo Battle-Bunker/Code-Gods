@@ -75,7 +75,7 @@ export class AIController {
         bounded.throwIfAborted();
         if("language" in action && !observation.languages.includes(action.language)) throw new Error(`This game does not allow ${action.language} agents`);
         if(action.type==="summon") {
-          const validation=await this.send(this.client.prepare({...action,type:"validate"},observation),bounded);
+          const validation=await this.send(this.client.prepare({type:"validate",language:action.language,source:action.source},observation),bounded);
           if(!validation.accepted || !validation.validation?.valid) continue;
           const fresh=modelObservation(await this.options.transport.observe(bounded),this.options.roomId,this.options.godId);
           if(fresh.gameId!==observation.gameId) throw new Error("Game changed during AI turn");

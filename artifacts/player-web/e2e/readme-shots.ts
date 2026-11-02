@@ -59,7 +59,7 @@ const submit = (who: God, command: Record<string, unknown>) => who.c.action(fn.a
 /** Summon, retrying while the language's sandbox warms (launches are async). */
 const summon = async (who: God, language: string, source: string) => {
   for (let i = 0; i < 60; i++, await sleep(2000)) {
-    const r = await submit(who, { type: "summon", language, source }) as { accepted: boolean; message: string };
+    const r = await submit(who, { type: "summon", name: "Test agent", language, source }) as { accepted: boolean; message: string };
     if (r.accepted) return;
     if (!/warm|ready/i.test(r.message)) throw new Error(`${language}: ${r.message}`);
   }

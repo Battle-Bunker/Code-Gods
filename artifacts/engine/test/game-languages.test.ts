@@ -30,8 +30,8 @@ test("each agent is written in one of the game's languages, priced and run in it
   // Python source sent as TypeScript does not compile: the language decides the sandbox.
   assert.equal((await send(ada, { type: "validate", language: "typescript", source: PY.Int })).validation.valid, false);
 
-  assert.equal((await send(ada, { type: "summon", language: "python", source: PY.Int })).accepted, true);
-  assert.equal((await send(bo, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "python", source: PY.Int })).accepted, true);
+  assert.equal((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   const mine = await ada.c.query(api.player.observation, { roomId });
   assert.deepEqual(mine.agents.map((a: any) => a.language), ["python"], "an agent carries its own language");
 
@@ -78,9 +78,9 @@ test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts l
   assert.equal(failure.error?.code, "COMPILE");
   assert.deepEqual((await validate(notHaskell)).validation, broken.validation);
 
-  const summoned = await send(ada, { type: "summon", language: "haskell", source });
+  const summoned = await send(ada, { type: "summon", name: "Test agent", language: "haskell", source });
   assert.equal(summoned.accepted, true, summoned.message);
-  assert.equal((await send(bo, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
   await waitFor(async () => {
     const { agents } = await raw(game.gameId);
@@ -101,7 +101,7 @@ test("a language the game does not allow is refused at validate and summon", { t
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   for (const type of ["validate", "summon"]) {
-    const refused = await send({ type, language: "python", source: PY.Int });
+    const refused = await send({ type, ...(type === "summon" ? { name: "N" } : {}), language: "python", source: PY.Int });
     assert.equal(refused.accepted, false, type);
     assert.match(refused.message, /does not allow python agents \(allowed: typescript\)/, type);
   }

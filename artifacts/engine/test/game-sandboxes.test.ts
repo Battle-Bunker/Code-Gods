@@ -47,7 +47,7 @@ test("a start never waits for a cold sandbox; validate, summon and AI seats wait
     assert.equal(early.notReady.language, "python");
     assert.ok(early.notReady.retryAfterMs > 0);
     assert.match(early.message, /Python agent sandbox is warming up/);
-    const summon = await bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "python", source: PY.Int }, game.gameId) });
+    const summon = await bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "python", source: PY.Int }, game.gameId) });
     assert.equal(summon.notReady?.state, "warming", "summon waits too");
 
     // The AI seat waits without calling its provider.

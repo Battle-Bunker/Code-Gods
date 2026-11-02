@@ -247,19 +247,19 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   const started = await call(owner.token, "start_game", { requestId: randomUUID() });
   const game = await startedGame(host, roomId, started.data?.result);
   const commandId = randomUUID();
-  const first = await call(actor.token, "summon_agent", { source: AGENT, commandId });
+  const first = await call(actor.token, "summon_agent", { name: "Test agent", source: AGENT, commandId });
   assert.equal(first.data.status, "received", JSON.stringify(first));
   assert.equal(first.data.receipt.accepted, true, first.data.receipt.message);
-  const replay = await call(actor.token, "summon_agent", { source: AGENT, commandId });
+  const replay = await call(actor.token, "summon_agent", { name: "Test agent", source: AGENT, commandId });
   assert.ok(replay.data, JSON.stringify(replay));
   assert.deepEqual(replay.data.receipt, first.data.receipt, "the identical call returns the stored receipt");
-  const conflict = await call(actor.token, "summon_agent", { source: AGENT.replace("1", "2"), commandId });
+  const conflict = await call(actor.token, "summon_agent", { name: "Test agent", source: AGENT.replace("1", "2"), commandId });
   assert.equal(conflict.error?.code, "CONFLICT");
   const agents = (await raw(game.gameId)).agents.filter((a: any) => a.ownerId === ada.subject);
   assert.equal(agents.length, 1, "exactly one agent after the replay");
   // waitMs 0: the summon runs on the server after the call answers `pending`; get_receipt completes it.
   const later = randomUUID();
-  const pending = await call(actor.token, "summon_agent", { source: "function agent(x) { return [add(3)]; }", commandId: later, waitMs: 0 });
+  const pending = await call(actor.token, "summon_agent", { name: "Test agent", source: "function agent(x) { return [add(3)]; }", commandId: later, waitMs: 0 });
   assert.equal(pending.data.status, "pending");
   assert.equal(pending.data.commandId, later);
   const done = await waitFor(async () => {
@@ -288,7 +288,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   for (const [god, source] of [[ada, "function agent(grid) { return [slide(row(0), 1)]; }"],
     [bo, `function agent(grid) { const ${SECRET_BO} = 1; return [slide(column(0), ${SECRET_BO})]; }`],
     [host, `function agent(grid) { const ${SECRET_HOST} = 2; return [slide(row(1), ${SECRET_HOST})]; }`]] as const) {
-    const r = await send(god, { type: "summon", language: "typescript", source });
+    const r = await send(god, { type: "summon", name: "Test agent", language: "typescript", source });
     assert.equal(r.accepted, true, r.message);
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });

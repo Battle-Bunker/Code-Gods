@@ -32,11 +32,11 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const ok = async (p: Promise<any>) => { const r = await p; assert.equal(r.accepted, true, r.message); return r; };
   const SECRET_BO = "bo_replay_marker";
-  await ok(send(ada, { type: "summon", language: "typescript", source: TS.Int }));
-  await ok(send(ada, { type: "summon", language: "typescript", source: "function agent(x) { return [add(2)]; }" }));
+  await ok(send(ada, { type: "summon", name: "Ada first", description: "Adds one.", language: "typescript", source: TS.Int }));
+  await ok(send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(2)]; }" }));
   const doomed = { id: (await raw(game.gameId)).agents.find((a: any) => a.source.includes("add(2)"))._id as string };
-  await ok(send(bo, { type: "summon", language: "typescript", source: `function agent(x) { const ${SECRET_BO} = 3; return [add(${SECRET_BO})]; }` }));
-  await ok(send(host, { type: "summon", language: "typescript", source: "function agent(x) { return [add(-1)]; }" }));
+  await ok(send(bo, { type: "summon", name: "Bo hoarder", description: "Bo secret until the end.", language: "typescript", source: `function agent(x) { const ${SECRET_BO} = 3; return [add(${SECRET_BO})]; }` }));
+  await ok(send(host, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(-1)]; }" }));
   await ok(send(ada, { type: "chat", text: "planning-chat" }));
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   // Live: nothing is revealed, to anyone.
@@ -108,6 +108,9 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));
   const events = pages.flatMap(p => p.batches.flatMap(b => b.events));
   assert.ok(events.some(e => e.type === "agent.summoned" && e.ownerId === bo.subject && e.source.includes(SECRET_BO)), "Bo's agent's code");
+  const named = (owner: string) => events.find(e => e.type === "agent.summoned" && e.ownerId === owner) as any;
+  assert.deepEqual([named(bo.subject).name, named(bo.subject).description], ["Bo hoarder", "Bo secret until the end."], "the ended game's replay shows every god's agent names and descriptions");
+  assert.equal(named(ada.subject).name, "Ada first");
   assert.ok(events.filter(e => e.type === "object.transformed" || e.type === "agent.failed").every(e => /^\d+$/.test((e as any).seed)), "every act's seed");
   for (const [n, snap] of snapshots.entries()) {
     const label = `snapshot ${n}`;

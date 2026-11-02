@@ -353,7 +353,7 @@ await playGame("string", async () => {
     // it covers the price. A refused command has a final receipt, so each attempt is a new command.
     const result = await until(() => {
       const summon = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId,
-        command: { type: "summon", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
+        command: { type: "summon", name: "Test agent", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
       const receipt = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(summon)));
       const text = JSON.stringify(receipt);
       if (text.includes("\"accepted\":true")) return text;

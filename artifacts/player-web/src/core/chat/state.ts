@@ -216,7 +216,11 @@ export function confirmSentence(call: CallRow, ctx: { energy?: number; pauseSeco
   const args = argsOf(call);
   switch (call.tool) {
     case "send_chat": return `Post to everyone: ${quote(args.text)}`;
-    case "summon_agent": return ctx.energy !== undefined ? `Summon this agent: it pays from your ${bitsText(ctx.energy)} bits of energy` : "Summon this agent: it pays from your energy";
+    case "summon_agent": {
+      const what = typeof args.name === "string" && args.name.trim() ? `Summon ${quote(args.name, 40)}` : "Summon this agent";
+      const desc = typeof args.description === "string" && args.description.trim() ? ` (${args.description.trim().slice(0, 200)})` : "";
+      return `${what}${desc}: it pays from ${ctx.energy !== undefined ? `your ${bitsText(ctx.energy)} bits of` : "your"} energy`;
+    }
     case "pause_game": return ctx.pauseSeconds ? `Use your one pause: it stops the world for everyone for ${ctx.pauseSeconds} s` : "Use your one pause: it stops the world for everyone";
     case "destroy_agent": return typeof args.agentId === "string" ? `Destroy your agent ${args.agentId.slice(0, 12)} (free, cannot be undone)` : "Destroy one of your agents (free, cannot be undone)";
     case "delete_panel": return `Delete your panel ${quote(args.slug, 64)} and all its versions`;

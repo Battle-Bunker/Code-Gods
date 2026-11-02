@@ -18,7 +18,7 @@ test("a historic game opens read-only for its participants and the owner, and fo
   const game1 = await startGame(host, roomId);
   const SECRET = "historic_bo_marker";
   const summon = await bo.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: game1.gameId,
-    command: { type: "summon", language: "typescript", source: `function agent(n) { const ${SECRET} = 1; return [add(${SECRET})]; }` } } });
+    command: { type: "summon", name: "Test agent", language: "typescript", source: `function agent(n) { const ${SECRET} = 1; return [add(${SECRET})]; }` } } });
   assert.equal(summon.accepted, true, summon.message);
   // Cy joins mid-game: a member who never plays game 1.
   await cy.c.mutation(api.rooms.join, { room: shortCode });
