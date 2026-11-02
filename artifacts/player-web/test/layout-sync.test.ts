@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
   effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
@@ -94,7 +94,7 @@ test("a read-only sync (safe mode) applies server layouts and never pushes", () 
   assert.equal(pushPlan(s), null);
 });
 
-test("panel 1 follows the phase only while nobody chose its panel", () => {
+test("the first panel nobody chose follows the phase", () => {
   const ended = effectiveLayout(base, "ended");
   assert.equal(ended.panes.p1.kind === "panel" && ended.panes.p1.panelId, "results");
   assert.equal(effectiveLayout(base, "running"), base, "unchanged when it already shows the phase's panel");
@@ -104,7 +104,14 @@ test("panel 1 follows the phase only while nobody chose its panel", () => {
   assert.equal(effectiveLayout(assisted, "ended"), assisted);
   const second = setPanePanel(openPane(chosen, { id: "", kind: "panel", panelId: "overview", params: {}, setBy: "default" }).layout, "p1", "race", "human");
   const p3 = effectiveLayout(second, "ended").panes.p3;
-  assert.equal(p3.kind === "panel" && p3.panelId, "overview", "only the first built-in panel follows");
+  assert.equal(p3.kind === "panel" && p3.panelId, "results", "the first panel nobody chose follows, wherever it is");
+  const both = setPanePanel(openPane(base, { id: "", kind: "panel", panelId: "overview", params: {}, setBy: "default" }).layout, "p1", "objects", "default");
+  const followed = effectiveLayout(both, "ended");
+  assert.deepEqual(panelPanesOf(followed).map(p => p.kind === "panel" && p.panelId), ["results", "overview"], "only the first of them");
+  // The default dock (the goal card is the player's): objects become the results at the end, and back in a replay.
+  const dock = DEFAULT_LAYOUT("running");
+  assert.deepEqual(panelPanesOf(effectiveLayout(dock, "ended")).map(p => p.kind === "panel" && p.panelId), ["my-card", "results", "agents"]);
+  assert.deepEqual(panelPanesOf(effectiveLayout(effectiveLayout(dock, "ended"), "running")).map(p => p.kind === "panel" && p.panelId), ["my-card", "objects", "agents"]);
 });
 
 test("sameLayout ignores sub-pixel size drift but not structure, panels or a real resize", () => {
