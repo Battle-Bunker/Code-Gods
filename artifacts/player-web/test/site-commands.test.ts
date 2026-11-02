@@ -10,11 +10,15 @@ import { EXCLUDED, STEP_IDS, allCatalogSitePaths, codeCommands, engineCommands, 
 const nothing = async () => undefined;
 const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
-  resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); }, templates: async () => [], adminTemplates: async () => [],
-  pastGames: async () => [], credentials: async () => [], revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
+  resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
+  useTemplates: () => lists.templates, useAdminTemplates: () => lists.adminTemplates, usePastGames: () => lists.pastGames, useCredentials: () => lists.credentials, revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
   setGridRenderer: id => { gridCalls.push(id); },
 };
 const gridCalls: string[] = [];
+// What each palette list's subscription holds right now (the stubs stand in for the shared useLive hook).
+const lists: Record<"templates" | "adminTemplates" | "pastGames" | "credentials", { data: any; error: Error | null }> = {
+  templates: { data: [], error: null }, adminTemplates: { data: [], error: null }, pastGames: { data: [], error: null }, credentials: { data: [], error: null },
+};
 const applied: string[] = [], duplicated: string[] = [];
 const ada = { id: "ada", name: "Ada Lovelace", isAdmin: false };
 const room = (members: string[], activeGame: NonNullable<EngineScope["room"]>["activeGame"] = null): NonNullable<EngineScope["room"]> => ({
@@ -147,4 +151,31 @@ test("connected apps are managed with the engine site's session only: an app's g
     assert.equal(off.ok, false, `${id} in an app`);
     assert.match((off as { reason: string }).reason, /engine's site/);
   }
+});
+
+test("the palette's lists are live subscriptions: a pick page shows loading, then the list, then follows each change", () => {
+  // Catches: a pick page reading its list once (a one-off convex.query) and never seeing a template added or a
+  // credential revoked while it is open; an error hidden as an empty list.
+  const options = (id: string) => {
+    const p = find(scope({ room: room(["ada"]) }), id).performer;
+    assert.ok(p.kind === "form" && p.page.kind === "pick" && p.page.useOptions, `${id} subscribes`);
+    return p.page.useOptions();
+  };
+  const sonnet = { id: "t1", name: "Sonnet", provider: "anthropic", model: "sonnet" };
+  lists.templates = { data: undefined, error: null };
+  assert.equal(options("rooms.addAi").options, undefined, "loading");
+  lists.templates = { data: [sonnet], error: null };
+  assert.deepEqual(options("rooms.addAi").options?.map(o => o.label), ["Sonnet"]);
+  lists.templates = { data: [sonnet, { ...sonnet, id: "t2", name: "Opus" }], error: null };
+  assert.deepEqual(options("rooms.addAi").options?.map(o => o.id), ["t1", "t2"], "a template added while the page is open appears");
+  lists.templates = { data: undefined, error: new Error("Not signed in") };
+  assert.equal(options("rooms.addAi").error, "Not signed in");
+  lists.adminTemplates = { data: [sonnet], error: null };
+  assert.deepEqual(options("aiTemplates.update").options?.map(o => o.detail), ["anthropic · sonnet"]);
+  lists.credentials = { data: [{ credentialId: "c1", label: "CLI", permission: "act", roomCode: "ABCD" }], error: null };
+  assert.deepEqual(options("auth.credentials.revoke").options?.map(o => [o.id, o.detail]), [["c1", "act · room ABCD"]]);
+  lists.credentials = { data: [], error: null };
+  assert.deepEqual(options("auth.credentials.revoke").options, [], "a revoked credential leaves the list");
+  lists.pastGames = { data: [{ shortCode: "WXYZ", startedAt: 1, winners: [{ name: "Ada" }] }], error: null };
+  assert.deepEqual(options("ui.nav.pastGame").options?.map(o => o.detail), ["won by Ada"]);
 });

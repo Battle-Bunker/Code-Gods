@@ -17,13 +17,15 @@ type State = Parameters<typeof playerCommands>[0];
 type Actions = Parameters<typeof playerCommands>[1];
 
 const calls: string[] = [];
+/** What the receipts.get subscription holds for each command id (stands in for the shared useLive hook). */
+const receipts = new Map<string, readonly string[]>();
 const rec = (name: string) => (...args: unknown[]) => { calls.push(`${name}${args.length ? ` ${JSON.stringify(args)}` : ""}`); return Promise.resolve(); };
 const actions: Actions = {
-  submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), receipt: rec("receipt"), copyObservation: rec("copyObservation"),
+  submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), useReceipt: id => receipts.get(id) ?? ["Loading…"], copyObservation: rec("copyObservation"),
   owner: { start: rec("start"), resume: rec("resume"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
-    aiCatalog: async () => [{ id: "sonnet", label: "Sonnet" }] },
+    useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }) },
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
-  assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), threads: async () => [{ id: "t1", label: "Earlier" }], openThread: rec("openThread"),
+  assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), useThreads: () => ({ options: [{ id: "t1", label: "Earlier" }] }), openThread: rec("openThread"),
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), openAssistant: rec("openAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
@@ -47,7 +49,10 @@ async function perform(command: Command) {
   const p = command.performer;
   if (p.kind === "submit") await p.run();
   else if (p.kind === "local") p.run();
-  else if (p.kind === "form") { if (p.page.kind === "pick") { const options = await p.page.options(); await p.page.onPick(options[0].id); } else await p.page.onSubmit("x"); }
+  else if (p.kind === "form") {
+    if (p.page.kind === "pick") { const options = p.page.useOptions ? p.page.useOptions().options! : await p.page.options(); await p.page.onPick(options[0].id); }
+    else if (p.page.kind === "field") await p.page.onSubmit("x");
+  }
   else if (p.kind === "handoff") calls.push(`handoff-draft ${p.draft}`);
 }
 
@@ -150,6 +155,17 @@ test("pick pages: stored panels open as panes, a glossary term is explained, con
   const glossary = find(commands, "ui.glossary").performer;
   assert.equal(glossary.kind, "form");
   if (glossary.kind === "form" && glossary.page.kind === "pick") assert.ok((await glossary.page.options()).length >= 15);
+});
+
+test("a command's status is a live page: it shows the receipt the subscription holds, and follows it when one arrives", async () => {
+  // Catches: the status read once (a one-off convex.query) saying "never arrived" for a command still in flight.
+  const p = find(playerCommands(state(), actions), "receipts.get").performer;
+  assert.ok(p.kind === "form" && p.page.kind === "field");
+  const page = await p.page.onSubmit("  cmd-12345678  ");
+  assert.ok(page && typeof page === "object" && "kind" in page && page.kind === "info" && page.useLines, "submitting opens a live info page");
+  assert.deepEqual(page.useLines(), ["Loading…"]);
+  receipts.set("cmd-12345678", ["Accepted: ok"]);
+  assert.deepEqual(page.useLines(), ["Accepted: ok"], "the trimmed id's receipt, as it now stands");
 });
 
 test("grids switch between coloured digits and tiles, for this viewer, from the view group", async () => {

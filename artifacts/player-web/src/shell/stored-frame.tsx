@@ -17,6 +17,7 @@ import { useConvex, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { envelopeSchema, type Envelope } from "@workspace/player-client";
 import { useRoom } from "@/sdk/context";
+import { useMyUtility } from "@/sdk/hooks";
 import { QUERY_REFS, loadTables } from "@/sdk/transport";
 import { isFrameMessage, type BridgePanel, type HostMessage } from "@/sdk/bridge-protocol";
 import { acceptMessage, BridgeHost } from "./bridge-host";
@@ -79,8 +80,10 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
   const loads = useRef(0);
   const [height, setHeight] = useState(80);
   const [state, setState] = useState<{ kind: FrameState; message?: string }>({ kind: "booting" });
-  const latest = useRef({ panel, info });
-  latest.current = { panel, info };
+  // The viewer's own utility, live (the same subscription the built-in panels share): calibration answers from it.
+  const mine = useMyUtility();
+  const latest = useRef({ panel, info, mine });
+  latest.current = { panel, info, mine };
   // The bridge of this frame element: its port (after boot), the version sent, and a stop switch.
   const link = useRef<{ port?: MessagePort; sent?: string; ready: boolean; stop: () => void; boot: () => void }>({ ready: false, stop: () => {}, boot: () => {} });
 
@@ -119,7 +122,8 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
         return convex.action(api.commands.submit, { roomId: room.roomId, envelope });
       },
       async calibration() {
-        const mine = await convex.query(api.player.myUtility, { roomId: room.roomId });
+        const mine = latest.current.mine;
+        if (mine === undefined) throw new Error("Your utility is still loading; try again in a moment");
         if (!mine) throw new Error("You are not seated in the current game");
         const tables = await loadTables(mine.settings, mine.utility);
         return { key: `${mine.gameId}:${mine.godId}`, settings: mine.settings, utility: mine.utility, ...tables };

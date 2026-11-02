@@ -4,13 +4,13 @@
  * layout operations, hand-offs to the composer). Publishes the list for chips and the overview (registry.ts).
  */
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { useConvex, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { panelPanesOf, paneCaption } from "@workspace/player-client/layout";
 import { PANELS } from "@workspace/player-client/panels";
-import type { Command, PaletteContext } from "@workspace/ui-kit";
+import { liveOptions, type Command, type LiveOptions, type PaletteContext } from "@workspace/ui-kit";
 import { useRoom } from "@/sdk";
 import { useDock } from "@/dock/store";
 import { useDockActions } from "@/dock/actions";
@@ -24,6 +24,7 @@ import { useSituation } from "@/core/game/situation";
 import { notify, notifyError } from "@/core/notices";
 import { navigate, hrefTo } from "@/core/navigation";
 import { useReplayController } from "@/core/replay/parts";
+import { useLive } from "@/site/lib/convex";
 import { playerCommands, type PaletteActions, type PaletteState } from "./commands";
 import { publishCommands, withHandoffs } from "./registry";
 
@@ -35,6 +36,22 @@ function useReplayState(): PaletteState["replay"] {
   const v = useSyncExternalStore(c ? c.subscribe : noSubscription, c ? c.get : noView);
   const playing = !!v?.playing, atStart = v?.cursor === 0, atEnd = !!c && !!v && v.cursor >= c.end && v.world >= c.endWorld;
   return useMemo(() => (c ? { playing, atStart, atEnd } : undefined), [c, playing, atStart, atEnd]);
+}
+
+/** A command's status (receipts.get), live while the palette page showing it is open: it follows a late receipt. */
+function useReceipt(roomId: string, commandId: string): readonly string[] {
+  const r = useLive(api.receipts.get, { roomId, commandId });
+  if (r.error) return [r.error.message];
+  if (r.data === undefined) return ["Looking up the command…"];
+  const receipt = r.data as { accepted?: boolean; message?: string } | null;
+  return [receipt ? `${receipt.accepted ? "Accepted" : "Refused"}: ${receipt.message ?? ""}` : "The engine has no receipt for that command (yet): this page updates if one arrives."];
+}
+
+/** The current game's assistant conversations, live while the palette's pick page is open. */
+function useThreads(roomId: Id<"rooms">, gameId: string | undefined): LiveOptions {
+  const r = useLive(api.assistant.threads, gameId ? { roomId, gameId } : "skip");
+  if (!gameId) return { options: [] };
+  return liveOptions(r, t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() }));
 }
 
 const roomUrl = (code: string) => `${location.origin}/rooms/${encodeURIComponent(code)}`;
@@ -50,7 +67,6 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const runner = useRunner();
   const game = useGameCommands();
   const owner = useOwnerActions();
-  const convex = useConvex();
   const status = useQuery(api.assistant.status, { roomId: room });
   const setups = useQuery(api.setups.list, s.isOwner ? {} : "skip");
   const cancel = useMutation(api.assistant.cancel);
@@ -94,12 +110,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     wake: () => wake({}).then(() => notify("The game is awake."), notifyError),
     join: () => join({ room: roomId }).catch(notifyError),
     whoami: () => notify(s.obs ? `You are ${s.obs.self.label}, with ${permission} rights in room ${s.obs.roomShortCode ?? roomId}.` : "Loading who you are…"),
-    receipt: async commandId => {
-      try {
-        const receipt = await convex.query(api.receipts.get, { roomId, commandId }) as { accepted?: boolean; message?: string } | null;
-        notify(receipt ? `${receipt.accepted ? "Accepted" : "Refused"}: ${receipt.message ?? ""}` : "The engine has no receipt for that command: it never arrived.");
-      } catch (error) { notifyError(error); }
-    },
+    useReceipt: commandId => useReceipt(roomId, commandId),
     copyObservation: () => { if (s.obs) void copy(JSON.stringify(s.obs, null, 2), "Copied the raw observation to your clipboard."); },
     owner,
     panels: {
@@ -117,7 +128,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       cancel: () => (status?.activeTurn ? cancel({ turnId: status.activeTurn.turnId }).catch(notifyError) : Promise.resolve()),
       setAutoApprove: bits => setPrefs({ roomId: room, autoApproveSummonBits: bits }).then(() => notify(bits > 0 ? `Summons up to ${bits} bits run without a card.` : "Every summon asks you first."), notifyError),
       // The current game's conversations only; a choice is kept for that game (composer.threadIn).
-      threads: async () => status ? (await convex.query(api.assistant.threads, { roomId: room, gameId: status.game })).map(t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() })) : [],
+      useThreads: () => useThreads(room, status?.game),
       openThread: id => { if (status) composer.setThread(status.game, id); composer.focus(); },
       newThread: () => { if (status) composer.setThread(status.game, "new"); composer.focus(); },
       setPermission: p => { composer.setPermission(p); notify(p === "read" ? "Your assistant will only look, from your next message." : "Your assistant may act for you from your next message; it asks before anything public or costly."); },
@@ -146,7 +157,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       end: () => replayController?.seekWorld(replayController.endWorld),
     },
     notify,
-  }), [replayController, game, wake, join, s.obs, permission, roomId, room, convex, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
+  }), [replayController, game, wake, join, s.obs, permission, roomId, room, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
 
   const context = useMemo((): PaletteContext => ({
     role: s.isOwner ? "owner" : s.seated ? "seated" : "member", admin: false, permission, phase: s.obs?.phase, assistantOn: !!status?.enabled,

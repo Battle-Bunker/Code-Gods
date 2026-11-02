@@ -13,13 +13,23 @@ export type Confirm = "none" | "inline" | "summary" | "modal";
 export type PaletteSection = "suggested" | "actions" | "views" | "goto" | "settings" | "help";
 
 /**
+ * A pick page's list as a live subscription holds it now: `options` undefined while it loads, `error` when it failed.
+ * `useOptions` is a React hook the page calls while it is shown, so the subscription lives exactly that long.
+ */
+export type LiveOptions = { options: readonly PickOption[] | undefined; error?: string | null };
+
+/**
  * A nested palette page: pick one option from a list, fill one validated field, or read a short text (a gloss, the
- * shortcuts, connection instructions). A pick's `onPick` may return another page, which the palette opens next.
+ * shortcuts, connection instructions). A pick's `onPick` and a field's `onSubmit` may return another page, which the
+ * palette opens next. Server data is live (`useOptions`, `useLines`: hooks over a subscription, held while the page
+ * is shown); `options` and `lines` are for what the client already holds.
  */
 export type PaletteFormPage =
-  | { kind: "pick"; title: string; options: () => Promise<readonly PickOption[]> | readonly PickOption[]; onPick: (id: string) => Promise<unknown> | unknown; empty?: string }
+  | ({ kind: "pick"; title: string; onPick: (id: string) => Promise<unknown> | unknown; empty?: string }
+    & ({ options: () => Promise<readonly PickOption[]> | readonly PickOption[]; useOptions?: undefined } | { useOptions: () => LiveOptions; options?: undefined }))
   | { kind: "field"; title: string; label: string; placeholder?: string; initial?: string; validate?: (value: string) => string | null; consequence?: (value: string) => string; onSubmit: (value: string) => Promise<unknown> | unknown }
-  | { kind: "info"; title: string; lines: readonly string[]; copy?: { label: string; text: string } };
+  | ({ kind: "info"; title: string; copy?: { label: string; text: string } }
+    & ({ lines: readonly string[]; useLines?: undefined } | { useLines: () => readonly string[]; lines?: undefined }));
 /** One choice of a pick page; `unavailable` dims it with that reason. */
 export type PickOption = { id: string; label: string; detail?: string; keywords?: readonly string[]; unavailable?: string };
 

@@ -7,7 +7,7 @@
 import { CATALOG, paletteEntries, type PublicFunctionPath } from "@workspace/player-client/catalog";
 import { gamePath, roomPath } from "./routes.ts";
 import {
-  commandsFromCatalog, explainTermCommand, glossaryCommands, shortcutsCommand,
+  commandsFromCatalog, explainTermCommand, glossaryCommands, liveOptions, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
@@ -60,6 +60,8 @@ export interface CmdRoom {
 }
 export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null; roster?: readonly { id: string }[]; ownerId?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
+/** A subscription's current state, as the shared query hook reports it: no data while it loads. */
+export type Live<T> = { data: T | undefined; error: Error | null };
 export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
 
 export interface EngineScope {
@@ -104,10 +106,14 @@ export interface EngineActions {
   applySetup(id: string): Promise<unknown>;
   /** Copy a setup as the viewer's own and open the copy on the room's configuration page. */
   duplicateSetup(id: string): Promise<unknown>;
-  templates(): Promise<readonly Template[]>;
-  adminTemplates(): Promise<readonly Template[]>;
-  pastGames(): Promise<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
-  credentials(): Promise<readonly { credentialId: string; label?: string | null; kind?: string; permission: string; roomCode?: string | null }[]>;
+  /*
+   * The palette's lists: hooks over the app's shared subscription hook (useLive), called by a pick page while it is
+   * shown, so each list is live while it is on screen and dropped after.
+   */
+  useTemplates(): Live<readonly Template[]>;
+  useAdminTemplates(): Live<readonly Template[]>;
+  usePastGames(): Live<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
+  useCredentials(): Live<readonly { credentialId: string; label?: string | null; kind?: string; permission: string; roomCode?: string | null }[]>;
   revoke(credentialId: string): Promise<unknown>;
   openSheet(sheet: "ai-spending" | "connected-apps" | "scoring" | "past-games"): void;
   rulesText(): string | null;
@@ -179,12 +185,12 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const binds: Partial<Record<PublicFunctionPath, Performer | null>> = {
     "aiTemplates.create": { kind: "navigate", to: "/admin/agents/new" },
     "aiTemplates.update": { kind: "form", page: { kind: "pick", title: "Edit an AI player template", empty: "The library is empty.",
-      options: async () => (await act.adminTemplates()).map(t => ({ id: t.id, label: t.name, detail: `${t.provider} · ${t.model}` })), onPick: id => act.navigate(`/admin/agents/${encodeURIComponent(id)}`) } },
+      useOptions: () => liveOptions(act.useAdminTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.provider} · ${t.model}` })), onPick: id => act.navigate(`/admin/agents/${encodeURIComponent(id)}`) } },
     "aiTemplates.remove": { kind: "form", page: { kind: "pick", title: "Delete an AI player template", empty: "The library is empty.",
-      options: async () => (await act.adminTemplates()).map(t => ({ id: t.id, label: t.name, detail: "Opens it; Delete is at the bottom" })), onPick: id => act.navigate(`/admin/agents/${encodeURIComponent(id)}`) } },
+      useOptions: () => liveOptions(act.useAdminTemplates(), t => ({ id: t.id, label: t.name, detail: "Opens it; Delete is at the bottom" })), onPick: id => act.navigate(`/admin/agents/${encodeURIComponent(id)}`) } },
     "auth.credentials.list": { kind: "local", run: () => act.openSheet("connected-apps") },
     "auth.credentials.revoke": { kind: "form", page: { kind: "pick", title: "Revoke a connected app", empty: "No app holds a credential for you.",
-      options: async () => (await act.credentials()).map((c): PickOption => ({ id: c.credentialId, label: c.label || "Unlabelled app", detail: `${c.permission} · room ${c.roomCode ?? "gone"}` })),
+      useOptions: () => liveOptions(act.useCredentials(), (c): PickOption => ({ id: c.credentialId, label: c.label || "Unlabelled app", detail: `${c.permission} · room ${c.roomCode ?? "gone"}` })),
       onPick: id => act.revoke(id) } },
     "auth.user.me": { kind: "form", page: { kind: "info", title: "Who am I", lines: act.whoAmI() } },
     "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", lines: act.serverInfo() } },
@@ -201,7 +207,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.history": { kind: "local", run: () => act.openSheet("past-games") },
     "rooms.approveAiBudget": { kind: "local", run: () => act.openSheet("ai-spending") },
     "rooms.addAi": { kind: "form", page: { kind: "pick", title: "Add an AI player", empty: "The AI library is empty; an admin adds AI players.",
-      options: async () => (await act.templates()).map(t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI budget`, keywords: [t.provider, t.model] })),
+      useOptions: () => liveOptions(act.useTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI budget`, keywords: [t.provider, t.model] })),
       onPick: id => act.addAi(id) } },
     "rooms.removeAi": { kind: "form", page: { kind: "pick", title: "Remove an AI player", empty: "No AI players are seated.",
       options: () => ais.map(m => ({ id: m.id, label: m.name, detail: "Press ↵ twice to remove" })), onPick: id => act.removeAi(id) } },
@@ -234,7 +240,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
     ui("ui.nav.game", { kind: "navigate", to: gamePath(roomCode ?? "", running?.shortCode ?? "") }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
     ui("ui.nav.pastGame", { kind: "form", page: { kind: "pick", title: "Open a past game", empty: "No games have finished in this room yet.",
-      options: async () => (await act.pastGames()).map(g => ({ id: g.shortCode, label: `Game ${g.shortCode}`, detail: g.winners.length ? `won by ${g.winners.map(w => w.name).join(", ")}` : "no winner recorded" })),
+      useOptions: () => liveOptions(act.usePastGames(), g => ({ id: g.shortCode, label: `Game ${g.shortCode}`, detail: g.winners.length ? `won by ${g.winners.map(w => w.name).join(", ")}` : "no winner recorded" })),
       onPick: code => act.navigate(gamePath(roomCode ?? "", code)) } }, inRoom),
     ui("ui.nav.configure", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
     ui("ui.newSetup", { kind: "submit", run: () => act.duplicateSetup(scope.currentSetup!) },
