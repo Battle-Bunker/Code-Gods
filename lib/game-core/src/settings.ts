@@ -33,6 +33,14 @@ export const LANGUAGE_SPECS = Object.freeze({
 export type Language = keyof typeof LANGUAGE_SPECS;
 export const LANGUAGES: readonly Language[] = Object.freeze(Object.keys(LANGUAGE_SPECS) as Language[]);
 export const isLanguage = (value: unknown): value is Language => typeof value === "string" && Object.hasOwn(LANGUAGE_SPECS, value);
+/**
+ * Languages agents were once written in and no longer can be (Haskell, retired 2026-11-02): a past game's agents keep
+ * theirs as history, stored settings drop them (upgradeStoredSettings), and the engine runs none of their acts.
+ */
+export const RETIRED_LANGUAGES = Object.freeze(["haskell"] as const);
+export type RetiredLanguage = typeof RETIRED_LANGUAGES[number];
+/** The language a stored agent may carry. */
+export type StoredLanguage = Language | RetiredLanguage;
 
 /** Agent grammars: source defines `agent(obj)` returning mutator calls, against the room's prelude. */
 export type GrammarId = (typeof LANGUAGE_SPECS)[Language]["grammarId"];

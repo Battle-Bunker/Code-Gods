@@ -4,6 +4,7 @@
  * through the same command path as everything else. Each appears only where it works (core/affordances.ts): neither does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
+import { isLanguage } from "@workspace/game-core";
 import { useEffect, useState } from "react";
 import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-views";
 import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
@@ -87,7 +88,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
               <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
               {(editCode.ok || showDestroy) && (
                 <div className="flex flex-wrap gap-4">
-                  {editCode.ok && <TextButton testId={`button-load-agent-${a.id}`} onClick={() => dock.forgeEdit(a.source, a.language)}>Edit a copy</TextButton>}
+                  {editCode.ok && <TextButton testId={`button-load-agent-${a.id}`} onClick={() => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}>Edit a copy</TextButton>}
                   {showDestroy && (confirm === a.id ? (<>
                     <TextButton tone="danger" testId={`button-confirm-destroy-${a.id}`} disabled={!destroy.ok} title={destroy.ok ? undefined : destroy.reason} onClick={() => { setConfirm(null); void commands.run({ type: "destroy", agentId: a.id }); }}>Destroy it (free, cannot be undone)</TextButton>
                     <TextButton onClick={() => setConfirm(null)}>Keep</TextButton>

@@ -10,7 +10,7 @@ import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client"
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
-import { LANGUAGE_SPECS } from "@workspace/game-core";
+import { LANGUAGE_SPECS, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
@@ -35,13 +35,14 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
   const editing = !readOnly && (state.editing || !shown);
 
   if (!editing) {
+    // A past game's agent may be in a retired language (game-core RETIRED_LANGUAGES): shown as it is, edited in an allowed one.
     const lang = live?.language ?? forgeLanguage(allowed, params.language);
     return (
       <div className="space-y-3" data-testid="panel-forge">
         <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? `The code of one of ${can.whose} agents, as it ran until the end.` : `The code of one of ${can.whose} live agents.`) : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
-          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>}
+          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, isLanguage(lang) ? lang : undefined)}>Edit</GhostButton>}
           <span className="font-mono text-xs text-muted-foreground">{lang} · {bytes(shown!)} bytes</span>
         </div>
       </div>

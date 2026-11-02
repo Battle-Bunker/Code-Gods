@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANGUAGES, type Language } from "@workspace/game-core";
+import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from "@workspace/game-core";
 
 /**
  * Player protocol v3 (docs/player-client-integration.md has the migration note from v2).
@@ -11,6 +11,8 @@ const id = z.string().min(1).max(128);
 const finite = z.number().finite();
 /** An agent language (game-core LANGUAGES). */
 const language = z.enum(LANGUAGES as [Language, ...Language[]]);
+/** A stored agent's language: one of LANGUAGES, or a retired one (a past game's agent keeps it). */
+const storedLanguage = z.enum([...LANGUAGES, ...RETIRED_LANGUAGES] as unknown as [StoredLanguage, ...StoredLanguage[]]);
 const wire = z.union([finite, z.string().max(1024)]);
 const program = { language, source: z.string().min(1).max(16384).refine(source=>new TextEncoder().encode(source).length<=16384,"Source exceeds 16384 UTF-8 bytes") };
 /** An agent's name (required on summon) and description (optional): shown to its owner, and in an ended game's replay. */
@@ -104,7 +106,7 @@ export const observationSchema = z.object({
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
   // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
-  agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language, summonCost: finite, decisionBits: finite, expectedActCost: finite,
+  agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, decisionBits: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
     energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,

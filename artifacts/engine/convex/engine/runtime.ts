@@ -7,7 +7,7 @@
  * TypeScript compilation). Batches of one language go in one call, and the languages' calls run in parallel.
  * An action that runs a pool calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { LANGUAGES, LANGUAGE_SPECS, codecOf, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, codecOf, isLanguage, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
 import { compilationKey, type ActResult, type ActSettings, type Compiled, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
 import { internal } from "../_generated/api";
@@ -19,10 +19,11 @@ import { ACT_BATCH, PROGRAM_REFRESH_MS } from "../lib/programs";
 import type { LanguageSandbox } from "../runtime/readiness";
 export { bindRuntime, runtimeVersion } from "../runtime/node";
 
-/** Acts in flight per tick wave (the runtime pools queue beyond their worker count). */
-export const WORKERS = 4;
-
-const isLanguage = (language: StoredLanguage): language is Language => (LANGUAGES as readonly string[]).includes(language);
+/**
+ * Acts in flight per tick wave: one batch per language (ACT_BATCH), each in one call to its own action
+ * (runtime/acts.ts), so a wave pays one round trip, not one per act.
+ */
+export const WORKERS = 16;
 
 /** Runtime failures caused by the agent's own code; CONFIG is a server bug, CAPACITY/UNAVAILABLE are the host's. */
 export const AGENT_FAULTS: ReadonlySet<string> = new Set(["COMPILE", "DOMAIN", "EXECUTION", "LIMIT"]);

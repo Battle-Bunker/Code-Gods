@@ -82,3 +82,29 @@ test("a language the game does not allow is refused at validate and summon", { t
   assert.equal((await raw(game.gameId)).agents.length, 0);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("Haskell is retired: a game's Haskell agent sits out and still observes; the migration drops it from stored settings", { timeout: 180_000 }, async () => {
+  const [host, ada, bo] = await gods("Old Host", "Old Ada", "Old Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
+  const game = await startGame(host, roomId);
+  const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  assert.equal((await send({ type: "summon", name: "Old agent", language: "typescript", source: TS.Int })).accepted, true);
+  const [agent] = (await raw(game.gameId)).agents;
+  // As if summoned in Haskell before it was retired (its stored language is history).
+  await admin.mutation(internal.testing.patchAgentLanguage, { agentId: agent._id, language: "haskell" });
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  await new Promise(resolve => setTimeout(resolve, 8000));
+  const after = await raw(game.gameId);
+  assert.equal(after.agents[0].acts, 0, "it never acts, and is never charged");
+  assert.deepEqual(after.batches.flatMap((b: any) => b.events).filter((e: any) => e.agentId === agent._id && (e.t === "transform" || e.t === "fail")), []);
+  const obs = await ada.c.query(api.player.observation, { roomId });
+  assert.equal(obs.agents[0].language, "haskell", "the player still sees their agent, as it was");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  // A room that allowed Haskell plays without it after the migration (it runs again on every deploy: idempotent).
+  await admin.mutation(internal.testing.patchRoom, { roomId, settings: { languages: ["haskell", "python"] } });
+  await admin.action(internal.migrations.retireHaskell, {});
+  const room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual(room.settings.languages, ["python"]);
+  assert.equal((await admin.action(internal.migrations.retireHaskell, {})).rooms, 0, "a second run changes nothing");
+});
