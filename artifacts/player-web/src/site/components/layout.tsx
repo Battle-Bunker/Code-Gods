@@ -8,16 +8,17 @@
  */
 import { createContext, useCallback, useContext, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { useAction, useConvex, useConvexConnectionState, useMutation } from "convex/react";
+import { useAction, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { startTracker, startView, trackStart, type StartView } from "@workspace/player-client/start";
 import { useAuth } from "@/site/hooks/use-auth";
 import { engineSite } from "@/core/connection";
 import { useManifest } from "@/site/hooks/use-manifest";
+import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
-import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope } from "@/site/lib/commands";
+import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
 import { errMsg } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/site/lib/types";
 import { rulesFor } from "@/site/components/game-rules";
@@ -79,6 +80,23 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
   );
 }
 
+// The palette's lists: each is a live subscription through the shared useLive hook, held by the pick page that shows it.
+function useTemplates(): Live<readonly Template[]> {
+  const r = useAgentOptions();
+  return { data: r.data?.agents, error: r.error };
+}
+function useAdminTemplates(): Live<readonly Template[]> {
+  const r = useAdminAgents();
+  return { data: useMemo(() => r.data?.agents.map(a => ({ id: a.id, name: a.name, provider: a.provider, model: a.model })), [r.data]), error: r.error };
+}
+/** The room's finished games: the page's own list when it has one (the room page), else this room's subscription. */
+function usePastGames(roomId: string | undefined, held: readonly GameRecord[] | undefined): Live<readonly GameRecord[]> {
+  const r = useLive(api.rooms.history, held || !roomId ? "skip" : { room: roomId });
+  const data = useMemo(() => r.data?.filter((g): g is NonNullable<typeof g> => !!g), [r.data]);
+  if (held) return { data: held, error: null };
+  return roomId ? { data, error: r.error } : { data: [], error: null };
+}
+
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 
 export function Page({ children, room, game, history, crumbs = [], placeholder = "Search or do anything…", suggested = [], conn }: {
@@ -95,11 +113,12 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const manifest = useManifest().data;
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const convex = useConvex();
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const creating = useRef(false);
-  const [pendingAi, setPendingAi] = useState<{ templateId: string; name?: string; busy?: boolean } | null>(null);
+  const [pendingAi, setPendingAi] = useState<{ templateId: string; busy?: boolean } | null>(null);
+  // The approval dialog names the template from the same catalog subscription the palette's pick page holds.
+  const pendingTemplate = useAgentOptions(!!pendingAi).data?.agents.find(a => a.id === pendingAi?.templateId);
 
   const create = useMutation(api.rooms.create);
   const join = useMutation(api.rooms.join);
@@ -162,11 +181,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     resume: () => resume({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
     addAi: async templateId => {
-      if (need(room).aiBudget <= 0) {
-        const t = (await convex.query(api.aiTemplates.catalog, {})).agents.find(a => a.id === templateId);
-        setPendingAi({ templateId, name: t?.name });
-        return;
-      }
+      if (need(room).aiBudget <= 0) { setPendingAi({ templateId }); return; }
       await addAi({ roomId: need(roomId), templateId });
     },
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
@@ -188,10 +203,10 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       toast({ title: `Created ${copy.name}`, description: "Your own copy: edit it and save, or delete it from its page if you do not need it." });
       if (code) navigate(`/rooms/${code}/configure?setup=${encodeURIComponent(copy.id)}`);
     },
-    templates: async () => (await convex.query(api.aiTemplates.catalog, {})).agents,
-    adminTemplates: async () => (await convex.query(api.aiTemplates.adminList, {})).agents.map(a => ({ id: a.id, name: a.name, provider: a.provider, model: a.model })),
-    pastGames: async () => (history ?? (room ? (await convex.query(api.rooms.history, { room: room.id })).filter(g => !!g) : [])),
-    credentials: async () => convex.query(api.auth.credentials.list, {}),
+    useTemplates: () => useTemplates(),
+    useAdminTemplates: () => useAdminTemplates(),
+    usePastGames: () => usePastGames(room?.id, history),
+    useCredentials: () => useLive(api.auth.credentials.list, {}),
     revoke: credentialId => revoke({ credentialId }),
     openSheet: s => setSheet(s),
     rulesText: () => (room ? rulesFor(room.settings, room.shortCode, null, room.objectInstance) : game ? rulesFor(game.settings, game.roomShortCode, game.shortCode, game.objectInstance) : null),
@@ -281,7 +296,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} roomCode={room?.shortCode ?? game?.roomShortCode}
         viewer={{ meId: user?.id, ownerId: room?.ownerId ?? game?.ownerId ?? undefined, roomLive: room ? !!room.activeGame : !!(game && (game.status === "active" || game.roomActiveGame)) }} />
       {room && (
-        <AiBudgetDialog open={!!pendingAi} templateName={pendingAi?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
+        <AiBudgetDialog open={!!pendingAi} templateName={pendingTemplate?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
           onApprove={tokens => {
             const p = pendingAi!;
             setPendingAi({ ...p, busy: true });

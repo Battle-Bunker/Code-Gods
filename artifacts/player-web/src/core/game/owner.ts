@@ -1,18 +1,28 @@
 /**
  * The room owner's direct functions (owner.*, rooms.*), for the palette and the overview's "Start the game". The
- * engine checks ownership; a refusal becomes a notice. Settings need the room's current revision.
+ * engine checks ownership; a refusal becomes a notice. Settings carry the revision of the room the owner saw.
  */
 import { useMemo } from "react";
-import { useAction, useConvex, useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { START_TIMEOUT_MS, startTracker, trackStart } from "@workspace/player-client/start";
-import { useRoom } from "@/sdk";
+import { liveOptions } from "@workspace/ui-kit";
+import { useRoom, useRoomInfo } from "@/sdk";
+import { useAgentOptions } from "@/site/hooks/use-agents";
 import { noticeStore, notify, notifyError } from "@/core/notices";
+import { saveSetup } from "./save-setup";
+
+/** The AI templates an owner can seat, live while the component calling it (the palette's pick page) is mounted. */
+function useAiCatalog() {
+  const catalog = useAgentOptions();
+  return liveOptions({ data: catalog.data?.agents, error: catalog.error }, r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
+}
 
 export function useOwnerActions() {
   const { roomId } = useRoom();
-  const convex = useConvex();
+  // The room as this owner sees it: its revision guards the settings write (a stale view gets CONFLICT).
+  const seen = useRoomInfo()?.revision;
   const start = useAction(api.owner.start);
   const settings = useAction(api.owner.settings);
   const addAi = useMutation(api.rooms.addAi);
@@ -21,10 +31,6 @@ export function useOwnerActions() {
   const resume = useMutation(api.rooms.resume);
   return useMemo(() => {
     const room = roomId as Id<"rooms">;
-    const catalog = async () => {
-      const { agents } = await convex.query(api.aiTemplates.catalog, {});
-      return agents.map(r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
-    };
     const done = (text: string) => <T,>(p: Promise<T>) => p.then(r => { notify(text); return r; }, e => { notifyError(e); return undefined; });
     return {
       // The pending start shows at once wherever a start control is (core/game/start.ts); a second click is refused.
@@ -50,12 +56,11 @@ export function useOwnerActions() {
       removeAi: (godId: string) => done("AI player removed.")(removeAi({ roomId: room, godId })),
       setup: async (setupId: string) => {
         try {
-          const { revision } = await convex.query(api.rooms.get, { room: roomId });
-          await settings({ roomId, revision, setupId });
+          await saveSetup(settings, roomId, seen === undefined ? undefined : { revision: seen }, setupId);
           notify("The next game's setup is saved.");
         } catch (error) { notifyError(error); }
       },
-      aiCatalog: catalog,
+      useAiCatalog,
     };
-  }, [roomId, convex, start, settings, addAi, removeAi, end, resume]);
+  }, [roomId, seen, start, settings, addAi, removeAi, end, resume]);
 }

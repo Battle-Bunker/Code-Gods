@@ -2,7 +2,8 @@
  * The palette's pure parts (no React, no DOM): types, catalogue commands, search and ranking, confirmation levels,
  * recency, keys, the glossary and the shared help commands. Apps import this entry in code their unit tests load.
  */
-export type { Availability, Command, Confirm, HandoffDraft, PaletteContext, PaletteFormPage, PaletteGroup, PaletteSection, Performer, Phase, PickOption } from "./types.ts";
+export type { Availability, Command, Confirm, HandoffDraft, LiveOptions, PaletteContext, PaletteFormPage, PaletteGroup, PaletteSection, Performer, Phase, PickOption } from "./types.ts";
+export { liveOptions } from "./commands.ts";
 export { availabilityFor, commandsFromCatalog, searchCommands } from "./commands.ts";
 export { SECTION_ORDER, SECTION_TITLES, matchScore, paletteRows, scoreCommand, sectionOf, type PaletteRow, type PaletteSectionRows, type RowsOptions } from "./search.ts";
 export { INLINE_TIMEOUT_MS, deriveConfirm, inlineStep, type Armed } from "./confirm.ts";

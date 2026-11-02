@@ -15,7 +15,7 @@ import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import type { GridRendererId } from "@workspace/object-views";
 import { endedGameReplay } from "../replay/model.ts";
-import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
+import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type LiveOptions, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
   /** Undefined until the observation arrives. */
@@ -59,16 +59,18 @@ export type PaletteActions = {
   wake(): Promise<unknown>;
   join(): Promise<unknown>;
   whoami(): void;
-  receipt(commandId: string): Promise<unknown>;
+  /** A hook: the status of one command (receipts.get), live while the page showing it is open. */
+  useReceipt(commandId: string): readonly string[];
   copyObservation(): void;
   owner: {
     start(): Promise<unknown>; resume(): Promise<unknown>; endGame(): Promise<unknown>;
     addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; setup(setupId: string): Promise<unknown>;
-    aiCatalog(): Promise<readonly PickOption[]>;
+    /** A hook: the AI templates an owner can seat (aiTemplates.catalog), live while the pick page is open. */
+    useAiCatalog(): LiveOptions;
   };
   panels: { open(slug: string): void; openFile(id: string): void; setEnabled(slug: string, enabled: boolean): Promise<unknown>; remove(slug: string): Promise<unknown>; rollback(slug: string): Promise<unknown> };
   assistant: {
-    cancel(): Promise<unknown>; setAutoApprove(bits: number): Promise<unknown>; threads(): Promise<readonly PickOption[]>; openThread(id: string): void;
+    cancel(): Promise<unknown>; setAutoApprove(bits: number): Promise<unknown>; useThreads(): LiveOptions; openThread(id: string): void;
     newThread(): void; setPermission(permission: "read" | "act" | "owner"): void; focus(): void; handoff(draft: string): void;
   };
   dock: {
@@ -98,6 +100,9 @@ const no = (reason: string, fix?: string, hidden?: boolean): Availability => ({ 
 const both = (...checks: Availability[]): Availability => checks.find(c => !c.ok) ?? OK;
 const pick = (title: string, options: readonly PickOption[] | (() => Promise<readonly PickOption[]> | readonly PickOption[]), onPick: (id: string) => unknown): Performer =>
   ({ kind: "form", page: { kind: "pick", title, options: typeof options === "function" ? options : () => options, onPick } });
+/** A pick over server data: `useOptions` holds its subscription while the page is shown. */
+const livePick = (title: string, useOptions: () => LiveOptions, onPick: (id: string) => unknown): Performer =>
+  ({ kind: "form", page: { kind: "pick", title, useOptions, onPick } });
 const local = (run: () => void): Performer => ({ kind: "local", run });
 const submit = (run: () => Promise<unknown>): Performer => ({ kind: "submit", run });
 const live = (phase: Phase | undefined) => phase === "planning" || phase === "running" || phase === "paused";
@@ -146,7 +151,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
         v => (/^\d+(\.\d+)?$/.test(v.trim()) ? null : "A number of bits, 0 or more."), "0"),
       available: () => assistantOn(s),
     },
-    "assistant.threads": { performer: pick("Past conversations", () => a.assistant.threads(), id => a.assistant.openThread(id)), available: () => assistantOn(s) },
+    "assistant.threads": { performer: livePick("Past conversations", () => a.assistant.useThreads(), id => a.assistant.openThread(id)), available: () => assistantOn(s) },
     "auth.user.me": { performer: local(() => a.whoami()) },
     "commands.submit": { performer: pick("Send a game command", gameOptions, runGameOption), available: () => gameplay(s) },
     "layout.set": {
@@ -189,12 +194,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "player.trajectories": { performer: local(() => a.dock.show("bits-over-time")) },
     "player.myUtility": { performer: local(() => a.dock.show("my-card")) },
     "receipts.get": {
-      performer: field("Check a command's status", "Command id", v => a.receipt(v.trim()), v => (v.trim().length >= 8 ? null : "Paste the command's id.")),
+      performer: field("Check a command's status", "Command id", v => ({ kind: "info", title: "Command status", useLines: () => a.useReceipt(v.trim()) }), v => (v.trim().length >= 8 ? null : "Paste the command's id.")),
     },
     "rooms.join": { performer: submit(() => a.join()), available: () => no("You're already in this room.", undefined, true) },
     "rooms.chatHistory": { performer: local(() => a.dock.show("public-chat")) },
     "rooms.history": { performer: local(() => a.dock.show("results")) },
-    "rooms.addAi": { performer: pick("Add an AI player", () => a.owner.aiCatalog(), id => a.owner.addAi(id)), available: () => betweenGames(s) },
+    "rooms.addAi": { performer: livePick("Add an AI player", () => a.owner.useAiCatalog(), id => a.owner.addAi(id)), available: () => betweenGames(s) },
     "rooms.removeAi": {
       performer: pick("Remove which AI player?", () => s.aiSeats, id => a.owner.removeAi(id)),
       available: () => both(betweenGames(s), s.aiSeats.length ? OK : no("No AI player is seated.")),

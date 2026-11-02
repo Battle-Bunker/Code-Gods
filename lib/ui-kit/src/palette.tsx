@@ -16,7 +16,7 @@ import { inlineStep, INLINE_TIMEOUT_MS, type Armed } from "./confirm.ts";
 import { isEditable, paletteKey, shortcutLabel } from "./keys.ts";
 import { browserStorage, readRecent, recordRecent } from "./recency.ts";
 import { matchScore, paletteRows, SECTION_TITLES, type PaletteRow } from "./search.ts";
-import type { Availability, Command, HandoffDraft, PaletteContext, PaletteFormPage, PaletteSection, PickOption } from "./types.ts";
+import type { Availability, Command, HandoffDraft, LiveOptions, PaletteContext, PaletteFormPage, PaletteSection, PickOption } from "./types.ts";
 
 /** How the palette opens: with a query, on the Help page ("help"), or on one command's page (its id). */
 export type PaletteOpenInit = { query?: string; page?: string };
@@ -237,7 +237,10 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
                   onBack={back} onSubmit={value => {
                     const f = page.page as Extract<PaletteFormPage, { kind: "field" }>;
                     setBusy(true); setPageError(null);
-                    Promise.resolve().then(() => f.onSubmit(value)).then(() => { setBusy(false); close(); },
+                    Promise.resolve().then(() => f.onSubmit(value)).then(result => {
+                      setBusy(false);
+                      if (isPage(result)) push({ kind: "form", command: page.command, page: result }); else close();
+                    },
                       e => { setBusy(false); setPageError(e instanceof Error ? e.message : String(e)); fail(page.command, e); });
                   }} />
               ) : (<>
@@ -354,22 +357,38 @@ function DetailLine({ row, armed, byId, pageError }: { row?: PaletteRow; armed: 
 }
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1).replace(/…$/, "");
 
-function PickPage({ page, query, armedId, busy, error, onPick }: {
-  page: Extract<PaletteFormPage, { kind: "pick" }>; query: string; armedId?: string; busy: boolean; error: string | null; onPick: (o: PickOption) => void;
-}) {
+type PickProps = { query: string; armedId?: string; busy: boolean; error: string | null; onPick: (o: PickOption) => void };
+type PickForm = Extract<PaletteFormPage, { kind: "pick" }>;
+
+function PickPage({ page, ...rest }: PickProps & { page: PickForm }) {
+  return page.useOptions ? <LivePickPage useOptions={page.useOptions} empty={page.empty} {...rest} /> : <HeldPickPage page={page} {...rest} />;
+}
+
+/** Server data: the page's hook holds its subscription while the page is shown, and the list follows every change. */
+function LivePickPage({ useOptions, empty, ...rest }: PickProps & { useOptions: () => LiveOptions; empty?: string }) {
+  const { options, error } = useOptions();
+  return <PickList options={options ?? null} loadError={error ?? null} empty={empty} {...rest} />;
+}
+
+/** What the client already holds (a list in hand, the glossary). */
+function HeldPickPage({ page, ...rest }: PickProps & { page: PickForm }) {
   const [options, setOptions] = useState<readonly PickOption[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    Promise.resolve().then(() => page.options()).then(o => { if (live) setOptions(o); }, e => { if (live) setLoadError(e instanceof Error ? e.message : String(e)); });
+    Promise.resolve().then(() => page.options!()).then(o => { if (live) setOptions(o); }, e => { if (live) setLoadError(e instanceof Error ? e.message : String(e)); });
     return () => { live = false; };
   }, [page]);
+  return <PickList options={options} loadError={loadError} empty={page.empty} {...rest} />;
+}
+
+function PickList({ options, loadError, empty, query, armedId, busy, error, onPick }: PickProps & { options: readonly PickOption[] | null; loadError: string | null; empty?: string }) {
   if (loadError) return <p className="px-3 py-4 text-sm text-destructive">{loadError}</p>;
   if (!options) return <Cmdk.Loading><p className="px-3 py-4 text-sm text-muted-foreground">Loading…</p></Cmdk.Loading>;
   const q = query.trim().toLowerCase();
   const shown = !q ? options : options.map(o => ({ o, s: Math.max(matchScore(o.label, q), ...(o.keywords ?? []).map(k => matchScore(k, q) * 0.9), o.detail?.toLowerCase().includes(q) ? 20 : 0) }))
     .filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.o);
-  if (!shown.length) return <p className="px-3 py-4 text-sm text-muted-foreground" data-testid="text-palette-empty">{options.length ? "Nothing matches." : page.empty ?? "Nothing to choose from."}</p>;
+  if (!shown.length) return <p className="px-3 py-4 text-sm text-muted-foreground" data-testid="text-palette-empty">{options.length ? "Nothing matches." : empty ?? "Nothing to choose from."}</p>;
   return (<>
     {shown.map(o => {
       const armed = !!armedId && armedId.endsWith(`:${o.id}`);
@@ -408,11 +427,20 @@ function FieldPage({ page, inputRef, busy, error, onSubmit, onBack }: {
   );
 }
 
-function InfoPage({ page }: { page: Extract<PaletteFormPage, { kind: "info" }> }) {
+type InfoForm = Extract<PaletteFormPage, { kind: "info" }>;
+function InfoPage({ page }: { page: InfoForm }) {
+  return page.useLines ? <LiveInfoPage page={page} useLines={page.useLines} /> : <InfoBody page={page} lines={page.lines!} />;
+}
+/** Server data: the page's hook holds its subscription while the page is shown. */
+function LiveInfoPage({ page, useLines }: { page: InfoForm; useLines: () => readonly string[] }) {
+  return <InfoBody page={page} lines={useLines()} />;
+}
+
+function InfoBody({ page, lines }: { page: InfoForm; lines: readonly string[] }) {
   const [copied, setCopied] = useState(false);
   return (<>
     <div className="px-3 py-2 space-y-2 text-sm" data-testid="panel-palette-info">
-      {page.lines.map((line, i) => <p key={i} className="whitespace-pre-wrap break-words">{line}</p>)}
+      {lines.map((line, i) => <p key={i} className="whitespace-pre-wrap break-words">{line}</p>)}
     </div>
     {page.copy && (
       <Cmdk.Item value="info:copy" onSelect={() => { void navigator.clipboard?.writeText(page.copy!.text).then(() => setCopied(true), () => setCopied(false)); }}
