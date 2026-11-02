@@ -24,7 +24,6 @@ import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
 import { useWide } from "@/core/use-wide";
-import { EndedGameBar } from "@/core/replay/ended-bar";
 import { dockActions } from "./actions";
 import { PanelsProvider, usePanelRegistry, type Panels } from "./panels";
 import StackedDock from "./stacked";
@@ -156,7 +155,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>
-      <ShellFooter>{replay ? replay.footer : <EndedGameBar />}</ShellFooter>
+      {replay && <ShellFooter>{replay.footer}</ShellFooter>}
       <Confirmations entries={panels.entries} />
     </div>
   );

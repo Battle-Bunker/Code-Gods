@@ -3,16 +3,13 @@ import staticHosting from "@convex-dev/static-hosting/convex.config";
 import betterAuth from "@convex-dev/better-auth/convex.config";
 
 /**
- * Two static sites from one deployment, in the component's "app-owned root routing" mode: neither
- * instance has an httpPrefix, so convex/http.ts owns every URL. /api/* stays at stable root URLs,
- * /client/* serves the reference player client (instance `playerSite`, a name kept from its old /player/ prefix, which
- * now redirects) and everything else the engine UI (both with SPA fallback).
- * Uploads: scripts/deploy-static.mjs (`upload --component engineSite|playerSite`).
+ * The app (artifacts/player-web) as one static site of the deployment, in the component's "app-owned root routing"
+ * mode: no httpPrefix, so convex/http.ts owns every URL. /api/* stays at stable root URLs and everything else is the
+ * app, with SPA fallback. Uploads: scripts/deploy-static.mjs (`upload --component engineSite`).
  * `betterAuth` holds Better Auth's users, sessions and accounts (convex/auth/betterAuth.ts).
  */
 const app = defineApp();
 app.use(staticHosting, { name: "engineSite" });
-app.use(staticHosting, { name: "playerSite" });
 app.use(betterAuth);
 
 export default app;

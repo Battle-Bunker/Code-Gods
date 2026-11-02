@@ -10,8 +10,8 @@ import { assistantTables } from "./assistant/tables";
 import { layoutTables } from "./layout/tables";
 import { codeTables } from "./code/tables";
 
-/** A deployed site: the engine UI, the player client, or the functions (convex/version.ts). */
-export const versionSiteV = v.union(v.literal("engine"), v.literal("player"), v.literal("functions"));
+/** A deployed site: the app's static build, or the functions (convex/version.ts). */
+export const versionSiteV = v.union(v.literal("app"), v.literal("functions"));
 /** The deployed builds per site, one row per deploy (owned by convex/version.ts). */
 const versionTables = {
   siteBuilds: defineTable({ site: versionSiteV, build: v.string(), deployedAt: v.number() })

@@ -1,6 +1,6 @@
 /**
  * Sign-in for a player client running in a browser, on ANY origin (docs/external-clients.md): the hosted client at
- * /client/, a Replit dev URL, localhost, a static host. Browser-safe: only `fetch`, Web Storage and (when present)
+ * the engine's own site, a Replit dev URL, localhost, a static host. Browser-safe: only `fetch`, Web Storage and (when present)
  * the Web Locks API. No Node, no cookies.
  *
  *   const auth = createPlayerAuth({ engineUrl, clientName: "My client" });

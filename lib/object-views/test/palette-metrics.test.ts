@@ -13,7 +13,7 @@ import { DIGIT_SHADES } from "../src/grid-display.ts";
 import { contrastRatio, deltaEOk, oklchOf } from "../src/colour-science.ts";
 import { surfaces } from "../scripts/derive-palettes.ts";
 
-// The surfaces the dimension colours sit on, read from both apps' index.css (light :root, the engine UI's dark .dark).
+// The surfaces the dimension colours sit on, read from the app's index.css (scripts/derive-palettes.ts surfaces).
 const { light: LIGHT, dark: DARK } = surfaces();
 
 for (const [scheme, surfaces] of [["light", LIGHT], ["dark", DARK]] as const) {
@@ -77,10 +77,10 @@ test("CSS: the theme-following forms fall back to the light colours", () => {
   assert.match(rampVar(2), / 100%,/);
 });
 
-test("both apps carry the tokens (light under :root; the engine UI's dark theme under .dark)", () => {
+test("the app carries the tokens (light under :root)", () => {
   const block = (src: string, sel: string) => { const at = src.search(new RegExp(`(^|\\n)\\${sel}\\s*\\{`)); const o = src.indexOf("{", at); return src.slice(o + 1, src.indexOf("}", o)); };
   const tok = (decls: string, name: string) => decls.match(new RegExp(`--${name}:\\s*([^;]+);`))?.[1].trim().toLowerCase();
-  for (const app of ["player-web", "code-gods"]) {
+  for (const app of ["player-web"]) {
     const src = readFileSync(new URL(`../../../artifacts/${app}/src/index.css`, import.meta.url), "utf8");
     const root = block(src, ":root");
     assert.equal(tok(root, "cg-yours"), DIMENSION_COLOURS.light.yours, `${app} --cg-yours`);
@@ -88,9 +88,4 @@ test("both apps carry the tokens (light under :root; the engine UI's dark theme 
     assert.equal(tok(root, "cg-ramp-low"), SCORE_RAMP.light.low, `${app} --cg-ramp-low`);
     assert.equal(tok(root, "cg-ramp-high"), SCORE_RAMP.light.high, `${app} --cg-ramp-high`);
   }
-  const dark = block(readFileSync(new URL("../../../artifacts/code-gods/src/index.css", import.meta.url), "utf8"), ".dark");
-  assert.equal(tok(dark, "cg-yours"), DIMENSION_COLOURS.dark.yours);
-  assert.equal(tok(dark, "cg-others"), DIMENSION_COLOURS.dark.others);
-  assert.equal(tok(dark, "cg-ramp-low"), SCORE_RAMP.dark.low);
-  assert.equal(tok(dark, "cg-ramp-high"), SCORE_RAMP.dark.high);
 });

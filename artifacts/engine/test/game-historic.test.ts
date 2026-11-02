@@ -1,5 +1,5 @@
 /**
- * Historic games (the player client's /client/rooms/:room/games/:game read-only mode): a room's ended game that is no
+ * Historic games (the game page's replay, /rooms/:room/games/:game): a room's ended game that is no
  * longer its current game is readable only by the gods who played in it or watched it and the room's owner. The engine enforces this
  * on every per-game read (player.game, player.history, player.events, player.trajectories), never the UI; what the
  * participant gets discloses nothing another god's live projection would not.

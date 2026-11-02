@@ -3,7 +3,7 @@
  *
  * The signal: every hosted build carries its id in index.html (`<meta name="code-gods-build">`, a hash of the whole
  * build stamped by the engine's scripts/deploy-static.mjs), and deploy-static records each uploaded build in the
- * engine. The public query `version:current` answers, per site ("engine" UI at /, "player" client at /client/, and
+ * engine. The public query `version:current` answers, per site (the "app" served at /, and
  * "functions"), the live build, and whether the asking page's own build was ever deployed (`known`). A known build
  * that is not the live one is outdated.
  *
@@ -26,7 +26,7 @@ import { api } from "@workspace/engine/convex/_generated/api.js";
 import { BUILD_META, readBuildMeta } from "./build-meta.ts";
 
 export { BUILD_META, readBuildMeta };
-export type HostedSite = "engine" | "player";
+export type HostedSite = "app";
 export type VersionSite = HostedSite | "functions";
 /** One site's live build and when it was recorded. */
 export interface SiteVersion { build: string; deployedAt: number }

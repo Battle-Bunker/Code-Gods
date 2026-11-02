@@ -52,7 +52,7 @@ export function useReplayPages(roomId: string, gameId: string): Load {
 }
 
 type Room = { id: string; shortCode: string };
-type Access = { permission: "read" | "act" | "owner"; mode: "devserver" | "hosted" };
+type Access = { permission: "read" | "act" | "owner"; mode: "devserver" | "site" };
 
 export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room: Room; gameId: string; gameCode: string; access: Access; fallback: (error: string) => ReactNode }) {
   const load = useReplayPages(room.id, gameId);
@@ -97,7 +97,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
     <div data-testid="historic-game" data-game-id={controller.replay.game.id}>
       <div className="flex h-9 items-center gap-3 border-b border-[hsl(var(--card-border))] px-3 text-sm">
         <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-room">Room {room.shortCode}</Link>
-        <Link to={{ kind: "games", room: room.shortCode }} className="underline" data-testid="link-past-games">Past games</Link>
+        <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-past-games">Past games</Link>
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
         <span className="label" data-testid="text-game-status">ended · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}

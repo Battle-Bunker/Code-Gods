@@ -2,8 +2,7 @@
  * The deployed versions every client watches, so a running page learns of a deploy and updates itself
  * (lib/player-client/src/update.ts; docs/engine-api.md "Deployed versions").
  *
- *   engine     the engine UI's static build (served at /)        recorded by scripts/deploy-static.mjs after its upload
- *   player     the player client's static build (at /client/)    likewise
+ *   app        the app's static build (served at /)              recorded by scripts/deploy-static.mjs after its upload
  *   functions  the engine's functions                            recorded by the deploy workflow after `convex deploy`
  *
  * A static build's id is the one deploy-static stamped into its index.html (`<meta name="code-gods-build">`). Each
@@ -16,7 +15,7 @@ import { v } from "convex/values";
 import { internalMutation, query, type QueryCtx } from "./_generated/server";
 import { versionSiteV } from "./schema";
 
-const SITES = ["engine", "player", "functions"] as const;
+const SITES = ["app", "functions"] as const;
 type Site = (typeof SITES)[number];
 /** Rows kept per site (a page open across more deploys than this stops updating itself). */
 const HISTORY = 1000;

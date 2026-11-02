@@ -1,29 +1,26 @@
 #!/usr/bin/env node
 /**
- * Build and upload both static sites to the deployment's two static-hosting instances.
+ * Build and upload the app (artifacts/player-web) to the deployment's static hosting, served at "/".
  *
  *   pnpm --filter @workspace/engine deploy-static            the `npx convex dev` deployment (local or cloud dev),
  *                                                            or the one CONVEX_DEPLOY_KEY names (CI)
  *   pnpm --filter @workspace/engine deploy-static --prod     production (after `npx convex deploy`)
  *   … --skip-build                                           upload existing dist directories
- *   … --engine-dist DIR --player-dist DIR                    upload other directories (e.g. test fixtures)
- *   … --only engine|player                                   one site
- *   … --if-changed                                           skip the upload of a site whose build hashes to the marker
+ *   … --app-dist DIR                                         upload another directory (e.g. a test fixture)
+ *   … --if-changed                                           skip the upload when the build hashes to the marker
  *                                                            recorded at its last upload (deployment env var
- *                                                            STATIC_SHA256_ENGINE / _PLAYER, set on every upload)
+ *                                                            STATIC_SHA256_APP, set on every upload)
  *
- *   engine UI       artifacts/code-gods   → instance engineSite, served at /         (Vite base "/")
- *   player client   artifacts/player-web  → instance playerSite, served at /client/  (Vite base "/client/";
- *                                                            the old /player/ prefix redirects there, convex/http.ts)
+ *   the app   artifacts/player-web → static-hosting instance engineSite, served at / (Vite base "/")
  *
- * Both builds get VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud) and VITE_CONVEX_SITE_URL
+ * The build gets VITE_CONVEX_URL = the deployment's client URL (https://<dep>.convex.cloud) and VITE_CONVEX_SITE_URL
  * (its site URL, where the stored-panel frame loads its runtime from: the frame CSP names it), read
  * from the component itself, never from a local .env. With a custom domain, the deployment's env var SITE_URL
  * reaches the build as CODE_GODS_SITE_URL (the build-side name; an exported CODE_GODS_SITE_URL is used when the
  * deployment has none): the frame CSP then names that origin too (besides 'self'). Each upload is atomic
  * (the previous version stays live if it fails) and garbage-collects the previous upload. SPA fallback stays on.
  * Each site's index.html is stamped with its build id (a hash of the build) and, after the upload, the id is recorded
- * (`version:record`), so open pages of an older build update themselves (lib/player-client/src/update.ts). The two sites build and upload concurrently. With --if-changed, a site whose build is byte-identical to its last
+ * (`version:record`), so open pages of an older build update themselves (lib/player-client/src/update.ts). With --if-changed, a build byte-identical to its last
  * upload (the URLs above are baked into the build, so they count) isn't uploaded again; a build that differs in any
  * byte, even a minifier's harmless variation, uploads as usual.
  */
@@ -36,8 +33,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const artifacts = resolve(root, "..");
 export const SITES = {
-  engine: { component: "engineSite", pkg: "@workspace/code-gods", dir: resolve(artifacts, "code-gods"), base: "/" },
-  player: { component: "playerSite", pkg: "@workspace/player-web", dir: resolve(artifacts, "player-web"), base: "/client/" },
+  app: { component: "engineSite", pkg: "@workspace/player-web", dir: resolve(artifacts, "player-web"), base: "/" },
 };
 // With a deploy key the key picks the deployment; otherwise the configured one (.env.local), else the local anonymous one.
 const env = process.env.CONVEX_DEPLOY_KEY ? { ...process.env } : { ...process.env, CONVEX_AGENT_MODE: process.env.CONVEX_AGENT_MODE ?? "anonymous" };
@@ -91,7 +87,7 @@ export function stampBuildId(dist) {
   return id;
 }
 
-/** Records the live build of a site (engine | player) so open pages learn of the deploy. */
+/** Records the live build of the site ("app") so open pages learn of the deploy. */
 function recordBuild(name, build, prodFlag) {
   run("npx", ["convex", "run", "version:record", JSON.stringify({ site: name, build }), ...prodFlag], { stdio: ["ignore", "ignore", "inherit"] });
 }

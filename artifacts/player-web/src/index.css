@@ -478,3 +478,13 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
   .rise, .beat { animation: none !important; }
   .cg-sheet, .dockview-theme-cg * { transition: none !important; }
 }
+
+/* The room, home, configure and consent pages (src/site/). */
+.font-display { font-family: var(--app-font-serif); letter-spacing: -0.01em; }
+.label-mono { font-family: var(--app-font-mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: hsl(var(--muted-foreground)); }
+@keyframes orbit { to { transform: rotate(360deg); } }
+/* The sigil turns once on load; the live dot is the only thing that keeps moving (calm periphery). */
+.orbit-once { animation: orbit 2.4s cubic-bezier(.2,.8,.2,1) 1; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+.pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .orbit-once, .pulse-dot { animation: none; } }

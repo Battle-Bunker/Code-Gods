@@ -52,13 +52,14 @@ const tok = (decls: string, name: string) => {
 /** Every page, card, popover and muted surface of each scheme in both apps (the player client's `.dark` is light). */
 export function surfaces(): { light: string[]; dark: string[] } {
   const light = new Set<string>(), dark = new Set<string>();
-  for (const app of ["player-web", "code-gods"]) {
-    const src = css(app);
-    for (const s of ["background", "card", "popover", "muted"]) light.add(tok(block(src, ":root"), s));
-    const d = block(src, ".dark");
-    const into = labOf(tok(d, "background"))[0] < 50 ? dark : light;
-    for (const s of ["background", "card", "popover", "muted"]) into.add(tok(d, s));
-  }
+  // The app (artifacts/player-web): its `.dark` keeps the light paper. No page of it is dark today, so the dark scheme
+  // is judged on the documented dark page (grid-display.ts PAGE.dark) until one is.
+  const src = css("player-web");
+  for (const s of ["background", "card", "popover", "muted"]) light.add(tok(block(src, ":root"), s));
+  const d = block(src, ".dark");
+  const into = labOf(tok(d, "background"))[0] < 50 ? dark : light;
+  for (const s of ["background", "card", "popover", "muted"]) into.add(tok(d, s));
+  if (!dark.size) dark.add(PAGE.dark);
   return { light: [...light], dark: [...dark] };
 }
 

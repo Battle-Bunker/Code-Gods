@@ -1,45 +1,33 @@
 /**
- * Client-side navigation over the History API, on the URL scheme in ./routes.ts and under the app's own base path
- * (Vite's BASE_URL: "/client/" hosted by the engine, "/" on a dev server). No router library: four routes.
+ * Navigation for the dock and the replay, on the app's one router (wouter, core/app.tsx) and URL scheme (./routes.ts),
+ * under the app's own base path (Vite's BASE_URL).
  */
-import { useCallback, useEffect, useSyncExternalStore, type AnchorHTMLAttributes, type MouseEvent } from "react";
-import { carriedSearch, parseRoute, routeHref, type ClientRoute, type ParsedRoute } from "./routes";
+import { useCallback, type AnchorHTMLAttributes, type MouseEvent } from "react";
+import { navigate as browserNavigate } from "wouter/use-browser-location";
+import { useLocation, useSearch } from "wouter";
+import { carriedSearch, parseRoute, routeHref, type AppRoute } from "./routes";
 
 export const BASE = import.meta.env.BASE_URL;
-const listeners = new Set<() => void>();
-const emit = () => listeners.forEach(l => l());
+type Target = Exclude<AppRoute, { kind: "notFound" }>;
 
-/** Push (or replace) a location inside the app; every useClientRoute re-renders. */
+/** Push (or replace) a location inside the app (an absolute path, base included). */
 export function navigate(href: string, { replace = false }: { replace?: boolean } = {}) {
   if (href === `${location.pathname}${location.search}`) return;
-  if (replace) history.replaceState(null, "", href); else history.pushState(null, "", href);
-  emit();
+  browserNavigate(href, { replace });
 }
 
-let cache: { key: string; parsed: ParsedRoute } | undefined;
-function current(): ParsedRoute {
-  const key = `${location.pathname}${location.search}`;
-  if (cache?.key !== key) cache = { key, parsed: parseRoute(BASE, location.pathname, location.search) };
-  return cache.parsed;
-}
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  addEventListener("popstate", listener);
-  return () => { listeners.delete(listener); removeEventListener("popstate", listener); };
-}
-
-/** The current route; a non-canonical location (?room=CODE, a stray path) is replaced by its canonical href. */
-export function useClientRoute(): ClientRoute {
-  const parsed = useSyncExternalStore(subscribe, current);
-  useEffect(() => { if (parsed.canonical) navigate(parsed.canonical, { replace: true }); }, [parsed.canonical]);
-  return parsed.route;
+/** The current route (re-renders on every navigation). */
+export function useAppRoute(): AppRoute {
+  useLocation();
+  useSearch();
+  return parseRoute(BASE, location.pathname);
 }
 
 /** The href of a route, keeping the page's own query parameters (?panels=off) across navigation. */
-export const hrefTo = (route: Exclude<ClientRoute, { kind: "legacyGame" }>) => routeHref(BASE, route, carriedSearch(location.search));
+export const hrefTo = (route: Target) => routeHref(BASE, route, carriedSearch(location.search));
 
 /** An in-app link: a real href (open in a new tab works), navigated without a page load on a plain click. */
-export function Link({ to, onClick, ...rest }: { to: Exclude<ClientRoute, { kind: "legacyGame" }> } & AnchorHTMLAttributes<HTMLAnchorElement>) {
+export function Link({ to, onClick, ...rest }: { to: Target } & AnchorHTMLAttributes<HTMLAnchorElement>) {
   const href = hrefTo(to);
   const click = useCallback((e: MouseEvent<HTMLAnchorElement>) => {
     onClick?.(e);
