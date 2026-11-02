@@ -84,7 +84,8 @@ function play(a: PlayerAuth, session: PlayerSession) {
   if (!engineUrl) return;
   const a = authFor(engineUrl);
   const done = await a.completeSignIn();
-  // This client asks for one room, never an account grant.
+  // This client asks for one room: an account grant it never asked for is revoked at once, not kept.
+  if (done && isAccountSession(done.session)) await a.signOut(done.session);
   const session = (done && !isAccountSession(done.session) ? done.session : null) ?? (roomInput.value ? a.session(roomInput.value) : null);
   if (session) play(a, session);
 })().catch(fail);

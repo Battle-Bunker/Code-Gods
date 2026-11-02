@@ -84,16 +84,16 @@ export default function Connect() {
     <Page crumbs={[{ label: "Approve a connection" }]}>
       <div className="mx-auto max-w-lg px-4 py-14 rise">
         <h1 className="font-display text-5xl">Approve a connection</h1>
-        <p className="text-muted-foreground mt-3">An app (Claude, a player client, a coding agent) asks to play as you in one room. Approve only if you started this from that app.</p>
+        <p className="text-muted-foreground mt-3">{d?.permission === "account" ? "An app asks to act as you in every room." : "An app (Claude, a player client, a coding agent) asks to play as you in one room."} Approve only if you started this from that app.</p>
         {!request ? <div className="mt-8"><ErrorLine message="This page needs a connection request. Start again from your app." /></div>
         : isLoading ? null
         : !isAuthenticated ? <SignIn testId="button-login-connect" />
         : details.isLoading ? <p className="mt-8 text-sm text-muted-foreground">Loading the request…</p>
         : d === null ? <p role="alert" className="mt-8 text-sm text-destructive" data-testid="text-connect-unknown">No connection request is waiting for you here. It may have expired or been decided; start again from your app.</p>
-        : d?.permission === "account" ? <AccountRequest d={d} pending={pending} decide={(approved, consent) => {
+        : d?.permission === "account" ? <AccountRequest d={d} pending={pending} decide={consent => {
             if (pending) return;
             setPending(true); setError(null);
-            (approved ? approve({ request, permission: "account", completion, accountConsent: consent }) : deny({ request })).then(finish, e => { setError(e); setPending(false); });
+            (consent === null ? deny({ request }) : approve({ request, permission: "account", completion, accountConsent: consent })).then(finish, e => { setError(e); setPending(false); });
           }} now={now} />
         : d?.autoApprove && !autoFailed ? <p className="mt-8 text-sm text-muted-foreground" data-testid="text-connect-auto">Opening room {d.roomHint?.shortCode} in your player client…</p>
         : d ? (
@@ -166,8 +166,9 @@ export default function Connect() {
  * approved as asked (explicit consent, never without a click) or denied; there is no room or permission to choose.
  */
 function AccountRequest({ d, pending, decide, now }: {
-  d: { clientName: string; redirectHost: string; redirectUri: string; status: string; expiresAt: number };
-  pending: boolean; decide: (approved: boolean, consent: boolean) => void; now: number;
+  d: { clientName: string; clientId: string; redirectHost: string; redirectUri: string; status: string; expiresAt: number };
+  /** The human's answer: the consent checkbox's state to approve (the engine refuses without it), null to deny. */
+  pending: boolean; decide: (consent: boolean | null) => void; now: number;
 }) {
   const [consent, setConsent] = useState(false);
   const open = d.status === "pending" && d.expiresAt > now;
@@ -189,11 +190,15 @@ function AccountRequest({ d, pending, decide, now }: {
       <p className="text-muted-foreground">Listed under Connected apps; revoke it there any time. It expires after 7 days without use.</p>
       {!open && <p className="text-muted-foreground" data-testid="text-connect-blocker">This request is no longer waiting; start again from your app.</p>}
       <div className="flex gap-3">
-        <button type="button" onClick={() => decide(true, true)} disabled={!consent || pending || !open} className="flex-1 bg-primary text-primary-foreground py-3 disabled:opacity-50" data-testid="button-approve-connect">{pending ? "Working…" : "Allow"}</button>
-        <button type="button" onClick={() => decide(false, false)} disabled={pending || d.status !== "pending"} className="flex-1 border py-3 disabled:opacity-50" data-testid="button-deny-connect">Deny</button>
+        <button type="button" onClick={() => decide(consent)} disabled={!consent || pending || !open} className="flex-1 bg-primary text-primary-foreground py-3 disabled:opacity-50" data-testid="button-approve-connect">{pending ? "Working…" : "Allow"}</button>
+        <button type="button" onClick={() => decide(null)} disabled={pending || d.status !== "pending"} className="flex-1 border py-3 disabled:opacity-50" data-testid="button-deny-connect">Deny</button>
       </div>
       <details className="text-muted-foreground"><summary className="cursor-pointer">Details</summary>
-        <p className="mt-2 font-mono text-xs break-all">{d.redirectUri}</p></details>
+        <dl className="mt-2 space-y-2">
+          {d.clientId.startsWith("https://") && <div><dt className="label-mono">Client metadata</dt><dd className="font-mono text-xs break-all">{d.clientId}</dd></div>}
+          <div><dt className="label-mono">Full return address</dt><dd className="font-mono text-xs break-all">{d.redirectUri}</dd></div>
+          <div><dt className="label-mono">Request expires</dt><dd>{new Date(d.expiresAt).toLocaleString()}</dd></div>
+        </dl></details>
     </div>
   );
 }

@@ -92,6 +92,8 @@ function Hosted({ conn }: { conn: Connection }) {
       // /connect may have connected another room than the page named (the human chose it): follow the connection.
       const back = new URL(done.returnTo || BASE, location.origin);
       const parsed = parseRoute(BASE, back.pathname, back.search).route;
+      // Room connections only, for now: an account grant it never asked for is revoked, not kept.
+      if (isAccountSession(done.session)) void auth.signOut(done.session).catch(() => undefined);
       const connected = isAccountSession(done.session) ? null : done.session.roomCode;
       const same = !connected || ("room" in parsed && roomKey(parsed.room) === roomKey(connected));
       navigate(same ? `${back.pathname}${back.search}` : hrefTo({ kind: "room", room: connected }), { replace: true });
