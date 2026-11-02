@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { languageV } from "../lib/language";
+import { storedLanguageV } from "../lib/language";
 
 /**
  * Runtime assets in Convex file storage (scripts/upload-runtime.mjs). One row per name; today the only
@@ -23,7 +23,8 @@ export const runtimeTables = {
    * writes it, runtime/warm.ts boots). Read by the observation, the tick, AI seats and every function that runs agent code.
    */
   runtimeReadiness: defineTable({
-    language: languageV,
+    /** storedLanguageV until migrations.ts retireHaskell has deleted Haskell's row everywhere; then languageV. */
+    language: storedLanguageV,
     /** The runtime version this row is about (the Python bundle's pin; `builtin:<language>` for packaged runtimes). */
     version: v.string(),
     state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")),
@@ -35,7 +36,7 @@ export const runtimeTables = {
     bootMs: v.optional(v.number()),
   }).index("by_language", ["language"]),
   /**
-   * Compiled TypeScript and Haskell agents (runtime/compile.ts), so the actions that run agent pools never compile: a
+   * Compiled TypeScript agents (runtime/compile.ts), so the actions that run agent pools never compile: a
    * compiler does not fit beside them in a 512 MiB Node action. `key`: @workspace/game-runtime compilationKey (the
    * language's grammar, price function and compiler, the room's prelude, the source). Rows unused for PROGRAM_TTL_MS
    * (`compiledAt`, refreshed daily by use) are pruned (runtime/programs.ts).
@@ -50,8 +51,8 @@ export const runtimeTables = {
     /** The agent's own compile failure (COMPILE or LIMIT), the same for every later request of this key. */
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     compiledAt: v.number(),
-  }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]),
-  /** Superseded by compiledPrograms: emptied by runtime/programs.ts prune, then dropped from the schema. */
+  }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]).index("by_language", ["language"]),
+  /** Haskell's compiled programs (Haskell is retired): emptied by migrations.ts retireHaskell, then dropped from the schema. */
   haskellPrograms: defineTable({
     key: v.string(), js: v.string(), inspection: v.any(),
     error: v.optional(v.object({ code: v.string(), message: v.string() })), compiledAt: v.number(),

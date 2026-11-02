@@ -1,4 +1,4 @@
-# Deploys the engine (functions, the Python and Haskell runtime bundles, both static sites) to Convex.
+# Deploys the engine (functions, the Python runtime bundle, both static sites) to Convex.
 #   push to develop → GitHub Environment "development" → the dev deployment
 #   push to main    → GitHub Environment "production"  → the production deployment
 # Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
@@ -55,11 +55,10 @@ jobs:
         id: cpython
         with:
           path: .cache/code-gods
-          key: runtime-inputs-${{ hashFiles('lib/game-runtime/python/setup.py', 'lib/game-runtime/scripts/setup-haskell.mjs') }}
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python && pnpm --filter @workspace/game-runtime setup:haskell
+        run: pnpm --filter @workspace/game-runtime setup:python
       - run: pnpm --filter @workspace/game-runtime build:python
-      - run: pnpm --filter @workspace/game-runtime build:haskell
       - run: pnpm --filter @workspace/game-runtime test
 
   deploy:
@@ -102,16 +101,15 @@ jobs:
       - if: github.ref_name == 'main'
         run: pnpm --filter @workspace/game-utilities calibrate --check
 
-      # ---- the pinned runtime bundles (Python, Haskell) ----
+      # ---- the pinned runtime bundle (Python) ----
       - uses: actions/cache@v4
         id: cpython
         with:
           path: .cache/code-gods
-          key: runtime-inputs-${{ hashFiles('lib/game-runtime/python/setup.py', 'lib/game-runtime/scripts/setup-haskell.mjs') }}
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python && pnpm --filter @workspace/game-runtime setup:haskell
+        run: pnpm --filter @workspace/game-runtime setup:python
       - run: pnpm --filter @workspace/game-runtime build:python
-      - run: pnpm --filter @workspace/game-runtime build:haskell
       - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
         working-directory: lib/game-runtime
         run: node scripts/build-worker.mjs --check
@@ -194,7 +192,13 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run migrations:assistantPerGame
 
-      - name: Upload the runtime bundles (Python, Haskell)
+      - name: Retire the Haskell agent language from stored settings and runtime state (idempotent; convex/migrations.ts retire-haskell)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run migrations:retireHaskell
+
+      - name: Upload the runtime bundle (Python)
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: pnpm --filter @workspace/engine upload-runtime
@@ -214,8 +218,8 @@ jobs:
           curl -fsS "$site/api/health"; echo
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
-          for language in python typescript haskell; do npx convex run runtime/probe:smoke "{\"language\":\"$language\"}"; done
-          # A three-language game's pools busy at once on one instance, within the Node action's memory (Haskell compiled apart).
+          for language in python typescript; do npx convex run runtime/probe:smoke "{\"language\":\"$language\"}"; done
+          # A two-language game's pools busy at once on one instance, within its memory budget (TypeScript compiled apart).
           npx convex run runtime/probe:concurrent '{}'
           # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
           npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}},"refresh":true}' \

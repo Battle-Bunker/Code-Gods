@@ -22,13 +22,14 @@ test("the default is the agent's own language when allowed, otherwise the first 
   assert.equal(forgeLanguage(["typescript"], null, "python", "typescript"), "typescript", "the first preference the game allows");
   assert.equal(forgeLanguage([], "python"), "python", "no observation yet: the preference stands");
   assert.equal(forgeLanguage([], null), "python");
+  assert.equal(forgeLanguage([], "haskell" as never, "typescript"), "typescript", "a removed language (an old agent's) is never offered");
 });
 
 test("the forge waits for the language's agent sandbox: warming and failed turn Validate and Summon off and say why", () => {
-  const sandboxes = [{ language: "python", state: "warming" }, { language: "typescript", state: "ready" }, { language: "haskell", state: "failed", reason: "no bundle" }];
+  const sandboxes = [{ language: "python", state: "warming" }, { language: "typescript", state: "ready" }];
   assert.deepEqual(forgeSandbox({ sandboxes }, "python"), { ready: false, warming: true, text: "Agent sandbox warming up…" });
   assert.deepEqual(forgeSandbox({ sandboxes }, "typescript"), { ready: true });
-  assert.deepEqual(forgeSandbox({ sandboxes }, "haskell"), { ready: false, text: "Agent sandbox failed to start: no bundle. It is retried automatically." });
+  assert.deepEqual(forgeSandbox({ sandboxes: [{ language: "typescript", state: "failed", reason: "no bundle" }] }, "typescript"), { ready: false, text: "Agent sandbox failed to start: no bundle. It is retried automatically." });
   // An engine from before readiness reports nothing: the sandbox is taken as ready.
   assert.deepEqual(forgeSandbox({}, "python"), { ready: true });
   assert.deepEqual(forgeSandbox(undefined, "python"), { ready: true });

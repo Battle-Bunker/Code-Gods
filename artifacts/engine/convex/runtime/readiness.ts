@@ -12,11 +12,12 @@ import { internalMutation, internalQuery, type QueryCtx } from "../_generated/se
 import { languageV } from "../lib/language";
 import { effectiveSandbox, needsWarm, type SandboxView } from "../lib/sandboxes";
 
-export type ReadinessDoc = Doc<"runtimeReadiness">;
+/** A readiness row of a supported language (rowOf looks rows up by one; a retired language's row is never read). */
+export type ReadinessDoc = Doc<"runtimeReadiness"> & { language: Language };
 export type LanguageSandbox = SandboxView & { language: Language; readyAt?: number };
 
 async function rowOf(ctx: QueryCtx, language: Language): Promise<ReadinessDoc | null> {
-  return ctx.db.query("runtimeReadiness").withIndex("by_language", q => q.eq("language", language)).first();
+  return ctx.db.query("runtimeReadiness").withIndex("by_language", q => q.eq("language", language)).first() as Promise<ReadinessDoc | null>;
 }
 
 /** The stored rows for these languages (null: never warmed), for Node callers that compare versions. */

@@ -41,10 +41,7 @@ export const prune = internalMutation({
   handler: async ctx => {
     const old = await ctx.db.query("compiledPrograms").withIndex("by_compiledAt", q => q.lt("compiledAt", Date.now() - PROGRAM_TTL_MS)).take(200);
     for (const row of old) await ctx.db.delete(row._id);
-    // The superseded Haskell-only store (runtime/tables.ts haskellPrograms): emptied here, then dropped.
-    const legacy = await ctx.db.query("haskellPrograms").take(200);
-    for (const row of legacy) await ctx.db.delete(row._id);
-    if (old.length === 200 || legacy.length === 200) await ctx.scheduler.runAfter(0, internal.runtime.programs.prune, {});
-    return old.length + legacy.length;
+    if (old.length === 200) await ctx.scheduler.runAfter(0, internal.runtime.programs.prune, {});
+    return old.length;
   },
 });

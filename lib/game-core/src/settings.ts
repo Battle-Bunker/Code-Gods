@@ -29,11 +29,6 @@ export const LANGUAGE_SPECS = Object.freeze({
     grammarLabel: "function agent(obj) returns mutator calls",
     emptyAgent: "function agent(x) { return []; }",
   }),
-  haskell: Object.freeze({
-    label: "Haskell", grammarId: "haskell-agent-v1", complexityFunctionId: "hs-token-bits-v1-uniform",
-    grammarLabel: "agent :: Obj -> [Call] returns mutator calls",
-    emptyAgent: "agent :: Obj -> [Call]\nagent x = []",
-  }),
 } as const);
 export type Language = keyof typeof LANGUAGE_SPECS;
 export const LANGUAGES: readonly Language[] = Object.freeze(Object.keys(LANGUAGE_SPECS) as Language[]);
@@ -184,19 +179,22 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
 
 /**
  * The languages a game allows (the first is the game's default). Settings stored before `languages` existed held a single `language` (with its grammar
- * and price ids): that one language is the set. Use this wherever stored settings are read, so a document the
+ * and price ids): that one language is the set. Languages no longer supported (an ended game's stored "haskell") are
+ * dropped, so every result has a LANGUAGE_SPECS entry. Use this wherever stored settings are read, so a document the
  * migration has not reached yet still plays.
  */
 export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { language?: unknown; languages?: unknown } | null | undefined): readonly Language[] {
   if (!settings) return [];
   const s = settings as { language?: unknown; languages?: unknown };
-  if (Array.isArray(s.languages) && s.languages.length && s.languages.every(isLanguage)) return s.languages as Language[];
+  const known = Array.isArray(s.languages) ? s.languages.filter(isLanguage) : [];
+  if (known.length) return known.length === (s.languages as unknown[]).length ? s.languages as Language[] : known;
   return isLanguage(s.language) ? [s.language] : [];
 }
 
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
- * (see upgradeLegacyLanguage), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
+ * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
+ * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
  * 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read.
  */
@@ -204,7 +202,9 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
   const languages = upgradeLegacyLanguage(settings);
   const s = (languages ?? settings) as Record<string, unknown> | null;
   if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
+  const kept = Array.isArray(s.languages) ? s.languages.filter(l => l !== "haskell") : undefined;
   const filled: Record<string, unknown> = {
+    ...(kept && kept.length !== (s.languages as unknown[]).length ? { languages: kept.length ? kept : ["typescript"] } : {}),
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
