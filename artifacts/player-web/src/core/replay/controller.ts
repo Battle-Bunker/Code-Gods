@@ -33,6 +33,8 @@ export class ReplayController {
   readonly moments: KeyMoment[];
   readonly series: ReturnType<typeof scoreSeries>;
   private view: ReplayView;
+  /** The view as of its last change other than the clock's per-frame `world` (for parts that need not redraw every frame). */
+  private coarse: ReplayView;
   private listeners = new Set<() => void>();
   private answerListeners = new Set<() => void>();
   private answerKey = "";
@@ -60,6 +62,7 @@ export class ReplayController {
     const state = stateAt(replay, cursor);
     this.view = { cursor, world: world ?? this.worldOf(cursor), playing: false, scrubbing: false, speed: start.speed ?? DEFAULT_SPEED,
       pov: start.pov ?? Math.max(0, replay.viewer.index), state, version: 0 };
+    this.coarse = this.view;
     this.published = { cursor, pov: this.view.pov, state };
     this.answerKey = `${cursor}|${this.view.pov}`;
   }
@@ -67,8 +70,10 @@ export class ReplayController {
   // ----- store -----
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   get = () => this.view;
+  getCoarse = () => this.coarse;
   private set(patch: Partial<ReplayView>) {
     this.view = { ...this.view, ...patch, version: this.view.version + 1 };
+    if (Object.keys(patch).some(k => k !== "world")) this.coarse = this.view;
     for (const l of this.listeners) l();
     // The SDK's answers depend on the playhead and the point of view only; they move at most every ANSWER_MS while playing.
     const key = `${this.view.cursor}|${this.view.pov}`;
@@ -86,8 +91,8 @@ export class ReplayController {
   }
 
   // ----- the playhead -----
-  /** The game's last moment: its end, or its last event if that is later. */
-  get endWorld() { return Math.max(this.replay.endWorld, this.end ? this.replay.worldMax[this.end - 1] : 0); }
+  /** The game's last moment: its end, or its last event if that is later (buildReplay). */
+  get endWorld() { return this.replay.endWorld; }
   private clampWorld(world: number) { return Number.isNaN(world) ? 0 : Math.max(0, Math.min(this.endWorld, world)); }
   /** The time of the last event applied at `cursor` (the start for none). */
   private worldOf(cursor: number) { return cursor > 0 ? this.replay.worldMax[cursor - 1] : 0; }
@@ -95,6 +100,8 @@ export class ReplayController {
   /** Move to an exact event (stepping, key moments, the event list): the playhead lands on that event's time. */
   seek(cursor: number, opts: { keepPlaying?: boolean } = {}) {
     const c = Math.max(0, Math.min(this.end, Math.floor(cursor)));
+    // Already there (a step forward at the end, a click on the current event): the playhead keeps its time.
+    if (c === this.view.cursor) { if (!opts.keepPlaying && this.view.playing) this.stop(); return; }
     this.moveTo(c, this.worldOf(c), opts);
   }
   /** Move to a world time: exactly the events at or before it are applied. */
@@ -133,12 +140,10 @@ export class ReplayController {
   beginScrub() { if (this.view.playing) this.stop(); if (!this.view.scrubbing) this.set({ scrubbing: true }); }
   endScrub() {
     if (!this.view.scrubbing) return;
-    this.set({ scrubbing: false });
-    // Land the answers exactly on the playhead now (a throttled publish may be pending).
+    // A throttled publish may be pending: drop it; set() then publishes at once if the answers are not at the playhead.
     clearTimeout(this.answerTimer);
     this.answerTimer = undefined;
-    this.answerKey = "";
-    this.set({});
+    this.set({ scrubbing: false });
   }
 
   // ----- playback: the playhead advances `speed` world seconds per second of real time; each event applies as it is crossed -----
@@ -205,7 +210,12 @@ export function replaySource(c: ReplayController): ReplaySource {
   return { serves: name => c.serves(name), answer: (name, args) => c.answer(name, args), subscribe: c.subscribeAnswers, refusal: c.refusal };
 }
 
-/** The controller's view, re-rendered on every change. */
+/** The controller's view, re-rendered on every change (every frame while playing or dragging: the clock, the thumb). */
 export function useReplay(controller: ReplayController): ReplayView {
   return useSyncExternalStore(controller.subscribe, controller.get);
+}
+
+/** The view, re-rendered when anything but the clock's continuous `world` changes (the event list, the agent's code). */
+export function useReplayCoarse(controller: ReplayController): ReplayView {
+  return useSyncExternalStore(controller.subscribe, controller.getCoarse);
 }

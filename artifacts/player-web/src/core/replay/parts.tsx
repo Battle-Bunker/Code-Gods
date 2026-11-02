@@ -7,7 +7,7 @@ import { TransformationView, type ObjectContext } from "@workspace/object-views"
 import { cursorAtWorld, godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
 import { SERIES } from "@/sdk/charts";
 import { SPEEDS, describeEvent, shortId, worldAtFraction } from "./model";
-import { useReplay, type Changed, type ReplayController } from "./controller";
+import { useReplay, useReplayCoarse, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const num = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1));
@@ -111,7 +111,11 @@ function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayContro
     if (pending.current) { pending.current.world = to; return; }
     pending.current = { world: to, frame: requestAnimationFrame(() => { const p = pending.current; pending.current = null; if (p) c.seekWorld(p.world); }) };
   };
-  const release = () => {
+  // The one pointer dragging (a second finger neither starts another drag nor ends this one).
+  const dragging = useRef<number | null>(null);
+  const release = (pointerId: number) => {
+    if (dragging.current !== pointerId) return;
+    dragging.current = null;
     const p = pending.current;
     if (p) { cancelAnimationFrame(p.frame); pending.current = null; c.seekWorld(p.world); }
     c.endScrub();
@@ -125,16 +129,18 @@ function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayContro
         aria-valuetext={`${clock(world)} of ${clock(end)}, event ${cursor} of ${c.end}`} data-testid="input-replay-scrub" data-world={world.toFixed(3)}
         className="group relative h-6 cursor-pointer touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
         onPointerDown={e => {
-          if (e.button !== 0) return;
+          if (e.button !== 0 || dragging.current !== null) return;
           e.preventDefault();
+          e.currentTarget.focus();
           e.currentTarget.setPointerCapture(e.pointerId);
+          dragging.current = e.pointerId;
           c.beginScrub();
           c.seekWorld(at(e.clientX).world);
         }}
-        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) dragTo(h.world); }}
-        onPointerUp={release}
-        onLostPointerCapture={release}
-        onPointerCancel={release}
+        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (dragging.current === e.pointerId) dragTo(h.world); }}
+        onPointerUp={e => release(e.pointerId)}
+        onLostPointerCapture={e => release(e.pointerId)}
+        onPointerCancel={e => release(e.pointerId)}
         onPointerLeave={() => setHover(null)}
         onKeyDown={e => {
           // A slider's extra keys: Up/Down step, Page keys jump a tenth. Left/Right, Home/End and Space are the page's (useReplayKeys).
@@ -148,7 +154,7 @@ function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayContro
         </div>
         {c.moments.map((m, i) => (
           <span key={i} aria-hidden className="pointer-events-none absolute top-0 h-1.5 w-1 -translate-x-1/2"
-            style={{ left: pct(m.cursor > 0 ? c.replay.worldMax[m.cursor - 1] : 0), background: momentColour(m) }} data-testid="replay-marker" />
+            style={{ left: pct(m.world), background: momentColour(m) }} data-testid="replay-marker" />
         ))}
         <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[hsl(var(--primary))] shadow group-active:h-5 group-active:w-5"
           style={{ left: pct(world) }} data-testid="replay-playhead" />
@@ -216,7 +222,7 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
 }
 
 export function EventList({ controller: c, ctx }: { controller: ReplayController; ctx: ObjectContext }) {
-  const v = useReplay(c);
+  const v = useReplayCoarse(c);
   const openCode = useContext(AgentCodeContext);
   const { replay } = c, cursor = v.cursor;
   const names = new Map(replay.game.roster.map(g => [g.id, g.name]));
@@ -259,11 +265,12 @@ function EventLine({ ev, names, ctx, onAgent }: { ev: ReplayEvent; names: Readon
 }
 
 export function AgentCode({ controller: c, agentId, onClose }: { controller: ReplayController; agentId: string; onClose: () => void }) {
-  const v = useReplay(c);
+  const v = useReplayCoarse(c);
   const names = new Map(c.replay.game.roster.map(g => [g.id, g.name]));
   const now = v.state.agents.get(agentId);
   // An agent not summoned yet at the playhead (a click on a later event) is shown as it ended the game, and says so.
-  const a: ReplayAgent | undefined = now ?? stateAt(c.replay, c.end).agents.get(agentId);
+  const atEnd = useMemo(() => stateAt(c.replay, c.end).agents.get(agentId), [c, agentId]);
+  const a: ReplayAgent | undefined = now ?? atEnd;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     addEventListener("keydown", onKey);

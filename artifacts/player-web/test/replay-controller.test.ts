@@ -160,3 +160,21 @@ test("scrubbing: the board's answers move at most every 125 ms while dragging, a
   assert.equal(c.get().scrubbing, false);
   assert.equal(at(), 3, "on release the answers are exactly at the playhead (its last event's time)");
 });
+
+test("at the end of a game with a quiet tail, forward moves never take the playhead back in time", () => {
+  const tail = buildReplay([{ ...page, game: { ...page.game, worldSeconds: 8, endAtWorld: 8 } }]);
+  const c = new ReplayController(tail, { roomId: "r" }, { cursor: 0, world: Infinity });
+  assert.deepEqual([c.get().world, c.get().cursor], [8, 5], "opens at the game's end, past its last event");
+  c.step(1);
+  c.jump(1);
+  assert.deepEqual([c.get().world, c.get().cursor], [8, 5], "stepping or jumping forward at the end stays at the end");
+  const coarse = c.getCoarse();
+  c.play();
+  c.seekWorld(1);
+  c.play();
+  c.advance(100);
+  assert.notEqual(c.getCoarse(), coarse, "a change of the events or of playing reaches the coarse view");
+  const between = c.getCoarse();
+  c.advance(100);
+  assert.equal(c.getCoarse(), between, "the clock's per-frame time alone does not");
+});

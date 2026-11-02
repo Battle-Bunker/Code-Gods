@@ -87,7 +87,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
     if (v.playing || v.scrubbing) return;
     const onEvent = v.cursor > 0 && v.world === controller.replay.worldMax[v.cursor - 1];
     const as = controller.replay.game.roster[v.pov]?.id;
-    const search = replaySearch(location.search, onEvent || v.cursor >= controller.end && v.world >= controller.endWorld ? { e: v.cursor, speed: v.speed, as } : { t: v.world, speed: v.speed, as });
+    const search = replaySearch(location.search, onEvent ? { e: v.cursor, speed: v.speed, as } : { t: v.world, speed: v.speed, as });
     if (search !== location.search) history.replaceState(history.state, "", `${location.pathname}${search}`);
   }), [controller]);
   const sdkRoom = useMemo(() => ({ roomId: room.id, ...access }), [room.id, access]);
