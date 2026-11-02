@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, withTimeline, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -38,6 +38,8 @@ export class DockStore {
   /** The last layout the server sent, unparsed (re-parsed when the panels this client knows change). */
   private raw: unknown = undefined;
   private editedInGesture = false;
+  private replayTimeline = false;
+  private timelineClosed = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
   private listeners = new Set<() => void>();
@@ -63,7 +65,8 @@ export class DockStore {
   pane(id: string): Pane | undefined { return this.snapshot.layout.panes[id]; }
 
   private build(): DockSnapshot {
-    return { layout: effectiveLayout(this.sync.local, this.phase), history: this.history, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    const shown = effectiveLayout(this.sync.local, this.phase);
+    return { layout: this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown, history: this.history, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
@@ -105,11 +108,19 @@ export class DockStore {
     // An edit made before the first server layout arrived had nothing to push against; now it does.
     if (this.sync.dirty) this.schedule(PUSH_SOON_MS);
   }
+  /** A replay shows its Timeline over every layout (layout-sync.ts withTimeline) until the human closes it. */
+  setReplayTimeline(on: boolean) { if (on !== this.replayTimeline) { this.replayTimeline = on; this.emit(); } }
+  /** A change that removes the shown Timeline closes it for this page. */
+  private noteTimeline(next: DockLayout) {
+    const has = (l: DockLayout) => Object.values(l.panes).some(p => p.kind === "panel" && p.panelId === "timeline");
+    if (this.replayTimeline && !this.timelineClosed && has(this.snapshot.layout) && !has(next)) this.timelineClosed = true;
+  }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
 
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */
   edit(change: (layout: DockLayout) => DockLayout, delay = PUSH_SOON_MS) {
     const next = this.parse(change(this.snapshot.layout));
+    this.noteTimeline(next);
     if (this.sync.gesture) this.editedInGesture = true;
     this.dispatch({ type: "edit", layout: next });
     this.schedule(delay);
@@ -120,6 +131,7 @@ export class DockStore {
     if (!this.sync.gesture) return;
     if (result && !this.editedInGesture) {
       const next = this.parse(result);
+      this.noteTimeline(next);
       if (!sameLayout(next, this.snapshot.layout)) this.dispatch({ type: "edit", layout: next });
     }
     this.dispatch({ type: "gesture-end" });
@@ -130,6 +142,7 @@ export class DockStore {
   dockChanged(result: DockLayout) {
     const next = this.parse(result);
     if (sameLayout(next, this.snapshot.layout)) return;
+    this.noteTimeline(next);
     this.dispatch({ type: "edit", layout: next });
     this.schedule(PUSH_DELAY_MS);
   }

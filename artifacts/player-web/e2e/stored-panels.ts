@@ -234,9 +234,8 @@ await check("dragging a panel onto the centre of another replaces it: no tabs, n
 
 await check("the assistant is an ordinary pane: close it, and the palette's \"Open assistant\" brings it back", async () => {
   await setLayoutPatiently(roomId, DEFAULT());
-  // Close only once the page has the default (no stored panel's pane): a close pushed on top of an older layout is a
-  // conflict, and the page then takes the engine's layout instead.
-  await page.waitForSelector('[data-testid="panel-frame-stored:e2e-live"]', { state: "detached", timeout: 15_000 });
+  // Closed at once, while the page may still be catching up with the layout just set: a close pushed on top of an
+  // older version meets a CONFLICT and is replayed on the newer one (src/dock/layout-sync.ts), never undone.
   await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
   await page.locator("[data-testid=button-close-p4]").click();
   await page.waitForSelector("[data-testid=assistant-pane]", { state: "detached", timeout: 15_000 });
@@ -486,20 +485,16 @@ await check("after the game ends its page turns into the replay without a reload
     throw e;
   }), "layout:set", 120_000);
   const show = (panelId: string) => {
-    let layout = defaultLayout("ended");
+    const layout = defaultLayout("ended");
     layout.panes.p1 = { id: "p1", kind: "panel", panelId: panelId as never, params: panelId === "what-if" ? whatIf : {}, setBy: "human" };
-    // The replay opens a Timeline pane of its own when the layout has none: a change it keeps to itself, after which
-    // it no longer adopts the engine's layout. Every layout here has one.
-    if (panelId !== "timeline") layout = openPane(layout, { id: "", kind: "panel", panelId: "timeline", params: {}, setBy: "human" }).layout;
+    // No Timeline pane here: the replay adds its own over each layout from the engine and still follows the next one.
     return setLayout(layout);
   };
   // The checks after this one use carol's arrangement (her stored panels' panes): put it back at the end.
   const arranged = (await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout;
   try { await sweep(); } finally { await setLayout(arranged); }
   async function sweep() {
-  // Reopened with a layout that has its Timeline, the replay follows each layout set below.
-  await show(PANEL_IDS[0]);
-  await page.reload();
+  // The replay follows each layout set below, without a reload.
   await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
   const blank: string[] = [];
   for (const id of PANEL_IDS) {
