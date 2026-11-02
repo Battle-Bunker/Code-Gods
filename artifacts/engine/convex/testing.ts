@@ -361,3 +361,20 @@ export const setSandbox = internalMutation({
     return ctx.db.get(row._id);
   },
 });
+
+/** A build row of a retired site ("engine", "player"), as deployments before the one app stored them. */
+export const retiredSiteBuild = internalMutation({
+  args: { site: v.union(v.literal("engine"), v.literal("player")), build: v.string() },
+  handler: async (ctx, { site, build }) => { dev(); await ctx.db.insert("siteBuilds", { site, build, deployedAt: Date.now() }); },
+});
+
+/** How many build rows each site has, as stored. */
+export const siteBuildCounts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    dev();
+    const counts: Record<string, number> = {};
+    for (const row of await ctx.db.query("siteBuilds").collect()) counts[row.site] = (counts[row.site] ?? 0) + 1;
+    return counts;
+  },
+});
