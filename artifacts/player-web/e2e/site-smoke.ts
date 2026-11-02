@@ -455,7 +455,10 @@ try {
       await a.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
       await b.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
-      await b.getByTestId("dock").waitFor({ timeout: 60_000 });
+      await b.getByTestId("dock").waitFor({ timeout: 60_000 }).catch(async (error: Error) => {
+        await shot(b, `game-player-${name}-failed`);
+        throw new Error(`${error.message}\n${b.url()}\n${(await b.locator("body").innerText()).slice(0, 1500)}`);
+      });
       assert.equal(await b.getByTestId("text-game-code").count(), 0, "a player gets the player view, not the spectator view");
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
       // The world clock and the objects move without any reload or polling (the clock is under Game details).
