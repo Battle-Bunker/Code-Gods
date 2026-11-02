@@ -2,13 +2,13 @@
  * Pane headers (docs/research/ui-redesign/player-client.md §1.5), 32 px, one per pane; in the desktop dock each is
  * dockview's tab, so the header is the drag handle. A built-in panel: `[Panel title ▾]`, the read-only parameter
  * caption ("set by your assistant" when it was), ‹ and ↺ only after an assistant change, ⋯, and ✕ when two or more
- * built-in panels are open. The assistant pane: its name and a status word, no buttons. A stored or file panel: its
+ * built-in panels are open. The assistant pane: its name, a status word and ✕ (it is an ordinary pane the player may close). A stored or file panel: its
  * title and version.
  */
 import type { ReactNode } from "react";
 import { ChevronDown, Maximize2, MoreHorizontal, RotateCcw, Undo2, X } from "lucide-react";
 import { PANELS, PANEL_IDS, type PanelId } from "@workspace/player-client/panels";
-import { panelPanesOf, paneCaption, type Pane } from "@workspace/player-client/layout";
+import { assistantPaneOf, panelPanesOf, paneCaption, type Pane } from "@workspace/player-client/layout";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -36,19 +36,23 @@ export function PaneHeader({ paneId, desktop }: { paneId: string; desktop: boole
     <div data-testid={`tab-${paneId}`} onPointerDownCapture={focus} onFocusCapture={focus}
       className="cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2">
       {pane.kind === "panel" ? <BuiltInPanelHeader pane={pane} desktop={desktop} />
-        : pane.kind === "assistant" ? <AssistantHeader />
+        : pane.kind === "assistant" ? <AssistantHeader paneId={paneId} />
         : <OwnPanelHeader pane={pane} desktop={desktop} />}
     </div>
   );
 }
 
-function AssistantHeader() {
+function AssistantHeader({ paneId }: { paneId: string }) {
   const { status } = useComposer();
+  const actions = useDockActions();
   return (
-    <span className="flex min-w-0 items-baseline gap-2">
-      <span className="truncate font-serif text-sm font-semibold">Your assistant <span className="font-sans text-xs font-normal text-muted-foreground">(private)</span></span>
-      {status && <span className={`text-xs text-muted-foreground ${status === "thinking…" ? "beat" : ""}`} data-testid="text-assistant-status">{status}</span>}
-    </span>
+    <>
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="truncate font-serif text-sm font-semibold">Your assistant <span className="font-sans text-xs font-normal text-muted-foreground">(private)</span></span>
+        {status && <span className={`text-xs text-muted-foreground ${status === "thinking…" ? "beat" : ""}`} data-testid="text-assistant-status">{status}</span>}
+      </span>
+      <IconButton label="Close the assistant (reopen it from the panel menu or the palette)" onClick={() => actions.close(paneId)} testId={`button-close-${paneId}`}><X size={13} /></IconButton>
+    </>
   );
 }
 
@@ -84,7 +88,7 @@ function BuiltInPanelHeader({ pane, desktop }: { pane: Extract<Pane, { kind: "pa
 
 /** The panel menu: built-in panels for this phase first, then the others, then the player's own panels. It changes the built-in panel only. */
 function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
-  const { phase, history } = useDock();
+  const { phase, history, layout } = useDock();
   const actions = useDockActions();
   const panels = usePanels();
   const now = PANEL_IDS.filter(id => PANELS[id].phases.includes(phase));
@@ -99,6 +103,7 @@ function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
       </DropdownMenuItem>
     );
   };
+  const assistantOpen = !!assistantPaneOf(layout);
   const stored = panels.entries.filter(e => e.origin === "stored");
   const files = panels.entries.filter(e => e.origin === "file");
   return (
@@ -111,8 +116,10 @@ function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
         <DropdownMenuLabel className="label">For now</DropdownMenuLabel>
         {now.map(item)}
         {later.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="label">Other panels</DropdownMenuLabel>{later.map(item)}</>}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem data-testid="menu-assistant" title={assistantOpen ? "Your assistant is open" : "Opens in its own pane"} onSelect={() => actions.openAssistant()}>Your assistant{assistantOpen ? "" : " (closed)"}</DropdownMenuItem>
         {stored.length + files.length > 0 && <>
-          <DropdownMenuSeparator /><DropdownMenuLabel className="label">Your panels</DropdownMenuLabel>
+          <DropdownMenuLabel className="label">Your panels</DropdownMenuLabel>
           {stored.map(e => <DropdownMenuItem key={e.file} data-testid={`menu-stored-panel-${e.id}`} title="Opens in its own pane" onSelect={() => actions.openPanel(e.id)}>{e.stored?.title ?? e.id}</DropdownMenuItem>)}
           {files.map(e => <DropdownMenuItem key={e.file} data-testid={`menu-file-panel-${e.id}`} title="Opens in its own pane" onSelect={() => actions.openFile(e.id)}>{panelTitle(e, panels.statuses, e.id)}</DropdownMenuItem>)}
         </>}

@@ -32,7 +32,7 @@ export default function StackedDock() {
     return () => el.removeEventListener("focusin", onFocus);
   }, []);
   return (
-    <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: HEIGHT.peek }} data-testid="dock-stacked">
+    <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: assistant ? HEIGHT.peek : 0 }} data-testid="dock-stacked">
       <div className="divide-y divide-[hsl(var(--card-border))]">
         {panes.map(pane => (
           <section key={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "panel" ? pane.panelId : pane.kind}>

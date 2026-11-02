@@ -287,7 +287,7 @@ export const LAYOUT_TOOLS = [
     about: "Move a pane next to another. Only when the player asks for an arrangement; never to illustrate an answer. \"Put the chat on the right\" means moving this conversation's pane (kind assistant), not opening the public-chat panel.",
     input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction (left, right, above, below).") }), output: result(layoutData) }),
   def({ name: "close_pane", short: "Close a pane the player asked to close.", title: "Close a pane", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Close a pane the player asked to close. The assistant pane and the last built-in panel cannot be closed (CONFLICT).",
+    about: "Close a pane the player asked to close. The last built-in panel cannot be closed, and neither can the player's own chat pane (kind assistant): only the player closes that (CONFLICT).",
     input: obj({ paneId }), output: result(layoutData) }),
 ] as const;
 

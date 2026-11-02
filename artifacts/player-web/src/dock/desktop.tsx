@@ -54,16 +54,7 @@ export default function DesktopDock() {
     api.current = event.api;
     store.api = event.api;
     apply(store.layout);
-    // A drop on a pane's centre replaces that pane's panel with the dragged one (fromDockview keeps the dropped view);
-    // the assistant is never replaced, and never replaces a panel: refuse that overlay so no drop is offered.
-    event.api.onWillShowOverlay(e => {
-      if (e.position !== "center") return;
-      const data = e.getData();
-      const dragged = data?.panelId ?? (data?.groupId ? event.api.getGroup(data.groupId)?.activePanel?.id : undefined);
-      const target = e.group?.activePanel?.id;
-      if (dragged === target) return;
-      if ([dragged, target].some(id => id !== undefined && store.layout.panes[id]?.kind === "assistant")) e.preventDefault();
-    });
+    // A drop on a pane's centre replaces that pane's panel with the dragged one (fromDockview keeps the dropped view).
     event.api.onDidActivePanelChange(e => { if (e.panel) store.setFocused(e.panel.id); });
     // A move outside a pointer gesture we saw (a touch or pen drag, which dockview runs on pointer events of its
     // own): read the new structure back. Sizes alone (the assistant growing for a card) are never saved this way.

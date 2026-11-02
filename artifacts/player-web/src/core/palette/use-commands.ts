@@ -59,7 +59,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     const panes = Object.values(dock.layout.panes).map(pane => ({
       id: pane.id, kind: pane.kind,
       label: pane.kind === "panel" ? PANELS[pane.panelId].title : paneCaption(pane),
-      closable: pane.kind !== "assistant" && (pane.kind !== "panel" || panelCount > 1),
+      closable: pane.kind !== "panel" || panelCount > 1,
     }));
     const obs = s.obs;
     return {
@@ -112,7 +112,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       handoff: draft => composer.fill(draft),
     },
     dock: {
-      show: actions.show, change: actions.change, close: actions.close, dockAssistant: actions.dockAssistant, preset: actions.preset, reset: actions.reset,
+      show: actions.show, change: actions.change, close: actions.close, dockAssistant: actions.dockAssistant, openAssistant: actions.openAssistant, preset: actions.preset, reset: actions.reset,
       maximise: actions.maximise, forgeEdit: () => actions.forgeEdit(),
     },
     links: {

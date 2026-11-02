@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, PRESET_LAYOUTS, assistantSide, carryLayout, closePane, describeLayout, followPhase, panelPanesOf,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, openAssistant, assistantPaneOf, LayoutError, PRESET_LAYOUTS, assistantSide, carryLayout, closePane, describeLayout, followPhase, panelPanesOf,
   movePane, nextPaneId, openPane, paneOrder, panesOf, parseLayout, resetPanelParams, setPanePanel, setPaneParams, type DockLayout, type Node, type Pane,
 } from "../src/layout.ts";
 
@@ -114,10 +114,10 @@ test("parseLayout never throws: each failure class degrades and is named in warn
     panes: { s1: { id: "s1", kind: "stored-panel", slug: "mine" }, s2: { id: "s2", kind: "stored-panel", slug: "theirs" }, f1: { id: "f1", kind: "file-panel", fileId: "gone" } } };
   const repaired = parseLayout(panels, { ...ctx, fileIds: ["kept"] });
   wellFormed(repaired.layout);
-  assert.deepEqual(panesOf(repaired.layout).map(p => p.kind).sort(), ["assistant", "panel", "stored-panel"]);
+  assert.deepEqual(panesOf(repaired.layout).map(p => p.kind).sort(), ["panel", "stored-panel"]);
   assert.match(repaired.warnings.join("\n"), /no stored panel "theirs"/);
   assert.match(repaired.warnings.join("\n"), /no file panel "gone"/);
-  assert.match(repaired.warnings.join("\n"), /no assistant pane/);
+  assert.equal(/assistant/.test(repaired.warnings.join("\n")), false, "a missing assistant is not repaired: the player may have closed it");
   assert.match(repaired.warnings.join("\n"), /no built-in panel/);
   // Without fileIds, file panels are trusted (the engine does not know a dev container's files).
   assert.equal(panesOf(parseLayout(panels, ctx).layout).some(p => p.kind === "file-panel"), true);
@@ -188,9 +188,8 @@ test("openPane: default placement, the reuse rule is the caller's, a 5th panel i
   assert.equal(nextPaneId(base), "p3");
 });
 
-test("closePane refuses the assistant and the last panel; movePane relocates; setPaneParams validates", () => {
+test("closePane refuses the last panel (not the assistant); movePane relocates; setPaneParams validates", () => {
   const base = single("running");
-  assert.throws(() => closePane(base, "p2"), (e: LayoutError) => e.code === "CONFLICT" && /assistant/.test(e.message));
   assert.throws(() => closePane(base, "p1"), (e: LayoutError) => e.code === "CONFLICT" && /last panel/.test(e.message));
   assert.throws(() => closePane(base, "zz"), (e: LayoutError) => e.code === "NOT_FOUND");
   const two = openPane(base, panel("", "race")).layout;
@@ -253,4 +252,28 @@ test("a stored layout with tab groups keeps only each group's active tab; the pa
   assert.deepEqual(again.warnings, []);
   // The model has no tab placement, and the default layout has no tab nodes.
   assert.equal(JSON.stringify(DEFAULT_LAYOUT("running")).includes("tabs"), false);
+});
+
+test("the assistant is an ordinary pane: in the default dock, closable, reopened full width at the bottom, never required", () => {
+  const dflt = DEFAULT_LAYOUT("running");
+  assert.equal(assistantPaneOf(dflt)?.id, "p4", "the default dock has it, full width at the bottom");
+  const closed = closePane(dflt, "p4");
+  wellFormed(closed);
+  assert.equal(assistantPaneOf(closed), undefined);
+  assert.equal(assistantSide(closed), "column");
+  // A layout without it parses as it is (no assistant added) and survives every preset.
+  const parsed = parseLayout(closed, ctx);
+  assert.equal(assistantPaneOf(parsed.layout), undefined);
+  assert.deepEqual(parsed.warnings, []);
+  for (const preset of Object.values(PRESET_LAYOUTS)) { const out = parseLayout(preset(closed), ctx).layout; wellFormed(out); assert.equal(assistantPaneOf(out), undefined, "a preset does not bring it back"); }
+  // Reopening puts it back below everything; reopening twice changes nothing.
+  const reopened = openAssistant(closed);
+  wellFormed(reopened.layout);
+  assert.equal(assistantPaneOf(reopened.layout)?.id, reopened.paneId);
+  assert.deepEqual(reopened.layout.root.type === "split" && reopened.layout.root.direction, "column");
+  assert.deepEqual(paneOrder(reopened.layout.root).at(-1), reopened.paneId, "last = bottom");
+  assert.deepEqual(openAssistant(reopened.layout).layout, reopened.layout);
+  assert.throws(() => openPane(reopened.layout, { id: "", kind: "assistant" }), (e: LayoutError) => e.code === "CONFLICT", "still only one");
+  // A stored layout always had one: it keeps it.
+  assert.equal(assistantPaneOf(parseLayout(dflt, ctx).layout)?.id, "p4");
 });

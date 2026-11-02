@@ -12,7 +12,7 @@
  *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
  *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
  *   change it live; moving the pane does not restart its frame; dragging a panel onto the centre of another replaces
- *   it, with no tab and no ghost header left behind; a render-throwing version stays inside its frame; a panel
+ *   it, with no tab and no ghost header left behind; the assistant pane closes and the palette reopens it; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
@@ -92,11 +92,14 @@ type Layout = ReturnType<typeof DEFAULT_LAYOUT>;
 // Layouts follow the human across rooms: start this room from the default arrangement.
 await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
 
+/** layout:set allows 12 changes a minute: wait for the window instead of failing. */
+const setLayoutPatiently = (roomId: unknown, layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, () => undefined), "layout:set", 90_000);
+
 /** Open a stored panel as a pane through the engine's layout, as the assistant's open_panel does (the page follows). */
 async function openAsPane(slug: string) {
   const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
   if (Object.values(layout.panes).some(p => p.kind === "stored-panel" && p.slug === slug)) return;
-  await carol.mutation(fn.m("layout:set"), { roomId, layout: openPane(layout, { id: "", kind: "stored-panel", slug }).layout });
+  await setLayoutPatiently(roomId, openPane(layout, { id: "", kind: "stored-panel", slug }).layout);
 }
 /** Save a panel (and open it as a pane unless told not to). */
 async function save(slug: string, source: string, { open = true } = {}) {
@@ -178,7 +181,7 @@ await check("moving a panel's pane (the assistant to the right) does not restart
 });
 
 await check("dragging a panel onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
-  await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
   await page.waitForSelector("[data-testid=tab-p3]", { timeout: 15_000 });
   const panesNow = async () => Object.keys((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).sort();
   assert((await panesNow()).join() === "p1,p2,p3,p4", "the default layout has four panes");
@@ -194,12 +197,26 @@ await check("dragging a panel onto the centre of another replaces it: no tabs, n
   assert(tabCount === 3, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
   const stray = await page.evaluate(text => [...document.querySelectorAll("body *")].filter(el => el.children.length === 0 && el.textContent?.trim() === text && !el.closest("[data-testid^=tab-]")).length, (goal ?? "").trim().split("\n")[0]);
   assert(stray === 0, `${stray} stray copies of the dragged header's text outside the pane headers`);
-  // The assistant is never replaced, and never replaces a panel.
-  await page.locator("[data-testid=tab-p4]").dragTo(page.locator("[data-testid=pane-p1]"), { targetPosition: { x: 200, y: 120 } }).catch(() => undefined);
-  await sleep(1200);
-  assert((await panesNow()).join() === "p1,p2,p4", "dropping the assistant on a panel's centre changed the layout");
-  await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
   await openAsPane("e2e-live");   // the later checks use its frame
+});
+
+await check("the assistant is an ordinary pane: close it, and the palette's \"Open assistant\" brings it back", async () => {
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
+  await page.locator("[data-testid=button-close-p4]").click();
+  await page.waitForSelector("[data-testid=assistant-pane]", { state: "detached", timeout: 15_000 });
+  const kinds = async () => Object.values((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).map(p => p.kind);
+  await until(async () => !(await kinds()).includes("assistant") ? true : undefined, "the closed assistant is gone from the stored layout", 20_000);
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("[data-testid=dialog-palette]");
+  await page.keyboard.type("Open assistant");
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
+  await until(async () => (await kinds()).includes("assistant") ? true : undefined, "the reopened assistant is in the stored layout", 20_000);
+  assert(await page.locator("[data-testid=assistant-pane]").count() === 1, "one assistant pane");
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await openAsPane("e2e-live");
 });
 
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {

@@ -51,7 +51,7 @@ test("a layout is per human per room; the arrangement follows the human to a new
   // Compare-and-set: a stale write is refused; a broken layout is repaired, never stored broken.
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: side, ifUpdatedAt: written.updatedAt - 1 })), "CONFLICT");
   const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "pane", id: "x" }, panes: { x: { id: "x", kind: "panel", panelId: "nope" } } }, ifUpdatedAt: written.updatedAt });
-  assert.ok(repaired.warnings.some((w: string) => /unknown panel/.test(w)) && repaired.warnings.some((w: string) => /no assistant pane/.test(w)), repaired.warnings.join("\n"));
+  assert.ok(repaired.warnings.some((w: string) => /unknown panel/.test(w)) && !repaired.warnings.some((w: string) => /assistant/.test(w)), repaired.warnings.join("\n"));
   assert.equal(panelPane(repaired.layout, "x").panelId, "objects", "an unknown panel becomes the default panel");
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "pane", id: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "overview", params: { focus: "x".repeat(40_000) } } } } })), "BAD_REQUEST");
 });
@@ -90,7 +90,7 @@ test("the layout tools open, reparameterise, move and close panes as the human, 
   assert.equal(await errorCode(admin.mutation(internal.layout.setPanelParamsAs, { principal, paneId: "p2", params: {} })), "BAD_REQUEST", "the assistant pane has no parameters");
   const moved = await admin.mutation(internal.layout.movePaneAs, { principal, paneId: "p2", place: { relativeTo: "p1", direction: "right" } });
   assert.equal(moved.layout.root.type === "split" && moved.layout.root.direction, "row");
-  assert.equal(await errorCode(admin.mutation(internal.layout.closePaneAs, { principal, paneId: "p2" })), "CONFLICT", "the assistant stays");
+  assert.equal(await errorCode(admin.mutation(internal.layout.closePaneAs, { principal, paneId: "p2" })), "CONFLICT", "only the player closes the chat pane, never the assistant's tool");
   const closed = await admin.mutation(internal.layout.closePaneAs, { principal, paneId: opened.paneId });
   assert.deepEqual(Object.keys(closed.layout.panes).sort(), ["p1", "p2"]);
   assert.equal(await errorCode(admin.mutation(internal.layout.closePaneAs, { principal, paneId: "p1" })), "CONFLICT", "the last panel stays");
