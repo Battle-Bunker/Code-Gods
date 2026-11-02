@@ -2,6 +2,7 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
+const grant = v.union(permission, v.literal("account"));
 
 /**
  * Identity, device approval and scoped player credentials (owned by convex/auth). Better Auth keeps its own
@@ -33,7 +34,8 @@ export const authTables = {
    * current rotating refresh token, which expires after 30 days without use.
    */
   credentials: defineTable({
-    tokenHash: v.string(), subject: v.string(), roomId: v.string(), permission, label: v.string(),
+    /** `roomId` and a room `permission`, or (OAuth only) `permission: "account"` and no room: the human everywhere. */
+    tokenHash: v.string(), subject: v.string(), roomId: v.optional(v.string()), permission: grant, label: v.string(),
     createdAt: v.number(), expiresAt: v.number(), revokedAt: v.optional(v.number()), lastUsedAt: v.optional(v.number()),
     kind: v.optional(v.union(v.literal("device"), v.literal("oauth"), v.literal("assistant"))),
     clientId: v.optional(v.string()), refreshHash: v.optional(v.string()), refreshExpiresAt: v.optional(v.number()),

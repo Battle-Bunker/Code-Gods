@@ -9,7 +9,7 @@
 import { v, type Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import type { Viewer } from "../auth/access";
+import { actsAsHuman, type Viewer } from "../auth/access";
 import { fail } from "../lib/errors";
 import { credentialKind } from "../auth/principal";
 
@@ -19,7 +19,7 @@ export { principalV as principal, viewerOf as resolveViewer, type Principal } fr
 export type Author = Doc<"panelVersions">["author"];
 
 export function requireWriter(viewer: Viewer): void {
-  if (viewer.scope === "browser") return;
+  if (actsAsHuman(viewer)) return;
   if (viewer.permission !== "act" && viewer.permission !== "owner") fail("FORBIDDEN", "A read-only credential cannot change panels");
 }
 

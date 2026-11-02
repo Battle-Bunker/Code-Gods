@@ -32,7 +32,7 @@ export const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const MAX_BODY_BYTES = 16 * 1024;
 const CIMD_MAX_BYTES = 32 * 1024;
 const CIMD_TIMEOUT_MS = 5000;
-const SCOPES = ["read", "act", "owner"];
+const SCOPES = ["read", "act", "owner", "account"];
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type, mcp-protocol-version", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => jsonResponse(body, status, { Pragma: "no-cache", ...cors, ...headers });
@@ -170,7 +170,7 @@ const authorize = guarded(async (ctx, request) => {
   if (q.get("code_challenge_method") !== "S256" || !/^[A-Za-z0-9_-]{43}$/.test(challenge)) return error("invalid_request", "PKCE with code_challenge_method S256 is required");
   if (!resourceAllowed(q.get("resource"), siteUrls())) return error("invalid_target", `resource must be ${siteUrl()} or ${resourceUrl()}`);
   const permission = parseScope(q.get("scope"));
-  if (!permission) return error("invalid_scope", "scope is read, act or owner");
+  if (!permission) return error("invalid_scope", "scope is read, act or owner (one room), or account (every room)");
   // A Code Gods extension: the room to preselect on /connect (id, GUID or short code; resolved there).
   const roomHint = q.get("room");
   if (roomHint !== null && (!bounded(roomHint, 1, 64) || !printable(roomHint))) return error("invalid_request", "room must be a room id, GUID or short code");
@@ -204,14 +204,15 @@ const complete = guarded(async (ctx, request) => {
 
 /**
  * The token response. Besides RFC 6749's fields it names the grant (`room_id`, `room_code`, `credential_id`), so a
- * player app knows which room it may play without another call.
+ * player app knows which room it may play without another call; an account grant (`scope: "account"`) has no room
+ * (both null).
  */
-async function tokens(grant: { credentialId: string; subject: string; roomId: string; roomCode: string; permission: string }, refreshToken: string) {
+async function tokens(grant: { credentialId: string; subject: string; roomId?: string; roomCode: string | null; permission: string }, refreshToken: string) {
   const { token } = await mintPlayerJwt({ subject: grant.subject, credentialId: grant.credentialId, roomId: grant.roomId, permission: grant.permission },
     ACCESS_TOKEN_TTL_SECONDS);
   return json({
     access_token: token, token_type: "Bearer", expires_in: ACCESS_TOKEN_TTL_SECONDS, refresh_token: refreshToken, scope: grant.permission,
-    room_id: grant.roomId, room_code: grant.roomCode, credential_id: grant.credentialId,
+    room_id: grant.roomId ?? null, room_code: grant.roomCode, credential_id: grant.credentialId,
   });
 }
 

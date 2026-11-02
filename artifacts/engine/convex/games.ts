@@ -6,7 +6,7 @@
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
-import { requireViewer } from "./auth/access";
+import { actsAsHuman, requireViewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, publicGame } from "./lib/projection";
@@ -16,7 +16,7 @@ async function readable(ctx: QueryCtx, code: string) {
   const viewer = await requireViewer(ctx);
   const game = await findGame(ctx, code);
   if (!game) fail("NOT_FOUND", "Game not found");
-  if (viewer.scope !== "browser" && viewer.roomId !== game.roomId) fail("FORBIDDEN", "Wrong room scope");
+  if (!actsAsHuman(viewer) && viewer.roomId !== game.roomId) fail("FORBIDDEN", "Wrong room scope");
   const room = await ctx.db.get(game.roomId);
   if (room && isHistoric(room, game)) requireHistoricReaderAs(viewer, room, game);
   // A deleted room's games are past games with no owner left: their players only.

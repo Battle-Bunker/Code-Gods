@@ -14,6 +14,14 @@ const NOW = 1_000_000_000_000;
 const row = (over: Record<string, unknown> = {}) =>
   ({ subject: "alice", roomId: "room1", permission: "act" as const, expiresAt: NOW + 1000, ...over });
 
+test("credentialProblem: an account grant has no room to lose; one naming a room is malformed", () => {
+  const live = { subject: "u", permission: "account" as const, expiresAt: 2_000 };
+  assert.equal(credentialProblem(live, null, 1_000), null);
+  assert.equal(credentialProblem({ ...live, revokedAt: 500 }, null, 1_000), "revoked");
+  assert.equal(credentialProblem(live, null, 3_000), "expired");
+  assert.equal(credentialProblem({ ...live, roomId: "r" }, null, 1_000), "room_gone");
+});
+
 test("credentialProblem: a live grant passes; revoked, expired, missing room and lost ownership fail", () => {
   assert.equal(credentialProblem(row(), { ownerId: "bob" }, NOW), null, "act grants do not need ownership");
   assert.equal(credentialProblem(row({ revokedAt: NOW - 1 }), { ownerId: "bob" }, NOW), "revoked");
@@ -93,6 +101,9 @@ test("scopes: read, act and owner (default act); unknown scopes are refused", ()
   assert.equal(parseScope("act read"), "act", "the strongest requested scope");
   assert.equal(parseScope("owner"), "owner");
   assert.equal(parseScope("admin"), null);
+  // An account grant (docs/external-clients.md): alone, never mixed with a room permission.
+  assert.equal(parseScope("account"), "account");
+  assert.equal(parseScope("account act"), null);
 });
 
 test("Origin: absent passes; the site and configured origins pass; anything else is refused", () => {

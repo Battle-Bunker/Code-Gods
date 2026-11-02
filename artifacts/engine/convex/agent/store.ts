@@ -14,8 +14,10 @@ export type Who = {
   kind: "device" | "oauth" | "assistant"; label: string; expiresAt: number;
 };
 
-async function whoOf(ctx: QueryCtx, viewer: Viewer): Promise<Who> {
+/** Who for a room credential; null for an account grant, which the agent interface never accepts (it acts per room). */
+async function whoOf(ctx: QueryCtx, viewer: Viewer): Promise<Who | null> {
   const credential = (await ctx.db.get(ctx.db.normalizeId("credentials", viewer.credentialId!)!))!;
+  if (credential.permission === "account" || credential.roomId === undefined) return null;
   const roomId = ctx.db.normalizeId("rooms", credential.roomId);
   const room = roomId ? await ctx.db.get(roomId) : null;
   return {
@@ -49,6 +51,8 @@ export const authenticate = internalMutation({
     const row = (await ctx.db.get(id))!;
     // An OAuth credential is used only through its access tokens, never as a `cgc_` bearer.
     if (args.tokenHash && (row.kind ?? "device") !== "device") return null;
+    // An account grant is for apps; MCP, the CLI and assistants act through room credentials only.
+    if (row.permission === "account") return null;
     const now = Date.now();
     if (row.lastUsedAt === undefined || now - row.lastUsedAt > LAST_USED_RESOLUTION_MS) await ctx.db.patch(id, { lastUsedAt: now });
     return whoOf(ctx, viewer);

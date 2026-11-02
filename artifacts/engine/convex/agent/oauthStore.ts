@@ -12,6 +12,9 @@ import { constantTimeEqual } from "../auth/crypto";
 export const OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 /** An OAuth grant expires after 30 days without a refresh. */
 export const OAUTH_IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** An account grant (the human everywhere; docs/external-clients.md) expires sooner: after 7 days without a refresh. */
+export const ACCOUNT_IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const idleTtl = (grant: string) => (grant === "account" ? ACCOUNT_IDLE_TTL_MS : OAUTH_IDLE_TTL_MS);
 export const CIMD_CACHE_MS = 60 * 60 * 1000;
 /** Unauthenticated DCR is capped for the whole deployment: at most this many registrations per window. */
 export const DCR_WINDOW_MS = 10 * 60 * 1000;
@@ -24,7 +27,7 @@ export const DCR_UNUSED_TTL_MS = 24 * 60 * 60 * 1000;
  */
 export const RETIRED_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SWEEP_BATCH = 200;
-const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
+const grant = v.union(v.literal("read"), v.literal("act"), v.literal("owner"), v.literal("account"));
 
 export const getClient = internalQuery({
   args: { clientId: v.string() },
@@ -69,7 +72,7 @@ async function sweepRequests(ctx: MutationCtx) {
 export const createRequest = internalMutation({
   args: {
     keyHash: v.string(), clientId: v.string(), clientName: v.string(), redirectUri: v.string(), state: v.optional(v.string()),
-    codeChallenge: v.string(), permission, resource: v.string(), roomHint: v.optional(v.string()),
+    codeChallenge: v.string(), permission: grant, resource: v.string(), roomHint: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await sweepRequests(ctx);
@@ -125,22 +128,26 @@ export const redeemCode = internalMutation({
         (args.redirectUri !== undefined && args.redirectUri !== request.redirectUri) || !constantTimeEqual(request.codeChallenge, args.challenge)) {
       return { error: "invalid_grant" as const };
     }
-    const subject = request.subject!, roomId = request.roomId!, granted = request.grantedPermission!;
-    const room = await roomOf(ctx, roomId);
-    const member = room ? await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", room._id).eq("godId", subject)).unique() : null;
-    const facts = { subject, roomId, permission: granted, expiresAt: now + OAUTH_IDLE_TTL_MS };
-    if (!member || credentialProblem(facts, room, now)) {
-      await ctx.db.patch(request._id, { status: "redeemed" });
-      return { error: "invalid_grant" as const };
+    const subject = request.subject!, granted = request.grantedPermission!;
+    const ttl = idleTtl(granted);
+    let room: Doc<"rooms"> | null = null;
+    if (granted !== "account") {
+      room = await roomOf(ctx, request.roomId!);
+      const member = room ? await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", room!._id).eq("godId", subject)).unique() : null;
+      if (!member || credentialProblem({ subject, roomId: request.roomId!, permission: granted, expiresAt: now + ttl }, room, now)) {
+        await ctx.db.patch(request._id, { status: "redeemed" });
+        return { error: "invalid_grant" as const };
+      }
     }
+    const facts = { subject, permission: granted, expiresAt: now + ttl, ...(room ? { roomId: room._id as string } : {}) };
     const credentialId = await ctx.db.insert("credentials", {
       tokenHash: args.tokenHash, ...facts, label: request.clientName, createdAt: now, lastUsedAt: now,
-      kind: "oauth", clientId: request.clientId, refreshHash: args.refreshHash, refreshExpiresAt: now + OAUTH_IDLE_TTL_MS,
+      kind: "oauth", clientId: request.clientId, refreshHash: args.refreshHash, refreshExpiresAt: now + ttl,
     });
     await ctx.db.patch(request._id, { status: "redeemed", credentialId });
     const client = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", request.clientId)).unique();
     if (client) await ctx.db.patch(client._id, { usedAt: now });
-    return { credentialId, subject, roomId, roomCode: room!.shortCode, permission: granted };
+    return { credentialId, subject, roomId: facts.roomId, roomCode: room?.shortCode ?? null, permission: granted };
   },
 });
 
@@ -158,11 +165,12 @@ export const refresh = internalMutation({
       return { error: "invalid_grant" as const };
     }
     const now = Date.now();
-    const room = await roomOf(ctx, row.roomId);
-    if (row.kind !== "oauth" || row.clientId !== args.clientId || !room || credentialProblem(row, room, now)) return { error: "invalid_grant" as const };
+    const room = row.roomId === undefined ? null : await roomOf(ctx, row.roomId);
+    if (row.kind !== "oauth" || row.clientId !== args.clientId || credentialProblem(row, room, now)) return { error: "invalid_grant" as const };
+    const ttl = idleTtl(row.permission);
     await ctx.db.insert("oauthRetiredRefresh", { hash: args.refreshHash, credentialId: row._id, retiredAt: now });
-    await ctx.db.patch(row._id, { refreshHash: args.newRefreshHash, refreshExpiresAt: now + OAUTH_IDLE_TTL_MS, expiresAt: now + OAUTH_IDLE_TTL_MS, lastUsedAt: now });
-    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, roomCode: room.shortCode, permission: row.permission };
+    await ctx.db.patch(row._id, { refreshHash: args.newRefreshHash, refreshExpiresAt: now + ttl, expiresAt: now + ttl, lastUsedAt: now });
+    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, roomCode: room?.shortCode ?? null, permission: row.permission };
   },
 });
 

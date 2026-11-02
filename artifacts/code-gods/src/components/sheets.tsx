@@ -127,7 +127,7 @@ export function ConnectedAppsSheet({ open, onOpenChange, roomCode }: { open: boo
     <li key={c.credentialId} className="py-3 flex items-start gap-3 text-sm" data-testid={`row-credential-${c.credentialId}`}>
       <span className="flex-1 min-w-0">
         <span className="block break-words">{c.label || "Unlabelled app"} <span className="text-muted-foreground">(self-reported)</span></span>
-        <span className="block text-xs text-muted-foreground">{kindLabel(c.kind)} · {c.permission} · room {c.roomCode ?? "gone"} · expires {fmtWhen(c.expiresAt)}</span>
+        <span className="block text-xs text-muted-foreground">{kindLabel(c.kind)} · {c.permission === "account" ? "acts as you in every room" : <>{c.permission} · room {c.roomCode ?? "gone"}</>} · expires {fmtWhen(c.expiresAt)}</span>
         <span className="block text-xs text-muted-foreground">{c.lastUsedAt ? `last used ${fmtWhen(c.lastUsedAt)}` : "never used"}</span>
       </span>
       <button type="button" disabled={act.pending} data-testid={`button-revoke-${c.credentialId}`}

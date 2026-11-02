@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ConvexProviderWithAuth, useConvexAuth, useMutation, useQueries, useQuery } from "convex/react";
-import type { PlayerSession } from "@workspace/player-client/browser";
+import { isAccountSession, type PlayerSession } from "@workspace/player-client/browser";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { connectRoom, connection, convexClient, fetchAppAccessToken, playerAuth, type Connection } from "./connection";
@@ -92,8 +92,9 @@ function Hosted({ conn }: { conn: Connection }) {
       // /connect may have connected another room than the page named (the human chose it): follow the connection.
       const back = new URL(done.returnTo || BASE, location.origin);
       const parsed = parseRoute(BASE, back.pathname, back.search).route;
-      const same = "room" in parsed && roomKey(parsed.room) === roomKey(done.session.roomCode);
-      navigate(same ? `${back.pathname}${back.search}` : hrefTo({ kind: "room", room: done.session.roomCode }), { replace: true });
+      const connected = isAccountSession(done.session) ? null : done.session.roomCode;
+      const same = !connected || ("room" in parsed && roomKey(parsed.room) === roomKey(connected));
+      navigate(same ? `${back.pathname}${back.search}` : hrefTo({ kind: "room", room: connected }), { replace: true });
     }, e => { setError(messageOf(e)); setManual(true); }).finally(() => setCompleting(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

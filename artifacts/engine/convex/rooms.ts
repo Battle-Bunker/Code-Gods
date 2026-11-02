@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { requireViewer, type Viewer } from "./auth/access";
+import { actsAsHuman, requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
@@ -42,7 +42,7 @@ function checkAssistant(assistantBudget: number | undefined, assistantModel: str
 }
 
 /**
- * Create a room (browser login only). The creator owns it and is its first member, a spectator until they choose to
+ * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, a spectator until they choose to
  * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded First steps
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
  * removed it); an API caller may turn the in-client assistant on in the same call. The engine UI creates in one click
@@ -52,7 +52,7 @@ export const create = mutation({
   args: { assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
   handler: async (ctx, { assistantBudget, assistantModel }) => {
     const viewer = await requireViewer(ctx);
-    if (viewer.scope !== "browser") fail("FORBIDDEN", "Browser login required to create a room");
+    if (!actsAsHuman(viewer)) fail("FORBIDDEN", "Sign in (in a browser, or an app you allowed to act as you in every room) to create a room");
     checkAssistant(assistantBudget, assistantModel);
     const guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "rooms", guid);
@@ -79,7 +79,7 @@ export const list = query({
     const viewer = await requireViewer(ctx);
     const memberships = await ctx.db.query("members").withIndex("by_god", q => q.eq("godId", viewer.subject)).take(200);
     const rooms = (await Promise.all(memberships.map(m => ctx.db.get(m.roomId))))
-      .filter((r): r is Doc<"rooms"> => !!r && (viewer.scope === "browser" || viewer.roomId === r._id));
+      .filter((r): r is Doc<"rooms"> => !!r && (actsAsHuman(viewer) || viewer.roomId === r._id));
     const rows = await Promise.all(rooms.map(async r => {
       const game = r.activeGameId ? await ctx.db.get(r.activeGameId) : null;
       const live = game && game.phase !== "ended" ? game : null;
@@ -117,7 +117,7 @@ export const getAs = internalQuery({
 });
 
 /**
- * Join a room (browser login), as a player of the next game or as a spectator. Joining mid-game watches the running
+ * Join a room (the human everywhere, as for create), as a player of the next game or as a spectator. Joining mid-game watches the running
  * game (its spectators gain the newcomer: they may open its replay) and plays the next one unless `spectator`.
  */
 export const join = mutation({
@@ -125,7 +125,7 @@ export const join = mutation({
   handler: async (ctx, { room: ref, spectator = false }) => {
     const room = await requireRoom(ctx, ref);
     const viewer = await requireViewer(ctx);
-    if (viewer.scope !== "browser") fail("FORBIDDEN", "Browser login required to join");
+    if (!actsAsHuman(viewer)) fail("FORBIDDEN", "Sign in (in a browser, or an app you allowed to act as you in every room) to join");
     if (!await memberOf(ctx, room._id, viewer.subject)) {
       const members = await membersOf(ctx, room._id);
       if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);

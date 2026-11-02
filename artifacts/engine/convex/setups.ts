@@ -24,7 +24,7 @@ import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from "./_generated/server";
-import type { Viewer } from "./auth/access";
+import { actsAsHuman, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { displayName, principalV, viewerOf, type Principal } from "./lib/rooms";
 
@@ -161,7 +161,7 @@ export const resolve = internalQuery({
 // ------------------------------------------------------------------------------------------------
 
 function requireWriter(viewer: Viewer): void {
-  if (viewer.scope === "browser") return;
+  if (actsAsHuman(viewer)) return;
   if (viewer.permission !== "act" && viewer.permission !== "owner") fail("FORBIDDEN", "A read-only credential cannot change setups");
 }
 /** The refusal for changing a setup someone else (or the system) owns. */

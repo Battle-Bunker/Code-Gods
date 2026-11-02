@@ -1,6 +1,7 @@
 # External player clients
 
-Status: design adopted 2026-11-01. It extends [`surface-architecture.md`](surface-architecture.md) and
+Status: design adopted 2026-11-01; the account grant (decision 9, §3.3) added 2026-11-02 with the app unification
+(docs/unify-apps-plan.md §3). It extends [`surface-architecture.md`](surface-architecture.md) and
 [`player-client-integration.md`](player-client-integration.md). Routes and functions are in [`engine-api.md`](engine-api.md).
 
 **Goal.** A player can run their own client on any origin and change it freely with a coding agent during play. The
@@ -26,10 +27,12 @@ disclosure rules hold in the engine's queries.
 
 ## 2. Decisions
 
-1. **One way in for every client: a room credential, never the site session.** The engine site's Google session is
-   used only by the engine UI: signing in, approving connections and devices, creating and joining rooms, managing
-   credentials. Every player client authenticates with a **player JWT** naming a credential, the hosted `/client`
-   included.
+1. **Rights come from the human's Google identity, never from which app they run** (owner, 2026-11-02, superseding
+   "a room credential, never the site session"). The app served by the engine uses the site's Google session; the same
+   app, or any other, on another origin uses an **account grant** (decision 9) and gets the same rights. A **room
+   credential** (one room, one permission) remains the way in for agents, CLIs, the in-client assistant and any app
+   that wants least privilege. Only the consent surface stays with the site session on the engine's own origin:
+   approving connections and devices, listing and revoking credentials, and admin.
 2. **Browser apps on any origin use OAuth 2.1 with PKCE** (the authorization code flow, public clients), the same
    authorization server Claude uses. Changes:
    - any `https://` redirect URI can be registered (exact match; never a fragment or userinfo), as well as loopback http;
@@ -59,6 +62,15 @@ disclosure rules hold in the engine's queries.
    credential stays per (human, room) for the same reason.
 7. **MCP keeps its Origin allowlist.** Browser apps call Convex functions directly, through the SDK. MCP is for
    agents, which send no `Origin`. An operator can still list extra origins (`MCP_ALLOWED_ORIGINS`).
+9. **Account grants** (OAuth `scope=account`, alone). An app on any origin may ask to act as its human **in every
+   room**: list, create and join rooms, play, chat, run the rooms the human owns, save setups and panels. The engine
+   resolves it to a viewer with `scope: "account"`, which every game function treats like the browser session
+   (`access.ts` `actsAsHuman`). It cannot reach the consent surface (credentials, `/connect` and `/device` approval) or
+   admin, and `/mcp` refuses it (agents act per room). `/connect` shows "act as you in every room" with the app's
+   origin and needs the consent checkbox: an account grant is never approved without a click, first-party included.
+   It is approved as asked or denied (never turned into a room grant, or the reverse). Its refresh token rotates like
+   any OAuth grant's, reuse revokes it, and it expires after **7 days** without use (room grants: 30). It is listed
+   and revocable under "Your player apps".
 8. **The SDK lives in the repository** (`@workspace/player-client/browser`). Players fork this repository and change
    their client in place (the product rule), so a workspace package is the SDK. Publishing it to npm is a packaging
    step for later: the browser module depends only on `fetch`, Web Storage and `convex`.
@@ -114,6 +126,11 @@ The dev-server mode is unchanged: the credential lives in the Node dev server, a
   do whatever the credential allows. Give it a `read` credential for analytics work. An `act` credential lets it
   chat publicly and summon. The in-client assistant's confirmations do not apply to outside agents. Never give an
   agent an `owner` credential unless the human wants it to run the room.
+- **An account grant** (decision 9) widens what a client can do to everything its human can do in Code Gods, except
+  the consent surface and admin: create and join rooms, act in every room, owner actions in the rooms the human owns.
+  XSS in a player's own client therefore steals an account-wide refresh token instead of a room one. Mitigations: the
+  explicit consent naming the origin, 7 days idle expiry, rotation with reuse detection, revocation from the engine
+  site, per-human rate limits (unchanged), and no MCP. An app that does not need it asks for a room grant.
 - **A phishing page posing as a client** must still pass `/connect`, which shows its real origin. The first-party
   consent shortcut applies only to the engine's own origin.
 - **XSS in a player's own client** steals what that origin stores: the refresh token for one room. A player who
@@ -171,6 +188,9 @@ in `lib/player-client/src/protocol.ts`.
 - `test:auth`: CORS preflight and headers on every bearer endpoint for a foreign `Origin`; no CORS on `/api/auth/*`.
   A client "served" from `https://xyz.replit.dev` and from `http://localhost:5173` registers, is approved, exchanges
   its code, subscribes over the WebSocket, acts, and is revoked. The subscription then loses auth.
+- `test:mcp` (account grant): consent required, never auto-approved, never converted to or from a room grant; the
+  app lists, creates and joins rooms and plays in each as its human, never reaches credentials, approvals, admin or
+  `/mcp`; refresh rotates; revocation stops it at once.
 - `test:mcp`: https redirect URIs register, the same metadata gets the same client, the `resource` and `room` hints
   work, and first-party approval applies only to the hosted client's path and never to `owner`.
 - `lib/player-client` unit tests: the browser SDK's PKCE, state, storage per room, cross-tab refresh and reconnect.
