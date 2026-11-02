@@ -108,14 +108,16 @@ const typescriptFiles = () => ({
 /**
  * Pool sizes for a 512 MiB Node action, measured in lib/game-runtime/README.md ("Convex
  * measurements"): Python 2 workers (the compiled reactor and the initialized snapshot are shared);
- * TypeScript 1 compiler worker + 2 QuickJS execution workers; Haskell 1 MicroHs compiler worker (about 125 MiB of wasm
- * memory while it compiles) + 2 evaluator workers (QuickJS encodes their moves). Pools start lazily, on demand.
+ * TypeScript 1 compiler worker + 2 QuickJS execution workers; Haskell 1 MicroHs compiler worker (stopped when idle) +
+ * 1 evaluator worker (QuickJS encodes its moves). Pools start lazily, on demand.
  */
 export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
   python: { language: "python", workers: 2, queueLimit: 64, assets: pythonBundle },
   get typescript(): RuntimeOptions { return { language: "typescript", workers: 2, queueLimit: 64, typescriptFiles: typescriptFiles() }; },
+  // One evaluator worker, and a compiler that stops 30 s after its last compilation: MicroHs's compiler holds about
+  // 250 MiB while it runs (its heap and V8's optimised code), which a 512 MiB action cannot keep beside the others.
   get haskell(): RuntimeOptions {
-    return { language: "haskell", workers: 2, queueLimit: 64, assets: HASKELL.hook, typescriptFiles: typescriptFiles() };
+    return { language: "haskell", workers: 1, queueLimit: 64, compilerIdleMs: 30_000, assets: HASKELL.hook, typescriptFiles: typescriptFiles() };
   },
 };
 /**
