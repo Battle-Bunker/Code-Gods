@@ -15,6 +15,8 @@ import { createRuntime, loadPythonRuntime, typescriptPaths, type ActSettings, ty
 import { GRID_AGENTS, measure } from "@workspace/game-runtime/benchmark";
 import { assetLoad, bindRuntime, pythonBundle, runtimeFor, RUNTIME_OPTIONS } from "./node";
 import * as engine from "../engine/runtime";
+import { internal } from "../_generated/api";
+import { HASKELL_ACT_BATCH } from "../lib/haskellPrograms";
 
 const moduleLoadedAt = Date.now();
 const language = v.union(v.literal("python"), v.literal("typescript"), v.literal("haskell"));
@@ -103,9 +105,9 @@ export const smoke = internalAction({
 });
 
 /**
- * All three languages' agent pools busy at once on this instance, as a tick of a three-language game runs them
- * (deploy.yml): the Haskell agent compiled by another action, Python and TypeScript examined here meanwhile. Fails when
- * the instance's peak resident memory, sampled every 50 ms, passes `budgetMiB` (default 448 of the action's 512 MiB).
+ * A three-language game's agents all busy at once, as its tick runs them (deploy.yml): Python and TypeScript on this
+ * instance's pools, Haskell compiled and acted by actions of their own (runtime/haskellCompile.ts, haskellAct.ts). Fails
+ * when this instance's peak resident memory, sampled every 50 ms, passes `budgetMiB` (default 448 of the action's 512 MiB).
  */
 export const concurrent = internalAction({
   args: { acts: v.optional(v.number()), budgetMiB: v.optional(v.number()) },
@@ -125,6 +127,13 @@ export const concurrent = internalAction({
         return [lang, { cost: inspection.cost, acts: calls.length }] as const;
       }));
       Object.assign(out, Object.fromEntries(runs));
+      // The Haskell act action's own instance, under the same budget: a full batch of acts on its pool.
+      const { game, inputs } = room("haskell");
+      const haskell = await ctx.runAction(internal.runtime.haskellAct.acts, { settings: game,
+        requests: Array.from({ length: HASKELL_ACT_BATCH }, (_, i) => ({ source: GRID_AGENTS.haskell, input: inputs[i % inputs.length], seed: String(i) })) });
+      if (!haskell.replies.every(reply => reply.ok)) throw new Error(`Haskell acts failed: ${JSON.stringify(haskell.replies.find(reply => !reply.ok))}`);
+      out.haskellActRssMiB = haskell.rssMiB;
+      if (haskell.rssMiB > budgetMiB) throw new Error(`The Haskell act action held ${haskell.rssMiB} MiB, over the ${budgetMiB} MiB budget`);
     } finally { clearInterval(sampler); }
     peak = Math.max(peak, rssMiB());
     Object.assign(out, { peakRssMiB: peak, budgetMiB, seconds: Math.round(since(t) / 100) / 10 });
@@ -134,7 +143,7 @@ export const concurrent = internalAction({
 });
 
 /**
- * The production pools (runtime/node.ts: 2 Python + 2 TypeScript workers) all warm and busy at once:
+ * The production Python and TypeScript pools (runtime/node.ts RUNTIME_OPTIONS) all warm and busy at once:
  * the instance's memory footprint, and the combined throughput with both languages in flight.
  */
 export const footprint = internalAction({

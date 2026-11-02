@@ -101,6 +101,7 @@ import type * as player from "../player.js";
 import type * as receipts from "../receipts.js";
 import type * as rooms from "../rooms.js";
 import type * as runtime_assets from "../runtime/assets.js";
+import type * as runtime_haskellAct from "../runtime/haskellAct.js";
 import type * as runtime_haskellCompile from "../runtime/haskellCompile.js";
 import type * as runtime_haskellPrograms from "../runtime/haskellPrograms.js";
 import type * as runtime_node from "../runtime/node.js";
@@ -214,6 +215,7 @@ declare const fullApi: ApiFromModules<{
   receipts: typeof receipts;
   rooms: typeof rooms;
   "runtime/assets": typeof runtime_assets;
+  "runtime/haskellAct": typeof runtime_haskellAct;
   "runtime/haskellCompile": typeof runtime_haskellCompile;
   "runtime/haskellPrograms": typeof runtime_haskellPrograms;
   "runtime/node": typeof runtime_node;
