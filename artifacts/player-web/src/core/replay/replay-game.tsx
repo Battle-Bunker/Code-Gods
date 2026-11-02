@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useConvex } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
-import { buildReplay, cursorAtWorld, type ReplayPage } from "@workspace/player-client/replay";
+import { buildReplay, type ReplayPage } from "@workspace/player-client/replay";
 import { RoomProvider } from "@/sdk/context";
 import { ReplaySourceContext } from "@/sdk/replay-source";
 import { MyGoalProvider } from "@/sdk/goal";
@@ -62,8 +62,8 @@ export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room:
     if (!replay) return null;
     const p = parseReplayParams(location.search);
     const pov = replay.game.roster.findIndex(g => g.id === p.as);
-    const cursor = p.e !== undefined ? p.e : p.t !== undefined ? cursorAtWorld(replay, p.t) : replay.log.length;
-    return new ReplayController(replay, { roomId: room.id, roomShortCode: room.shortCode }, { cursor, speed: p.speed, ...(pov >= 0 ? { pov } : {}) });
+    const start = p.e !== undefined ? { cursor: p.e } : p.t !== undefined ? { cursor: 0, world: p.t } : { cursor: replay.log.length, world: Infinity };
+    return new ReplayController(replay, { roomId: room.id, roomShortCode: room.shortCode }, { ...start, speed: p.speed, ...(pov >= 0 ? { pov } : {}) });
   }, [replay, room.id, room.shortCode]);
   useEffect(() => {
     if (!controller) return;
@@ -81,11 +81,13 @@ export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room:
 function ReplayDock({ room, gameCode, access, controller, partial }: { room: Room; gameCode: string; access: Access; controller: ReplayController; partial?: string }) {
   const [agent, setAgent] = useState<string | null>(null);
   useReplayKeys(controller);
-  // The URL follows the playhead whenever it stops (never while playing).
+  // The URL follows the playhead whenever it stops (never while playing or dragging): the exact event after a step, else the time.
   useEffect(() => controller.subscribe(() => {
     const v = controller.get();
-    if (v.playing) return;
-    const search = replaySearch(location.search, { e: v.cursor, speed: v.speed, as: controller.replay.game.roster[v.pov]?.id });
+    if (v.playing || v.scrubbing) return;
+    const onEvent = v.cursor > 0 && v.world === controller.replay.worldMax[v.cursor - 1];
+    const as = controller.replay.game.roster[v.pov]?.id;
+    const search = replaySearch(location.search, onEvent ? { e: v.cursor, speed: v.speed, as } : { t: v.world, speed: v.speed, as });
     if (search !== location.search) history.replaceState(history.state, "", `${location.pathname}${search}`);
   }), [controller]);
   const sdkRoom = useMemo(() => ({ roomId: room.id, ...access }), [room.id, access]);

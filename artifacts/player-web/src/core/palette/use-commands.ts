@@ -35,7 +35,7 @@ const noView = () => null;
 function useReplayState(): PaletteState["replay"] {
   const c = useReplayController();
   const v = useSyncExternalStore(c ? c.subscribe : noSubscription, c ? c.get : noView);
-  const playing = !!v?.playing, atStart = v?.cursor === 0, atEnd = !!c && !!v && v.cursor >= c.end;
+  const playing = !!v?.playing, atStart = v?.cursor === 0, atEnd = !!c && !!v && v.cursor >= c.end && v.world >= c.endWorld;
   return useMemo(() => (c ? { playing, atStart, atEnd } : undefined), [c, playing, atStart, atEnd]);
 }
 
@@ -146,7 +146,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       watch: () => { if (state.roomCode && state.gameCode) navigate(hrefTo({ kind: "game", room: state.roomCode, game: state.gameCode })); },
       toggle: () => replayController?.toggle(),
       start: () => replayController?.seek(0),
-      end: () => replayController?.seek(replayController.end),
+      end: () => replayController?.seekWorld(replayController.endWorld),
     },
     notify,
   }), [replayController, game, wake, join, s.obs, permission, roomId, room, convex, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);

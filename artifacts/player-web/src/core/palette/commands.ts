@@ -295,7 +295,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       local(() => a.replay.toggle()), { keywords: ["replay", "play", "pause", "resume"], defaultScore: 8, ...always(inReplay) }),
     ui("ui.replay.start", "Replay: jump to the start", "Moves the replay's playhead to the game's first event (Home).", "play",
       local(() => a.replay.start()), { keywords: ["replay", "start", "beginning", "rewind", "home"], ...always(() => both(inReplay(), s.replay?.atStart ? no("The replay is at its start.") : OK)) }),
-    ui("ui.replay.end", "Replay: jump to the end", "Moves the replay's playhead to the game's last event (End).", "play",
+    ui("ui.replay.end", "Replay: jump to the end", "Moves the replay's playhead to the end of the game (End).", "play",
       local(() => a.replay.end()), { keywords: ["replay", "end", "final", "last"], ...always(() => both(inReplay(), s.replay?.atEnd ? no("The replay is at its end.") : OK)) }),
   ];
 

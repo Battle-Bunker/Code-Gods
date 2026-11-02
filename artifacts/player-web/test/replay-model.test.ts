@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, cursorAtFraction, describeEvent, endedGameReplay, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -37,15 +37,20 @@ test("event sentences name the god behind every move and what changed", () => {
   assert.equal(describeEvent({ type: "agent.destroyed", agentId: "aaaa1234", ownerId: "g1", worldSeconds: 4 }, names), "Ada destroyed agent 1234");
 });
 
-test("the scrub track maps a pointer's position to an event: clamped to the log, rounded to the nearest event", () => {
-  assert.equal(cursorAtFraction(0, 120), 0);
-  assert.equal(cursorAtFraction(1, 120), 120);
-  assert.equal(cursorAtFraction(0.5, 120), 60);
-  assert.equal(cursorAtFraction(0.504, 120), 60);
-  assert.equal(cursorAtFraction(-0.3, 120), 0, "left of the track is the start");
-  assert.equal(cursorAtFraction(1.7, 120), 120, "right of the track is the end");
-  assert.equal(cursorAtFraction(Number.NaN, 120), 0);
-  assert.equal(cursorAtFraction(0.5, 0), 0, "an empty log has one position");
+test("the scrub track maps a pointer's position to a world time along the game, clamped to it", () => {
+  assert.equal(worldAtFraction(0, 120), 0);
+  assert.equal(worldAtFraction(1, 120), 120);
+  assert.equal(worldAtFraction(0.25, 120), 30, "continuous: no rounding to events");
+  assert.equal(worldAtFraction(-0.3, 120), 0, "left of the track is the start");
+  assert.equal(worldAtFraction(1.7, 120), 120, "right of the track is the end");
+  assert.equal(worldAtFraction(Number.NaN, 120), 0);
+  assert.equal(worldAtFraction(0.5, 0), 0, "a game with no time has one position");
+});
+
+test("the URL keeps the moment: an exact event after a step, a world time anywhere else", () => {
+  assert.equal(replaySearch("?panels=off", { e: 12, speed: 2 }), "?panels=off&e=12");
+  assert.equal(replaySearch("?e=3", { t: 41.237, speed: 4 }), "?t=41.24&speed=4");
+  assert.deepEqual(parseReplayParams(replaySearch("", { t: 7.5, speed: 2 })), { t: 7.5, speed: 2, play: false });
 });
 
 test("the room page offers the replay of its game once that game has ended, to its players and the room's owner", () => {

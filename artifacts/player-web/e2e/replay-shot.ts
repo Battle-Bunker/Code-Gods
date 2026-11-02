@@ -98,12 +98,25 @@ const boardText = (page: import("playwright").Page) => page.locator("[data-testi
   await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2);
   await page.waitForSelector("[data-testid=replay-scrub-tooltip]");
   assert.match(await page.textContent("[data-testid=replay-scrub-tooltip]") ?? "", /\d+:\d\d · event \d+/);
+  // Drag from a fifth of the way to the middle in small steps: the playhead's time rises with every step (no jumping
+  // back), the clock follows, and on release the URL keeps the time.
+  const worldOf = async () => Number(await page.getAttribute("[data-testid=input-replay-scrub]", "data-world"));
+  const endWorld = Number(await page.getAttribute("[data-testid=input-replay-scrub]", "aria-valuemax"));
+  const y = track.y + track.height / 2;
+  await page.mouse.move(track.x + track.width * 0.2, y);
   await page.mouse.down();
-  await page.mouse.move(track.x + track.width * 0.45, track.y + track.height / 2, { steps: 4 });
-  await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2, { steps: 4 });
+  const seen: number[] = [];
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(track.x + track.width * (0.2 + 0.03 * i), y);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    seen.push(await worldOf());
+  }
+  assert.ok(seen.every((w, i) => i === 0 || w > seen[i - 1]), `the playhead's time rises with every step of the drag: ${seen.join(", ")}`);
+  assert.ok(!new URL(page.url()).searchParams.has("t"), "the URL waits for the release");
   await page.mouse.up();
   const middle = await cursorOf(page);
-  assert.ok(Math.abs(middle - total / 2) <= Math.max(2, total * 0.02), `dragging to the middle seeks there (${middle} of ${total})`);
+  assert.ok(Math.abs(await worldOf() - endWorld / 2) <= endWorld * 0.02, `dragging to the middle seeks there in time (${await worldOf()} of ${endWorld})`);
+  await page.waitForFunction(() => new URL(location.href).searchParams.has("t"), null, { timeout: 5000 });
   await page.waitForSelector("[data-testid^=row-object-]", { timeout: 15_000 });
   await page.screenshot({ path: `${OUT}/replay-bar-middle.png` });
   const atMiddle = await boardText(page);
@@ -231,6 +244,45 @@ const mid = Math.floor(events * 0.6);
   assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid=button-replay-play]") !== null, [play.x + play.width / 2, play.y + play.height / 2]), true, "play is not covered");
   await page.screenshot({ path: `${OUT}/replay-phone.png` });
   await context.close();
+}
+{
+  // A short video of smooth playback and scrubbing (docs/videos/replay/), for people to look at.
+  const VIDEO = `${OUT}/../../videos/replay`;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, recordVideo: { dir: VIDEO, size: { width: 960, height: 540 } } });
+  await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  const page = await context.newPage();
+  const recording = Date.now();
+  await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}?t=0&speed=2`);
+  await page.waitForSelector(T, { timeout: 60_000 });
+  await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
+  await sleep(1000);
+  const ready = (Date.now() - recording) / 1000 - 0.5;
+  await page.click("[data-testid=button-replay-play]");
+  await sleep(4000);
+  await page.click("[data-testid=button-replay-play]");
+  const track = (await page.locator("[data-testid=input-replay-scrub]").boundingBox())!;
+  const y = track.y + track.height / 2;
+  await page.mouse.move(track.x + track.width * 0.3, y);
+  await page.mouse.down();
+  for (let i = 0; i <= 40; i++) { await page.mouse.move(track.x + track.width * (0.3 + 0.012 * i), y); await sleep(40); }
+  for (let i = 40; i >= 0; i -= 2) { await page.mouse.move(track.x + track.width * (0.3 + 0.012 * i), y); await sleep(40); }
+  await page.mouse.up();
+  await page.selectOption("[data-testid=select-replay-speed]", "4");
+  await page.click("[data-testid=button-replay-play]");
+  await sleep(3000);
+  const video = page.video();
+  await context.close();
+  const { renameSync } = await import("node:fs");
+  if (video) {
+    // Cut the sign-in and loading screens and keep the file small (ffmpeg when available, else the raw recording).
+    const raw = await video.path();
+    try {
+      const { execFileSync } = await import("node:child_process");
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-ss", ready.toFixed(1), "-i", raw, "-c:v", "libvpx-vp9", "-b:v", "250k", "-an", `${VIDEO}/replay-smooth.webm`]);
+      const { rmSync } = await import("node:fs");
+      rmSync(raw);
+    } catch { renameSync(raw, `${VIDEO}/replay-smooth.webm`); }
+  }
 }
 console.log(JSON.stringify({ out: OUT, room: shortCode, game: gameCode, events }));
 await browser.close();

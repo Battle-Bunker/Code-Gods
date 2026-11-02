@@ -314,9 +314,18 @@ bottom) is the instrument:
   does): Space play/pause, ←/→ one event, Shift+←/→ previous/next key moment, Home/End, `[`/`]` speed down/up,
   `L` copy link.
 
-**Playback.** The playhead advances in world time at the chosen speed (¼×, ½×, 1×, 2×, 4×, 8×, 16×, 64×; default
-2×, since most of a game is waiting). "Skip quiet" (on by default) jumps over stretches with no events longer than
-2 s of playback. Stepping by event moves the cursor exactly one log entry, whatever its world time.
+**Playback (continuous, since the owner's "it jumps between events").** The playhead is a continuous world time
+(`ReplayView.world`) that advances at speed × real time, frame by frame (¼×, ½×, 1×, 2×, 4×, 8×, 16×, 64×; default 2×).
+Each event applies when the playhead crosses its world time, and events at the same time apply together. The board and
+every panel show exactly the events at or before the playhead (`cursorAtWorld`, over the log's running maximum of world
+time). Quiet stretches pass in scaled real time and are no longer skipped. The clock and the scrub thumb move every
+frame; the panels' answers at most every 125 ms. Pauses, recovery and the planning hold take no world time, so playback
+passes over them at once; their key-moment markers on the track and the notches on the Timeline show where they were.
+Stepping by event moves exactly one log entry and lands the playhead on that event's time. The track is laid out in
+world time. Dragging it (mouse, pen or touch, pointer capture, one seek per animation frame, keyframed seeks) moves the
+playhead continuously; the URL is written on release (`?t=` between events, `?e=` after a step). The clock is
+unit-tested in `test/replay-controller.test.ts` (`advance(ms)` drives it without a browser); `e2e:replay` drags in
+steps and checks the time rises, and records `docs/videos/replay/replay-smooth.webm`.
 
 **Parameters** (set by the assistant, like every panel): `overlay` (`curves` | `race`), `lanes` (which marker lanes),
 `axis` (`world` | `events`), `swings` (how many to mark, default 5).
