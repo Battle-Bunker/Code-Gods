@@ -1,5 +1,5 @@
 /** 🧮 Magic Accountant: each line's total against the magic number; every line's distance is the tie-break. */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import type { Cell, Part } from "../model.ts";
 
 type P = { axis: "rows" | "cols" | "both"; T: number };
@@ -7,6 +7,13 @@ type P = { axis: "rows" | "cols" | "both"; T: number };
 export const magicAccountant = lens<P>({
   familyId: "magic_accountant",
   components: (p) => [`lines adding up to ${p.T}`, `tie-break: how far the totals are from ${p.T}`],
+  breakdown: (p, _b, parts) => ({
+    unit: ["line", "lines"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: n => `${count(n, "line")} adding up to ${p.T}` },
+      { of: () => true, text: (n, pts) => `${count(n, "line")} that miss ${p.T}, ${-pts[1]} away in all (tie-break)` },
+    ]),
+  }),
   parts: (p, b) => {
     const lines: [string, Cell[]][] = [];
     if (p.axis !== "cols") for (let r = 0; r < b.N; r++) lines.push([`row ${r + 1}`, b.row(r)]);

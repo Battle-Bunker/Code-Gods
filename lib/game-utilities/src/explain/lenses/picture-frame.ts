@@ -1,5 +1,5 @@
 /** 🖼️ Picture Frame: all or nothing over the edge ring. Inside cells never matter. */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import type { Part } from "../model.ts";
 
 type P = { X: number };
@@ -7,6 +7,13 @@ type P = { X: number };
 export const pictureFrame = lens<P>({
   familyId: "picture_frame",
   components: () => ["frame"],
+  breakdown: (p, b, parts) => ({
+    unit: ["frame", "frames"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: () => `A complete ${b.spec.colourNames[p.X]} frame: every edge cell matches` },
+      { of: () => true, text: () => `The frame is broken: ${parts[0].spots?.length ?? 0} edge cell${parts[0].spots?.length === 1 ? "" : "s"} not ${b.spec.colourNames[p.X]}` },
+    ]),
+  }),
   parts: (p, b) => {
     const edge = b.cells.filter(x => b.isEdge(x)), name = b.spec.colourNames[p.X];
     const breakers = edge.filter(x => b.col(x) !== p.X), whole = breakers.length === 0;

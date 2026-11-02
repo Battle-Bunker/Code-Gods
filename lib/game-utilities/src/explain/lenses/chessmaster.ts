@@ -1,5 +1,5 @@
 /** ♟️ Chessmaster: 2×2 blocks that alternate like a chessboard (points); every A–B touch is the tie-break. */
-import { lens, orderParts } from "../lens.ts";
+import { lens, orderParts, tally, count } from "../lens.ts";
 import { hasCell, type Cell, type Part } from "../model.ts";
 
 type P = { A: number; B: number };
@@ -7,6 +7,14 @@ type P = { A: number; B: number };
 export const chessmaster = lens<P>({
   familyId: "chessmaster",
   components: (p, b) => ["chessboards", `tie-break: places where ${b.spec.colourNames[p.A]} touches ${b.spec.colourNames[p.B]}`],
+  breakdown: (p, b, parts) => ({
+    unit: ["chessboard", "chessboards"],
+    items: tally(parts, [
+      { of: t => t.shape === "block" && t.points[0] > 0, text: n => `${count(n, "little chessboard")} (2×2 blocks that alternate)` },
+      { of: t => t.shape === "block", text: n => `${count(n, "2×2 block")} that ${n === 1 ? "is" : "are"} not a chessboard` },
+      { of: () => true, text: n => `${count(n, "place")} where ${b.spec.colourNames[p.A]} touches ${b.spec.colourNames[p.B]} (tie-break)` },
+    ]),
+  }),
   parts: (p, b) => {
     const opposite = (x: Cell, y: Cell) => (b.col(x) === p.A && b.col(y) === p.B) || (b.col(x) === p.B && b.col(y) === p.A);
     const A = b.spec.colourNames[p.A], B = b.spec.colourNames[p.B];

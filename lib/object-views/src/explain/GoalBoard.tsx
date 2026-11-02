@@ -14,6 +14,7 @@ import {
   linkPath, moveFocus, outlinePath, pillPath, signed, type BoardGeometry,
 } from "./layout.ts";
 import { CellGlyph } from "../glyph.tsx";
+import { HowThisScores } from "./HowThisScores.tsx";
 
 export interface GoalBoardProps {
   goal: GoalExplainer;
@@ -39,6 +40,8 @@ export interface GoalBoardProps {
   steady?: boolean;
   /** The board's explanation when the caller already has it (else computed here). */
   explanation?: Explanation | null;
+  /** Show "How this scores" under the board (the viewer's own goal, when the explainer has tables). Default: true. */
+  howItScores?: boolean;
   testId?: string;
 }
 
@@ -146,7 +149,7 @@ interface Arrow { d: string; tone: Tone }
  * A board explained for one focus cell at a time. Without a rich explanation (a family without a lens, or an
  * explanation that does not add up to the card's score) it draws the board and its score only.
  */
-export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, view: chosen, steady, explanation: given, testId = "goal-board" }: GoalBoardProps) {
+export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, view: chosen, steady, explanation: given, howItScores = true, testId = "goal-board" }: GoalBoardProps) {
   const cue = useColourCueSetting();
   const model = useMemo(() => gridModel(value, grid), [value, grid.size, grid.symbols, grid.colours]);
   const size = model?.size ?? 0;
@@ -194,6 +197,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, v
     setArrows(out);
   }, [view, parts, badges, geo, focus, tick]);
 
+  const workings = useMemo(() => (howItScores && rich ? goal.workings(value) : null), [howItScores, rich, goal, value]);
   if (!model) return null;
   const px = boardPx(geo);
   const pick = (x: Cell) => { if (!controlled) setFocus(f => (f.r === x.r && f.c === x.c ? f : x)); };
@@ -269,6 +273,7 @@ export function GoalBoard({ goal, value, grid, initialFocus, caption, changed, v
           </div>
         )}
       </div>
+      {workings && <div className="mt-4"><HowThisScores workings={workings} /></div>}
       <svg className="pointer-events-none absolute inset-0 overflow-visible" width="100%" height="100%" aria-hidden>
         <defs>
           {(["gain", "loss", "zero"] as const).map(t => (

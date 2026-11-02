@@ -1,5 +1,5 @@
 /** 🤝 Number Bonds: touching pairs (right and down) whose numbers make the target. */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import type { Fact, Part } from "../model.ts";
 
 type P = { mode: "any" | "same" | "different" };
@@ -7,6 +7,13 @@ type P = { mode: "any" | "same" | "different" };
 export const numberBonds = lens<P>({
   familyId: "number_bonds",
   components: () => ["best friends"],
+  breakdown: (_p, b, parts) => ({
+    unit: ["best-friend pair", "best-friend pairs"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: n => `${count(n, "best-friend pair")} (touching, adding to ${b.spec.vmax + 1})` },
+      { of: () => true, text: n => `${count(n, "other touching pair")}, not best friends` },
+    ]),
+  }),
   parts: (p, b) => {
     const T = b.spec.vmax + 1, out: Part[] = [];
     for (const x of b.cells) {
