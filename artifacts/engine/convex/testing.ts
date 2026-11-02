@@ -180,6 +180,24 @@ export const endGames = internalMutation({
   },
 });
 
+/** Put an ended game back into its shape from before stored replays (no file), for migrations:backfillReplays' test. */
+export const forgetReplay = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    if (!game) return fail("NOT_FOUND", "no game");
+    if (game.replayStorageId) await ctx.storage.delete(game.replayStorageId);
+    await ctx.db.patch(gameId, { replayStorageId: undefined });
+  },
+});
+
+/** The games row as stored (no clock or engine merged in). */
+export const rawGameDoc = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => { dev(); return await ctx.db.get(gameId); },
+});
+
 /** Raw private state of a game (scores, descriptors, sources, endAtWorld) for parity checks. */
 export const rawGame = internalQuery({
   args: { gameId: v.id("games") },

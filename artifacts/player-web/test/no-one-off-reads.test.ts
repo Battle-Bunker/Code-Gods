@@ -19,8 +19,8 @@ const SRC = join(import.meta.dirname, "../src");
  * change that removes it. Shrinks only.
  */
 const ALLOWED: Record<string, { findings: number; why: string }> = {
-  "core/replay/replay-game.tsx": { findings: 3,
-    why: "an ended game's replay paged in one-off reads with a retry; replaced by one fetch of the stored replay (read-architecture §4.4, PR 7)" },
+  "core/replay/replay-game.tsx": { findings: 1,
+    why: "the paged replay (no retry) for a game without a stored replay; removed once migrations:backfillReplays reports done on dev and production (read-architecture §4.4)" },
   "site/lib/convex.tsx": { findings: 3,
     why: "useLive's resubscribe-on-error retry; removed once the page queries fit (read-architecture §6 PR 8, after the gate's debt is paid)" },
 };

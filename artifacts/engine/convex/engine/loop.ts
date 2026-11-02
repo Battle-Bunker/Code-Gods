@@ -99,6 +99,8 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
     ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
+  // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
+  await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
     await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });

@@ -166,6 +166,12 @@ export const gameTables = {
     scoreboard: v.optional(scoreboardV),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
+    /**
+     * The ended game's whole replay log in file storage (convex/replays.ts), written once after the end; the replay
+     * page fetches it in one read. Optional: a game ended before it existed gets one from migrations:backfillReplays,
+     * and a game whose build failed keeps the paged replay (player.replay).
+     */
+    replayStorageId: v.optional(v.id("_storage")),
     /** LEGACY (gameEngine.stats). */
     stats: v.optional(statsV),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])

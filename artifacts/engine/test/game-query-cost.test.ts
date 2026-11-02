@@ -62,6 +62,12 @@ before(async () => {
   assert.equal(device.status, 200, "the device request is pending");
   const { userCode } = await device.json();
 
+  // An ended game of the same players, with its stored replay (replays:url).
+  const ended = await roomWith([ada, bo, cy], { ...settings, startingObjectCount: 3 });
+  const endedGame = await startGame(ada, ended.roomId);
+  await ada.c.mutation(api.rooms.endActiveGame, { roomId: ended.roomId });
+  await waitFor(async () => (await ada.c.query(api.replays.url, { roomId: ended.roomId, gameId: endedGame.gameId })).url, "the ended game's stored replay", 60_000, 250);
+
   const game = await startGame(ada, roomId);
   gameId = game.gameId;
   let commandId = "";
@@ -75,7 +81,8 @@ before(async () => {
     const c = await admin.query(internal.testing.gameCounters, { gameId });
     return c?.phase === "running" && c.objectCount >= 1000 && c.worldSeconds > 2;
   }, "the game runs with 1,000 objects", 120_000, 500);
-  fixture = { roomId, roomCode: shortCode, gameId, gameCode: game.shortCode, setupId: room.setup.id, panelSlug: "gate", userCode, commandId };
+  fixture = { roomId, roomCode: shortCode, gameId, gameCode: game.shortCode, setupId: room.setup.id, panelSlug: "gate", userCode, commandId,
+    endedRoomId: ended.roomId, endedGameId: endedGame.gameId };
 });
 
 type Measured = { budget: Budget; docs: number; bytes: number; ms: number; runs: Execution[] };

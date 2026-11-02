@@ -15,39 +15,71 @@ import { ReplaySourceContext } from "@/sdk/replay-source";
 import { MyGoalProvider } from "@/sdk/goal";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "@/core/core-boundary";
+import { useLive } from "@/site/lib/convex";
 import { Link, hrefTo } from "../navigation";
 import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
-import { retryDelay, transientQueryError } from "@/lib/live-retry";
+import { pagesFromStored } from "./stored";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
+const LOADING: Load = { pages: [], done: false };
+const errorText = (error: unknown) => (error as { data?: { message?: string } }).data?.message ?? (error as Error).message;
 
-/** Every page of the game's replay (player.replay), fetched in order. */
-export function useReplayPages(roomId: string, gameId: string): Load {
-  const convex = useConvex();
-  const [load, setLoad] = useState<Load>({ pages: [], done: false });
+/**
+ * The game's whole replay: the file stored when it ended (replays.url, an immutable record fetched once), or, for a
+ * game whose replay is not stored yet (ended before stored replays; migrations:backfillReplays builds it), its pages.
+ */
+export function useReplayLoad(roomId: string, gameId: string): Load {
+  const stored = useLive(api.replays.url, { roomId, gameId });
+  // The source is chosen once per game: a page opened as the game ends pages its log, and the file stored a moment
+  // later does not rebuild the replay under the viewer.
+  const [source, setSource] = useState<{ gameId: string; stored: boolean } | null>(null);
+  const known = stored.data ? { gameId, stored: !!stored.data.url } : null;
+  useEffect(() => { if (known && source?.gameId !== gameId) setSource(known); }, [known?.gameId, known?.stored, source?.gameId, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const chosen = source?.gameId === gameId ? source : known;
+  const fetched = useStoredReplay(chosen?.stored && stored.data ? stored.data : null);
+  const paged = useReplayPages(roomId, gameId, chosen?.stored === false);
+  if (stored.error && !chosen) return { pages: [], done: true, error: errorText(stored.error) };
+  if (!chosen) return LOADING;
+  return chosen.stored ? fetched : paged;
+}
+
+/** One fetch of the stored file (no retry: a failure shows the game's final state with the error). */
+function useStoredReplay(stored: { url: string | null; version: number; viewer: ReplayPage["viewer"] } | null): Load {
+  const [load, setLoad] = useState<{ url: string; load: Load } | null>(null);
+  const url = stored?.url ?? null;
   useEffect(() => {
+    if (!stored || !url) return;
     let live = true;
-    setLoad({ pages: [], done: false });
+    void fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(`The stored replay did not download (HTTP ${r.status}).`))))
+      .then(file => pagesFromStored(file, stored.version, stored.viewer))
+      .then(pages => { if (live) setLoad({ url, load: { pages, done: true } }); },
+        error => { if (live) setLoad({ url, load: { pages: [], done: true, error: errorText(error) } }); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url]);
+  return load?.url === url ? load.load : LOADING;
+}
+
+/**
+ * Every page of the game's replay (player.replay), fetched in order: only for a game without a stored replay, until
+ * migrations:backfillReplays reports done everywhere. A failed page shows the game's final state with the error.
+ */
+function useReplayPages(roomId: string, gameId: string, enabled: boolean): Load {
+  const convex = useConvex();
+  const [load, setLoad] = useState<Load>(LOADING);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    setLoad(LOADING);
     void (async () => {
       const pages: ReplayPage[] = [];
       let cursor: { afterSeq: number; chatAfter: number; eventOffset?: number } | undefined;
       try {
         for (;;) {
-          let page: ReplayPage | undefined;
-          // A page that fails transiently (a timeout under load) is fetched again before the replay gives up.
-          for (let attempt = 0; !page; attempt++) {
-            try {
-              page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
-            } catch (error) {
-              if (!live) return;
-              if (attempt >= 4 || !transientQueryError(error)) throw error;
-              await new Promise(r => setTimeout(r, retryDelay(attempt)));
-              if (!live) return;
-            }
-          }
+          const page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
           if (!live) return;
           pages.push(page);
           setLoad({ pages: [...pages], done: page.done });
@@ -55,11 +87,11 @@ export function useReplayPages(roomId: string, gameId: string): Load {
           cursor = { afterSeq: page.nextCursor, chatAfter: page.chatCursor, ...(page.eventOffset !== undefined ? { eventOffset: page.eventOffset } : {}) };
         }
       } catch (error) {
-        if (live) setLoad({ pages, done: true, error: (error as { data?: { message?: string } }).data?.message ?? (error as Error).message });
+        if (live) setLoad({ pages, done: true, error: errorText(error) });
       }
     })();
     return () => { live = false; };
-  }, [convex, roomId, gameId]);
+  }, [convex, roomId, gameId, enabled]);
   return load;
 }
 
@@ -67,7 +99,7 @@ type Room = { id: string; shortCode: string };
 type Access = { permission: "read" | "act" | "owner"; mode: "devserver" | "site" };
 
 export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room: Room; gameId: string; gameCode: string; access: Access; fallback: (error: string) => ReactNode }) {
-  const load = useReplayPages(room.id, gameId);
+  const load = useReplayLoad(room.id, gameId);
   // Folded once, when every page is in: the playhead, a deep link and the curves all need the whole log.
   const replay = useMemo(() => (load.done && load.pages.length ? buildReplay(load.pages) : null), [load.done, load.pages]);
   const controller = useMemo(() => {
