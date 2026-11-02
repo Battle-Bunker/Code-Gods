@@ -78,7 +78,7 @@ export function Objects({ objects, instance, emptyBody = "Objects appear once th
   );
 }
 
-/** Public chat: the only free-text input on the engine UI's pages. */
+/** Public chat: the only free-text input on the site pages. */
 /** `closed`: why nobody can post here (e.g. the game is over); the composer is replaced by that line. */
 export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public chat", closed }: {
   messages: readonly ChatMessage[]; canPost: boolean; placeholder: string; pending: boolean;

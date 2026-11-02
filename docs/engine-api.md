@@ -275,8 +275,8 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
 | `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
-| `version.current` | query | infrastructure | Show deployed versions | The engine UI, player client and engine functions builds now live, so open pages can update themselves. | — |
-| `calibration.node.tables` | action | infrastructure | Load calibration tables | The calibration tables of a utility and its defence goal, for scoring values in the browser. | — (The player client's evaluator loads these itself; agents score values with evaluate_value.) |
+| `version.current` | query | infrastructure | Show deployed versions | The app's and the engine functions' builds now live, so open pages can update themselves. | — |
+| `calibration.node.tables` | action | infrastructure | Load calibration tables | The calibration tables of a utility and its defence goal, for scoring values in the browser. | — (The app's evaluator loads these itself; agents score values with evaluate_value.) |
 | `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a game setup, or changes the room's setup; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
 | `owner.command` | action | owner | Run an owner action | Settings, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
@@ -290,7 +290,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of a game of this room; past games open for their players. | `get_game_history` |
 | `player.replay` | query | player | Replay a game I played | Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move. | `get_replay` |
-| `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
+| `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.objectsPage` | query | player | Scroll the objects | Your objects a page at a time, by payoff, your bits or the others' care. | — (The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.) |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |

@@ -5,9 +5,9 @@
  * member (or a credential that may act), infrastructure entries a signed-in human. The confirmation level is the
  * palette spec's; test/search.test.ts checks that every entry reached by a destructive tool states one, so a new
  * destructive tool cannot land unconfirmed (checked there rather than here, to keep the tool schemas out of the
- * engine UI's bundle).
+ * site pages' bundle).
  */
-import { CATALOG, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
+import { CATALOG, onSurface, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
 import { paletteRows } from "./search.ts";
 import type { Availability, Command, PaletteContext, Performer } from "./types.ts";
 
@@ -39,7 +39,7 @@ export function commandsFromCatalog(
   const out: Command[] = [];
   for (const path of Object.keys(catalog) as PublicFunctionPath[]) {
     const entry: CatalogEntry = catalog[path];
-    if (!entry.palette || !entry.palette.surfaces.includes(surface)) continue;
+    if (!entry.palette || !onSurface(entry.palette, surface)) continue;
     const performer = bind(path, entry);
     if (!performer) continue;
     out.push({

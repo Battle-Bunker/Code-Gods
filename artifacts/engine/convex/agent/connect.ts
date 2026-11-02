@@ -1,5 +1,5 @@
 /**
- * The human's side of an MCP OAuth connection (the engine UI's /connect page, browser scope only):
+ * The human's side of an MCP OAuth connection (the engine site's /connect page, browser scope only):
  *
  *   query    agent/connect:pending ({request})                                → what to review, and the human's rooms
  *   mutation agent/connect:approve ({request, roomId?, permission, completion, ownerConsent?, accountConsent?})

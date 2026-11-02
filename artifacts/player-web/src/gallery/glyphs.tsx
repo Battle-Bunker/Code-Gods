@@ -30,7 +30,7 @@ const BOARDS = [
   { id: "base16", title: "6×6 hex", grid: { size: 6, symbols: "base16", colours: "rainbow6" }, value: board(6, "base16", k => k * 7) },
 ] as const;
 
-/** The dark scheme's digit shades on its page, as the engine UI's .dark sets them. */
+/** The dark scheme's digit shades on its page, as the app's .dark sets them. */
 const DARK: CSSProperties = Object.fromEntries([
   ...Object.entries(DIGIT_SHADES.rainbow6.dark).map(([l, hex]) => [textShadeToken(l), hex]),
   ["background", PAGE.dark], ["color", "#e8e6e3"],

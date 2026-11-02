@@ -25,7 +25,7 @@
  *
  * Sessions are stored per engine: one per room, and at most one account session. What this stores is a bearer
  * secret (for one room, or for the human's account): anything that runs script on the app's origin can read it.
- * Revoke it from the engine UI ("Your player apps") or signOut().
+ * Revoke it on the engine site (Connected apps) or signOut().
  */
 export type Permission = "read" | "act" | "owner";
 /** What a sign-in asks for: one room with a Permission, or the human's whole account. */

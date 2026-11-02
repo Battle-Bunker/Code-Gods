@@ -1,7 +1,7 @@
 /**
  * One source for tooltips (palette-and-pages.md §2.10): a button's or link's tooltip comes from the catalogue (or a
  * `ui.*` command) through components/action.tsx. This fails on a literal `title="…"` on a button or link anywhere
- * else in the engine UI, so a hand-written tooltip cannot drift from its palette row.
+ * else on the site pages, so a hand-written tooltip cannot drift from its palette row.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

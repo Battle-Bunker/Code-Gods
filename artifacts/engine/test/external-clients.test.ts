@@ -5,7 +5,7 @@
  * A client "served" from https://xyz.replit.dev or http://localhost:5173 sends that Origin on every request, as a
  * browser would, and must get CORS answers it can read: no cookies, no Access-Control-Allow-Credentials. Each
  * one signs in (OAuth + PKCE with a room hint, or the device flow), subscribes over the WebSocket, acts, and is
- * revoked. The human's side (/connect, /device, the credential list) is the engine UI's browser session,
+ * revoked. The human's side (/connect, /device, the credential list) is the engine site's browser session,
  * impersonated as in every engine suite (game-helpers.ts).
  */
 import test from "node:test";

@@ -13,7 +13,7 @@
  * rectangle and bar always carry a non-hue cue too (position, the labelled edges, the number).
  *
  * Both apps' index.css carry them as --cg-yours, --cg-others, --cg-ramp-low and --cg-ramp-high (light under :root,
- * the engine UI's dark theme under .dark); keep them in step with DIMENSION_COLOURS.
+ * the app's dark theme under .dark); keep them in step with DIMENSION_COLOURS.
  */
 import { hexOfLinear, linearOf, type Rgb } from "./colour-science.ts";
 import type { ShadeScheme } from "./grid-display.ts";

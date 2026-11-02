@@ -1,5 +1,5 @@
 /**
- * The engine UI's page vocabulary (palette-and-pages.md §4): a key/value strip (≤ 4 pairs, the only place for
+ * The site pages' vocabulary (palette-and-pages.md §4): a key/value strip (≤ 4 pairs, the only place for
  * `label-mono`), sections (≤ 4 per page; collapsible ones remember their state per viewer), empty states that always
  * name a next step, and the error line. Static: entrance motion is the page's own `rise`, once.
  */

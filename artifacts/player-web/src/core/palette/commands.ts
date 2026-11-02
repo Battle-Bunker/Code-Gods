@@ -203,7 +203,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "rooms.endActiveGame": { performer: submit(() => a.owner.endGame()), available: () => (live(s.phase) || s.preparing ? OK : no("No game is running.")) },
     "rooms.resume": { performer: submit(() => a.owner.resume()), available: () => (s.phase === "paused" ? OK : no("The game is not stopped.")) },
   };
-  const fromCatalog = commandsFromCatalog(CATALOG, (path: PublicFunctionPath, _entry: CatalogEntry) => BIND[path]?.performer ?? null, "player")
+  const fromCatalog = commandsFromCatalog(CATALOG, (path: PublicFunctionPath, _entry: CatalogEntry) => BIND[path]?.performer ?? null, "dock")
     .map(command => {
       const extra = BIND[command.id as PublicFunctionPath]?.available;
       const entry = CATALOG[command.id as PublicFunctionPath] as CatalogEntry;

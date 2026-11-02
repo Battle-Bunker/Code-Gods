@@ -11,7 +11,7 @@
  *
  * Environment:
  *   CODE_GODS_SITE_URL      engine site URL (default http://127.0.0.1:$CONVEX_LOCAL_SITE_PORT, else :3211)
- *   SKIP_DEPLOY=1           reuse the engine UI already uploaded to the site
+ *   SKIP_DEPLOY=1           reuse the app already uploaded to the site
  *   SHOTS_DIR               screenshots (default artifacts/player-web/e2e/shots, gitignored)
  * If the site does not answer, the script starts the engine itself (same port variables:
  * CONVEX_LOCAL_CLOUD_PORT, CONVEX_LOCAL_SITE_PORT, FAKE_OIDC_PORT) and stops it at the end.

@@ -1,5 +1,5 @@
 /**
- * Every engine UI page's frame (palette-and-pages.md §3.0): the header (wordmark, breadcrumb with the live dot, the
+ * Every site page's frame (palette-and-pages.md §3.0): the header (wordmark, breadcrumb with the live dot, the
  * palette trigger, the avatar menu) and the one command palette, plus the secondary surfaces the palette opens
  * (AI spending, connected apps, scoring, past games) and the AI-budget dialog.
  *
