@@ -119,6 +119,10 @@ async function signIn(browser: any, who: "alice" | "bob" | "carol" | "admin", vi
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e: Error) => errors.push(`${who}: ${e.message}`));
+  // An error boundary's caught error reaches the console only: keep it for the failure message.
+  const consoleErrors: string[] = [];
+  page.on("console", (m: { type(): string; text(): string }) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 600)); });
+  (page as unknown as { consoleErrors: string[] }).consoleErrors = consoleErrors;
   await page.goto(`${SITE}/`);
   await page.getByTestId("button-login").waitFor();
   const url = await page.evaluate(async () => {
@@ -457,7 +461,7 @@ try {
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
       await b.getByTestId("dock").waitFor({ timeout: 60_000 }).catch(async (error: Error) => {
         await shot(b, `game-player-${name}-failed`);
-        throw new Error(`${error.message}\n${b.url()}\n${(await b.locator("body").innerText()).slice(0, 1500)}`);
+        throw new Error(`${error.message}\n${b.url()}\n${(await b.locator("body").innerText()).slice(0, 1500)}\nconsole errors:\n${((b as unknown as { consoleErrors?: string[] }).consoleErrors ?? []).slice(-5).join("\n")}`);
       });
       assert.equal(await b.getByTestId("text-game-code").count(), 0, "a player gets the player view, not the spectator view");
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
