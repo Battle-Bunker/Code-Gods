@@ -23,9 +23,9 @@ the player's private assistant, waiting for a yes before it posts a deal in the 
 Every god gets a goal card that nobody else can see. It says, in plain words, which objects you like, and shows an
 example board. On a growing number of cards you can point at a square of that board to see how it counts.
 
-<img src="docs/readme/goal-card.webp" width="640" alt="A goal card called Kingdom: score 1 point for each cell in your biggest patch of red. Pointing at a cell explains how it counts.">
+<img src="docs/readme/goal-card.webp" width="640" alt="A goal card called Kingdom: score 1 point for each cell in your biggest patch of green. Pointing at a cell explains how it counts.">
 
-Here the goal is *Kingdom*: your colour is red, and you score 1 point for each cell in your biggest red patch. Other gods might want
+Here the goal is *Kingdom*: your colour is green, and you score 1 point for each cell in your biggest green patch. Other gods might want
 mirror-image columns, numbers that climb toward a corner, or islands of one colour. The card also shows the goal as a
 short program, for anyone who likes to read code.
 
