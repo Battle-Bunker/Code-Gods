@@ -170,9 +170,9 @@ export function PastGameRow({ g, roomCode, canOpen = true }: { g: GameRecord; ro
   return (
     <li className="px-4 py-3 space-y-1" data-testid={`row-game-${g.id}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        {canOpen
-          ? <Link href={roomCode ? gamePath(roomCode, g.shortCode) : `/games/${g.shortCode}`} className="font-mono font-semibold underline underline-offset-4" data-testid={`link-game-${g.shortCode}`}>{g.shortCode}</Link>
-          : <span className="font-mono font-semibold text-muted-foreground" title="Only the gods who played in it and the room owner can open it" data-testid={`text-game-${g.shortCode}`}>{g.shortCode}</span>}
+        {canOpen && roomCode
+          ? <Link href={gamePath(roomCode, g.shortCode)} className="font-mono font-semibold underline underline-offset-4" data-testid={`link-game-${g.shortCode}`}>{g.shortCode}</Link>
+          : <span className="font-mono font-semibold text-muted-foreground" title="Only the gods who played in it or watched it, and the room owner, can open it" data-testid={`text-game-${g.shortCode}`}>{g.shortCode}</span>}
         <time dateTime={isoWhen(g.startedAt)}>{fmtWhen(g.startedAt)}</time>
         {g.endedAt !== null && <span className="text-muted-foreground">{fmtDuration(toMs(g.endedAt) - toMs(g.startedAt))}</span>}
         <span className="text-muted-foreground">{endReasonLabel(g.endReason)}</span>
