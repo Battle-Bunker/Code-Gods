@@ -65,7 +65,7 @@ function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel
         fontSize: Math.round(px * 0.44), opacity: dim ? 0.32 : 1, transition: "opacity 120ms",
         ...(changed ? { outline: "2px solid currentColor", outlineOffset: -2 } : {}),
       }} data-changed={changed || undefined}>
-      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined }}><CellGlyph parts={cell.parts} /></span>
+      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined, ...(pattern ? { "--cg-glyph-halo": `drop-shadow(0 0 1px ${cell.css})` } as CSSProperties : {}) }}><CellGlyph parts={cell.parts} weight={600} /></span>
       {px > 24 && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );

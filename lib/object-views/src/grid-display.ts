@@ -68,15 +68,6 @@ export function glyphParts(code: string): GlyphParts {
   return { rank, suit, ten: rank === "10" };
 }
 
-/** Display cells a glyph takes: the rank is always one (the ten included), the suit one more. */
-export function glyphCells(parts: GlyphParts): number {
-  return 1 + (parts.suit ? 1 : 0);
-}
-
-function compactGlyph(code: string): string {
-  const g = glyphForCode(code);
-  return cardNames.has(code) ? g.slice(0, -1) : g;
-}
 
 function settingsArgs(s: GridSettings | undefined): GridTypeArgs | undefined {
   return s && isGridTypeArgs(s as Partial<GridTypeArgs>) ? (s as GridTypeArgs) : undefined;
@@ -97,9 +88,9 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
     const colourName = idx >= 0 ? palette!.names[idx] : base.name;
-    const sName = symbolName(code);
+    const sName = symbolName(code), parts = glyphParts(code);
     return {
-      code, letter, glyph: glyphForCode(code), compactGlyph: compactGlyph(code), parts: glyphParts(code),
+      code, letter, glyph: glyphForCode(code), compactGlyph: parts.rank, parts,
       symbolName: sName, colourName, name: `${sName}, ${colourName}`,
       ...tileColours(letter, set, base),
     };
@@ -135,6 +126,10 @@ export function changedCells(a: GridModel | null, b: GridModel | null): boolean[
 // ---------------------------------------------------------------------------------------------
 // The "digits" renderer: the grid as lines of raw glyphs, each coloured by its cell's colour.
 
+/**
+ * `text`, `pad` and `glyph` are the plain-text form (monospace text, where "10" takes two characters); the renderer
+ * draws `parts` at fixed widths instead, where every cell of a grid is the same width.
+ */
 export interface DigitsCell {
   /** Leading spaces that right-align this glyph with the widest one in the grid, in the plain-text line. */
   pad: string;

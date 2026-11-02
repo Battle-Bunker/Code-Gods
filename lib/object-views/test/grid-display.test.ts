@@ -4,7 +4,7 @@ import { COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS } from "@workspace
 import {
   TEXT_SHADES,
   COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
-  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphCells, glyphParts,
+  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
 
@@ -159,7 +159,7 @@ test("glyph parts: every symbol of every set draws its rank in exactly one chara
   for (const set of Object.values(SYMBOL_COMPONENTS)) {
     for (const code of set.codes) {
       const p = glyphParts(code);
-      assert.equal(glyphCells(p), set.suits ? 2 : 1, `${set.id} ${code}`);
+      assert.equal(p.suit === "", !set.suits, `${set.id} ${code}: a suit exactly for cards`);
       // Only the ten needs the custom glyph: every other rank is already a single character.
       assert.equal(p.ten || [...p.rank].length === 1, true, `${set.id} ${code}: ${p.rank}`);
       assert.equal(p.ten, p.rank === "10");

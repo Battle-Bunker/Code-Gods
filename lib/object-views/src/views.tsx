@@ -92,13 +92,14 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
     // Every rank is one character cell (the ten included, CellGlyph), so every cell of a grid draws at one size.
     fontSize: detail ? Math.round(px * 0.42) : px * 0.66,
     textShadow: showPattern ? `0 0 2px ${cell.css}, 0 0 1px ${cell.css}` : undefined,
+    ...(showPattern ? { "--cg-glyph-halo": `drop-shadow(0 0 1px ${cell.css}) drop-shadow(0 0 1px ${cell.css})` } as CSSProperties : {}),
     // Changed cells get an outline in the surrounding text colour (inherited), not a hue.
     ...(changed ? { outline: "2px solid currentColor", zIndex: 1 } : {}),
   };
   return (
     <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none" style={style} data-cell={`${cell.code}${cell.letter}`} data-changed={changed || undefined}>
       <span style={{ color: cell.ink, paddingBottom: detail ? Math.round(px * 0.12) : undefined }}>
-        {detail ? <CellGlyph parts={cell.parts} /> : <RankGlyph parts={cell.parts} />}
+        {detail ? <CellGlyph parts={cell.parts} weight={600} /> : <RankGlyph parts={cell.parts} weight={600} />}
         {!detail && wide && <span style={{ fontSize: "0.72em", marginLeft: 1 }}>{cell.letter}</span>}
       </span>
       {detail && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
@@ -143,7 +144,7 @@ function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourC
               color: textShadeVar(c.letter, model.colours),
               ...(c.changed ? { fontWeight: 800, boxShadow: "0 2px 0 currentColor" } : {}),
             }}>
-            <CellGlyph parts={c.parts} letter={cue === "letter" ? c.letter : undefined} />
+            <CellGlyph parts={c.parts} letter={cue === "letter" ? c.letter : undefined} weight={c.changed ? 800 : DIGIT_TYPE.weight} />
           </span>
       )))}
     </span>

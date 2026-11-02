@@ -4,7 +4,7 @@
  * shades. e2e/grid-glyphs.ts checks here that every card grid's columns are the same width in every row and that a grid
  * with tens is exactly as wide as one without, and takes the screenshots in docs/screenshots/ten-glyph/.
  */
-import { StrictMode, useEffect, type CSSProperties } from "react";
+import { StrictMode, type CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { SYMBOL_COMPONENTS, type GridSymbolSet } from "@workspace/game-types";
 import { DIGIT_SHADES, GridObject, PAGE, setColourCue, textShadeToken } from "@workspace/object-views";
@@ -54,9 +54,10 @@ function Panel({ scheme }: { scheme: "light" | "dark" }) {
   );
 }
 
+// The cue is set before the first render, so the page is measured as it asks.
+setColourCue(new URLSearchParams(location.search).get("cue") === "letter" ? "letter" : "pattern");
+
 function Gallery() {
-  const cue = new URLSearchParams(location.search).get("cue");
-  useEffect(() => { setColourCue(cue === "letter" ? "letter" : "pattern"); }, [cue]);
   return <main className="space-y-2" data-ready="true"><Panel scheme="light" /><Panel scheme="dark" /></main>;
 }
 

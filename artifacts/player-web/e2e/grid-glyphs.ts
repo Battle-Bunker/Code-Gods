@@ -24,9 +24,9 @@ await new Promise<void>((resolve, reject) => {
 });
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
-const browser = await chromium.launch();
 let failed = false;
 const round = (x: number) => Math.round(x * 100) / 100;
+const browser = await chromium.launch().catch((e: unknown) => { stop(); throw e; });
 try {
   if (OUT) mkdirSync(OUT, { recursive: true });
   for (const cue of ["pattern", "letter"] as const) {
