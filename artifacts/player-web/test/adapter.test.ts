@@ -7,12 +7,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, PRESET_LAYOUTS, openPane, parseLayout, type DockLayout } from "@workspace/player-client/layout";
+import { SINGLE_LAYOUT } from "./single-layout.ts";
 import { fromDockview, toDockview } from "../src/dock/adapter.ts";
 
 const ctx = { phase: "running" as const, storedSlugs: ["race-plus"] };
 /** Two panels stacked on the left (the top one tabbed with a stored panel), the assistant on the right. */
 function fixture(): DockLayout {
-  let layout = PRESET_LAYOUTS["two-panels"](DEFAULT_LAYOUT("running"));
+  let layout = PRESET_LAYOUTS["two-panels"](SINGLE_LAYOUT);
   layout = openPane(layout, { id: "", kind: "stored-panel", slug: "race-plus" }, { relativeTo: "p1", direction: "tab" }).layout;
   return parseLayout(layout, ctx).layout;
 }
@@ -79,7 +80,7 @@ test("a split whose direction repeats its parent's is nested under a one-child b
 });
 
 test("floating and pop-out groups fold back into the tree as tab groups on the right", () => {
-  const layout = DEFAULT_LAYOUT("running");
+  const layout = SINGLE_LAYOUT;
   const json = toDockview(layout);
   json.panels.f1 = { id: "f1", contentComponent: "panel", params: { pane: { id: "f1", kind: "panel", panelId: "race", params: {}, setBy: "human" } } };
   json.panels.w1 = { id: "w1", contentComponent: "panel", params: { pane: { id: "w1", kind: "panel", panelId: "feed", params: {}, setBy: "human" } } };
@@ -96,7 +97,7 @@ test("floating and pop-out groups fold back into the tree as tab groups on the r
 });
 
 test("panels without one of our panes are dropped, and a pane's id always follows the panel's", () => {
-  const json = toDockview(DEFAULT_LAYOUT("running"));
+  const json = toDockview(SINGLE_LAYOUT);
   json.panels.p1 = { id: "p1", contentComponent: "panel", params: { pane: { id: "other", kind: "panel", panelId: "race", params: {}, setBy: "human" } } };
   json.panels.p2 = { id: "p2", contentComponent: "assistant" };
   const back = fromDockview(json);

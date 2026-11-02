@@ -540,6 +540,9 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
 
 test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+  // Start from one default objects panel over the assistant (the mechanics below are about a single panel), not the full default dock.
+  await ann.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+    panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "default" }, p2: { id: "p2", kind: "assistant" } } } });
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "open_panel", input: { panelId: "objects", params: { limit: 4, filter: "chips" } } }] },
     { tools: [

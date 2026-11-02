@@ -9,6 +9,10 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, type DockLayout } from "@workspace/player-client/layout";
 import { admin, api, gods, internal, roomWith } from "./game-helpers.ts";
 
+/** The former one-panel default (objects over the assistant), stored for the human: these tests exercise one-panel mechanics. */
+const single = (): DockLayout => ({ version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+  panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "default" }, p2: { id: "p2", kind: "assistant" } } });
+
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
   return "no error";
@@ -55,6 +59,7 @@ test("a layout is per human per room; the arrangement follows the human to a new
 test("the layout tools open, reparameterise, move and close panes as the human, within the limits", async () => {
   const [ada] = await gods("Ada Tools");
   const { roomId } = await roomWith([ada]);
+  await ada.c.mutation(api.layout.set, { roomId, layout: single() });
   const act = await admin.mutation(internal.testing.seedCredential, { subject: ada.subject, roomId, permission: "act" });
   const principal = { credentialId: act };
   // Without a place, the default (never chosen) built-in panel is switched to the asked one: no pane is added to illustrate.
@@ -117,6 +122,7 @@ test("open_panel with a place reuses a pane already showing that panel with the 
   // to the one on screen, filling the dock with a copy.
   const [ada] = await gods("Ada Dupes");
   const { roomId } = await roomWith([ada]);
+  await ada.c.mutation(api.layout.set, { roomId, layout: single() });
   const act = await admin.mutation(internal.testing.seedCredential, { subject: ada.subject, roomId, permission: "act" });
   const principal = { credentialId: act };
   const start = await admin.query(internal.layout.currentAs, { principal });
