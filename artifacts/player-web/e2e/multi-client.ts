@@ -480,9 +480,9 @@ await check("the hosted player client (engine site, /client/) plays as the signe
   await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
   assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
   // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge, approvals.
-  // Carol's layout has My agents and public chat: wait for the chat's closed line, then let the other panes settle.
-  await page.getByTestId("text-chat-closed").waitFor({ timeout: 30_000 });
-  await sleep(1000);
+  // Whatever carol's layout holds: wait for its panels, let them settle, then look for controls in every one.
+  await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
+  await sleep(1500);
   for (const sel of ["[data-testid^=button-load-agent-]", "[data-testid^=button-destroy-agent-]", "[data-testid=input-chat]", "[data-testid=button-send-chat]",
     "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]", "[data-testid=button-confirm-approve]",
     "[data-testid=button-confirm-deny]", "[data-testid^=button-confirm-destroy-]"]) {
