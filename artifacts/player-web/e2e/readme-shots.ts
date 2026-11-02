@@ -2,15 +2,16 @@
  * The README's screenshots (docs/readme/), taken from a REAL game on the local engine:
  *
  *   pnpm --filter @workspace/engine dev            # in another terminal; wait for "[dev] READY"
- *   pnpm --filter @workspace/engine deploy-static  # builds the engine UI and /client/ into the local deployment
+ *   pnpm --filter @workspace/engine deploy-static  # builds the app (served at /) into the local deployment
  *   cd artifacts/player-web && node --experimental-transform-types e2e/readme-shots.ts <out-dir>
  *
  * Bob owns a First Steps room with Alice and two AI seats; the room allows Python, TypeScript and Haskell. Bob summons
  * a Python and a TypeScript agent, Alice a Haskell one, they talk in public chat, and the world runs. The script then
- * photographs Bob's hosted client: the live dock with the board, the leaderboard and the assistant (hero.png; the
- * assistant is the local mock provider, so its words are scripted here, while its tool calls are real), his goal card
- * with an annotation under the pointer (goal-card.png), the agent editor after a free validation (agent.png), and the
- * replay once the owner ends the game (replay.png). Raw PNGs at 2x; compress them before committing (docs/readme/README.md).
+ * photographs Bob's page of the game in the app on the engine's site (/rooms/:room/games/:game, signed in with his site
+ * session): the live dock with the board, the leaderboard and the assistant (hero.png; the assistant is the local mock
+ * provider, so its words are scripted here, while its tool calls are real), his goal card with an annotation under the
+ * pointer (goal-card.png), the agent editor after a free validation (agent.png), and the replay the same page shows
+ * once the owner ends the game (replay.png). Raw PNGs at 2x; compress them before committing (docs/readme/README.md).
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
@@ -74,7 +75,7 @@ await submit(bob, { type: "chat", text: "Maybe. What's it worth to you?" });
 await admin.mutation(fn.m("testing:patchGame"), { gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 100_000 }, kick: true });
 await sleep(20_000);
 
-// ---- Bob's hosted client ----------------------------------------------------------------------------------------
+// ---- Bob's game page ----------------------------------------------------------------------------------------------
 type Layout = Record<string, unknown>;
 const tabs = (id: string) => ({ type: "pane", id });
 const panel = (id: string, panelId: string) => ({ id, kind: "panel", panelId, params: {}, setBy: "human" });
@@ -87,7 +88,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 await context.addCookies(bob.session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
-const url = `${SITE}/client/rooms/${shortCode}/games/${gameCode}`;
+const url = `${SITE}/rooms/${shortCode}/games/${gameCode}`;   // Bob plays: his dock; once the game ends, its replay
 // Hero layout: the board by payoff, the leaderboard race (it samples while open) and the assistant.
 await setLayout({ version: 1, root: { type: "split", direction: "row", sizes: [56, 44], children: [tabs("p1"),
   { type: "split", direction: "column", sizes: [50, 50], children: [tabs("p3"), tabs("p2")] }] },

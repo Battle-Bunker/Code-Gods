@@ -11,14 +11,23 @@
  *     the real device flow) and Vite dev server on its own port.
  *   - Humans, driven by Playwright through each app's own UI, plus one mock AI seat.
  *
+ * Each app opens at its credential's room page (/rooms/CODE: "/" goes there); when the owner starts a game, the room
+ * page takes every app to the game's page (/rooms/CODE/games/G), which is the player's dock while the game runs and
+ * its replay once it has ended; between games the apps go back to the room page through the replay's header.
+ *
  * What it checks (each line printed as ok / FAIL):
- *   the dock: the default (three panels above the assistant, no tabs), the palette adds a panel and the panel menu changes it, the assistant closes and reopens, and the layout is stored in the engine; a
- *   layout written to the engine reaches the open client; full Int, string and Grid games (validate + summon in
- *   the Agent code panel, transformations, chat, owner end, room history); live HMR of a new panel in one app
- *   during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected); a
- *   syntax error contained in its pane; the room assistant acting for its player (chat, summon, owner start)
- *   through `pnpm player assistant`; disclosure in what the assistant receives; both frontends served by the
- *   engine's static hosting; the hosted client at phone size (390×844: no dockview, the assistant as a sheet).
+ *   each app shows its credential's room page with the members; in the first game, each app's dock is its own
+ *   player's; the dock: the default (three panels above the assistant, no tabs), the palette adds a panel and the
+ *   panel menu changes it, the assistant closes and reopens, and the layout is stored in the engine; a layout written
+ *   to the engine reaches the open client; full Int, string and Grid games (validate + summon in the Agent code
+ *   panel, transformations, chat, owner end: the page turns into the replay, room history); live HMR of a new panel
+ *   in one app during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected);
+ *   a syntax error contained in its pane; the room assistant acting for its player (chat, summon, owner start)
+ *   through `pnpm player assistant`; disclosure in what the assistant receives; the app served by the engine's
+ *   static hosting at / (every page path; anything else, /client/ included, is the app's not-found page); the app on
+ *   the engine's site, signed in with the site's session: the room page with its members' roles, the live game
+ *   opened from it as the player's dock, at phone size (390×844: no dockview, the assistant as a sheet), and ended
+ *   games' pages as their read-only replays.
  *
  * Commit before running: the simulated apps are worktrees of HEAD.
  */
@@ -191,20 +200,16 @@ for (const p of PLAYERS) await until(async () => { try { return (await fetch(`ht
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
 const pages = {} as Record<Player, import("playwright").Page>;
-const navigations = {} as Record<Player, number>;
 const pageErrors: string[] = [];
 for (const p of PLAYERS) {
   const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
   const page = await context.newPage();
-  navigations[p] = 0;
-  page.on("framenavigated", f => { if (f === page.mainFrame()) navigations[p]++; });
   page.on("pageerror", e => pageErrors.push(`${p}: ${e.message}`));
   await page.goto(`http://localhost:${PORTS[p]}/__codegods/launch?key=${LAUNCH_KEYS[p]}`); // the private launch link → the app
-  await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
-  // A dev-server app replaces "/" with its credential's room URL (a same-document navigation, which framenavigated
-  // also counts): from here on, one navigation means the page was never reloaded.
-  await page.waitForURL(url => /^\/rooms\/[0-9A-Z]+$/.test(url.pathname), { timeout: 30_000 });
-  navigations[p] = 1;
+  // A dev-server app replaces "/" with its credential's room page (a same-document navigation).
+  await page.waitForURL(url => /^\/rooms\/[0-9A-Z]+$/.test(url.pathname), { timeout: 60_000 });
+  await page.waitForSelector("[data-testid=text-room-code]", { timeout: 60_000 });
+  // From here on the app navigates in place (room page ⇄ game page): a reload would drop this marker.
   await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
   pages[p] = page;
 }
@@ -225,15 +230,27 @@ diagnose = async (label: string) => {
     console.log(`     ${p}: ${JSON.stringify(info)}`);
   }
 };
-const sameDocument = async (p: Player) => navigations[p] === 1 && await pages[p].evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker === "same-document");
+const sameDocument = async (p: Player) => await pages[p].evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker === "same-document");
 
-await check("each app is connected to the shared engine as its own player, with full names", async () => {
-  const names = { alice: "Alice Liddell", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
+const NAMES = { alice: "Alice Liddell", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
+await check("each app shows its credential's room page: the room's code and its three human members by name", async () => {
+  for (const p of PLAYERS) {
+    const page = pages[p];
+    assert(new URL(page.url()).pathname === `/rooms/${shortCode}`, `${p}: ${page.url()}`);
+    await until(async () => await page.textContent("[data-testid=text-room-code]") === shortCode, `${p}'s room code`, 30_000);
+    const members = await until(async () => { const t = await page.locator("[data-testid^=row-member-]").allTextContents(); return t.length >= 3 ? t.join(" | ") : undefined; }, `${p}'s members`, 30_000);
+    for (const q of PLAYERS) assert(members.includes(NAMES[q]), `${p}'s room page lists ${NAMES[q]}: ${members}`);
+  }
+});
+
+/** Each app's dock, once the game is on (the room page took the app there): its own player, its room, its mode. */
+async function dockChecks() {
+await check("each app's dock is connected to the shared engine as its own player, with full names", async () => {
   // The header fills in once each app's identity and room have loaded: poll, don't read once.
   const shows = (p: Player, testId: string, text: string) =>
     until(async () => await pages[p].textContent(`[data-testid=${testId}]`) === text, `${p} ${testId} = ${JSON.stringify(text)}`, 30_000);
   for (const p of PLAYERS) {
-    await shows(p, "text-self-label", names[p]);
+    await shows(p, "text-self-label", NAMES[p]);
     await shows(p, "text-room", shortCode);
     await shows(p, "text-mode", "your player app");
   }
@@ -264,6 +281,7 @@ await check("a layout written to the engine reaches each open client (four panel
   for (const p of PLAYERS) await arrangeForPlay(p);
   for (const p of PLAYERS) assert(await pages[p].locator("[data-testid=dock] [data-testid=menu-panel]").count() === 4, `${p}: four built-in panels`);
 });
+}
 
 await check("an AI seat with a budget joins the room (mock provider)", async () => {
   await owner("addAi", { aiAgentId: "sonnet-strategist" });
@@ -301,14 +319,25 @@ async function summonThroughUi(p: Player, language: string, source: string) {
   await page.waitForSelector("[data-testid^=row-agent-]", { timeout: 120_000 });
 }
 
-async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>, during?: () => Promise<void>) {
+/** The live game's short code (null between games). */
+async function activeGame() {
+  return (await (await ownerClient()).query(ref.query("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame?.shortCode ?? null;
+}
+async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>, during?: () => Promise<void>, first?: () => Promise<void>) {
   const { language, source } = AGENTS[type];
-  await check(`${type} game (${language}): owner configures and starts it`, async () => {
+  let gameCode = "";
+  await check(`${type} game (${language}): owner configures and starts it; the room page takes every app to the game's page, its dock`, async () => {
     // A long half-life: the game must not end by its (random) lifetime in the middle of the checks.
     await owner("settings", { settings: { objectType: type, languages: ["python", "typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
     await start();
-    for (const p of PLAYERS) await pages[p].waitForFunction(t => document.querySelector("[data-testid=text-phase]")?.textContent?.match(/planning|running/i), type, { timeout: 30_000 });
+    gameCode = await until(activeGame, "the game starts", 300_000);
+    for (const p of PLAYERS) {
+      await pages[p].waitForURL(url => url.pathname === `/rooms/${shortCode}/games/${gameCode}`, { timeout: 30_000 });
+      await pages[p].waitForFunction(() => document.querySelector("[data-testid=text-phase]")?.textContent?.match(/planning|running/i), null, { timeout: 60_000 });
+      assert(await sameDocument(p), `${p}'s page reloaded`);
+    }
   });
+  if (first) await first();
   await check(`${type} game: every human validates and summons an agent through their own app's UI`, async () => {
     await Promise.all(PLAYERS.map(p => summonThroughUi(p, language, source)));
   });
@@ -327,19 +356,28 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
     for (const p of ["alice", "carol"] as const) await pages[p].waitForFunction(t => document.body.textContent!.includes(t), text, { timeout: 20_000 });
   });
   if (during) await during();
-  await check(`${type} game: the owner ends it and it is in the room's history`, async () => {
+  await check(`${type} game: the owner ends it, every app's page turns into its replay, and it is in the room's history`, async () => {
     await owner("endGame");
     for (const p of PLAYERS) {
-      await pages[p].waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 })
-        .catch(async () => { throw new Error(`${p} still shows phase ${await pages[p].textContent("[data-testid=text-phase]")}`); });
+      await pages[p].waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 })
+        .catch(async () => { throw new Error(`${p} shows no replay; phase ${await pages[p].textContent("[data-testid=text-phase]").catch(() => "none")}`); });
+      assert(new URL(pages[p].url()).pathname === `/rooms/${shortCode}/games/${gameCode}`, `${p} left the game's page: ${pages[p].url()}`);
     }
     const history = await (await ownerClient()).query(ref.query("rooms:history"), { room: roomId }) as { settings: { objectType: string } }[];
     assert(history.some(h => h.settings.objectType === type), "history entry");
   });
+  await check(`${type} game: the replay's header leads each app back to the room page, without a reload`, async () => {
+    for (const p of PLAYERS) {
+      await pages[p].click("[data-testid=link-past-games]");
+      await pages[p].waitForURL(url => url.pathname === `/rooms/${shortCode}`, { timeout: 30_000 });
+      await pages[p].waitForSelector(`[data-testid=link-game-${gameCode}]`, { timeout: 30_000 });
+      assert(await sameDocument(p), `${p}'s page reloaded`);
+    }
+  });
 }
 
-// Int: started from the engine (the owner's browser session).
-await playGame("Int", () => owner("start"));
+// Int: started from the engine (the owner's browser session). The dock's own checks run in it first.
+await playGame("Int", () => owner("start"), undefined, dockChecks);
 
 // string: started by alice's coding agent as her room assistant, with an owner credential she approved.
 const ownerSecrets = await (async () => {
@@ -442,49 +480,106 @@ export default definePanel({ title: "Test live", placement: "left", Component() 
 // ------------------------------------------------------------------------------------------------
 // static hosting by the engine
 // ------------------------------------------------------------------------------------------------
-await check("the engine serves both frontends (static hosting with SPA fallback)", async () => {
+await check("the engine serves the app at / (static hosting with SPA fallback): every page path, and /client/ is just the app's not-found page", async () => {
   execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
-  for (const path of ["/", `/rooms/${shortCode}`, "/client/", `/client/rooms/${shortCode}`, `/player/?room=${shortCode}`]) {
+  for (const path of ["/", `/rooms/${shortCode}`, `/rooms/${shortCode}/configure`, `/rooms/${shortCode}/games/NOSUCHGAME`, "/connect", "/device", "/admin/agents", "/client/", `/client/rooms/${shortCode}`]) {
     const r = await fetch(`${SITE}${path}`);
     assert(r.ok && (r.headers.get("content-type") ?? "").includes("text/html"), `${path}: ${r.status} ${r.headers.get("content-type")}`);
   }
-  const html = await (await fetch(`${SITE}/client/`)).text();
-  const asset = html.match(/\/client\/assets\/[^"]+\.js/)?.[0];
-  assert(asset, "player asset link");
+  const html = await (await fetch(`${SITE}/`)).text();
+  const asset = html.match(/"(\/assets\/[^"]+\.js)"/)?.[1];
+  assert(asset, "the app's asset link");
   const r = await fetch(`${SITE}${asset}`);
   assert(r.ok && /javascript/.test(r.headers.get("content-type") ?? ""), `asset ${asset}: ${r.status}`);
-});
-await check("the hosted player client (engine site, /client/) plays as the signed-in human, and opens past games read-only", async () => {
+  const frame = await fetch(`${SITE}/panel-frame.html`);
+  assert(frame.ok && (await frame.text()).includes("Content-Security-Policy"), `the stored-panel frame: ${frame.status}`);
+  // No legacy alias: the old hosted client's address is the app's not-found page.
   const context = await browser.newContext();
-  // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
-  await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  await context.addCookies(cookiesOf("carol"));
   const page = await context.newPage();
-  // The hosted client is an OAuth client of its engine (docs/external-clients.md). An old invite link (/player/?room=)
-  // lands on /client/rooms/CODE; an unknown code ends on the engine's /connect page, which says so and offers the
-  // human's own rooms.
-  await page.goto(`${SITE}/player/?room=NOSUCHROOM`);
-  await page.waitForURL(url => url.pathname === "/connect", { timeout: 60_000 });
-  await page.getByTestId("text-connect-hint-unknown").waitFor({ timeout: 60_000 });
-  // A room carol is in: /connect approves the engine's own client without a click, and the client plays there.
-  await page.goto(`${SITE}/client/rooms/${shortCode.toLowerCase()}`);
-  await page.waitForURL(url => url.pathname === `/client/rooms/${shortCode}` && !url.searchParams.has("code"), { timeout: 60_000 });
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.getByTestId("text-not-found").waitFor({ timeout: 60_000 });
+  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}`, `no redirect: ${page.url()}`);
+  await context.close();
+});
+
+/** A browser signed in to the engine's site as `p` (seed-players' `session` is the cookie header their sign-in produced). */
+function cookiesOf(p: Player) {
+  return sessionOf(p).split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
+}
+// carol on the engine's own site: the app signs in with the site's session (no per-room connection).
+const site = await (async () => {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
+  await context.addCookies(cookiesOf("carol"));
+  const page = await context.newPage();
+  page.on("pageerror", e => pageErrors.push(`site: ${e.message}`));
+  return { context, page };
+})();
+let liveCode = "";
+await check("the app on the engine's site (carol's session) shows the room page with every member's role, and opens the live game from it as carol's dock", async () => {
+  const { page } = site;
+  // A fourth game, live before the page opens (the room page takes viewers to a game only when it launches).
+  await owner("start");
+  liveCode = await until(activeGame, "the game starts", 300_000);
+  await page.goto(`${SITE}/rooms/${shortCode.toLowerCase()}`);
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}`, { timeout: 60_000 });   // the canonical code
+  await page.getByTestId("panel-active-game").waitFor({ timeout: 60_000 });
+  const room = await (await ownerClient()).query(ref.query("rooms:get"), { room: roomId }) as { ownerId: string; members: { id: string; name: string; kind: string }[] };
+  for (const m of room.members) {
+    const seat = await until(async () => (await page.textContent(`[data-testid=text-member-seat-${m.id}]`).catch(() => null)) || undefined, `${m.name}'s role`, 30_000);
+    assert(m.kind === "ai" ? /AI/.test(seat) : /in the game/.test(seat), `${m.name}: ${seat}`);
+    if (m.id === room.ownerId) assert(/owner/.test(seat), `the owner's row: ${seat}`);
+  }
+  await page.getByTestId("link-active-game").click();
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}/games/${liveCode}`, { timeout: 30_000 });
+  await page.waitForSelector("[data-testid=dock]", { timeout: 60_000 });
   // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
   await page.waitForFunction(() => { const t = document.querySelector("[data-testid=text-self-label]")?.textContent; return !!t && t !== "—"; }, null, { timeout: 60_000 }).catch(() => {});
   const label = await page.textContent("[data-testid=text-self-label]");
-  assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
-  assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
-  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}`, `the room's canonical URL: ${page.url()}`);
-  // The room's past games, then one of them read-only, by in-app navigation.
+  assert(label === "Carol Nguyen", `the site's identity: ${JSON.stringify(label)}`);
+  assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "the site's mode");
+});
+
+await check("at phone size (390×844) the same layout is stacked, the assistant is a sheet, dockview is never loaded", async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  await context.addCookies(cookiesOf("carol"));
+  const page = await context.newPage();
+  const scripts: string[] = [];
+  page.on("request", r => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
+  page.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
+  await page.goto(`${SITE}/rooms/${shortCode}/games/${liveCode}`);
+  await page.waitForSelector("[data-testid=dock-stacked]", { timeout: 60_000 });
+  await page.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached" });
+  // carol's layout from the games: four built-in panels, each stacked with its own header.
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock-stacked] [data-testid=menu-panel]").length === 4, null, { timeout: 30_000 });
+  assert(await page.locator(".dv-dockview").count() === 0, "dockview rendered on a phone");
+  assert(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
+  const width = await page.evaluate(() => document.scrollingElement!.scrollWidth);
+  assert(width <= 390, `the page scrolls sideways: ${width}px`);
+  await page.click("[data-testid=button-sheet]");
+  await page.waitForSelector(".cg-sheet[data-snap=half] [data-testid=assistant-pane]", { timeout: 5_000 });
+  assert(await page.textContent("[data-testid=text-self-label]") === "Carol Nguyen", "identity on the phone");
+  await context.close();
+});
+
+await check("an ended game's page is its read-only replay: the open page turns into it, and an older game opens from the room's history", async () => {
+  const { page } = site;
+  await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
+  await owner("endGame");
+  await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
+  assert(new URL(page.url()).pathname === `/rooms/${shortCode}/games/${liveCode}`, `the ended game's URL: ${page.url()}`);
+  assert(await page.evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker === "same-document"), "the page reloaded");
+  // The room's past games, then the oldest of them, by in-app navigation.
   await page.getByTestId("link-past-games").click();
-  await page.getByTestId("screen-past-games").waitFor({ timeout: 30_000 });
-  // carol played the earlier games of this room, which a later launch made past games.
-  const links = page.locator("[data-testid^=link-past-game-]");
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}`, { timeout: 30_000 });
+  const links = page.locator("[data-testid^=link-game-]");
   await links.first().waitFor({ timeout: 30_000 });
-  const last = links.last();   // the oldest: a past game whatever the room is doing now
-  const code = (await last.getAttribute("data-testid"))!.replace("link-past-game-", "");
+  assert(await links.count() === 4, `four games in the room's history: ${await links.count()}`);
+  const last = links.last();   // the oldest
+  const code = (await last.getAttribute("data-testid"))!.replace("link-game-", "");
   await last.click();
   await page.getByTestId("historic-game").waitFor({ timeout: 30_000 });
-  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}/games/${code}`, `historic game URL: ${page.url()}`);
+  assert(new URL(page.url()).pathname === `/rooms/${shortCode}/games/${code}`, `historic game URL: ${page.url()}`);
   assert((await page.textContent("[data-testid=text-game-status]"))?.includes("read-only"), "read-only");
   // An ended game opens as its replay in the dock (docs/replay-design.md §4): the transport, and every player's standing.
   await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
@@ -498,29 +593,7 @@ await check("the hosted player client (engine site, /client/) plays as the signe
     "[data-testid=button-confirm-deny]", "[data-testid^=button-confirm-destroy-]"]) {
     assert(await page.locator(sel).count() === 0, `a read-only replay shows ${sel}`);
   }
-  await context.close();
-});
-
-await check("at phone size (390×844) the same layout is stacked, the assistant is a sheet, dockview is never loaded", async () => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
-  await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
-  const page = await context.newPage();
-  const scripts: string[] = [];
-  page.on("request", r => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
-  page.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await page.goto(`${SITE}/client/rooms/${shortCode}`);
-  await page.waitForSelector("[data-testid=dock-stacked]", { timeout: 60_000 });
-  await page.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached" });
-  // carol's layout from the games: four built-in panels, each stacked with its own header.
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock-stacked] [data-testid=menu-panel]").length === 4, null, { timeout: 30_000 });
-  assert(await page.locator(".dv-dockview").count() === 0, "dockview rendered on a phone");
-  assert(!scripts.some(url => /\/desktop-[^/]*\.(js|css)$/.test(url)), `the desktop dock was downloaded: ${scripts.filter(u => /desktop/.test(u)).join(", ")}`);
-  const width = await page.evaluate(() => document.scrollingElement!.scrollWidth);
-  assert(width <= 390, `the page scrolls sideways: ${width}px`);
-  await page.click("[data-testid=button-sheet]");
-  await page.waitForSelector(".cg-sheet[data-snap=half] [data-testid=assistant-pane]", { timeout: 5_000 });
-  assert(await page.textContent("[data-testid=text-self-label]") === "Carol Nguyen", "identity on the phone");
-  await context.close();
+  await site.context.close();
 });
 
 await check("no uncaught page errors in any player app", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));
