@@ -18,12 +18,14 @@ export const isLayoutChange = (tool: string) => LAYOUT.has(tool);
 
 /**
  * Does this call wait for the player's confirmation card? Public chat, pauses, destroying an agent, panel and setup deletion
- * and every owner action (not the owner's reads) always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and
+ * and every owner action (not the owner's reads, and set_spectator for another member) always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and
  * this turn already validated the same source at a cost of at most N. Layout (dock) tools never do: a view change
  * touches no game state and is reversible; the chat chip names it.
  */
-export function needsConfirmation(tool: string, _args: Record<string, unknown>, ctx: { autoApproveSummonBits?: number; validatedCost?: number }): boolean {
+export function needsConfirmation(tool: string, args: Record<string, unknown>, ctx: { autoApproveSummonBits?: number; validatedCost?: number }): boolean {
   if (OWNER_ACTIONS.has(tool) || ALWAYS_CONFIRM.has(tool)) return true;
+  // Watching or playing: the player's own choice runs at once; setting another member's is an owner action.
+  if (tool === "set_spectator") return args.deityId !== undefined;
   if (tool !== "summon_agent") return false;
   const limit = ctx.autoApproveSummonBits ?? 0;
   return !(limit > 0 && ctx.validatedCost !== undefined && ctx.validatedCost <= limit);

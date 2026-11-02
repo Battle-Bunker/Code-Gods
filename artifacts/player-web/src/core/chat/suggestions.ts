@@ -8,7 +8,7 @@ import type { Phase } from "@workspace/player-client/panels";
 
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
-  phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; members: number; assistantOn: boolean;
+  phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; players: number; assistantOn: boolean;
 };
 
 /** One chip in both forms: the question for the assistant, and the command that answers it without one. */
@@ -45,7 +45,7 @@ function chipsFor(ctx: SuggestionContext): Chip[] {
 export function suggestionsFor(ctx: SuggestionContext): Suggestion[] {
   const out: Suggestion[] = chipsFor(ctx).map(c => (ctx.assistantOn ? { label: c.ask, prompt: c.prompt ?? c.ask } : { label: c.off, command: c.command }));
   // An owner short of players needs seats before anything else; seating an AI is a form, never a prompt.
-  if (ctx.phase === "lobby" && ctx.isOwner && ctx.members < 3) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
+  if (ctx.phase === "lobby" && ctx.isOwner && ctx.players < 3) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
   return out.slice(0, 3);
 }
 

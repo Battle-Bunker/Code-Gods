@@ -204,7 +204,7 @@ URLs nest games in their rooms, in both apps: `/rooms/:room` and `/rooms/:room/g
 
 **Why:** The owner's instruction (2026-11-01): "make the player client URL schema as rich as the platform url schema and mirror it, but with the /client/ prefix", "nest games within rooms like /rooms/<id>/games/<id> (for both platform and client apps)", "It should be possible for the player client to visit historic games within a room they participated in", and treat `/client` as "a reference implementation of a separate app that we could run from Replit dev environments (or any other surface)".
 
-**How to apply:** Build engine UI paths with `artifacts/code-gods/src/lib/routes.ts` and client paths with `artifacts/player-web/src/core/routes.ts` (relative to Vite's base, never a hard-coded prefix). Keep old links (`/games/:code`, `?game=`, `?room=`, `/player/*`) redirecting. A past game (neither the room's active nor its current game) is readable only by the gods who played in it and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone.
+**How to apply:** Build engine UI paths with `artifacts/code-gods/src/lib/routes.ts` and client paths with `artifacts/player-web/src/core/routes.ts` (relative to Vite's base, never a hard-coded prefix). Keep old links (`/games/:code`, `?game=`, `?room=`, `/player/*`) redirecting. A past game (neither the room's active nor its current game) is readable only by the gods who played in it, its spectators and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone.
 
 Every player client, the hosted `/client/` one included, is an external app of the engine: it authenticates only with a room-scoped player token (OAuth + PKCE or the device flow, `@workspace/player-client/browser`), never with the engine site's session cookie, and calls only public catalogued functions.
 
@@ -242,3 +242,9 @@ The player can keep typing while their assistant works: messages queue in Convex
 ## The panel picker is a combobox (2026-11-02)
 
 **Rule:** the panel-type menu in a pane header is a Popover with a cmdk combobox (`dock/headers.tsx` PanelMenu): focused on open, typing filters fuzzily over names and synonyms with the palette's `matchScore` (`dock/panel-search.ts`, `PANEL_SYNONYMS`), sections kept ("For now", "Other panels", "Your panels" incl. the assistant), arrows/Enter select, Esc closes. Give a new built-in panel synonyms there (a unit test requires them).
+
+A room member is a player or a spectator of the next game. The owner starts as a spectator; a member sets it for themselves, the owner for any human member; AI seats always play. Only players are dealt in and count toward the 3 to 8.
+
+**Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
+
+**How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). docs/unify-apps-plan.md §2.

@@ -1,7 +1,7 @@
 /**
  * Public game pages: one game's own world, standings and chat (live while it runs, final once ended). The room's
  * current game is open to any signed-in viewer (and a credential of its room); a past one, which the room no longer
- * runs, only to the gods who played in it and the room owner (lib/rooms requireHistoricReaderAs).
+ * runs, only to the gods who played in it or watched it, and the room owner (lib/rooms requireHistoricReaderAs).
  */
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";

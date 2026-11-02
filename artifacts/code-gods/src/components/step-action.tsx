@@ -10,6 +10,7 @@ const TEST_IDS: Partial<Record<StepId, string>> = {
   "ui.auth.signIn": "button-login-room", "rooms.join": "button-join", "ui.nav.playerClient": "link-player", "rooms.setReady": "button-ready",
   "ui.copyInviteLink": "button-copy-link", "rooms.addAi": "button-add-ai", "owner.start": "button-start", "ui.nav.game": "link-running-game",
   "rooms.resume": "button-resume", "ui.nav.room": "button-back-to-room", "ui.nav.replay": "link-watch-replay",
+  "rooms.setSpectator": "button-spectator",
 };
 
 export function StepAction({ id, primary, roomCode, gameCode }: { id: StepId; primary?: boolean; roomCode?: string | null; gameCode?: string | null }) {

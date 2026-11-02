@@ -84,6 +84,7 @@ const sessionCookies = (header: string) => header.split("; ").map(pair => ({ nam
 const carol = new ConvexHttpClient(CLOUD);
 carol.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await carol.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await carol.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 // Earlier runs' panels of this identity would crowd the dock: start clean.
 for (const p of await carol.query(fn.q("panels:list"), {}) as { slug: string }[]) await carol.mutation(fn.m("panels:remove"), { slug: p.slug });
 
@@ -620,6 +621,7 @@ await check("a signed-out visit goes to the engine's /connect page, whose sign-i
 await check("the assistant timeline stays at the bottom when the suggestion chips appear under a long answer (mock provider)", async () => {
   // Real-provider testing hid the end of an answer under the chips: the timeline shrank without scrolling.
   const other = await carol.mutation(fn.m("rooms:create"), { assistantBudget: 400_000 }) as { roomId: string; shortCode: string };
+  await carol.mutation(fn.m("rooms:setSpectator"), { roomId: other.roomId, spectator: false });   // owners start as spectators; this one plays
   await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 0, assistantBudget: 400_000 });
   const chat = await browser.newContext({ viewport: { width: 1200, height: 700 } });
   await chat.addCookies(sessionCookies(session));

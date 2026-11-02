@@ -131,6 +131,9 @@ const watch = (stream, out) => stream.on("data", chunk => {
         .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
       runner("setups:ensureSeeded").then(() => log("Seeded the system setups."))
         .catch(error => console.error(`[dev] seeding the system setups failed (setup tests will fail): ${error.message}`)),
+      // A local deployment migrates its stored rows as every deploy does (CLAUDE.md "Schema migrations").
+      runner("migrations:runAll").then(() => log("Started the schema migrations (migrations:status)."))
+        .catch(error => console.error(`[dev] starting the schema migrations failed: ${error.message}`)),
     ]).finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });

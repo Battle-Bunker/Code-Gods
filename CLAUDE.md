@@ -26,3 +26,27 @@
   production (`.github/workflows/deploy.yml`, PILOT.md "Automatic deploys").
 - Running locally (no Convex account needed): `pnpm --filter @workspace/engine dev`. It starts the official
   CLI's local Convex backend plus a stand-in OIDC provider, which Better Auth offers as the test-only provider "fake" beside Google.
+
+## Schema migrations (the owner's standing instruction, 2026-11-02)
+
+Never wipe or reset stored data to get past a schema change: migrate it, as Convex recommends
+(the [`@convex-dev/migrations` component](https://www.npmjs.com/package/@convex-dev/migrations), whose README sets out these steps;
+[Stack: "Intro to migrations"](https://stack.convex.dev/intro-to-migrations) and
+["Migrating data with mutations"](https://stack.convex.dev/migrating-data-with-mutations)).
+
+1. **Widen.** Make the schema accept the old and the new shape: a new field as `v.optional(...)`, a removed value kept
+   in its union, a removed field made optional. Code reads both shapes (`?? default`). Writers write the new shape.
+2. **Migrate.** Add `export const <name> = migrations.define({ table, migrateOne })` in
+   `artifacts/engine/convex/migrations.ts`, idempotent (a row already in the new shape is left alone; return a patch
+   or nothing), and append it to `runAll`. The deploy workflow runs `scripts/run-migrations.mjs` after `convex deploy`;
+   it starts `runAll` and waits until `migrations:status` reports every one `success`, failing the deploy otherwise.
+   `pnpm --filter @workspace/engine dev` runs them on the local deployment too. Test it on legacy rows
+   (`test/game-schema-migrations.test.ts`: write the old shape with a `convex/testing.ts` fixture, run `runAll` with
+   `reset: true`, check every row, run again).
+3. **Narrow.** Only after dev **and** production report the migration done (`npx convex run migrations:status
+   [--prod]`), a later PR makes the field required (or drops the old value) and removes the fallbacks. Convex refuses to
+   deploy a schema the stored rows do not match, so a premature narrowing fails the deploy instead of corrupting data.
+
+Deleting a field or table follows the same steps (widen to optional, migrate it away, then remove it). The older
+hand-rolled steps in `convex/migrations.ts` (setupsV2, aiSeatNames, assistantPerGame) predate the component and keep
+their own workflow steps; new migrations never take that route.

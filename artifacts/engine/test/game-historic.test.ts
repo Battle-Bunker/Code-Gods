@@ -1,6 +1,6 @@
 /**
  * Historic games (the player client's /client/rooms/:room/games/:game read-only mode): a room's ended game that is no
- * longer its current game is readable only by the gods who played in it and the room's owner. The engine enforces this
+ * longer its current game is readable only by the gods who played in it or watched it and the room's owner. The engine enforces this
  * on every per-game read (player.game, player.history, player.events, player.trajectories), never the UI; what the
  * participant gets discloses nothing another god's live projection would not.
  */
@@ -20,16 +20,11 @@ test("a historic game opens read-only for its participants and the owner, and fo
   const summon = await bo.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: game1.gameId,
     command: { type: "summon", name: "Test agent", language: "typescript", source: `function agent(n) { const ${SECRET} = 1; return [add(${SECRET})]; }` } } });
   assert.equal(summon.accepted, true, summon.message);
-  // Cy joins mid-game: a member who never plays game 1.
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  // Cy joins after game 1 ended: a member who neither played nor watched it (a mid-game joiner watches: game-spectators).
   await cy.c.mutation(api.rooms.join, { room: shortCode });
 
-  // While game 1 is the room's current game (live, then ended until the next launch), every member reads it.
-  const live = await cy.c.query(api.player.game, { roomId, gameId: game1.gameId });
-  assert.equal(live.status, "active");
-  assert.equal(live.current, true);
-  assert.equal(live.seated, false);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  assert.equal((await cy.c.query(api.player.game, { roomId, gameId: game1.shortCode })).current, true, "the just-ended current game stays readable to members");
+  // While game 1 is the room's current game (ended, until the next launch), every member reads it.  assert.equal((await cy.c.query(api.player.game, { roomId, gameId: game1.shortCode })).current, true, "the just-ended current game stays readable to members");
 
   // Game 2 starts: game 1 is now historic.
   const game2 = await startGame(host, roomId);

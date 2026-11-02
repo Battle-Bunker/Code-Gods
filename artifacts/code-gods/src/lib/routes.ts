@@ -26,10 +26,10 @@ export function legacyGameCode(search: string): string | null {
 
 /**
  * Whether the viewer may open a finished game of the room's history (newest first, `index` in it): the gods who played
- * in it and the room owner, as the engine enforces (convex/lib/rooms requireHistoricReaderAs); between games the newest
+ * in it or watched it and the room owner, as the engine enforces (convex/lib/rooms requireHistoricReaderAs); between games the newest
  * is still the room's current game, open to every member.
  */
-export function canOpenGame(game: { roster: readonly { id: string }[] }, index: number, viewer: { meId?: string; ownerId?: string; roomLive: boolean }) {
+export function canOpenGame(game: { roster: readonly { id: string }[]; spectators?: readonly string[] }, index: number, viewer: { meId?: string; ownerId?: string; roomLive: boolean }) {
   if (index === 0 && !viewer.roomLive) return true;
-  return !!viewer.meId && (viewer.meId === viewer.ownerId || game.roster.some(m => m.id === viewer.meId));
+  return !!viewer.meId && (viewer.meId === viewer.ownerId || game.roster.some(m => m.id === viewer.meId) || !!game.spectators?.includes(viewer.meId));
 }

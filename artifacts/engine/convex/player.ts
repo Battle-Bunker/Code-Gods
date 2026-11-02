@@ -154,8 +154,8 @@ export const replayAs = internalQuery({
 export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number }) {
   const { room, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
   if (!game) return fail("NOT_FOUND", "Game not found in this room");
-  // As for every past game (lib/rooms requireHistoricReaderAs): its players and the room's owner.
-  if (index < 0 && room.ownerId !== caller.subject) return fail("FORBIDDEN", "Only the gods who played in it and the room owner can open a game's replay");
+  // As for every past game (lib/rooms requireHistoricReaderAs): its players, its spectators and the room's owner.
+  if (index < 0) requireHistoricReaderAs(caller, room, game);
   // The boundary of the transparency: nothing of a live game is revealed (its live reads keep hiding as before).
   if (game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
   const limit = Math.max(1, Math.min(REPLAY_PAGE_BATCHES, Math.floor(args.limit ?? REPLAY_PAGE_BATCHES)));

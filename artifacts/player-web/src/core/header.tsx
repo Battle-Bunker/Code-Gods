@@ -27,7 +27,7 @@ function phasePill(s: Situation, now: number): string {
   const live = obs.phase === "planning" || obs.phase === "running" || obs.phase === "paused";
   if (live && !s.seated) return `Spectating · ${obs.phase}`;
   switch (obs.phase) {
-    case "lobby": { const ready = s.room?.members.filter(m => m.ready).length; return s.room ? `Lobby · ${ready} of ${s.members} ready` : "Lobby"; }
+    case "lobby": { const ready = s.room?.members.filter(m => m.ready && !m.spectator).length; return s.room ? `Lobby · ${ready} of ${s.players} ready` : "Lobby"; }
     case "planning": {
       const left = countdown(obs.planningEndsAt);
       if (left) return `Planning · starts in ${left}`;

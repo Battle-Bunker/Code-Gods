@@ -10,7 +10,7 @@ import type { StartView } from "@workspace/player-client/start";
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
   "ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
-  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create", "ui.nav.replay",
+  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create", "ui.nav.replay", "rooms.setSpectator",
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 
@@ -26,7 +26,8 @@ export interface StepRoom {
   shortCode: string;
   ownerId: string;
   ownerName: string;
-  members: readonly { id: string; kind: string }[];
+  /** `spectator`: watches the next game (docs/unify-apps-plan.md §2); only players count toward the minimum. */
+  members: readonly { id: string; kind: string; spectator?: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   /** A start waiting for rule tables computed on demand (rooms.get `preparing`). */
   preparing?: { ready: number; total: number; error?: string } | null;
@@ -45,6 +46,7 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   const owner = room.ownerId === viewerId;
   const member = owner || room.members.some(m => m.id === viewerId);
   const seated = !!g && g.roster.some(r => r.id === viewerId);
+  const watching = !!room.members.find(m => m.id === viewerId)?.spectator;
   if (!member) {
     return g
       ? { status: `Game ${g.shortCode} is running; join to play the next one.`, primary: "rooms.join", secondary: ["ui.nav.game"] }
@@ -60,7 +62,7 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
     }
     return seated
       ? { status: `You're playing in game ${g.shortCode}.`, primary: "ui.nav.playerClient", secondary: ["ui.nav.game"] }
-      : { status: `Game ${g.shortCode} is running; you'll play in the next one.`, primary: "ui.nav.game", secondary: [] };
+      : { status: watching ? `Game ${g.shortCode} is running; you're watching.` : `Game ${g.shortCode} is running; you'll play in the next one.`, primary: "ui.nav.game", secondary: [] };
   }
   // The owner's start is pending (also a retry over a failed preparation; startView gives a preparation in progress
   // precedence): the start button stays the primary, rendered busy (components/step-action.tsx), so the click shows in place.
@@ -74,12 +76,16 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
       : { status: `Preparing the game failed; ${firstName(room.ownerName)} can retry.`, primary: "ui.nav.playerClient", secondary: [] };
     return { status: `Preparing rule tables: ${p.ready} of ${p.total} ready.`, primary: "ui.nav.playerClient", secondary: [] };
   }
-  const n = room.members.length;
-  if (!owner) return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "ui.nav.playerClient", secondary: ["rooms.setReady"] };
-  // The owner plays too: the player client stays one click away beside the AI seats.
-  const addAi: StepId[] = [...(ai && n < max ? ["rooms.addAi" as const] : []), "ui.nav.playerClient"];
-  if (n < min) return { status: `${plural(min - n, "more player")} needed.${ai ? " AI players count." : ""}`, primary: "ui.copyInviteLink", secondary: addAi };
-  return { status: `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: addAi };
+  const n = room.members.filter(m => !m.spectator).length;
+  if (!owner) {
+    if (watching) return n >= max ? { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }
+      : { status: "You'll watch the next game.", primary: "rooms.setSpectator", secondary: [] };
+    return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "ui.nav.playerClient", secondary: ["rooms.setReady"] };
+  }
+  // A playing owner keeps the player client one click away beside the AI seats; a watching one is offered to play.
+  const addAi: StepId[] = [...(watching ? ["rooms.setSpectator" as const] : []), ...(ai && n < max ? ["rooms.addAi" as const] : []), ...(watching ? [] : ["ui.nav.playerClient" as const])];
+  if (n < min) return { status: `${plural(min - n, "more player")} needed${watching ? "; you're watching" : ""}.${ai ? " AI players count." : ""}`, primary: "ui.copyInviteLink", secondary: addAi };
+  return { status: watching ? `${plural(n, "player")} are in; you're watching. Start when ready.` : `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: addAi };
 }
 
 export interface StepGame {
@@ -89,11 +95,12 @@ export interface StepGame {
   roomShortCode?: string | null;
   ownerId?: string | null;
   roster: readonly { id: string }[];
+  spectators?: readonly string[];
 }
 
-/** Whether the viewer may open an ended game's replay: its players and the room's owner (the engine's player.replay rule). */
-export function canWatchReplay(viewerId: string | null | undefined, game: { roster?: readonly { id: string }[]; ownerId?: string | null }): boolean {
-  return !!viewerId && (game.ownerId === viewerId || !!game.roster?.some(r => r.id === viewerId));
+/** Whether the viewer may open an ended game's replay: its players, its spectators and the room's owner (the engine's player.replay rule). */
+export function canWatchReplay(viewerId: string | null | undefined, game: { roster?: readonly { id: string }[]; spectators?: readonly string[]; ownerId?: string | null }): boolean {
+  return !!viewerId && (game.ownerId === viewerId || !!game.roster?.some(r => r.id === viewerId) || !!game.spectators?.includes(viewerId));
 }
 
 /** The game page's next step: seated players play; spectators watch (no button); after the end, its replay (or back to the room). */

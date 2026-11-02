@@ -68,3 +68,23 @@ test("the owner's click shows at once: Starting the game, the same primary butto
   const preparing = { ...ready, preparing: { ready: 12, total: 18 } };
   assert.equal(nextStep("ada", preparing, { start: { phase: "preparing", ready: 12, total: 18 } }).status, "Preparing rule tables: 12 of 18 ready.", "the room's own progress wins");
 });
+
+test("spectators (the owner by default) watch: only players count toward the minimum, and the step offers to play", () => {
+  const withRoles = (members: [string, boolean][], game: StepRoom["activeGame"] = null): StepRoom =>
+    ({ ...room([], game), members: members.map(([id, spectator]) => ({ id, kind: id.startsWith("ai:") ? "ai" : "human", spectator })) });
+  // Catches: a spectating owner counted as one of the three.
+  assert.deepEqual(nextStep("ada", withRoles([["ada", true], ["bob", false], ["cy", false]])),
+    { status: "1 more player needed; you're watching. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator", "rooms.addAi"] });
+  assert.deepEqual(nextStep("ada", withRoles([["ada", true], ["bob", false], ["cy", false], ["ai:x", false]])),
+    { status: "3 players are in; you're watching. Start when ready.", primary: "owner.start", secondary: ["rooms.setSpectator", "rooms.addAi"] });
+  assert.deepEqual(nextStep("bob", withRoles([["ada", false], ["bob", true]])), { status: "You'll watch the next game.", primary: "rooms.setSpectator", secondary: [] });
+  const full = withRoles([["bob", true], ...["a", "b", "c", "d", "e", "f", "g", "h"].map(id => [id, false] as [string, boolean])]);
+  assert.deepEqual(nextStep("bob", full), { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }, "no dead Play button");
+  assert.equal(nextStep("cy", withRoles([["ada", false], ["bob", false], ["cy", true]], running(["ada", "bob"]))).status, "Game G9TQ is running; you're watching.");
+});
+
+test("a game's spectators may open its replay, like its players", () => {
+  const g = { shortCode: "G9TQ", status: "ended", phase: "ended", roomShortCode: "K7QX", ownerId: "ada", roster: [{ id: "bob" }], spectators: ["cy"] };
+  assert.equal(gameStep("cy", g).primary, "ui.nav.replay");
+  assert.equal(gameStep("zed", g).primary, "ui.nav.room");
+});

@@ -35,6 +35,7 @@ const admin = new ConvexHttpClient(CLOUD);
 const as = async (who: string) => { const { session } = await login(who); const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(session)); return { c, session }; };
 const bob = await as("bob"), alice = await as("alice");
 const { roomId, shortCode } = await bob.c.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await bob.c.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 await alice.c.mutation(fn.m("rooms:join"), { room: roomId });
 const owner = (action: string, extra: Record<string, unknown> = {}) => bob.c.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await admin.mutation(fn.m("aiTemplates:ensureSeeded"), {});

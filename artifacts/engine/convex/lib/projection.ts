@@ -59,6 +59,7 @@ export function gameRecord(game: Game, objects: readonly Obj[]) {
     id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId,
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), leaderboard: board,
+    spectators: game.spectators ?? [],
     winners: board.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
@@ -77,7 +78,7 @@ export function publicGame(game: Game, objects: readonly Obj[], agentCount: numb
     objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience + (game.phase !== "ended" ? o.noise ?? 0 : 0) })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     recoveryReason: game.recoveryReason ?? null,
-    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry),
+    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators ?? [],
     objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
   };
@@ -98,7 +99,7 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     // The game setup the room runs; `settings` is its snapshot from when it was applied (null only before setups-v2).
     setup,
     members: members.map(m => ({
-      id: m.godId, name: m.name, kind: m.kind, ready: m.ready, ...(m.status ? { status: m.status } : {}),
+      id: m.godId, name: m.name, kind: m.kind, ready: m.ready, spectator: m.spectator ?? false, ...(m.status ? { status: m.status } : {}),
       // The seat's library agent is public by name, provider and model; its strategy prompt is not.
       ...(m.aiAgent ? { aiAgentId: m.aiAgent.id, aiAgentRevision: m.aiAgent.revision, provider: m.aiAgent.provider, model: m.aiAgent.model } : {}),
     })),
