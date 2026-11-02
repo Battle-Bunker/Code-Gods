@@ -78,15 +78,15 @@ function PayoffKey() {
 
 /** Before the world runs (the default panel in the lobby and during planning): what will appear here, and the next step. */
 function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "paneId" | "phase"> & { noun: string }) {
-  const { step, go, situation } = useNextStep(paneId, phase);
+  const { step, go, offered, situation } = useNextStep(paneId, phase);
   const now = useNow();
   const until = situation.obs?.planningEndsAt;
   const left = phase === "planning" && until && until > now ? Math.ceil((until - now) / 1000) : null;
   const when = phase === "lobby" ? "When the game starts and the world runs" : `When the world starts${left ? ` (in ${left} s)` : ""}`;
   return (
-    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}>
+    <PanelEmpty testId="panel-empty-objects" action={offered ? <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton> : undefined}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
-      your bits and whose height is what the others care, on one scale, so its area is your payoff. Next: {step.why}
+      your bits and whose height is what the others care, on one scale, so its area is your payoff.{offered ? ` Next: ${step.why}` : ""}
     </PanelEmpty>
   );
 }

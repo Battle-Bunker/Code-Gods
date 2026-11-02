@@ -168,7 +168,8 @@ function GameBody({ game, room }: { game: GameView; room?: { members: readonly {
           <Leaderboard rows={game.leaderboard} roster={game.roster} meId={user?.id} ownerId={game.ownerId} agentCount={game.agentCount}
             emptyBody={active ? "Scores appear once the world begins to run." : "No standings were recorded."} />
           <Chat messages={game.chat} canPost={canPost} pending={act.pending}
-            placeholder={!active ? "Game over; chat continues in the room" : canPost ? "Say something to everyone…" : "Join the room to chat"}
+            placeholder={canPost ? "Say something to everyone…" : "Join the room to chat"}
+            closed={active ? undefined : "Chat closed: the game is over. It continues in the room."}
             onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
         </div>
         <Objects objects={game.objects} instance={game.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />

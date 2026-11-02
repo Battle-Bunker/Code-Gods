@@ -11,7 +11,7 @@ import { useNextStep } from "./use-next-step";
 import { BigNumber, PreparingNote, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
 
 export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
-  const { step, go, situation: s, agents } = useNextStep(paneId, phase);
+  const { step, go, offered, situation: s, agents } = useNextStep(paneId, phase);
   const objects = useObjects({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const now = useNow();
@@ -22,7 +22,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
   }, [board, objects, s.obs?.self.godId]);
   const acting = agents.filter(a => a.eligible).length;
 
-  if (phase === "lobby") return <Lobby next={step} onNext={go} />;
+  if (phase === "lobby") return <Lobby next={step} onNext={go} offered={offered} />;
 
   const obs = s.obs;
   const until = phase === "planning" ? obs?.planningEndsAt : phase === "paused" ? obs?.pauseEndsAt : undefined;
@@ -44,7 +44,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>{situation}</p>
         <p>{middle}</p>
-        <p>Next: {step.why}</p>
+        {offered && <p>Next: {step.why}</p>}
       </div>
       <dl className="grid grid-cols-3 gap-4">
         <BigNumber label="Rank" value={standing.rank ? `${standing.rank}/${standing.of}` : "–"} testId="stat-rank" />
@@ -53,19 +53,19 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
           ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
           : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}
       </dl>
-      <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>
+      {offered && <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}
     </div>
   );
 }
 
-function Lobby({ next, onNext }: { next: ReturnType<typeof nextStep>; onNext: () => void }) {
+function Lobby({ next, onNext, offered }: { next: ReturnType<typeof nextStep>; onNext: () => void; offered: boolean }) {
   const { room, obs } = useSituation();
   return (
     <div className="space-y-6" data-testid="panel-overview">
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>You're in the lobby of room {room?.shortCode ?? obs?.roomShortCode ?? "…"}{room ? `, run by ${room.ownerName}` : ""}.</p>
         <p>When the owner starts the game, everyone gets a secret goal, then a short planning time to write a first agent before the world runs.</p>
-        <p>Next: {next.why}</p>
+        {offered && <p>Next: {next.why}</p>}
       </div>
       {room?.preparing && <PreparingNote preparing={room.preparing} />}
       {room && (
@@ -81,7 +81,7 @@ function Lobby({ next, onNext }: { next: ReturnType<typeof nextStep>; onNext: ()
           ))}
         </ul>
       )}
-      <PrimaryButton onClick={onNext} busy={next.busy} testId="button-next-step">{next.label}</PrimaryButton>
+      {offered && <PrimaryButton onClick={onNext} busy={next.busy} testId="button-next-step">{next.label}</PrimaryButton>}
     </div>
   );
 }

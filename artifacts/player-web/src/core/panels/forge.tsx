@@ -13,7 +13,8 @@ import { useMyAgents, useMutators, useObservation } from "@/sdk";
 import { LANGUAGE_SPECS } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
-import { GhostButton, PrimaryButton, TextButton, type PanelProps } from "./kit";
+import { useAffordances } from "@/core/use-affordances";
+import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
@@ -26,17 +27,21 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
   const shown = live?.source ?? params.source;
   const allowed = forgeLanguages(obs);
   const language: Lang = forgeLanguage(allowed, state.draft.language, params.language);
+  const can = useAffordances();
+  // Read-only (a replay, a read-only credential): the code can be read, never edited, so there is no editor.
+  const readOnly = !can.can.editCode.ok;
+  if (readOnly && !shown) return <PanelEmpty testId="panel-forge-readonly">{!can.can.editCode.ok && can.can.editCode.reason} Open an agent's code from {can.whose} agents.</PanelEmpty>;
   // Nothing to look at: the pane is the editor straight away.
-  const editing = state.editing || !shown;
+  const editing = !readOnly && (state.editing || !shown);
 
   if (!editing) {
     const lang = live?.language ?? forgeLanguage(allowed, params.language);
     return (
       <div className="space-y-3" data-testid="panel-forge">
-        <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? "The code of one of your agents, as it ran until the end." : "The code of one of your live agents.") : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
+        <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? `The code of one of ${can.whose} agents, as it ran until the end.` : `The code of one of ${can.whose} live agents.`) : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
-          <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>
+          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>}
           <span className="font-mono text-xs text-muted-foreground">{lang} · {bytes(shown!)} bytes</span>
         </div>
       </div>
@@ -51,7 +56,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const obs = useObservation({ hz: 2 });
   const { instance } = useMutators();
   const commands = useGameCommands();
-  const { draft, validation, busy, notice, unknown } = useRunner();
+  const { draft, validation, busy, notice } = useRunner();
+  const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
   const insert = (name: string) => {
@@ -62,7 +68,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   };
   // After the end the editor stays (read the code, copy it for the next game) but nothing can be validated or summoned.
   const sandbox = forgeSandbox(obs, language);
-  const gameplay = !!obs && !unknown && commands.canAct && !ended && sandbox.ready;
+  const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
@@ -104,15 +110,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim() || !!busy} onClick={() => void commands.run({ type: "validate", language, source })}>
+        <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!canSummon || !!busy || !name.trim()} onClick={() => void commands.run({ type: "summon", language, source, name: name.trim(), ...(description.trim() ? { description: description.trim() } : {}) })}>
+        <PrimaryButton testId="button-summon" disabled={!canSummon || !name.trim()} onClick={() => void commands.run({ type: "summon", language, source, name: name.trim(), ...(description.trim() ? { description: description.trim() } : {}) })}>
           <Sparkles size={14} /> {busy === "summon" ? "Summoning" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
       </div>
       {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">{sandbox.warming && <Loader2 size={12} className="animate-spin" />}{sandbox.text}</p>}
+      {!can.validate.ok && !ended && !sandbox.text && !busy && <p data-testid="text-forge-off" className="text-xs font-semibold text-muted-foreground">{can.validate.reason}</p>}
       {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
       <div data-testid="panel-validation" className="text-sm">
         {current ? (

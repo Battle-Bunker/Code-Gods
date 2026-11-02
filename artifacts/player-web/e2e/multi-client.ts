@@ -479,6 +479,15 @@ await check("the hosted player client (engine site, /client/) plays as the signe
   // An ended game opens as its replay in the dock (docs/replay-design.md §4): the transport, and every player's standing.
   await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
   assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
+  // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge, approvals.
+  // Whatever carol's layout holds: wait for its panels, let them settle, then look for controls in every one.
+  await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
+  await sleep(1500);
+  for (const sel of ["[data-testid^=button-load-agent-]", "[data-testid^=button-destroy-agent-]", "[data-testid=input-chat]", "[data-testid=button-send-chat]",
+    "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]", "[data-testid=button-confirm-approve]",
+    "[data-testid=button-confirm-deny]", "[data-testid^=button-confirm-destroy-]"]) {
+    assert(await page.locator(sel).count() === 0, `a read-only replay shows ${sel}`);
+  }
   await context.close();
 });
 

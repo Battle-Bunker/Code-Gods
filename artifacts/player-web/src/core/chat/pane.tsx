@@ -21,6 +21,7 @@ import { startTracker } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
 import { replayPlayhead, useReplayController } from "@/core/replay/parts";
+import { useAffordances } from "@/core/use-affordances";
 import { useNow, useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
@@ -286,10 +287,12 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
   const [details, setDetails] = useState(false);
   const now = useNow(1000);
   const card = useRef<HTMLDivElement>(null);
+  // In a replay the card says what the assistant asks, but approving waits for the live room.
+  const approve = useAffordances().can.approve;
   useEffect(() => { const t = setTimeout(() => setArmed(true), ARM_MS); return () => clearTimeout(t); }, []);
   useEffect(() => { dispatch({ type: "server", status: call.status }); }, [call.status]);
   const decide = async (decision: "approve" | "deny") => {
-    if (!armed || (state.phase !== "idle" && state.phase !== "error")) return;
+    if (!approve.ok || !armed || (state.phase !== "idle" && state.phase !== "error")) return;
     dispatch({ type: "submit", decision });
     try { await confirm({ toolCallId: call._id as Id<"assistantToolCalls">, decision }); dispatch({ type: "sent" }); }
     catch (e) { dispatch({ type: "failed", message: errorText(e) }); }
@@ -314,11 +317,14 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
       <div className="space-y-2 p-2.5 text-sm">
         <p className="font-medium">{confirmSentence(call, { energy, pauseSeconds })}</p>
         {state.phase === "error" && <p className="text-xs text-destructive">{state.message}</p>}
+        {!approve.ok && <p className="text-xs text-muted-foreground" data-testid="text-confirm-readonly">{approve.reason}</p>}
         <div className="flex items-center gap-2">
+          {approve.ok && <>
           <button type="button" disabled={busy || !armed} onClick={() => void decide("approve")} data-testid="button-confirm-approve" data-armed={armed}
             className="bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-40">Approve</button>
           <button type="button" disabled={busy || !armed} onClick={() => void decide("deny")} data-testid="button-confirm-deny"
             className="px-3 py-1 text-xs disabled:opacity-40">Not now</button>
+          </>}
           <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="ml-auto text-xs text-muted-foreground">Details {details ? "▾" : "▸"}</button>
         </div>
         {details && <div className="max-h-56 overflow-auto" data-testid="assistant-card-args"><ToolDetail call={call} /></div>}
