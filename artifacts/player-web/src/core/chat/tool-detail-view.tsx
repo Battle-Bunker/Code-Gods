@@ -4,7 +4,7 @@
  */
 import { highlight, toolDetail, type DetailCall, type Section, type TreeNode } from "./tool-detail";
 
-const TOKEN: Record<string, string> = {
+export const TOKEN: Record<string, string> = {
   keyword: "text-[hsl(var(--primary))] font-semibold", string: "text-[hsl(var(--accent))]", comment: "text-muted-foreground italic", number: "text-[hsl(var(--primary))]", plain: "",
 };
 const BOX = "max-h-64 overflow-auto bg-muted p-2";

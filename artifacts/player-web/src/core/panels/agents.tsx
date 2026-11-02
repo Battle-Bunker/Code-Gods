@@ -8,6 +8,8 @@ import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-
 import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands, useRunner } from "@/core/game/runner";
+import { AgentSource } from "./agent-source";
+import { pruneSourceOpen } from "./agent-source-state";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 
 type Sample = { at: number; energy: number; eligible: boolean };
@@ -25,6 +27,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   useEffect(() => {
     // Only live agents keep a history: a destroyed agent's (or a past game's) samples go.
     for (const id of [...history.keys()]) if (!all.some(a => a.id === id)) history.delete(id);
+    pruneSourceOpen(all.map(a => a.id));
     for (const a of all) {
       const list = history.get(a.id) ?? [];
       if (list.at(-1)?.at !== world) list.push({ at: world, energy: a.energy, eligible: a.eligible });
@@ -73,7 +76,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
                 </p>
               </div>
               {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} />}
-              {params.showSource && <pre className="max-h-28 overflow-auto bg-secondary p-2 font-mono text-[11px] text-secondary-foreground">{a.source}</pre>}
+              <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
               <div className="flex flex-wrap gap-4">
                 <TextButton testId={`button-load-agent-${a.id}`} onClick={() => dock.forgeEdit(a.source, a.language)}>Edit a copy</TextButton>
                 {confirm === a.id ? (<>
