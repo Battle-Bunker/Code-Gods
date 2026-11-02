@@ -3,7 +3,7 @@
 The room assistant is **delegation to the approving human**: the player's own coding agent acting
 for them in one room. It is not an AI seat, not a server identity, and not a verified model or
 workspace identity. It uses the same engine functions, permission checks and disclosure rules as
-the human's own player client, so it can do no more than the human could.
+the human's own app, so it can do no more than the human could.
 
 Run every command from the player app's repository root. `pnpm -s player …` (`-s` keeps pnpm's
 banner out of the JSON) runs `lib/player-client/src/cli.ts`.
@@ -102,14 +102,14 @@ finish with `get_receipt`.
 The tools cover everything the human can do in their client, in four groups: reads (`get_observation`,
 `get_rules`, `get_my_utility`, `evaluate_value`, `get_events`, `get_trajectories`, `get_chat`, `list_games`,
 `get_game_history`, `get_receipt`, `whoami`), acts (`validate_agent`, `summon_agent`, `destroy_agent`,
-`set_ready`, `send_chat`, `pause_game`, `wake_engine`), the human's game setups (`list_setups` to read;
+`set_ready`, `send_chat`, `pause_game`, `wake_engine`, `set_spectator` to watch or play the next game), the human's game setups (`list_setups` to read;
 `save_setup` and `delete_setup` with an act grant: named complete settings, the seeded defaults plus the human's
 own, across their rooms), the human's stored panels (`list_panels`, `get_panel`,
 `save_panel`, `rollback_panel`, `delete_panel`) and their screen (`get_layout`, then `open_panel` for a built-in
-or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: the player client is a dock of panels whose
+or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: a seated player's game is a dock of panels whose
 built-in panels' parameters only an assistant sets; `docs/ui-redesign.md`). Owner grants add `get_room_state`,
 `get_ai_catalog`, `update_settings` (a `setupId` from `list_setups`, or the settings fields to change),
-`start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai`. In the in-client assistant, `delete_setup`
+`start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai`, and `set_spectator` for another human member. In the in-client assistant, `delete_setup`
 always asks the player first; `save_setup` changes no room and does not. Each
 tool's text comes from the function catalogue (`docs/engine-api.md` "Public function catalogue").
 
@@ -203,14 +203,14 @@ global AI library, mint other grants or see individual opponents' scores.
 
 ## Revocation
 
-- **From the engine UI:** the engine's player page lists the signed-in human's credentials (room,
+- **From the engine site:** its menu's **Connected apps** lists the signed-in human's credentials (room,
   permission, label, last use, expiry) and revokes any of them. Revocation takes effect on the next
   call, even before the current 10-minute JWT expires.
 - **From the CLI:** `pnpm -s player assistant disconnect` revokes the credential at the engine and
   forgets it locally (removes it from the env file it came from, and deletes its receipt journal). A
   secret in the environment's secret store cannot be deleted by the CLI: delete `CODE_GODS_CREDENTIAL`
   there (e.g. Replit's Secrets tool or the Codespaces settings). If the
-  engine is unreachable the result says `remoteRevocation: "unconfirmed"`; revoke it from the engine UI.
+  engine is unreachable the result says `remoteRevocation: "unconfirmed"`; revoke it under Connected apps on the engine site.
 - Credentials expire after 7 days. Then, or after a revocation, run `connect` again.
 
 ## Untrusted data and safe use

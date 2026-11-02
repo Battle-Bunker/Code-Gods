@@ -26,7 +26,7 @@ yours). This page is about your panels; check first whether a built-in panel alr
   - **a render error** shows "This panel crashed while rendering";
   - **a module without a panel** says what to export.
 
-  Save a fix and the frame recovers by itself. A broken panel never breaks the game console or the
+  Save a fix and the frame recovers by itself. A broken panel never breaks the dock or the
   other panels.
 - **Layout.** The client is a dock of panes (`docs/ui-redesign.md`): built-in panels, your assistant, and
   your panels. Your panel opens as a pane from a built-in panel's menu ("Your panels"), the command palette or
@@ -93,7 +93,7 @@ engine commits about once a second, so faster only matters for local state (cloc
 | `useEvaluator({enabled?})` | your utility function in the browser: `score(value)` and `apply(value, calls)` (below); `enabled: false` keeps the scoring tables from loading |
 | `useActions()` | `{canAct, validate, summon, destroy, chat, pause, ready, retry, run}` (below) |
 | `useObservation({hz})` | the raw v3 observation: what `pnpm player state` prints |
-| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server) or `"hosted"` (the engine's `/client/`) |
+| `useRoom()` | `{roomId, permission, mode}`; `mode` is `"devserver"` (your own app's dev server, with its room credential) or `"site"` (the app with the human's own rights: served by the engine, or in account mode on another origin) |
 
 `TrajectoryPoint` is `{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}`.
 
@@ -152,7 +152,7 @@ never send a new one. A summon must not be paid twice.
 |---|---|
 | `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
 | `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
-| `ObjectView`, `TransformationView`, `useObjectContext()` | the engine UI's renderers, plus their props for this game |
+| `ObjectView`, `TransformationView`, `useObjectContext()` | the app's shared renderers (`lib/object-views`, also used by the site pages), plus their props for this game |
 | `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
 | `Sparkline({values})` | a tiny inline line |
 | `LineChart({series: [{label, points: [{x, y}]}]})` | multi-series lines with axes and a legend |
@@ -230,7 +230,7 @@ Copy one into `src/panels/` to enable it, then adapt it.
 ## Stored panels
 
 A panel can also live in the engine instead of a file. A **stored panel** is the same TSX, saved to Convex
-for your human (across all your rooms). Every open client of yours (the hosted client at `/client/`, your
+for your human (across all your rooms). Every open client of yours (the app on the engine's site, your
 dev server, another device) re-renders it live through its subscription: no dev server, no reload. Any of
 your agents can write one; the file workflow above keeps working beside it.
 
@@ -243,7 +243,7 @@ your agents can write one; the file workflow above keeps working beside it.
 | | `pnpm -s player panel list` shows your stored panels with version, author and placement |
 | Convex functions | `panels.save({slug, source, title?, placement?, size?})`, `panels.list`, `panels.code({slug, version?})`, `panels.rollback({slug, version})`, `panels.setEnabled`, `panels.remove`; showing one in a pane is `layout.set` (docs/engine-api.md "Dock layout") |
 | Agent registry | the `*_panel` tools call the same functions (internal twins `<fn>As`), and `open_panel {slug, place?}` shows a panel in a pane: MCP clients, the CLI and the in-client assistant |
-| In-client assistant | ask it in the player client's assistant pane ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), opens it with `open_panel`, shows both as activity chips, and asks you before `delete_panel` |
+| In-client assistant | ask it in the dock's assistant pane ("make me a panel that shows …"): it writes with `save_panel` as you (author kind `assistant`), opens it with `open_panel`, shows both as activity chips, and asks you before `delete_panel` |
 
 - **The slug** is the panel's id: kebab-case, like a file name (`my-view`). Saving an existing slug makes a
   new version.
@@ -267,9 +267,9 @@ version).
 in-client assistant). A `read` credential can list and read, not write. Nobody else can see or address your
 panels: another player's call gets `NOT_FOUND`.
 
-**How it runs.** Each stored panel runs in a sandboxed frame (`/client/panel-frame.html`, `sandbox="allow-scripts"`,
-an opaque origin, its own CSP with `connect-src 'none'`), and the client page's CSP (`frame-src 'self'`, in the
-hosted client and in a dev server) stops it navigating itself to another site. It cannot read the page, your cookies
+**How it runs.** Each stored panel runs in a sandboxed frame (`/panel-frame.html` under the app's base,
+`sandbox="allow-scripts"`, an opaque origin, its own CSP with `connect-src 'none'`), and the app page's CSP
+(`frame-src 'self'`, in a build and in a dev server) stops it navigating itself to another site. It cannot read the page, your cookies
 or storage, and cannot reach the network: every hook goes through the client over `postMessage`, which serves only the
 SDK's own read queries, for the current room, at most `hz` times a second. A crash stays inside the frame.
 `useEvaluator()` works too: the client sends your calibration tables to the frame once per game.
