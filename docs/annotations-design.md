@@ -41,7 +41,7 @@ A5. **Show the alternatives for per-cell rules.** When a rule judges each cell a
     points, and the focus cell's row and column ringed.
 
 A6. **Colour is never the only signal.** Scoring pieces are solid green with ✓ and a "+" badge; losing pieces are red,
-    dashed, with "−"; pieces that score nothing are grey, dotted, with "0". The tiles keep their own colour pattern or
+    dashed, with "−"; pieces that score nothing are grey, dotted, with "0". The tiles keep their own colour and
     letter cue (PR #88). Text works without the drawing (screen readers read the headline and callouts).
 
 A7. **Quiet everything else.** Cells outside the focus pieces are dimmed, not hidden; the board stays readable.

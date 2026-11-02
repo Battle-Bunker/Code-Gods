@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useSyncExternalStore, type ComponentType, ty
 import * as Popover from "@radix-ui/react-popover";
 import { createObjectTypeRegistry, type GridSettings, type ObjectContext, type ObjectRendererOf, type ObjectValue } from "./registry.ts";
 import {
-  DIGIT_TYPE, changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, patternStyle, setColourCue, subscribeColourCue,
+  DIGIT_TYPE, changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, setColourCue, subscribeColourCue,
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
@@ -74,7 +74,7 @@ export function StringObject(props: ObjectViewProps) {
 }
 
 function useColourCue(): ColourCue {
-  return useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern");
+  return useSyncExternalStore(subscribeColourCue, getColourCue, () => "colour");
 }
 
 const TOP_LEFT = { r: 0, c: 0 } as const;
@@ -84,15 +84,11 @@ const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 
 function Cell({ cell, px, wide, cue, changed, detail }: {
   cell: GridCellModel; px: number; wide: boolean; cue: ColourCue; changed: boolean; detail: boolean;
 }) {
-  const showPattern = cue === "pattern";
   const style: CSSProperties = {
     width: wide ? Math.round(px * 1.5) : px, height: px,
     backgroundColor: cell.css,
-    ...(showPattern ? patternStyle(cell.letter, cell.ink, detail ? 7 : 5) : {}),
     // Every rank is one character cell (the ten included, CellGlyph), so every cell of a grid draws at one size.
     fontSize: detail ? Math.round(px * 0.42) : px * 0.66,
-    textShadow: showPattern ? `0 0 2px ${cell.css}, 0 0 1px ${cell.css}` : undefined,
-    ...(showPattern ? { "--cg-glyph-halo": `drop-shadow(0 0 1px ${cell.css}) drop-shadow(0 0 1px ${cell.css})` } as CSSProperties : {}),
     // Changed cells get an outline in the surrounding text colour (inherited), not a hue.
     ...(changed ? { outline: "2px solid currentColor", zIndex: 1 } : {}),
   };
@@ -153,15 +149,14 @@ function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourC
 
 const toggleButton = (pressed: boolean) => `px-2 py-0.5 border text-xs ${pressed ? "bg-foreground text-background" : "hover:bg-muted"}`;
 
-function CueToggle({ cue, mode }: { cue: ColourCue; mode: GridRendererId }) {
+function CueToggle({ cue }: { cue: ColourCue }) {
   const opt = (id: ColourCue, label: string) => (
     <button type="button" aria-pressed={cue === id} onClick={() => setColourCue(id)} className={toggleButton(cue === id)}
       data-testid={`button-colour-cue-${id}`}>{label}</button>
   );
-  // Patterns need tiles; on digits the first option means "the colour alone".
   return (
     <div className="flex items-center gap-1.5" role="group" aria-label="Colour cue in compact grids">
-      <span className="text-xs text-muted-foreground mr-1">Colour cue</span>{opt("pattern", mode === "tiles" ? "Pattern" : "Colour only")}{opt("letter", "Letter")}
+      <span className="text-xs text-muted-foreground mr-1">Colour cue</span>{opt("colour", "Colour only")}{opt("letter", "Letter")}
     </div>
   );
 }
@@ -242,7 +237,7 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
           <code className="block font-mono text-xs break-all bg-muted px-2 py-1 select-all" data-testid="grid-object-canonical">{model.canonical}</code>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <RendererToggle mode={mode} />
-            <CueToggle cue={cue} mode={mode} />
+            <CueToggle cue={cue} />
           </div>
           <ol className="text-xs space-y-1 max-h-40 overflow-auto" aria-label="Cells by row">
             {model.rows.map((row, r) => (
@@ -280,7 +275,7 @@ objectViews.register({ type: "Int", infer: (v) => typeof v === "number",
   renderers: [{ id: "text", label: "Text", blurb: "The number.", Component: IntObject }] });
 objectViews.register({ type: "Grid", infer: looksLikeGrid, defaultRenderer: "digits", renderers: [
   { id: "digits", label: "Digits", blurb: "Rows of coloured digits (cards: rank and suit), compact enough for lists.", Component: GridObject },
-  { id: "tiles", label: "Tiles", blurb: "A small board of coloured tiles, with a pattern or letter for each colour.", Component: GridObject },
+  { id: "tiles", label: "Tiles", blurb: "A small board of coloured tiles, with a letter for each colour on request.", Component: GridObject },
 ] satisfies (ObjectRenderer & { id: GridRendererId })[] });
 
 /** Native tooltip text for a value's container: the text form, or undefined for grids (they have their own detail view). */

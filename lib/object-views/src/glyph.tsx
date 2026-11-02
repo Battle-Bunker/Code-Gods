@@ -24,14 +24,14 @@ const HIDDEN: CSSProperties = { position: "absolute", width: 1, height: 1, paddi
  * overshoot each way, so the glyph sits on the baseline at the digits' height. Stems are a little lighter than the
  * font's bold (105 and 95 units against 115) so the 0 keeps an open counter at 19 px; the 0 is the font's rounded
  * rectangle, the 1 its flagged stem without the foot, which there is no room for. `weight` is the surrounding font
- * weight. Text shadows do not reach SVG, so a cell that haloes its glyph sets `--cg-glyph-halo` to a CSS filter.
+ * weight.
  */
 export function TenGlyph({ weight = 700 }: { weight?: number }) {
   const k = tenScale(weight);
   return (
     <>
       <svg viewBox="0 -10 600 750" aria-hidden="true" focusable="false" data-glyph="ten"
-        style={{ display: "inline-block", width: "1ch", height: "0.75em", verticalAlign: "-0.01em", overflow: "visible", filter: "var(--cg-glyph-halo, none)" }}>
+        style={{ display: "inline-block", width: "1ch", height: "0.75em", verticalAlign: "-0.01em", overflow: "visible" }}>
         <path d="M135 730V0L20 120" fill="none" stroke="currentColor" strokeWidth={105 * k} strokeLinejoin="round" />
         <rect x={305} y={47} width={240} height={636} rx={120} fill="none" stroke="currentColor" strokeWidth={95 * k} />
       </svg>

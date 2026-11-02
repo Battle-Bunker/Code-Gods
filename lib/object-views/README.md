@@ -14,7 +14,7 @@ the viewer's choice for that type, else the type's default.
 |--------------|---------------------------|-------|
 | `Int`        | `text` (`IntObject`)      | the number |
 | `string`     | `text` (`StringObject`)   | the JSON-quoted string |
-| `Grid`       | `digits`, `tiles` (`GridObject`) | `digits`: one monospace line per row, each glyph (a digit, or card rank and suit) in its colour's text shade, no tiles; `tiles`: a compact board of coloured cells with a pattern or letter cue. Both open the same detail view on hover or click (larger tile board, cell names, canonical string, Display and colour-cue toggles) |
+| `Grid`       | `digits`, `tiles` (`GridObject`) | `digits`: one monospace line per row, each glyph (a digit, or card rank and suit) in its colour's text shade, no tiles; `tiles`: a compact board of coloured cells, with an optional letter cue. Both open the same detail view on hover or click (larger tile board, cell names, canonical string, Display and colour-cue toggles) |
 
 The viewer's choice per type is remembered in `localStorage` under `code-gods.object-views.renderer.<type>`
 (guarded; a choice still holds for the page when storage is blocked). `objectRenderers(type)`,
@@ -66,9 +66,8 @@ Settings deltas and the draft rule shelf are computed client-side with `@workspa
 
 ## Grid accessibility
 
-In tiles, each colour has a distinct pattern (`COLOUR_PATTERNS`) drawn in its `ink` colour, and its
-letter (R O Y G B V) is shown in the detail view. Viewers can switch compact cells between patterns and
-letters; the choice is remembered in `localStorage` (guarded). Tiles are filled with the colour set's bright
+In tiles, each colour is a flat fill with its glyph, and its letter (R O Y G B V) is shown in the detail
+view. Viewers can switch compact cells between colour only and letters; the choice is remembered in `localStorage` (guarded). Tiles are filled with the colour set's bright
 shades (`DIGIT_SHADES[set].dark`) under a dark glyph (`TILE_INK`, 4.5:1 or better on each). In digits, the
 glyphs are coloured per colour SET with `DIGIT_SHADES` (`--cg-ink-<set>-<letter>`, rainbow6 and unknown sets
 `--cg-ink-<letter>`, in both apps' `index.css`, the light shade as fallback). Each set's shades were derived

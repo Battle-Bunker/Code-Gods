@@ -1,12 +1,11 @@
 /**
  * Display model for Grid values: cells with glyphs, readable names, colours and a non-hue cue
- * (a per-colour pattern, or the colour letter). Framework-free so it is unit tested under Node.
+ * (the colour alone, or with its letter). Framework-free so it is unit tested under Node.
  */
 import {
   COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs,
   parseGridForDisplay, type GridColourSet, type GridTypeArgs,
 } from "@workspace/game-types";
-import { hexRgb } from "./colour-science.ts";
 
 export { contrastRatio, deltaE76, hexRgb, labHue, labOf, relativeLuminance } from "./colour-science.ts";
 import type { GridSettings, ObjectValue } from "./registry.ts";
@@ -177,8 +176,8 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
 // - Size and weight first (Ware, Information Visualization, ch. 4: colour codes for small symbols need size, high
 //   saturation and luminance contrast with the background; use few codes). The digits are 14 pt bold (DIGIT_TYPE),
 //   which nearly doubles the stroke and is WCAG 2's large text, so the light shades need 3:1 rather than 4.5:1. That
-//   frees the L* 43–54 band, which a light orange (not brown), a gold yellow and a light green need; the letter and
-//   pattern cues remain the accessibility backstop for colour-blind players.
+//   frees the L* 43–54 band, which a light orange (not brown), a gold yellow and a light green need; the letter cue
+//   remains the accessibility backstop for colour-blind players.
 // - Names: each shade stays inside its SHADE_WINDOWS box, so red, orange, yellow, green, blue and violet read as
 //   themselves (orange light enough not to be brown, red a deep red).
 // - Search like Glasbey et al. (2007): maximise the smallest pairwise difference, here the small-field one. The
@@ -289,41 +288,10 @@ function tileColours(letter: string, set: GridColourSet | undefined, base: { css
 }
 
 // ---------------------------------------------------------------------------------------------
-// Non-hue colour cues. Every colour letter gets a distinct pattern, drawn in its ink colour, and
-// the letter itself is always available (shown in the detail view, or in compact cells in
-// "letter" mode). Hue is never the only cue.
-
-export type PatternId = "diagonal-up" | "dots" | "horizontal" | "grid" | "vertical" | "cross";
-
-export const COLOUR_PATTERNS: Readonly<Record<string, PatternId>> = Object.freeze({
-  R: "diagonal-up", O: "dots", Y: "horizontal", G: "grid", B: "vertical", V: "cross",
-});
-
-function rgba(hex: string, alpha: number): string {
-  const [r, g, b] = hexRgb(hex);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-/** CSS background-image (and size) drawing a colour's pattern in `ink` over its fill. */
-export function patternStyle(letter: string, ink: string, period = 5): { backgroundImage: string; backgroundSize?: string } {
-  const c = rgba(ink, 0.32);
-  const line = (deg: number) => `repeating-linear-gradient(${deg}deg, ${c} 0 1px, transparent 1px ${period}px)`;
-  switch (COLOUR_PATTERNS[letter]) {
-    case "diagonal-up": return { backgroundImage: line(45) };
-    case "dots": return { backgroundImage: `radial-gradient(${c} 0 1px, transparent 1.4px)`, backgroundSize: `${period - 1}px ${period - 1}px` };
-    case "horizontal": return { backgroundImage: line(0) };
-    case "grid": return { backgroundImage: `${line(0)}, ${line(90)}` };
-    case "vertical": return { backgroundImage: line(90) };
-    case "cross": return { backgroundImage: `${line(45)}, ${line(-45)}` };
-    default: return { backgroundImage: "none" };
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
 // The viewer's choice of compact cue, remembered per browser. Storage can be unavailable
 // (private windows, blocked site data), so every access is guarded and the default still works.
 
-export type ColourCue = "pattern" | "letter";
+export type ColourCue = "colour" | "letter";
 export const COLOUR_CUE_KEY = "code-gods.object-views.colour-cue";
 let cue: ColourCue | undefined;
 const listeners = new Set<() => void>();
@@ -332,7 +300,7 @@ export function getColourCue(): ColourCue {
   if (cue) return cue;
   let stored: string | null = null;
   try { stored = globalThis.localStorage?.getItem(COLOUR_CUE_KEY) ?? null; } catch { stored = null; }
-  cue = stored === "letter" ? "letter" : "pattern";
+  cue = stored === "letter" ? "letter" : "colour";
   return cue;
 }
 export function setColourCue(next: ColourCue): void {
