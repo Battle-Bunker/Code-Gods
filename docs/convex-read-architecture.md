@@ -119,10 +119,12 @@ occurrence is classified as (a) a legitimate one-off read, (b) a local clock, or
 | `core/game/owner.ts:53` | One-off `rooms.get` (the whole room) just to read `revision` before `owner.settings` | The revision is always fresh, so the optimistic check can never fail and the last writer always wins. Pass the revision the user saw. |
 | `site/pages/game.tsx:164` | Keeps `games.view` (every object, 100 chat rows) subscribed under the dock, only to read the game's status, roster and codes | A whole-world subscription for four fields |
 
-**Legitimate (a or b):**
-- one-off reads on a user action: palette pickers in `layout.tsx` and `use-commands.ts`, `aiTemplates.catalog`,
-  `receipts.get`, `myUtility` in `stored-frame.tsx`;
-- static data cached per page: `use-manifest.ts`, calibration tables;
+**Legitimate by Convex's guidance, but the owner's rule is stricter (R6): these become shared subscriptions too:**
+- one-off reads on a user action: the command palette's lists in `layout.tsx` and `use-commands.ts` (AI templates,
+  past games, credentials, threads), `aiTemplates.catalog`, `receipts.get`, `myUtility` in `stored-frame.tsx`;
+- static data cached per page: `use-manifest.ts`, calibration tables.
+
+**Legitimate under R7:**
 - CLI and tooling: `lib/player-client` `state.ts`, `assistant.ts`, `panel.ts`, the engine scripts, e2e;
 - the OAuth device-flow poll (RFC 8628 requires it);
 - the deploy auto-update: a subscription to `version.current`, plus a reload countdown for new *code*;
@@ -189,7 +191,33 @@ So the table is normalised. The defect is narrower:
   `objectCount`, `stats`, `tick`.
 - They sit in the header row that every query reads, so each write invalidates every reader.
 
+**What a frequent write to a small record costs.** The cost is not the bytes of the record. It is that every query
+that *read* the record re-executes in full, whether or not its answer depends on the field that changed. Measured
+over HTTP on the local backend, calling every 3 s:
+
+| Query (reads the `games` doc for `phase` or `settings`) | While the game runs | After it ends | Cost of each forced run |
+|---|---|---|---|
+| `layout.current` | 6 of 6 calls re-executed | 1 executed, 5 cached | 5 docs, 59 ms (22.5 ms user code) |
+| `player.myUtility` | 6 of 6 calls re-executed | 1 executed, 5 cached | 6 docs, 44 ms (14 ms user code) |
+
+Their answers never changed, so every one of those runs was wasted.
+
+The waste scales with:
+- the number of subscriptions that read the record;
+- the number of viewers;
+- the tick rate.
+
+Today about nine of each viewer's subscriptions read the `games` doc. Some of them read the whole world too.
+
+Even with lean queries, ten metadata subscriptions per viewer, 20 viewers and one write per second make 200 wasted
+executions a second, each costing about the 11–15 ms floor. That is the reason to keep values written every second
+out of the record that metadata readers subscribe to.
+
+Not measured: whether Convex also pushes an unchanged answer over the websocket. The websocket harness could not
+authenticate by impersonation.
+
 Moving them to `gameClocks` and `gameEngine` (§4.1) is a split of hot columns from a cold row, not a de-nesting.
+After the split, `games` is the lean metadata record: it changes only when the metadata changes.
 Typing `settings` and `summary` precisely (instead of `v.any`) is worthwhile hygiene but unrelated to performance.
 
 ---
@@ -426,20 +454,38 @@ together; per-item is right when they change independently. Our objects change i
 - Per-viewer queries return only the viewer's own slice. No `Date.now()` in a query.
 - **Open decision for the owner (§4.2):** may a live game's spectator data be read without signing in?
 
-**R6. Subscriptions are the only way to show changing data.**
-- No timer re-reads.
-- No client-side retry or resubscribe policy: Convex resubscribes on reconnect.
-- No sampling or throttling of a subscription to hide its cost. Fix the query instead.
-- No client-side history built by sampling: the server owns history.
-- A query error is shown. If it is a limit error, it is a bug in the query.
+**R6. In the app, every piece of server data is a subscription, held once and shared.**
 
-**R7. One-off reads (`convex.query`, `ConvexHttpClient`, `ctx.runQuery` from an action) only for data that does not
-need to stay live:**
-- a user action's lookup (a picker, a receipt);
-- an immutable record (an ended game's replay);
-- point-in-time tool reads by agents and CLIs.
+Each piece of server data the app shows is one live subscription:
+- a command-palette list;
+- a picker's options;
+- a receipt;
+- the game's colour palette and rules;
+- the deploy manifest;
+- calibration tables.
 
-Never use a one-off read to learn a value that a live component on the page already shows.
+That subscription is the client-side object that every component rendering that data refers to, through one hook
+keyed by `(query, args)`. Convex's client already holds identical subscriptions once (reference-counted). Only
+components that are mounted hold it, so a palette list subscribes while the palette is open.
+
+When the data changes, every component showing it updates in real time. The app has:
+- no one-off `convex.query` reads;
+- no module-level caches of query results (`use-manifest`, `tableCache`, the trajectories store, the race and
+  agents samplers);
+- no timer re-reads;
+- no client retry or resubscribe policy (Convex resubscribes on reconnect);
+- no sampling or throttling to hide a query's cost;
+- no history built by sampling (the server owns history).
+
+An action result that pages need becomes a query over a stored document (the manifest; the calibration tables'
+index). Countdown timers are not reads: they render time passing towards a deadline that comes from a subscription.
+A query error is shown. If it is a limit error, it is a bug in the query.
+
+**R7. One-off reads exist only outside the app, where there is nothing to keep live:**
+- a CLI command that prints once and exits (its `--watch` mode subscribes);
+- reads inside Convex functions: an agent's or MCP tool's `ctx.runQuery` in an action;
+- the OAuth device flow's HTTP poll (RFC 8628; not Convex data);
+- tests and scripts.
 
 **R8. Budgets are tested** (`artifacts/engine/test/game-query-cost.test.ts`, §6 PR 1). In a 1,000-object running
 game:
@@ -641,9 +687,16 @@ PR 1's gate) re-measures before and after each PR, and the PR description quotes
    - `engine-api.md` and `mcp.test.ts` are updated.
 7. **Replay precompute.** File-storage replay written at end, plus the backfill. The paging loop and its retry are
    removed.
-8. **Remove the client workarounds** (R6, R7).
-   - `live-retry.ts`, `useLive`'s retry and kept answer, `CoreBoundary`'s remount loop.
-   - The `owner.ts` one-off revision read.
+8. **Subscriptions everywhere in the app; remove the workarounds** (R6, R7).
+   - One shared hook per `(query, args)`.
+   - The command palette's lists, pickers, `receipts.get` and `stored-frame`'s `myUtility` become subscriptions.
+   - The manifest and the calibration tables' index become queries over stored documents (no action calls, no
+     module caches).
+   - The trajectories module store becomes a subscription per cursor window.
+   - Remove `live-retry.ts`, `useLive`'s retry and kept answer, `CoreBoundary`'s remount loop, and the `owner.ts`
+     one-off revision read.
+   - A grep check in the app's unit tests fails on `convex.query(`, `useConvex().query` or `setInterval` around a
+     Convex read in `artifacts/player-web/src`.
    - The gate's known-debt list is empty.
 9. **Narrow.** After dev and production report every migration `success`: remove `games`' hot fields and
    `scoreboard`, the readers' fallbacks, and `player.observation`'s page-query export (if no client still uses it).

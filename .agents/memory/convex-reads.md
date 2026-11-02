@@ -28,9 +28,14 @@ on the write path.
 - Data anyone may see is read without `ctx.auth` so Convex shares one execution across viewers; where the product
   restricts readers, keep the check and make each execution one cheap doc; private queries return only the viewer's
   slice; no `Date.now()` in a query.
-- Changing data is shown only through subscriptions: no timer re-reads, no client retry/resubscribe policy, no
-  throttling or sampling to hide a query's cost, no client-built history. One-off reads only for user-action lookups,
-  immutable records, and agents' or CLIs' point-in-time reads.
+- In the app, every piece of server data is one live subscription (palette lists, pickers, receipts, the game's colour
+  palette and rules, the manifest), held once by `(query, args)` and shared by every component that renders it, so
+  all of them update in real time. No one-off reads, no module-level result caches, no timer re-reads, no client
+  retry/resubscribe policy, no throttling or sampling to hide a query's cost, no client-built history. One-off reads
+  only outside the app: one-shot CLI commands, `ctx.runQuery` inside actions (agent tools), the OAuth device poll.
+- A write invalidates every query that read the document, whatever field changed (measured: `layout.current`
+  re-executes on every tick while it reads `games`, 59 ms each, for an unchanged answer). Values written every tick
+  never live in a record that metadata readers subscribe to.
 - Every page query has an entry in the query-cost gate: ≤ 100 docs, ≤ 64 KiB, ≤ 50 ms in a 1,000-object game; cold
   queries are not invalidated by a tick; public queries are served from cache to a second user.
 - The vendored `convex-performance-audit` skill (`.claude/skills/`) is Convex's own audit workflow; the repo's rules
