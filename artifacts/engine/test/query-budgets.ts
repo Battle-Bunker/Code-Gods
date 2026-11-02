@@ -96,7 +96,8 @@ export const BUDGETS: Budget[] = [
   { query: "assistant:threads", subscribedBy: "core/palette/use-commands.ts (Past conversations, while the page is open)",
     args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true, debt: GAMES_DOC },
   { query: "receipts:get", subscribedBy: "core/palette/use-commands.ts (Check a command's status, while the page is open)",
-    // An id the engine never received: the lookup is the whole cost either way.
+    // An id the engine never received: the reads (room, member, one indexed receipt) are the same for a stored receipt,
+    // whose answer adds one small CommandResult; the not-found answer is what the page shows for a lost command.
     args: f => ({ roomId: f.roomId, commandId: "gate-unknown-command-0000" }), cold: true },
   { query: "code/runs:get", subscribedBy: "core/panels/code-output.tsx", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "player:myUtility", subscribedBy: "sdk useMyCard/useEvaluator, lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: true,
