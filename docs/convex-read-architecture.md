@@ -452,7 +452,8 @@ together; per-item is right when they change independently. Our objects change i
   and the owner for ended ones), the query keeps its check. It is then made cheap instead: one document per
   execution, so a per-viewer execution costs about the 11 ms floor.
 - Per-viewer queries return only the viewer's own slice. No `Date.now()` in a query.
-- **Open decision for the owner (§4.2):** may a live game's spectator data be read without signing in?
+- **Decided by the owner (2026-11-02): sign-in is required for everything on the site.** Every query keeps its
+  viewer check, so no query is shared across viewers. R1–R4 keep each per-viewer execution to a few documents.
 
 **R6. In the app, every piece of server data is a subscription, held once and shared.**
 
@@ -494,7 +495,7 @@ game:
   backend);
 - every **cold** query (room, layout, my utility, past games, header) is **not invalidated by a tick**: an `onUpdate`
   subscription receives no update across 5 commits;
-- every **public** query (spectator view, catalog, standings) returns a **cached result** to a second user.
+- every query refuses an unauthenticated caller (sign-in is required everywhere, owner decision 2026-11-02).
 
 **R9. Every write path is checked for invalidation fan-out.**
 - When adding a field to a document, ask who reads that document. If it is written often, R3 applies.
@@ -541,24 +542,12 @@ game:
 
 `games.view`, the whole-world query, is deleted.
 
-**Open decision: who may read a live game.** Today `games.view` requires a signed-in viewer (`readable()` in
-`games.ts`):
-- a room-scoped credential may read only its own room's game;
-- an ended game is restricted to its players, spectators and room owner.
-
-"(public)" above means one of two options:
-- **A. Anonymous read of live games** (recommended).
-  - The spectator queries take the game's id and read no `ctx.auth`. They answer only while the game is live, and
-    refuse an ended game, which goes through the replay's own access check.
-  - One execution per change then serves every spectator.
-  - Cost: anyone holding the game's link can watch it live without signing in, including the noisy aggregates
-    already disclosed to every player.
-  - The room-scope restriction on credentials no longer applies to spectating a live game.
-- **B. Keep the sign-in check.**
-  - The same components, but each query calls `requireViewer`.
-  - Every execution is per viewer, but each reads 1–8 documents, so it costs about the floor (11–15 ms).
-  - Fine for a handful of spectators per game. It scales with viewers × ticks only for `games.clock`, which can be
-    dropped in favour of client-side interpolation from the header's deadlines plus `standings.at`.
+**Decided: sign-in is required for everything (owner, 2026-11-02).** "(public)" above means "the same for every
+signed-in viewer", not anonymous.
+- Each query keeps `requireViewer` and the existing room-scope and historic-game checks (`readable()` in `games.ts`).
+- Each execution is per viewer, so every query is kept to 1–8 documents. That is about the 11–15 ms floor.
+- `games.clock` is dropped: clients interpolate the world clock from the header's deadlines and the last standings
+  time, so no per-viewer query re-runs every tick just to move a clock.
 
 ### 4.3 The dock and every panel (player view)
 
@@ -669,7 +658,7 @@ PR 1's gate) re-measures before and after each PR, and the PR description quotes
      `games.object`, `rooms.chat`, `rooms.catalog`.
    - The spectator page is rebuilt from them, virtualised. `game.tsx` routes on `games.header`. `games.view` is
      removed.
-   - Disclosure tests; the gate's cache-sharing check (option A) or per-execution cost check (option B).
+   - Disclosure tests; every new query keeps its viewer check (sign-in required everywhere).
 4. **Per-god object read model** (R1, R2, R4).
    - `objectViews`, `godTotals` and `objectDigests` maintained by the tick, plus the backfill migration.
    - `player.objectIds` / `player.object` / `objectsTop` / `totals` / `objectDigest`.

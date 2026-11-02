@@ -23,7 +23,7 @@ Never one integrated query for a page. Each component subscribes to what it rend
 indexed skeleton query plus one `useQuery` per item, run by the item's component and dropped when it unmounts (lists
 virtualised). Public queries read one document or one index page, never a whole table; hot fields (written every tick)
 never share a document with cold fields other queries read; standings, totals, ranks and histories are written by the
-tick as small documents; data anyone may see is read without `ctx.auth` so viewers share the cache; in the app every piece of
+tick as small documents; sign-in is required for everything, so every query is per viewer and must stay a few documents; in the app every piece of
 server data is one shared live subscription that every component showing it refers to (no one-off reads, result
 caches, client retry, throttling, polling or sampled history; one-off reads only in one-shot CLI commands and inside
 Convex functions). The rules (R1–R9), the research

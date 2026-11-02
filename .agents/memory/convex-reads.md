@@ -25,9 +25,9 @@ on the write path.
   are indexes. The Aggregate component only for a single item's rank or offset jumps an index cannot serve.
 - The catastrophic anti-pattern is sending every object to the client on every change (measured: 468 KiB at 1k, 2.3 MiB
   at 5k, and Convex refuses arrays over 8,192 elements).
-- Data anyone may see is read without `ctx.auth` so Convex shares one execution across viewers; where the product
-  restricts readers, keep the check and make each execution one cheap doc; private queries return only the viewer's
-  slice; no `Date.now()` in a query.
+- Sign-in is required for everything on the site (owner, 2026-11-02): every query keeps its viewer check, so
+  executions are per viewer and each must stay a few documents; per-viewer queries return only the viewer's slice;
+  no `Date.now()` in a query.
 - In the app, every piece of server data is one live subscription (palette lists, pickers, receipts, the game's colour
   palette and rules, the manifest), held once by `(query, args)` and shared by every component that renders it, so
   all of them update in real time. No one-off reads, no module-level result caches, no timer re-reads, no client
