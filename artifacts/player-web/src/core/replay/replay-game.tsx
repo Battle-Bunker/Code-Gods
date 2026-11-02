@@ -45,6 +45,7 @@ export function useReplayPages(roomId: string, gameId: string): Load {
               if (!live) return;
               if (attempt >= 4 || !transientQueryError(error)) throw error;
               await new Promise(r => setTimeout(r, retryDelay(attempt)));
+              if (!live) return;
             }
           }
           if (!live) return;

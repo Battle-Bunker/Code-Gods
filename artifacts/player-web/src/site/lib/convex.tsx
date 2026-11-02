@@ -18,7 +18,7 @@ import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
-import { retryDelay, transientQueryError } from "@/lib/live-retry";
+import { MAX_RETRIES, liveResult, retryDelay, transientQueryError, type Retry } from "@/lib/live-retry";
 
 export { api };
 
@@ -128,33 +128,36 @@ export type Result<T> = { data: T | undefined; error: Error | null; isLoading: b
  * client to hold a browser JWT (every engine query needs a signed-in caller). "skip" disables it.
  */
 export function useLive<Q extends FunctionReference<"query">>(query: Q, args: FunctionArgs<Q> | "skip"): Result<FunctionReturnType<Q>> {
+  type T = FunctionReturnType<Q>;
   const { isAuthenticated } = useConvexAuth();
-  // A transient failure is retried by dropping the subscription for a moment (Convex then runs the query afresh).
-  const [resubscribing, setResubscribing] = useState(false);
-  const skip = args === "skip" || !isAuthenticated || resubscribing;
-  // useQueries needs a stable request object; key it like convex's own useQuery does.
-  const key = skip ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const request = useMemo((): Parameters<typeof useQueries>[0] => (skip ? {} : { q: { query, args: args as FunctionArgs<Q> } }), [key]);
-  const r = useQueries(request).q as FunctionReturnType<Q> | Error | undefined;
-  // The last answer for these args stays on screen while a retry is under way.
-  const last = useRef<{ key: string; data: FunctionReturnType<Q> } | null>(null);
-  const attempts = useRef(0);
+  // Keyed like convex's own useQuery: a retry and the last answer belong to one query with one set of args.
   const argsKey = args === "skip" ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
-  if (r !== undefined && !(r instanceof Error)) { last.current = { key: argsKey, data: r }; attempts.current = 0; }
-  const transient = transientQueryError(r);
-  useEffect(() => {
-    if (!transient) return;
-    const t = setTimeout(() => setResubscribing(true), retryDelay(attempts.current++));
-    return () => clearTimeout(t);
-  }, [transient, r]);
-  useEffect(() => {
-    if (!resubscribing) return;
-    const t = setTimeout(() => setResubscribing(false), 0);
-    return () => clearTimeout(t);
-  }, [resubscribing]);
+  // A transient failure is retried by dropping the subscription for a moment: Convex then runs the query afresh.
+  const [retrying, setRetrying] = useState<(Retry<T> & { key: string; dropped: boolean }) | null>(null);
+  const retry = retrying?.key === argsKey ? retrying : null;
+  const skip = args === "skip" || !isAuthenticated || !!retry?.dropped;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const request = useMemo((): Parameters<typeof useQueries>[0] => (skip ? {} : { q: { query, args: args as FunctionArgs<Q> } }), [skip ? "" : argsKey]);
+  const r = useQueries(request).q as T | Error | undefined;
+  const last = useRef<{ key: string; data: T } | null>(null);
+  if (r !== undefined && !(r instanceof Error)) last.current = { key: argsKey, data: r };
   const kept = last.current?.key === argsKey ? last.current.data : undefined;
-  if (r instanceof Error) return kept !== undefined && transient ? { data: kept, error: null, isLoading: false } : { data: undefined, error: r, isLoading: false };
-  if (r === undefined && kept !== undefined) return { data: kept, error: null, isLoading: false };
-  return { data: r, error: null, isLoading: args !== "skip" && r === undefined };
+  const transient = transientQueryError(r);
+  const attempts = retry?.attempts ?? 0;
+  // An answer ends the retry.
+  useEffect(() => { if (r !== undefined && !(r instanceof Error)) setRetrying(null); }, [r]);
+  // One retry per failed subscription (not per error object: Convex may fail it again before the timer fires).
+  useEffect(() => {
+    if (!transient || attempts >= MAX_RETRIES) return;
+    const t = setTimeout(() => setRetrying({ key: argsKey, attempts: attempts + 1, data: kept, error: r as Error, dropped: true }), retryDelay(attempts));
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transient, attempts, argsKey]);
+  useEffect(() => {
+    if (!retry?.dropped) return;
+    const t = setTimeout(() => setRetrying(c => (c ? { ...c, dropped: false } : c)), 0);
+    return () => clearTimeout(t);
+  }, [retry?.dropped]);
+  // The first failure counts as a retry about to happen (attempt 0) when it is transient.
+  return liveResult<T>(args === "skip", r, retry ?? (transient ? { attempts: 0, data: kept, error: r as Error } : null));
 }

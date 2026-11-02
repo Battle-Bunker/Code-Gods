@@ -22,11 +22,13 @@ export type Access = Omit<PlayerRoom, "roomId">;
 export function Play({ roomId, access }: { roomId: string; access: Access }) {
   const room = useMemo(() => ({ roomId, ...access }), [roomId, access]);
   return (
-    // Outermost: the providers' own queries (your goal) fail and retry like the dock's.
+    // The providers' own queries (your goal) fail and retry like the dock's; the shell's errors remount only the shell.
     <CoreBoundary>
       <RoomProvider room={room}>
         <MyGoalProvider>
-          <PlayerShell />
+          <CoreBoundary>
+            <PlayerShell />
+          </CoreBoundary>
         </MyGoalProvider>
       </RoomProvider>
     </CoreBoundary>
