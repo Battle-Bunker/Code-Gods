@@ -83,7 +83,7 @@ test("a language the game does not allow is refused at validate and summon", { t
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 
-test("Haskell is retired: a game's Haskell agent sits out and still observes; the migration drops it from stored settings", { timeout: 180_000 }, async () => {
+test("Haskell is retired: a game's Haskell agent sits out and still observes", { timeout: 180_000 }, async () => {
   const [host, ada, bo] = await gods("Old Host", "Old Ada", "Old Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
@@ -101,10 +101,4 @@ test("Haskell is retired: a game's Haskell agent sits out and still observes; th
   const obs = await ada.c.query(api.player.observation, { roomId });
   assert.equal(obs.agents[0].language, "haskell", "the player still sees their agent, as it was");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  // A room that allowed Haskell plays without it after the migration (it runs again on every deploy: idempotent).
-  await admin.mutation(internal.testing.patchRoom, { roomId, settings: { languages: ["haskell", "python"] } });
-  await admin.action(internal.migrations.retireHaskell, {});
-  const room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings.languages, ["python"]);
-  assert.equal((await admin.action(internal.migrations.retireHaskell, {})).rooms, 0, "a second run changes nothing");
 });

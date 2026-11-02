@@ -11,6 +11,11 @@
  *    a room's owner included, keeps playing exactly as before (new rooms' owners start as spectators: rooms.create).
  *  - backfillGameSpectators (games): `spectators: []` on games stored before spectators existed (nobody watched them;
  *    their players and the room's owner still open them once past).
+ *  - dropHaskell* (Haskell agents were retired on 2026-11-02): "haskell" leaves the stored settings' `languages` of game
+ *    setups, rooms and games (["typescript"] if nothing is left), and Haskell's runtime rows go: its readiness row, its
+ *    bundle (row and stored file), its compiled programs. Agents keep `language: "haskell"` as history (game-core
+ *    RETIRED_LANGUAGES); a game's Haskell agent sits out (engine/tick.ts). Narrowed later: runtimeReadiness's language
+ *    to supported languages, and the haskellPrograms table dropped.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -32,7 +37,7 @@
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
 import { v } from "convex/values";
-import { upgradeStoredSettings, type GameSettings } from "@workspace/game-core";
+import type { GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -58,9 +63,40 @@ export const backfillGameSpectators = migrations.define({
   migrateOne: (_ctx, game) => (game.spectators === undefined ? { spectators: [] } : undefined),
 });
 
+/** Stored settings without Haskell in `languages` (TypeScript if nothing is left), or undefined when they never had it. */
+function withoutHaskell(settings: unknown): { settings: GameSettings } | undefined {
+  const s = settings as { languages?: unknown } | null;
+  if (!s || !Array.isArray(s.languages) || !s.languages.includes("haskell")) return undefined;
+  const languages = s.languages.filter(l => l !== "haskell");
+  return { settings: { ...s, languages: languages.length ? languages : ["typescript"] } as unknown as GameSettings };
+}
+export const dropHaskellFromSetups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellFromRooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellFromGames = migrations.define({ table: "games", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellReadiness = migrations.define({
+  table: "runtimeReadiness",
+  migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
+});
+export const dropHaskellBundle = migrations.define({
+  table: "runtimeAssets",
+  migrateOne: async (ctx, row) => {
+    if (!row.name.startsWith("haskell-")) return;
+    await ctx.db.delete(row._id);
+    await ctx.storage.delete(row.storageId);
+  },
+});
+export const dropHaskellPrograms = migrations.define({ table: "haskellPrograms", migrateOne: async (ctx, row) => { await ctx.db.delete(row._id); } });
+export const dropHaskellCompiledPrograms = migrations.define({
+  table: "compiledPrograms",
+  migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
-const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators];
+const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
+  internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
+  internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
+  internal.migrations.dropHaskellCompiledPrograms];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
@@ -324,61 +360,3 @@ export const assistantPerGame = internalAction({
   },
 });
 
-// ---------------------------------------------------------------------------------------------------------------------
-// retire-haskell (`migrations:retireHaskell`): the Haskell agent language was removed on 2026-11-02
-// ---------------------------------------------------------------------------------------------------------------------
-//  - settings of game setups, rooms and games: "haskell" leaves `languages` (["typescript"] if nothing is left), so no
-//    room offers it and every stored setting validates. Agents keep `language: "haskell"` as history
-//    (lib/language.ts RETIRED_LANGUAGES); a live game's Haskell agent fails its acts (engine/runtime.ts act);
-//  - runtime state: Haskell's readiness row, its runtime bundle (row and stored file), its compiled programs.
-
-export const RETIRE_HASKELL_PHASES = ["setups", "rooms", "games", "runtime"] as const;
-type RetirePhase = typeof RETIRE_HASKELL_PHASES[number];
-
-/** One page of one phase; returns where to continue (null when every phase is done) and how many documents changed. */
-export const retireHaskellPage = internalMutation({
-  args: { phase: v.union(...RETIRE_HASKELL_PHASES.map(p => v.literal(p))), cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { phase, cursor }): Promise<{ next: { phase: RetirePhase; cursor: string | null } | null; changed: number }> => {
-    let changed = 0;
-    const following = (): { phase: RetirePhase; cursor: null } | null => {
-      const next = RETIRE_HASKELL_PHASES[RETIRE_HASKELL_PHASES.indexOf(phase) + 1];
-      return next ? { phase: next, cursor: null } : null;
-    };
-    if (phase === "runtime") {
-      for (const row of await ctx.db.query("runtimeReadiness").withIndex("by_language", q => q.eq("language", "haskell")).collect()) {
-        await ctx.db.delete(row._id); changed++;
-      }
-      for (const row of await ctx.db.query("runtimeAssets").collect()) {
-        if (!row.name.startsWith("haskell-")) continue;
-        await ctx.db.delete(row._id); await ctx.storage.delete(row.storageId); changed++;
-      }
-      const programs = [...await ctx.db.query("haskellPrograms").take(PAGE),
-        ...await ctx.db.query("compiledPrograms").withIndex("by_language", q => q.eq("language", "haskell")).take(PAGE)];
-      for (const row of programs) { await ctx.db.delete(row._id); changed++; }
-      // More programs than one page: this phase again.
-      return { next: programs.length >= PAGE ? { phase, cursor: null } : following(), changed };
-    }
-    const table = phase === "setups" ? "gameSetups" : phase;
-    const page = await ctx.db.query(table).paginate({ cursor, numItems: PAGE });
-    for (const doc of page.page) {
-      const settings = upgradeStoredSettings(doc.settings);
-      if (settings) { await ctx.db.patch(doc._id, { settings: settings as unknown as GameSettings }); changed++; }
-    }
-    return { next: page.isDone ? following() : { phase, cursor: page.continueCursor }, changed };
-  },
-});
-
-/** Every page of every phase; returns how many documents of each phase changed (all zero on a second run). */
-export const retireHaskell = internalAction({
-  args: {},
-  handler: async (ctx): Promise<Record<RetirePhase, number>> => {
-    const changed: Record<RetirePhase, number> = { setups: 0, rooms: 0, games: 0, runtime: 0 };
-    let next: { phase: RetirePhase; cursor: string | null } | null = { phase: "setups", cursor: null };
-    while (next) {
-      const result: { next: { phase: RetirePhase; cursor: string | null } | null; changed: number } = await ctx.runMutation(internal.migrations.retireHaskellPage, next);
-      changed[next.phase] += result.changed;
-      next = result.next;
-    }
-    return changed;
-  },
-});
