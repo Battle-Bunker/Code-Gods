@@ -124,7 +124,7 @@ export type Node =
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
 export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" | "tab" };
 export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
-export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column split 50/50: p1 panel (defaultPanelFor), p2 assistant
+export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column 76/24: [row 50/50: p1 my-card, column 58/42: p2 objects (defaultPanelFor), p3 agents], p4 assistant
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws
 export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent panel when the assistant is left/right, else to its right; a 5th built-in panel is refused (CONFLICT)
 export function movePane(layout: DockLayout, paneId: string, place: Place): DockLayout;

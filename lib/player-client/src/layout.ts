@@ -154,11 +154,23 @@ const panelPane = (id: string, panelId: PanelId, setBy: SetBy = "default"): Pane
 const tabs = (...panes: string[]): Node => ({ type: "tabs", panes, active: panes[0] });
 const split = (direction: Direction, sizes: number[], children: Node[]): Node => ({ type: "split", direction, sizes, children });
 
-/** One panel (the phase's default) on top, the assistant below, 50/50. */
+/**
+ * Two columns over a full-width assistant row: your secret goal (3 best examples) on the left, objects by payoff (top 12)
+ * above my agents (all, last 120 s) on the right. The goal panel is marked "human" so it does not follow the phase's
+ * default panel (followPhase only moves the first panel nobody chose); the others are the panels' default parameters.
+ */
 export const DEFAULT_LAYOUT = (phase: Phase): DockLayout => ({
   version: 1,
-  root: split("column", [50, 50], [tabs("p1"), tabs("p2")]),
-  panes: { p1: panelPane("p1", defaultPanelFor(phase)), p2: { id: "p2", kind: "assistant" } },
+  root: split("column", [76, 24], [
+    split("row", [50, 50], [tabs("p1"), split("column", [58, 42], [tabs("p2"), tabs("p3")])]),
+    tabs("p4"),
+  ]),
+  panes: {
+    p1: panelPane("p1", "my-card", "human"),
+    p2: panelPane("p2", phase === "ended" ? "results" : "objects"),
+    p3: panelPane("p3", "agents"),
+    p4: { id: "p4", kind: "assistant" },
+  },
 });
 
 /** A fresh pane id: p<n> past every number in use. */

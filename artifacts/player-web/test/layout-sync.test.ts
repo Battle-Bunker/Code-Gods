@@ -6,18 +6,19 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
   effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { dockAssistant, showPanel } from "../src/dock/operations.ts";
 
-const base = DEFAULT_LAYOUT("running");
+const base = SINGLE_LAYOUT;
 const withRace = openPane(base, { id: "", kind: "panel", panelId: "race", params: {}, setBy: "human" }).layout;
 const sideBySide = movePane(base, "p2", { relativeTo: "p1", direction: "right" });
 const run = (state: SyncState, ...events: Parameters<typeof syncReducer>[1][]) => events.reduce(syncReducer, state);
-const loaded = (layout = base, updatedAt = 100) => run(initialSync(DEFAULT_LAYOUT("running")), { type: "server", layout, updatedAt });
+const loaded = (layout = base, updatedAt = 100) => run(initialSync(SINGLE_LAYOUT), { type: "server", layout, updatedAt });
 
 test("a server layout is applied when nothing local is pending", () => {
   const s = loaded(withRace, 100);
