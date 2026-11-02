@@ -138,8 +138,9 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
 const PANELS_FOR_PLAY = ["public-chat"] as const;   // the default dock has the goal, objects and agents; p1 and p2 are changed below
 async function arrangeForPlay(p: Player) {
   let layout = DEFAULT_LAYOUT("running");
-  const human = (id: string, panelId: "forge" | "feed") => ({ id, kind: "panel" as const, panelId, params: {}, setBy: "human" as const });
-  layout = { ...layout, panes: { ...layout.panes, p1: human("p1", "forge"), p2: human("p2", "feed") } };
+  // Every panel is the player's own choice (setBy "human"): the first one nobody chose would follow the game's phase.
+  const human = (id: string, panelId: "forge" | "feed" | "agents") => ({ id, kind: "panel" as const, panelId, params: {}, setBy: "human" as const });
+  layout = { ...layout, panes: { ...layout.panes, p1: human("p1", "forge"), p2: human("p2", "feed"), p3: human("p3", "agents") } };
   for (const panelId of PANELS_FOR_PLAY) layout = openPane(layout, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
   const c = new ConvexHttpClient(CLOUD);
   c.setAuth(await browserJwt(sessionOf(p)));
