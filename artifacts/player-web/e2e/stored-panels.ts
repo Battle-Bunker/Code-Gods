@@ -219,6 +219,26 @@ await check("the assistant is an ordinary pane: close it, and the palette's \"Op
   await openAsPane("e2e-live");
 });
 
+await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  const trigger = page.locator("[data-testid=tab-p2] [data-testid=menu-panel]");
+  await trigger.waitFor({ timeout: 15_000 });
+  await trigger.click();
+  const input = page.locator("[data-testid=input-panel-search]");
+  await input.waitFor({ timeout: 5_000 });
+  assert(await input.evaluate(el => el === document.activeElement), "the input is not focused on open");
+  assert(await input.getAttribute("role") === "combobox", "the input is not an ARIA combobox");
+  await page.keyboard.press("Escape");
+  await input.waitFor({ state: "detached", timeout: 5_000 });
+  await trigger.click();
+  await page.keyboard.type("chat");
+  assert(await page.locator("[data-testid=menu-panel-item-public-chat]").count() === 1 && await page.locator("[data-testid=menu-panel-item-race]").count() === 0, "typing does not filter");
+  await page.keyboard.press("Enter");
+  await until(async () => (await trigger.textContent())?.trim() === "Public chat" ? true : undefined, "the pane shows Public chat", 15_000);
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await openAsPane("e2e-live");
+});
+
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {
   // Served from a custom domain, the frame's URL is not the deployment's .convex.site that its CSP names. A document
   // served through route.fulfill has no address, so Chromium's local-network checks would block its loopback
