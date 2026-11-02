@@ -11,7 +11,7 @@ import {
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
-import { firstName } from "./next-step.ts";
+import { canWatchReplay, firstName } from "./next-step.ts";
 import { ownerLabel } from "./setup-words.ts";
 export { STEP_IDS } from "./next-step.ts";
 
@@ -21,6 +21,8 @@ export const UI_COMMANDS = {
   "ui.nav.room": { title: "Room page", tooltip: "The room this game belongs to: its players, chat and next game.", group: "room", section: "goto", keywords: ["lobby", "back"] },
   "ui.nav.game": { title: "Watch live game", tooltip: "The shared view of the running game: leaderboard, objects and chat.", group: "room", section: "goto", keywords: ["arena", "spectate", "live"] },
   "ui.nav.pastGame": { title: "Open a past game…", tooltip: "The final results of a finished game of this room.", group: "room", section: "goto", keywords: ["results", "history"] },
+  "ui.nav.replay": { title: "Watch the replay", tooltip: "Opens this game's replay: scrub through every move, play it at ¼× to 64×, and see every player's goal, agents and code.", group: "play", section: "actions", keywords: ["replay", "timeline", "scrub", "playback", "rewatch", "history"] },
+  "ui.nav.replayFromStart": { title: "Play the replay from the start", tooltip: "Opens this game's replay at its first event and plays it.", group: "play", section: "actions", keywords: ["replay", "play", "start", "beginning", "rewind"] },
   "ui.nav.playerClient": { title: "Open player client", tooltip: "Opens the screen where you play: your goal, your agents and your assistant.", group: "play", section: "actions", keywords: ["play", "console", "client"] },
   "ui.nav.configure": { title: "Configure the room's setup", tooltip: "Every setting of the game setup this room runs, on one page, each explained.", group: "owner", section: "actions", keywords: ["advanced", "settings", "configure", "setup"] },
   "ui.newSetup": { title: "New setup…", tooltip: "Makes your own copy of the room's current setup and opens it on the configuration page.", group: "owner", section: "actions", keywords: ["duplicate", "copy", "new", "configuration", "setup"] },
@@ -59,7 +61,7 @@ export interface CmdRoom {
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
   preparing?: { error?: string } | null;
 }
-export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null }
+export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null; roster?: readonly { id: string }[]; ownerId?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
 export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
 
@@ -217,6 +219,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const inRoom = () => (!room ? no("Open a room first.", { hidden: true }) : ok);
   const member = () => (!room ? no("Open a room first.", { hidden: true }) : !me ? no("Join the room first.", { fix: "rooms.join" }) : ok);
 
+  // An ended game's replay is the player client's page of that game (artifacts/player-web, docs/replay-design.md §7).
+  const replayable = !!game && game.status !== "active" && !!roomCode;
+  const replay = () => (!replayable ? no(game ? "The replay opens when the game ends." : "Open an ended game first.", { hidden: true })
+    : canWatchReplay(user?.id, game!) ? ok : no("Only its players and the room's owner can open a game's replay."));
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
@@ -225,6 +231,8 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       options: async () => (await act.pastGames()).map(g => ({ id: g.shortCode, label: `Game ${g.shortCode}`, detail: g.winners.length ? `won by ${g.winners.map(w => w.name).join(", ")}` : "no winner recorded" })),
       onPick: code => act.navigate(gamePath(roomCode ?? "", code)) } }, inRoom),
     ui("ui.nav.playerClient", { kind: "local", run: () => roomCode && act.openTab(playerClientPath(roomCode)) }, () => (!roomCode ? no("Open a room first.", { hidden: true }) : room && !me ? no("Join the room first.", { fix: "rooms.join" }) : ok)),
+    ui("ui.nav.replay", { kind: "local", run: () => replayable && act.openTab(playerClientPath(roomCode!, game!.shortCode)) }, replay),
+    ui("ui.nav.replayFromStart", { kind: "local", run: () => replayable && act.openTab(`${playerClientPath(roomCode!, game!.shortCode)}?e=0&play=1`) }, replay),
     ui("ui.nav.configure", { kind: "navigate", to: `/rooms/${roomCode ?? ""}/configure` }, () => (!room ? no("Open a room first.", { hidden: true }) : ok)),
     ui("ui.newSetup", { kind: "submit", run: () => act.duplicateSetup(scope.currentSetup!) },
       () => (!room ? no("Open a room first.", { hidden: true }) : !user ? no("Sign in first.") : !scope.currentSetup ? no("The room's setup was deleted: open Configure the room's setup to keep its settings as yours.", { fix: "ui.nav.configure" }) : ok)),
@@ -255,7 +263,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const scores: Record<string, number> = {
     "owner.start": 9, "rooms.resume": 9, "rooms.join": 9, "ui.nav.playerClient": 8, "ui.copyInviteLink": 7, "rooms.addAi": 6,
     "owner.settings": 5, "ui.nav.configure": 4, "ui.newSetup": 3, "rooms.endActiveGame": 3, "rooms.create": 6,
-    "ui.nav.game": 6, "ui.nav.room": 5, "ui.nav.home": 4, "ui.nav.pastGame": 2, "rooms.history": 1,
+    "ui.nav.replay": 9, "ui.nav.replayFromStart": 7, "ui.nav.game": 6, "ui.nav.room": 5, "ui.nav.home": 4, "ui.nav.pastGame": 2, "rooms.history": 1,
   };
   return [...fromCatalog, ...uiCommands].map(c => (scores[c.id] ? { ...c, defaultScore: scores[c.id] } : c));
 }

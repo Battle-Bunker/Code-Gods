@@ -70,7 +70,10 @@ export function cursorAtFraction(fraction: number, end: number): number {
   return Math.round(Math.max(0, Math.min(1, fraction)) * end);
 }
 
-/** The room page's way into the replay: its game, once that game has ended (the live observation's phase and code). */
-export function endedGameReplay(obs: { phase?: string; gameShortCode?: string | null } | undefined): { game: string } | null {
-  return obs?.phase === "ended" && obs.gameShortCode ? { game: obs.gameShortCode } : null;
+/**
+ * The room page's way into the replay: its game, once that game has ended, for its players and the room's owner (the
+ * engine serves a replay to no one else: player.replay).
+ */
+export function endedGameReplay(obs: { phase?: string; gameShortCode?: string | null } | undefined, viewer: { seated: boolean; isOwner: boolean }): { game: string } | null {
+  return obs?.phase === "ended" && obs.gameShortCode && (viewer.seated || viewer.isOwner) ? { game: obs.gameShortCode } : null;
 }

@@ -17,6 +17,13 @@ const single = (phase: "lobby" | "running" | "ended"): DockLayout => ({
   panes: { p1: { id: "p1", kind: "panel", panelId: phase === "ended" ? "results" : "objects", params: phase === "ended" ? {} : { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "default" }, p2: { id: "p2", kind: "assistant" } },
 });
 
+test("the default dock: the goal card stays, and the first panel nobody chose (objects) becomes the results when the game ends", () => {
+  const ended = followPhase(DEFAULT_LAYOUT("running"), "ended");
+  assert.deepEqual(panelPanesOf(ended).map(p => p.panelId), ["my-card", "results", "agents"]);
+  assert.deepEqual(panelPanesOf(parseLayout(DEFAULT_LAYOUT("running"), { phase: "ended", storedSlugs: [] }).layout).map(p => p.panelId), ["my-card", "results", "agents"], "the engine's parse agrees");
+  assert.deepEqual(panelPanesOf(followPhase(ended, "running")).map(p => p.panelId), ["my-card", "objects", "agents"], "and back for the next game");
+});
+
 test("the first built-in panel follows the phase only while nobody chose it; a new game resets parameters but keeps choices; what-if cannot survive a reset", () => {
   const base = single("running");
   // Nobody chose p1: at the end of the game it shows the results, in the engine's parse and the client's alike.

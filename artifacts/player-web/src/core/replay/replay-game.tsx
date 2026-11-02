@@ -16,6 +16,7 @@ import { MyGoalProvider } from "@/sdk/goal";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "@/core/core-boundary";
 import { Link, hrefTo } from "../navigation";
+import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
@@ -98,6 +99,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
         <span className="label" data-testid="text-game-status">ended · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}
+        <PlayerPalette compact suggested={["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]} />
       </div>
     </div>
   );

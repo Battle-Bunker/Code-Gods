@@ -216,9 +216,18 @@ link, then a game code. Now:
 - `e2e:replay` starts as the owner did: from the room page right after the game ends, without typing a URL, it
   finds the bar, drags to the middle, plays at 4×, pauses and steps, and checks that the board changes.
 
-| The room page after the game | The replay bar, mid-game |
-|---|---|
-| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) |
+- **Everywhere a completed game is shown:**
+  - The engine UI's ended-game page leads with **Watch the replay**, a link to the player client's replay page of
+    the game (the game's next step, `ui.nav.replay`), with "Back to room" beside it.
+  - Its palette offers "Watch the replay" and "Play the replay from the start" (`?e=0&play=1`).
+  - The player client's palette offers "Watch the replay" on the ended room. In the replay it offers play/pause and
+    jump to the start or end. The replay page's header carries the palette too.
+  - The replay player itself stays in the player client: it is built on the client's SDK and dock.
+
+| The room page after the game | The replay bar, mid-game | The engine UI's ended game |
+|---|---|---|
+| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) | ![Engine UI](screenshots/replay/replay-engine-game-page.png) |
+
 
 **The assistant receives the playhead (§8):** in replay mode, the chat pane sends each message with the moment on
 screen (`assistant.send`'s `replay`: the game, the event cursor, the world time, the point-of-view god). The engine

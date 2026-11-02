@@ -127,6 +127,29 @@ const boardText = (page: import("playwright").Page) => page.locator("[data-testi
   assert.equal(await cursorOf(page), 0, "Home jumps to the start");
   await page.click("[data-testid=button-replay-end]");
   assert.equal(await cursorOf(page), total, "the end button jumps to the end");
+  // The palette drives the replay too: jump to the start, then play.
+  const palette = async (id: string) => {
+    await page.keyboard.press("Control+k");
+    await page.waitForSelector("[data-testid=dialog-palette]");
+    await page.click(`[data-testid="row-palette-${id}"]`);
+    await page.waitForSelector("[data-testid=dialog-palette]", { state: "detached", timeout: 10_000 });
+  };
+  await palette("ui.replay.start");
+  assert.equal(await cursorOf(page), 0, "the palette's Replay: jump to the start");
+  await palette("ui.replay.toggle");
+  await page.waitForFunction(() => Number(document.querySelector("[data-testid=replay-transport]")?.getAttribute("data-cursor")) > 0, null, { timeout: 15_000 });
+  assert.equal(await page.getAttribute(T, "data-playing"), "1", "the palette's Play the replay plays it");
+  // Back in the room, the palette offers the replay as well.
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
+  await palette("ui.replay.watch");
+  await page.waitForSelector(T, { timeout: 60_000 });
+  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the palette's Watch the replay opens it");
+  // The engine UI's page of the ended game leads with the replay.
+  await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
+  await page.waitForSelector("[data-testid=link-watch-replay]", { timeout: 60_000 });
+  assert.equal(new URL(await page.getAttribute("[data-testid=link-watch-replay]", "href") ?? "", SITE).pathname, `/client/rooms/${shortCode}/games/${gameCode}`);
+  await page.screenshot({ path: `${OUT}/replay-engine-game-page.png` });
   await context.close();
 }
 
