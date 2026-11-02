@@ -128,7 +128,7 @@ test("permissions: read/act/owner credentials are room-bound; spectators observe
   assert.match(await rejects(reader.mutation(api.activity.touch, {})), /Read-only/);
   const actor = await playerClient(ada, roomId, "act");
   assert.equal((await actor.action(api.commands.submit, { roomId, envelope: envelope({ type: "chat", text: "From my player app" }) })).accepted, true);
-  assert.match(await rejects(actor.mutation(api.rooms.create, {})), /Browser login/);
+  assert.match(await rejects(actor.mutation(api.rooms.create, {})), /in every room\) to create a room/);
   assert.match(await rejects(actor.mutation(api.rooms.endActiveGame, { roomId })), /owner/i);
   const other = await gods("Other Room Owner", "Other Two", "Other Three");
   const elsewhere = await roomWith(other);

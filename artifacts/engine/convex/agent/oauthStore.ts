@@ -8,6 +8,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { credentialProblem } from "../auth/principal";
 import { constantTimeEqual } from "../auth/crypto";
+import { grantV } from "../auth/tables";
 
 export const OAUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
 /** An OAuth grant expires after 30 days without a refresh. */
@@ -27,7 +28,7 @@ export const DCR_UNUSED_TTL_MS = 24 * 60 * 60 * 1000;
  */
 export const RETIRED_REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SWEEP_BATCH = 200;
-const grant = v.union(v.literal("read"), v.literal("act"), v.literal("owner"), v.literal("account"));
+const grant = grantV;
 
 export const getClient = internalQuery({
   args: { clientId: v.string() },

@@ -29,11 +29,12 @@ import { mutation, query, type QueryCtx } from "../_generated/server";
 import { requireViewer, type Grant, type Permission, type Viewer } from "../auth/access";
 import { siteOrigin } from "../auth/config";
 import { sha256Hex } from "../auth/crypto";
+import { grantV } from "../auth/tables";
 import { findRoom, memberOf } from "../lib/rooms";
 import { firstPartyGrant, isFirstParty } from "./rules";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
-const grant = v.union(v.literal("read"), v.literal("act"), v.literal("owner"), v.literal("account"));
+const grant = grantV;
 const fail = (code: string, message: string): never => { throw new ConvexError({ code, message }); };
 /** The completion secret's format (the page sends 32 random bytes, base64url). */
 const COMPLETION = /^[A-Za-z0-9_-]{43,128}$/;

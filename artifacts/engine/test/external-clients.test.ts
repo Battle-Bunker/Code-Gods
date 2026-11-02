@@ -169,6 +169,13 @@ test("an account grant: the app acts as its human in every room, never on the co
   const pending = await ada.c.query(api.agent.connect.pending, { request: flow.request });
   assert.equal(pending.permission, "account");
   assert.equal(pending.autoApprove, null, "never approved without a click");
+  assert.equal(pending.roomHint, null, "an account grant names no room: the hint is dropped");
+  // Catches: an MCP client minting an account grant /mcp would then refuse.
+  const mcpAsk = new URL(`${SITE}/oauth/authorize`);
+  for (const [k, v] of Object.entries({ response_type: "code", client_id: flow.clientId, redirect_uri: redirectUri, code_challenge: "x".repeat(43),
+    code_challenge_method: "S256", state: "s", scope: "account", resource: `${SITE}/mcp` })) mcpAsk.searchParams.set(k, v);
+  const refused = await fetch(mcpAsk, { redirect: "manual" });
+  assert.equal(new URL(refused.headers.get("location")!).searchParams.get("error"), "invalid_scope");
   const completion = randomBytes(32).toString("base64url");
   // Catches: an account grant approved without explicit consent, or turned into a room grant (or the reverse).
   await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: flow.request, permission: "account", completion }), /consent/i);

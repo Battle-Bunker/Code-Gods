@@ -1,8 +1,9 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { grantV } from "../auth/tables";
 
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
-const grant = v.union(permission, v.literal("account"));
+const grant = grantV;
 
 /**
  * The agent interface (owned by convex/agent; docs/surface-architecture.md §4): MCP OAuth clients and
@@ -36,8 +37,9 @@ export const agentTables = {
    */
   oauthRequests: defineTable({
     keyHash: v.string(), clientId: v.string(), clientName: v.string(), redirectUri: v.string(), state: v.optional(v.string()),
+    codeChallenge: v.string(),
     /** The requested grant: a room permission, or "account" (the human everywhere; docs/external-clients.md). */
-    codeChallenge: v.string(), permission: grant, resource: v.string(),
+    permission: grant, resource: v.string(),
     status: v.union(v.literal("pending"), v.literal("approved"), v.literal("denied"), v.literal("issued"), v.literal("redeemed")),
     subject: v.optional(v.string()), roomId: v.optional(v.string()), grantedPermission: v.optional(grant),
     codeHash: v.optional(v.string()), credentialId: v.optional(v.id("credentials")), expiresAt: v.number(),

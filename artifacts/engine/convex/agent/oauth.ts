@@ -12,7 +12,8 @@
  *   POST /api/oauth/token                             authorization_code (+ code_verifier) and refresh_token grants
  *   POST /api/oauth/revoke                            RFC 7009
  *
- * One connection is one `kind: "oauth"` credential for one room and one permission. Access tokens are 60-minute
+ * One connection is one `kind: "oauth"` credential: for one room and one permission, or (`scope=account`, for apps;
+ * never MCP) for the human's whole account (docs/external-clients.md decision 9). Access tokens are 60-minute
  * player JWTs naming the credential (`cred`), so every call re-checks revocation; refresh tokens rotate, a
  * reused one revokes the credential, and the grant expires after 30 days without a refresh.
  */
@@ -26,7 +27,7 @@ import { pkceChallenge, randomToken, sha256Hex } from "../auth/crypto";
 import { jwks, mintPlayerJwt } from "../auth/jwt";
 import { resourceUrl } from "./mcp";
 import { CIMD_CACHE_MS, DCR_WINDOW_MS } from "./oauthStore";
-import { cimdUrlProblem, envList, parseScope, redirectAllowedForRegistration, redirectMatches, resourceAllowed } from "./rules";
+import { CLAUDE_CALLBACKS, cimdUrlProblem, envList, parseScope, redirectAllowedForRegistration, redirectMatches, resourceAllowed } from "./rules";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 3600;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -171,8 +172,13 @@ const authorize = guarded(async (ctx, request) => {
   if (!resourceAllowed(q.get("resource"), siteUrls())) return error("invalid_target", `resource must be ${siteUrl()} or ${resourceUrl()}`);
   const permission = parseScope(q.get("scope"));
   if (!permission) return error("invalid_scope", "scope is read, act or owner (one room), or account (every room)");
+  // MCP acts per room (agent/store.ts refuses account tokens): never mint an account grant it could not use.
+  if (permission === "account" && (q.get("resource") === resourceUrl() || (CLAUDE_CALLBACKS as readonly string[]).includes(redirectUri))) {
+    return error("invalid_scope", "MCP connections are for one room: ask for read, act or owner");
+  }
   // A Code Gods extension: the room to preselect on /connect (id, GUID or short code; resolved there).
-  const roomHint = q.get("room");
+  // An account grant names no room: a hint is dropped, never resolved.
+  const roomHint = permission === "account" ? null : q.get("room");
   if (roomHint !== null && (!bounded(roomHint, 1, 64) || !printable(roomHint))) return error("invalid_request", "room must be a room id, GUID or short code");
   const key = randomToken("", 32);
   await ctx.runMutation(internal.agent.oauthStore.createRequest, {

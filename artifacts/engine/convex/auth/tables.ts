@@ -2,7 +2,9 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
 const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
-const grant = v.union(permission, v.literal("account"));
+/** What a credential or an OAuth request grants: one room with a permission, or "account" (access.ts Grant). */
+export const grantV = v.union(permission, v.literal("account"));
+const grant = grantV;
 
 /**
  * Identity, device approval and scoped player credentials (owned by convex/auth). Better Auth keeps its own
