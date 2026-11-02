@@ -14,9 +14,8 @@
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
  * so the outcome is the sequential one.
  */
-import type { StoredLanguage } from "../lib/language";
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { chargeAct, instantiationOf, isLanguage, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
@@ -101,7 +100,8 @@ export const run = internalAction({
     const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
     // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
-    const agents = snap.agents.filter(a => !(unready as Set<StoredLanguage>).has(a.language)).map(a => ({ ...a, fromActs: a.acts, touched: false }));
+    // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
+    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
