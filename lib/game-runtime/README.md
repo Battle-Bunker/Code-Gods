@@ -202,13 +202,29 @@ alone) and packs both with the precompiled `base` package into
 `wasi/extra.c` replace MicroHs's unix platform files (no terminal, signals,
 sockets, directories or processes; sleeping returns at once). eval.c is patched
 at build time (`patchEval`): a reduction budget checked every 10,000 reductions
-(the scheduler slice), exit code 86 when it is spent, and two exports for the host.
+(the scheduler slice), exit code 86 when it is spent, and two exports for the host;
+bfile.c's LZMA compressor becomes the identity (`patchBfile`: the encoder needs
+about 190 MB), so compilation caches are written uncompressed. Both modules import
+their memory (16 MiB initial); `extra.c`'s `sbrk` grows it past `__heap_end`.
 
 **Compile** (one compiler worker, output cached by the pool like TypeScript's):
 the player's `Agent`, the room's `Room` and a fixed `Main` (`getContents`,
 `cgDecode`, `agent`, `cgEncode`, `putStr`) become one self-contained combinator
-program, in about 2.5–4 s on V8 (8M-cell heap, about 125 MiB of wasm memory;
-the compiler has a 2·10⁹-reduction ceiling and the pool's preparation wall).
+program (6M-cell heap, about 95 MiB of wasm memory; the compiler has a
+2·10⁹-reduction ceiling and the pool's preparation wall). The room's first
+compilation writes a MicroHs compilation cache (`-CW`, about 12 MB, kept per room
+by prelude digest in the compiler worker, 4 rooms / 64 MiB); later ones read it
+(`-CR`) and skip compiling `Room`. On V8: 4.5–7 s for a room's first compilation
+in a worker, then about 1.3–1.8 s (2.8–3.4 s before the cache). The program is
+byte-identical either way; a cache the compiler cannot use is replaced, and a
+cache over 32 MiB is not kept. In the engine the compiler worker stops after 30 s
+idle (its cache with it).
+
+**Memory.** Each module has one linear memory per thread, zeroed and reused by
+the next run (fresh memories pile up faster than V8 frees them): always for the
+compiler, and for the evaluator while it is at most 32 MiB. A Haskell-only pool
+(compiler and evaluator worker) peaks at about 490 MiB RSS locally, about 340 MiB
+steady.
 
 **Act** (execution workers): a fresh evaluator instance runs that program with
 the wire value on stdin (the number in decimal, or the text) and a 2M-cell heap;

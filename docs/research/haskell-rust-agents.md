@@ -3,7 +3,7 @@
 Date: 2026-11-01.
 
 **Outcome.** Rust was dropped. Haskell was built as planned with MicroHs on WASI: see `lib/game-runtime/README.md`
-("Haskell"). Measured: the bundle is 1.2 MB gzip; compiling an agent takes 2.5–4 s on V8 (about 125 MiB of wasm memory);
+("Haskell"). Measured: the bundle is 1.2 MB gzip; compiling an agent took 2.5–4 s on V8 at first, about 1.3–1.8 s with the per-room compilation cache (about 95 MiB of wasm memory);
 an act takes milliseconds. Where the build differs from the plan below: the mutator constructors are generated from the
 TypeScript declarations, and the room's JavaScript constructors encode the moves; the price is token-level
 (`hs-token-bits-v1-uniform`), not AST-level. The phase-1 study follows unchanged. Question from the owner: can Haskell and Rust become agent languages beside Python and

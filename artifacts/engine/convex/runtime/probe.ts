@@ -66,24 +66,32 @@ export const cold = internalAction({
   },
 });
 
+/**
+ * The deploy's smoke test of the agent sandboxes, one language per call (deploy.yml calls it for each): inspect, acts,
+ * determinism and the step limit. Each language runs in pools of its own that close afterwards, so each call measures
+ * that language alone and the instance's memory is left as it was (one 512 MiB Node action does not hold every language's pools at once).
+ */
 export const smoke = internalAction({
-  args: {},
-  handler: async ctx => {
+  args: { language: v.optional(language) },
+  handler: async (ctx, args) => {
     await bindRuntime(ctx);
     const out: Record<string, unknown> = {};
-    for (const lang of ["python", "typescript", "haskell"] as const) {
+    for (const lang of args.language ? [args.language] : (["python", "typescript", "haskell"] as const)) {
       const { settings, inputs } = room(lang);
-      const runtime = runtimeFor(lang);
-      const inspection = await runtime.inspect(GRID_AGENTS[lang], settings);
-      const acts = await Promise.all(inputs.slice(0, 4).map((input, i) => runtime.act(GRID_AGENTS[lang], input, settings, String(i))));
-      const again = await runtime.act(GRID_AGENTS[lang], inputs[0], settings, "0");
-      if (again.calls !== acts[0].calls) throw new Error(`${lang}: the same act differed`);
-      let limit = "";
-      const endless = { python: "def agent(g):\n    while True:\n        pass\n", typescript: "function agent(g) { while (true) {} return []; }",
-        haskell: "agent :: Obj -> [Call]\nagent g = let loop n = loop (n + 1) in [paint (row (loop 0)) \"red\"]" };
-      try { await runtime.act(endless[lang], inputs[0], settings, "1"); }
-      catch (error) { limit = (error as Error).message; }
-      out[lang] = { cost: inspection.cost, calls: acts.map(a => a.calls), steps: acts.map(a => a.steps), limit };
+      // Pools of its own, closed afterwards: the instance's shared pools (runtimeFor) may be serving players.
+      const runtime = createRuntime(RUNTIME_OPTIONS[lang]);
+      try {
+        const inspection = await runtime.inspect(GRID_AGENTS[lang], settings);
+        const acts = await Promise.all(inputs.slice(0, 4).map((input, i) => runtime.act(GRID_AGENTS[lang], input, settings, String(i))));
+        const again = await runtime.act(GRID_AGENTS[lang], inputs[0], settings, "0");
+        if (again.calls !== acts[0].calls) throw new Error(`${lang}: the same act differed`);
+        let limit = "";
+        const endless = { python: "def agent(g):\n    while True:\n        pass\n", typescript: "function agent(g) { while (true) {} return []; }",
+          haskell: "agent :: Obj -> [Call]\nagent g = let loop n = loop (n + 1) in [paint (row (loop 0)) \"red\"]" };
+        try { await runtime.act(endless[lang], inputs[0], settings, "1"); }
+        catch (error) { limit = (error as Error).message; }
+        out[lang] = { cost: inspection.cost, calls: acts.map(a => a.calls), steps: acts.map(a => a.steps), limit, rssMiB: rssMiB() };
+      } finally { runtime.close(); }
     }
     return out;
   },
