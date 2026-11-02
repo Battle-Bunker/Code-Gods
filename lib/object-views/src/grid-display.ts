@@ -18,6 +18,8 @@ export interface GridCellModel {
   glyph: string;
   /** Glyph for compact cells: card rank only ("10"), digits unchanged. */
   compactGlyph: string;
+  /** The glyph split for fixed-width drawing (CellGlyph): rank, suit, and whether the rank is the single-cell ten. */
+  parts: GlyphParts;
   symbolName: string;
   colourName: string;
   /** e.g. "ten of hearts, blue". */
@@ -45,10 +47,27 @@ export function symbolName(code: string): string {
   return cardNames.get(code) ?? digitNames.get(code) ?? code;
 }
 
-function compactGlyph(code: string): string {
-  const g = glyphForCode(code);
-  return cardNames.has(code) ? g.slice(0, -1) : g;
+/**
+ * A cell's glyph as the renderers draw it: the rank in one character cell and, for cards, the suit in a fixed-width
+ * box. Every rank is one character except "10", which `ten` marks: it is drawn as a custom glyph (TenGlyph) with "1"
+ * and "0" condensed into one cell, so a row with a ten is no wider than one without (columns never shift).
+ * Display only: the wire code, the names and the agent-visible text keep "10".
+ */
+export interface GlyphParts {
+  /** "7", "A", "10". */
+  rank: string;
+  /** "♥" for cards, "" for digits. */
+  suit: string;
+  /** The rank is "10", drawn by the single-cell ten glyph. */
+  ten: boolean;
 }
+
+export function glyphParts(code: string): GlyphParts {
+  const g = glyphForCode(code);
+  const rank = cardNames.has(code) ? g.slice(0, -1) : g, suit = cardNames.has(code) ? g.slice(-1) : "";
+  return { rank, suit, ten: rank === "10" };
+}
+
 
 function settingsArgs(s: GridSettings | undefined): GridTypeArgs | undefined {
   return s && isGridTypeArgs(s as Partial<GridTypeArgs>) ? (s as GridTypeArgs) : undefined;
@@ -69,9 +88,9 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
     const colourName = idx >= 0 ? palette!.names[idx] : base.name;
-    const sName = symbolName(code);
+    const sName = symbolName(code), parts = glyphParts(code);
     return {
-      code, letter, glyph: glyphForCode(code), compactGlyph: compactGlyph(code),
+      code, letter, glyph: glyphForCode(code), compactGlyph: parts.rank, parts,
       symbolName: sName, colourName, name: `${sName}, ${colourName}`,
       ...tileColours(letter, set, base),
     };
@@ -107,12 +126,18 @@ export function changedCells(a: GridModel | null, b: GridModel | null): boolean[
 // ---------------------------------------------------------------------------------------------
 // The "digits" renderer: the grid as lines of raw glyphs, each coloured by its cell's colour.
 
+/**
+ * `text`, `pad` and `glyph` are the plain-text form (monospace text, where "10" takes two characters); the renderer
+ * draws `parts` at fixed widths instead, where every cell of a grid is the same width.
+ */
 export interface DigitsCell {
   /** Leading spaces that right-align this glyph with the widest one in the grid, in the plain-text line. */
   pad: string;
   /** "7", or rank and suit for cards ("10♥"); with the letter cue, the colour letter follows ("7R"). */
   glyph: string;
   letter: string;
+  /** The cell's glyph parts, which the renderer draws at fixed widths (the plain-text `glyph` keeps "10"). */
+  parts: GlyphParts;
   /** Differs from the compared grid: drawn underlined and bold, never by colour alone. */
   changed: boolean;
 }
@@ -129,7 +154,7 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
   return model.rows.map((row, r) => {
     const cells = row.map((c, k): DigitsCell => {
       const g = glyph(c);
-      return { pad: " ".repeat(width - g.length), glyph: g, letter: c.letter, changed: !!changes?.[r]?.[k] };
+      return { pad: " ".repeat(width - g.length), glyph: g, letter: c.letter, parts: c.parts, changed: !!changes?.[r]?.[k] };
     });
     return { text: cells.map(c => c.pad + c.glyph).join(" "), cells };
   });

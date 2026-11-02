@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-types";
+import { COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS } from "@workspace/game-types";
 import {
   TEXT_SHADES,
   COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
-  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines,
+  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
 
@@ -141,4 +141,34 @@ test("a goal card's tiny example board (size 2) is drawn with the room's colour 
   assert.equal(m.colours, "rgb");
   assert.deepEqual(m.rows.map(r => r.map(c => `${c.glyph} ${c.colourName}`)), [["A red", "A green"], ["A blue", "A red"]]);
   assert.equal(m.rows[0]![0]!.css, gridModel("AR,AR,AR/AR,AR,AR/AR,AR,AR", { size: 3, symbols: "base12", colours: "rgb" })!.rows[0]![0]!.css);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Fixed-width glyphs: every rank (the custom ten included) is one character cell, so card grids keep their columns.
+
+test("glyph parts: card codes split into rank and suit; the ten is flagged for the single-cell glyph", () => {
+  assert.deepEqual(glyphParts("TH"), { rank: "10", suit: "♥", ten: true });
+  assert.deepEqual(glyphParts("AS"), { rank: "A", suit: "♠", ten: false });
+  assert.deepEqual(glyphParts("KC"), { rank: "K", suit: "♣", ten: false });
+  assert.deepEqual(glyphParts("7"), { rank: "7", suit: "", ten: false });
+  assert.deepEqual(glyphParts("F"), { rank: "F", suit: "", ten: false });
+  assert.equal(gridModel("THB,ASR/KCV,2DO")!.rows[0][0].parts.ten, true);
+});
+
+test("glyph parts: every symbol of every set draws its rank in exactly one character cell", () => {
+  for (const set of Object.values(SYMBOL_COMPONENTS)) {
+    for (const code of set.codes) {
+      const p = glyphParts(code);
+      assert.equal(p.suit === "", !set.suits, `${set.id} ${code}: a suit exactly for cards`);
+      // Only the ten needs the custom glyph: every other rank is already a single character.
+      assert.equal(p.ten || [...p.rank].length === 1, true, `${set.id} ${code}: ${p.rank}`);
+      assert.equal(p.ten, p.rank === "10");
+    }
+  }
+});
+
+test("digits lines carry each cell's glyph parts, for the fixed-width renderer", () => {
+  const lines = gridDigitsLines(gridModel("THB,ASR/KCV,2DO")!);
+  assert.deepEqual(lines[0].cells.map(c => c.parts), [{ rank: "10", suit: "♥", ten: true }, { rank: "A", suit: "♠", ten: false }]);
+  assert.deepEqual(gridDigitsLines(gridModel("1R,2B/3B,5R")!)[0].cells[0].parts, { rank: "1", suit: "", ten: false });
 });

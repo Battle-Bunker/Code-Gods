@@ -14,7 +14,8 @@
     "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/assistant-games.ts",
     "e2e:replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/replay-shot.ts ../../docs/screenshots/replay",
     "e2e:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations.ts",
-    "videos:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-videos.ts ../../docs/videos/annotations"
+    "videos:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-videos.ts ../../docs/videos/annotations",
+    "e2e:glyphs": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/grid-glyphs.ts"
   },
   "devDependencies": {
     "@radix-ui/react-accordion": "^1.2.4",
