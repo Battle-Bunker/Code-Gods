@@ -84,6 +84,24 @@ export interface Explanation {
   readonly verified: boolean;
 }
 
+/** One line of the raw-score breakdown: a kind of piece, how many there are, and what they add up to. */
+export interface BreakdownItem {
+  /** "4 best-friend pairs", "2 lines miss 10 by 5 in all". */
+  readonly text: string;
+  /** What these pieces add to each explained component (length = the explanation's `components`). */
+  readonly points: readonly number[];
+}
+
+/**
+ * The raw score of a whole board in words (every lens must give one): the pieces tallied by kind. The items' points
+ * add up to the card's ordinal on every explained component (tested for every lens), so the breakdown is the score.
+ */
+export interface Breakdown {
+  /** What the first component counts, for "at least 4 friend pairs": [one, many]. */
+  readonly unit: readonly [one: string, many: string];
+  readonly items: readonly BreakdownItem[];
+}
+
 /** What the renderer draws for one focus cell. */
 export interface FocusView {
   readonly focus: Cell;

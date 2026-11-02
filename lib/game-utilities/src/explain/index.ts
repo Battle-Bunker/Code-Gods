@@ -16,6 +16,7 @@ import { points as pointsWord } from "../families/say.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { boardOf, readBoard, type Board } from "./board.ts";
+import { scoreWorkings, type ScoreWorkings, type WorkingsInput, type WorkingsTables } from "./workings.ts";
 import { containing, type Lens } from "./lens.ts";
 import { toneOf, type Cell, type Explanation, type FocusView, type GoalExample, type Part } from "./model.ts";
 import { parityPainter } from "./lenses/parity-painter.ts";
@@ -31,6 +32,7 @@ import { mirrormancer } from "./lenses/mirrormancer.ts";
 export * from "./model.ts";
 export { MAX_FOCUS_PARTS, containing, orderParts, type Lens } from "./lens.ts";
 export { boardOf, readBoard, type Board } from "./board.ts";
+export { scoreWorkings, curveOf, type ScoreWorkings, type RarityWorkings, type DefenceWorkings, type TableSpot, type WorkingsTables } from "./workings.ts";
 export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFrame, type StoryRole, type WhatIfEntry } from "./modes.ts";
 
 /** The families with a lens (a rich annotation). */
@@ -66,10 +68,23 @@ export interface GoalExplainer {
   /** The card's ordinal of a value (the card program), or null when it cannot be scored. */
   score(value: ObjectValue): Ordinal | null;
   example(): GoalExample | null;
+  /**
+   * "How this scores" for a board: the raw-score breakdown, its rarity and bits under the game's calibration table, and
+   * any defence goal's terms. Null without tables (`explainer(draw, inst, options)`), a lens, or a verified explanation.
+   */
+  workings(value: ObjectValue): ScoreWorkings | null;
+}
+
+/** What `explainer` needs for `workings`: the game's tables for your utility, and your defence goal. */
+export interface ExplainerOptions {
+  readonly tables?: WorkingsTables;
+  /** Your defence goal (the descriptor's `penalty`) and the game's penalty weight. */
+  readonly defence?: { readonly draw: Draw; readonly weight: number };
+  readonly netBits?: WorkingsInput["netBits"];
 }
 
 /** An explainer for one draw on one Grid instantiation, or null when the object type is not Grid. */
-export function explainer(draw: Draw, inst: Instantiation): GoalExplainer | null {
+export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
   if (inst.objectType !== "Grid") return null;
   const l = lensFor(draw.familyId), p = draw.params;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
@@ -114,6 +129,16 @@ export function explainer(draw: Draw, inst: Instantiation): GoalExplainer | null
           focus, headline: `${b.where(focus)}: ${b.describe(focus)}`, parts,
           ...(table ? { table } : {}), ...(note ? { note } : {}),
         };
+      } catch { return null; }
+    },
+    workings(value) {
+      const e = this.explain(value), b = board(value);
+      if (!l || !e?.verified || !b || !options.tables) return null;
+      try {
+        const breakdown = l.breakdown(p, b, e.parts);
+        let defence: WorkingsInput["defence"];
+        if (options.defence && options.tables.penalty) defence = { ordinal: evaluator(options.defence.draw, inst)(value), weight: options.defence.weight };
+        return scoreWorkings({ breakdown, components: e.components, ordinal: e.ordinal, tables: options.tables, defence, netBits: options.netBits });
       } catch { return null; }
     },
     example() {
