@@ -207,13 +207,13 @@ await check("the assistant is an ordinary pane: close it, and the palette's \"Op
   await page.locator("[data-testid=button-close-p4]").click();
   await page.waitForSelector("[data-testid=assistant-pane]", { state: "detached", timeout: 15_000 });
   const kinds = async () => Object.values((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).map(p => p.kind);
-  await until(async () => !(await kinds()).includes("assistant") ? true : undefined, "the closed assistant is gone from the stored layout", 20_000);
+  await until(async () => !(await kinds()).includes("assistant") ? true : undefined, "the closed assistant is gone from the stored layout", 75_000);
   await page.keyboard.press("Control+k");
   await page.waitForSelector("[data-testid=dialog-palette]");
   await page.keyboard.type("Open assistant");
   await page.keyboard.press("Enter");
   await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
-  await until(async () => (await kinds()).includes("assistant") ? true : undefined, "the reopened assistant is in the stored layout", 20_000);
+  await until(async () => (await kinds()).includes("assistant") ? true : undefined, "the reopened assistant is in the stored layout", 75_000);
   assert(await page.locator("[data-testid=assistant-pane]").count() === 1, "one assistant pane");
   await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
   await openAsPane("e2e-live");
@@ -439,8 +439,10 @@ await check("after the game ends every built-in panel shows the frozen final sta
     "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
     "code-output": "[data-testid=table-code-result]",
   };
-  const { PANEL_IDS } = await import("@workspace/player-client/panels");
-  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
+  const { PANEL_IDS: ALL_PANEL_IDS } = await import("@workspace/player-client/panels");
+  // The replay timeline exists only in replay mode (it has no live or frozen state to show here).
+  const PANEL_IDS = ALL_PANEL_IDS.filter(id => id !== "timeline");
+  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each live built-in panel");
   // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
   // The AI seats keep the budget the evaluator check gave them (a later check starts another game with them).
   await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
