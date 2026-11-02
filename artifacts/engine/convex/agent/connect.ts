@@ -6,7 +6,7 @@
  *   mutation agent/connect:deny    ({request})
  *
  * The client may name a `room` (a hint): it is preselected and, when the human is not in it yet, the page offers
- * to join it first (rooms.join). A first-party request (rules.ts firstPartyGrant) is approved by the page itself.
+ * to join it first (rooms.join). Every request is the human's decision: nothing is approved without a click.
  *
  * Like device approval: the human must be a member of the chosen room; the permission may be lowered from
  * the requested scope, never raised; an owner grant needs the room's CURRENT owner and explicit consent
@@ -27,11 +27,9 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import { requireViewer, type Grant, type Permission, type Viewer } from "../auth/access";
-import { siteOrigin } from "../auth/config";
 import { sha256Hex } from "../auth/crypto";
 import { grantV } from "../auth/tables";
 import { findRoom, memberOf } from "../lib/rooms";
-import { firstPartyGrant, isFirstParty } from "./rules";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 const grant = grantV;
@@ -70,10 +68,6 @@ export const pending = query({
       roomId: hinted._id as string, shortCode: hinted.shortCode, isOwner: hinted.ownerId === viewer.subject,
       member: !!(await memberOf(ctx, hinted._id, viewer.subject)),
     } : null;
-    /** What the page approves without a click (rules.ts firstPartyGrant): the hosted client, a member, at most act. */
-    const autoApprove = hint && status === "pending" && request.permission !== "account"
-      ? firstPartyGrant({ redirectUri: request.redirectUri, siteOrigin: siteOrigin(), member: hint.member, isOwner: hint.isOwner, requested: request.permission })
-      : null;
     return {
       /** Self-reported by the client: NOT a verified identity. */
       clientName: request.clientName,
@@ -83,9 +77,6 @@ export const pending = query({
       permission: request.permission, resource: request.resource, status, expiresAt: request.expiresAt, rooms,
       /** The requested room, or null (none asked, or unknown: the human picks one). */
       roomHint: hint, roomHintUnknown: !!request.roomHint && !hint,
-      /** Is the return address on this engine's own origin (the hosted player client)? */
-      firstParty: isFirstParty(request.redirectUri, siteOrigin()),
-      autoApprove,
     };
   },
 });

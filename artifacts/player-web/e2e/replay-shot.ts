@@ -2,13 +2,14 @@
  * Screenshots of the dock's replay mode (docs/replay-design.md §4; docs/screenshots/replay/) from a REAL game on the local
  * deployment (`pnpm --filter @workspace/engine dev`, then `pnpm --filter @workspace/engine deploy-static`): Bob owns a
  * room with two AI seats, summons two agents, the planning clock is cut short, the world runs for a while with chat,
- * the owner ends the game, and the hosted client opens its replay. It also checks the view's behaviour in a browser:
- * an ended game opens in the dock's replay mode at its end with the Timeline and the built-in panels; the deep link
- * reopens the same event; a step onto a change animates it on the board; the URL follows; an agent's code opens from
- * the timeline; the point of view switches; play moves the playhead (and starts over from the end); other pages'
- * links carry no replay position. First, as a player finds it: from the room page right after the game ends, with no
- * typed URL, "Watch the replay" opens the replay bar at the bottom of the screen; scrubbing to the middle, playing at
- * 4× and stepping each move the playhead, and the board changes with it.
+ * the owner ends the game, and the app on the engine's site (Bob's site session) opens its replay at the game's own
+ * page, /rooms/:room/games/:game. It also checks the view's behaviour in a browser: an ended game opens in the dock's
+ * replay mode at its end with the Timeline and the built-in panels; the deep link reopens the same event; a step onto
+ * a change animates it on the board; the URL follows; an agent's code opens from the timeline; the point of view
+ * switches; play moves the playhead (and starts over from the end); other pages' links carry no replay position.
+ * First, as a player finds it: from the room page right after the game ends, with no typed URL, the game's link in the
+ * room's history opens the replay bar at the bottom of the screen; scrubbing to the middle, playing at 4× and stepping
+ * each move the playhead, and the board changes with it.
  * Usage: node --experimental-transform-types e2e/replay-shot.ts <out-dir>
  */
 import "../../engine/scripts/local-only.mjs";
@@ -62,12 +63,13 @@ await bob.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("running
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
 const T = "[data-testid=replay-transport]";
+const GAME_PATH = `/rooms/${shortCode}/games/${gameCode}`;
 const cursorOf = async (page: import("playwright").Page) => Number(await page.getAttribute(T, "data-cursor"));
 const open = async (width: number, height: number, query: string) => {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
-  await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}${query}`);
+  await page.goto(`${SITE}${GAME_PATH}${query}`);
   await page.waitForSelector(T, { timeout: 60_000 });
   await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
   return { page, context };
@@ -75,18 +77,20 @@ const open = async (width: number, height: number, query: string) => {
 
 const boardText = (page: import("playwright").Page) => page.locator("[data-testid^=row-object-]").allTextContents().then(t => t.join("|"));
 {
-  // The owner's journey: the room page right after "Game over". No URL is typed: the bar under the dock offers the replay.
+  // The owner's journey: the room page right after "Game over". No URL is typed: the room's history links the game,
+  // whose page is now its replay.
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
-  await page.goto(`${SITE}/client/rooms/${shortCode}`);
-  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
-  await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
-  await sleep(1500);
+  await page.goto(`${SITE}/rooms/${shortCode}`);
+  await page.waitForSelector(`[data-testid=link-game-${gameCode}]`, { timeout: 60_000 });
+  assert.equal(await page.locator("[data-testid=panel-active-game]").count(), 0, "the room has no active game");
+  await page.locator(`[data-testid=link-game-${gameCode}]`).scrollIntoViewIfNeeded();
+  await sleep(1000);
   await page.screenshot({ path: `${OUT}/replay-room-ended.png` });
-  await page.click("[data-testid=link-watch-replay]");
+  await page.click(`[data-testid=link-game-${gameCode}]`);
   await page.waitForSelector(T, { timeout: 60_000 });
-  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the replay is the game's page");
+  assert.equal(new URL(page.url()).pathname, GAME_PATH, "the replay is the game's page");
   // One bar, anchored to the bottom of the screen, with a track wider than half the screen.
   const bar = (await page.locator(T).boundingBox())!;
   assert.ok(Math.abs(bar.y + bar.height - 900) <= 2, `the replay bar sits at the bottom (${bar.y}+${bar.height})`);
@@ -153,17 +157,13 @@ const boardText = (page: import("playwright").Page) => page.locator("[data-testi
   await palette("ui.replay.toggle");
   await page.waitForFunction(() => Number(document.querySelector("[data-testid=replay-transport]")?.getAttribute("data-cursor")) > 0, null, { timeout: 15_000 });
   assert.equal(await page.getAttribute(T, "data-playing"), "1", "the palette's Play the replay plays it");
-  // Back in the room, the palette offers the replay as well.
-  await page.goto(`${SITE}/client/rooms/${shortCode}`);
-  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
-  await palette("ui.replay.watch");
+  // (The room's "Watch the replay" bar and the engine UI's separate game page are gone: the game's one page is the replay.)
+  // The replay's header leads back to the room in the app, whose history links the game again.
+  await page.click("[data-testid=link-past-games]");
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}`, { timeout: 30_000 });
+  await page.click(`[data-testid=link-game-${gameCode}]`, { timeout: 30_000 });
   await page.waitForSelector(T, { timeout: 60_000 });
-  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the palette's Watch the replay opens it");
-  // The engine UI's page of the ended game leads with the replay.
-  await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
-  await page.waitForSelector("[data-testid=link-watch-replay]", { timeout: 60_000 });
-  assert.equal(new URL(await page.getAttribute("[data-testid=link-watch-replay]", "href") ?? "", SITE).pathname, `/client/rooms/${shortCode}/games/${gameCode}`);
-  await page.screenshot({ path: `${OUT}/replay-engine-game-page.png` });
+  assert.equal(new URL(page.url()).pathname, GAME_PATH, "the room's history reopens the replay");
   await context.close();
 }
 
@@ -253,7 +253,7 @@ const mid = Math.floor(events * 0.6);
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   const recording = Date.now();
-  await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}?t=0&speed=2`);
+  await page.goto(`${SITE}${GAME_PATH}?t=0&speed=2`);
   await page.waitForSelector(T, { timeout: 60_000 });
   await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
   await sleep(1000);

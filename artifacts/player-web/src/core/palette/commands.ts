@@ -85,7 +85,7 @@ export type PaletteActions = {
     /** Show the forge panel in edit mode. */
     forgeEdit(): void;
   };
-  links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
+  links: { roomPage(): string; copyRoomLink(): void; safeMode(on: boolean): void };
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
   objects: { setGridRenderer(id: GridRendererId): void };
   /** `watch` opens the ended game's replay (its page); the others drive the replay on screen. */
@@ -304,8 +304,6 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       { keywords: ["invite", "share", "url"], ...always(() => (s.roomCode ? OK : no("Waiting for the room."))) }),
     ui("ui.room.open", "Open room page", "The room on the engine site: members, setup and past games.", "room", { kind: "navigate", to: () => a.links.roomPage() },
       { keywords: ["room", "lobby", "members"], ...always(() => (s.roomCode ? OK : no("Waiting for the room."))) }),
-    ui("ui.game.open", "Open game page", "The public view of this game, for a big screen.", "room", { kind: "navigate", to: () => a.links.gamePage() ?? a.links.roomPage() },
-      { keywords: ["game", "public", "spectate"], ...always(() => (s.gameCode ? OK : no("No game yet."))) }),
     ui("ui.safe-mode", s.safeMode ? "Leave safe mode" : "Safe mode: your panels off", s.safeMode ? "Loads your panels again." : "Reloads with built-in panels and your assistant only.", "help",
       local(() => a.links.safeMode(!s.safeMode)), { keywords: ["panels", "broken", "safe"] }),
     ui("ui.glossary", "Explain a term…", "What a word in this game means.", "help",

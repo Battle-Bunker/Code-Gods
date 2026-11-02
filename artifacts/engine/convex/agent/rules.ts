@@ -44,29 +44,6 @@ export function resourceAllowed(resource: string | null | undefined, sites: stri
   });
 }
 
-/** Where the engine serves its own player client (`/player/*` only redirects there: convex/http.ts). */
-export const HOSTED_CLIENT_PATHS = ["/client/"] as const;
-/**
- * Is this redirect URI the engine's own hosted player client: the site's origin AND the client's path? Any other
- * page of the site is not, so a code can never be auto-approved to a page that might expose its query string.
- */
-export function isFirstParty(redirectUri: string, siteOrigin: string): boolean {
-  const url = parse(redirectUri);
-  return !!url && url.origin === siteOrigin && HOSTED_CLIENT_PATHS.some(p => url.pathname.startsWith(p));
-}
-
-/**
- * The grant /connect may approve without a click, or null when the human decides (docs/external-clients.md
- * decision 5): only for a redirect to the site's own origin (the code can reach only the engine's own page), a
- * human already in the room, and at most `act`. A non-owner's `owner` request is lowered to `act`; an owner grant
- * always needs the owner's explicit consent.
- */
-export function firstPartyGrant(input: { redirectUri: string; siteOrigin: string; member: boolean; isOwner: boolean; requested: Permission }): Permission | null {
-  if (!isFirstParty(input.redirectUri, input.siteOrigin) || !input.member) return null;
-  if (input.requested !== "owner") return input.requested;
-  return input.isOwner ? null : "act";
-}
-
 /** Does an authorization request's redirect_uri match a registered one? Exact, except a loopback port may vary. */
 export function redirectMatches(uri: string, registered: readonly string[]): boolean {
   if (registered.includes(uri)) return true;

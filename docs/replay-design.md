@@ -224,9 +224,9 @@ link, then a game code. Now:
     jump to the start or end. The replay page's header carries the palette too.
   - The replay player itself stays in the player client: it is built on the client's SDK and dock.
 
-| The room page after the game | The replay bar, mid-game | The engine UI's ended game |
-|---|---|---|
-| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) | ![Engine UI](screenshots/replay/replay-engine-game-page.png) |
+| The room page after the game (its history links each game's page) | The replay bar, mid-game (the game's page once it has ended) |
+|---|---|
+| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) |
 
 
 **The assistant receives the playhead (§8):** in replay mode, the chat pane sends each message with the moment on

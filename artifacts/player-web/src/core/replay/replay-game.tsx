@@ -20,6 +20,7 @@ import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
+import { retryDelay, transientQueryError } from "@/lib/live-retry";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
 
@@ -35,7 +36,18 @@ export function useReplayPages(roomId: string, gameId: string): Load {
       let cursor: { afterSeq: number; chatAfter: number; eventOffset?: number } | undefined;
       try {
         for (;;) {
-          const page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
+          let page: ReplayPage | undefined;
+          // A page that fails transiently (a timeout under load) is fetched again before the replay gives up.
+          for (let attempt = 0; !page; attempt++) {
+            try {
+              page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
+            } catch (error) {
+              if (!live) return;
+              if (attempt >= 4 || !transientQueryError(error)) throw error;
+              await new Promise(r => setTimeout(r, retryDelay(attempt)));
+              if (!live) return;
+            }
+          }
           if (!live) return;
           pages.push(page);
           setLoad({ pages: [...pages], done: page.done });
@@ -52,7 +64,7 @@ export function useReplayPages(roomId: string, gameId: string): Load {
 }
 
 type Room = { id: string; shortCode: string };
-type Access = { permission: "read" | "act" | "owner"; mode: "devserver" | "hosted" };
+type Access = { permission: "read" | "act" | "owner"; mode: "devserver" | "site" };
 
 export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room: Room; gameId: string; gameCode: string; access: Access; fallback: (error: string) => ReactNode }) {
   const load = useReplayPages(room.id, gameId);
@@ -97,7 +109,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
     <div data-testid="historic-game" data-game-id={controller.replay.game.id}>
       <div className="flex h-9 items-center gap-3 border-b border-[hsl(var(--card-border))] px-3 text-sm">
         <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-room">Room {room.shortCode}</Link>
-        <Link to={{ kind: "games", room: room.shortCode }} className="underline" data-testid="link-past-games">Past games</Link>
+        <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-past-games">Past games</Link>
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
         <span className="label" data-testid="text-game-status">ended · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}

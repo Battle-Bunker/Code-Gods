@@ -102,8 +102,6 @@ for (const origin of ORIGINS) {
     const flow = await startOAuth(origin, redirectUri, shortCode.toLowerCase(), "owner");
     const pending = await ada.c.query(api.agent.connect.pending, { request: flow.request });
     assert.deepEqual(pending.roomHint, { roomId, shortCode, isOwner: false, member: true }, "the room hint resolves, in any case");
-    assert.equal(pending.firstParty, false);
-    assert.equal(pending.autoApprove, null, "a foreign origin is always the human's decision");
     assert.equal(pending.redirectHost, new URL(origin).hostname);
     await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: flow.request, roomId, permission: "owner", completion: "c".repeat(43), ownerConsent: true }),
       /owner/, "a non-owner cannot grant owner");
@@ -168,7 +166,6 @@ test("an account grant: the app acts as its human in every room, never on the co
   const flow = await startOAuth(FOREIGN, redirectUri, shortCode, "account");
   const pending = await ada.c.query(api.agent.connect.pending, { request: flow.request });
   assert.equal(pending.permission, "account");
-  assert.equal(pending.autoApprove, null, "never approved without a click");
   assert.equal(pending.roomHint, null, "an account grant names no room: the hint is dropped");
   // Catches: an MCP client minting an account grant /mcp would then refuse.
   const mcpAsk = new URL(`${SITE}/oauth/authorize`);
@@ -260,33 +257,8 @@ test("a client on a foreign origin uses the device flow (iframes, CLIs) and revo
   await assert.rejects(convex.query(api.player.observation, { roomId, at: 1 }), /UNAUTHENTICATED|sign in|reconnect/i);
 });
 
-test("first-party approval: only the engine's own origin, only for a member, at most act; joining stays the human's click", async () => {
-  const { host, roomId, shortCode } = await lobby();
+test("a room hint the engine does not know asks the human to choose a room", async () => {
   const [newcomer] = await gods("Ext Newcomer");
-  const hosted = `${SITE}/client/`;
-
-  const own = await startOAuth(SITE, hosted, shortCode, "owner");
-  const asOwner = await host.c.query(api.agent.connect.pending, { request: own.request });
-  assert.equal(asOwner.firstParty, true);
-  assert.equal(asOwner.autoApprove, null, "an owner grant always needs the owner's consent");
-
-  const joining = await startOAuth(SITE, hosted, shortCode, "owner");
-  const before = await newcomer.c.query(api.agent.connect.pending, { request: joining.request });
-  assert.deepEqual({ member: before.roomHint.member, autoApprove: before.autoApprove }, { member: false, autoApprove: null }, "not in the room: no silent approval");
-  await newcomer.c.mutation(api.rooms.join, { room: shortCode });
-  const after = await newcomer.c.query(api.agent.connect.pending, { request: joining.request });
-  assert.equal(after.autoApprove, "act", "a non-owner's owner request is lowered to act");
-  const tokens = await finishOAuth(newcomer, SITE, hosted, joining, roomId, after.autoApprove);
-  assert.equal(tokens.scope, "act");
-
-  const foreign = await startOAuth(FOREIGN, `${FOREIGN}/`, shortCode, "act");
-  assert.equal((await newcomer.c.query(api.agent.connect.pending, { request: foreign.request })).autoApprove, null);
-  const lookalike = await startOAuth(FOREIGN, `${SITE.replace("127.0.0.1", "127.0.0.1.nip.io")}/client/`.replace("http://", "https://"), shortCode, "act");
-  assert.equal((await newcomer.c.query(api.agent.connect.pending, { request: lookalike.request })).autoApprove, null, "a look-alike host is not the site");
-
-  const otherPage = await startOAuth(SITE, `${SITE}/connect`, shortCode, "act");
-  assert.equal((await newcomer.c.query(api.agent.connect.pending, { request: otherPage.request })).autoApprove, null, "another page of the site is not the hosted client");
-
   const unknown = await startOAuth(FOREIGN, `${FOREIGN}/`, "NOSUCHROOM", "act");
   const none = await newcomer.c.query(api.agent.connect.pending, { request: unknown.request });
   assert.deepEqual({ roomHint: none.roomHint, roomHintUnknown: none.roomHintUnknown }, { roomHint: null, roomHintUnknown: true });

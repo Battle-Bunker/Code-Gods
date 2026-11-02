@@ -1,60 +1,54 @@
 /**
- * The player client's URL scheme (src/core/routes.ts), mirroring the engine UI's under the app's own base path
- * ("/client/" when the engine hosts it, "/" on a dev server): the base is never assumed, legacy links (?room=CODE,
- * /games/CODE) and stray paths canonicalise, and hrefs round-trip.
+ * The app's URL scheme (src/core/routes.ts, docs/unify-apps-plan.md §1.2), checked against the router's own patterns
+ * with wouter's own matcher: every page's href reaches exactly its page under any base path, and anything else is not
+ * found (no legacy aliases: /client/…, /games/:code, ?room=, rooms/:room/games).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { carriedSearch, parseRoute, routeHref } from "../src/core/routes.ts";
+import { matchRoute } from "wouter";
+import { parse } from "regexparam";
+import { ROUTE_PATTERNS, carriedSearch, routeHref, type AppRoute } from "../src/core/routes.ts";
 
-test("routes parse under any base path", () => {
-  for (const base of ["/client/", "/", "/some/proxy/"]) {
-    assert.deepEqual(parseRoute(base, base, ""), { route: { kind: "home" } }, base);
-    assert.deepEqual(parseRoute(base, `${base}rooms/ABCD`, ""), { route: { kind: "room", room: "ABCD" } }, base);
-    assert.deepEqual(parseRoute(base, `${base}rooms/ABCD/`, ""), { route: { kind: "room", room: "ABCD" } }, base);
-    assert.deepEqual(parseRoute(base, `${base}rooms/ABCD/games`, ""), { route: { kind: "games", room: "ABCD" } }, base);
-    assert.deepEqual(parseRoute(base, `${base}rooms/ABCD/games/G9TQ`, ""), { route: { kind: "game", room: "ABCD", game: "G9TQ" } }, base);
+type Page = keyof typeof ROUTE_PATTERNS;
+/** The pages whose pattern matches `path` (relative to the router's base), with their params. */
+const routed = (path: string) => (Object.keys(ROUTE_PATTERNS) as Page[])
+  .map(page => [page, matchRoute(parse as never, ROUTE_PATTERNS[page], path)] as const)
+  .filter(([, [hit]]) => hit).map(([page, [, params]]) => ({ page, params: Object.fromEntries(Object.entries(params ?? {}).filter(([k]) => !/^\d+$/.test(k))) }));
+/** wouter strips the base (core/app.tsx's Router) before matching: the same here. */
+const underBase = (base: string, href: string) => { assert.ok(href.startsWith(base), href); return `/${href.slice(base.length)}`; };
+
+const PAGES: [Exclude<AppRoute, { kind: "notFound" }>, Page, Record<string, string>][] = [
+  [{ kind: "home" }, "home", {}],
+  [{ kind: "room", room: "ABCD" }, "room", { id: "ABCD" }],
+  [{ kind: "configure", room: "ABCD" }, "configure", { id: "ABCD" }],
+  [{ kind: "game", room: "ABCD", game: "G9TQ" }, "game", { roomId: "ABCD", gameId: "G9TQ" }],
+  [{ kind: "connect" }, "connect", {}],
+  [{ kind: "device" }, "device", {}],
+  [{ kind: "admin" }, "admin", {}],
+  [{ kind: "admin", agent: "a1" }, "adminAgent", { id: "a1" }],
+];
+
+test("every page's href reaches exactly its page, under any base path", () => {
+  for (const base of ["/", "/some/proxy/"]) {
+    for (const [route, page, params] of PAGES) {
+      const hits = routed(underBase(base, routeHref(base, route)));
+      // Catches: two patterns claiming one href (wouter's Switch would take the first), or an href no route serves.
+      assert.deepEqual(hits.map(h => h.page), [page], `${base} ${route.kind}`);
+      assert.deepEqual(hits[0]!.params, params);
+    }
+    assert.equal(routeHref(base, { kind: "game", room: "ABCD", game: "G9TQ" }), `${base}rooms/ABCD/games/G9TQ`);
   }
-  // The base without its trailing slash is the home page.
-  assert.deepEqual(parseRoute("/client/", "/client", ""), { route: { kind: "home" } });
-  // Path segments are URL-decoded.
-  assert.deepEqual(parseRoute("/", "/rooms/AB%20CD", "").route, { kind: "room", room: "AB CD" });
+  assert.equal(routeHref("/", { kind: "game", room: "A/B", game: "C D" }), "/rooms/A%2FB/games/C%20D", "codes are one segment each");
 });
 
-test("legacy and stray paths canonicalise, keeping unrelated query parameters", () => {
-  assert.deepEqual(parseRoute("/client/", "/client/", "?room=ABCD"), { route: { kind: "room", room: "ABCD" }, canonical: "/client/rooms/ABCD" });
-  assert.deepEqual(parseRoute("/client/", "/client/", "?room=ABCD&panels=off"), { route: { kind: "room", room: "ABCD" }, canonical: "/client/rooms/ABCD?panels=off" });
-  assert.deepEqual(parseRoute("/", "/", "?room=%20"), { route: { kind: "home" }, canonical: "/" }, "a blank ?room is dropped");
-  // The engine UI's old game links, and its configure page (no player-side equivalent: the room).
-  assert.deepEqual(parseRoute("/client/", "/client/games/G9TQ", ""), { route: { kind: "legacyGame", game: "G9TQ" } });
-  assert.deepEqual(parseRoute("/client/", "/client/rooms/ABCD/configure", "?panels=off"), { route: { kind: "room", room: "ABCD" }, canonical: "/client/rooms/ABCD?panels=off" });
-  assert.deepEqual(parseRoute("/client/", "/client/rooms/ABCD/games/G9TQ/more", ""), { route: { kind: "room", room: "ABCD" }, canonical: "/client/rooms/ABCD" });
-  assert.deepEqual(parseRoute("/client/", "/client/nowhere/at/all", ""), { route: { kind: "home" }, canonical: "/client/" });
-  // A path outside the base (a misconfigured proxy) is the home page, canonicalised under the base.
-  assert.deepEqual(parseRoute("/client/", "/elsewhere", ""), { route: { kind: "home" }, canonical: "/client/" });
-});
-
-test("hrefs are built under the base and round-trip", () => {
-  assert.equal(routeHref("/client/", { kind: "home" }), "/client/");
-  assert.equal(routeHref("/client/", { kind: "room", room: "ABCD" }), "/client/rooms/ABCD");
-  assert.equal(routeHref("/", { kind: "games", room: "ABCD" }), "/rooms/ABCD/games");
-  assert.equal(routeHref("/", { kind: "game", room: "ABCD", game: "G9TQ" }), "/rooms/ABCD/games/G9TQ");
-  assert.equal(routeHref("/client", { kind: "room", room: "ABCD" }), "/client/rooms/ABCD", "a base without its trailing slash");
-  assert.equal(routeHref("/", { kind: "room", room: "A/B" }), "/rooms/A%2FB", "segments are encoded");
-  for (const route of [{ kind: "home" }, { kind: "room", room: "ABCD" }, { kind: "games", room: "ABCD" }, { kind: "game", room: "ABCD", game: "G9TQ" }] as const) {
-    assert.deepEqual(parseRoute("/client/", routeHref("/client/", route), "").route, route);
+test("no legacy aliases: old and stray paths are not found", () => {
+  // Catches: a compatibility route sneaking back (the owner, 2026-11-02: no backwards compatibility).
+  for (const path of ["/client/", "/client/rooms/ABCD", "/player/", "/games/G9TQ", "/rooms/ABCD/games", "/rooms", "/rooms/ABCD/games/G9TQ/x", "/admin", "/nope"]) {
+    assert.deepEqual(routed(path), [], path);
   }
 });
 
-test("engine UI links point at the engine's site, wherever the client runs (a dev server's origin is not the engine)", async () => {
-  const { enginePageHref } = await import("../src/core/routes.ts");
-  assert.equal(enginePageHref("https://dep.convex.site", { room: "AB12" }), "https://dep.convex.site/rooms/AB12");
-  assert.equal(enginePageHref("https://dep.convex.site/", { room: "AB 12", game: "G9" }), "https://dep.convex.site/rooms/AB%2012/games/G9");
-  assert.equal(enginePageHref(undefined, { room: "AB12" }), "/rooms/AB12", "unknown engine: this origin (the hosted client)");
-});
-
-test("navigation carries the page's own parameters, never a replay's position (it belongs to one game's page)", () => {
-  assert.equal(carriedSearch("?panels=off&e=40&as=g2&speed=8&play=1&t=3"), "?panels=off");
-  assert.equal(carriedSearch("?e=40"), "");
-  assert.equal(carriedSearch(""), "");
+test("navigation carries the page's own parameters, never a replay's position", () => {
+  assert.equal(carriedSearch("?panels=off&e=12&t=3&speed=2&play=1&as=u1"), "?panels=off");
+  assert.equal(carriedSearch("?e=1"), "");
 });

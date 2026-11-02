@@ -16,7 +16,7 @@ export default function Timeline({ params }: PanelProps<"timeline">) {
   const room = useRoomInfo();
   if (!controller) {
     return (
-      <PanelEmpty testId="panel-timeline-live" action={room ? <Link to={{ kind: "games", room: room.shortCode }} className="text-xs underline">Past games</Link> : undefined}>
+      <PanelEmpty testId="panel-timeline-live" action={room ? <Link to={{ kind: "room", room: room.shortCode }} className="text-xs underline">Past games</Link> : undefined}>
         The timeline plays an ended game: open one from the room's past games to replay it, event by event.
       </PanelEmpty>
     );

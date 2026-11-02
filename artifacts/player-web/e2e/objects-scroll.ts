@@ -2,6 +2,7 @@
  * Browser check of "Objects by payoff" infinite scroll on a REAL local game (docs/panels.md): the first screen holds
  * one page, scrolling to the end loads more rows (the footer's "N of M" grows), the sort selector reorders the whole
  * collection (and persists as the pane's `sortBy`), and a reload keeps the sort. Screenshots and a video go to <out-dir>.
+ * Bob plays the game in the app on the engine's site (his site session), at the game's page /rooms/:room/games/:game.
  *   pnpm --filter @workspace/engine dev ; pnpm --filter @workspace/engine deploy-static
  *   cd artifacts/player-web && node --experimental-transform-types e2e/objects-scroll.ts <out-dir>
  */
@@ -54,7 +55,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 900, height: 700 }, recordVideo: { dir: OUT, size: { width: 900, height: 700 } } });
 await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
-await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}`);
+await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);   // the live game: Bob plays in it, so it is his dock
 const rows = page.locator("[data-testid^=row-object-]");
 await rows.first().waitFor({ timeout: 60_000 });
 const footer = () => page.locator("[data-testid=text-objects-footer]").innerText();

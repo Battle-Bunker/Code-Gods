@@ -10,11 +10,17 @@ import { assistantTables } from "./assistant/tables";
 import { layoutTables } from "./layout/tables";
 import { codeTables } from "./code/tables";
 
-/** A deployed site: the engine UI, the player client, or the functions (convex/version.ts). */
-export const versionSiteV = v.union(v.literal("engine"), v.literal("player"), v.literal("functions"));
+/** A deployed site: the app's static build, or the functions (convex/version.ts). */
+export const versionSiteV = v.union(v.literal("app"), v.literal("functions"));
+/**
+ * The sites before the one app: the engine UI ("engine", at /) and the player client ("player", at /client/). Stored
+ * rows of theirs are deleted by migrations:dropRetiredSiteBuilds; once every deployment reports it done, a later PR
+ * narrows siteBuilds to versionSiteV and drops these (CLAUDE.md "Schema migrations").
+ */
+export const retiredSiteV = v.union(v.literal("engine"), v.literal("player"));
 /** The deployed builds per site, one row per deploy (owned by convex/version.ts). */
 const versionTables = {
-  siteBuilds: defineTable({ site: versionSiteV, build: v.string(), deployedAt: v.number() })
+  siteBuilds: defineTable({ site: v.union(versionSiteV, retiredSiteV), build: v.string(), deployedAt: v.number() })
     .index("by_site", ["site", "deployedAt"]).index("by_site_build", ["site", "build"]),
 };
 

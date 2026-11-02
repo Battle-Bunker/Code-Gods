@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { credentialKind, credentialProblem } from "../../convex/auth/principal.ts";
 import {
-  CLAUDE_CALLBACKS, bearerFrom, firstPartyGrant, isFirstParty, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
+  CLAUDE_CALLBACKS, bearerFrom, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
 } from "../../convex/agent/rules.ts";
 import { bound } from "../../convex/agent/bound.ts";
 
@@ -58,23 +58,6 @@ test("resource: the site, its MCP endpoint, or none; never another resource", ()
   const custom = ["https://play.example", site];
   for (const r of ["https://play.example", `${site}/mcp`, "https://play.example/mcp"]) assert.equal(resourceAllowed(r, custom), true, `custom domain: ${r}`);
   assert.equal(resourceAllowed("https://other.example", custom), false);
-});
-
-test("first-party approval: only the site's own origin, only for a member, never an owner grant", () => {
-  const site = "https://dep.convex.site";
-  const base = { redirectUri: `${site}/client/`, siteOrigin: site, member: true, isOwner: false };
-  assert.equal(isFirstParty(`${site}/client/`, site), true);
-  assert.equal(isFirstParty("https://dep.convex.site.evil.example/client/", site), false);
-  assert.equal(isFirstParty("http://127.0.0.1:3211/client/", "http://127.0.0.1:3211"), true);
-  for (const other of [`${site}/player/`, `${site}/`, `${site}/connect`, `${site}/rooms/ABCD?x=1`, `${site}/mcp`, `${site}/clientx/`]) {
-    assert.equal(isFirstParty(other, site), false, `another page of the site is not the hosted client: ${other}`);
-  }
-  assert.equal(firstPartyGrant({ ...base, requested: "act" }), "act");
-  assert.equal(firstPartyGrant({ ...base, requested: "read" }), "read");
-  assert.equal(firstPartyGrant({ ...base, requested: "owner" }), "act", "a non-owner's owner request is lowered to act");
-  assert.equal(firstPartyGrant({ ...base, requested: "owner", isOwner: true }), null, "the owner consents explicitly");
-  assert.equal(firstPartyGrant({ ...base, requested: "act", member: false }), null, "joining is the human's own click");
-  assert.equal(firstPartyGrant({ ...base, requested: "act", redirectUri: "https://xyz.replit.dev/" }), null, "any other origin asks");
 });
 
 test("redirect matching: exact, except that a loopback port may vary (RFC 8252)", () => {

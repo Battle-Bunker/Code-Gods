@@ -3,8 +3,8 @@
  * Runs test/auth.test.ts against a live LOCAL backend:  pnpm --filter @workspace/engine test:auth
  *
  * Starts scripts/dev.mjs on ports 3310/3311 with the fake OIDC on 3398 (override with
- * CONVEX_LOCAL_CLOUD_PORT / CONVEX_LOCAL_SITE_PORT / FAKE_OIDC_PORT), uploads two small fixture sites
- * (or, with --real-builds, the real frontends' builds) to engineSite/playerSite, runs the tests and
+ * CONVEX_LOCAL_CLOUD_PORT / CONVEX_LOCAL_SITE_PORT / FAKE_OIDC_PORT), uploads a small fixture site
+ * (or, with --real-builds, the app's real build) to the static hosting, runs the tests and
  * stops everything it started.
  */
 import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set

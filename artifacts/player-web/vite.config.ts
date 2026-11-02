@@ -8,8 +8,8 @@ import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
 import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
-// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/client/". The app never assumes
-// its prefix (src/core/routes.ts reads Vite's base), so BASE_PATH can mount it anywhere, a dev server at "/" included.
+// Defaults: dev server on port 22772 at "/"; the engine hosts a build at "/" too. The app never assumes its prefix
+// (src/core/routes.ts reads Vite's base), so BASE_PATH can mount it anywhere, behind a proxy path included.
 const rawPort = process.env.PORT || "22772";
 const port = Number(rawPort);
 
@@ -17,12 +17,16 @@ if (!Number.isInteger(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH || (isBuild ? "/client/" : "/");
+const basePath = process.env.BASE_PATH || "/";
 
+/**
+ * Site-mode development (CODE_GODS_SITE_URL, e.g. http://127.0.0.1:3211): the app signs in on the engine site with its
+ * Google session, as the build the engine serves does. `/api` is proxied there so the page keeps one origin; the
+ * engine's token and logout routes accept only their own Origin (CSRF), so the proxy presents the engine's origin.
+ * Without it, the dev server is a player's own app holding a room credential (/__codegods/token).
+ */
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
-// The engine a browser-mode client talks to (src/core/connection.ts engineUrl): CODE_GODS_SITE_URL in hosted-mode
-// development, else VITE_CODE_GODS_ENGINE_URL (a build served from another origin), else the page's own origin.
-if (hostedDev && !process.env.VITE_CODE_GODS_ENGINE_URL) process.env.VITE_CODE_GODS_ENGINE_URL = process.env.CODE_GODS_SITE_URL;
+const siteUrl = (process.env.CODE_GODS_SITE_URL ?? "").replace(/\/+$/, "");
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
   // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
   // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
@@ -62,7 +66,7 @@ function framePlugin(): Plugin {
       server.watcher.on("change", file => { if (file.startsWith(src) && !file.startsWith(panelsDir)) built = undefined; });
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://x");
-        // Paths relative to the app's base ("/" by default, "/client/" in a build, or BASE_PATH), as the client requests them.
+        // Paths relative to the app's base ("/" by default, or BASE_PATH), as the client requests them.
         const base = server.config.base;
         if (!url.pathname.startsWith(base)) { next(); return; }
         const name = url.pathname.slice(base.length);
@@ -102,7 +106,7 @@ function framePlugin(): Plugin {
   };
 }
 
-/** The page's CSP as a meta tag (vite/csp.ts): the hosted /client/ policy in a build, frame-src 'self' in a dev server. */
+/** The page's CSP as a meta tag (vite/csp.ts): the app's policy in a build, frame-src 'self' in a dev server. */
 const pageCspPlugins = (): Plugin[] => [
   { name: "code-gods-page-csp", apply: "build", transformIndexHtml: { order: "post", handler: html => injectPageCsp(html, process.env) } },
   { name: "code-gods-dev-page-csp", apply: "serve", transformIndexHtml: { order: "post", handler: html => injectCsp(html, devPageCsp()) } },
@@ -157,11 +161,12 @@ export default defineConfig({
     allowedHosts: true,
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
-    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211. The client is then an
-    // OAuth client of that engine from this origin (src/core/connection.ts), exactly like a client on any other origin.
     fs: {
       strict: true,
     },
+    ...(hostedDev ? { proxy: { "/api": { target: siteUrl, changeOrigin: true, configure: (proxy: { on(event: "proxyReq", listener: (req: { getHeader(name: string): unknown; setHeader(name: string, value: string): void }) => void): void }) => {
+      proxy.on("proxyReq", req => { if (req.getHeader("origin")) req.setHeader("origin", new URL(siteUrl).origin); });
+    } } } } : {}),
   },
   preview: {
     port,

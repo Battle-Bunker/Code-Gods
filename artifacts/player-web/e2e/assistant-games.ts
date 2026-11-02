@@ -1,15 +1,16 @@
 /**
- * The assistant pane across games, in one page of the hosted player client (/client/ on the engine's site), never
- * reloaded: the assistant's context is per (player, game), so when the room's next game starts the pane must follow
- * the reactive game and show an empty, fresh assistant: no earlier transcript, no phase lines, no error, and sending
- * works at once.
+ * The assistant pane across games, in one page of the app on the engine's site (signed in with the site's session),
+ * never reloaded: the assistant's context is per (player, game). Game 1 is played at its page
+ * (/rooms/:room/games/:game); when it ends that page is its replay, the player goes back to the room page in the app,
+ * and when the room's next game starts the room page takes them to game 2's page, whose pane must show an empty,
+ * fresh assistant: no earlier transcript, no phase lines, no error, and sending works at once.
  *
  *   pnpm --filter @workspace/player-web e2e:assistant
  *
  * Needs a running local engine (`pnpm --filter @workspace/engine dev`; the mock assistant provider). It uploads a
- * fresh build of the player client first (CG_E2E_SKIP_DEPLOY=1 skips that). What would break: a thread id held by the
- * client across games (the owner saw game 1's conversation in game 2 with "That conversation belongs to an earlier
- * game", until a reload).
+ * fresh build of the app first (CG_E2E_SKIP_DEPLOY=1 skips that). What would break: a thread id held by the client
+ * across games (the owner saw game 1's conversation in game 2 with "That conversation belongs to an earlier game",
+ * until a reload).
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
@@ -40,8 +41,8 @@ if (!(await fetch(`${SITE}/api/health`).then(r => r.ok, () => false))) {
   process.exit(1);
 }
 if (process.env.CG_E2E_SKIP_DEPLOY !== "1") {
-  console.log("building and uploading the player client…");
-  execFileSync("node", ["scripts/deploy-static.mjs", "--only", "player"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
+  console.log("building and uploading the app…");
+  execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
 }
 
 const { browserJwt, login } = await import("../../engine/test/helpers.ts");
@@ -62,7 +63,16 @@ await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("settings", { revision: await revision(), settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, languages: ["typescript"],
   startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9 } });
 await dana.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
-await owner("start");
+/** Start the room's next game and wait until it is live (a start may first prepare rule tables); its short code. */
+async function startGame() {
+  await owner("start");
+  for (const end = Date.now() + 300_000; Date.now() < end; await sleep(500)) {
+    const code = (await dana.query(fn.q("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame?.shortCode;
+    if (code) return code;
+  }
+  throw new Error("timed out: the game starts");
+}
+const game1 = await startGame();
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
@@ -71,7 +81,7 @@ await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, 
 const page = await context.newPage();
 const pageErrors: string[] = [];
 page.on("pageerror", e => pageErrors.push(e.message));
-await page.goto(`${SITE}/client/rooms/${shortCode}`);
+await page.goto(`${SITE}/rooms/${shortCode}/games/${game1}`);
 await page.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
 // A reload would drop this marker (a same-document URL change would not).
 await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
@@ -93,8 +103,14 @@ await check("game 1: a conversation in the pane", async () => {
 
 await check("game 2 starts in the same page: the pane shows an empty, fresh assistant without a reload", async () => {
   await owner("endGame");
-  await until(async () => /Game over/.test(await paneText()), "the pane notes the end");
-  await owner("start");
+  // An ended game's page is its replay; its header leads back to the room, which opens the next game when it starts.
+  await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
+  await page.click("[data-testid=link-past-games]");
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}`, { timeout: 30_000 });
+  await page.waitForSelector("[data-testid=text-room-code]", { timeout: 30_000 });
+  const game2 = await startGame();
+  await page.waitForURL(url => url.pathname === `/rooms/${shortCode}/games/${game2}`, { timeout: 30_000 });
+  await page.waitForSelector(pane, { timeout: 60_000 });
   await until(async () => {
     const text = await paneText();
     return !text.includes("answer of game one") && (await page.locator(`${pane} [data-testid=assistant-user-message]`).count()) === 0;

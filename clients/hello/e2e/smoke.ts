@@ -1,12 +1,12 @@
 /**
  * The hello client served from ANOTHER origin than its engine, in a real browser (docs/external-clients.md §6):
  * the engine is http://127.0.0.1:3211, the client http://localhost:<port>, so every call is cross-origin and the
- * session cookie of the engine site never reaches the client. It signs in (OAuth redirect through the engine UI's
+ * session cookie of the engine site never reaches the client. It signs in (OAuth redirect through the app's
  * /connect page), subscribes, chats, survives a reload, connects from inside an iframe with the device flow, and
  * is revoked from the engine.
  *
  *   pnpm --filter @workspace/engine dev        (a local engine)
- *   pnpm run smoke:hello                       builds and uploads the engine UI (CG_E2E_SKIP_DEPLOY=1 skips it),
+ *   pnpm run smoke:hello                       builds and uploads the app (CG_E2E_SKIP_DEPLOY=1 skips it),
  *                                              builds this client, serves it and drives Chromium
  */
 import "../../../artifacts/engine/scripts/local-only.mjs";
@@ -34,8 +34,8 @@ if (!(await fetch(`${SITE}/api/health`).then(r => r.ok, () => false))) {
 }
 const anonymous = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
 if (process.env.CG_E2E_SKIP_DEPLOY !== "1") {
-  console.log("building and uploading the engine UI (its /connect page)…");
-  execFileSync("node", ["scripts/deploy-static.mjs", "--only", "engine"], { cwd: ENGINE, stdio: "ignore", env: anonymous });
+  console.log("building and uploading the app (its /connect page)…");
+  execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: anonymous });
 }
 const dist = mkdtempSync(join(tmpdir(), "cg-hello-"));
 execFileSync("npx", ["vite", "build", "--outDir", dist, "--emptyOutDir", "--logLevel", "warn"], { cwd: HERE, stdio: "inherit", env: { ...process.env, VITE_CODE_GODS_ENGINE_URL: SITE } });

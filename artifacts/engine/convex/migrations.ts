@@ -16,6 +16,8 @@
  *    bundle (row and stored file), its compiled programs. Agents keep `language: "haskell"` as history (game-core
  *    RETIRED_LANGUAGES); a game's Haskell agent sits out (engine/tick.ts). Narrowed later: runtimeReadiness's language
  *    to supported languages, and the haskellPrograms table dropped.
+ *  - dropRetiredSiteBuilds (siteBuilds): the build rows of the sites before the one app ("engine", "player") go; the
+ *    app's own builds start at its first deploy. Narrowed later: siteBuilds' site to versionSiteV (schema.ts).
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -86,6 +88,10 @@ export const dropHaskellBundle = migrations.define({
   },
 });
 export const dropHaskellPrograms = migrations.define({ table: "haskellPrograms", migrateOne: async (ctx, row) => { await ctx.db.delete(row._id); } });
+export const dropRetiredSiteBuilds = migrations.define({
+  table: "siteBuilds",
+  migrateOne: async (ctx, row) => { if (row.site === "engine" || row.site === "player") await ctx.db.delete(row._id); },
+});
 export const dropHaskellCompiledPrograms = migrations.define({
   table: "compiledPrograms",
   migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
@@ -96,7 +102,7 @@ export const dropHaskellCompiledPrograms = migrations.define({
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
   internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
   internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
-  internal.migrations.dropHaskellCompiledPrograms];
+  internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

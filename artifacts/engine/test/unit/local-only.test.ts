@@ -23,7 +23,7 @@ const SCRIPTS = [
   "artifacts/engine/scripts/test-auth.mjs",
   "artifacts/engine/scripts/assistant-provider.mjs",
   "lib/player-client/scripts/test.mjs",
-  "artifacts/code-gods/e2e/smoke.ts",
+  "artifacts/player-web/e2e/site-smoke.ts",
   "artifacts/player-web/e2e/multi-client.ts",
   "artifacts/player-web/e2e/stored-panels.ts",
 ];
