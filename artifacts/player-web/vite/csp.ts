@@ -47,8 +47,9 @@ export function convexSources(env: Env): string[] {
 export function engineSources(env: Env): string[] {
   if (!env.VITE_CODE_GODS_ENGINE_URL) return [];
   const engine = new URL(env.VITE_CODE_GODS_ENGINE_URL);
-  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(engine.hostname);
-  return loopback ? [engine.origin, `http://${engine.hostname}:*`, `ws://${engine.hostname}:*`] : [engine.origin];
+  const LOOPBACK = ["127.0.0.1", "localhost", "[::1]"];
+  // Any loopback name: the engine may report its Convex URL as 127.0.0.1 while the app was given localhost.
+  return LOOPBACK.includes(engine.hostname) ? [engine.origin, ...LOOPBACK.flatMap(h => [`http://${h}:*`, `ws://${h}:*`])] : [engine.origin];
 }
 
 export function pageCsp(env: Env): string {

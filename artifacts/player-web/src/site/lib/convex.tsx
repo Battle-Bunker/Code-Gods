@@ -49,6 +49,8 @@ type Session = {
 };
 
 const SessionContext = createContext<Session | null>(null);
+/** Set when an account sign-out could not reach the engine (core/app.tsx shows it on the sign-in screen). */
+export const SIGN_OUT_UNCONFIRMED = "codegods.signOutUnconfirmed";
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /** Better Auth on this origin (the engine site, or the dev server's /api proxy to it). */
@@ -63,15 +65,22 @@ function useEngineSession(auth: EngineAuth): Session {
     // A token app signs in where its credential comes from (`pnpm player connect`), not here.
     if (auth.kind === "token") { toast({ title: "This player app signs in with its credential", description: "Run `pnpm player status`." }); return; }
     const returnTo = window.location.pathname + window.location.search || "/";
-    if (auth.kind === "account") { void auth.auth.signInWithRedirect({ permission: "account", returnTo }); return; }
+    if (auth.kind === "account") {
+      auth.auth.signInWithRedirect({ permission: "account", returnTo })
+        .catch((e: unknown) => toast({ title: "Sign-in failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" }));
+      return;
+    }
     // Better Auth resolves with {error} rather than throwing; without a redirect the button would look dead.
     void authClient.signIn.social({ provider: "google", callbackURL: returnTo }).then(
       r => { if (r.error) toast({ title: "Sign-in failed", description: r.error.message ?? `HTTP ${r.error.status}`, variant: "destructive" }); },
       (e: unknown) => toast({ title: "Sign-in failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" }));
   }, [auth]);
   const logout = useCallback(() => {
-    // An account grant is revoked on the engine (it no longer appears under "Your player apps").
-    const done = auth.kind === "account" ? auth.auth.signOut(auth.session) : authClient.signOut();
+    // An account grant is revoked on the engine (it no longer appears under Connected apps). The SDK forgets it here
+    // either way; when the engine did not confirm, the sign-in screen says where to revoke it.
+    const done = auth.kind === "account"
+      ? auth.auth.signOut(auth.session).catch(() => { try { sessionStorage.setItem(SIGN_OUT_UNCONFIRMED, "1"); } catch { /* storage off */ } })
+      : authClient.signOut().catch(() => undefined);
     void done.finally(() => { window.location.href = base || "/"; });
   }, [auth]);
   const data = me.data;

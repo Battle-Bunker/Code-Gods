@@ -137,3 +137,14 @@ test("the palette lists the same commands however it was opened: one list per co
     assert.ok(wanted.length > 3, name);
   }
 });
+
+test("connected apps are managed with the engine site's session only: an app's grant gets a pointer there", () => {
+  // Catches: the palette calling auth.credentials.* with an account grant (the engine refuses it: FORBIDDEN).
+  for (const id of ["auth.credentials.list", "auth.credentials.revoke"]) {
+    const site = scope({}), app = scope({ siteSession: false });
+    assert.equal(find(site, id).available(paletteContextFor(site)).ok, true, `${id} on the site`);
+    const off = find(app, id).available(paletteContextFor(app));
+    assert.equal(off.ok, false, `${id} in an app`);
+    assert.match((off as { reason: string }).reason, /engine's site/);
+  }
+});

@@ -89,6 +89,15 @@ try {
     await framed.close();
   });
 
+  await step("denied on the engine's /connect: back on the app's sign-in screen, which says so", async () => {
+    await Promise.all([page.waitForURL(u => u.href.startsWith(`${SITE}/connect`), { timeout: 30_000 }), page.getByTestId("button-account-sign-in").click()]);
+    await page.getByTestId("panel-connect-account").waitFor({ timeout: 60_000 });
+    await Promise.all([page.waitForURL(u => u.href.startsWith(APP), { timeout: 30_000 }), page.getByTestId("button-deny-connect").click()]);
+    await page.getByTestId("text-sign-in-error").waitFor({ timeout: 30_000 });
+    await page.getByTestId("button-account-sign-in").waitFor();
+    assert.ok(!page.url().includes("state="), `the answer is stripped from the URL: ${page.url()}`);
+  });
+
   await step("the account grant needs the human's explicit consent on the engine's /connect, then the app is them", async () => {
     await Promise.all([page.waitForURL(u => u.href.startsWith(`${SITE}/connect`), { timeout: 30_000 }), page.getByTestId("button-account-sign-in").click()]);
     await page.getByTestId("panel-connect-account").waitFor({ timeout: 60_000 });

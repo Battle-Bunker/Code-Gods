@@ -144,7 +144,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
-    gridRenderer, starting,
+    gridRenderer, starting, siteSession: kind === "site",
   };
   const act: EngineActions = {
     navigate: to => navigate(to),
@@ -262,7 +262,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
                   {/* Managing credentials is the engine site's own (its Google session); elsewhere, a link there. */}
                   {kind === "site"
                     ? <DropdownMenuItem onSelect={() => setSheet("connected-apps")} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
-                    : <DropdownMenuItem asChild><a href={`${engineSite()}/`} target="_blank" rel="noreferrer" data-testid="menu-connected-apps">Connected apps: on the engine site</a></DropdownMenuItem>}
+                    : engineSite() !== location.origin && <DropdownMenuItem asChild><a href={`${engineSite()}/`} target="_blank" rel="noreferrer" data-testid="menu-connected-apps">Connected apps: on the engine site</a></DropdownMenuItem>}
                   {/* A dev server's credential is not a sign-in: it ends when the dev server stops. */}
                   {kind !== "token" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
                 </DropdownMenuContent>

@@ -78,6 +78,8 @@ export interface EngineScope {
   starting?: boolean;
   /** How this viewer sees grids (lib/object-views' Grid renderer); digits when absent. */
   gridRenderer?: GridRendererId;
+  /** The app is signed in with the engine site's own session (managing credentials needs it). Default true. */
+  siteSession?: boolean;
 }
 
 export interface EngineActions {
@@ -170,6 +172,9 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       : me.spectator && players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok),
     "rooms.history": () => needRoom(ok),
     "rooms.create": () => (user ? ok : no("Sign in first.")),
+    // Connected apps are managed on the engine's own site (its Google session), never by an app's grant.
+    "auth.credentials.list": base => (scope.siteSession === false ? no("Connected apps are managed on the engine's site: its menu, Connected apps.") : base),
+    "auth.credentials.revoke": base => (scope.siteSession === false ? no("Connected apps are managed on the engine's site: its menu, Connected apps.") : base),
   };
   const binds: Partial<Record<PublicFunctionPath, Performer | null>> = {
     "aiTemplates.create": { kind: "navigate", to: "/admin/agents/new" },

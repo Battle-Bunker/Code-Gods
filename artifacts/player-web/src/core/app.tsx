@@ -17,7 +17,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { EngineProvider, api, useLive, useSession, type EngineAuth } from "@/site/lib/convex";
+import { EngineProvider, SIGN_OUT_UNCONFIRMED, api, useLive, useSession, type EngineAuth } from "@/site/lib/convex";
 import NotFound from "@/site/pages/not-found";
 import Home from "@/site/pages/home";
 import Room from "@/site/pages/room";
@@ -44,7 +44,8 @@ export function App() {
 /** Account mode before the human has approved this app: sign in on the engine's site. */
 function AccountSignIn({ conn }: { conn: Extract<Connection, { mode: "account" }> }) {
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<string>();
+  const [failed, setFailed] = useState<string | undefined>(conn.signInError);
+  const [unconfirmed] = useState(() => { try { const v = sessionStorage.getItem(SIGN_OUT_UNCONFIRMED); sessionStorage.removeItem(SIGN_OUT_UNCONFIRMED); return !!v; } catch { return false; } });
   const framed = window.top !== window.self;
   const signIn = () => {
     setBusy(true);
@@ -59,6 +60,7 @@ function AccountSignIn({ conn }: { conn: Extract<Connection, { mode: "account" }
         ? <a className="underline" href={location.href} target="_blank" rel="noreferrer" data-testid="link-open-in-tab">Open this app in a new tab to sign in</a>
         : <button type="button" className="border border-foreground px-4 py-2 font-semibold hover:bg-muted disabled:opacity-60" disabled={busy} onClick={signIn} data-testid="button-account-sign-in">{busy ? "Opening…" : "Sign in"}</button>}
       {failed && <p className="text-destructive" data-testid="text-sign-in-error">{failed}</p>}
+      {unconfirmed && <p className="text-destructive" data-testid="text-sign-out-unconfirmed">You are signed out here, but the engine did not confirm it revoked this app. Revoke it on <a className="underline" href={`${conn.siteUrl}/`} target="_blank" rel="noreferrer">the engine's site</a> (its menu, Connected apps).</p>}
     </Screen>
   );
 }
@@ -69,8 +71,16 @@ function Connected({ conn }: { conn: Connection }) {
   const auth: EngineAuth = conn.mode === "devserver" ? { kind: "token", fetchAccessToken }
     : conn.mode === "account" ? { kind: "account", auth: conn.auth, session: conn.session! }
     : { kind: "site" };
-  // A revoked or expired account grant is forgotten by the SDK: start again from the sign-in screen.
-  useEffect(() => (conn.mode === "account" ? conn.auth.onChange(key => { if (key === "*" && !conn.auth.account()) location.reload(); }) : undefined), [conn]);
+  // A revoked or expired account grant is forgotten by the SDK (in this tab, or another one: the storage event):
+  // start again from the sign-in screen.
+  useEffect(() => {
+    if (conn.mode !== "account") return;
+    const check = () => { if (!conn.auth.account()) location.reload(); };
+    const off = conn.auth.onChange(key => { if (key === "*") check(); });
+    const onStorage = (e: StorageEvent) => { if (e.key === null || e.key.startsWith("codegods.player:")) check(); };
+    window.addEventListener("storage", onStorage);
+    return () => { off(); window.removeEventListener("storage", onStorage); };
+  }, [conn]);
   return (
     <EngineProvider client={client} auth={auth}>
       <TooltipProvider>

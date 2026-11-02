@@ -72,6 +72,6 @@ test("an account-mode build may reach its engine's site (and, on loopback, the l
   const deployed = directive(pageCsp({ VITE_CODE_GODS_ENGINE_URL: "https://happy-otter-123.convex.site" }), "connect-src");
   assert.equal(deployed, "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://happy-otter-123.convex.site");
   const local = directive(pageCsp({ VITE_CODE_GODS_ENGINE_URL: "http://127.0.0.1:3211/" }), "connect-src");
-  assert.equal(local, "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud http://127.0.0.1:3211 http://127.0.0.1:* ws://127.0.0.1:*");
+  assert.equal(local, "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud http://127.0.0.1:3211 http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* http://[::1]:* ws://[::1]:*");
   assert.doesNotMatch(directive(pageCsp({ VITE_CODE_GODS_ENGINE_URL: "https://engine.example.org" }), "connect-src")!, /\*:|:\*/, "a remote engine gets no port wildcard");
 });

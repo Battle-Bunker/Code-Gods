@@ -27,6 +27,8 @@ export type Connection =
       mode: "account"; convexUrl: string; siteUrl: string; auth: PlayerAuth;
       /** The stored account grant; null until the human signs in (the app then shows its sign-in screen). */
       session: AccountSession | null;
+      /** Why the last sign-in did not complete (denied, expired, …), shown on the sign-in screen. */
+      signInError?: string;
     }
   | {
       mode: "devserver"; convexUrl: string;
@@ -71,13 +73,20 @@ export const accountEngineUrl = () => (import.meta.env.VITE_CODE_GODS_ENGINE_URL
 
 async function accountConnection(engineUrl: string): Promise<Connection> {
   // Back from the engine's /connect page with ?code&state: the answer is redeemed here, on whatever path it lands.
-  const auth = createPlayerAuth({ engineUrl, clientName: "Code Gods app" });
-  const done = await auth.completeSignIn();
+  // The engine sends the browser back to the app's own base path (it may be served under a prefix).
+  const auth = createPlayerAuth({ engineUrl, clientName: "Code Gods app", redirectUri: `${location.origin}${import.meta.env.BASE_URL}` });
+  let done: Awaited<ReturnType<PlayerAuth["completeSignIn"]>> = null, signInError: string | undefined;
+  try {
+    done = await auth.completeSignIn();
+  } catch (error) {
+    // Denied on /connect, expired, or an answer to another browser's request: the sign-in screen says so.
+    signInError = error instanceof Error ? error.message : String(error);
+  }
   const session = done && isAccountSession(done.session) ? done.session : auth.account();
   // Where the sign-in started: a path on this origin only.
   if (done?.returnTo && /^\/(?!\/)/.test(done.returnTo)) history.replaceState(history.state, "", done.returnTo);
   site = auth.engineUrl;
-  return { mode: "account", convexUrl: session?.convexUrl ?? await auth.convexUrl(), siteUrl: auth.engineUrl, auth, session };
+  return { mode: "account", convexUrl: session?.convexUrl ?? await auth.convexUrl(), siteUrl: auth.engineUrl, auth, session, ...(signInError ? { signInError } : {}) };
 }
 
 async function detect(): Promise<Connection> {
