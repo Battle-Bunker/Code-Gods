@@ -103,8 +103,22 @@ function claimDealable(instance: string, families: string[]) {
 }
 
 const results: string[] = [];
+/** Every signed-in page, so a failed check can show what each one was showing. */
+const open: { who: string; page: any; consoleErrors: string[] }[] = [];
 async function check(name: string, fn: () => Promise<void>) {
-  await fn();
+  try {
+    await fn();
+  } catch (error) {
+    const views: string[] = [];
+    for (const { who, page, consoleErrors } of open) {
+      if (page.isClosed()) continue;
+      await page.screenshot({ path: `${shots}/failed-${who}.png` }).catch(() => {});
+      const body = await page.locator("body").innerText({ timeout: 2000 }).catch(() => "(unreadable)");
+      views.push(`--- ${who} at ${page.url()}\n${body.slice(0, 800)}\nconsole errors:\n${consoleErrors.slice(-5).join("\n")}`);
+    }
+    if (error instanceof Error) error.message += `\n${views.join("\n")}`;
+    throw error;
+  }
   results.push(name);
   console.log(`ok - ${name}`);
 }
@@ -122,7 +136,7 @@ async function signIn(browser: any, who: "alice" | "bob" | "carol" | "admin", vi
   // An error boundary's caught error reaches the console only: keep it for the failure message.
   const consoleErrors: string[] = [];
   page.on("console", (m: { type(): string; text(): string }) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 600)); });
-  (page as unknown as { consoleErrors: string[] }).consoleErrors = consoleErrors;
+  open.push({ who: `${who}-${viewport.width}`, page, consoleErrors });
   await page.goto(`${SITE}/`);
   await page.getByTestId("button-login").waitFor();
   const url = await page.evaluate(async () => {
@@ -459,15 +473,9 @@ try {
       await a.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
       await b.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
-      await b.getByTestId("dock").waitFor({ timeout: 60_000 }).catch(async (error: Error) => {
-        await shot(b, `game-player-${name}-failed`);
-        throw new Error(`${error.message}\n${b.url()}\n${(await b.locator("body").innerText()).slice(0, 1500)}\nconsole errors:\n${((b as unknown as { consoleErrors?: string[] }).consoleErrors ?? []).slice(-5).join("\n")}`);
-      });
+      await b.getByTestId("dock").waitFor({ timeout: 60_000 });
       assert.equal(await b.getByTestId("text-game-code").count(), 0, "a player gets the player view, not the spectator view");
-      await a.getByTestId("text-game-status").waitFor({ timeout: 30_000 }).catch(async (error: Error) => {
-        await shot(a, `game-spectator-${name}-failed`);
-        throw new Error(`${error.message}\n${a.url()}\n${(await a.locator("body").innerText()).slice(0, 1500)}\nconsole errors:\n${((a as unknown as { consoleErrors?: string[] }).consoleErrors ?? []).slice(-5).join("\n")}`);
-      });
+      await a.getByTestId("text-game-status").waitFor({ timeout: 30_000 });
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
       // The world clock and the objects move without any reload or polling (the clock is under Game details).
       const t0 = Number((await a.getByTestId("text-world-t").textContent()).replace(/[^\d.]/g, ""));
