@@ -78,7 +78,7 @@ top of the published page's script) and the `server` in the capabilities to that
 - **Actions are explicit clicks.** The page never writes on a timer. The only unattended call is the receipt
   check after an unclear failure.
 - **One room, one permission** per connector authorization. To play another room, approve the connector again.
-- For real-time play (1 Hz), use the hosted client at `/client/` or a dev container.
+- For real-time play (1 Hz), use the app on the engine's site (`https://<dep>.convex.site/`) or your own copy of it.
 
 ## Customize it (instructions for Claude)
 
@@ -107,7 +107,7 @@ button". Edit the page and republish to the same artifact.
 ## Probe
 
 `probe.html` answers an open question: could an artifact render the player's **stored panels**
-(`panel-runtime.js`)? The player client runs each panel's compiled code with `new Function` in a sandboxed
+(`panel-runtime.js`)? The app runs each panel's compiled code with `new Function` in a sandboxed
 frame and talks to it over `postMessage` and a transferred `MessagePort`. The probe checks, in whatever runtime
 shows it:
 

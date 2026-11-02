@@ -20,13 +20,16 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 
 | Surface | Reactive data | Acting | Live UI changes | Assistant |
 |---|---|---|---|---|
-| **Hosted client** (`/client/` on the deployment) | Convex WebSocket, a room's OAuth connection (player JWT; never the site session: docs/external-clients.md) | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
-| **Any browser client** (any origin: a Replit dev URL, localhost, a static host; `clients/hello`) | Convex WebSocket, a room's OAuth connection or device credential (`@workspace/player-client/browser`) | public Convex functions | whatever it renders | the player's own |
+| **The app on the engine** (`/` on the deployment, `artifacts/player-web`) | Convex WebSocket, the site's Google session (Better Auth cookie → Convex JWT): the human everywhere | the app's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **The app on another origin** (localhost, a Replit dev URL, a static host; built or run with `VITE_CODE_GODS_ENGINE_URL`) | Convex WebSocket, an account grant approved on the engine's `/connect` (docs/external-clients.md): the human everywhere except the consent pages, Connected apps and admin | same | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **Any other browser client** (any origin; `clients/hello`) | Convex WebSocket, a room's OAuth connection or device credential (`@workspace/player-client/browser`) | public Convex functions | whatever it renders | the player's own |
 | **Dev container** (any Vite environment: local, Codespaces, Gitpod, Replit, …) | Convex WebSocket, JWTs from the dev server's `/__codegods/token` after the private launch link | same | file panels (HMR, in-process) **and** stored panels | the environment's coding agent through MCP or the CLI, plus the in-client assistant |
-| **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the hosted client | Claude itself |
+| **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the app | Claude itself |
 | **Claude artifact** (claude.ai page; `clients/claude-artifact/`) | the Code Gods connector through the page's `mcp` capability: `watchTool` on `get_observation` and `whoami` (about 30 s polling floor, paused while hidden) | `callTool` on a click: `send_chat` (confirmed in the page), `validate_agent`, `summon_agent`, `set_ready`; ambiguous failures check `get_receipt` and resend with the same `commandId` | Claude republishes the page; whether it could render stored panels is what `probe.html` checks | Claude, plus the page's `sample` ("Ask Claude") |
 
-The engine UI (`/`) stays the common room display and owner control panel. Sign-in, device and connector approval, and credential management live there.
+The app's site pages (`artifacts/player-web/src/site`) are the room display and owner control panel, and a game's spectator view is the common display of a live game. Sign-in, device and connector approval, and credential management (Connected apps) live on the engine's own origin.
+
+**Rights come from the Google identity, never from the app** (docs/unify-apps-plan.md §3). The same app runs in three modes (`src/core/connection.ts`): **site** (served by the engine; the session cookie), **account** (any other origin; an account grant) and **devserver** (a Vite dev server holding a room credential, `CODE_GODS_CREDENTIAL`, which gives the browser 10-minute JWTs from `/__codegods/token`). Site and account are the human everywhere; devserver is the human in one room with the credential's permission.
 
 ## 2. Identity (Wave 1A)
 
@@ -44,7 +47,7 @@ The engine UI (`/`) stays the common room display and owner control panel. Sign-
 - `kind: "device" | "oauth" | "assistant"` (existing rows are `device`);
 - for `oauth` rows: `clientId?`, `refreshHash?` and `refreshExpiresAt?`.
 
-A credential is always bound to one human (`subject`), one room and one permission (`read < act < owner`). It is revocable and shown on the engine UI's credential list.
+A credential is always bound to one human (`subject`) and, except an account grant, one room and one permission (`read < act < owner`). It is revocable and listed under Connected apps on the engine site. An account grant (`kind: "oauth"`, no room, `permission: "account"`) is the app on another origin acting as the human everywhere (docs/external-clients.md decision 9); `/mcp` and the device exchange refuse it.
 
 **Principal.**
 - Every tool execution runs as `Principal = { credentialId: Id<"credentials"> }`.
@@ -94,7 +97,7 @@ A credential is always bound to one human (`subject`), one room and one permissi
 **OAuth 2.1 authorization server.** It runs on the same deployment:
 - `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`;
 - `POST /api/oauth/register` (DCR, public clients) and CIMD;
-- `GET /oauth/authorize` sends the browser to the engine UI's `/connect` page, which reuses device approval and adds a room picker;
+- `GET /oauth/authorize` sends the browser to the app's `/connect` page on the engine origin, which reuses device approval and adds a room picker;
 - `POST /api/oauth/token` (code with PKCE S256; refresh);
 - a revocation endpoint.
 
@@ -127,14 +130,14 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 **Client (`artifacts/player-web`).**
 - The shell registry merges file panels with stored panels from `panels.list`. On an id clash the file panel wins and shows a "shadows stored vN" badge.
-- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/client/panel-frame.html`, with its own meta CSP (`connect-src 'none'`). The client page's CSP has `frame-src 'self'` (hosted and dev server alike), so a frame cannot navigate itself off-origin.
+- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/panel-frame.html` (under the app's base), with its own meta CSP (`connect-src 'none'`). The app page's CSP has `frame-src 'self'` (built and dev server alike), so a frame cannot navigate itself off-origin.
 - **Bridge:** a postMessage bridge carries the same `@sdk` API. The SDK is built twice with a swapped transport: `useQuery` on the host, bridge subscriptions in the frame. Panels keep real React hooks.
 - **Confirmations:** the host enforces a confirmation for `chat`, `summon`, `destroy` and `pause` coming from a stored panel. A per-panel "let it act" grant is set by the player and reset whenever a non-browser author writes a new version.
 - **Failure handling:** a crashing panel stays inside its frame. `?panels=off` is safe mode.
 - **File panels** stay in-process with HMR (dev containers only). A "run sandboxed" toggle proves a file panel works as a stored one.
 
 **Hosting and CLI.**
-- The production `/client/` page gets a build-time meta CSP: `connect-src` limited to the deployment, `script-src 'self' 'unsafe-eval'`, which the utility evaluator needs.
+- A build of the app gets a meta CSP (`vite/csp.ts`): `connect-src` limited to its own origin, the deployment and, in account mode, the engine's site; `script-src 'self' 'unsafe-eval'`, which the utility evaluator needs.
 - The CLI's `pnpm player panel push|pull <slug>` moves panels between `src/panels/` and the store, through the registry tools.
 
 ## 6. In-client assistant (Wave 2A, built)
@@ -142,7 +145,7 @@ Type-checking against `sdk.d.ts` is phase 2.
 > The assistant now lives in a pane of the dock, not a drawer, and arranges the player's screen through the layout tools;
 > the system prompt and briefing gained THE PLAYER'S SCREEN, NEXT STEPS and a PANELS block (`docs/ui-redesign.md` §2.4).
 
-A model served by Convex that answers one human in the player client's **Assistant** drawer and acts for them
+A model served by Convex that answers one seated player in the app's **Assistant** pane and acts for them
 through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.
 
 **Data** (`convex/assistant/tables.ts`):
@@ -161,7 +164,7 @@ through the agent registry. API: `docs/engine-api.md` "In-client assistant"; bil
 **Principal.** The first `assistant.send` in a room creates (or reuses) the human's `kind: "assistant"` credential for
 that room: permission as chosen in the drawer (default `act`; never above the caller's own; `owner` only for the current
 owner with explicit consent; a different choice revokes the old one and creates a new one), 30 days, never longer than a
-player credential that created it. It is listed and revocable on the engine UI like any other credential; it is never a
+player credential that created it. It is listed and revocable under Connected apps like any other credential; it is never a
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
 **Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/turns.ts`, `assistant/step.ts`, `assistant/limits.ts`).
@@ -261,10 +264,11 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
   (that game's thread only, whatever id the client names) and whose `send` names the game (CONFLICT once another is
   current). When the game changes, the query arguments change and the old game's state is gone, without a reload.
 
-**UI** (`artifacts/player-web/src/core/assistant/`): a core drawer behind the header's "Assistant" toggle, in hosted and
-dev-server modes: streaming messages, tool chips (expandable to the exact arguments and the outcome), confirmation cards
-with a countdown, Stop, the allowance meter, the permission choice on first use, and an explanation while the owner has
-not enabled it. The owner's side is the "In-client assistant" part of the engine UI's AI budget card.
+**UI** (`artifacts/player-web/src/core/chat/`): the dock's assistant pane, in every mode of the app, for a seated player
+(spectators have no assistant): streaming messages, tool chips (expandable to the exact arguments and the outcome),
+confirmation cards with a countdown, Stop, the allowance meter, the permission choice on first use, and an explanation
+while the owner has not enabled it. The owner sets the assistant allowance with the AI budget on the room's configure
+page.
 
 **Deferred.** Phase 2 **watches**: declarative per-tick triggers for AI-speed tactics, open to every surface. A browser
 e2e of the drawer (the unit-tested UI state and the engine suite cover the behaviour).
@@ -272,7 +276,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 ## 7. Decisions
 
 1. **Auth library: Better Auth served by Convex** (`@convex-dev/better-auth` 0.12.x with `better-auth` 1.6.x, exact pins). Convex Auth is still beta, has a v1→v2 migration ahead, and keeps tokens in localStorage.
-   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin, and the engine UI gets Convex JWTs from `/api/auth/convex/token`. Player clients, the hosted one included, never use it: they hold room-scoped player JWTs (docs/external-clients.md, 2026-11-01).
+   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin, and the app served there gets Convex JWTs from `/api/auth/convex/token`. The app on any other origin uses an account grant instead, and other clients room-scoped player JWTs (docs/external-clients.md).
    - **Identity:** the god id is the Better Auth user id. A `users` row is kept by component triggers and stores the Google `sub` for audit.
    - **Player JWTs:** they move to their own issuer, `<site>/api/device`, so the two token kinds are told apart by issuer.
    - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `TEST_FIXTURES`.
@@ -302,5 +306,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 | 1B: agent interface | `lib/player-client/src/tools.ts` and the CLI, `artifacts/engine/convex/agent/**`, credential kinds and `viewerForCredential`, the OAuth endpoints, the engine UI `/connect` page | 0 |
 | 1C: stored panels | `artifacts/engine/convex/panels/**`, `artifacts/player-web/src/{shell,sdk}`, the panel frame, the CSP plugin | 0 |
 | 2: assistant, artifacts, docs | `convex/assistant/**`, `lib/ai-player` ChatProvider, `player-web/src/core/assistant`, `clients/claude-artifact`, the final docs and memory pass | 1A–1C |
+
+(`artifacts/code-gods`, the engine UI of these waves, has since been merged into `artifacts/player-web`: docs/unify-apps-plan.md.)
 
 The coordinator integrates each wave, runs every suite (`.claude/skills/code-gods-testing/SKILL.md`), reviews, and merges to `develop` through a PR.

@@ -217,7 +217,7 @@ of a started game (scoring ticks, a player's own score); a start always reads th
    between the action's check and the mutation are settled there, so no landing is missed) and the start returns
    `{ status: "preparing", ready, total, estimateSeconds, dealtAs, message }`. Clients already subscribe to the room;
    `rooms.get` projects `preparing` as progress only (`lib/projection.ts preparingView`: never the deal), and the room
-   page, the player client's overview and results panels and the assistant's briefing show "The game is preparing its
+   page, the dock's overview and results panels and the assistant's briefing show "The game is preparing its
    rule tables, 12 of 18 ready…" (with split tables, "…, 2 of 3 ready (17 of 24 parts computed)"). When the last key lands, `finished` schedules `owner.completeStart(roomId,
    requestId)`, which resolves the tables, spawns the starting objects and commits the game (`commitStart` with
    `prepared`: no caller identity, the preparation must still be the room's, and the dealt gods must all still be
@@ -332,7 +332,7 @@ which and why (tail-toolkit.md §8.2 lists the known failure modes of the splitt
 |---|---|---|---|
 | A (done) | family `analytic`, toolkit, harness, references, six solved families | `lib/game-utilities` only | PRs #51, #54 |
 | B1 (done) | `calibrationComputed` schema, `resolveTables`, per-table compute action, `claim`/`finished`, `prepare`, latency test | `convex/calibration/{tables,cache,compute}.ts`, `engine/calibration.ts`, `test/calibration-ondemand.test.ts` | PR #56 |
-| B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods`, `artifacts/player-web` panels, the briefing | PRs #63, #66 |
+| B2 (done) | two-half `start`, room `preparing`, coordinator with retries, lobby UI progress, `playableInstantiations`, first-use note, pruning cron, cloud latencies | `owner.ts`, `game/lobby.ts`, `calibration/cache.ts`, `engine/node.ts`, `lib/game-utilities calibration.ts`, `artifacts/code-gods` (now `artifacts/player-web/src/site`), `artifacts/player-web` panels, the briefing | PRs #63, #66 |
 | B3 (done) | within-draw split: replicate pieces with pilot-fixed levels and an unbiased merge (same key, `estimator.split` recorded), cost-measured planner, piece coordinator with per-piece retries, per-owner rate limit, progress by pieces, fidelity and cloud latencies (§9.2) | `scripts/estimator.ts`, `scripts/verify-split.ts`, `calibration/{cache,compute,tables}.ts`, `engine/calibration.ts`, `owner.ts`, `game/lobby.ts`, room and panel progress | PRs #69, #70 |
 | C | structural zeros, `synergyPairs` cache + per-pair climb action, shallow-PMI measurement | `selectors.ts`, `convex/calibration/synergy.ts` | medium |
 | D | `export-cache.ts`; docs and README say "warm cache" | scripts | small |

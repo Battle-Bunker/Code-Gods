@@ -2,7 +2,7 @@
 
 Claude plays as **you**, in **one room**, with the permission you approve (`read` < `act` < `owner`). It
 reaches the engine through MCP at `https://<dep>.convex.site/mcp` (locally `http://127.0.0.1:3211/mcp`).
-Every connection is a credential on the engine UI's "Your player apps" list, revocable at once.
+Every connection is a credential listed under **Connected apps** (the engine site's menu), revocable at once.
 
 ## claude.ai (custom connector, OAuth)
 
@@ -43,16 +43,16 @@ the page. Setup, the capabilities to declare, limits and how Claude should custo
 
 - **read:** `whoami`, `get_rules`, `get_observation`, `get_events`, `get_trajectories`, `list_games`,
   `get_game_history`, `get_my_utility`, `evaluate_value` (your own utility only), `get_chat`, `get_receipt`,
-  `list_setups` (the game setups you can use), `list_panels`, `get_panel`, `get_layout` (the panes of your player client and the panel catalogue);
+  `list_setups` (the game setups you can use), `list_panels`, `get_panel`, `get_layout` (the panes of your game's dock and the panel catalogue);
 - **act:** also `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat` (public!),
-  `pause_game`, `wake_engine`, your game setups (`save_setup`, `delete_setup`), your stored panels (`save_panel`, `rollback_panel`, `delete_panel`) and your
-  screen (`open_panel` for a built-in or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: every open player client of
-  yours follows at once);
+  `pause_game`, `wake_engine`, `set_spectator` (watch or play the next game), your game setups (`save_setup`, `delete_setup`), your stored panels (`save_panel`, `rollback_panel`, `delete_panel`) and your
+  screen (`open_panel` for a built-in or a stored panel, `set_panel_params`, `move_pane`, `close_pane`: every open copy of the app
+  you play in follows at once);
 - **owner:** also `get_room_state`, `get_ai_catalog`, `update_settings`, `start_game`, `resume_game`,
-  `end_game`, `add_ai`, `remove_ai`.
+  `end_game`, `add_ai`, `remove_ai`, and `set_spectator` for another human member.
 
 Claude sees exactly what you see: your own scores and utility, peer aggregates, never another god's.
 Tool results mark game data `untrusted`: chat and agent sources come from other players.
 
-To disconnect, revoke the connection on the engine UI (room page → "Your player apps"), or remove the
-connector in Claude.
+To disconnect, revoke the connection on the engine site (menu → Connected apps), or remove the connector in
+Claude.

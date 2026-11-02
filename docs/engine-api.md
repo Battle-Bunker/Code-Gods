@@ -5,8 +5,8 @@ The engine is one Convex deployment. Clients talk to it in two ways:
 - **Convex functions** at the client URL `https://<dep>.convex.cloud`, using `ConvexReactClient`,
   `ConvexClient` or `ConvexHttpClient` and the generated `api` from
   `artifacts/engine/convex/_generated/api`.
-- **HTTP actions** at the site URL `https://<dep>.convex.site`, which also serves the engine UI at `/`
-  and the default player client at `/client/`.
+- **HTTP actions** at the site URL `https://<dep>.convex.site`, which also serves the app
+  (`artifacts/player-web`) at `/`.
 
 Locally (`pnpm --filter @workspace/engine dev`) these are `http://127.0.0.1:3210` and
 `http://127.0.0.1:3211`.
@@ -16,16 +16,23 @@ A player app configures only the **site URL**. `GET /api/config` returns
 
 ## Identity
 
-Every function authenticates with a 10-minute RS256 JWT. There are two kinds, told apart by issuer:
+Every function authenticates with a 10-minute RS256 JWT (an OAuth access token: 60 minutes). There are two
+issuers and three scopes. Rights come from the human's Google identity, never from which app they run
+(docs/external-clients.md):
 
 - **`browser` scope.** A human signed in on the site with **Google**, through Better Auth served by the
   deployment (`/api/auth/*`). The session is an HttpOnly cookie on the site origin (24 h), used only by the
-  engine UI at `/` (sign-in, rooms, approvals, credential management). No player client uses it, the hosted
-  one included (docs/external-clients.md). Convex JWTs come from
+  app the engine serves at `/`: the human everywhere, including the consent pages (`/connect`, `/device`), the
+  credential list (Connected apps) and admin. Convex JWTs come from
   `GET /api/auth/convex/token` (issuer `<site>`, audience `convex`). The human's god id is the Better
   Auth user id; signing out ends the session at once, even for an unexpired JWT.
-- **`player` scope.** Every player client, on any origin (the hosted `/player/` client, a Replit dev URL,
-  localhost), and every agent: one human, one room, one permission. A browser client gets it from an OAuth
+- **`account` scope.** The app (or another client) on any other origin with an account grant (OAuth
+  `scope=account`, below): a player JWT with `scope: "account"` and no room. Every game function treats it like the
+  browser session (`access.ts` `actsAsHuman`): list, create and join rooms, play, owner actions in the rooms the
+  human owns. It never reaches the consent surface (credentials, `/connect` and `/device` approval) or admin, and
+  `/mcp` and `POST /api/device/token` refuse it. The grant expires after 7 days without use.
+- **`player` scope.** A room-scoped client on any origin (a player app's dev server, `clients/hello`, a Replit dev
+  URL, localhost), and every agent: one human, one room, one permission. A browser client gets it from an OAuth
   connection (below, "MCP OAuth 2.1": the access token is a player JWT, also for Convex functions) or the device
   flow; `@workspace/player-client/browser` does both. A holder of a room credential (`cgc_…`)
   exchanges the credential with `POST /api/device/token {credential}` → `{token, expiresAt, roomId,
@@ -40,7 +47,7 @@ Every function authenticates with a 10-minute RS256 JWT. There are two kinds, to
 - **Admins** have a verified Google email listed in `ADMIN_EMAILS`.
 
 ```ts
-// React, same origin as the site (artifacts/code-gods/src/lib/convex.tsx)
+// React, same origin as the site (artifacts/player-web/src/site/lib/convex.tsx, site mode)
 import { createAuthClient } from "better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
@@ -143,20 +150,21 @@ commandId}` and `get_receipt` completes it (`failed` means not applied: resend t
 
 ## MCP OAuth 2.1 (authorization server on the deployment)
 
-Public clients, PKCE S256, one room and one permission per connection (`credentials.kind = "oauth"`). The same
-server connects MCP clients and browser player clients on any origin (docs/external-clients.md): the access token
-is a player JWT for both `/mcp` and Convex functions.
+Public clients, PKCE S256, one room and one permission per connection, or the human's account (`scope=account`,
+for apps; never MCP) (`credentials.kind = "oauth"`). The same server connects MCP clients and browser player clients
+on any origin (docs/external-clients.md): the access token is a player JWT for Convex functions and, for a room
+grant, `/mcp`.
 
 | Route | |
 |---|---|
-| `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | `{resource: "<site>/mcp", authorization_servers: ["<site>"], scopes_supported: [read, act, owner]}` |
+| `GET /.well-known/oauth-protected-resource` (and `…/mcp`) | `{resource: "<site>/mcp", authorization_servers: ["<site>"], scopes_supported: [read, act, owner, account]}` |
 | `GET /.well-known/oauth-authorization-server` | RFC 8414 metadata: S256 only, `token_endpoint_auth_methods_supported: ["none"]`, `client_id_metadata_document_supported: true` |
 | `POST /api/oauth/register` | RFC 7591 DCR → 201 `{client_id: "cgo_…", …}`. Redirect URIs: any `https://` URI (exact; no fragment or userinfo), loopback `http://127.0.0.1:<any port>/…` / `localhost`, or one in `OAUTH_REDIRECT_URIS` (another scheme). Clients cache their `client_id`. At most 50 registrations per 10 minutes for the whole deployment (429 `temporarily_unavailable` with `Retry-After`); a client that redeems no code within 24 hours is deleted by the hourly sweep |
 | client ID metadata documents | an `https://` `client_id` is fetched (no redirects, 5 s, 32 KiB, public hosts only) and cached for an hour |
-| `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act), resource?` (`<site>`, `<site>/mcp` or none), `room?` (a room id, GUID or short code: preselected on `/connect`) → 302 to the engine UI's `/connect?request=…` |
-| `/connect` (engine UI) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`). The hinted room is preselected, and offered to join (`rooms.join`) when the human is not in it. A non-owner's `owner` request starts at `act`. **First party:** a redirect to the site's own origin (the hosted client), for a member, at most `act`, is approved by the page without a click (`autoApprove`); an owner grant always needs the consent checkbox |
+| `GET /oauth/authorize` | `response_type=code, client_id, redirect_uri, code_challenge, code_challenge_method=S256, state, scope (read\|act\|owner, default act; or account alone), resource?` (`<site>`, `<site>/mcp` or none; an account grant refuses `<site>/mcp` and Claude's callbacks), `room?` (a room id, GUID or short code: preselected on `/connect`; dropped for an account grant) → 302 to the app's `/connect?request=…` on the engine origin |
+| `/connect` (the app, engine origin only) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`). The hinted room is preselected, and offered to join (`rooms.join`) when the human is not in it. A non-owner's `owner` request starts at `act`. An account request shows "act as you in every room" with the app's origin and is approved as asked or denied. Nothing is approved without a click; an owner or account grant always needs the consent checkbox |
 | `GET /oauth/authorize/complete?request=…&completion=…` | → 302 to `redirect_uri?code&state&iss` (or `error=access_denied`). The code is released only with the approving browser's completion secret (403 otherwise), so holding the request key is not enough |
-| `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope, room_id, room_code, credential_id}` |
+| `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope, room_id, room_code, credential_id}` (`room_id` and `room_code` null for an account grant) |
 | `POST /api/oauth/revoke` | RFC 7009: a refresh or access token → the connection is revoked; always 200 |
 
 The access token is a 60-minute player JWT naming the credential (`cred`), so revocation applies on the next
@@ -209,11 +217,11 @@ Each of these returns the caller's own projection only.
 - `player.series({roomId, gameId?, cursor?, limit≤4000})` query → `{gameId, phase, live, self {godId, index}, others, rows, columns {world, seq, objectId, kind, version, before, value, ownBefore, othersBefore, own, others, payoff, mine}, cursor, done, pageDone}`: every spawn and transformation of the game in world-time order, one row each, with the caller's own bits and the other gods' summed bits before and after (exact). Seated players only. docs/public-log-design.md §2.
 - `player.board({roomId, gameId?, world?})` query → `{gameId, world, objects[{objectId, value, version, changedAt, own, others, payoff}]}`: every object as it was at world time `world` (default now). Seated players only.
 - `player.history({roomId, gameId, afterSeq?, limit?})` query: the same projection for any game of the room, ended games included
-  (a past game, one the room no longer runs, only for the gods who played in it and the room owner; the same rule holds
+  (a past game, one the room no longer runs, only for the gods who played in it, its spectators and the room owner; the same rule holds
   for `events` and `trajectories` with a `gameId`)
 - `player.game({roomId, gameId})` query: one game of the room by id or code, its public world (final once ended),
   standings, winners and chat, with `current` (the room's active or current game) and `seated`; a past game only for
-  its players and the room owner (the player client's read-only `/rooms/:room/games/:game`)
+  its players, its spectators and the room owner (the app's `/rooms/:room/games/:game` once the game has ended)
 - `player.trajectories({roomId, gameId?, afterSeq?, limit≤200})` query → `{objects[{objectId, points[{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], nextCursor, latestCursor}`
 - `player.myUtility({roomId})` query → `{gameId, godId, utility{familyId, params, penalty?}, instantiationKey, objectType, typeArgs, priorId, penaltyWeight, language (the default), languages, settings}`, or null when the caller isn't seated (own descriptor only)
 - `commands.submit({roomId, envelope})` action: a v3 envelope (`envelopeSchema`) → `CommandResult`. Validate and summon carry the agent's `language`: one the game does not allow is refused (not accepted, "This game does not allow …"). Replaying the identical envelope returns its receipt; a reused `commandId` with a different payload is a CONFLICT. Validate and summon (the agent's sandboxed examination) are limited to 30 a minute per human per room, whatever the credential: past it, `RATE_LIMITED` with no receipt (send the identical envelope again later).
@@ -227,7 +235,7 @@ A human's panels, across rooms (`docs/panels.md` "Stored panels"). Reads: any ca
 - `panels.rollback({slug, version})` → `{slug, version, from}` (a new version with the old code); `panels.setEnabled({slug, enabled})`; `panels.remove({slug})`
 
 ### Dock layout (`layout`)
-The player client's panes (`docs/ui-redesign.md` §2.3–2.4): one row per human per room, a library-independent tree of splits whose leaves are panes (one panel per pane, no tabs; an old stored `tabs` group keeps only its active pane) (`lib/player-client/src/layout.ts`), validated by `parseLayout` (never throws: unknown built-in panels become the phase's default panel, invalid panel parameters their defaults, unknown stored panels are dropped, a missing assistant or built-in panel is added). Internal twins `currentAs`/`setAs` and the pane operations `openPanelAs`, `setPanelParamsAs`, `movePaneAs`, `closePaneAs` (one read-modify-write mutation each) serve the layout tools.
+The dock's panes (`docs/ui-redesign.md` §2.3–2.4): one row per human per room, a library-independent tree of splits whose leaves are panes (one panel per pane, no tabs; an old stored `tabs` group keeps only its active pane) (`lib/player-client/src/layout.ts`), validated by `parseLayout` (never throws: unknown built-in panels become the phase's default panel, invalid panel parameters their defaults, unknown stored panels are dropped, a missing assistant or built-in panel is added). Internal twins `currentAs`/`setAs` and the pane operations `openPanelAs`, `setPanelParamsAs`, `movePaneAs`, `closePaneAs` (one read-modify-write mutation each) serve the layout tools.
 - `layout.current({roomId})` query (member, read) → `{layout, warnings, source: "room" | "carried" | "default", phase, updatedAt|null, setBy{kind, label}|null}`. `carried`: the human's most recent layout from another room with every built-in panel's parameters reset and `setBy: "default"` (the arrangement follows you; parameters name one game's objects).
 - `layout.set({roomId, layout, ifUpdatedAt?})` mutation (member, read) → `{layout, warnings, updatedAt}`: the whole layout (drags, the panel menu, presets), ≤ 32 KB, at most 12 writes a minute per human per room (RATE_LIMITED), CONFLICT when `ifUpdatedAt` is stale.
 
@@ -319,8 +327,8 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 <!-- catalog:end -->
 
 ### In-client assistant (`assistant`)
-The assistant drawer of the player client (`docs/surface-architecture.md` §6). Callers: browser sessions and player
-credentials of a room member. Threads, messages and tool calls are visible to their human only (another human gets
+The assistant pane of the app's dock (`docs/surface-architecture.md` §6). Callers: browser and account sessions and
+player credentials of a room member. Threads, messages and tool calls are visible to their human only (another human gets
 NOT_FOUND).
 - `assistant.send({roomId, text ≤ 4000, threadId?, permission?: read|act|owner, ownerConsent?, clientId? ≤ 64})` mutation →
   `{threadId, turnId|null, queueId, queued}`.
@@ -367,12 +375,13 @@ mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", �
 
 ### Deployed versions (`version`)
 Open pages learn of a deploy and update themselves (`lib/player-client/src/update.ts`).
-- `version.current({own?: {site: engine|player, build}})` query (anyone, signed in or not) → per site `engine` (the
-  engine UI at `/`), `player` (the player client at `/client/`) and `functions`: `{build, deployedAt}|null`, plus, with
-  `own`, `known`: whether that build was ever deployed here. `scripts/deploy-static.mjs` stamps each static build's
+- `version.current({own?: {site: app, build}})` query (anyone, signed in or not) → per site `app` (the app at `/`)
+  and `functions`: `{build, deployedAt}|null`, plus, with `own`, `known`: whether that build was ever deployed here.
+  A page of a retired site (`engine`, `player`) is answered with the app's build under its own name, so it updates
+  onto the app. `scripts/deploy-static.mjs` stamps each static build's
   index.html with its id (`<meta name="code-gods-build" content="…">`, a hash of every file of the build) and records it
   after the upload; the deploy workflow records the commit as the `functions` build after `convex deploy`.
-- A page whose build is known but is not the live one is outdated. A hosted page then reloads at a safe moment and keeps
+- A page whose build is known but is not the live one is outdated. The engine-hosted app then reloads at a safe moment and keeps
   its URL: at once when hidden or idle (60 s without input), after a 5-second "Updated — reloading in…" countdown
   (restarted by any input) when nobody is typing and no draft is open, otherwise at the next safe moment with a
   "Reload now" banner; never while a mutation or action is in flight. Registered drafts (the assistant composer's) are
@@ -381,7 +390,7 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
   build known to be old) with the argument or unknown-function errors a newer server gives an older client, updates
   at once. An unknown build (a dev server, or one uploaded a moment before it is recorded) never reloads itself.
 - Other clients choose for themselves with `watchEngineVersion(client, cb, own?)` from `@workspace/player-client/update`
-  (and `assessBuild`, `incompatibility`); a dev server of the player client only shows a dismissible note.
+  (and `assessBuild`, `incompatibility`); the app on a dev server only shows a dismissible note.
 - Internal: `version.record({site, build})` (deploys only).
 
 ### Other modules
