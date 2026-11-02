@@ -108,9 +108,7 @@ export function canonical(value: unknown): string {
 }
 
 function sameNode(a: Node, b: Node, tolerance: number): boolean {
-  if (a.type === "tabs" || b.type === "tabs") {
-    return a.type === "tabs" && b.type === "tabs" && a.active === b.active && a.panes.length === b.panes.length && a.panes.every((p, i) => p === b.panes[i]);
-  }
+  if (a.type === "pane" || b.type === "pane") return a.type === "pane" && b.type === "pane" && a.id === b.id;
   return a.direction === b.direction && a.children.length === b.children.length
     && a.sizes.every((s, i) => Math.abs(s - b.sizes[i]) <= tolerance) && a.children.every((c, i) => sameNode(c, b.children[i], tolerance));
 }

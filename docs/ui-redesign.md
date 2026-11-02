@@ -120,9 +120,9 @@ export type Pane =
   | { id: string; kind: "file-panel"; fileId: string };
 export type Node =
   | { type: "split"; direction: "row" | "column"; sizes: number[]; children: Node[] }   // weights, same length as children
-  | { type: "tabs"; panes: string[]; active: string };
+  | { type: "pane"; id: string };   // one panel per pane: there are no tabs (stored layouts with a `tabs` group migrate on read to its active pane)
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
-export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" | "tab" };
+export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" };
 export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
 export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column 76/24: [row 50/50: p1 my-card, column 58/42: p2 objects (defaultPanelFor), p3 agents], p4 assistant
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws

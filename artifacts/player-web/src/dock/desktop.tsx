@@ -1,7 +1,7 @@
 /**
  * The desktop dock: dockview-react (loaded only at 768 px and wider; the phone's stacked renderer never imports this
  * module or its stylesheet). It renders the store's layout through the adapter and reports the player's drags back:
- * a pointer gesture in the dock (a drag of a pane header, a gutter, a tab) ends with the dock's layout read back,
+ * a pointer gesture in the dock (a drag of a pane header or a gutter) ends with the dock's layout read back,
  * parsed and handed to the store, which pushes it ~800 ms later. Server layouts are applied between gestures with
  * fromJSON({reuseExistingPanels}), so the chat's draft and stream survive a rearrangement.
  *
@@ -36,7 +36,10 @@ export default function DesktopDock() {
   const apply = useCallback((target: DockLayout) => {
     const dock = api.current;
     if (!dock || store.gesture) return;
-    if (sameLayout(fromDockview(dock.toJSON()), target)) return;
+    // fromDockview keeps one view per group, so a group still holding two (a centre drop just resolved) reads as equal:
+    // it is re-applied all the same, which removes the replaced panel's view.
+    const crowded = dock.groups.some(group => group.panels.length > 1);
+    if (!crowded && sameLayout(fromDockview(dock.toJSON()), target)) return;
     const size = { width: dock.width, height: dock.height };
     quietUntil.current = performance.now() + 300;
     try { dock.fromJSON(toDockview(target, size, titleOf), { reuseExistingPanels: true }); }
@@ -51,6 +54,16 @@ export default function DesktopDock() {
     api.current = event.api;
     store.api = event.api;
     apply(store.layout);
+    // A drop on a pane's centre replaces that pane's panel with the dragged one (fromDockview keeps the dropped view);
+    // the assistant is never replaced, and never replaces a panel: refuse that overlay so no drop is offered.
+    event.api.onWillShowOverlay(e => {
+      if (e.position !== "center") return;
+      const data = e.getData();
+      const dragged = data?.panelId ?? (data?.groupId ? event.api.getGroup(data.groupId)?.activePanel?.id : undefined);
+      const target = e.group?.activePanel?.id;
+      if (dragged === target) return;
+      if ([dragged, target].some(id => id !== undefined && store.layout.panes[id]?.kind === "assistant")) e.preventDefault();
+    });
     event.api.onDidActivePanelChange(e => { if (e.panel) store.setFocused(e.panel.id); });
     // A move outside a pointer gesture we saw (a touch or pen drag, which dockview runs on pointer events of its
     // own): read the new structure back. Sizes alone (the assistant growing for a card) are never saved this way.
@@ -62,7 +75,7 @@ export default function DesktopDock() {
   useEffect(() => () => { if (store.api === api.current) store.api = null; }, [store]);
 
   // A gesture is a drag of a gutter or a pane header, or a click on a tab: it starts with a pointer down on a gutter
-  // or on a tab outside its buttons, or with an HTML5 drag start (a header dragged by its title), and ends with the
+  // or on a pane header outside its buttons, or with an HTML5 drag start (a header dragged by its title), and ends with the
   // pointer up or the drag's end (Chrome cancels the pointer when a drag starts, so pointercancel is not an end).
   // Clicks on buttons and in pane bodies are not gestures: what they change goes through the store.
   const applyLatest = useRef(apply);

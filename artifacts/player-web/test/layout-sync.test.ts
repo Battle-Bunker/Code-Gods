@@ -163,12 +163,12 @@ test("moving the assistant to a side stacks the panels beside it; to the bottom 
   const twoInARow = parseLayout(withRace, ctx).layout;
   const right = parseLayout(dockAssistant(twoInARow, "right"), ctx).layout;
   assert.equal(assistantSide(right), "row");
-  assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+  assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.id)],
     ["row", ["column", "p2"]], "panels in a column, the assistant on the right");
   const bottom = parseLayout(dockAssistant(right, "bottom"), ctx).layout;
   assert.equal(assistantSide(bottom), "column");
-  assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+  assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.id)],
     ["column", ["row", "p2"]]);
   const left = parseLayout(dockAssistant(twoInARow, "left"), ctx).layout;
-  assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "tabs", panes: ["p2"], active: "p2" });
+  assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "pane", id: "p2" });
 });

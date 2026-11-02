@@ -74,7 +74,8 @@ test("layout tools: open_panel takes a built-in panel id from the enum or a stor
   assert.equal(open.input.safeParse({ slug: "my-panel" }).success, true, "a stored panel by slug");
   assert.equal(open.input.safeParse({ slug: "Not A Slug" }).success, false, "slugs are kebab-case");
   assert.equal(open.input.safeParse({ panelId: "objects", place: { direction: "sideways" } }).success, false);
-  assert.equal(open.input.safeParse({ panelId: "objects", place: { relativeTo: "p1", direction: "tab" } }).success, true);
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { relativeTo: "p1", direction: "below" } }).success, true);
+  assert.equal(open.input.safeParse({ panelId: "objects", place: { relativeTo: "p1", direction: "tab" } }).success, false, "panes have no tabs");
   assert.equal(tool("move_pane").input.safeParse({ paneId: "p2" }).success, false, "a move needs a place");
   assert.equal(tool("set_panel_params").input.safeParse({ paneId: "p1" }).success, false, "params are required here");
   assert.equal(tool("close_pane").input.safeParse({ paneId: "" }).success, false);

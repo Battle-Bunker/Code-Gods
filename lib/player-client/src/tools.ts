@@ -268,7 +268,7 @@ const panelId = z.enum(PANEL_IDS).describe("A built-in panel id (get_layout list
 const storedSlug = slug.describe("One of the player's stored panels (list_panels). Give this or panelId, not both.");
 const panelParams = z.record(z.string(), z.unknown()).optional()
   .describe("The built-in panel's parameters (schemas in get_layout; all optional except what-if's objectId and calls). Not for stored panels.");
-const place = placeSchema.optional().describe("Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.");
+const place = placeSchema.optional().describe("Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction (left, right, above, below). Omit to reuse a pane.");
 const layoutData = z.object({ paneId: z.string(), layout: z.unknown(), summary: z.string(), reused: z.boolean() });
 export const LAYOUT_TOOLS = [
   def({ name: "get_layout", short: "The player's panes and the built-in panel catalogue with parameter schemas.", title: "Dock layout", functions: ["layout.current"], permission: "read", annotations: read,
@@ -280,9 +280,9 @@ export const LAYOUT_TOOLS = [
   def({ name: "set_panel_params", short: "Replace the parameters of the built-in panel in one pane.", title: "Set a panel's parameters", functions: ["layout.set"], permission: "act", annotations: acts,
     about: "Replace the parameters of the built-in panel in one pane (the pane keeps its panel and place).",
     input: obj({ paneId, params: z.record(z.string(), z.unknown()).describe("The complete parameters; omitted fields take their defaults.") }), output: result(layoutData) }),
-  def({ name: "move_pane", short: "Move a pane next to another or into its tab group.", title: "Move a pane", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Move a pane next to another or into its tab group. Only when the player asks for an arrangement; never to illustrate an answer. \"Put the chat on the right\" means moving this conversation's pane (kind assistant), not opening the public-chat panel.",
-    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction, or 'tab'.") }), output: result(layoutData) }),
+  def({ name: "move_pane", short: "Move a pane next to another.", title: "Move a pane", functions: ["layout.set"], permission: "act", annotations: acts,
+    about: "Move a pane next to another. Only when the player asks for an arrangement; never to illustrate an answer. \"Put the chat on the right\" means moving this conversation's pane (kind assistant), not opening the public-chat panel.",
+    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction (left, right, above, below).") }), output: result(layoutData) }),
   def({ name: "close_pane", short: "Close a pane the player asked to close.", title: "Close a pane", functions: ["layout.set"], permission: "act", annotations: acts,
     about: "Close a pane the player asked to close. The assistant pane and the last built-in panel cannot be closed (CONFLICT).",
     input: obj({ paneId }), output: result(layoutData) }),
