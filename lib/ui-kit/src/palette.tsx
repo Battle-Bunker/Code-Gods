@@ -18,7 +18,7 @@ import { browserStorage, readRecent, recordRecent } from "./recency.ts";
 import { matchScore, paletteRows, SECTION_TITLES, type PaletteRow } from "./search.ts";
 import type { Availability, Command, HandoffDraft, PaletteContext, PaletteFormPage, PaletteSection, PickOption } from "./types.ts";
 
-/** How the palette opens: with a query, on the Help page ("help"), in browse form ("browse"), or on one command's page (its id). */
+/** How the palette opens: with a query, on the Help page ("help"), or on one command's page (its id). */
 export type PaletteOpenInit = { query?: string; page?: string };
 
 export interface CommandPaletteProps {
@@ -31,7 +31,7 @@ export interface CommandPaletteProps {
   suggested?: readonly string[];
   /** localStorage key for this viewer's recent commands (absent: no recency). */
   recentKey?: string;
-  /** Where to start when it opens (the trigger's ☰ passes {page: "browse"}). */
+  /** Where to start when it opens. Absent for the button, the search box and Ctrl+K alike: one palette, one list. */
   init?: PaletteOpenInit;
   /** The context chip ("Room K7QX · you: owner"); derived from the role when absent. */
   chip?: string;
@@ -48,7 +48,7 @@ export interface CommandPaletteProps {
 }
 
 type Page =
-  | { kind: "root"; only?: PaletteSection; browse?: boolean }
+  | { kind: "root"; only?: PaletteSection }
   | { kind: "form"; command: Command; page: PaletteFormPage }
   | { kind: "summary"; command: Command };
 
@@ -86,8 +86,7 @@ const MenuIcon = () => (
 );
 
 /**
- * The palette's trigger: a labelled, field-sized control with the shortcut printed on it, plus ☰ (browse every
- * command). Below 640 px (or with `compact`) it is one 44 px control: the icons and the word "Menu".
+ * The palette's trigger: a labelled, field-sized control with the shortcut printed on it, plus ☰ (the same palette, opened the same way). Below 640 px (or with `compact`) it is one 44 px control: the icons and the word "Menu".
  */
 export function PaletteTrigger({ placeholder, onOpen, compact }: { placeholder: string; onOpen(init?: PaletteOpenInit): void; compact?: boolean }): JSX.Element {
   const [shortcut, setShortcut] = useState("Ctrl K");
@@ -105,7 +104,7 @@ export function PaletteTrigger({ placeholder, onOpen, compact }: { placeholder: 
           <SearchIcon /><MenuIcon /><span>Menu</span>
         </span>
       </button>
-      <button type="button" data-testid="button-palette-menu" onClick={() => onOpen({ page: "browse" })} aria-label="Menu: every command"
+      <button type="button" data-testid="button-palette-menu" onClick={() => onOpen()} aria-label="Menu"
         className={`${wide} items-center justify-center h-9 w-9 border border-l-0 border-border bg-background hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
         <MenuIcon />
       </button>
@@ -140,8 +139,8 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
       const start = init ?? pendingInit.current;
       pendingInit.current = undefined;
       setQuery(start?.query ?? ""); setArmed(null); setPageError(null); setBusy(false); setSelected("");
-      const target = start?.page && !["help", "browse"].includes(start.page) ? commands.find(c => c.id === start.page) : undefined;
-      const root: Page = { kind: "root", only: start?.page === "help" ? "help" : undefined, browse: start?.page === "browse" };
+      const target = start?.page && start.page !== "help" ? commands.find(c => c.id === start.page) : undefined;
+      const root: Page = { kind: "root", only: start?.page === "help" ? "help" : undefined };
       setStack(target?.performer.kind === "form" ? [root, { kind: "form", command: target, page: target.performer.page }] : [root]);
     }
     wasOpen.current = open;
@@ -198,7 +197,7 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
 
   // ----- rows of the root page -----
   const sections = useMemo(() => !open || page.kind !== "root" ? [] : paletteRows(commands, context, {
-    query, suggested, recent, browse: page.browse, only: page.only, dynamic,
+    query, suggested, recent, only: page.only, dynamic,
   }).map(s => ({ ...s, rows: s.rows.map(r => ({ ...r, availability: effective(r.command) })) })), // eslint-disable-line react-hooks/exhaustive-deps
   [open, page, commands, context, query, suggested, recent, dynamic, handoff]);
   const rowById = useMemo(() => new Map(sections.flatMap(s => s.rows).map(r => [r.command.id, r])), [sections]);
@@ -214,7 +213,7 @@ export function CommandPalette(props: CommandPaletteProps): JSX.Element {
   };
 
   const chip = props.chip ?? `you: ${ROLE_WORDS[context.role]}${context.permission ? ` · this connection: ${context.permission}` : ""}`;
-  const title = page.kind === "form" ? page.page.title : page.kind === "summary" ? page.command.human.title : page.only ? "Help" : page.browse ? "Every command" : null;
+  const title = page.kind === "form" ? page.page.title : page.kind === "summary" ? page.command.human.title : page.only ? "Help" : null;
 
   return (
     <>

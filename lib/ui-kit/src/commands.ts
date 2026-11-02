@@ -53,7 +53,7 @@ export function commandsFromCatalog(
 
 /** Commands worth showing for a query, best first: available ones, then the dimmed ones; never what can never apply. */
 export function searchCommands(commands: readonly Command[], query: string, ctx: PaletteContext): { command: Command; availability: Availability }[] {
-  return paletteRows(commands, ctx, { query, browse: !query.trim() }).flatMap(s => s.rows)
+  return paletteRows(commands, ctx, { query }).flatMap(s => s.rows)
     .filter(r => query.trim() || r.availability.ok)
     .map(({ command, availability }) => ({ command, availability }));
 }

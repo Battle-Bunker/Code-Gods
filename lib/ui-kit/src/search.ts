@@ -4,8 +4,8 @@
  * - typed queries match fuzzily over the title and the aliases (keywords); a row matched through an alias shows it;
  *   available rows rank above unavailable ones, which are dimmed with their reason; rows whose availability says
  *   `hidden` (they can never apply to this viewer) are never listed;
- * - the empty query shows at most EMPTY_VIEW_LIMIT available rows: the suggested next step and the two most recent
- *   commands, then the commands with a default score above 0 by section. Everything else appears only when typed.
+ * - the empty query shows every available row, one list however the palette was opened: the suggested next step and
+ *   the two most recent commands pinned first, then the rest by section (default score, then title).
  */
 import type { Availability, Command, PaletteContext, PaletteSection } from "./types.ts";
 
@@ -13,9 +13,8 @@ export const SECTION_ORDER: readonly PaletteSection[] = ["suggested", "actions",
 export const SECTION_TITLES: Readonly<Record<PaletteSection, string>> = {
   suggested: "Suggested", actions: "Actions", views: "Views", goto: "Go to", settings: "Settings", help: "Help",
 };
-export const EMPTY_VIEW_LIMIT = 12;
-/** Rows per section in the empty-query view (Settings stays hidden until typed). */
-const EMPTY_CAPS: Readonly<Record<PaletteSection, number>> = { suggested: 3, actions: 4, views: 4, goto: 3, settings: 0, help: 2 };
+/** At most this many rows are pinned under Suggested (the next step, then the two most recent commands). */
+const PINNED_LIMIT = 3;
 const TYPED_LIMIT = 60;
 
 export function sectionOf(command: Command): PaletteSection {
@@ -88,8 +87,6 @@ export interface RowsOptions {
   suggested?: readonly string[];
   /** Recently run command ids, newest first. */
   recent?: readonly string[];
-  /** ☰: every available command, grouped. */
-  browse?: boolean;
   /** One section only (the Help page). */
   only?: PaletteSection;
   /** Rows made from the query itself ("Open room K7QX"). */
@@ -110,30 +107,22 @@ export function paletteRows(commands: readonly Command[], ctx: PaletteContext, o
   const suggested = opts.suggested ?? [], recent = opts.recent ?? [];
   const all = commands.map(command => ({ command, availability: command.available(ctx), score: 0 }) as PaletteRow);
   if (!q) {
-    const ready = all.filter(r => r.availability.ok);
+    const ready = all.filter(r => r.availability.ok && !r.command.typedOnly);
     if (opts.only) return group(ready.filter(r => sectionOf(r.command) === opts.only), () => opts.only!, [opts.only]);
-    if (opts.browse) return group(ready, r => sectionOf(r.command), SECTION_ORDER);
+    // One list: every available command. Suggested and recent ones are pinned to the top of it (taken from it, never
+    // a second copy), the rest follow by section, most useful first. Nothing here depends on how the palette opened.
     const byId = new Map(ready.map(r => [r.command.id, r]));
     const top: PaletteRow[] = [];
-    for (const id of suggested) { const r = byId.get(id); if (r && top.length < EMPTY_CAPS.suggested && !top.includes(r)) top.push(r); }
+    for (const id of suggested) { const r = byId.get(id); if (r && top.length < PINNED_LIMIT && !top.includes(r)) top.push(r); }
     let recents = 0;
     for (const id of recent) {
       const r = byId.get(id);
-      if (r && recents < 2 && top.length < EMPTY_CAPS.suggested && !top.includes(r)) { top.push(r); recents++; }
+      if (r && recents < 2 && top.length < PINNED_LIMIT && !top.includes(r)) { top.push(r); recents++; }
     }
     const taken = new Set(top.map(r => r.command.id));
-    const scored = ready.filter(r => (r.command.defaultScore ?? 0) > 0 && !taken.has(r.command.id))
+    const rest = ready.filter(r => !taken.has(r.command.id))
       .sort((a, b) => (b.command.defaultScore ?? 0) - (a.command.defaultScore ?? 0) || a.command.human.title.localeCompare(b.command.human.title));
-    const help = scored.filter(r => sectionOf(r.command) === "help").slice(0, EMPTY_CAPS.help);
-    let budget = EMPTY_VIEW_LIMIT - top.length - help.length;
-    const rest: PaletteRow[] = [];
-    const used: Partial<Record<PaletteSection, number>> = {};
-    for (const r of scored) {
-      const s = sectionOf(r.command);
-      if (s === "help" || budget <= 0 || (used[s] ?? 0) >= EMPTY_CAPS[s]) continue;
-      rest.push(r); used[s] = (used[s] ?? 0) + 1; budget--;
-    }
-    const sections = group([...rest, ...help], r => sectionOf(r.command), SECTION_ORDER);
+    const sections = group(rest, r => sectionOf(r.command), SECTION_ORDER);
     return top.length ? [{ section: "suggested", rows: top }, ...sections] : sections;
   }
   const dynamic = (opts.dynamic?.(opts.query.trim(), ctx) ?? []).map((command, i) => ({ command, availability: command.available(ctx), score: 200 - i }) as PaletteRow);

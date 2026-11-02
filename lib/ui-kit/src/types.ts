@@ -50,8 +50,10 @@ export interface Command {
   confirm?: Confirm;
   performer: Performer;
   available: (ctx: PaletteContext) => Availability;
-  /** Ordering within the empty-query view (higher first); 0 or absent keeps the row out of it until typed. */
+  /** Ordering within the empty-query list (higher first, then by title); it never hides a row. */
   defaultScore?: number;
+  /** A property of the command, not of how the palette opened: listed only once a query is typed (e.g. one row per glossary term). */
+  typedOnly?: boolean;
   /** The section it is listed under; derived from `group` (navigation goes to "Go to") when absent. */
   section?: PaletteSection;
   /** The summary card of a "summary" confirmation ("4 players · Classic grid · Python"). */
