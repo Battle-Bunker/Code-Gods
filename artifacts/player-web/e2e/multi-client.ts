@@ -12,7 +12,7 @@
  *   - Humans, driven by Playwright through each app's own UI, plus one mock AI seat.
  *
  * What it checks (each line printed as ok / FAIL):
- *   the dock: the palette adds a panel and the panel menu changes it, and the layout is stored in the engine; a
+ *   the dock: the default (three panels above the assistant, no tabs), the palette adds a panel and the panel menu changes it, the assistant closes and reopens, and the layout is stored in the engine; a
  *   layout written to the engine reaches the open client; full Int, string and Grid games (validate + summon in
  *   the Agent code panel, transformations, chat, owner end, room history); live HMR of a new panel in one app
  *   during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected); a
@@ -135,15 +135,16 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
  * would an arrangement made on another device): panel p1 (Agent code; switched to Objects by payoff once the agent
  * runs), My agents, What just changed and Public chat side by side on top, the assistant below.
  */
-const PANELS_FOR_PLAY = ["agents", "feed", "public-chat"] as const;
+const PANELS_FOR_PLAY = ["public-chat"] as const;   // the default dock has the goal, objects and agents; p1 and p2 are changed below
 async function arrangeForPlay(p: Player) {
   let layout = DEFAULT_LAYOUT("running");
-  layout = { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "panel", panelId: "forge", params: {}, setBy: "human" } } };
+  const human = (id: string, panelId: "forge" | "feed") => ({ id, kind: "panel" as const, panelId, params: {}, setBy: "human" as const });
+  layout = { ...layout, panes: { ...layout.panes, p1: human("p1", "forge"), p2: human("p2", "feed") } };
   for (const panelId of PANELS_FOR_PLAY) layout = openPane(layout, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
   const c = new ConvexHttpClient(CLOUD);
   c.setAuth(await browserJwt(sessionOf(p)));
   await c.mutation(makeFunctionReference<"mutation">("layout:set"), { roomId, layout });
-  // p1 forge, p3 agents, p4 feed, p5 public chat: all on screen.
+  // p1 forge, p2 feed, p3 agents (the default's), p5 public chat, the assistant p4 across the bottom: all on screen.
   await pages[p].waitForSelector("[data-testid=pane-p5] [data-testid=input-chat]", { state: "attached", timeout: 30_000 });
 }
 /** Change a pane's panel through its header's panel menu (the player's own control). */
@@ -237,22 +238,28 @@ await check("each app is connected to the shared engine as its own player, with 
   }
 });
 
-await check("the dock: the default is one panel over the assistant; the palette adds a panel, the panel menu changes it, the engine stores it", async () => {
+await check("the dock: the default is three panels (goal | objects over agents) above the assistant, no tabs; the palette adds a panel, the panel menu changes it, the engine stores it", async () => {
   const page = pages.alice;
   await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   // A long-lived engine may carry alice's arrangement from an earlier run's room: start from the default.
   await palette("alice", "Reset layout");
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 1, null, { timeout: 10_000 });
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 3, null, { timeout: 10_000 });
   await palette("alice", "Add panel: Leaderboard race");
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 2, null, { timeout: 10_000 });
-  await choosePanel("alice", "p3", "rules");
+  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 4, null, { timeout: 10_000 });
+  await choosePanel("alice", "p5", "rules");
   const stored = async () => JSON.stringify((await (await ownerClient()).query(ref.query("layout:current"), { roomId }) as { layout: unknown }).layout);
   await until(async () => /"panelId":"rules"/.test(await stored()), "the layout stored in the engine");
-  await page.click("[data-testid=button-close-p3]");
-  await until(async () => !/"p3"/.test(await stored()), "the closed pane gone from the engine's layout");
+  await page.click("[data-testid=button-close-p5]");
+  await until(async () => !/"p5"/.test(await stored()), "the closed pane gone from the engine's layout");
+  // The assistant is an ordinary pane: closed, it leaves the engine's layout; the palette reopens it.
+  await page.click("[data-testid=button-close-p4]");
+  await until(async () => !/"kind":"assistant"/.test(await stored()), "the closed assistant gone from the engine's layout");
+  await palette("alice", "Open assistant");
+  await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
+  await until(async () => /"kind":"assistant"/.test(await stored()), "the reopened assistant in the engine's layout");
 });
 
-await check("a layout written to the engine reaches each open client (four panels over the assistant)", async () => {
+await check("a layout written to the engine reaches each open client (four panels and the assistant)", async () => {
   for (const p of PLAYERS) await arrangeForPlay(p);
   for (const p of PLAYERS) assert(await pages[p].locator("[data-testid=dock] [data-testid=menu-panel]").count() === 4, `${p}: four built-in panels`);
 });

@@ -42,7 +42,8 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
   if (context.activeGame) fail("CONFLICT", "Settings and seats are frozen during games");
   if (args.revision !== context.room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
   if (args.settings && args.setupId) fail("BAD_REQUEST", "Send settings or a setupId, not both");
-  const previous = context.room.settings as GameSettings;
+  // A room saved before a field existed carries stored settings without it: upgrade them (idempotent) before committing.
+  const previous = (upgradeStoredSettings(context.room.settings) ?? context.room.settings) as GameSettings;
   const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> =>
     ctx.runMutation(internal.game.lobby.commitSettings, {
       roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
