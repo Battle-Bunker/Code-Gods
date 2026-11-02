@@ -1,11 +1,11 @@
 /**
- * The engine UI's palette commands: every engine catalogue entry is bound or excluded with a reason; every next step
+ * The site pages' palette commands: every engine catalogue entry is bound or excluded with a reason; every next step
  * is a command; unavailable commands explain themselves (and offer the fix); AI is hidden when the server has none.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { paletteRows } from "@workspace/ui-kit/core";
-import { EXCLUDED, STEP_IDS, allCatalogEnginePaths, codeCommands, engineCommands, paletteContextFor, tooltipFor, type EngineActions, type EngineScope } from "../src/site/lib/commands.ts";
+import { EXCLUDED, STEP_IDS, allCatalogSitePaths, codeCommands, engineCommands, paletteContextFor, tooltipFor, type EngineActions, type EngineScope } from "../src/site/lib/commands.ts";
 
 const nothing = async () => undefined;
 const act: EngineActions = {
@@ -27,10 +27,10 @@ const avail = (s: EngineScope, id: string) => find(s, id).available(paletteConte
 
 test("every engine catalogue entry is a command or a stated exclusion; every next step is a command", () => {
   const ids = new Set(engineCommands(scope({ room: room(["ada"]) }), act).map(c => c.id));
-  for (const path of allCatalogEnginePaths()) assert.ok(ids.has(path) || EXCLUDED[path], `${path} is bound or excluded`);
+  for (const path of allCatalogSitePaths()) assert.ok(ids.has(path) || EXCLUDED[path], `${path} is bound or excluded`);
   for (const path of Object.keys(EXCLUDED)) assert.ok(!ids.has(path), `${path} is excluded, not bound`);
   for (const id of STEP_IDS) assert.ok(ids.has(id), `next step ${id} is a palette command`);
-  assert.equal(tooltipFor("rooms.join"), "Plays the next game, or watches it once eight players are in; a game already running you watch.", "tooltips come from the catalogue");
+  assert.equal(tooltipFor("rooms.join"), "Plays the next game or watches it (a game already running, or once eight play, you watch).", "tooltips come from the catalogue");
 });
 
 test("Start game explains what is missing and offers the fix; a member sees who can", () => {

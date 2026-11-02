@@ -1,5 +1,5 @@
 /**
- * The one way the engine UI gives a control its tooltip (palette-and-pages.md §2.10): the text is the catalogue's
+ * The one way the site pages give a control its tooltip (palette-and-pages.md §2.10): the text is the catalogue's
  * `human.tooltip` (or a `ui.*` command's), then the reason the action is unavailable, then its shortcut, so a button
  * and its palette row never disagree. A source test (test/tooltips.test.ts) fails on a literal `title="…"` on a
  * button or link anywhere else.

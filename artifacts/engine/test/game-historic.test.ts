@@ -59,7 +59,7 @@ test("a historic game opens read-only for its participants and the owner, and fo
   }
   const cyApp = await playerClient(cy, roomId, "read");
   assert.match(await rejects(cyApp.query(api.player.game, { roomId, gameId: game1.gameId })), /played in it/);
-  // The engine UI's public game page and its link resolver follow the same rule for a past game...
+  // The app's game page (the spectator view) and its link resolver follow the same rule for a past game...
   assert.match(await rejects(cy.c.query(api.games.view, { code: game1.shortCode })), /played in it/);
   assert.match(await rejects(cy.c.query(api.games.resolve, { code: game1.shortCode })), /played in it/);
   assert.equal((await ada.c.query(api.games.view, { code: game1.shortCode })).status, "ended");

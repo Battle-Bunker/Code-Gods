@@ -26,7 +26,7 @@ async function readable(ctx: QueryCtx, code: string) {
 
 /**
  * One game's public world (final once ended), standings, winners and its chat, with its room's codes and the room's
- * newer live game. Shared by games.view (the engine UI's game page) and player.game (the player client's).
+ * newer live game. Shared by games.view (the spectator view) and player.game (the dock).
  */
 export async function publicGameView(ctx: QueryCtx, game: Doc<"games">, room: Doc<"rooms"> | null) {
   const objects = await objectsOf(ctx, game._id);

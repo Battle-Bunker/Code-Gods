@@ -129,7 +129,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       maximise: actions.maximise, forgeEdit: () => actions.forgeEdit(),
     },
     links: {
-      // The engine UI lives on the engine's site, not necessarily this page's origin (a dev server, another host).
+      // The room page is a page of this app (one router), whatever its origin.
       roomPage: () => hrefTo({ kind: "room", room: state.roomCode ?? "" }),
       copyRoomLink: () => { if (state.roomCode) void copy(roomUrl(state.roomCode), "Copied the room link."); },
       safeMode: on => {

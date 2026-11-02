@@ -39,7 +39,7 @@ test("a row matched through an alias shows the alias; one matched by its title d
 });
 
 test("searching ranks available rows first, dims what the role blocks and hides what can never apply", () => {
-  const commands = commandsFromCatalog(CATALOG, () => local, "engine");
+  const commands = commandsFromCatalog(CATALOG, () => local, "site");
   const rows = paletteRows(commands, member, { query: "end game" }).flatMap(s => s.rows);
   const end = rows.find(r => r.command.id === "rooms.endActiveGame");
   assert.ok(end && !end.availability.ok, "an owner command shows, dimmed, for a member");
@@ -97,7 +97,7 @@ test("confirmation levels: explicit wins; irreversible for everyone is a modal; 
   assert.equal(deriveConfirm({ spends: true }), "summary");
   assert.equal(deriveConfirm({ everyone: true, irreversible: true }), "modal");
   assert.equal(deriveConfirm({ explicit: "none", destructive: true }), "none");
-  const fromCatalog = commandsFromCatalog(CATALOG, () => local, "engine");
+  const fromCatalog = commandsFromCatalog(CATALOG, () => local, "site");
   assert.equal(fromCatalog.find(c => c.id === "rooms.removeAi")?.confirm, "inline");
   // A palette entry reached by a destructive tool states its confirmation (the multiplexed game-command entry is
   // the player client's, which confirms its destroy row itself).

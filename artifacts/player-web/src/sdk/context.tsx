@@ -21,6 +21,6 @@ export function RoomProvider({ room, children }: { room: PlayerRoom; children: R
 
 export function useRoom(): PlayerRoom {
   const room = useContext(RoomContext);
-  if (!room) throw new Error("SDK hooks only work inside the player client (no room connected yet).");
+  if (!room) throw new Error("SDK hooks only work inside the dock (no room connected yet).");
   return room;
 }

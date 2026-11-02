@@ -1,7 +1,7 @@
 /**
  * The pending start: what every "Start the game" control shows between the owner's click and the room's subscription
  * showing the game or its preparation. Shared by the player client (overview next step, palette, assistant pane) and
- * the engine UI (room page, palette). Pure view plus a tiny framework-free store; no React, no Convex.
+ * the site pages (room page, palette). Pure view plus a tiny framework-free store; no React, no Convex.
  *
  * Why it exists: `owner.start` is a Node action. On a cold instance it first boots the isolated runtime it checks
  * (about 1–2 s), and a shape new to the server then reports `preparing` while its rule tables compute (tens of

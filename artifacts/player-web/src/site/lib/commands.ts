@@ -1,5 +1,5 @@
 /**
- * The engine UI's command list (docs/research/ui-redesign/palette-and-pages.md §2.8): every catalogue entry with an
+ * The site pages' command list (docs/research/ui-redesign/palette-and-pages.md §2.8): every catalogue entry with an
  * engine palette spec, bound to a performer here (or excluded with a stated reason), plus the client-only `ui.*`
  * commands of the same human shape. The page buttons, their tooltips and the palette rows all come from here, so a
  * button and its palette row never disagree. Pure: the app passes its state and actions in.
@@ -39,7 +39,7 @@ export type UiCommandId = keyof typeof UI_COMMANDS;
 
 /** Catalogue entries with an engine palette spec that this app does not bind, and why (the parity test checks both). */
 export const EXCLUDED: Partial<Record<PublicFunctionPath, string>> = {
-  "rooms.chatHistory": "The room and game pages show the recent chat; paging back is the player client's (get_chat).",
+  "rooms.chatHistory": "The room and game pages show the recent chat; paging back is the dock's (get_chat).",
 };
 
 /** A button's or link's tooltip: the catalogue's human tooltip, or the ui command's. One source for both apps' copy. */
@@ -131,7 +131,7 @@ export function paletteContextFor(scope: EngineScope): PaletteContext {
 const ok: Availability = { ok: true };
 const no = (reason: string, extra: Partial<Extract<Availability, { ok: false }>> = {}): Availability => ({ ok: false, reason, ...extra });
 
-/** Every command of the engine UI for this scope. */
+/** Every command of the site pages' palette for this scope. */
 export function engineCommands(scope: EngineScope, act: EngineActions): Command[] {
   const { user, room, game } = scope;
   const isOwner = !!user && !!room && room.ownerId === user.id;
@@ -209,7 +209,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.resume": { kind: "submit", run: act.resume },
   };
 
-  const fromCatalog = commandsFromCatalog(CATALOG, path => (path in EXCLUDED ? null : binds[path] ?? null), "engine").map(c => {
+  const fromCatalog = commandsFromCatalog(CATALOG, path => (path in EXCLUDED ? null : binds[path] ?? null), "site").map(c => {
     const state = states[c.id as PublicFunctionPath];
     const extra: Partial<Command> = {};
     if (c.id === "rooms.setSpectator") extra.human = { title: me?.spectator ? "Play the next game" : "Watch the next game", tooltip: c.human.tooltip };
@@ -292,4 +292,4 @@ export const HOW_TO_PLAY: readonly string[] = [
 ];
 
 export { firstName };
-export const allCatalogEnginePaths = () => paletteEntries("engine").map(e => e.path);
+export const allCatalogSitePaths = () => paletteEntries("site").map(e => e.path);

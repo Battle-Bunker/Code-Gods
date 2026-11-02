@@ -1,7 +1,7 @@
 # @workspace/object-views
 
-The one place an object type's UI lives, plus the shared kid-facing components. Used by the server
-display (`artifacts/code-gods`) and the player console (`artifacts/player-web`). Framework-light: React
+The one place an object type's UI lives, plus the shared kid-facing components. Used by the app
+(`artifacts/player-web`): its site pages (the room and the spectator view) and the game's dock. Framework-light: React
 and one Radix popover; the logic is in framework-free modules with Node unit tests.
 
 ## Objects
@@ -19,7 +19,7 @@ the viewer's choice for that type, else the type's default.
 The viewer's choice per type is remembered in `localStorage` under `code-gods.object-views.renderer.<type>`
 (guarded; a choice still holds for the page when storage is blocked). `objectRenderers(type)`,
 `getObjectRenderer(type)`, `setObjectRenderer(type, id)`, `subscribeObjectRenderer` and the
-`useObjectRenderer(type)` hook read and change it; both apps' palettes switch grids with `ui.objects.renderer`.
+`useObjectRenderer(type)` hook read and change it; the app's palettes (the dock and the site pages) switch grids with `ui.objects.renderer`.
 The chosen renderer's id reaches the component as `renderer`, so one component can serve several renderers
 (the Grid's detail view stays open when the viewer switches from inside it).
 
@@ -70,7 +70,7 @@ In tiles, each colour is a flat fill with its glyph, and its letter (R O Y G B V
 view. Viewers can switch compact cells between colour only and letters; the choice is remembered in `localStorage` (guarded). Tiles are filled with the colour set's bright
 shades (`DIGIT_SHADES[set].dark`) under a dark glyph (`TILE_INK`, 4.5:1 or better on each). In digits, the
 glyphs are coloured per colour SET with `DIGIT_SHADES` (`--cg-ink-<set>-<letter>`, rainbow6 and unknown sets
-`--cg-ink-<letter>`, in both apps' `index.css`, the light shade as fallback). Each set's shades were derived
+`--cg-ink-<letter>`, in the app's `index.css`, the light shade as fallback). Each set's shades were derived
 together (`scripts/derive-palettes.ts`, `src/colour-science.ts`) for small digits seen at a distance: the digits
 are 14 pt bold (`DIGIT_TYPE`, WCAG large text, 3:1 on light pages), and the smallest pairwise CIEDE2000 between
 digit strokes as the eye resolves them (S-CIELAB at `VIEW_PX_PER_DEGREE`) is maximised for normal vision, the
@@ -89,7 +89,7 @@ app's `src/index.css` has `@source "../../../lib/object-views/src";`.
 
 - `pnpm --filter @workspace/object-views test`: rarity and penalty wording, locked reasons, catalog
   grouping, settings snapping and badges, dispatch, renderers and the viewer's choice, grid display model,
-  digit lines, contrast and cue tests, the digit shades per set (contrast on both apps' CSS surfaces, CIEDE2000 and CVD
-  floors, name hues, and that both `index.css` files carry the same values), and the payoff colours and ramp.
-- The Playwright smoke tests of both apps (`pnpm --filter @workspace/code-gods run e2e`, see
-  `artifacts/code-gods/e2e/smoke.ts`) exercise these components in the real pages at desktop and phone width.
+  digit lines, contrast and cue tests, the digit shades per set (contrast on the app's CSS surfaces, CIEDE2000 and CVD
+  floors, name hues, and that the app's `index.css` carries the same values), and the payoff colours and ramp.
+- The app's Playwright smoke test (`pnpm --filter @workspace/player-web run e2e:site`, see
+  `artifacts/player-web/e2e/site-smoke.ts`) exercises these components in the real pages at desktop and phone width.

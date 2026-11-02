@@ -88,16 +88,17 @@ test("docs/engine-api.md carries the current generated catalogue table", () => {
   assert.equal(catalogMarkdown().split("\n").length, CATALOG_PATHS.length + 2);
 });
 
-test("palette specs name surfaces and groups; the engine UI never gets player-only commands", () => {
-  for (const { path, palette } of [...paletteEntries("player"), ...paletteEntries("engine")]) {
+test("palette specs name a group and, only when page-specific, a palette: the site pages never get dock-only commands", () => {
+  for (const { path, palette } of [...paletteEntries("dock"), ...paletteEntries("site")]) {
     assert.ok(palette.label.length >= 4 && palette.label.length <= 40, `${path} label`);
-    assert.ok(palette.surfaces.length > 0);
+    assert.ok(palette.surfaces === undefined || palette.surfaces.length === 1, `${path}: one palette, or none named (both)`);
   }
-  const engineLabels = paletteEntries("engine").map(e => e.palette.label);
-  assert.ok(engineLabels.includes("Start the game") && engineLabels.includes("Create a room"));
-  assert.ok(!engineLabels.includes("Make a panel…") && !engineLabels.includes("Arrange the dock…"), "panels and the dock are player-client affairs");
-  const playerLabels = paletteEntries("player").map(e => e.palette.label);
-  assert.ok(playerLabels.includes("Arrange the dock…") && playerLabels.includes("Ask the assistant…") && !playerLabels.includes("Create a room"));
+  const siteLabels = paletteEntries("site").map(e => e.palette.label);
+  assert.ok(siteLabels.includes("Start the game") && siteLabels.includes("Create a room"));
+  assert.ok(!siteLabels.includes("Make a panel…") && !siteLabels.includes("Arrange the dock…"), "panels and the dock belong to the dock's palette");
+  const dockLabels = paletteEntries("dock").map(e => e.palette.label);
+  assert.ok(dockLabels.includes("Arrange the dock…") && dockLabels.includes("Ask the assistant…") && !dockLabels.includes("Create a room"));
+  assert.ok(dockLabels.includes("Start the game") && siteLabels.includes("Show who I am"), "an entry naming no palette is on both");
   assert.equal(CATALOG["rooms.endActiveGame"].palette?.confirm, "modal");
   assert.equal(CATALOG["panels.remove"].palette?.confirm, "inline");
 });

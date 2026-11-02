@@ -45,7 +45,7 @@ function checkAssistant(assistantBudget: number | undefined, assistantModel: str
  * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, a spectator until they choose to
  * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded First steps
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
- * removed it); an API caller may turn the in-client assistant on in the same call. The engine UI creates in one click
+ * removed it); an API caller may turn the in-client assistant on in the same call. The app creates in one click
  * and leaves the assistant off until the owner turns it on from the room page.
  */
 export const create = mutation({

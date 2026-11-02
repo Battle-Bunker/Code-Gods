@@ -174,7 +174,7 @@ test("token middleware: same-origin GET only, no-store, cached JWT, RECONNECT on
     const body = await ok.json();
     assert.deepEqual(Object.keys(body).sort(), ["convexUrl", "expiresAt", "permission", "roomId", "siteUrl", "token"]);
     assert.equal(body.convexUrl, "https://dep-1.convex.cloud");
-    assert.equal(body.siteUrl, "https://dep-1.convex.site", "the engine site, for links to the engine UI from the dev server's page");
+    assert.equal(body.siteUrl, "https://dep-1.convex.site", "the engine site, for links to the engine site from the dev server's page");
     assert.ok(!JSON.stringify(body).includes("cgc_"), "the browser never sees the credential");
     await get({ origin: base });
     assert.equal(state.exchanges, 1, "the JWT is cached until a minute before expiry");

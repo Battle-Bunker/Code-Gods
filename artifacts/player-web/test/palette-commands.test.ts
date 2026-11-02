@@ -53,7 +53,7 @@ async function perform(command: Command) {
 
 test("every catalogue entry offered on the player surface has its command, titled by the catalogue", () => {
   const commands = playerCommands(state(), actions);
-  for (const { path, palette } of paletteEntries("player")) assert.equal(find(commands, path).human.title, palette.label, path);
+  for (const { path, palette } of paletteEntries("dock")) assert.equal(find(commands, path).human.title, palette.label, path);
   assert.equal(new Set(commands.map(c => c.id)).size, commands.length, "unique ids");
   for (const c of commands) assert.ok(c.human.title && c.human.tooltip, `${c.id} has a title and a tooltip`);
 });

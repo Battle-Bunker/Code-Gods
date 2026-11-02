@@ -32,7 +32,7 @@ export const agentTables = {
 
   /**
    * One authorization request (10 minutes): created by GET /oauth/authorize, decided by the human on the
-   * engine UI's /connect page, completed by GET /oauth/authorize/complete (which mints the one-time code),
+   * engine site's /connect page, completed by GET /oauth/authorize/complete (which mints the one-time code),
    * then redeemed once at the token endpoint for a `kind: "oauth"` credential.
    */
   oauthRequests: defineTable({

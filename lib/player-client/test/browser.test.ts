@@ -181,7 +181,7 @@ test("fetchToken: cached until a minute before expiry, refreshed once across tab
   assert.equal(s.auth.session("ABCD1234")?.refreshToken, "cgr_2", "the rotated token is stored");
   // Convex asks for a forced refresh after the server rejected the token.
   assert.equal(await fetchToken({ forceRefreshToken: true }), "jwt_3");
-  // Revoked on the engine UI: the refresh fails, the session is dropped, null tells Convex the auth is lost.
+  // Revoked on the engine site: the refresh fails, the session is dropped, null tells Convex the auth is lost.
   s.engine.state.revoked = true;
   const changes: Array<PlayerSession | null> = [];
   s.auth.onChange(room => changes.push(s.auth.session(room)));

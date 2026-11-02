@@ -6,7 +6,7 @@ Code Gods aims to elicit human technical understanding through political negotia
 
 **Why:** The user wants technical fluency to be causally important to negotiation, not artificial limits on AI assistance.
 
-**How to apply:** Keep server authority separate from freely customizable player clients in the same repo. The server UI is a common display and owner control panel, not a player gameplay editor. Video-call politics is external and out of scope.
+**How to apply:** Keep server authority (the engine) separate from the freely customizable app in the same repo. The app's room pages and a live game's spectator view are a common display and owner control panel, not a player gameplay editor; gameplay is the seated player's dock. Video-call politics is external and out of scope.
 
 Individual opponents' object utilities are not directly shared: clients receive their own utility, the sum of other gods' utilities and their product (the score). Public leaderboards show player total scores.
 
@@ -104,7 +104,7 @@ AI-player templates are persistent admin-editable named records with provider/mo
 
 **How to apply:** Gate authoring by an environment-configured verified-email allowlist. Seed defaults once and preserve edits/deletions across restarts. Do not save allowlisted personal emails in memory.
 
-Deploy the engine as one Convex deployment that serves the engine UI, the hosted player client and the API. Park after 30 minutes without human activity.
+Deploy the engine as one Convex deployment that serves the app (at `/`) and the API. Park after 30 minutes without human activity.
 
 **Why:** The user wants affordable compute with no separate server; Convex bills function time, so a parked tick loop costs nothing. The 30-minute idle rule is kept from the former Autoscale deployment.
 
@@ -168,9 +168,9 @@ Every public Convex function has an entry in one typed catalogue (lib/player-cli
 
 **Why:** The owner wants every affordance a player has to be available and documented for their assistant, enumerated in one place that forks into the human and the AI API, with the documentation required by the type system (2026-10-31).
 
-**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palette in both apps read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
+**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palettes (the dock's and the site pages') read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
 
-The player client is a dock of panes: built-in panels, the human's stored panels and exactly one assistant pane (never closable). A human picks a pane's panel from a menu; a panel's parameters are set only by the assistant, through the layout tools.
+A seated player's game is a dock of panes: built-in panels, the human's stored panels and at most one assistant pane (see "The assistant is an ordinary, optional pane"). A human picks a pane's panel from a menu; a panel's parameters are set only by the assistant, through the layout tools.
 
 **Why:** The owner centred the interface on the assistant, wants IDE-style movable panes with one analytics panel over the chat by default, and wants every panel parameterised by the AI rather than by controls (docs/ui-redesign.md, 2026-10-31).
 
@@ -200,7 +200,7 @@ The assistant's state is per (player, game): starting a new game in the same roo
 
 **How to apply:** Threads (turns, briefings, messages, tool calls, cards), the allowance, code runs and stored objects carry the game's epoch (the room's current game, or the lobby before the first); launching a game ends the room's active assistant turns. An earlier game's conversation stays readable by its human for that game (replays) but is never listed, continued or loaded in the next. The player's own choices are not assistant state and stay: layout and panels, saved scripts (`scripts/`), the auto-approve preference, the room credential. New assistant state gets the same key.
 
-There is one app (artifacts/player-web), served by the engine at `/` and runnable as a player's own dev server; every page is calibrated to the signed-in human. `/rooms/:room` is the room only (its active game and a link to it, members and their roles, chat, next game, past games) and never a game; `/rooms/:room/games/:game` is the game: the player view (the dock) for a god dealt into it while it is live, the spectator view for a member who is not, and its replay once it has ended.
+There is one app (artifacts/player-web), served by the engine at `/` and runnable by a player on any other origin (a dev server or a build); every page is calibrated to the signed-in human. `/rooms/:room` is the room only (its active game and a link to it, members and their roles, chat, next game, past games) and never a game; `/rooms/:room/games/:game` is the game: the player view (the dock) for a god dealt into it while it is live, the spectator view for a member who is not, and its replay once it has ended.
 
 **Why:** The owner (2026-11-02): "get rid of the distinction of having a separate client app inside the reference implementation and just put all functionality on its appropriate page calibrated to the signed in user. Remove the /client/ prefix context entirely. Game play should occur at /rooms/:id/games/:id. That same URL becomes a replay interface once the game is over." And: "Remove the old code as thoroughly as possible … There is no reason to collect junk old code for backwards compatibility purposes."
 

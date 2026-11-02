@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @workspace/engine dev
  *     → backend http://127.0.0.1:3210 (client URL), site http://127.0.0.1:3211 (HTTP actions + static sites),
- *       fake OIDC http://127.0.0.1:3399. The engine UI's "Sign in" goes to Google (which refuses the dummy
+ *       fake OIDC http://127.0.0.1:3399. The app's "Sign in" goes to Google (which refuses the dummy
  *       client id locally); tests and e2e sign in through Better Auth's test-only provider "fake" instead:
  *       POST /api/auth/sign-in/oauth2 {"providerId":"fake"} and pick an identity (alice, bob, carol, admin,
  *       unverified; see scripts/fake-oidc.mjs and test/helpers.ts login()).

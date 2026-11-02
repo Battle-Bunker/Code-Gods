@@ -1,6 +1,6 @@
 /**
  * The assistant pane (docs/research/ui-redesign/player-client.md §4): the player's private conversation with the
- * in-client assistant, part of the protected core in hosted and dev-server modes alike. It talks only to the engine's
+ * in-client assistant, part of the protected core in every mode (site, account, dev server). It talks only to the engine's
  * assistant functions (convex/assistant.ts): the model runs in Convex and acts through the player's own revocable
  * assistant credential; public chat, summons, destroys, pauses, panel deletions and owner actions wait for the
  * confirmation card docked above the composer.
