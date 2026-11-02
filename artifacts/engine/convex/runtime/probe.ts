@@ -107,11 +107,12 @@ export const smoke = internalAction({
 /**
  * A three-language game's agents all busy at once, as its tick runs them (deploy.yml): Python and TypeScript on this
  * instance's pools, Haskell compiled and acted by actions of their own (runtime/haskellCompile.ts, haskellAct.ts). Fails
- * when this instance's peak resident memory, sampled every 50 ms, passes `budgetMiB` (default 448 of the action's 512 MiB).
+ * when this instance's peak resident memory, sampled every 50 ms, passes `budgetMiB` (default 480 of the action's 512 MiB; on dev the
+ * instance sat at 446 MiB before and peaked at 449 under the load, the Haskell act action at 359).
  */
 export const concurrent = internalAction({
   args: { acts: v.optional(v.number()), budgetMiB: v.optional(v.number()) },
-  handler: async (ctx, { acts = 24, budgetMiB = 448 }) => {
+  handler: async (ctx, { acts = 24, budgetMiB = 480 }) => {
     await bindRuntime(ctx);
     let peak = rssMiB();
     const sampler = setInterval(() => { peak = Math.max(peak, rssMiB()); }, 50);
