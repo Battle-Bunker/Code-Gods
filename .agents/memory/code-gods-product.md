@@ -229,6 +229,12 @@ The player can keep typing while their assistant works: messages queue in Convex
 
 ## Panes have no tabs (2026-11-02)
 
-**Rule:** a dock pane holds exactly one panel. Dropping a panel on the centre of another pane *replaces* it; the replaced panel is simply removed (reopen it from the panel menu), and the source pane closes as when any panel moves out. Edge drops still split. The assistant is never replaced and never replaces a panel (the dock refuses that overlay).
+**Rule:** a dock pane holds exactly one panel. Dropping a panel on the centre of another pane *replaces* it; the replaced panel is simply removed (reopen it from the panel menu), and the source pane closes as when any panel moves out. Edge drops still split. 
 **Why:** the owner could not reach a hidden tab: every part of the header was a menu or a close button.
 **How to apply:** `Node` is `split | pane`; `parseLayout` migrates legacy `tabs` groups to their active pane (`lib/player-client/src/layout.ts`); do not reintroduce tab arrays, `active`, or a `tab` place direction.
+
+## The assistant is an ordinary, optional pane (2026-11-02)
+
+**Rule:** the "Your assistant" pane is in the default dock (full width at the bottom) but is a pane like any other: it can be moved, split and closed (✕ in its header or "Close pane"), because a player may use an external agent (MCP or API). A layout without it stays without it: `parseLayout` and the presets no longer add one. Reopen it from the panel menu ("Your assistant"), the palette ("Open assistant", or "Move assistant left/right/bottom"). Anything that hands the player to the chat (`composer.fill` / `composer.focus`: "Ask about this view", object clicks, palette hand-offs, "/" and Ctrl+`) reopens it first (`composer.setReopen`, registered by the dock shell). The assistant's own `close_pane` refuses to close the chat pane: only the player does. Replacing it by a centre drop removes it like any panel.
+**Why:** owner request: not everyone wants the in-client assistant.
+**How to apply:** never assume `assistantPaneOf(layout)` exists; the draft, queue and status live in `composer`, not in the pane, so they survive a close. The phone's stacked dock shows the sheet only when the pane exists, and the replay footer offset (`--cg-footer-h`) is independent of it.

@@ -19,6 +19,7 @@ import { useRoom } from "@/sdk";
 import { Confirmations } from "@/shell/confirmations";
 import { SAFE_MODE } from "@/shell/safe-mode";
 import { Header, HeaderBanners } from "@/core/header";
+import { assistantPaneOf } from "@workspace/player-client/layout";
 import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
@@ -139,6 +140,8 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   const current = useQuery(api.layout.current, { roomId });
   const setLayout = useMutation(api.layout.set);
   useShortcuts(store);
+  // "Ask your assistant" links, the composer's hand-offs and "/" reopen the assistant pane when the player closed it.
+  useEffect(() => composer.setReopen(() => { if (!assistantPaneOf(store.layout)) dockActions(store).openAssistant(); }), [store]);
 
   useEffect(() => { store.setPusher((layout, ifUpdatedAt) => setLayout({ roomId, layout, ...(ifUpdatedAt !== undefined ? { ifUpdatedAt } : {}) })); return () => store.setPusher(undefined); }, [store, setLayout, roomId]);
   useEffect(() => { store.setPhase(obs?.phase ?? current?.phase ?? phase); }, [store, obs?.phase, current?.phase, phase]);

@@ -4,8 +4,8 @@
  * and by the assistant through the layout tools. The engine validates with `parseLayout` (never throws) and applies
  * the same pure operations the client uses, so a tool call and a drag never disagree about the shape.
  *
- * Sizes are weights (they sum to 100 in every split), never pixels. Exactly one `assistant` pane, never closable;
- * 1–4 built-in panels; stored panels and (in dev containers) file panels are panes too.
+ * Sizes are weights (they sum to 100 in every split), never pixels. At most one `assistant` pane: an ordinary pane the
+ * player may close (a player with an external agent may), and reopen with `openAssistant`; 1–4 built-in panels; stored panels and (in dev containers) file panels are panes too.
  */
 import { z } from "zod/v4";
 import { defaultPanelFor, defaultPanelParams, isPanelId, panelSummary, parsePanelParams, type PanelId, type Phase } from "./panels.ts";
@@ -91,8 +91,8 @@ function contains(node: Node, id: string): boolean {
 
 /**
  * Is the assistant beside the panels ("row": left or right) or above/below them ("column")? Decided at the first
- * split, from the root, where the assistant's branch parts from a branch holding a built-in panel. "column" when the
- * there is no assistant.
+ * split, from the root, where the assistant's branch parts from a branch holding a built-in panel. "column" when there is
+ * no assistant.
  */
 export function assistantSide(layout: DockLayout): Direction {
   const assistant = assistantPaneOf(layout);
@@ -201,21 +201,19 @@ export function nextPaneId(layout: DockLayout, prefix = "p"): string {
 }
 
 /** The panes of a layout rebuilt around the assistant: `build` gets the built-in panels' leaves, the other panes' leaves and the assistant's. */
-function regroup(current: DockLayout, build: (panels: Node[], others: Node[], assistant: Node) => Node): DockLayout {
-  const assistant = assistantPaneOf(current);
-  let panes = { ...current.panes };
-  let assistantId = assistant?.id;
-  if (!assistantId) { assistantId = nextPaneId({ ...current, panes }); panes = { ...panes, [assistantId]: { id: assistantId, kind: "assistant" } }; }
+function regroup(current: DockLayout, build: (panels: Node[], others: Node[], assistant: Node | null) => Node): DockLayout {
+  const assistantId = assistantPaneOf(current)?.id;
+  const panes = { ...current.panes };
   const panels = panelPanesOf(current).map(p => leaf(p.id));
   const others = panesOf(current).filter(p => p.kind === "stored-panel" || p.kind === "file-panel").map(p => leaf(p.id));
-  return normaliseLayout({ version: 1, root: build(panels, others, leaf(assistantId)), panes });
+  return normaliseLayout({ version: 1, root: build(panels, others, assistantId ? leaf(assistantId) : null), panes });
 }
 /** Layout presets the palette and the assistant apply to the current layout; built-in panels are kept, never dropped. */
 export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-panels", (current: DockLayout) => DockLayout> = {
   /** Every panel side by side on top, the assistant below. */
-  stacked: current => ensurePanel(regroup(current, (panels, others, assistant) => split("column", [50, 50], [split("row", [], [...panels, ...others]), assistant]))),
+  stacked: current => ensurePanel(regroup(current, (panels, others, assistant) => assistant ? split("column", [50, 50], [split("row", [], [...panels, ...others]), assistant]) : split("row", [], [...panels, ...others]))),
   /** Panels stacked left (62 %), the assistant right. */
-  "side-by-side": current => ensurePanel(regroup(current, (panels, others, assistant) => split("row", [62, 38], [split("column", [], [...panels, ...others]), assistant]))),
+  "side-by-side": current => ensurePanel(regroup(current, (panels, others, assistant) => assistant ? split("row", [62, 38], [split("column", [], [...panels, ...others]), assistant]) : split("column", [], [...panels, ...others]))),
   /** At least two panels stacked evenly on the left, the assistant right; a second panel is opened when there is only one. */
   "two-panels": current => {
     let layout = ensurePanel(current);
@@ -223,7 +221,7 @@ export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-panels", (
       const first = panelPanesOf(layout)[0];
       layout = openPane(layout, panelPane("", first.panelId === "objects" ? "race" : "objects"), { relativeTo: first.id, direction: "below" }).layout;
     }
-    return regroup(layout, (panels, others, assistant) => split("row", [62, 38], [split("column", [], [...panels, ...others]), assistant]));
+    return regroup(layout, (panels, others, assistant) => assistant ? split("row", [62, 38], [split("column", [], [...panels, ...others]), assistant]) : split("column", [], [...panels, ...others]));
   },
 };
 
@@ -233,11 +231,15 @@ function ensurePanel(layout: DockLayout, phase: Phase = "running"): DockLayout {
   const id = nextPaneId(layout);
   return normaliseLayout({ version: 1, root: split("column", [50, 50], [leaf(id), layout.root]), panes: { ...layout.panes, [id]: panelPane(id, defaultPanelFor(phase)) } });
 }
-/** A layout with exactly one assistant pane (added below everything else when missing). */
-function ensureAssistant(layout: DockLayout): DockLayout {
-  if (assistantPaneOf(layout)) return layout;
+/**
+ * A layout with the assistant pane: the one it has, else a new one full width below everything (the default dock's
+ * place). Closing the assistant removes it; this is how it comes back (the panel picker, the palette, "ask your assistant").
+ */
+export function openAssistant(layout: DockLayout): { layout: DockLayout; paneId: string } {
+  const open = assistantPaneOf(layout);
+  if (open) return { layout, paneId: open.id };
   const id = nextPaneId(layout);
-  return normaliseLayout({ version: 1, root: split("column", [60, 40], [layout.root, leaf(id)]), panes: { ...layout.panes, [id]: { id, kind: "assistant" } } });
+  return { layout: normaliseLayout({ version: 1, root: split("column", [76, 24], [layout.root, leaf(id)]), panes: { ...layout.panes, [id]: { id, kind: "assistant" } } }), paneId: id };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -249,7 +251,7 @@ export type ParseContext = { phase: Phase; storedSlugs: readonly string[]; fileI
 /**
  * A stored or submitted layout made safe to render: unknown panels become the phase's default panel, invalid panel
  * parameters their defaults, unknown stored panels and files are dropped, duplicate assistants and pane ids are
- * removed, the tree is normalised and bounded, and a missing assistant or built-in panel is added. Anything structurally
+ * removed, the tree is normalised and bounded, and a missing built-in panel is added (a missing assistant is not: the player closed it). Anything structurally
  * wrong (or too large or too deep) yields DEFAULT_LAYOUT(phase). Every repair is named in `warnings`.
  */
 export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayout; warnings: string[] } {
@@ -319,7 +321,6 @@ export function parseLayout(raw: unknown, ctx: ParseContext): { layout: DockLayo
   if (Object.keys(panes).length > LAYOUT_LIMITS.panes) return reset(`more than ${LAYOUT_LIMITS.panes} panes`);
 
   let layout = normaliseLayout({ version: 1, root, panes });
-  if (!assistantPaneOf(layout)) { warnings.push("no assistant pane, added below"); layout = ensureAssistant(layout); }
   if (!panelPanesOf(layout).length) { warnings.push(`no built-in panel, ${defaultPanelFor(ctx.phase)} added above`); layout = ensurePanel(layout, ctx.phase); }
   return { layout: followPhase(layout, ctx.phase), warnings };
 }
@@ -395,10 +396,9 @@ export function movePane(layout: DockLayout, paneId: string, place: Place): Dock
   return normaliseLayout({ version: 1, root, panes: layout.panes });
 }
 
-/** Close a pane; the assistant and the last built-in panel stay. */
+/** Close a pane; the last built-in panel stays. The assistant closes like any other pane. */
 export function closePane(layout: DockLayout, paneId: string): DockLayout {
   const pane = requirePane(layout, paneId);
-  if (pane.kind === "assistant") throw new LayoutError("CONFLICT", "The assistant pane cannot be closed");
   if (pane.kind === "panel" && panelPanesOf(layout).length <= 1) throw new LayoutError("CONFLICT", "The last panel cannot be closed; change it instead");
   const { [paneId]: _closed, ...panes } = layout.panes;
   return normaliseLayout({ version: 1, root: removeNode(layout.root, paneId) ?? layout.root, panes });

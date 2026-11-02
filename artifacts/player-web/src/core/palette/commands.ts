@@ -74,6 +74,8 @@ export type PaletteActions = {
     change(paneId: string, panelId: PanelId): void;
     close(paneId: string): void;
     dockAssistant(side: "left" | "right" | "bottom"): void;
+    /** Show the assistant pane, reopening it when it was closed. */
+    openAssistant(): void;
     preset(name: "stacked" | "side-by-side" | "two-panels"): void;
     reset(): void;
     maximise(paneId: string): void;
@@ -223,12 +225,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       available: ctx => {
         const pane = scope(ctx);
         if (!pane) return no("Open the palette from a pane.", undefined, true);
-        if (pane.kind === "assistant") return no("The assistant pane stays; drag it smaller instead.");
         return pane.closable ? OK : no("The last panel stays; change it instead.");
       },
     }),
     ui("ui.pane.maximise", "Maximise or restore this pane", "Gives this pane the whole dock, or puts it back.", "view", local(() => { if (s.scopePaneId) a.dock.maximise(s.scopePaneId); }),
       { keywords: ["zoom", "full screen", "maximize"], available: ctx => (scope(ctx) ? OK : no("Open the palette from a pane.", undefined, true)) }),
+    ui("ui.assistant.open", "Open assistant", "Your assistant, in its own pane: it comes back at the bottom if you closed it.", "view", local(() => a.dock.openAssistant()), { keywords: ["chat", "ask", "reopen", "show"] }),
     ui("ui.assistant.right", "Move assistant right", "Your assistant beside the panels, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"] }),
     ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the panels.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"] }),
     ui("ui.assistant.left", "Move assistant left", "Your assistant beside the panels, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"] }),

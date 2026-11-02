@@ -4,7 +4,7 @@
  */
 import { PANELS, defaultPanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import {
-  LAYOUT_LIMITS, assistantPaneOf, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
+  LAYOUT_LIMITS, assistantPaneOf, openAssistant, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
 } from "@workspace/player-client/layout";
 
 /**
@@ -75,7 +75,8 @@ function prune(node: Node): Node | null {
  * outermost split turns to run along the assistant: panels stack beside a side assistant and sit side by side above
  * a bottom one (otherwise every pane would join one long row or column).
  */
-export function dockAssistant(layout: DockLayout, side: "left" | "right" | "bottom"): DockLayout {
+export function dockAssistant(base: DockLayout, side: "left" | "right" | "bottom"): DockLayout {
+  const layout = openAssistant(base).layout;   // a closed assistant comes back at the side asked for
   const assistant = assistantPaneOf(layout);
   if (!assistant) return layout;
   let rest = prune(without(layout.root, assistant.id) ?? { type: "split", direction: "row", sizes: [], children: [] });

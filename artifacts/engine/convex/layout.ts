@@ -244,5 +244,9 @@ export const movePaneAs = internalMutation({
 
 export const closePaneAs = internalMutation({
   args: { principal, paneId: v.string() },
-  handler: async (ctx, { principal: p, paneId }): Promise<LayoutChange> => change(ctx, p, layout => ({ layout: closePane(layout, paneId), paneId })),
+  handler: async (ctx, { principal: p, paneId }): Promise<LayoutChange> => change(ctx, p, layout => {
+    // The player may close their chat (they might use an external agent); the assistant never closes it on their behalf.
+    if (layout.panes[paneId]?.kind === "assistant") throw new LayoutError("CONFLICT", "Only the player can close the chat pane");
+    return { layout: closePane(layout, paneId), paneId };
+  }),
 });

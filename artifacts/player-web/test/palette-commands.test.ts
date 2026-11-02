@@ -25,7 +25,7 @@ const actions: Actions = {
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
   assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), threads: async () => [{ id: "t1", label: "Earlier" }], openThread: rec("openThread"),
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
-  dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
+  dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), openAssistant: rec("openAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
   links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/rooms/ABCD/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
   objects: { setGridRenderer: rec("gridRenderer") },
@@ -34,7 +34,7 @@ const actions: Actions = {
 const state = (over: Partial<State> = {}): State => ({
   phase: "running", hasObservation: true, permission: "act", isOwner: false, seated: true, ready: false, pauseUsed: false,
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, roomCode: "ABCD", gameCode: "WXYZ",
-  panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: false }],
+  panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: true }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
   setups: [{ id: "setup-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
 });
@@ -78,7 +78,9 @@ test("dock commands act on the pane the palette was opened for", async () => {
   assert.deepEqual(calls, ['close ["p3"]', 'change ["p3","overview"]', 'show ["feed"]', 'dockAssistant ["right"]']);
   const single = playerCommands(state(), actions);
   assert.match(reason(single, "ui.pane.close"), /last panel/, "the last built-in panel stays");
-  assert.match(reason(single, "ui.pane.close", ctx({ scope: { paneId: "p2" } })), /assistant/);
+  assert.ok(ok(single, "ui.pane.close", ctx({ scope: { paneId: "p2" } })), "the assistant pane closes like any other");
+  await perform(find(single, "ui.assistant.open"));
+  assert.equal(calls.at(-1), "openAssistant", "Open assistant reopens it");
 });
 
 test("game commands go through the same submit path, and are refused like the old console's buttons", async () => {
