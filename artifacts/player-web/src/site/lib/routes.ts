@@ -7,11 +7,11 @@
  *
  * Codes are the rooms' and games' short codes, as everywhere in the UI.
  */
-const seg = encodeURIComponent;
+import { routeHref } from "../../core/routes.ts";
 
-export const roomPath = (room: string) => `/rooms/${seg(room)}`;
-export const configurePath = (room: string, setup?: string) => `/rooms/${seg(room)}/configure${setup ? `?setup=${seg(setup)}` : ""}`;
-export const gamePath = (room: string, game: string) => `/rooms/${seg(room)}/games/${seg(game)}`;
+export const roomPath = (room: string) => routeHref("/", { kind: "room", room });
+export const configurePath = (room: string, setup?: string) => routeHref("/", { kind: "configure", room }, setup ? `?setup=${encodeURIComponent(setup)}` : "");
+export const gamePath = (room: string, game: string) => routeHref("/", { kind: "game", room, game });
 
 /**
  * Whether the viewer may open a finished game of the room's history (newest first, `index` in it): the gods who played

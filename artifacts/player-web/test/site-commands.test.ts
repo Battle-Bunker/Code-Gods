@@ -60,8 +60,9 @@ test("joining and leaving: only for whom it applies", () => {
   assert.equal(paletteContextFor(scope({ user: null, room: room(["ada"]) })).role, "visitor");
 });
 
-test("a code-shaped query opens a room or a game", () => {
-  assert.deepEqual(codeCommands("k7qx", act).map(c => c.human.title), ["Open room K7QX", "Open game K7QX"]);
+test("a code-shaped query opens that room (games open from their room: there is no /games/:code)", () => {
+  const [room, ...rest] = codeCommands("k7qx", act);
+  assert.deepEqual([room?.human.title, room?.performer, rest.length], ["Open room K7QX", { kind: "navigate", to: "/rooms/K7QX" }, 0]);
   assert.deepEqual(codeCommands("hi", act), []);
   assert.deepEqual(codeCommands("not a code", act), []);
 });

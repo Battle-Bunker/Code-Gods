@@ -9,8 +9,7 @@
  *   {base}connect, {base}device          approving an app or a device
  *   {base}admin/agents[/:id]             the AI player library
  *
- * Any other path is not found. The pages under site/ build the same paths with site/lib/routes.ts (relative to the
- * router's base); this module serves the dock and the replay, which navigate by route.
+ * Any other path is not found. The pages under site/ build their paths with site/lib/routes.ts, from routeHref.
  */
 export type AppRoute =
   | { kind: "home" }
@@ -23,7 +22,6 @@ export type AppRoute =
   | { kind: "notFound" };
 
 const withSlash = (base: string) => (base.endsWith("/") ? base : `${base}/`);
-const decode = (segment: string) => { try { return decodeURIComponent(segment); } catch { return segment; } };
 const seg = encodeURIComponent;
 
 /** The href of a route under `base` (with an optional query string, "?…" or ""). */
@@ -37,20 +35,20 @@ export function routeHref(base: string, route: Exclude<AppRoute, { kind: "notFou
   return `${withSlash(base)}${path}${search}`;
 }
 
-export function parseRoute(base: string, pathname: string): AppRoute {
-  const root = withSlash(base);
-  if (!(pathname.startsWith(root) || `${pathname}/` === root)) return { kind: "notFound" };
-  const s = pathname.slice(root.length).split("/").filter(Boolean).map(decode);
-  if (s.length === 0) return { kind: "home" };
-  if (s[0] === "rooms" && s[1]) {
-    if (s.length === 2) return { kind: "room", room: s[1] };
-    if (s.length === 3 && s[2] === "configure") return { kind: "configure", room: s[1] };
-    if (s.length === 4 && s[2] === "games" && s[3]) return { kind: "game", room: s[1], game: s[3] };
-  }
-  if (s.length === 1 && (s[0] === "connect" || s[0] === "device")) return { kind: s[0] };
-  if (s[0] === "admin" && s[1] === "agents" && s.length <= 3) return { kind: "admin", ...(s[2] ? { agent: s[2] } : {}) };
-  return { kind: "notFound" };
-}
+/**
+ * The router's patterns (wouter, core/app.tsx), one per page; any other path is the not-found page. Relative to the
+ * router's base, in wouter's syntax (regexparam).
+ */
+export const ROUTE_PATTERNS = {
+  home: "/",
+  configure: "/rooms/:id/configure",
+  game: "/rooms/:roomId/games/:gameId",
+  room: "/rooms/:id",
+  device: "/device",
+  connect: "/connect",
+  admin: "/admin/agents",
+  adminAgent: "/admin/agents/:id",
+} as const;
 
 /** A replay's position parameters (src/core/replay/model.ts): they belong to one game's page, never carried elsewhere. */
 const PAGE_PARAMS = ["e", "t", "speed", "play", "as"];

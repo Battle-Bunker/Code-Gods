@@ -12,7 +12,9 @@
  * or another deployment's) is left alone.
  *
  * A page still open on a retired site ("engine" or "player", before the one app) is answered as outdated against the
- * app's live build, so it reloads (the app serves every path). Removed with the siteBuilds narrowing (schema.ts).
+ * app's live build, so it reloads into the app: an engine UI page onto the same page (its paths did not change), a
+ * /client/ page onto the app's not-found page, which links home (no redirects). Removed with the siteBuilds narrowing
+ * (schema.ts).
  */
 import { v } from "convex/values";
 import { internalMutation, query, type QueryCtx } from "./_generated/server";

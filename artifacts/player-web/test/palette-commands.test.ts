@@ -27,7 +27,7 @@ const actions: Actions = {
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), openAssistant: rec("openAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
-  links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/rooms/ABCD/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
+  links: { roomPage: () => "/rooms/ABCD", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
   objects: { setGridRenderer: rec("gridRenderer") },
   replay: { watch: rec("watchReplay"), toggle: rec("replayToggle"), start: rec("replayStart"), end: rec("replayEnd") },
   notify: rec("notify"),
@@ -63,7 +63,7 @@ test("the dock commands: add any panel, change this pane's panel, close it, move
   for (const id of PANEL_IDS) assert.ok(commands.some(c => c.id === `ui.panel.add.${id}`), id);
   for (const id of ["ui.pane.change", "ui.pane.close", "ui.assistant.right", "ui.assistant.bottom", "ui.assistant.left", "ui.layout.stacked", "ui.layout.side-by-side",
     "ui.layout.two-panels", "ui.layout.reset", "ui.assistant.focus", "ui.pane.maximise", "ui.assistant.new", "ui.assistant.settings", "ui.room.copy-link",
-    "ui.room.open", "ui.game.open", "ui.safe-mode", "ui.glossary", "ui.forge.edit"]) find(commands, id);
+    "ui.room.open", "ui.safe-mode", "ui.glossary", "ui.forge.edit"]) find(commands, id);
   assert.equal(find(commands, "ui.assistant.focus").shortcut, "Ctrl+`");
   assert.equal(find(commands, "ui.panel.add.race").human.title, "Add panel: Leaderboard race");
 });

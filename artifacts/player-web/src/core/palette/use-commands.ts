@@ -131,7 +131,6 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     links: {
       // The engine UI lives on the engine's site, not necessarily this page's origin (a dev server, another host).
       roomPage: () => hrefTo({ kind: "room", room: state.roomCode ?? "" }),
-      gamePage: () => (state.gameCode && state.roomCode ? hrefTo({ kind: "game", room: state.roomCode, game: state.gameCode }) : null),
       copyRoomLink: () => { if (state.roomCode) void copy(roomUrl(state.roomCode), "Copied the room link."); },
       safeMode: on => {
         const params = new URLSearchParams(location.search);

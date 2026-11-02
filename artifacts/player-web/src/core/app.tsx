@@ -29,6 +29,7 @@ import Configure from "@/site/pages/configure";
 import { roomPath } from "@/site/lib/routes";
 import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
 import { Screen } from "./screen";
+import { ROUTE_PATTERNS } from "./routes";
 
 export function App() {
   const [conn, setConn] = useState<Connection>();
@@ -62,14 +63,14 @@ function Routes({ devserver }: { devserver: boolean }) {
     // Keep a shared shell outside the boundary so it survives a page crash.
     <RoutedErrorBoundary>
       <Switch>
-        <Route path="/" component={devserver ? CredentialRoom : Home} />
-        <Route path="/rooms/:id/configure" component={Configure} />
-        <Route path="/rooms/:roomId/games/:gameId" component={Game} />
-        <Route path="/rooms/:id" component={Room} />
-        <Route path="/device" component={devserver ? siteOnly("Approve a device") : Device} />
-        <Route path="/connect" component={devserver ? siteOnly("Approve a connection") : Connect} />
-        <Route path="/admin/agents" component={devserver ? siteOnly("AI players") : AdminAgents} />
-        <Route path="/admin/agents/:id" component={devserver ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.home} component={devserver ? CredentialRoom : Home} />
+        <Route path={ROUTE_PATTERNS.configure} component={Configure} />
+        <Route path={ROUTE_PATTERNS.game} component={Game} />
+        <Route path={ROUTE_PATTERNS.room} component={Room} />
+        <Route path={ROUTE_PATTERNS.device} component={devserver ? siteOnly("Approve a device") : Device} />
+        <Route path={ROUTE_PATTERNS.connect} component={devserver ? siteOnly("Approve a connection") : Connect} />
+        <Route path={ROUTE_PATTERNS.admin} component={devserver ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.adminAgent} component={devserver ? siteOnly("AI players") : AdminAgents} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

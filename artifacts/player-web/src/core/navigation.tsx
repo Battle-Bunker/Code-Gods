@@ -4,8 +4,7 @@
  */
 import { useCallback, type AnchorHTMLAttributes, type MouseEvent } from "react";
 import { navigate as browserNavigate } from "wouter/use-browser-location";
-import { useLocation, useSearch } from "wouter";
-import { carriedSearch, parseRoute, routeHref, type AppRoute } from "./routes";
+import { carriedSearch, routeHref, type AppRoute } from "./routes";
 
 export const BASE = import.meta.env.BASE_URL;
 type Target = Exclude<AppRoute, { kind: "notFound" }>;
@@ -14,13 +13,6 @@ type Target = Exclude<AppRoute, { kind: "notFound" }>;
 export function navigate(href: string, { replace = false }: { replace?: boolean } = {}) {
   if (href === `${location.pathname}${location.search}`) return;
   browserNavigate(href, { replace });
-}
-
-/** The current route (re-renders on every navigation). */
-export function useAppRoute(): AppRoute {
-  useLocation();
-  useSearch();
-  return parseRoute(BASE, location.pathname);
 }
 
 /** The href of a route, keeping the page's own query parameters (?panels=off) across navigation. */

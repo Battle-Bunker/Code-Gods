@@ -135,6 +135,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const arg = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
   const prod = argv.includes("--prod"), skipBuild = argv.includes("--skip-build"), ifChanged = argv.includes("--if-changed");
   const only = arg("--only");
+  if (only && !(only in SITES)) throw new Error(`--only ${only}: no such site (${Object.keys(SITES).join(", ")})`);
   const { cloudUrl, siteUrl } = deploymentUrls({ prod });
   const publicUrl = skipBuild ? "" : publicSiteUrl({ prod });
   console.log(`[deploy-static] VITE_CONVEX_URL=${cloudUrl} site=${siteUrl}${publicUrl ? ` public=${publicUrl}` : ""}`);

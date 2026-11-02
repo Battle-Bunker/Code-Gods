@@ -103,7 +103,7 @@ function ActivityPing() {
 
 export function EngineProvider({ client, auth, children }: { client: ConvexReactClient; auth: EngineAuth; children: ReactNode }) {
   const inner = <SessionProvider kind={auth.kind}><ActivityPing />{children}</SessionProvider>;
-  if (auth.kind === "token") return <ConvexProviderWithAuth client={client} useAuth={useTokenAuth(auth.fetchAccessToken)}>{inner}</ConvexProviderWithAuth>;
+  if (auth.kind === "token") return <TokenProvider client={client} fetchAccessToken={auth.fetchAccessToken}>{inner}</TokenProvider>;
   return (
     // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
     // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.
@@ -111,12 +111,13 @@ export function EngineProvider({ client, auth, children }: { client: ConvexReact
   );
 }
 
-/** A stable useAuth hook for ConvexProviderWithAuth over a token fetcher (always "signed in": the fetcher may refuse). */
-function useTokenAuth(fetchAccessToken: () => Promise<string | null>) {
-  return useMemo(() => {
+/** Convex auth over a token fetcher (always "signed in": the fetcher may refuse), with a stable useAuth hook. */
+function TokenProvider({ client, fetchAccessToken, children }: { client: ConvexReactClient; fetchAccessToken: () => Promise<string | null>; children: ReactNode }) {
+  const useAuth = useMemo(() => {
     const value = { isLoading: false, isAuthenticated: true, fetchAccessToken };
     return () => value;
   }, [fetchAccessToken]);
+  return <ConvexProviderWithAuth client={client} useAuth={useAuth}>{children}</ConvexProviderWithAuth>;
 }
 
 export type Result<T> = { data: T | undefined; error: Error | null; isLoading: boolean };

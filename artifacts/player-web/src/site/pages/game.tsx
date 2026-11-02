@@ -185,10 +185,11 @@ export default function Game() {
   const crumbs = [{ label: game?.roomShortCode ?? roomCode.toUpperCase(), href: roomPath(game?.roomShortCode ?? roomCode) }, { label: `Game ${game?.shortCode ?? code.toUpperCase()}` }];
   return (
     <Page game={game ?? null} room={room.data ?? null} crumbs={crumbs} placeholder={`Search or do anything in ${game?.shortCode ?? code.toUpperCase()}`}
-      suggested={step?.primary ? [step.primary] : []} conn={game ? { ok: !q.error, label: "live" } : null}>
+      suggested={step?.primary ? [step.primary] : []} conn={game ? { ok: !q.error, label: active ? "live" : "final" } : null}>
       {authError ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={errMsg(authError)} onRetry={() => void refetchAuth()} /></div>
       : authLoading ? null : !isAuthenticated ? <SignInToWatch code={code} />
-      : q.isLoading || (game && !room.data && !room.error) ? (
+      // A game whose room was deleted has no roomId: it is shown without its room.
+      : q.isLoading || (game?.roomId && !room.data && !room.error) ? (
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">

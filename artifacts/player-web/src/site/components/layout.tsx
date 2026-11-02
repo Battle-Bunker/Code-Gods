@@ -90,7 +90,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   suggested?: readonly string[];
   conn?: { ok: boolean; label?: string } | null;
 }) {
-  const { user, login, logout } = useAuth();
+  const { user, kind, login, logout } = useAuth();
   const manifest = useManifest().data;
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -259,7 +259,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
                   <DropdownMenuSeparator />
                   {user.isAdmin && <DropdownMenuItem asChild><Link href="/admin/agents" data-testid="link-admin-agents">AI library</Link></DropdownMenuItem>}
                   <DropdownMenuItem onSelect={() => setSheet("connected-apps")} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>
+                  {/* A dev server's credential is not a sign-in: it ends when the dev server stops. */}
+                  {kind === "site" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

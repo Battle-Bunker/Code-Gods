@@ -5,7 +5,7 @@
  * button and its palette row never disagree. Pure: the app passes its state and actions in.
  */
 import { CATALOG, paletteEntries, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { gamePath } from "./routes.ts";
+import { gamePath, roomPath } from "./routes.ts";
 import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
@@ -261,19 +261,19 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const scores: Record<string, number> = {
     "owner.start": 9, "rooms.resume": 9, "rooms.join": 9, "ui.copyInviteLink": 7, "rooms.addAi": 6,
     "owner.settings": 5, "ui.nav.configure": 4, "ui.newSetup": 3, "rooms.endActiveGame": 3, "rooms.create": 6,
+    "ui.nav.game": 6, "ui.nav.room": 5, "ui.nav.home": 4, "ui.nav.pastGame": 2, "rooms.history": 1,
   };
   return [...fromCatalog, ...uiCommands].map(c => (scores[c.id] ? { ...c, defaultScore: scores[c.id] } : c));
 }
 
-/** "Open room K7QX" / "Open game K7QX" for a code-shaped query (the rooms list's join-by-code). */
-export function codeCommands(query: string, act: Pick<EngineActions, "navigate">): Command[] {
+/** "Open room K7QX" for a code-shaped query (the rooms list's join-by-code). Games open from their room. */
+export function codeCommands(query: string, _act: Pick<EngineActions, "navigate">): Command[] {
   const code = query.trim().toUpperCase();
   if (!/^[A-Z0-9-]{4,36}$/.test(code)) return [];
-  const row = (kind: "room" | "game"): Command => ({
-    id: `dyn:${kind}:${code}`, human: { title: `Open ${kind} ${code}`, tooltip: kind === "room" ? "Goes to that room; you can join it there." : "Goes to that game's shared view." },
-    group: "room", section: "goto", performer: { kind: "navigate", to: `/${kind}s/${encodeURIComponent(code)}` }, available: () => ok,
-  });
-  return [row("room"), row("game")];
+  return [{
+    id: `dyn:room:${code}`, human: { title: `Open room ${code}`, tooltip: "Goes to that room; you can join it there." },
+    group: "room", section: "goto", performer: { kind: "navigate", to: roomPath(code) }, available: () => ok,
+  }];
 }
 
 
