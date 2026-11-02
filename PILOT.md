@@ -169,6 +169,12 @@ or provider keys. Do not give players editor access to the engine's own deployme
    Gitpod URLs are detected; behind another proxy or tunnel set `CODE_GODS_PUBLIC_ORIGIN` (and
    `CODE_GODS_ALLOWED_HOSTS` for any further hosts).
 
+Or, with no credential at all: set `VITE_CODE_GODS_ENGINE_URL` to the engine's site URL instead and run the
+same dev server. The app then asks you to sign in, you approve it on the engine's `/connect` page (it acts as
+you in every room, like the engine's own site; revoke it there under Connected apps), and it works from any
+origin (`docs/player-client-integration.md`, "the app in account mode"). In Replit's webview, open the app in a
+tab of its own to sign in.
+
 #### On Replit
 
 Import the repository as a Repl. `.replit` defines the **Player** workflow (the dev server above, port

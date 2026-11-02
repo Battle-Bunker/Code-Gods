@@ -37,18 +37,45 @@ export function App() {
   useEffect(() => { connection().then(setConn, e => setError(e instanceof Error ? e.message : String(e))); }, []);
   if (error) return <Screen title="Not connected to an engine" testId="text-connection-error"><p>{error}</p><AppHelp /></Screen>;
   if (!conn) return <Screen title="Connecting…" testId="status-connecting" />;
+  if (conn.mode === "account" && !conn.session) return <AccountSignIn conn={conn} />;
   return <Connected conn={conn} />;
+}
+
+/** Account mode before the human has approved this app: sign in on the engine's site. */
+function AccountSignIn({ conn }: { conn: Extract<Connection, { mode: "account" }> }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string>();
+  const framed = window.top !== window.self;
+  const signIn = () => {
+    setBusy(true);
+    conn.auth.signInWithRedirect({ permission: "account", returnTo: `${location.pathname}${location.search}` })
+      .catch(e => { setBusy(false); setFailed(e instanceof Error ? e.message : String(e)); });
+  };
+  return (
+    <Screen title="Sign in to Code Gods" testId="screen-account-sign-in">
+      <p>This app plays as you: approve it on <span className="font-mono">{new URL(conn.siteUrl).host}</span>, where you sign in with Google. You can revoke it there at any time, under Connected apps.</p>
+      {framed
+        // Google refuses to sign in inside a frame (Replit's webview): the app has to be in a tab of its own.
+        ? <a className="underline" href={location.href} target="_blank" rel="noreferrer" data-testid="link-open-in-tab">Open this app in a new tab to sign in</a>
+        : <button type="button" className="border border-foreground px-4 py-2 font-semibold hover:bg-muted disabled:opacity-60" disabled={busy} onClick={signIn} data-testid="button-account-sign-in">{busy ? "Opening…" : "Sign in"}</button>}
+      {failed && <p className="text-destructive" data-testid="text-sign-in-error">{failed}</p>}
+    </Screen>
+  );
 }
 
 function Connected({ conn }: { conn: Connection }) {
   const client = convexClient(conn.convexUrl);
   const fetchAccessToken = useCallback(() => fetchAppAccessToken(), []);
-  const auth: EngineAuth = conn.mode === "devserver" ? { kind: "token", fetchAccessToken } : { kind: "site" };
+  const auth: EngineAuth = conn.mode === "devserver" ? { kind: "token", fetchAccessToken }
+    : conn.mode === "account" ? { kind: "account", auth: conn.auth, session: conn.session! }
+    : { kind: "site" };
+  // A revoked or expired account grant is forgotten by the SDK: start again from the sign-in screen.
+  useEffect(() => (conn.mode === "account" ? conn.auth.onChange(key => { if (key === "*" && !conn.auth.account()) location.reload(); }) : undefined), [conn]);
   return (
     <EngineProvider client={client} auth={auth}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Routes devserver={conn.mode === "devserver"} />
+          <Routes mode={conn.mode} />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
@@ -56,9 +83,10 @@ function Connected({ conn }: { conn: Connection }) {
   );
 }
 
-function Routes({ devserver }: { devserver: boolean }) {
+function Routes({ mode }: { mode: Connection["mode"] }) {
   // The consent and admin pages belong to the engine's own site (its Google session approves; docs/external-clients.md).
   const siteOnly = (title: string) => () => <SiteOnly title={title} />;
+  const devserver = mode === "devserver", offSite = mode !== "site";
   return (
     // Keep a shared shell outside the boundary so it survives a page crash.
     <RoutedErrorBoundary>
@@ -67,10 +95,10 @@ function Routes({ devserver }: { devserver: boolean }) {
         <Route path={ROUTE_PATTERNS.configure} component={Configure} />
         <Route path={ROUTE_PATTERNS.game} component={Game} />
         <Route path={ROUTE_PATTERNS.room} component={Room} />
-        <Route path={ROUTE_PATTERNS.device} component={devserver ? siteOnly("Approve a device") : Device} />
-        <Route path={ROUTE_PATTERNS.connect} component={devserver ? siteOnly("Approve a connection") : Connect} />
-        <Route path={ROUTE_PATTERNS.admin} component={devserver ? siteOnly("AI players") : AdminAgents} />
-        <Route path={ROUTE_PATTERNS.adminAgent} component={devserver ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.device} component={offSite ? siteOnly("Approve a device") : Device} />
+        <Route path={ROUTE_PATTERNS.connect} component={offSite ? siteOnly("Approve a connection") : Connect} />
+        <Route path={ROUTE_PATTERNS.admin} component={offSite ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.adminAgent} component={offSite ? siteOnly("AI players") : AdminAgents} />
         <Route component={NotFound} />
       </Switch>
     </RoutedErrorBoundary>

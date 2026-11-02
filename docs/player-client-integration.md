@@ -106,22 +106,32 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
 It is not mounted when player-web runs in hosted-mode development (`CODE_GODS_SITE_URL` set), where
 the client connects to that engine as a browser client (below) instead.
 
-### Browser clients on any origin, the hosted client (`/client/`) included
+### Browser clients on any origin: the app in account mode
 
 A client that runs in a browser without a dev server of its own uses `@workspace/player-client/browser`
-(`createPlayerAuth`, [`external-clients.md`](external-clients.md)). That covers the default client the engine
-serves at `https://<dep>.convex.site/client/`, a build of player-web on another origin
-(`VITE_CODE_GODS_ENGINE_URL`), `clients/hello`, or anything else. It is an OAuth client of the engine:
+(`createPlayerAuth`, [`external-clients.md`](external-clients.md)). That covers a build of player-web on another
+origin than its engine (`VITE_CODE_GODS_ENGINE_URL`: localhost, a Replit dev URL, a static host), `clients/hello`,
+or anything else. It is an OAuth client of the engine:
 
-1. It registers itself once per browser and sends the human to `/oauth/authorize?…&room=CODE`.
-2. On the engine's `/connect` page, the human signs in with Google, joins the room if needed and approves.
-   The engine's own client is approved without a click for a member, at most `act`.
-3. Back on the client, the code becomes a 60-minute player JWT and a rotating refresh token, stored per room.
+1. It registers itself once per browser and sends the human to `/oauth/authorize`, asking for a room
+   (`room=CODE`, a Permission) or, as player-web does, for the human's account (`scope=account`).
+2. On the engine's `/connect` page, the human signs in with Google and approves. An account grant always needs
+   the explicit consent checkbox and is never approved without a click.
+3. Back on the client, the code becomes a 60-minute player JWT and a rotating refresh token, stored per engine
+   (one per room, at most one account grant; 7 days without use ends an account grant).
 
-Inside an iframe (Replit's webview) it uses the device flow instead: it shows a code to approve on `/device`. The
-hosted client connects with `act`. An owner action asks for an owner connection, which the owner approves with
-explicit consent. It never uses the engine site's session cookie, so it can do exactly what any external client can.
-`/player` and `/player/*` answer 308 to the same path under `/client/`, so old links and bookmarks keep working (`convex/http.ts`).
+player-web in account mode (`src/core/connection.ts`) is then the human everywhere, as the app the engine
+serves at `/` is with its site session: rooms, setups, games. The consent pages (`/connect`, `/device`), the
+Connected apps list and admin stay on the engine's site and the app links there. Sign out revokes the grant.
+Inside an iframe (Replit's webview), where Google refuses to sign in, the app offers to open in a tab of its own.
+A room grant can use the device flow instead (`clients/hello`). The client never uses the engine site's session
+cookie.
+
+```bash
+VITE_CODE_GODS_ENGINE_URL=https://<dep>.convex.site pnpm --filter @workspace/player-web dev   # or build
+```
+
+`pnpm --filter @workspace/player-web e2e:account` checks it against a local engine (`e2e/account-mode.ts`).
 
 ### URL scheme (both modes)
 

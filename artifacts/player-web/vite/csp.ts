@@ -39,9 +39,16 @@ export function convexSources(env: Env): string[] {
   return [url.origin, `${url.protocol === "https:" ? "wss:" : "ws:"}//${url.host}`];
 }
 
-/** A build served from another origin than its engine (VITE_CODE_GODS_ENGINE_URL): the engine's site origin. */
+/**
+ * A build served from another origin than its engine (VITE_CODE_GODS_ENGINE_URL, account mode): the engine's site
+ * origin. A local engine on loopback also serves its Convex client URL on another port of the same host (the
+ * deployment's *.convex.cloud otherwise), so a loopback engine's host is allowed on any port, over http and ws.
+ */
 export function engineSources(env: Env): string[] {
-  return env.VITE_CODE_GODS_ENGINE_URL ? [new URL(env.VITE_CODE_GODS_ENGINE_URL).origin] : [];
+  if (!env.VITE_CODE_GODS_ENGINE_URL) return [];
+  const engine = new URL(env.VITE_CODE_GODS_ENGINE_URL);
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(engine.hostname);
+  return loopback ? [engine.origin, `http://${engine.hostname}:*`, `ws://${engine.hostname}:*`] : [engine.origin];
 }
 
 export function pageCsp(env: Env): string {

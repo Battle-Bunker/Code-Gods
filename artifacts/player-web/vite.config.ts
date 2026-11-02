@@ -2,7 +2,7 @@ import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { readFile } from 'fs/promises';
-import { build as viteBuild, defineConfig, type Plugin } from 'vite';
+import { build as viteBuild, defineConfig, loadEnv, type Plugin } from 'vite';
 import { devServerHosts, tokenHandler } from '@workspace/player-client/engine';
 import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
 import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
@@ -24,7 +24,11 @@ const basePath = process.env.BASE_PATH || "/";
  * Google session, as the build the engine serves does. `/api` is proxied there so the page keeps one origin; the
  * engine's token and logout routes accept only their own Origin (CSRF), so the proxy presents the engine's origin.
  * Without it, the dev server is a player's own app holding a room credential (/__codegods/token).
+ *
+ * Account mode (VITE_CODE_GODS_ENGINE_URL, in the environment or .env.local): the app signs in to that engine
+ * with an account grant from its /connect page (src/core/connection.ts), from this origin; no proxy, no token route.
  */
+const accountMode = !!(process.env.VITE_CODE_GODS_ENGINE_URL || loadEnv("development", import.meta.dirname, "VITE_CODE_GODS_").VITE_CODE_GODS_ENGINE_URL);
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 const siteUrl = (process.env.CODE_GODS_SITE_URL ?? "").replace(/\/+$/, "");
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
@@ -133,8 +137,8 @@ export default defineConfig({
       // development against an engine site (CODE_GODS_SITE_URL), where the client signs in on the site.
       name: "code-gods-engine-token",
       // A dev URL is public, so a browser needs the private launch link printed here (never served) first.
-      configureServer(server) { if (!hostedDev) mountToken(server); },
-      configurePreviewServer(server) { if (!hostedDev) mountToken(server); },
+      configureServer(server) { if (!hostedDev && !accountMode) mountToken(server); },
+      configurePreviewServer(server) { if (!hostedDev && !accountMode) mountToken(server); },
     },
     framePlugin(),
     ...pageCspPlugins(),

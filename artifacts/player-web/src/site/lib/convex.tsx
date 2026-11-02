@@ -16,6 +16,7 @@ import { convexToJson, type Value } from "convex/values";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import type { AccountSession, PlayerAuth } from "@workspace/player-client/browser";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
 import { MAX_RETRIES, liveResult, retryDelay, transientQueryError, type Retry } from "@/lib/live-retry";
@@ -24,11 +25,17 @@ export { api };
 
 export interface AuthUser { id: string; name: string; isAdmin: boolean }
 
-/** How the app signs in: the site's Google session, or a token it fetches (a dev server's room credential). */
-export type EngineAuth = { kind: "site" } | { kind: "token"; fetchAccessToken: () => Promise<string | null> };
+/**
+ * How the app signs in (core/connection.ts): the site's Google session; an account grant from the engine's /connect
+ * page (the human everywhere, from any origin); or a token it fetches (a dev server's room credential).
+ */
+export type EngineAuth =
+  | { kind: "site" }
+  | { kind: "account"; auth: PlayerAuth; session: AccountSession }
+  | { kind: "token"; fetchAccessToken: () => Promise<string | null> };
 
 type Session = {
-  /** "site": the human everywhere; "token": the human in one room (credential `roomId`). */
+  /** "site" and "account": the human everywhere; "token": the human in one room (credential `roomId`). */
   kind: EngineAuth["kind"];
   roomId?: string;
   /** "token": the credential's permission in its room. */
@@ -48,21 +55,25 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 export const authClient = createAuthClient({ baseURL: window.location.origin, plugins: [convexClient()] });
 
 /** The signed-in human: Convex auth (Better Auth's session, or the app's token) plus `auth/user:me`. */
-function useEngineSession(kind: EngineAuth["kind"]): Session {
+function useEngineSession(auth: EngineAuth): Session {
+  const kind = auth.kind;
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const me = useLive(api.auth.user.me, isAuthenticated ? {} : "skip");
   const login = useCallback(() => {
     // A token app signs in where its credential comes from (`pnpm player connect`), not here.
-    if (kind === "token") { toast({ title: "This player app signs in with its credential", description: "Run `pnpm player status`." }); return; }
+    if (auth.kind === "token") { toast({ title: "This player app signs in with its credential", description: "Run `pnpm player status`." }); return; }
     const returnTo = window.location.pathname + window.location.search || "/";
+    if (auth.kind === "account") { void auth.auth.signInWithRedirect({ permission: "account", returnTo }); return; }
     // Better Auth resolves with {error} rather than throwing; without a redirect the button would look dead.
     void authClient.signIn.social({ provider: "google", callbackURL: returnTo }).then(
       r => { if (r.error) toast({ title: "Sign-in failed", description: r.error.message ?? `HTTP ${r.error.status}`, variant: "destructive" }); },
       (e: unknown) => toast({ title: "Sign-in failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" }));
-  }, [kind]);
+  }, [auth]);
   const logout = useCallback(() => {
-    void authClient.signOut().finally(() => { window.location.href = base || "/"; });
-  }, []);
+    // An account grant is revoked on the engine (it no longer appears under "Your player apps").
+    const done = auth.kind === "account" ? auth.auth.signOut(auth.session) : authClient.signOut();
+    void done.finally(() => { window.location.href = base || "/"; });
+  }, [auth]);
   const data = me.data;
   const user = useMemo(() => (data ? { id: data.subject, name: data.name, isAdmin: data.isAdmin } : null), [data]);
   // Convex still holds a JWT but the engine knows no such human (the session just ended, or no users row):
@@ -79,8 +90,8 @@ export function useSession(): Session {
   return session;
 }
 
-function SessionProvider({ kind, children }: { kind: EngineAuth["kind"]; children: ReactNode }) {
-  return <SessionContext.Provider value={useEngineSession(kind)}>{children}</SessionContext.Provider>;
+function SessionProvider({ auth, children }: { auth: EngineAuth; children: ReactNode }) {
+  return <SessionContext.Provider value={useEngineSession(auth)}>{children}</SessionContext.Provider>;
 }
 
 /** Touch `activity` on trusted pointer/keyboard input, at most once a minute. */
@@ -103,8 +114,9 @@ function ActivityPing() {
 }
 
 export function EngineProvider({ client, auth, children }: { client: ConvexReactClient; auth: EngineAuth; children: ReactNode }) {
-  const inner = <SessionProvider kind={auth.kind}><ActivityPing />{children}</SessionProvider>;
+  const inner = <SessionProvider auth={auth}><ActivityPing />{children}</SessionProvider>;
   if (auth.kind === "token") return <TokenProvider client={client} fetchAccessToken={auth.fetchAccessToken}>{inner}</TokenProvider>;
+  if (auth.kind === "account") return <AccountProvider client={client} auth={auth.auth} session={auth.session}>{inner}</AccountProvider>;
   return (
     // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
     // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.
@@ -112,8 +124,14 @@ export function EngineProvider({ client, auth, children }: { client: ConvexReact
   );
 }
 
+/** Convex auth over an account grant: its player JWTs, refreshed (one refresh at a time across tabs) by the SDK. */
+function AccountProvider({ client, auth, session, children }: { client: ConvexReactClient; auth: PlayerAuth; session: AccountSession; children: ReactNode }) {
+  const fetchAccessToken = useMemo(() => auth.fetchToken(session), [auth, session]);
+  return <TokenProvider client={client} fetchAccessToken={fetchAccessToken}>{children}</TokenProvider>;
+}
+
 /** Convex auth over a token fetcher (always "signed in": the fetcher may refuse), with a stable useAuth hook. */
-function TokenProvider({ client, fetchAccessToken, children }: { client: ConvexReactClient; fetchAccessToken: () => Promise<string | null>; children: ReactNode }) {
+function TokenProvider({ client, fetchAccessToken, children }: { client: ConvexReactClient; fetchAccessToken: (args?: { forceRefreshToken: boolean }) => Promise<string | null>; children: ReactNode }) {
   const useAuth = useMemo(() => {
     const value = { isLoading: false, isAuthenticated: true, fetchAccessToken };
     return () => value;
