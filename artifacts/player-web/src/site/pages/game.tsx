@@ -9,9 +9,12 @@
  *   ended                    its replay, for its players, its spectators and the room's owner (core/play.tsx Replay);
  *                            the engine refuses anyone else, and that refusal is shown
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { GameError, Play, Replay } from "@/core/play";
+// The dock (player view and replay) loads only on a game page: home, room and configure stay light.
+const Play = lazy(() => import("@/core/play").then(m => ({ default: m.Play })));
+const Replay = lazy(() => import("@/core/play").then(m => ({ default: m.Replay })));
+const dockFallback = <div className="p-8 text-sm text-muted-foreground" data-testid="status-loading-dock">Loading the game…</div>;
 import { api, useLive } from "@/site/lib/convex";
 import { catalogOf, type GameView } from "@/site/lib/types";
 import { useRun } from "@/site/hooks/use-run";
@@ -175,10 +178,9 @@ export default function Game() {
     : { permission: room.data?.ownerId === user?.id ? "owner" as const : "act" as const, mode: "site" as const }, [kind, permission, room.data?.ownerId, user?.id]);
 
   if (isAuthenticated && game && room.data) {
-    if (active && seated) return <Play roomId={room.data.id} access={access} />;
-    if (!active) return <Replay room={room.data} game={game.shortCode} gameId={game.id} meId={user?.id} access={access} />;
+    if (active && seated) return <Suspense fallback={dockFallback}><Play roomId={room.data.id} access={access} /></Suspense>;
+    if (!active) return <Suspense fallback={dockFallback}><Replay room={room.data} game={game.shortCode} gameId={game.id} meId={user?.id} access={access} /></Suspense>;
   }
-  if (isAuthenticated && game && !game.roomShortCode) return <GameError room={{ shortCode: roomCode }} code={code} message="Its room is no longer available." />;
   const step = game ? gameStep(user?.id, game) : null;
   const crumbs = [{ label: game?.roomShortCode ?? roomCode.toUpperCase(), href: roomPath(game?.roomShortCode ?? roomCode) }, { label: `Game ${game?.shortCode ?? code.toUpperCase()}` }];
   return (
