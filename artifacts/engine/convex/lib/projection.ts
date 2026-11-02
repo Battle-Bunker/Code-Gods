@@ -10,6 +10,7 @@ import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSe
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
+import type { ClockedGame } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
@@ -40,6 +41,7 @@ export function objectInstance(settings: GameSettings): InstanceInfo {
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 
+
 const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 
 /** A room's pointer to its single active game; null in the lobby between games. */
@@ -53,7 +55,7 @@ export function activeGameRef(game: Game | null) {
 const gameSetup = (game: Game) => (game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null);
 
 /** Public result of an ended game (games.summary and the room's history). */
-export function gameRecord(game: Game, objects: readonly Obj[]) {
+export function gameRecord(game: ClockedGame, objects: readonly Obj[]) {
   const board = standings(game, objects);
   return {
     id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId,
@@ -68,10 +70,10 @@ export function gameRecord(game: Game, objects: readonly Obj[]) {
 export type GameRecord = ReturnType<typeof gameRecord>;
 
 /** Live or final public world state of one game: values and salience, never scores, seeds, sources or the end. */
-export function publicGame(game: Game, objects: readonly Obj[], agentCount: number) {
+export function publicGame(game: ClockedGame, objects: readonly Obj[]) {
   return {
     id: game._id, guid: game.guid, shortCode: game.shortCode, phase: game.phase, worldSeconds: game.worldSeconds,
-    lastTick: game.lastTick, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt, agentCount,
+    lastTick: game.lastTick, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt, agentCount: game.agentCount,
     leaderboard: standings(game, objects), leaderboardWorldSeconds: game.scoreboard?.world ?? null,
     // Live, salience carries the version's disclosure noise (the same as every seated player's peers' sum, so own +
     // others = salience still holds for each of them and nothing can be averaged); ended, it is exact.
@@ -146,7 +148,7 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
 }
 
 /** An agent as its owner sees it. */
-export function agentView(game: Game, agent: Doc<"agents">, nowMs = Date.now(), ordinal = 0) {
+export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.now(), ordinal = 0) {
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
   return {
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
@@ -273,7 +275,7 @@ export function trajectories(batches: readonly Batch[], index: number, live: boo
 // ------------------------------------------------------------------------------------------------
 
 export type ObservationInput = {
-  room: Doc<"rooms">; game: Game | null; self: { godId: string; name: string; kind: "human" | "ai"; ready: boolean };
+  room: Doc<"rooms">; game: ClockedGame | null; self: { godId: string; name: string; kind: "human" | "ai"; ready: boolean };
   deity: Doc<"deities"> | null; objects: readonly Obj[]; agents: readonly Doc<"agents">[];
   transformations: readonly { id: string; agentId: string; before: number | string; after: number | string; calls?: unknown; cost?: number }[];
   chat: readonly Chat[]; nowMs?: number;
@@ -286,7 +288,8 @@ export function observation(input: ObservationInput): Observation {
   const { room, game, self, deity } = input, now = input.nowMs ?? Date.now();
   const settings = (game?.settings ?? room.settings) as GameSettings;
   return observationSchema.parse({
-    version: VERSION, roomId: room._id, revision: room.seq + (game?.tick.seq ?? 0),
+    // Grows with every room change and every commit that moves the world (the world clock, in ms).
+    version: VERSION, roomId: room._id, revision: room.seq + Math.round((game?.worldSeconds ?? 0) * 1000),
     roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",

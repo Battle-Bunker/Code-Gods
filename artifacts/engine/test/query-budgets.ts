@@ -21,6 +21,8 @@ export type Fixture = {
   roomId: string; roomCode: string; gameId: string; gameCode: string; setupId: string; panelSlug: string;
   /** A pending device-flow request for the room (POST /api/device/request). */
   userCode: string;
+  /** The commandId of the player's summon in the game (it has a receipt). */
+  commandId: string;
 };
 
 export type Debt = {
@@ -52,9 +54,6 @@ export type Budget = {
   debt?: Debt;
 };
 
-/** Cold queries that read the games doc, which every tick commit writes today. */
-const GAMES_DOC: Debt = { invalidatedByTick: true, why: "PR 2: reads the games doc, which every tick commit writes (the clock, lease and stats move to gameClocks/gameEngine)" };
-
 export const BUDGETS: Budget[] = [
   // ---- site shell, home, sheets -------------------------------------------------------------------------------------
   { query: "auth/user:me", subscribedBy: "site/lib/convex.tsx (session)", args: () => ({}), cold: true,
@@ -63,8 +62,7 @@ export const BUDGETS: Budget[] = [
     // It reads no ctx.auth, so one execution serves every caller: each run asks with a build of its own, as each page does.
     args: (_, run) => ({ own: { site: "app", build: `gate-${run}` } }), cold: true,
     open: "the deploy auto-update: names the live builds only" },
-  { query: "rooms:list", subscribedBy: "site/pages/home.tsx", args: () => ({}), cold: true,
-    debt: GAMES_DOC },
+  { query: "rooms:list", subscribedBy: "site/pages/home.tsx", args: () => ({}), cold: true },
   { query: "setups:list", subscribedBy: "site/components/layout.tsx, core/palette/use-commands.ts", args: () => ({}), cold: true,
     debt: { capped: true, docs: 1100, bytes: 640 * KiB, ms: 200,
       why: "the whole shared catalogue, capped (setups.ts LIST_CAP 500 + the caller's own + one owner name each): page it (R1). Measured 306 docs, 234 KiB, 51 ms on a dev deployment after one test:game run" } },
@@ -77,25 +75,22 @@ export const BUDGETS: Budget[] = [
     // An unknown request key: the MCP OAuth flow is not driven here, so this measures the lookup only.
     args: () => ({ request: "gate-unknown-request-key-0000" }), cold: true },
   // ---- room page, game page ----------------------------------------------------------------------------------------
-  { query: "rooms:get", subscribedBy: "site/pages/room.tsx, configure.tsx, game.tsx, core/app.tsx, sdk useRoom", args: f => ({ room: f.roomId }), cold: true,
-    debt: GAMES_DOC },
-  { query: "rooms:history", subscribedBy: "site/pages/room.tsx, core/game/past-games.ts", args: f => ({ room: f.roomId }), cold: true,
-    debt: GAMES_DOC },
-  { query: "games:resolve", subscribedBy: "lib/player-client catalog (game links)", args: f => ({ code: f.gameCode }), cold: true,
-    debt: GAMES_DOC },
+  { query: "rooms:get", subscribedBy: "site/pages/room.tsx, configure.tsx, game.tsx, core/app.tsx, sdk useRoom", args: f => ({ room: f.roomId }), cold: true },
+  { query: "rooms:history", subscribedBy: "site/pages/room.tsx, core/game/past-games.ts", args: f => ({ room: f.roomId }), cold: true },
+  { query: "games:resolve", subscribedBy: "lib/player-client catalog (game links)", args: f => ({ code: f.gameCode }), cold: true },
   { query: "games:view", subscribedBy: "site/pages/game.tsx (spectator view)", args: f => ({ code: f.gameCode }), cold: false,
     debt: { docs: 1200, bytes: 800 * KiB, ms: 150, why: "PR 3: the whole world for the spectator view (measured 1,019 docs, 566 KiB, 56 ms)" } },
   // ---- the dock -----------------------------------------------------------------------------------------------------
   { query: "layout:current", subscribedBy: "dock/shell.tsx", args: f => ({ roomId: f.roomId }), cold: true,
-    debt: { ...GAMES_DOC, ms: 80, why: `${GAMES_DOC.why}; its module loads the zod layout schemas (measured 31-42 ms of user code)` } },
+    debt: { ms: 80, why: "its module loads the zod layout schemas (measured 31-42 ms of user code): split the module" } },
   { query: "panels:list", subscribedBy: "dock/panels.tsx", args: () => ({}), cold: true },
   { query: "panels:code", subscribedBy: "shell/stored-frame.tsx", args: f => ({ slug: f.panelSlug }), cold: true },
   { query: "assistant:status", subscribedBy: "core/chat/pane.tsx, core/palette/use-commands.ts", args: f => ({ roomId: f.roomId }), cold: true },
-  { query: "assistant:transcript", subscribedBy: "core/chat/pane.tsx", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true,
-    debt: GAMES_DOC },
+  { query: "assistant:transcript", subscribedBy: "core/chat/pane.tsx", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },
+  { query: "assistant:threads", subscribedBy: "core/palette/use-commands.ts (the palette's thread list)", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },
+  { query: "receipts:get", subscribedBy: "core/palette/use-commands.ts (a command's status)", args: f => ({ roomId: f.roomId, commandId: f.commandId }), cold: true },
   { query: "code/runs:get", subscribedBy: "core/panels/code-output.tsx", args: f => ({ roomId: f.roomId }), cold: true },
-  { query: "player:myUtility", subscribedBy: "sdk useMyCard/useEvaluator, lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: true,
-    debt: GAMES_DOC },
+  { query: "player:myUtility", subscribedBy: "sdk useMyCard/useEvaluator, lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "player:game", subscribedBy: "core/play.tsx (an ended game's final state)", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: false,
     debt: { docs: 1200, bytes: 800 * KiB, ms: 150, why: "PR 3/5: the whole world for an ended game's final state (measured 1,030 docs, 572 KiB, 54 ms)" } },
   { query: "player:observation", subscribedBy: "sdk hooks (every dock panel), lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: false,
