@@ -119,15 +119,15 @@ function ShellFooter({ children }: { children: ReactNode }) {
   return <div ref={ref} className="relative z-50 shrink-0" data-testid="shell-footer">{children}</div>;
 }
 
-/** Replay mode opens the Timeline once the human's layout is in (unless it already has one). */
-function useTimelinePane(store: DockStore, on: boolean, loaded: boolean) {
-  const done = useRef(false);
+/** Replay mode shows the Timeline over the human's layout (unless it already has one). */
+function useTimelinePane(store: DockStore, on: boolean, serverVersion: number | null | undefined) {
+  // Per server version: a replay's dock is read-only, so a newer layout from the engine (the assistant opening a
+  // panel) replaces its own panes; the Timeline comes back with it. Closed by the player, it stays closed until then.
   useEffect(() => {
-    if (!on || !loaded || done.current) return;
-    done.current = true;
+    if (!on || serverVersion === undefined) return;
     const panes = Object.values(store.layout.panes);
     if (!panes.some(p => p.kind === "panel" && p.panelId === "timeline")) dockActions(store).show("timeline");
-  }, [store, on, loaded]);
+  }, [store, on, serverVersion]);
 }
 
 function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
@@ -147,7 +147,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   useEffect(() => { store.setPanels(SAFE_MODE ? [] : panels.stored ? panels.stored.filter(p => p.enabled).map(p => p.slug) : null, panels.fileIds); }, [store, panels.stored, panels.fileIds]);
   useEffect(() => { if (current) store.server(current.layout, current.updatedAt); }, [store, current]);
   useNewFilePanels(store, panels.fileIds, current !== undefined);
-  useTimelinePane(store, !!replay, current !== undefined);
+  useTimelinePane(store, !!replay, current === undefined ? undefined : current.updatedAt ?? null);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
