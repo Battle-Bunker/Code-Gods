@@ -64,7 +64,9 @@ again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
 Each deploy (one at a time per environment): install, the pinned Python runtime bundle (the CPython
 download is cached) and a check that the sandbox worker build is current, `npx convex deploy --typecheck
 enable` (it typechecks every function, validates the schema, and accepts dev and production deploy keys
-alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again),
+alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again), the schema migrations
+(`scripts/run-migrations.mjs`: the `@convex-dev/migrations` component's `runAll`, waited for until every one reports
+success, else the deploy fails; CLAUDE.md "Schema migrations"),
 `upload-runtime` (skipped when the bundle is already there), `upload-calibration` (uploads only the calibration files
 whose bytes changed and removes instances no longer in git, right after the push; the engine loads them lazily, and a
 new shape is offered within a minute; a push that changes table keys, e.g. an edited card, leaves the affected tables
@@ -238,7 +240,8 @@ matches the code after a pull. On every start it removes any `DEV` env var from 
 `TEST_FIXTURES` is the one fixtures switch locally, and a leftover `DEV=1` would keep fixtures on when
 `test:auth` turns them off.
 A local deployment created before Google sign-in (its `users` rows have `issuer`) refuses the new schema:
-there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again.
+there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again. Schema changes since then are
+migrations (CLAUDE.md "Schema migrations"), which `dev` starts on every run like a deploy does.
 
 A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room CODE --write-env .env.local`
 (gitignored), approve as a test identity, then `PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.

@@ -186,12 +186,12 @@ export const rawGame = internalQuery({
   },
 });
 
-/** The latest stored Haskell compilations (runtime/haskellPrograms.ts), newest first. */
-export const haskellProgramsLatest = internalQuery({
+/** The latest stored compilations (runtime/programs.ts), newest first. */
+export const compiledProgramsLatest = internalQuery({
   args: { count: v.number() },
   handler: async (ctx, { count }) => {
     dev();
-    const rows = await ctx.db.query("haskellPrograms").withIndex("by_compiledAt").order("desc").take(count);
+    const rows = await ctx.db.query("compiledPrograms").withIndex("by_compiledAt").order("desc").take(count);
     return rows.map(row => ({ chars: row.js.length, inspection: row.inspection, error: row.error ?? null }));
   },
 });
@@ -293,6 +293,22 @@ export const legacyAiSeat = internalMutation({
     await ctx.db.patch(seat._id, { name: seat.aiAgent.name });
     if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
   },
+});
+
+/** Make a room and its games look as they did before spectators (no `members.spectator`, no `games.spectators`). */
+export const legacySpectators = internalMutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    dev();
+    for (const m of await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(m._id, { spectator: undefined });
+    for (const g of await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(g._id, { spectators: undefined });
+  },
+});
+
+/** A room's member rows as stored (rooms.get defaults what it projects). */
+export const rawMembers = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => { dev(); return ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect(); },
 });
 
 /** `count` examinations of `godId` in `roomId`, `ageMs` ago (game/commands.ts claimExamination's window). */

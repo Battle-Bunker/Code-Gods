@@ -223,7 +223,7 @@ cache over 32 MiB is not kept.
 compiles (`compile(source, settings)` → `{inspection, js}`), and
 `compilation: "external"` an execution pool with no compiler, which runs only such
 programs (`actCompiled`). The engine (artifacts/engine) compiles in an action of its
-own (`runtime/haskellCompile.ts`), which stores each program (`haskellPrograms`),
+own (`runtime/compile.ts`, for TypeScript too), which stores each program (`compiledPrograms`),
 and runs Haskell acts in another (`runtime/haskellAct.ts`, batched): on a cloud
 Node action (512 MiB, a fraction of a vCPU) the process is about 100–200 MiB,
 Python and TypeScript warm about 280 MiB more, the compiler about 250 MiB, so an
