@@ -92,9 +92,11 @@ function pick<T extends object, K extends keyof T>(from: T, keys: readonly K[]):
  */
 export async function writeGame(ctx: MutationCtx, game: LiveGame, patch: Partial<LiveGame>): Promise<LiveGame> {
   const next = { ...game, ...patch } as LiveGame;
-  const header = Object.fromEntries(Object.entries(patch).filter(([k]) => !(HOT_KEYS as readonly string[]).includes(k)));
   const clock = pick(patch as Clock, CLOCK_KEYS), engine = pick(patch as Engine, ENGINE_KEYS);
   let [stored, clockRow, engineRow] = await Promise.all([ctx.db.get(game._id), clockDoc(ctx, game._id), engineDoc(ctx, game._id)]);
+  // Header fields that actually change only: a commit that restates the phase must not touch the doc every page reads.
+  const header = Object.fromEntries(Object.entries(patch).filter(([k, value]) =>
+    !(HOT_KEYS as readonly string[]).includes(k) && JSON.stringify(value) !== JSON.stringify((stored as Record<string, unknown> | null)?.[k])));
   if (stored && (!clockRow || !engineRow || legacyHotFields(stored).length)) {
     await splitHotFields(ctx, stored, next);
     [clockRow, engineRow] = await Promise.all([clockDoc(ctx, game._id), engineDoc(ctx, game._id)]);
