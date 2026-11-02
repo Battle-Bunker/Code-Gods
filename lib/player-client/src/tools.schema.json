@@ -2954,7 +2954,7 @@
           "additionalProperties": {}
         },
         "place": {
-          "description": "Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.",
+          "description": "Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction (left, right, above, below). Omit to reuse a pane.",
           "type": "object",
           "properties": {
             "relativeTo": {
@@ -2968,8 +2968,7 @@
                 "left",
                 "right",
                 "above",
-                "below",
-                "tab"
+                "below"
               ]
             }
           },
@@ -3137,7 +3136,7 @@
           "maxLength": 64
         },
         "place": {
-          "description": "Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction, or 'tab'.",
+          "description": "Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction (left, right, above, below).",
           "type": "object",
           "properties": {
             "relativeTo": {
@@ -3151,8 +3150,7 @@
                 "left",
                 "right",
                 "above",
-                "below",
-                "tab"
+                "below"
               ]
             }
           },

@@ -114,7 +114,7 @@ function paneLines(layout: Json): string[] {
   const order: string[] = [];
   const walk = (node: unknown) => {
     const n = rec(node);
-    if (n.type === "tabs" && Array.isArray(n.panes)) order.push(...n.panes.filter((p): p is string => typeof p === "string"));
+    if (n.type === "pane" && typeof n.id === "string") order.push(n.id);
     else if (Array.isArray(n.children)) n.children.forEach(walk);
   };
   walk(dock.root);

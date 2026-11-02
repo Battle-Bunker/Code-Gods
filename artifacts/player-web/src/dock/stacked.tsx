@@ -1,6 +1,6 @@
 /**
  * The phone renderer (under 768 px): the same synced layout without dockview. Every panel's pane in reading order,
- * stacked and scrolled (tabs become stacked panes), each at least 280 px; the assistant is always a bottom sheet
+ * stacked and scrolled each at least 280 px; the assistant is always a bottom sheet
  * (peek / half / full), wherever it sits on desktop. No drag, no gutters: phones read the synced layout, and the panel
  * menu still works.
  */

@@ -15,7 +15,7 @@ import {
 import { useComposer } from "@/core/chat/composer";
 import { useDockActions } from "./actions";
 import { canUndo, lastParams } from "./history";
-import { addPanelLabel, isTabbed } from "./operations";
+import { addPanelLabel } from "./operations";
 import { entryFor, panelTitle, sandboxed, useSandboxed, usePanels } from "./panels";
 import { useDock, useDockStore } from "./store";
 
@@ -32,12 +32,10 @@ export function PaneHeader({ paneId, desktop }: { paneId: string; desktop: boole
   const pane = layout.panes[paneId];
   if (!pane) return null;
   const focus = () => store.setFocused(paneId);
-  // On a phone tabs become stacked panes, each with its full header.
-  const tabbed = desktop && isTabbed(layout, paneId);
   return (
     <div data-testid={`tab-${paneId}`} onPointerDownCapture={focus} onFocusCapture={focus}
-      className={`cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2 ${tabbed ? "max-w-72" : ""}`}>
-      {pane.kind === "panel" ? <BuiltInPanelHeader pane={pane} desktop={desktop} tabbed={tabbed} />
+      className="cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2">
+      {pane.kind === "panel" ? <BuiltInPanelHeader pane={pane} desktop={desktop} />
         : pane.kind === "assistant" ? <AssistantHeader />
         : <OwnPanelHeader pane={pane} desktop={desktop} />}
     </div>
@@ -54,7 +52,7 @@ function AssistantHeader() {
   );
 }
 
-function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { kind: "panel" }>; desktop: boolean; tabbed: boolean }) {
+function BuiltInPanelHeader({ pane, desktop }: { pane: Extract<Pane, { kind: "panel" }>; desktop: boolean }) {
   const { layout, history } = useDock();
   const store = useDockStore();
   const actions = useDockActions();
@@ -64,12 +62,10 @@ function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { k
   const byAssistant = pane.setBy === "assistant";
   return (
     <>
-      <PanelMenu pane={pane} tabbed={tabbed} />
-      {!tabbed && (
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
-          {caption}{byAssistant ? " · set by your assistant" : ""}
-        </span>
-      )}
+      <PanelMenu pane={pane} />
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
+        {caption}{byAssistant ? " · set by your assistant" : ""}
+      </span>
       {byAssistant && canUndo(history, pane) && <IconButton label="Back to the previous view" onClick={() => store.undo(pane.id)}><Undo2 size={13} /></IconButton>}
       {byAssistant && <IconButton label="Reset this panel to its defaults" onClick={() => store.reset(pane.id)}><RotateCcw size={13} /></IconButton>}
       <DropdownMenu>
@@ -87,7 +83,7 @@ function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { k
 }
 
 /** The panel menu: built-in panels for this phase first, then the others, then the player's own panels. It changes the built-in panel only. */
-function PanelMenu({ pane, tabbed }: { pane: Extract<Pane, { kind: "panel" }>; tabbed: boolean }) {
+function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
   const { phase, history } = useDock();
   const actions = useDockActions();
   const panels = usePanels();
@@ -108,7 +104,7 @@ function PanelMenu({ pane, tabbed }: { pane: Extract<Pane, { kind: "panel" }>; t
   return (
     <DropdownMenu>
       <DropdownMenuTrigger data-testid="menu-panel" title="Change this panel" onPointerDown={e => e.stopPropagation()}
-        className={`inline-flex ${tabbed ? "" : "max-w-[60%]"} min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted`}>
+        className={`inline-flex max-w-[60%] min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted`}>
         <span className="truncate">{PANELS[pane.panelId].title}</span><ChevronDown size={13} className="shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[70vh] overflow-auto rounded-none">

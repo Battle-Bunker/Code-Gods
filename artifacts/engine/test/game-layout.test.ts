@@ -10,7 +10,7 @@ import { DEFAULT_LAYOUT, type DockLayout } from "@workspace/player-client/layout
 import { admin, api, gods, internal, roomWith } from "./game-helpers.ts";
 
 /** The former one-panel default (objects over the assistant), stored for the human: these tests exercise one-panel mechanics. */
-const single = (): DockLayout => ({ version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+const single = (): DockLayout => ({ version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
   panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "default" }, p2: { id: "p2", kind: "assistant" } } });
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
@@ -29,7 +29,7 @@ test("a layout is per human per room; the arrangement follows the human to a new
   const fresh = await ada.c.query(api.layout.current, { roomId });
   assert.equal(fresh.source, "default");
   assert.deepEqual(fresh.layout, DEFAULT_LAYOUT("lobby"));
-  const side: DockLayout = { version: 1, root: { type: "split", direction: "row", sizes: [62, 38], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+  const side: DockLayout = { version: 1, root: { type: "split", direction: "row", sizes: [62, 38], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
     panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 5 }, setBy: "assistant" }, p2: { id: "p2", kind: "assistant" } } };
   const written = await ada.c.mutation(api.layout.set, { roomId, layout: side });
   assert.deepEqual(written.warnings, []);
@@ -50,10 +50,10 @@ test("a layout is per human per room; the arrangement follows the human to a new
   assert.deepEqual(panelPane(carried.layout, "p1"), { id: "p1", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
   // Compare-and-set: a stale write is refused; a broken layout is repaired, never stored broken.
   assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: side, ifUpdatedAt: written.updatedAt - 1 })), "CONFLICT");
-  const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["x"], active: "x" }, panes: { x: { id: "x", kind: "panel", panelId: "nope" } } }, ifUpdatedAt: written.updatedAt });
+  const repaired = await ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "pane", id: "x" }, panes: { x: { id: "x", kind: "panel", panelId: "nope" } } }, ifUpdatedAt: written.updatedAt });
   assert.ok(repaired.warnings.some((w: string) => /unknown panel/.test(w)) && repaired.warnings.some((w: string) => /no assistant pane/.test(w)), repaired.warnings.join("\n"));
   assert.equal(panelPane(repaired.layout, "x").panelId, "objects", "an unknown panel becomes the default panel");
-  assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "tabs", panes: ["p1"], active: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "overview", params: { focus: "x".repeat(40_000) } } } } })), "BAD_REQUEST");
+  assert.equal(await errorCode(ada.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "pane", id: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "overview", params: { focus: "x".repeat(40_000) } } } } })), "BAD_REQUEST");
 });
 
 test("the layout tools open, reparameterise, move and close panes as the human, within the limits", async () => {
@@ -141,4 +141,17 @@ test("open_panel with a place reuses a pane already showing that panel with the 
   const stored = await admin.mutation(internal.layout.openPanelAs, { principal, slug: "dupe" });
   const again = await admin.mutation(internal.layout.openPanelAs, { principal, slug: "dupe", place: { relativeTo: "p2", direction: "left" } });
   assert.deepEqual([again.paneId, again.reused, Object.keys(again.layout.panes).length], [stored.paneId, true, Object.keys(stored.layout.panes).length]);
+});
+
+test("an old layout with tab groups is migrated: each group keeps only its active tab", async () => {
+  const [ada] = await gods("Ada Tabs");
+  const { roomId } = await roomWith([ada]);
+  const legacy = { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1", "p3"], active: "p3" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+    panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "human" }, p3: { id: "p3", kind: "panel", panelId: "race", params: {}, setBy: "human" }, p2: { id: "p2", kind: "assistant" } } };
+  const written = await ada.c.mutation(api.layout.set, { roomId, layout: legacy as never });
+  assert.deepEqual(Object.keys(written.layout.panes).sort(), ["p2", "p3"], "the hidden tab p1 is gone");
+  assert.equal(panelPane(written.layout, "p3").panelId, "race");
+  assert.equal(JSON.stringify(written.layout).includes("tabs"), false);
+  assert.ok(written.warnings.some((w: string) => /p1: a hidden tab/.test(w)), written.warnings.join("\n"));
+  assert.deepEqual((await ada.c.query(api.layout.current, { roomId })).layout, written.layout);
 });

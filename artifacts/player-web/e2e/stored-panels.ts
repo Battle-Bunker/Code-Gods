@@ -11,7 +11,8 @@
  *   a panel saved with panels.save and opened as a pane from the panel menu appears without a reload (a window marker
  *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
  *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
- *   change it live; moving the pane does not restart its frame; a render-throwing version stays inside its frame; a panel
+ *   change it live; moving the pane does not restart its frame; dragging a panel onto the centre of another replaces
+ *   it, with no tab and no ghost header left behind; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
@@ -174,6 +175,31 @@ await check("moving a panel's pane (the assistant to the right) does not restart
   await page.keyboard.type("Move assistant to the bottom");
   await page.keyboard.press("Enter");
   await sleep(500);
+});
+
+await check("dragging a panel onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+  await page.waitForSelector("[data-testid=tab-p3]", { timeout: 15_000 });
+  const panesNow = async () => Object.keys((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).sort();
+  assert((await panesNow()).join() === "p1,p2,p3,p4", "the default layout has four panes");
+  const goal = await page.locator("[data-testid=tab-p1]").textContent();
+  // The drag ghost is the dragged header; it must be gone once the drop is done.
+  await page.locator("[data-testid=tab-p1]").dragTo(page.locator("[data-testid=pane-p3]"), { targetPosition: { x: 200, y: 120 } });
+  await until(async () => (await panesNow()).join() === "p1,p2,p4" ? true : undefined, "the replaced pane (p3) is gone and the dragged one (p1) stays", 20_000);
+  await sleep(1200);
+  await page.screenshot({ path: process.env.CG_E2E_SHOT ?? "/tmp/replace-drop.png" });
+  assert(await page.locator("[data-testid=tab-p3]").count() === 0, "the replaced pane still has a header");
+  assert(await page.locator("[data-testid=tab-p1]").count() === 1, "the dragged pane has one header");
+  const tabCount = await page.locator(".dv-tab").count();
+  assert(tabCount === 3, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
+  const stray = await page.evaluate(text => [...document.querySelectorAll("body *")].filter(el => el.children.length === 0 && el.textContent?.trim() === text && !el.closest("[data-testid^=tab-]")).length, (goal ?? "").trim().split("\n")[0]);
+  assert(stray === 0, `${stray} stray copies of the dragged header's text outside the pane headers`);
+  // The assistant is never replaced, and never replaces a panel.
+  await page.locator("[data-testid=tab-p4]").dragTo(page.locator("[data-testid=pane-p1]"), { targetPosition: { x: 200, y: 120 } }).catch(() => undefined);
+  await sleep(1200);
+  assert((await panesNow()).join() === "p1,p2,p4", "dropping the assistant on a panel's centre changed the layout");
+  await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+  await openAsPane("e2e-live");   // the later checks use its frame
 });
 
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {

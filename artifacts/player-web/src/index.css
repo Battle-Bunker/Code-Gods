@@ -412,8 +412,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 
 /*
  * The dock (dockview-react) themed onto the app's tokens: one --card surface per pane, hairline gutters that turn
- * --primary on hover or drag, a single-tab header that IS the pane header (no tab icons, no close buttons: the pane
- * header draws its own), radius 0, the drop target in --primary at 12 %.
+ * --primary on hover or drag, a header per group that IS the pane header (no tab icons, no close buttons: the pane
+ * header draws its own; panes have no tabs, so a group only holds a second view for the instant of a centre drop), radius 0, the drop target in --primary at 12 %.
  */
 .dockview-theme-cg {
   color-scheme: light;
@@ -459,7 +459,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 }
 .dockview-theme-cg .dv-tabs-and-actions-container { border-bottom: 1px solid hsl(var(--card-border)); }
 .dockview-theme-cg .dv-tab { padding: 0; }
-/* A single tab is the pane header: it takes the header's width, and its caption truncates instead of overflowing. */
+/* The header tab is the pane header: it takes the header's width, and its caption truncates instead of overflowing. */
 .dockview-theme-cg .dv-full-width-single-tab .dv-scrollable,
 .dockview-theme-cg .dv-full-width-single-tab .dv-tabs-container,
 .dockview-theme-cg .dv-full-width-single-tab .dv-tab { min-width: 0; flex-shrink: 1; overflow: hidden; }

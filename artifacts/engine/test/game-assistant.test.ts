@@ -541,7 +541,7 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
 test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   // Start from one default objects panel over the assistant (the mechanics below are about a single panel), not the full default dock.
-  await ann.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+  await ann.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
     panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "default" }, p2: { id: "p2", kind: "assistant" } } } });
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "open_panel", input: { panelId: "objects", params: { limit: 4, filter: "chips" } } }] },
@@ -566,8 +566,8 @@ test("the assistant arranges the player's screen: open_panel changes the layout 
   assert.deepEqual(panels.map(p => [p.panelId, p.setBy]).sort(), [["objects", "assistant"], ["race", "assistant"]]);
   assert.equal(panels.find(p => p.panelId === "objects").params.limit, 4);
   const assistantPane = (Object.values(layout.layout.panes) as any[]).find(p => p.kind === "assistant");
-  const parentOf = (node: any, id: string): any => node.type === "tabs" ? (node.panes.includes(id) ? node : null)
-    : node.children.map((c: any) => parentOf(c, id)).find(Boolean) && (node.children.some((c: any) => c.type === "tabs" && c.panes.includes(id)) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean));
+  const parentOf = (node: any, id: string): any => node.type === "pane" ? null
+    : node.children.some((c: any) => c.type === "pane" && c.id === id) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean);
   assert.equal(parentOf(layout.layout.root, assistantPane.id).direction, "row", "the assistant pane moved beside the objects pane");
   assert.ok(Object.values(layout.layout.panes).some((p: any) => p.kind === "assistant"), "the assistant pane is still there");
 });

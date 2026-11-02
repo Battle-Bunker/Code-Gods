@@ -226,3 +226,9 @@ The player can keep typing while their assistant works: messages queue in Convex
 
 ## Game duration mode (2026-11)
 `durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
+
+## Panes have no tabs (2026-11-02)
+
+**Rule:** a dock pane holds exactly one panel. Dropping a panel on the centre of another pane *replaces* it; the replaced panel is simply removed (reopen it from the panel menu), and the source pane closes as when any panel moves out. Edge drops still split. The assistant is never replaced and never replaces a panel (the dock refuses that overlay).
+**Why:** the owner could not reach a hidden tab: every part of the header was a menu or a close button.
+**How to apply:** `Node` is `split | pane`; `parseLayout` migrates legacy `tabs` groups to their active pane (`lib/player-client/src/layout.ts`); do not reintroduce tab arrays, `active`, or a `tab` place direction.

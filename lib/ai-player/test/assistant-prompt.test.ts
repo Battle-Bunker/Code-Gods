@@ -80,7 +80,7 @@ test("the briefing is the player's live situation: utility name, energy, phase, 
 });
 
 const layout = {
-  layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "tabs", panes: ["p1", "p3"], active: "p1" }, { type: "tabs", panes: ["p2"], active: "p2" }] },
+  layout: { version: 1, root: { type: "split", direction: "column", sizes: [34, 33, 33], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p3" }, { type: "pane", id: "p2" }] },
     panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: { limit: 5 }, setBy: "assistant" }, p3: { id: "p3", kind: "stored-panel", slug: "mine" }, p2: { id: "p2", kind: "assistant" } } },
   panels: [{ id: "objects", title: "Objects by payoff", phases: ["running"], paramsSchema: { properties: { sortBy: { type: "string", enum: ["payoff", "mine"] }, limit: { type: "integer" } } } }],
   storedPanels: [{ slug: "mine", title: "Mine" }],
@@ -95,7 +95,7 @@ test("the briefing names the panes on screen and who set them, within its budget
   assert.ok(line.includes("[p2] this conversation (the chat with you; move_pane moves it)"));
   assert.ok(!text.includes("Objects by payoff"), "no catalogue in the briefing");
   assert.equal(assistantBriefing({ observation }).includes("Panes on"), false, "no line when the layout could not be read");
-  const crowded = { ...layout, layout: { ...layout.layout, root: { type: "tabs", panes: Array.from({ length: 60 }, (_, i) => `q${i}`) },
+  const crowded = { ...layout, layout: { ...layout.layout, root: { type: "split", direction: "row", sizes: [], children: Array.from({ length: 60 }, (_, i) => ({ type: "pane", id: `q${i}` })) },
     panes: Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`q${i}`, { kind: "panel", panelId: "objects", params: { highlight: "x".repeat(300) } }])) } };
   const long = assistantBriefing({ observation, layout: crowded });
   const longLine = long.split("\n").find(l => l.startsWith("Panes on"))!;

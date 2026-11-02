@@ -75,7 +75,7 @@ await sleep(20_000);
 
 // ---- Bob's hosted client ----------------------------------------------------------------------------------------
 type Layout = Record<string, unknown>;
-const tabs = (id: string) => ({ type: "tabs", panes: [id], active: id });
+const tabs = (id: string) => ({ type: "pane", id });
 const panel = (id: string, panelId: string) => ({ id, kind: "panel", panelId, params: {}, setBy: "human" });
 const setLayout = (layout: Layout) => bob.c.mutation(fn.m("layout:set"), { roomId, layout });
 const beside = (panelId: string, sizes = [62, 38]): Layout => ({ version: 1, root: { type: "split", direction: "row", sizes, children: [tabs("p1"), tabs("p2")] },
