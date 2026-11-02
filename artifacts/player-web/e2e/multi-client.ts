@@ -526,7 +526,7 @@ await check("the app on the engine's site (carol's session) shows the room page 
   await page.getByTestId("panel-active-game").waitFor({ timeout: 60_000 });
   const room = await (await ownerClient()).query(ref.query("rooms:get"), { room: roomId }) as { ownerId: string; members: { id: string; name: string; kind: string }[] };
   for (const m of room.members) {
-    const seat = await until(async () => (await page.textContent(`[data-testid=text-member-seat-${m.id}]`).catch(() => null)) || undefined, `${m.name}'s role`, 30_000);
+    const seat = await until(async () => (await page.textContent(`[data-testid="text-member-seat-${m.id}"]`).catch(() => null)) || undefined, `${m.name}'s role`, 30_000);
     assert(m.kind === "ai" ? /AI/.test(seat) : /in the game/.test(seat), `${m.name}: ${seat}`);
     if (m.id === room.ownerId) assert(/owner/.test(seat), `the owner's row: ${seat}`);
   }
