@@ -104,6 +104,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const join = useMutation(api.rooms.join);
   const leave = useMutation(api.rooms.leave);
   const setReady = useMutation(api.rooms.setReady);
+  const setSpectator = useMutation(api.rooms.setSpectator);
   const start = useAction(api.owner.start);
   const resume = useMutation(api.rooms.resume);
   const end = useMutation(api.rooms.endActiveGame);
@@ -150,9 +151,11 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     copy: (text, what) => { navigator.clipboard.writeText(text).then(() => toast({ title: `${what} copied` }), () => toast({ title: `Could not copy the ${what.toLowerCase()}`, variant: "destructive" })); },
     login, logout,
     createRoom: () => { void doCreate(); },
-    join: () => join({ room: need(room).shortCode }),
+    // Eight players fill the next game: a newcomer then joins to watch (the engine refuses a ninth player).
+    join: () => join({ room: need(room).shortCode, spectator: need(room).members.filter(m => !m.spectator).length >= (manifest?.maximumPlayers ?? 8) }),
     leave: () => leave({ roomId: need(roomId) }),
     setReady: ready => setReady({ roomId: need(roomId), ready }),
+    setSpectator: (spectator, godId) => setSpectator({ roomId: need(roomId), spectator, ...(godId ? { godId } : {}) }),
     // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
     start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
     resume: () => resume({ roomId: need(roomId) }),

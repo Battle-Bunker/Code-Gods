@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { nextStep, type NextStepContext } from "../src/core/panels/next-step.ts";
 
-const owner: NextStepContext = { phase: "lobby", seated: false, isOwner: true, members: 3, agents: 0 };
+const owner: NextStepContext = { phase: "lobby", seated: false, isOwner: true, players: 3, agents: 0 };
 
 test("an owner with three players gets Start the game, not busy", () => {
   const s = nextStep(owner);

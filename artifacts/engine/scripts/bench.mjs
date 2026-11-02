@@ -36,6 +36,7 @@ for (const name of ["Bench Host", "Bench Two", "Bench Three"]) {
 }
 await gods[0].mutation(api.activity.touch, {});
 const { roomId, shortCode } = await gods[0].mutation(api.rooms.create, {});
+await gods[0].mutation(api.rooms.setSpectator, { roomId, spectator: false });   // owners start as spectators; this one plays
 for (const g of gods.slice(1)) await g.mutation(api.rooms.join, { room: shortCode });
 const typeArgs = type === "Grid" ? { size: 5, symbols: "base10", colours: "rgby" } : { min: -2147483648, max: 2147483647 };
 const room = await gods[0].query(api.rooms.get, { room: roomId });

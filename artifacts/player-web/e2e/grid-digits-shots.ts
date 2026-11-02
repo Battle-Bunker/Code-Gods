@@ -55,6 +55,7 @@ async function shoot(app: "player" | "engine", set: string, shortCode: string) {
 // One game at a time, shot in both apps while it runs.
 for (const [colours, size, symbols] of SETS) {
   const { roomId, shortCode } = await me.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+  await me.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
   const room = await me.query(fn.q("rooms:get"), { room: roomId }) as { revision: number; settings: Record<string, unknown> };
   await me.action(fn.a("owner:settings"), { roomId, revision: room.revision, settings: { ...room.settings, typeArgs: { size, symbols, colours } } });
   const owner = (action: string, extra: Record<string, unknown> = {}) => me.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });

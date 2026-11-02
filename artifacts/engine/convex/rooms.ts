@@ -21,7 +21,9 @@ import {
 import { touchActivity } from "./activity";
 import { cancelPreparing } from "./game/lobby";
 
-export const MAX_GODS = 8;
+/** Players of one game (spectators aside), and members of a room (players and spectators). */
+export const MAX_GODS = 8, MAX_MEMBERS = 24;
+const playersOf = (members: readonly Doc<"members">[]) => members.filter(m => !m.spectator);
 
 async function bump(ctx: MutationCtx, room: Doc<"rooms">, patch: Partial<Doc<"rooms">> = {}) {
   await ctx.db.patch(room._id, { ...patch, seq: room.seq + 1 });
@@ -40,7 +42,8 @@ function checkAssistant(assistantBudget: number | undefined, assistantModel: str
 }
 
 /**
- * Create a room (browser login only). The creator owns it and is its first member. It starts on the seeded First steps
+ * Create a room (browser login only). The creator owns it and is its first member, a spectator until they choose to
+ * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded First steps
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
  * removed it); an API caller may turn the in-client assistant on in the same call. The engine UI creates in one click
  * and leaves the assistant off until the owner turns it on from the room page.
@@ -61,7 +64,7 @@ export const create = mutation({
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
       ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
     });
-    await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: now });
+    await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator: true, joinedAt: now });
     await ctx.scheduler.runAfter(0, internal.owner.fillCatalog, { roomId });
     await ctx.scheduler.runAfter(0, internal.aiTemplates.ensureSeeded, {});
     await touchActivity(ctx);
@@ -113,16 +116,23 @@ export const getAs = internalQuery({
   },
 });
 
-/** Join a room (browser login). Joining mid-game spectates until the next game. */
+/**
+ * Join a room (browser login), as a player of the next game or as a spectator. Joining mid-game watches the running
+ * game (its spectators gain the newcomer: they may open its replay) and plays the next one unless `spectator`.
+ */
 export const join = mutation({
-  args: { room: v.string() },
-  handler: async (ctx, { room: ref }) => {
+  args: { room: v.string(), spectator: v.optional(v.boolean()) },
+  handler: async (ctx, { room: ref, spectator = false }) => {
     const room = await requireRoom(ctx, ref);
     const viewer = await requireViewer(ctx);
     if (viewer.scope !== "browser") fail("FORBIDDEN", "Browser login required to join");
     if (!await memberOf(ctx, room._id, viewer.subject)) {
-      if ((await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "This room has reached its eight-player limit");
-      await ctx.db.insert("members", { roomId: room._id, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, joinedAt: Date.now() });
+      const members = await membersOf(ctx, room._id);
+      if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);
+      if (!spectator && playersOf(members).length >= MAX_GODS) fail("CONFLICT", "This room has its eight players; join as a spectator");
+      await ctx.db.insert("members", { roomId: room._id, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator, joinedAt: Date.now() });
+      const game = await activeGame(ctx, room);
+      if (game && !game.spectators.includes(viewer.subject)) await ctx.db.patch(game._id, { spectators: [...game.spectators, viewer.subject] });
       await bump(ctx, room);
     }
     await touchActivity(ctx);
@@ -144,12 +154,41 @@ export const leave = mutation({
   },
 });
 
-/** Advisory readiness (also available as the v3 "ready" command). */
+/**
+ * Play or watch the next game (docs/unify-apps-plan.md §2): a member sets it for themselves, the owner for any human
+ * member (`godId`); AI seats always play. It never changes a running game's roster ("applies after this game ends") and
+ * is refused while the next game is preparing (its deal is fixed). A spectator has no ready state.
+ */
+export const setSpectator = mutation({
+  args: { roomId: v.id("rooms"), spectator: v.boolean(), godId: v.optional(v.string()) },
+  handler: async (ctx, args) => setSpectatorFor(ctx, await requireViewer(ctx), args),
+});
+export const setSpectatorAs = internalMutation({
+  args: { principal: principalV, roomId: v.string(), spectator: v.boolean(), godId: v.optional(v.string()) },
+  handler: async (ctx, { principal, ...args }) => setSpectatorFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function setSpectatorFor(ctx: MutationCtx, viewer: Viewer, { roomId, spectator, godId }: { roomId: string; spectator: boolean; godId?: string }) {
+  const room = await requireRoom(ctx, roomId);
+  const { member: me } = await requireMemberAs(ctx, viewer, room, "act");
+  const target = !godId || godId === me.godId ? me : await memberOf(ctx, room._id, godId);
+  if (!target) return fail("NOT_FOUND", "Member not found");
+  if (target !== me) await requireOwnerAs(ctx, viewer, room);
+  if (target.kind !== "human") fail("BAD_REQUEST", "AI seats always play; remove the seat instead");
+  if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing with its players dealt; change this after it starts");
+  if (target.spectator === spectator) return { spectator };
+  if (!spectator && playersOf(await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "The next game already has eight players");
+  await ctx.db.patch(target._id, { spectator, ...(spectator ? { ready: false } : {}) });
+  await bump(ctx, room);
+  return { spectator };
+}
+
+/** Advisory readiness (also available as the v3 "ready" command); players only. */
 export const setReady = mutation({
   args: { roomId: v.id("rooms"), ready: v.boolean() },
   handler: async (ctx, { roomId, ready }) => {
     const room = await requireRoom(ctx, roomId);
     const { member } = await requireMember(ctx, room, "act");
+    if (member.spectator) fail("BAD_REQUEST", "Spectators have no ready state; play the next game first");
     await ctx.db.patch(member._id, { ready });
     await bump(ctx, room);
     return { ready };
@@ -237,13 +276,14 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
     await requireOwnerAs(ctx, viewer, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     const members = await membersOf(ctx, room._id);
-    if (members.length >= MAX_GODS) fail("CONFLICT", "Maximum eight gods");
+    if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);
+    if (playersOf(members).length >= MAX_GODS) fail("CONFLICT", "The next game already has eight players");
     const template = await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique();
     if (!template || template.deleted) fail("NOT_FOUND", "AI agent not found");
     const godId = `ai:${crypto.randomUUID()}`;
     const name = aiSeatName(godId, members.map(m => m.name), [template.name]);
     await ctx.db.insert("members", {
-      roomId: room._id, godId, name, kind: "ai", ready: true, joinedAt: Date.now(), status: AI_LOBBY_STATUS,
+      roomId: room._id, godId, name, kind: "ai", ready: true, spectator: false, joinedAt: Date.now(), status: AI_LOBBY_STATUS,
       aiAgent: { id: template.templateId, name: template.name, provider: template.provider, model: template.model, prompt: template.prompt, revision: template.revision },
     });
     await bump(ctx, room);

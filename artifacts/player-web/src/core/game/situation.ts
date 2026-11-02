@@ -1,6 +1,6 @@
 /**
  * Where the player stands, in one place: the observation, the room, the phase and the facts the next step, the chips
- * and the palette's gating read (seated, owner, members, agents, ready, pause used). A clock for countdowns.
+ * and the palette's gating read (seated, owner, players, agents, ready, pause used). A clock for countdowns.
  */
 import { useEffect, useMemo, useState } from "react";
 import type { Phase } from "@workspace/player-client/panels";
@@ -15,7 +15,8 @@ export function useSituation() {
       obs, room, phase,
       seated: !!obs && obs.seated !== false && !!obs.gameId,
       isOwner: !!room && !!obs && room.ownerId === obs.self.godId,
-      members: room?.members.length ?? 0,
+      // Players of the next game: spectators watch (docs/unify-apps-plan.md §2).
+      players: room?.members.filter(m => !m.spectator).length ?? 0,
       agents: obs?.agents.length ?? 0,
       ready: obs?.self.ready ?? false,
       pauseUsed: !!obs?.self.pauseUsed,

@@ -229,8 +229,12 @@ try {
       assert.match(code, /^[0-9A-Z]{4,}$/);
       assert.match(await a.getByTestId("text-room-owner").innerText(), /Alice Liddell/);
       assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
-      // nextStep: alone, the owner's one primary is the invite link; AI players count.
-      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /2 more players needed\. AI players count\./);
+      // nextStep: alone, the owner's one primary is the invite link; AI players count. The owner starts as a spectator
+      // (not one of the three) and chooses to play.
+      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /3 more players needed; you're watching\. AI players count\./);
+      assert.match(await a.getByTestId(`text-member-seat-${alice.subject}`).innerText(), /owner · spectator/);
+      await a.getByTestId(`button-spectator-${alice.subject}`).click();
+      await a.getByTestId("text-viewer-seat").filter({ hasText: /2 more players needed\. AI players count\./ }).waitFor();
       await a.goto(`${SITE}/`);
       const row = a.locator('[data-testid^="row-room-"]', { hasText: code });
       await row.waitFor();

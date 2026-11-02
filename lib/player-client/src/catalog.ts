@@ -448,8 +448,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "rooms.join": {
     kind: "mutation", audience: "player",
-    human: { title: "Join this room", tooltip: "Takes a seat; joining mid-game makes you a spectator until the next game." },
-    ai: { description: "Join a room as the signed-in human (browser only)." },
+    human: { title: "Join this room", tooltip: "Plays the next game, or watches it once eight players are in; a game already running you watch." },
+    ai: { description: "Join a room as the signed-in human (browser only), as a player of the next game or (spectator: true) a spectator; a ninth player must join as a spectator." },
     tools: [], palette: { label: "Join this room", group: "room", keywords: ["join", "seat", "member"], surfaces: BOTH },
     why: "Membership precedes any credential: the human joins in the browser before an assistant can act for them there.",
   },
@@ -465,6 +465,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     human: { title: "Mark me ready", tooltip: "Tells the room you are ready for the next game; it gates nothing." },
     ai: { description: "Mark the human ready (or not) in the room lobby; advisory. set_ready does the same through the command path." },
     tools: ["set_ready"], palette: { label: "Mark me ready", group: "play", keywords: ["ready", "not ready"], surfaces: E },
+  },
+  "rooms.setSpectator": {
+    kind: "mutation", audience: "player",
+    human: { title: "Watch or play the next game", tooltip: "Spectators watch without being dealt in, from the next game; the owner can set it for anyone." },
+    ai: { description: "Watch (spectator: true) or play (false) the room's next game; a running game's players never change. The owner may set it for another human member (godId); AI seats always play. Refused while the next game is preparing." },
+    tools: ["set_spectator"], palette: { label: "Watch or play the next game", group: "room", keywords: ["spectator", "watch", "spectate", "play", "sit out"], surfaces: E },
   },
   "rooms.chatHistory": {
     kind: "query", audience: "player",

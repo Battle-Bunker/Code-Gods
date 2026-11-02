@@ -35,4 +35,5 @@ test("a past game is linked for its players and the room owner; between games th
   assert.equal(canOpenGame(g(["c"]), 0, viewer), false, "the newest while another game runs");
   assert.equal(canOpenGame(g(["c"]), 0, { ...viewer, roomLive: false }), true, "the newest between games is the room's current game");
   assert.equal(canOpenGame(g(["c"]), 3, { ...viewer, meId: undefined }), false);
+  assert.equal(canOpenGame({ ...g(["c"]), spectators: ["b"] }, 3, viewer), true, "watched it");
 });

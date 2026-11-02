@@ -55,7 +55,7 @@ export function titleFor(key: PublicFunctionPath | UiCommandId): string {
 
 export interface CmdRoom {
   id: string; shortCode: string; ownerId: string; ownerName: string;
-  members: readonly { id: string; name: string; kind: string; ready: boolean }[];
+  members: readonly { id: string; name: string; kind: string; ready: boolean; spectator?: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   aiBudget: number; assistantBudget: number;
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
@@ -93,6 +93,8 @@ export interface EngineActions {
   join(): Promise<unknown>;
   leave(): Promise<unknown>;
   setReady(ready: boolean): Promise<unknown>;
+  /** Watch (true) or play the next game; `godId` sets another member's (owner). */
+  setSpectator(spectator: boolean, godId?: string): Promise<unknown>;
   start(): Promise<unknown>;
   resume(): Promise<unknown>;
   endGame(): Promise<unknown>;
@@ -140,6 +142,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const roomCode = room?.shortCode ?? game?.roomShortCode ?? null;
   const aiOff = scope.aiConfigured === false;
   const ais = room?.members.filter(m => m.kind === "ai") ?? [];
+  const players = room?.members.filter(m => !m.spectator).length ?? 0;
 
   // State checks layered over the catalogue's audience rule (which stays first: "Only the room owner…").
   const needRoom = (a: Availability) => (!room ? no("Open a room first.", { hidden: true }) : a);
@@ -151,10 +154,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
-      : room!.members.length < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${room!.members.length} ${room!.members.length === 1 ? "has" : "have"} joined.`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
+      : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
-      : ownerOnly(() => lobby(room!.members.length >= scope.maxPlayers ? no(`The room is full (${scope.maxPlayers} players).`) : ok))),
+      : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok))),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
     // With no game running it ends a preparation (the next game computing its rule tables).
@@ -164,7 +167,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),
     "rooms.leave": () => (!room || !me ? no("You are not in this room.", { hidden: true }) : isOwner ? no("The owner cannot leave their room.", { hidden: true })
       : seated ? no(`You are playing in game ${running!.shortCode}; leave after it ends.`) : ok),
-    "rooms.setReady": () => (!room || !me ? no("Join the room first.", { hidden: !room }) : ok),
+    "rooms.setReady": () => (!room || !me ? no("Join the room first.", { hidden: !room }) : me.spectator ? no("Spectators have no ready state.", { hidden: true }) : ok),
+    "rooms.setSpectator": () => (!room || !me ? no("Join the room first.", { hidden: !room })
+      : room.preparing && !room.preparing.error ? no("The next game is preparing with its players dealt.")
+      : me.spectator && players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok),
     "rooms.history": () => needRoom(ok),
     "rooms.create": () => (user ? ok : no("Sign in first.")),
   };
@@ -189,6 +195,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.join": { kind: "submit", run: act.join },
     "rooms.leave": { kind: "submit", run: act.leave },
     "rooms.setReady": { kind: "submit", run: () => act.setReady(!me?.ready) },
+    "rooms.setSpectator": { kind: "submit", run: () => act.setSpectator(!me?.spectator) },
     "rooms.history": { kind: "local", run: () => act.openSheet("past-games") },
     "rooms.approveAiBudget": { kind: "local", run: () => act.openSheet("ai-spending") },
     "rooms.addAi": { kind: "form", page: { kind: "pick", title: "Add an AI player", empty: "The AI library is empty; an admin adds AI players.",
@@ -203,9 +210,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const fromCatalog = commandsFromCatalog(CATALOG, path => (path in EXCLUDED ? null : binds[path] ?? null), "engine").map(c => {
     const state = states[c.id as PublicFunctionPath];
     const extra: Partial<Command> = {};
+    if (c.id === "rooms.setSpectator") extra.human = { title: me?.spectator ? "Play the next game" : "Watch the next game", tooltip: c.human.tooltip };
     if (c.id === "rooms.setReady") extra.human = { title: me?.ready ? "Mark me not ready" : "Mark me ready", tooltip: c.human.tooltip };
     if (c.id === "rooms.approveAiBudget") extra.confirm = "none"; // the sheet carries the consent
-    if (c.id === "owner.start" && room) extra.summary = () => `${room.members.length} players (${room.members.filter(m => m.kind === "ai").length} AI) start now; each gets a secret goal.`;
+    if (c.id === "owner.start" && room) extra.summary = () => `${players} players (${ais.length} AI) start now; each gets a secret goal. Spectators watch.`;
     if (c.id === "rooms.endActiveGame" && running) { extra.confirmLabel = `End game ${running.shortCode}`; extra.summary = () => `The current leaderboard becomes the final result of game ${running.shortCode}.`; }
     // A state check replaces the audience rule: it knows the room (the owner's name, who is seated, what runs).
     return { ...c, ...extra, available: state ? (ctx: PaletteContext) => state(c.available(ctx)) : c.available };

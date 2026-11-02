@@ -152,6 +152,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     return { id };
   }
   if (command.type === "ready") {
+    if (member.spectator) fail("BAD_REQUEST", "Spectators have no ready state; play the next game first");
     await ctx.db.patch(member._id, { ready: command.ready });
     await ctx.db.patch(room._id, { seq: room.seq + 1 });
     return { ready: command.ready };

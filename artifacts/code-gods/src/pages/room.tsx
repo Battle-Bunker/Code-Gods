@@ -34,9 +34,14 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(null), 5000); return () => clearTimeout(t); }, [armed]);
   const g = room.activeGame;
   const seated = (id: string) => !!g && g.roster.some(r => r.id === id);
-  const open = g ? 0 : Math.max(0, minPlayers - room.members.length);
+  const players = room.members.filter(m => !m.spectator).length;
+  const open = g ? 0 : Math.max(0, minPlayers - players);
+  // Watch or play the next game (docs/unify-apps-plan.md §2): the member themselves, or the owner for any human.
+  const canToggle = (m: RoomState["members"][number]) => m.kind === "human" && (m.id === meId || isOwner) && !(room.preparing && !room.preparing.error)
+    && !(m.spectator && players >= (manifest?.maximumPlayers ?? 8));
+  const role = (m: RoomState["members"][number]) => (m.spectator ? (g ? "watches the next game" : "spectator") : g ? "plays the next game" : "player");
   return (
-    <Section title="Players" count={room.members.length}>
+    <Section title="Members" count={room.members.length} summary={`${players} playing`}>
       <ul className="divide-y">
         {room.members.map(m => (
           <li key={m.id} className="px-4 py-2.5 flex items-center gap-3" data-testid={`row-member-${m.id}`}>
@@ -44,9 +49,16 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
             <span className="flex-1 min-w-0 text-sm">
               <span className="block truncate">{m.name}{m.id === meId && <span className="text-muted-foreground"> (you)</span>}{m.id === room.ownerId && <Crown className="inline h-3.5 w-3.5 ml-1.5 text-accent" aria-label="room owner" />}</span>
               <span className="block text-xs text-muted-foreground" data-testid={`text-member-seat-${m.id}`}>
-                {g ? (seated(m.id) ? "in the game" : "plays the next game") : [m.id === room.ownerId ? "owner" : m.kind === "ai" ? `AI · ${m.model ?? m.provider ?? ""}` : null, m.ready ? "ready" : null, m.status ?? null].filter(Boolean).join(" · ")}
+                {[m.id === room.ownerId ? "owner" : null, g && seated(m.id) ? "in the game" : g && m.kind === "human" ? `watching · ${role(m)}` : role(m),
+                  m.kind === "ai" ? `AI · ${m.model ?? m.provider ?? ""}` : null, !g && m.ready ? "ready" : null, !g ? m.status ?? null : null].filter(Boolean).join(" · ")}
               </span>
             </span>
+            {canToggle(m) && (
+              <button type="button" className="text-xs underline underline-offset-4 text-muted-foreground hover:text-foreground shrink-0" data-testid={`button-spectator-${m.id}`}
+                onClick={() => runner.run(m.spectator ? "Play the next game" : "Watch the next game", () => act.setSpectator(!m.spectator, m.id === meId ? undefined : m.id))}>
+                {m.spectator ? (m.id === meId ? "Play" : "Seat as player") : (m.id === meId ? "Watch instead" : "Make spectator")}
+              </button>
+            )}
             {isOwner && m.kind === "ai" && !g && (
               <DropdownMenu onOpenChange={o => { if (!o) setArmed(null); }}>
                 <Tip k="rooms.removeAi"><DropdownMenuTrigger asChild>

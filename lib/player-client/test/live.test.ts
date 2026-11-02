@@ -30,6 +30,8 @@ before(async () => {
   [alice, bob, carol] = [await signIn("alice"), await signIn("bob"), await signIn("carol")];
   const created = await alice.client.mutation(api.rooms.create, {});
   room = { roomId: created.roomId, shortCode: created.shortCode };
+  // The owner starts as a spectator; Alice plays here.
+  await alice.client.mutation(api.rooms.setSpectator, { roomId: created.roomId, spectator: false });
   await bob.client.mutation(api.rooms.join, { room: room.shortCode });
   await carol.client.mutation(api.rooms.join, { room: room.shortCode });
   // The room's settings need its calibration catalog (filled by a scheduled action after create).

@@ -30,11 +30,11 @@ test("every engine catalogue entry is a command or a stated exclusion; every nex
   for (const path of allCatalogEnginePaths()) assert.ok(ids.has(path) || EXCLUDED[path], `${path} is bound or excluded`);
   for (const path of Object.keys(EXCLUDED)) assert.ok(!ids.has(path), `${path} is excluded, not bound`);
   for (const id of STEP_IDS) assert.ok(ids.has(id), `next step ${id} is a palette command`);
-  assert.equal(tooltipFor("rooms.join"), "Takes a seat; joining mid-game makes you a spectator until the next game.", "tooltips come from the catalogue");
+  assert.equal(tooltipFor("rooms.join"), "Plays the next game, or watches it once eight players are in; a game already running you watch.", "tooltips come from the catalogue");
 });
 
 test("Start game explains what is missing and offers the fix; a member sees who can", () => {
-  assert.deepEqual(avail(scope({ room: room(["ada", "bob"]) }), "owner.start"), { ok: false, reason: "Needs 3 players; 2 have joined.", fix: "rooms.addAi" });
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob"]) }), "owner.start"), { ok: false, reason: "Needs 3 players; 2 play (spectators don't count).", fix: "rooms.addAi" });
   assert.deepEqual(avail(scope({ room: room(["ada", "bob", "ai:x"]) }), "owner.start"), { ok: true });
   assert.deepEqual(avail(scope({ room: room(["ada", "bob", "ai:x"]), starting: true }), "owner.start"), { ok: false, reason: "The game is already starting." }, "no double start while one is pending");
   assert.deepEqual(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob", "cy"]) }), "owner.start"), { ok: false, reason: "Only the owner, Ada Lovelace, can do this." });
@@ -44,7 +44,7 @@ test("Start game explains what is missing and offers the fix; a member sees who 
 
 test("without AI on the server, AI commands are hidden; seats freeze while a game runs", () => {
   assert.equal((avail(scope({ room: room(["ada"]), aiConfigured: false }), "rooms.addAi") as { hidden?: boolean }).hidden, true);
-  assert.deepEqual(avail(scope({ room: room(["ada"]), aiConfigured: false }), "owner.start"), { ok: false, reason: "Needs 3 players; 1 has joined." }, "no AI fix offered");
+  assert.deepEqual(avail(scope({ room: room(["ada"]), aiConfigured: false }), "owner.start"), { ok: false, reason: "Needs 3 players; 1 plays (spectators don't count)." }, "no AI fix offered");
   const g = { shortCode: "G9TQ", phase: "running", roster: [{ id: "ada" }] };
   assert.deepEqual(avail(scope({ room: room(["ada", "ai:x"], g) }), "rooms.removeAi"), { ok: false, reason: "Changes wait until game G9TQ ends." });
   assert.deepEqual(avail(scope({ room: room(["ada"], g) }), "rooms.endActiveGame"), { ok: true });

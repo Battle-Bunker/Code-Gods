@@ -300,9 +300,10 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, ready to share its invite link. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
 | `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state`, `load_skill` |
-| `rooms.join` | mutation | player | Join this room | Takes a seat; joining mid-game makes you a spectator until the next game. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
+| `rooms.join` | mutation | player | Join this room | Plays the next game, or watches it once eight players are in; a game already running you watch. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
 | `rooms.leave` | mutation | player | Leave this room | Gives up your seat; you can join again later. | — (Leaving would revoke the very credential the assistant acts through.) |
 | `rooms.setReady` | mutation | player | Mark me ready | Tells the room you are ready for the next game; it gates nothing. | `set_ready` |
+| `rooms.setSpectator` | mutation | player | Watch or play the next game | Spectators watch without being dealt in, from the next game; the owner can set it for anyone. | `set_spectator` |
 | `rooms.chatHistory` | query | player | Show older chat | Earlier public messages than the ones on screen. | `get_chat` |
 | `rooms.history` | query | player | Show past games | Finished games of this room with their standings and winners. | `list_games` |
 | `rooms.approveAiBudget` | mutation | owner | Set AI spending | Approves the AI players' token budget and the assistant allowance per player per game. | `update_settings` |

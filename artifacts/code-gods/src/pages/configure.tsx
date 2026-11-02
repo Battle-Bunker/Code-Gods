@@ -301,7 +301,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
             <p>Defence goals: {draft.defenceGoals ? "every player" : "off"}</p>
             <p>{fmt(draft.startingObjectCount)} objects, +{draft.spawnRateHz}/s</p>
             <p>{lengthLine(draft)} · {paceWord(draft.interactionRateHz)} pace</p>
-            <p>{room.members.length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} players ({room.members.filter(m => m.kind === "ai").length} AI)</p>
+            <p>{room.members.filter(m => !m.spectator).length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} players ({room.members.filter(m => m.kind === "ai").length} AI; spectators watch)</p>
             <p>AI budget: {fmt(budgets.aiBudget)} · Assistant: {budgets.assistantBudget ? fmt(budgets.assistantBudget) : "off"}</p>
             {editable && dirty && <p className="text-primary">Unsaved changes</p>}
             {editable && <a href="#section-review" className="underline underline-offset-4">Review and save</a>}
@@ -632,7 +632,7 @@ function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, o
   errors: { aiBudget: string | null; assistantBudget: string | null }; openPalette: (init?: { page?: string }) => void;
 }) {
   const ais = room.members.filter(m => m.kind === "ai");
-  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {room.members.length} players are in the room; a game needs {manifest.minimumPlayers}.</p>;
+  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
   const models = manifest?.aiFunding.models ?? [];
   const budgetChoice = (key: "aiBudget" | "assistantBudget") => {
     const doc = ROOM_BUDGET_DOCS[key];
@@ -660,7 +660,7 @@ function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, o
       <div className="space-y-2" data-testid="field-aiSeats">
         <h3 className="font-medium">How many seats do AI players fill?</h3>
         <p className="text-sm text-muted-foreground">AI players play with the same information and actions as humans. More AI seats let games start without waiting, and each one draws on the AI budget.</p>
-        <p className="text-sm">{ais.length ? ais.map(a => a.name).join(", ") : "No AI players yet."} {room.members.length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} seats taken.</p>
+        <p className="text-sm">{ais.length ? ais.map(a => a.name).join(", ") : "No AI players yet."} {room.members.filter(m => !m.spectator).length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} seats taken.</p>
         {editable && !room.activeGame && <p className="text-sm">
           <button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.addAi" })} data-testid="button-config-add-ai">Add an AI player</button>
           {ais.length > 0 && <>{" · "}<button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.removeAi" })}>Remove one</button></>}

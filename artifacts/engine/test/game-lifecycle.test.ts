@@ -40,7 +40,7 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   assert.match(await rejects(ada.c.action(api.owner.start, { roomId })), /owner/i);
   const two = await gods("Lonely Owner", "Only Friend");
   const small = await roomWith(two);
-  assert.match(await rejects(two[0].c.action(api.owner.start, { roomId: small.roomId })), /three gods/);
+  assert.match(await rejects(two[0].c.action(api.owner.start, { roomId: small.roomId })), /three players/);
 
   // Launch.
   const requestId = crypto.randomUUID();
