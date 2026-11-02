@@ -13,8 +13,9 @@ import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
-import { buildObservation, currentGame, deityOf } from "./lib/load";
-import { objectInstance, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
+import { buildObservation, currentGame, deityOf, objectsOf } from "./lib/load";
+import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
+import { pageObjects } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
@@ -242,6 +243,37 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
     return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
 };
+
+/**
+ * One page of the caller's objects in the current game, ordered by `sort` (payoff, your bits, others' care) with the
+ * object id as tie-break, starting strictly after the cursor `after` ({key, id} of the previous page's `next`); with the
+ * footer totals over every object. The keys are what the caller is shown: live, the others' sum carries its disclosure
+ * noise (settings.peerNoiseBits), so no sort ever orders by an exact peer value; an ended game is exact.
+ * The panel asks for a growing window (limit = pages shown) so one subscription serves the whole list.
+ */
+const objectsPageArgs = {
+  roomId: v.string(),
+  sort: v.optional(v.union(v.literal("payoff"), v.literal("mine"), v.literal("othersCare"))),
+  filter: v.optional(v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"))),
+  after: v.optional(v.object({ key: v.number(), id: v.string() })),
+  limit: v.optional(v.number()),
+};
+export const objectsPage = query({ args: objectsPageArgs, handler: async (ctx, args) => objectsPageFor(ctx, await requireViewer(ctx), args) });
+export const objectsPageAs = internalQuery({
+  args: { principal: principalV, ...objectsPageArgs },
+  handler: async (ctx, { principal, ...args }) => objectsPageFor(ctx, await viewerOf(ctx, principal), args),
+});
+export async function objectsPageFor(ctx: QueryCtx, viewer: Viewer, { roomId, ...q }: {
+  roomId: string; sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
+}) {
+  const room = await requireRoom(ctx, roomId);
+  await requireMemberAs(ctx, viewer, room, "read");
+  const game = await currentGame(ctx, room);
+  const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
+  const live = game?.phase !== "ended";
+  const mine = game && deity ? (await objectsOf(ctx, game._id)).map(o => personalObject(o, viewer.subject, live)).filter(o => o !== null) : [];
+  return pageObjects(mine, q);
+}
 
 /**
  * The caller's OWN utility descriptor for the current game, with what a client needs to run

@@ -3,7 +3,7 @@
  * through store.edit (parseLayout, then a push with ifUpdatedAt); a refused operation becomes a notice.
  */
 import { useMemo } from "react";
-import { DEFAULT_LAYOUT, PRESET_LAYOUTS, closePane, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, PRESET_LAYOUTS, closePane, setPanePanel, type DockLayout } from "@workspace/player-client/layout";
 import { PANELS, type PanelId } from "@workspace/player-client/panels";
 import { notify, notifyError } from "@/core/notices";
 import { composer } from "@/core/chat/composer";
@@ -32,6 +32,14 @@ export function dockActions(store: DockStore) {
     addNextTo(paneId: string) {
       let id: string | undefined;
       attempt(store, layout => { const r = addPanelNextTo(layout, paneId, store.getSnapshot().phase); id = r.paneId; return r.layout; }, () => focusPane(() => id));
+    },
+    /** Change some of a built-in panel's parameters in place (the Objects panel's sort); the rest keep their values. */
+    setParams(paneId: string, patch: Record<string, unknown>) {
+      attempt(store, layout => {
+        const pane = layout.panes[paneId];
+        if (pane?.kind !== "panel") return layout;
+        return setPanePanel(layout, paneId, pane.panelId, "human", { ...pane.params, ...patch });
+      });
     },
     close(paneId: string) { attempt(store, layout => closePane(layout, paneId)); },
     dockAssistant(side: "left" | "right" | "bottom") { attempt(store, layout => dockAssistant(layout, side)); },

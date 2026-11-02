@@ -292,6 +292,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.replay` | query | player | Replay a game I played | Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move. | `get_replay` |
 | `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
+| `player.objectsPage` | query | player | Scroll the objects | Your objects a page at a time, by payoff, your bits or the others' care. | — (The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.) |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |
 | `player.board` | query | player | Board at a moment | Every object as it was at a world time, with your bits and the others' total. | `get_board_at` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |

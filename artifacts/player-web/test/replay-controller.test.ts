@@ -71,3 +71,17 @@ test("key-moment jumps land on moments and stop at the ends; only offered speeds
   c.setSpeed(16);
   assert.equal(c.get().speed, 16);
 });
+
+test("player.objectsPage is answered from the replay at the playhead, exactly, in each sort, and follows the point of view", () => {
+  const c = controller(5);
+  const page = (args: Record<string, unknown> = {}) => c.answer("player.objectsPage", { roomId: "r", ...args }) as
+    { rows: { id: string; own: { netBits: number }; peerNetBits: number; rank: number }[]; total: number; matching: number; next: unknown; sumOwnNetBits: number; sumPeerNetBits: number };
+  // After the last transform o1 is net [4, 1]: Ada sees own 4 and the others' 1 (exact: the replay is of an ended game).
+  const ada = page({ sort: "mine", limit: 5 });
+  assert.deepEqual([ada.rows[0].id, ada.rows[0].own.netBits, ada.rows[0].peerNetBits, ada.rows[0].rank, ada.total, ada.next], ["o1", 4, 1, 1, 1, null]);
+  assert.equal(page({ sort: "mine", limit: 5 }), ada, "memoized like the other answers");
+  c.setPov(1);
+  assert.deepEqual([page({ sort: "othersCare" }).rows[0].own.netBits, page({ sort: "othersCare" }).sumPeerNetBits], [1, 4], "Bo sees his own bits and Ada's as the others'");
+  c.seek(0);
+  assert.equal(page().total, 0, "before the first spawn there is nothing to scroll");
+});
