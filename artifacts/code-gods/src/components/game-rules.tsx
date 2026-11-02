@@ -38,7 +38,7 @@ Starting objects: ${s.startingObjectCount}. Uniform-random spawning: ${s.spawnRa
 God energy: start ${s.startingEnergy} bits, income ${s.energyPerSecond} bits per real-world second, also during planning and pauses. Validation shows an agent's summon cost and expected cost per act without spending energy.
 Planning lasts ${s.planningSeconds} seconds; the world does not move during planning.
 Each god may pause a running game once, for ${s.pauseSeconds} seconds. World time stops during pauses.
-Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lifetime, NOT a fixed duration. The exact end time is hidden.
+${s.durationMode === "fixed" ? `Game length: exactly ${s.halfLifeSeconds} seconds of world time. The end time is public.` : `Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lifetime, NOT a fixed duration. The exact end time is hidden.`}
 
 ## Information and politics
 You receive your own utility card (and defence goal), your own bits for each object, the SUM of all OTHER gods' net bits for it, the floored peer care and your payoff.

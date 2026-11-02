@@ -594,22 +594,25 @@ function Segmented({ k, value, choices, editable, onPick }: { k: SettingsKey; va
 function NumberQuestion({ k, draft, editable, onSet, error }: { k: SettingsKey; draft: Settings; editable: boolean; onSet: (v: number) => void; error?: string }) {
   const value = draft[k] as number;
   const choices = stepChoices(k, value) as number[];
+  // Durations are typed in minutes and stored in seconds.
+  const minutes = k === "halfLifeSeconds" || k === "planningSeconds" || k === "pauseSeconds";
+  const scale = minutes ? 60 : 1;
+  const unit = minutes ? "min" : (SETTINGS_DOCS[k] as FieldDoc).unit;
   const [exact, setExact] = useState(false);
-  const [raw, setRaw] = useState(String(value));
-  useEffect(() => { if (!exact) setRaw(String(value)); }, [value, exact]);
-  const unit = (SETTINGS_DOCS[k] as FieldDoc).unit;
+  const [raw, setRaw] = useState(String(value / scale));
+  useEffect(() => { if (!exact) setRaw(String(value / scale)); }, [value, exact, scale]);
   return (
     <Question k={k} error={error}>
       {choices.length ? <Segmented k={k} value={value} choices={choices} editable={editable} onPick={v => { setExact(false); onSet(Number(v)); }} /> : null}
       {!editable ? (!choices.length && <p className="text-sm font-mono" data-testid={`value-${k}`}>{formatValue(k, value)}</p>)
       : exact || !choices.length ? (
         <label className="flex items-center gap-2 text-sm">
-          <span>Exact value</span>
-          <input type="number" step="any" value={raw} onChange={e => { setRaw(e.target.value); onSet(e.target.value.trim() === "" ? NaN : Number(e.target.value)); }} aria-invalid={!!error || undefined}
+          <span>{minutes ? "Custom length" : "Exact value"}</span>
+          <input type="number" step="any" value={raw} onChange={e => { setRaw(e.target.value); onSet(e.target.value.trim() === "" ? NaN : Number(e.target.value) * scale); }} aria-invalid={!!error || undefined}
             className={`w-40 border bg-background px-2 py-1 font-mono text-sm outline-none focus:border-primary ${error ? "border-destructive" : ""}`} data-testid={`input-${k}`} />
           {unit && <span className="text-muted-foreground">{unit}</span>}
         </label>
-      ) : <button type="button" className="text-sm underline underline-offset-4" onClick={() => setExact(true)} data-testid={`button-exact-${k}`}>Exact value…</button>}
+      ) : <button type="button" className="text-sm underline underline-offset-4" onClick={() => setExact(true)} data-testid={`button-exact-${k}`}>{minutes ? "Custom length…" : "Exact value…"}</button>}
     </Question>
   );
 }

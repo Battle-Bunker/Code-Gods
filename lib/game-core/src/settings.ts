@@ -64,6 +64,12 @@ export interface GameSettings {
   utilitySelectorId: string;
   spawnFunctionId: "uniform";
   planningSeconds: number;
+  /**
+   * How the game ends: "fixed" ends it exactly `halfLifeSeconds` of world time after it starts (the end is public, since
+   * the setting is); "halfLife" ends it at a hidden random moment, half of games ending within `halfLifeSeconds`.
+   */
+  durationMode: DurationMode;
+  /** The game's length in world seconds: the half-life in "halfLife" mode, the exact duration in "fixed" mode. */
   halfLifeSeconds: number;
   startingObjectCount: number;
   spawnRateHz: number;
@@ -124,6 +130,18 @@ export interface GameSettings {
   peerNoiseBits: number;
 }
 
+export type DurationMode = "fixed" | "halfLife";
+/** The pre-authored choices of durationMode. */
+export const DURATION_MODES: readonly DurationMode[] = Object.freeze(["fixed", "halfLife"]);
+/** The server-enforced bounds of the time settings (seconds unless named); the configuration page offers custom values within them. */
+export const TIME_LIMITS = Object.freeze({
+  planningSeconds: Object.freeze({ min: 0, max: 3600 }),
+  halfLifeSeconds: Object.freeze({ min: 1, max: 1_000_000_000 }),
+  interactionRateHz: Object.freeze({ min: 0, max: 1000 }),
+  scoreIntervalSeconds: Object.freeze({ min: 1, max: 3600 }),
+  pauseSeconds: Object.freeze({ min: 1, max: 3600 }),
+});
+
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
@@ -139,6 +157,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   utilitySelectorId: "fair-aligned",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
+  durationMode: "halfLife",
   halfLifeSeconds: 300,
   startingObjectCount: 10,
   spawnRateHz: 0.1,
@@ -177,7 +196,7 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
 
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
- * (see upgradeLegacyLanguage), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits:
+ * (see upgradeLegacyLanguage), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
  * 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read.
  */
@@ -187,6 +206,7 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
   if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
   const filled: Record<string, unknown> = {
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
+    ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
@@ -258,6 +278,11 @@ export type FamilyRole = "reward" | "defence";
 const FAMILY_IDS = /^[a-z0-9_+-]{1,64}$/;
 const familyList = (value: unknown) => Array.isArray(value) && value.length <= 200 && value.every(id => typeof id === "string" && FAMILY_IDS.test(id));
 
+function inRange(key: keyof typeof TIME_LIMITS, value: number): void {
+  const { min, max } = TIME_LIMITS[key];
+  if (!(value >= min && value <= max)) throw new Error(`${key} must be from ${min} to ${max}`);
+}
+
 /**
  * Validate mathematical settings and pre-authored options. Type arguments are validated by the
  * object type's own `instantiate` (it throws on bad arguments). With `domain` (which families exist), defence goals
@@ -281,13 +306,15 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (!Number.isInteger(settings.stepBudget) || settings.stepBudget < 1 || settings.stepBudget > 10_000_000) {
     throw new Error("stepBudget must be an integer from 1 to 10,000,000 steps");
   }
-  if (settings.halfLifeSeconds === 0) throw new Error("Half-life must be positive");
-  if (settings.interactionRateHz > 1000) throw new Error("interactionRateHz must not exceed 1000 Hz");
+  if (!DURATION_MODES.includes(settings.durationMode)) throw new Error(`durationMode must be one of ${DURATION_MODES.join(", ")}`);
+  inRange("planningSeconds", settings.planningSeconds);
+  inRange("halfLifeSeconds", settings.halfLifeSeconds);
+  inRange("pauseSeconds", settings.pauseSeconds);
+  if (settings.interactionRateHz > TIME_LIMITS.interactionRateHz.max) throw new Error("interactionRateHz must not exceed 1000 Hz");
   if (!Number.isInteger(settings.interactionComputeMs) ||
       settings.interactionComputeMs < 1 || settings.interactionComputeMs > 1000) {
     throw new Error("interactionComputeMs must be an integer from 1 to 1000 milliseconds");
   }
-  if (settings.pauseSeconds === 0) throw new Error("Pause duration must be positive");
   // A battery smaller than one expected act could never reach eligibility.
   if (settings.agentBatteryActs < 1) throw new Error("agentBatteryActs must be at least 1");
   if (!Number.isInteger(settings.maxAgentsPerGod) ||
@@ -304,9 +331,8 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
     throw new Error("objectSelection must be uniform or shelter");
   }
-  if (!SCORE_INTERVALS.includes(settings.scoreIntervalSeconds)) {
-    throw new Error(`scoreIntervalSeconds must be one of ${SCORE_INTERVALS.join(", ")} seconds`);
-  }
+  if (!Number.isInteger(settings.scoreIntervalSeconds)) throw new Error("scoreIntervalSeconds must be a whole number of seconds");
+  inRange("scoreIntervalSeconds", settings.scoreIntervalSeconds);
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
@@ -466,9 +492,9 @@ const seed = (seedId: string, name: string, summary: string, objectType: string,
 
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25 }),
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Only rules with picture-by-picture explanations, on a small slowed-down board",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, excludedFamilies: ANNOTATED_BASICS_EXCLUDED }),
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
@@ -642,10 +668,15 @@ export const SETTINGS_DOCS = {
     meaning: "How long the world stays frozen at the start while players read their goals, summon agents and talk.",
     consequence: "Lengthening it helps beginners and delays the action.",
   },
+  durationMode: {
+    question: "Does the game end at a set time, or at a surprise?", section: "time", tier: "ask", control: "segmented", suggested: DURATION_MODES,
+    meaning: "A fixed game ends exactly when its time is up, and everyone can see when; a half-life game ends at a hidden random moment, half of games ending within the time chosen.",
+    consequence: "A fixed end lets players plan for the last second, while a surprise end rewards scoring early.",
+  },
   halfLifeSeconds: {
-    question: "Roughly how long should games last?", section: "time", tier: "ask", control: "number", unit: "s", suggested: [120, 300, 600, 1200],
-    meaning: "The world time within which half of games end, the end itself being a hidden random moment.",
-    consequence: "Lengthening it gives more time to negotiate and makes games longer on average.",
+    question: "How long should games last?", section: "time", tier: "ask", control: "number", unit: "s", suggested: [120, 300, 600, 1200],
+    meaning: "The game's length in world time: exactly this long for a fixed game, or the time within which half of games end for a half-life game.",
+    consequence: "Lengthening it gives more time to negotiate and makes games longer.",
   },
   interactionRateHz: {
     question: "How fast does the world move?", section: "time", tier: "ask", control: "number", unit: "acts/s", suggested: [25, 100, 300, 1000],
@@ -653,7 +684,7 @@ export const SETTINGS_DOCS = {
     consequence: "Lowering it makes each score easier to follow, and raising it makes the world busier and harder to read.",
   },
   scoreIntervalSeconds: {
-    question: "How often do the public scores update?", section: "time", tier: "more", control: "segmented", unit: "s", suggested: SCORE_INTERVALS,
+    question: "How often do the public scores update?", section: "time", tier: "more", control: "number", unit: "s", suggested: SCORE_INTERVALS,
     meaning: "Every player's public score on the leaderboard changes for everyone at once, every this many seconds of world time; your own score stays live.",
     consequence: "Lengthening it makes it harder to tell from the leaderboard whose move changed an object, while shortening it makes the race easier to follow.",
   },
