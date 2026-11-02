@@ -118,3 +118,21 @@ test("while the next game prepares its rule tables the owner can end the prepara
   assert.equal(avail(scope({ room: { ...preparing, preparing: { error: "failed" } } }), "owner.start").ok, true, "a failed preparation may be started again");
   assert.equal(avail(scope({ room: room(["ada", "bob", "cy"]) }), "rooms.endActiveGame").ok, false, "nothing to end");
 });
+
+test("the palette lists the same commands however it was opened: one list per context (home, room, live game, ended game)", () => {
+  const game = (status: "active" | "ended") => ({ id: "g1", shortCode: "7A8P", roomShortCode: "K7QX", status, ownerId: "ada" }) as unknown as NonNullable<EngineScope["game"]>;
+  const contexts: Record<string, EngineScope> = {
+    home: scope({}), room: scope({ room: room(["ada", "bob", "cy"]) }),
+    "live game": scope({ game: game("active") }), "ended game": scope({ game: game("ended") }),
+  };
+  for (const [name, s] of Object.entries(contexts)) {
+    const commands = engineCommands(s, act), ctx = paletteContextFor(s);
+    const wanted = commands.filter(c => c.available(ctx).ok && !c.typedOnly).map(c => c.id).sort();
+    // The button, the search box and Ctrl+K all open with no init and no query, so they all get these rows; the
+    // suggestion and the recent ones only reorder them.
+    const opened = (opts: Parameters<typeof paletteRows>[2]) => paletteRows(commands, ctx, opts).flatMap(x => x.rows).map(r => r.command.id);
+    assert.deepEqual(opened({ query: "" }).sort(), wanted, `${name}: every available command, none left for a second mode`);
+    assert.deepEqual(opened({ query: "", suggested: [wanted[0]], recent: [wanted[1]] }).sort(), wanted, `${name}: pinning does not filter`);
+    assert.ok(wanted.length > 3, name);
+  }
+});

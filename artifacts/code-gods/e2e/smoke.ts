@@ -177,6 +177,22 @@ async function palette(page: Page, query: string) {
   await page.getByTestId("input-palette").fill(query);
   await page.keyboard.press("Enter");
 }
+/** The row ids the open palette lists (empty query), after opening it by `how`; closes it again. */
+async function paletteItems(page: Page, how: "search box" | "menu button" | "ctrl+k"): Promise<string[]> {
+  if (how === "search box") await page.getByTestId("button-palette").click();
+  else if (how === "menu button") {
+    // On a phone the one "Menu" control is the search box; on a desktop ☰ is its own button.
+    const menu = page.getByTestId("button-palette-menu");
+    await ((await menu.isVisible()) ? menu : page.getByTestId("button-palette")).click();
+  } else await page.keyboard.press("Control+k");
+  await page.getByTestId("dialog-palette").waitFor();
+  const rows = page.locator('[data-testid^="row-palette-"]');
+  await rows.first().waitFor();
+  const ids = (await rows.evaluateAll(els => els.map(e => e.getAttribute("data-testid")!))).sort();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("dialog-palette").waitFor({ state: "hidden" });
+  return ids;
+}
 /** Opens a collapsed section (a <details> with this test id). */
 async function expand(page: Page, testId: string) {
   const details = page.getByTestId(testId);
@@ -396,6 +412,11 @@ try {
       await row.waitFor();
       assert.equal(await row.getAttribute("data-unavailable"), "true", "dimmed, with the reason in the detail line");
       await b.keyboard.press("Escape");
+      // One palette: the search box, the menu button and Ctrl+K list exactly the same commands.
+      const viaBox = await paletteItems(a, "search box");
+      assert.ok(viaBox.length > 12, `the whole list, not a curated few (${viaBox.length})`);
+      assert.deepEqual(await paletteItems(a, "menu button"), viaBox, "menu button = search box");
+      assert.deepEqual(await paletteItems(a, "ctrl+k"), viaBox, "Ctrl+K = search box");
       await shot(a, `room-${name}`);
       await noHorizontalScroll(a, `${name} room`);
     });
