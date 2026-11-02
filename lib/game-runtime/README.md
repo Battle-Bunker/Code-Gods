@@ -223,12 +223,13 @@ cache over 32 MiB is not kept.
 compiles (`compile(source, settings)` → `{inspection, js}`), and
 `compilation: "external"` an execution pool with no compiler, which runs only such
 programs (`actCompiled`). The engine (artifacts/engine) compiles in an action of its
-own (`runtime/haskellCompile.ts`), which stores each program
-(`haskellPrograms`) for every other action; the actions that run agent pools never
-hold the compiler (about 250 MiB) beside them, and on one instance whichever is used
-closes the other's idle pools. On a cloud Node action (512 MiB, a fraction of a
-vCPU) a room's first compilation took about 37 s and an act about 150 ms; the
-compile pool's wall is 120 s and it stays warm 5 minutes.
+own (`runtime/haskellCompile.ts`), which stores each program (`haskellPrograms`),
+and runs Haskell acts in another (`runtime/haskellAct.ts`, batched): on a cloud
+Node action (512 MiB, a fraction of a vCPU) the process is about 100–200 MiB,
+Python and TypeScript warm about 280 MiB more, the compiler about 250 MiB, so an
+instance holds one group of pools at a time and whichever is used closes the
+others' idle pools. There a room's first compilation took about 37 s and an act
+about 150 ms; the compile pool's wall is 120 s and it stays warm 5 minutes.
 
 **Memory.** Each module has one linear memory per thread, zeroed and reused by
 the next run (fresh memories pile up faster than V8 frees them): always for the
