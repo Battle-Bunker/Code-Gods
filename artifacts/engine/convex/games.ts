@@ -10,6 +10,7 @@ import { actsAsHuman, requireViewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, publicGame } from "./lib/projection";
+import { withClock } from "./game/state";
 import { findGame, getCatalog, isHistoric, recentChat, requireHistoricReaderAs } from "./lib/rooms";
 
 async function readable(ctx: QueryCtx, code: string) {
@@ -28,20 +29,19 @@ async function readable(ctx: QueryCtx, code: string) {
  * One game's public world (final once ended), standings, winners and its chat, with its room's codes and the room's
  * newer live game. Shared by games.view (the spectator view) and player.game (the dock).
  */
-export async function publicGameView(ctx: QueryCtx, game: Doc<"games">, room: Doc<"rooms"> | null) {
-  const objects = await objectsOf(ctx, game._id);
+export async function publicGameView(ctx: QueryCtx, header: Doc<"games">, room: Doc<"rooms"> | null) {
+  const [game, objects] = await Promise.all([withClock(ctx, header), objectsOf(ctx, header._id)]);
   const ended = game.phase === "ended";
   const active = room?.activeGameId ? await ctx.db.get(room.activeGameId) : null;
   const chat = room ? await recentChat(ctx, room._id, 100, game.createdAt, game.endedAt ?? Infinity) : [];
   return {
-    ...publicGame(game, objects, game.agentCount ?? 0),
+    ...publicGame(game, objects),
     roomId: room?._id ?? null, roomShortCode: room?.shortCode ?? null, ownerId: room?.ownerId ?? null,
     status: ended ? "ended" as const : "active" as const,
     winners: ended ? gameRecord(game, objects).winners : [],
     chat: chat.map(m => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp })),
     roomActiveGame: activeGameRef(active),
     utilityCatalog: await getCatalog(ctx, `game:${game._id}`),
-    stats: game.stats,
     serverTime: Date.now(),
   };
 }

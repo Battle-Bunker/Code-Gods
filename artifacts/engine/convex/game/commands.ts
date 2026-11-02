@@ -12,6 +12,7 @@ import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { appendEvents } from "../engine/loop";
+import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
@@ -133,7 +134,8 @@ type Examined = { gameId: string; source: string; language: Language; error?: st
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
-  const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
+  const stored = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
+  const game = stored && await withEngine(ctx, stored);
   if (GAME_COMMANDS.includes(command.type) && !envelope.gameId) fail("BAD_REQUEST", "Game ID is required");
   if (envelope.gameId && envelope.gameId !== game?._id) fail("CONFLICT", "Stale game");
   if ("language" in command && !(game && allowedLanguages(game.settings as GameSettings).includes(command.language))) {
@@ -171,7 +173,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const paused = { ...game, worldSeconds: world };
     const nextBatch = await appendEvents(ctx, paused, [{ t: "phase", phase: "paused", world, reason: `paused by ${member.name}` }], world, world);
     // Bumping the epoch discards the window in flight; its commit reschedules the loop at pauseEndsAt.
-    await ctx.db.patch(game._id, { phase: "paused", worldSeconds: world, lastTick: now, pauseEndsAt, executionEpoch: game.executionEpoch + 1, nextBatch });
+    await writeGame(ctx, game, { phase: "paused", worldSeconds: world, lastTick: now, pauseEndsAt, executionEpoch: game.executionEpoch + 1, nextBatch });
     await ctx.db.patch(deity._id, { pauseUsed: true });
     return { pauseEndsAt };
   }
@@ -199,7 +201,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // The summon is in the event log with the agent's whole record (its source stays its owner's), so a replay has
     // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
     const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
-    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1, nextBatch });
+    await writeGame(ctx, game, { agentCount: game.agentCount + 1, nextBatch });
     return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
   }
   if (command.type === "destroy") {
@@ -210,7 +212,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await ctx.db.delete(agent._id);
     const world = worldNow(game, now);
     const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world }], world, world);
-    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1), nextBatch });
+    await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch });
     return { destroyed: agent._id };
   }
   return fail("BAD_REQUEST", "Unknown command");

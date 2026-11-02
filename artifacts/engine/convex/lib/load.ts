@@ -5,6 +5,7 @@ import { allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { sandboxViews } from "../runtime/readiness";
 import { observation } from "./projection";
 import { membersOf, recentChat } from "./rooms";
+import { withClock } from "../game/state";
 
 /**
  * Batches (ticks) scanned for the observation's recent own transformations: about the last 16 s. Each
@@ -19,6 +20,13 @@ export async function currentGame(ctx: QueryCtx, room: Doc<"rooms">) {
 export async function deityOf(ctx: QueryCtx, gameId: Id<"games">, godId: string) {
   return ctx.db.query("deities").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).unique();
 }
+/**
+ * The seq of a game's latest tickBatches doc (-1 before any): an event cursor's end. The loop's batch counter lives in
+ * gameEngine, which public queries never read (game/state.ts).
+ */
+export async function latestBatchSeq(ctx: QueryCtx, gameId: Id<"games">) {
+  return (await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).order("desc").first())?.seq ?? -1;
+}
 export async function objectsOf(ctx: QueryCtx, gameId: Id<"games">) {
   return ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
 }
@@ -28,7 +36,8 @@ export async function buildObservation(ctx: QueryCtx, room: Doc<"rooms">, godId:
   const members = await membersOf(ctx, room._id);
   const member = members.find(m => m.godId === godId);
   if (!member) return null;
-  const game = await currentGame(ctx, room);
+  const header = await currentGame(ctx, room);
+  const game = header && await withClock(ctx, header);
   const deity = game ? await deityOf(ctx, game._id, godId) : null;
   const [objects, agents, chat] = await Promise.all([
     game && deity ? objectsOf(ctx, game._id) : Promise.resolve([]),

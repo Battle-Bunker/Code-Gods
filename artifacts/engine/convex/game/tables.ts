@@ -29,6 +29,9 @@ const aiAgentSnapshot = v.object({
   prompt: v.string(), revision: v.number(),
 });
 const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
+const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
+const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
+const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
 const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() });
 const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
@@ -136,33 +139,66 @@ export const gameTables = {
     /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
-    worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
+    /**
+     * LEGACY hot fields (read-architecture R3): every tick commit wrote them here, so every query that read the game
+     * re-ran once a second. They live in gameClocks (worldSeconds, lastTick, objectCount, agentCount, scoreboard) and
+     * gameEngine (tick, nextSpawn, nextBatch, stats) now; migrations:splitGameHotFields moves a stored game's values
+     * there and clears them here (game/state.ts reads either shape). Removed from this validator once every deployment
+     * reports it done (CLAUDE.md "Schema migrations").
+     */
+    worldSeconds: v.optional(v.number()), lastTick: v.optional(v.number()), nextSpawn: v.optional(v.number()),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
     /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
     noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
-    /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
-    tick: v.object({ seq: v.number(), leaseUntil: v.number() }),
-    /** Next tickBatches sequence number. */
-    nextBatch: v.number(),
-    objectCount: v.number(),
-    /** Live agents (summon +1, destroy −1), so the public view never reads agent documents to count them. */
+    /** LEGACY (gameEngine.tick). */
+    tick: v.optional(leaseV),
+    /** LEGACY (gameEngine.nextBatch). */
+    nextBatch: v.optional(v.number()),
+    /** LEGACY (gameClocks.objectCount). */
+    objectCount: v.optional(v.number()),
+    /** LEGACY (gameClocks.agentCount). */
     agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
+    /** LEGACY (gameClocks.scoreboard: published every scoreIntervalSeconds, a hot field too). */
+    scoreboard: v.optional(scoreboardV),
+    /** Public result, written in the commit that ends the game. */
+    summary: v.optional(v.any()),
+    /** LEGACY (gameEngine.stats). */
+    stats: v.optional(statsV),
+  }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
+    .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
+
+  /**
+   * A game's public clock (read-architecture §4.1, R3): what changes on every tick commit and what readers of the world
+   * clock need. Kept off the games doc, which the cold queries (room, layout, my utility, history) read. One per game.
+   */
+  gameClocks: defineTable({
+    gameId: v.id("games"),
+    worldSeconds: v.number(), lastTick: v.number(), objectCount: v.number(),
+    /** Live agents (summon +1, destroy −1), so the public view never reads agent documents to count them. */
+    agentCount: v.number(),
     /**
      * The published scoreboard (docs/public-log-design.md §3): every roster god's total payoff, roster order, as the
      * leaderboard shows it, published at world time `world` (wall `at`) by the first commit reaching the next multiple of
      * settings.scoreIntervalSeconds, at the start and at the end. Public. Absent on games started before it existed
      * (their leaderboard is live).
      */
-    scoreboard: v.optional(v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() })),
-    /** Public result, written in the commit that ends the game. */
-    summary: v.optional(v.any()),
-    stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
-  }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
-    .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
+    scoreboard: v.optional(scoreboardV),
+  }).index("by_game", ["gameId"]),
+
+  /** The engine loop's own state of a game (internal: the loop, the watchdog and commands; never a public query). */
+  gameEngine: defineTable({
+    gameId: v.id("games"),
+    /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
+    tick: leaseV,
+    nextSpawn: v.number(),
+    /** Next tickBatches sequence number. */
+    nextBatch: v.number(),
+    stats: statsV,
+  }).index("by_game", ["gameId"]),
 
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),

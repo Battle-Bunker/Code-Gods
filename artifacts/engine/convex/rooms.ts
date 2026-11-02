@@ -9,6 +9,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { actsAsHuman, requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
+import { liveGame, withEngine } from "./game/state";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { aiSeatName } from "./lib/aiNames";
@@ -103,7 +104,9 @@ export async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { ro
   const owner = members.find(m => m.godId === room.ownerId)?.name ?? await displayName(ctx, room.ownerId);
   const setupDoc = room.setupId ? await ctx.db.get(room.setupId) : null;
   const setup = room.setupId ? { id: room.setupId, name: setupDoc?.name ?? room.setupName ?? "", deleted: !setupDoc || !!setupDoc.deleted } : null;
-  return { ...publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`), setup), serverTime: Date.now() };
+  // No server clock here (Date.now() would be cached with the answer, read-architecture §2.2 point 6): the room's answer
+  // changes only when the room, its members, chat, setup or its game's header does.
+  return publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`), setup);
 }
 export const get = query({ args: { room: v.string() }, handler: async (ctx, args) => roomFor(ctx, await requireViewer(ctx), args) });
 /** Internal twin of `get` for a principal; `requireOwner` makes it the owner-only room state of the agent registry. */
@@ -322,7 +325,7 @@ async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: st
   const game = await activeGame(ctx, room);
   if (!game && room.preparing) { await cancelPreparing(ctx, room); return { cancelled: "preparing" as const }; }
   if (!game) return fail("CONFLICT", "There is no active game to end");
-  await endGame(ctx, game, "owner");
+  await endGame(ctx, await withEngine(ctx, game), "owner");
   return { gameId: game._id };
 }
 
@@ -339,7 +342,7 @@ async function resumeFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId:
     if (game?.phase !== "recovery") fail("CONFLICT", "Game is not in recovery");
     // Human activity resumes idle-parked games by itself; a safety stop still needs the explicit resume.
     await touchActivity(ctx, true);
-    const after = await ctx.db.get(game._id);
+    const after = await liveGame(ctx, game._id);
     if (after?.phase === "recovery") await resumeGame(ctx, after);
     return { gameId: game._id };
 }

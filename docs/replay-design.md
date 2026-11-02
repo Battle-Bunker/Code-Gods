@@ -130,7 +130,7 @@ over a whole game, through `run_code`'s `replay` dataset (the game flattened: he
 - **Result (version 2):**
   - `version`: the replay API version. The reducer refuses a version it does not know.
   - `game`: id, short code, phase, `startedAt`, `planningEndsAt`, `endedAt`, `endReason`, `worldSeconds`, `endAtWorld`,
-    settings, setup, roster (`{id, name, kind}`), object instance, season commitment, engine stats; on the first page
+    settings, setup, roster (`{id, name, kind}`), object instance, season commitment; on the first page
     `logSchema` (the log's schema) and `currentLogSchema`.
   - `viewer`: the caller's god id and roster index (the view's default point of view, nothing more).
   - `gods` (first page): every god's dealt utility descriptor and kid card, final summon spending, whether it paused,

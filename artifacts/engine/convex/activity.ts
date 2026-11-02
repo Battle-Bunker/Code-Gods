@@ -8,6 +8,7 @@
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
 import { requireViewer, type Viewer } from "./auth/access";
 import { resumeGame } from "./engine/loop";
+import { withEngine } from "./game/state";
 import { fail } from "./lib/errors";
 import { lastHumanActivity, principalV, viewerOf } from "./lib/rooms";
 import { IDLE_MS } from "./lib/world";
@@ -21,7 +22,7 @@ export async function touchActivity(ctx: MutationCtx, force = false) {
   else await ctx.db.insert("activity", { key: "global", lastHumanActivityAt: now });
   const parked = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", "recovery")).take(200);
   let resumed = 0;
-  for (const game of parked) if (game.autoResume) { await resumeGame(ctx, game); resumed++; }
+  for (const game of parked) if (game.autoResume) { await resumeGame(ctx, await withEngine(ctx, game)); resumed++; }
   return { resumed };
 }
 

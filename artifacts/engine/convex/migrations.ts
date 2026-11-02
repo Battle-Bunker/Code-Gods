@@ -18,6 +18,11 @@
  *    to supported languages, and the haskellPrograms table dropped.
  *  - dropRetiredSiteBuilds (siteBuilds): the build rows of the sites before the one app ("engine", "player") go; the
  *    app's own builds start at its first deploy. Narrowed later: siteBuilds' site to versionSiteV (schema.ts).
+ *  - splitGameHotFields (games; docs/convex-read-architecture.md R3, §5): a game's clock (worldSeconds, lastTick,
+ *    objectCount, agentCount, scoreboard) moves to its gameClocks doc and its engine state (tick, nextSpawn, nextBatch,
+ *    stats) to its gameEngine doc, created from its fields where missing, and the fields are cleared on `games`. A game
+ *    the new code already wrote (game/state.ts writeGame splits on its first write) only gets what it lacks. Narrowed
+ *    later: the hot fields leave the games validator, and game/state.ts's legacy fallbacks go.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -52,6 +57,7 @@ import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { freeName, setupSummary } from "./setups";
+import { splitHotFields } from "./game/state";
 
 export const migrations = new Migrations(components.migrations, { schema });
 
@@ -97,12 +103,17 @@ export const dropHaskellCompiledPrograms = migrations.define({
   migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
 });
 
+export const splitGameHotFields = migrations.define({
+  table: "games",
+  migrateOne: async (ctx, game) => { await splitHotFields(ctx, game); },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
   internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
   internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
-  internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds];
+  internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds, internal.migrations.splitGameHotFields];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

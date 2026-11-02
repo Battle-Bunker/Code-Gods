@@ -208,9 +208,8 @@ export const commitStart = internalMutation({
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
       settings, roster, spectators: allMembers.filter(m => m.kind === "human" && !byGod.has(m.godId)).map(m => m.godId),
       ...(setupId ? { setupId, setupName } : {}),
-      createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
-      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
-      nextBatch: 0, agentCount: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
+      createdAt: now, planningEndsAt, pauseEndsAt: 0,
+      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
@@ -231,7 +230,12 @@ export const commitStart = internalMutation({
       gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
     await insertObjectEvents(ctx, gameId, 0, events);
-    await ctx.db.patch(gameId, { nextBatch: 1, scoreboard: { totals: disclosed, world: 0, at: now } });
+    // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
+    await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard: { totals: disclosed, world: 0, at: now } });
+    await ctx.db.insert("gameEngine", {
+      gameId, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS }, nextSpawn: args.nextSpawn, nextBatch: 1,
+      stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
+    });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);

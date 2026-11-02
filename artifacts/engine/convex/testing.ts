@@ -9,6 +9,7 @@ import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
+import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
 import { seed as seedSetups } from "./setups";
@@ -82,10 +83,9 @@ export const patchGame = internalMutation({
   args: { gameId: v.id("games"), patch: v.any(), kick: v.optional(v.boolean()) },
   handler: async (ctx, { gameId, patch, kick }) => {
     dev();
-    const game = await ctx.db.get(gameId);
-    if (!game) fail("NOT_FOUND", "no game");
-    const next = { ...game, ...(patch as Partial<Doc<"games">>), settings: { ...game.settings, ...(patch.settings ?? {}) } };
-    await ctx.db.patch(gameId, { ...(patch as Partial<Doc<"games">>), settings: next.settings });
+    const game = await liveGame(ctx, gameId);
+    if (!game) return fail("NOT_FOUND", "no game");
+    const next = await writeGame(ctx, game, { ...(patch as Partial<LiveGame>), settings: { ...game.settings, ...(patch.settings ?? {}) } });
     if (kick) await scheduleTick(ctx, { ...next, tick: game.tick }, nextDeadline(next, Date.now()));
   },
 });
@@ -175,7 +175,7 @@ export const endGames = internalMutation({
       : (await Promise.all((["planning", "running", "paused", "recovery"] as const).map(phase =>
           ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(100)))).flat();
     let ended = 0;
-    for (const game of games) if (game && game.phase !== "ended") { await endGame(ctx, game, "owner"); ended++; }
+    for (const game of games) if (game && game.phase !== "ended") { await endGame(ctx, await withEngine(ctx, game), "owner"); ended++; }
     return { ended };
   },
 });
@@ -186,7 +186,8 @@ export const rawGame = internalQuery({
   handler: async (ctx, { gameId }) => {
     dev();
     return {
-      game: await ctx.db.get(gameId),
+      // With its clock and engine state (game/state.ts), whichever shape it is stored in.
+      game: await liveGame(ctx, gameId),
       deities: await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       objects: await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       agents: await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
@@ -201,8 +202,38 @@ export const gameCounters = internalQuery({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => {
     dev();
-    const game = await ctx.db.get(gameId);
-    return game && { phase: game.phase, worldSeconds: game.worldSeconds, objectCount: game.objectCount, commits: game.stats.commits };
+    const live = await liveGame(ctx, gameId);
+    return live && { phase: live.phase, worldSeconds: live.worldSeconds, objectCount: live.objectCount, commits: live.stats.commits };
+  },
+});
+
+/** A game's three documents as stored (games, gameClocks, gameEngine): the split-migration test's view. */
+export const rawGameDocs = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    return { game: await ctx.db.get(gameId), clock: await clockDoc(ctx, gameId), engine: await engineDoc(ctx, gameId) };
+  },
+});
+
+/**
+ * Store a game as it was before the split (migrations:splitGameHotFields): its clock and engine state back on the games
+ * doc and no gameClocks/gameEngine docs.
+ */
+export const legacyGameHotFields = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const live = await liveGame(ctx, gameId);
+    if (!live) return fail("NOT_FOUND", "no game");
+    const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
+    await ctx.db.patch(gameId, {
+      worldSeconds: live.worldSeconds, lastTick: live.lastTick, objectCount: live.objectCount, agentCount: live.agentCount,
+      ...(live.scoreboard ? { scoreboard: live.scoreboard } : {}),
+      tick: live.tick, nextSpawn: live.nextSpawn, nextBatch: live.nextBatch, stats: live.stats,
+    });
+    if (clock) await ctx.db.delete(clock._id);
+    if (engine) await ctx.db.delete(engine._id);
   },
 });
 
@@ -288,9 +319,12 @@ export const cloneEndedGame = internalMutation({
     const chat = all(await ctx.db.query("chat").withIndex("by_room", q => q.eq("roomId", game.roomId)).take(1001), 1000, "chat messages in its room")
       .filter(m => m.gameId === gameId);
     const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
+    const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
     for (let i = 0; i < copies; i++) {
       const guid = crypto.randomUUID();
       const id = await ctx.db.insert("games", { ...strip(game), guid, ...await shortCodeFor(ctx, "games", guid) });
+      if (clock) await ctx.db.insert("gameClocks", { ...strip(clock), gameId: id });
+      if (engine) await ctx.db.insert("gameEngine", { ...strip(engine), gameId: id });
       for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });
       for (const a of agents) await ctx.db.insert("agents", { ...strip(a), gameId: id });
       const objectIds = new Map<string, Doc<"objects">["_id"]>();
@@ -388,3 +422,4 @@ export const siteBuildCounts = internalQuery({
     return counts;
   },
 });
+
