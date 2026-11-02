@@ -138,6 +138,7 @@ await page.fill("[data-testid=input-source]", [
   ""].join("\n"));
 await page.click("[data-testid=button-validate]");
 await page.waitForFunction(() => /VALID/.test(document.querySelector("[data-testid=panel-validation]")?.textContent ?? ""), null, { timeout: 120_000 });
+assert.ok(!/INVALID/.test(await page.textContent("[data-testid=panel-validation]") ?? ""), "the sample agent validates");
 await sleep(800);
 await page.screenshot({ path: `${OUT}/agent.png`, clip: { x: 0, y: 0, width: 794, height: 720 } });
 
