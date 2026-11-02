@@ -10,7 +10,8 @@
  * (player.objectsPage, one windowed query; replays answer it too). The sort (payoff, your bits, others' care) is the pane's
  * `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { OBJECT_PAGE_MAX } from "@workspace/player-client/objects-page";
 import {
   ScoreBreakdown, dimensionVar, rampVar, relativeStrength,
 } from "@workspace/object-views";
@@ -132,6 +133,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: params.limit * pages, hz: 1 });
   const card = useMyCard();
   const { ctx, noun } = useObjectContext();
+  const loadMore = useCallback(() => setPages(p => p + 1), []);
   const [open, setOpen] = useState<string | null>(null);
   const comparative = card?.penalty?.comparative;
   const shown = useMemo(() => data?.rows ?? [], [data]);
@@ -140,7 +142,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const max = Math.max(1e-9, ...shown.map(o => Math.abs(o.payoff)));
   const best = Math.max(0, ...shown.map(o => o.payoff));
   const highlight = new Set(params.highlight);
-  const more = !!data?.next, ready = shown.length >= Math.min(pages * params.limit, data?.matching ?? 0), loadMore = () => setPages(p => p + 1);
+  const more = !!data?.next, ready = shown.length >= Math.min(pages * params.limit, OBJECT_PAGE_MAX, data?.matching ?? 0);
   const objects = { length: data?.total ?? 0 };
 
   if (!data) return null;

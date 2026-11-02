@@ -12,8 +12,8 @@ export type ObjectSort = (typeof OBJECT_SORTS)[number];
 export const OBJECT_FILTERS = ["all", "positive", "contested", "chips"] as const;
 export type ObjectFilter = (typeof OBJECT_FILTERS)[number];
 export type ObjectCursor = { key: number; id: string };
-/** At most this many rows in one page (the panel asks for its window of pages in one query). */
-export const OBJECT_PAGE_MAX = 300;
+/** At most this many rows in one page: every object of a game (the engine reads at most 2,100). The panel asks for its whole window in one query. */
+export const OBJECT_PAGE_MAX = 2100;
 
 export type PageRow = { id: string; own: { netBits: number }; peerNetBits: number; peerCare: number; payoff: number };
 

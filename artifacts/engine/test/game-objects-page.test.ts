@@ -26,7 +26,7 @@ test("pages chained by cursor equal one window, under each sort, with stable ord
   }, "the world's objects", 90000);
 
   for (const sort of ["payoff", "mine", "othersCare"] as const) {
-    const big: { total: number; rows: Row[]; next: unknown } = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 300 });
+    const big: { total: number; rows: Row[]; next: unknown } = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 2100 });
     assert.equal(big.total, observed.objects.length);
     assert.equal(big.rows.length, big.total);
     assert.equal(big.next, null, "the whole window leaves no next page");
@@ -48,12 +48,12 @@ test("pages chained by cursor equal one window, under each sort, with stable ord
     assert.equal(pages, Math.ceil(big.total / 4));
   }
 
-  const byPayoff: { rows: Row[]; sumOwnNetBits: number } = await ada.c.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 300 });
+  const byPayoff: { rows: Row[]; sumOwnNetBits: number } = await ada.c.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 2100 });
   assert.deepEqual(byPayoff.rows.map(r => r.rank), byPayoff.rows.map((_, i) => i + 1), "payoff order is payoff rank");
   const own = new Map(observed.objects.map(o => [o.id, o.own.netBits]));
   assert.ok(Math.abs(byPayoff.sumOwnNetBits - [...own.values()].reduce((s, n) => s + n, 0)) < 1e-6, "the footer's Σ your net bits");
 
-  const positive: { rows: Row[] } = await ada.c.query(api.player.objectsPage, { roomId, filter: "positive", limit: 300 });
+  const positive: { rows: Row[] } = await ada.c.query(api.player.objectsPage, { roomId, filter: "positive", limit: 2100 });
   assert.equal(positive.rows.every(r => r.payoff > 0), true);
   await rejects(outsider.c.query(api.player.objectsPage, { roomId }));
 });

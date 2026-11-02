@@ -70,9 +70,11 @@ export function useObjectsPage(
   const { roomId } = useRoom();
   const page = useSdkQuery("player.objectsPage", { roomId, sort, filter, limit }, hz);
   const throttled = useThrottled(page, hz);
-  const [kept, setKept] = useState<ObjectsWindow>();
-  useEffect(() => { if (throttled && throttled !== kept) setKept(throttled); }, [throttled, kept]);
-  return throttled ?? kept;
+  const [kept, setKept] = useState<{ view: string; window: ObjectsWindow }>();
+  const view = `${sort}|${filter}`;
+  useEffect(() => { if (throttled && throttled !== kept?.window) setKept({ view, window: throttled }); }, [throttled, kept, view]);
+  // Kept only for the same order: a new sort shows nothing (the panel keeps its place) rather than the old order.
+  return throttled ?? (kept?.view === view ? kept.window : undefined);
 }
 
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
