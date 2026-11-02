@@ -149,14 +149,15 @@ test("a game allows a non-empty set of supported languages, each listed once", (
 
 test("each language has exactly one grammar and one summon-price function, read from its one table entry", () => {
   assert.deepEqual([...LANGUAGES], Object.keys(LANGUAGE_SPECS));
-  assert.deepEqual(LANGUAGES.map(grammarFor), ["python-agent-v1", "typescript-agent-v1", "haskell-agent-v1"]);
-  assert.deepEqual(LANGUAGES.map(complexityFor), ["ast-bits-v1", "ts-ast-bits-v1-uniform", "hs-token-bits-v1-uniform"]);
+  assert.deepEqual(LANGUAGES.map(grammarFor), ["python-agent-v1", "typescript-agent-v1"]);
+  assert.deepEqual(LANGUAGES.map(complexityFor), ["ast-bits-v1", "ts-ast-bits-v1-uniform"]);
 });
 
 test("allowedLanguages reads the set, and a stored single language still works", () => {
   assert.deepEqual(allowedLanguages(settings({ languages: ["typescript", "python"] })), ["typescript", "python"]);
   const legacy = { ...DEFAULT_SETTINGS, languages: undefined, language: "typescript", grammarId: "typescript-agent-v1" } as never;
   assert.deepEqual(allowedLanguages(legacy), ["typescript"]);
+  assert.deepEqual(allowedLanguages({ languages: ["haskell", "python"] }), ["python"], "a removed language is dropped (ended games keep it)");
 });
 
 test("upgradeLegacyLanguage turns a single language into the set and drops the derived ids", () => {
@@ -226,6 +227,17 @@ test("upgradeStoredSettings gives stored settings without a duration mode the ha
   assert.deepEqual(upgradeStoredSettings(old)?.durationMode, "halfLife");
   assert.equal(upgradeStoredSettings(old)?.halfLifeSeconds, 777);
   assert.equal(upgradeStoredSettings({ ...old, durationMode: "fixed" }), null, "idempotent");
+});
+
+// Haskell was removed (2026-11): stored rooms and setups that allowed it must still validate.
+test("upgradeStoredSettings drops the removed Haskell language, falling back to TypeScript when none is left", () => {
+  const upgraded = (languages: unknown) => upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages })?.languages;
+  assert.deepEqual(upgraded(["python", "haskell"]), ["python"]);
+  assert.deepEqual(upgraded(["haskell"]), ["typescript"]);
+  const { languages: _l, ...rest } = DEFAULT_SETTINGS;
+  assert.deepEqual(upgradeStoredSettings({ ...rest, language: "haskell", grammarId: "haskell-agent-v1" })?.languages, ["typescript"], "the single-language shape too");
+  assert.doesNotThrow(() => validateSettings(upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages: ["haskell"] }) as never));
+  assert.equal(upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages: ["python", "typescript"] }), null, "idempotent");
 });
 
 test("First steps and Annotated basics are 10 minutes fixed", () => {

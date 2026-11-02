@@ -36,7 +36,7 @@ appearing. Every change to every object is shown to everyone as it happens, but 
 
 ### 3. You write agents
 
-An agent is a few lines of Python, TypeScript or Haskell. Each time it gets a turn, it looks at one object and
+An agent is a few lines of Python or TypeScript. Each time it gets a turn, it looks at one object and
 returns up to 16 moves: slide a row, sort a column, paint a square, swap two colours and so on.
 
 <img src="docs/readme/agent.webp" width="560" alt="The agent editor with a short Python agent that sorts the most out-of-order row. Validation shows the agent is valid and what it costs.">
@@ -119,8 +119,8 @@ implementation with no special powers. It signs in with the same room-scoped tok
 enforces what every client may see. Players can also write *panels*: small TSX views stored in the engine that every
 open client renders, live, in a sandboxed frame.
 
-**Agents run in deterministic sandboxes.** Python runs as CPython on WebAssembly (WASI), TypeScript runs in QuickJS
-and Haskell is compiled by MicroHs. Agents have no filesystem, network or process access. Time and randomness exist
+**Agents run in deterministic sandboxes.** Python runs as CPython on WebAssembly (WASI) and TypeScript runs in
+QuickJS. Agents have no filesystem, network or process access. Time and randomness exist
 only as a virtual clock and a seeded stream, so the same act gives the same result when it is measured and when it
 is played. A step budget bounds every act.
 
@@ -210,7 +210,7 @@ flowchart LR
 | `lib/game-core` | Settings, setups, energy and scoring |
 | `lib/game-types` | Object types (Grid, Int, string), their moves and helper preludes |
 | `lib/game-utilities` | The goal families, their kid cards, annotations and calibration |
-| `lib/game-runtime` | The Python, TypeScript and Haskell agent sandboxes |
+| `lib/game-runtime` | The Python and TypeScript agent sandboxes |
 | `lib/player-client` | Protocol, typed function catalogue, tool registry, browser SDK and the `pnpm player` CLI |
 | `lib/ai-player` | AI seats and the assistant's model providers |
 | `lib/object-views`, `lib/ui-kit` | Shared views (boards, goal cards) and UI building blocks |

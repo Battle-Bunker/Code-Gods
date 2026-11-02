@@ -11,7 +11,6 @@
 import { satisfied } from "./constraints.ts";
 import { MAX_CALLS, type HelperDoc, type Instantiation, type MutatorDef, type PreludeParts, type PricingVocab } from "./types.ts";
 import { sha256 } from "./util.ts";
-import { assembleHaskell, HS_COMMIT_CLAUSE, withHaskellDocs } from "./haskell.ts";
 
 type Lit = number | string | boolean | null | readonly Lit[];
 
@@ -164,8 +163,6 @@ export interface BasePrelude {
   readonly python: string;
   readonly js: string;
   readonly dts: string;
-  /** The type's part of the Haskell Room module (lib/game-types haskell.ts): `type Obj`, `cgDecode`, read helpers. */
-  readonly haskell: string;
   readonly helpers: readonly HelperDoc[];
 }
 
@@ -190,9 +187,9 @@ export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators
   const python = header("#") + base.python + ENCODE_CALLS_PY + avail.map(m => m.guest.python).join("\n");
   const jsText = header("//") + base.js + ENCODE_CALLS_JS + avail.map(m => m.guest.js).join("\n");
   const dts = header("//") + base.dts + ENCODE_CALLS_DTS + avail.map(m => m.guest.dts).join("\n");
-  const helpers = withHaskellDocs([...base.helpers, ...avail.flatMap(m => m.guest.docs)], avail.map(m => m.guest.dts).join("\n"));
+  const helpers = [...base.helpers, ...avail.flatMap(m => m.guest.docs)];
   return withDerived({ python, js: jsText, dts, helpers: Object.freeze(helpers) },
-    () => ({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }), () => assembleHaskell(inst, base.haskell, avail));
+    () => ({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }));
 }
 
 /** Compute once, on first use. */
@@ -205,11 +202,9 @@ function once<T>(f: () => T): () => T {
  * the instance description (InstanceInfo.helpers) needs only the helper docs, and the engine's hot queries describe
  * the room's instance on every execution (Convex keeps no memo between executions). Reads see the same frozen values.
  */
-function withDerived(texts: Pick<PreludeParts, "python" | "js" | "dts" | "helpers">, pricing: () => PreludeParts["pricing"],
-  haskell: () => string): PreludeParts {
+function withDerived(texts: Pick<PreludeParts, "python" | "js" | "dts" | "helpers">, pricing: () => PreludeParts["pricing"]): PreludeParts {
   const vocab = once(() => Object.freeze(pricing())), hash = once(() => sha256(`${texts.python}\0${texts.js}\0${texts.dts}`));
-  const room = once(haskell);
-  return Object.freeze({ ...texts, get pricing() { return vocab(); }, get hash() { return hash(); }, get haskell() { return room(); } });
+  return Object.freeze({ ...texts, get pricing() { return vocab(); }, get hash() { return hash(); } });
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -322,9 +317,9 @@ function onlyIfBetter(moves) {
 export const COMMIT_CLAUSE_DTS = `
 declare function onlyIfBetter(moves: MutatorCall | readonly MutatorCall[]): CommitClause;
 `;
-export const COMMIT_CLAUSE_HELPER: HelperDoc = withHaskellDocs([helper("only_if_better", "only_if_better(moves) -> clause",
+export const COMMIT_CLAUSE_HELPER: HelperDoc = helper("only_if_better", "only_if_better(moves) -> clause",
   "onlyIfBetter(moves: MutatorCall[]): CommitClause",
-  "Wrap your moves: they happen only if they raise your own points on this object (otherwise nothing changes)")], "")[0]!;
+  "Wrap your moves: they happen only if they raise your own points on this object (otherwise nothing changes)");
 
 /** The prelude of a room that offers the commit clause: the base prelude plus the wrapper. */
 export function withCommitClause(parts: PreludeParts): PreludeParts {
@@ -332,6 +327,5 @@ export function withCommitClause(parts: PreludeParts): PreludeParts {
   const add = (v: PricingVocab, name: string): PricingVocab => Object.freeze({ ...v, api: sortedUnique([...v.api, name]),
     params: sortedUnique([...v.params, "moves"]), strings: sortedUnique([...v.strings, "if-improves"]) });
   return withDerived({ python, js, dts, helpers: Object.freeze([...parts.helpers, COMMIT_CLAUSE_HELPER]) },
-    () => ({ python: add(parts.pricing.python, "only_if_better"), typescript: add(parts.pricing.typescript, "onlyIfBetter") }),
-    () => parts.haskell + HS_COMMIT_CLAUSE);
+    () => ({ python: add(parts.pricing.python, "only_if_better"), typescript: add(parts.pricing.typescript, "onlyIfBetter") }));
 }
