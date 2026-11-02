@@ -99,6 +99,13 @@ function ScrubTrack({ controller: c, cursor }: { controller: ReplayController; c
     const r = track.current!.getBoundingClientRect();
     return { x: clientX - r.left, cursor: cursorAtFraction((clientX - r.left) / Math.max(1, r.width), c.end) };
   };
+  // A drag seeks at most once a frame: each seek refolds the state and re-renders every panel.
+  const pending = useRef<{ cursor: number; frame: number } | null>(null);
+  const dragTo = (to: number) => {
+    if (pending.current) { pending.current.cursor = to; return; }
+    pending.current = { cursor: to, frame: requestAnimationFrame(() => { const p = pending.current; pending.current = null; if (p) c.seek(p.cursor); }) };
+  };
+  useEffect(() => () => { if (pending.current) cancelAnimationFrame(pending.current.frame); }, []);
   const pct = (n: number) => `${(n / Math.max(1, c.end)) * 100}%`;
   const hovered = hover && hover.cursor > 0 ? c.replay.log[hover.cursor - 1] : undefined;
   return (
@@ -106,14 +113,14 @@ function ScrubTrack({ controller: c, cursor }: { controller: ReplayController; c
       <div ref={track} role="slider" tabIndex={0} aria-label="Replay position (event)" aria-valuemin={0} aria-valuemax={c.end} aria-valuenow={cursor}
         aria-valuetext={`event ${cursor} of ${c.end}`} data-testid="input-replay-scrub"
         className="group relative h-5 cursor-pointer touch-none outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
-        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); c.seek(at(e.clientX).cursor); }}
-        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) c.seek(h.cursor); }}
+        onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); c.seek(at(e.clientX).cursor); }}
+        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) dragTo(h.cursor); }}
+        onPointerUp={() => { const p = pending.current; if (p) { cancelAnimationFrame(p.frame); pending.current = null; c.seek(p.cursor); } }}
         onPointerLeave={() => setHover(null)}
         onKeyDown={e => {
-          // The bar's own keys: arrows step, Page keys jump a tenth, Home/End. (Space and the rest are the page's: useReplayKeys.)
+          // A slider's extra keys: Up/Down step, Page keys jump a tenth. Left/Right, Home/End and Space are the page's (useReplayKeys).
           const tenth = Math.max(1, Math.round(c.end / 10));
-          const to = e.key === "ArrowRight" || e.key === "ArrowUp" ? cursor + 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? cursor - 1
-            : e.key === "PageUp" ? cursor + tenth : e.key === "PageDown" ? cursor - tenth : e.key === "Home" ? 0 : e.key === "End" ? c.end : null;
+          const to = e.key === "ArrowUp" ? cursor + 1 : e.key === "ArrowDown" ? cursor - 1 : e.key === "PageUp" ? cursor + tenth : e.key === "PageDown" ? cursor - tenth : null;
           if (to === null || e.shiftKey) return;
           e.preventDefault(); e.stopPropagation();
           c.seek(to);

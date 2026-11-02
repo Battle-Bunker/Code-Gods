@@ -5,7 +5,8 @@
  * wider the dockview dock is loaded; below, the stacked renderer (dockview is never downloaded on phones).
  *
  * Replay mode (`replay`, docs/replay-design.md §4): the same dock over an ended game at a replay's playhead. The SDK
- * answers come from the replay (core/replay sets the source), the header is the replay's transport, the layout is the
+ * answers come from the replay (core/replay sets the source), the header names the game and the replay bar under the dock (`footer`) drives the
+ * playhead, the layout is the
  * human's own arrangement but changes stay in this tab (never pushed), and the Timeline panel is opened.
  *
  * Keys: Cmd/Ctrl+K opens the palette everywhere; `/` focuses the assistant's composer and `?` opens the palette when
@@ -112,7 +113,8 @@ function ShellFooter({ children }: { children: ReactNode }) {
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(el);
-    return () => { observer.disconnect(); root.style.removeProperty("--cg-footer-h"); };
+    // Removed only while it is still this footer's height: the next page's footer may already have written its own.
+    return () => { observer.disconnect(); if (root.style.getPropertyValue("--cg-footer-h") === `${el.offsetHeight}px`) root.style.removeProperty("--cg-footer-h"); };
   }, []);
   return <div ref={ref} className="relative z-50 shrink-0" data-testid="shell-footer">{children}</div>;
 }

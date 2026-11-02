@@ -21,13 +21,11 @@ export function PastGames({ room, meId }: { room: { id: string; shortCode: strin
         <ul className="divide-y divide-[hsl(var(--card-border))] border border-[hsl(var(--card-border))] bg-card">
           {games.map(g => (
             <li key={g.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-4 py-3 text-sm" data-testid={`row-past-game-${g.shortCode}`}>
-              {g.canOpen
-                ? <Link to={{ kind: "game", room: room.shortCode, game: g.shortCode }} className="font-mono font-semibold underline" data-testid={`link-past-game-${g.shortCode}`}>{g.shortCode}</Link>
-                : <span className="font-mono font-semibold text-muted-foreground" title="Only the gods who played in it and the room owner can open it">{g.shortCode}</span>}
+              <span className={`font-mono font-semibold ${g.canOpen ? "" : "text-muted-foreground"}`} title={g.canOpen ? undefined : "Only the gods who played in it and the room owner can open it"}>{g.shortCode}</span>
               <span className="text-muted-foreground">ended {when(g.endedAt)}</span>
               <span className="min-w-0 flex-1">{g.winners ? `won by ${g.winners}` : "no winner"}</span>
               <span className="label">{g.played ? "you played" : "you did not play"}</span>
-              {g.canOpen && <Link to={{ kind: "game", room: room.shortCode, game: g.shortCode }} className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground" data-testid={`link-replay-${g.shortCode}`}>▶︎ Watch the replay</Link>}
+              {g.canOpen && <Link to={{ kind: "game", room: room.shortCode, game: g.shortCode }} className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground" data-testid={`link-past-game-${g.shortCode}`}>▶︎ Watch the replay</Link>}
             </li>
           ))}
         </ul>

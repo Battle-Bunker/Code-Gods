@@ -5,7 +5,9 @@
  */
 import { useSituation } from "@/core/game/situation";
 import { Link } from "../navigation";
-import { endedGameReplay } from "./model";
+import { SPEEDS, endedGameReplay } from "./model";
+
+const speed = (s: number) => `${s === 0.25 ? "¼" : s === 0.5 ? "½" : s}×`;
 
 export function EndedGameBar() {
   const { obs, room } = useSituation();
@@ -20,7 +22,7 @@ export function EndedGameBar() {
         <span aria-hidden>▶︎</span> Watch the replay
       </Link>
       <span className="text-sm">Game <span className="font-mono">{target.game}</span> is over.</span>
-      <span className="text-xs text-muted-foreground">Scrub through every move, play it at ¼× to 64×, and see every player's goal, agents and code.</span>
+      <span className="text-xs text-muted-foreground">Scrub through every move, play it at {speed(SPEEDS[0])} to {speed(SPEEDS[SPEEDS.length - 1])}, and see every player's goal, agents and code.</span>
     </div>
   );
 }
