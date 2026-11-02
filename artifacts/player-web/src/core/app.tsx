@@ -9,8 +9,9 @@
  *   /connect, /device          approving an app or a device (the engine's own site only)
  *   /admin/agents[/:id]        the AI player library (admins, the engine's own site only)
  *
- * It runs where the engine serves it (the site's Google session) or as a player's own dev server holding a room
- * credential (./connection.ts); the pages are the same, the engine decides what the human may do.
+ * It runs where the engine serves it (the site's Google session), on any other origin with an account grant the human
+ * approved on the engine's /connect, or as a player's own dev server holding a room credential (./connection.ts);
+ * the pages are the same, the engine decides what the human may do.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";

@@ -30,7 +30,7 @@ test("every engine catalogue entry is a command or a stated exclusion; every nex
   for (const path of allCatalogSitePaths()) assert.ok(ids.has(path) || EXCLUDED[path], `${path} is bound or excluded`);
   for (const path of Object.keys(EXCLUDED)) assert.ok(!ids.has(path), `${path} is excluded, not bound`);
   for (const id of STEP_IDS) assert.ok(ids.has(id), `next step ${id} is a palette command`);
-  assert.equal(tooltipFor("rooms.join"), "Plays the next game, or watches it once eight players are in; a game already running you watch.", "tooltips come from the catalogue");
+  assert.equal(tooltipFor("rooms.join"), "Plays the next game or watches it (a game already running, or once eight play, you watch).", "tooltips come from the catalogue");
 });
 
 test("Start game explains what is missing and offers the fix; a member sees who can", () => {

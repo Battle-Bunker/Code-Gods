@@ -298,7 +298,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of a game of this room; past games open for their players. | `get_game_history` |
 | `player.replay` | query | player | Replay a game I played | Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move. | `get_replay` |
-| `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players and the owner. | — (The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
+| `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players, spectators and the owner. | — (The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.objectsPage` | query | player | Scroll the objects | Your objects a page at a time, by payoff, your bits or the others' care. | — (The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.) |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |
@@ -308,7 +308,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, ready to share its invite link. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
 | `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state`, `load_skill` |
-| `rooms.join` | mutation | player | Join this room | Plays the next game, or watches it once eight players are in; a game already running you watch. | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
+| `rooms.join` | mutation | player | Join this room | Plays the next game or watches it (a game already running, or once eight play, you watch). | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |
 | `rooms.leave` | mutation | player | Leave this room | Gives up your seat; you can join again later. | — (Leaving would revoke the very credential the assistant acts through.) |
 | `rooms.setReady` | mutation | player | Mark me ready | Tells the room you are ready for the next game; it gates nothing. | `set_ready` |
 | `rooms.setSpectator` | mutation | player | Watch or play the next game | Spectators watch without being dealt in, from the next game; the owner can set it for anyone. | `set_spectator` |

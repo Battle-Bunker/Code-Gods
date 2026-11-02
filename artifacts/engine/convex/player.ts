@@ -68,7 +68,7 @@ async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?:
 /**
  * One game of the room as the caller may see it, by id, GUID or short code: its public world (live, or final once
  * ended: the recorded standings, winners, last objects) and its chat, with whether it is the room's current game and
- * whether the caller was seated. The player client's /rooms/:room/games/:game page; a historic game is read-only
+ * whether the caller was seated. The app's /rooms/:room/games/:game page; a historic game is read-only
  * and readable only by its participants and the room owner (gameFor).
  */
 const gameArgs = { roomId: v.string(), gameId: v.string() };

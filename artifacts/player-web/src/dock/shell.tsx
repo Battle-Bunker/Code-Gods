@@ -101,7 +101,7 @@ export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
 }
 
 /**
- * The bar under the dock (the replay bar, or the room's "Watch the replay"): its height is published as
+ * The bar under the dock (the replay bar): its height is published as
  * `--cg-footer-h`, so the phone's assistant sheet (fixed to the screen's bottom) sits above it rather than over it.
  */
 function ShellFooter({ children }: { children: ReactNode }) {

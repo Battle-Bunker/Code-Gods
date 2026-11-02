@@ -391,7 +391,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.game": {
     kind: "query", audience: "player",
-    human: { title: "Open a game of this room", tooltip: "One game of this room, live or as it ended; past games open for their players and the owner." },
+    human: { title: "Open a game of this room", tooltip: "One game of this room, live or as it ended; past games open for their players, spectators and the owner." },
     ai: { description: "One game of the room by id or code: its public world (final once ended), standings, winners and chat, whether it is current and whether the human was seated." },
     tools: [], palette: null, why: "The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.",
   },
@@ -454,7 +454,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "rooms.join": {
     kind: "mutation", audience: "player",
-    human: { title: "Join this room", tooltip: "Plays the next game, or watches it once eight players are in; a game already running you watch." },
+    human: { title: "Join this room", tooltip: "Plays the next game or watches it (a game already running, or once eight play, you watch)." },
     ai: { description: "Join a room as the signed-in human (browser only), as a player of the next game or (spectator: true) a spectator; a ninth player must join as a spectator." },
     tools: [], palette: { label: "Join this room", group: "room", keywords: ["join", "seat", "member"] },
     why: "Membership precedes any credential: the human joins in the browser before an assistant can act for them there.",
