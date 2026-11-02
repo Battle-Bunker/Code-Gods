@@ -91,7 +91,7 @@ export const isHistoric = (room: Doc<"rooms">, game: Doc<"games">) => game._id !
  */
 export function requireHistoricReaderAs(viewer: Viewer, room: Doc<"rooms">, game: Doc<"games">): Viewer {
   requireRoomPermission(viewer, room._id, "read");
-  if (room.ownerId === viewer.subject || game.roster.some(m => m.id === viewer.subject) || game.spectators.includes(viewer.subject)) return viewer;
+  if (room.ownerId === viewer.subject || game.roster.some(m => m.id === viewer.subject) || (game.spectators ?? []).includes(viewer.subject)) return viewer;
   return fail("FORBIDDEN", "Only the gods who played in it or watched it, and the room owner, can open a past game");
 }
 /** Read access to a room's public state: browser humans, or a player credential bound to this room. */

@@ -116,10 +116,8 @@ because ended means replay.
   doesn't count toward 3. `nextStep` gains the case: "2 players: play yourself, add an AI, or wait".
 - **Ready** applies to players only. Spectators have no ready state. The lobby AI rules are unchanged.
 - **Ownership transfer** (if it ever exists) does not touch the flag.
-- **Existing data: reset, not migrated.** The new required fields (`members.spectator`, `games.spectators`) would
-  make every stored room invalid. The schema is written clean, with no optional fields for old rows. Before the
-  deploy, dev and production get a one-off reset of the room data (see "Data reset" in §5). No migration code is
-  committed.
+- **Existing data: migrated.** Stored members are backfilled with `spectator: false` (today's owners keep playing) and
+  stored games with `spectators: []` (§5, "Schema changes are migrated").
 
 ### 2.3 Disclosure
 
@@ -214,9 +212,8 @@ through one engine helper, and one test matrix runs the app in both modes (§5).
 - **Affordances (`useAffordances`, audit worker).** The merged app derives `PaletteContext` from `useEngineSession()`
   plus the room and roster. "seated" now means on the active roster, and spectators rank as `member`. Coordinate:
   that worker's hook becomes the app's one hook. Phase 2 starts only after it merges.
-- **Auto-update (PR #108).** There is one static site, so `versionSiteV` becomes `"app" | "functions"`, written
-  fresh. The `siteBuilds` table is cleared by the data reset (§5). It only caches deploy versions, and the next
-  deploy rewrites it. `startAutoUpdate` keeps protecting a seated player's unsent work (unchanged). Tabs still open
+- **Auto-update (PR #108).** There is one static site, so `versionSiteV` gains `"app"`; a migration deletes the old
+  sites' `siteBuilds` rows (they only record past deploys), and a narrowing PR leaves `"app" | "functions"` (§5). `startAutoUpdate` keeps protecting a seated player's unsent work (unchanged). Tabs still open
   on `/client/` at the cutover just 404 on reload, which is acceptable: there are no external users.
 - **Version skew.** One build means engine pages and dock can no longer disagree.
 - **Deep links.** Replay params stay on the game URL. `?panels=off` (safe mode) is the only carried parameter.
@@ -236,27 +233,23 @@ through one engine helper, and one test matrix runs the app in both modes (§5).
 
 ## 5. Sequencing (each PR keeps `develop` green, merged per CLAUDE.md; all wait for the coordinator's "go")
 
-**Data reset (instead of migrations).** PR 1 makes the room schema strict (`members.spectator`,
-`games.spectators`), and PR 3 changes `siteBuilds`. Old rows would fail the deploy's schema validation. The
-options were committed backfill migrations or optional fields, and both are compatibility code. Instead, before
-each of those PRs merges, clear the affected tables on the dev deployment, and on production before the release
-to `main`:
+**Schema changes are migrated, never reset** (owner, 2026-11-02: "set a precedent for our process to do migrations
+according to convex best practices"; CLAUDE.md "Schema migrations"). The `@convex-dev/migrations` component runs from
+the deploy workflow (`scripts/run-migrations.mjs`), and each change goes widen → migrate → narrow:
 
-- **PR 1:** the room data: `rooms`, `members`, `games` and their per-game children (`deities`, `objects`,
-  `agents`, `tickBatches`, `objectEvents`, `chat`, `receipts`, `examinations`, `aiUsage`, assistant threads and
-  allowances, code runs, `dockLayouts`), plus room-bound `credentials` and OAuth connections.
-- **PR 3:** `siteBuilds`.
-
-What is kept: users, `gameSetups`, stored panels, AI templates, calibration tables and the runtime bundles.
-The reset is a one-off `npx convex import --replace` of empty tables, or the dashboard's "clear table", run by
-whoever holds the deploy keys. The PR description lists the exact tables, and no code for it is committed. If this
-worker has no deploy key, the coordinator or owner runs it. Hosted-client OAuth connections registered for the old
-`/client/` redirect URI are cleared with the credentials.
+- **PR 1:** `members.spectator` and `games.spectators` land optional; `backfillMemberSpectator` sets `false` on every
+  stored member (existing owners keep playing: no current room changes behaviour) and `backfillGameSpectators` sets
+  `[]` on stored games.
+- **PR 3:** `siteBuilds.site` is widened to accept `"app"` beside the old `"engine"` and `"player"`; a migration deletes
+  the old sites' rows (they only record past builds; the next deploy records the app's).
+- **A narrowing PR** after dev and production report those migrations done makes `spectator`/`spectators` required and
+  `siteBuilds.site` `"app" | "functions"` only, and drops the fallbacks.
 
 1. **PR 1: spectator role, engine and current UIs.**
    - Engine changes:
-     - `members.spectator`;
-     - `games.spectators`;
+     - `members.spectator` and `games.spectators` (optional, backfilled by component migrations);
+     - the `@convex-dev/migrations` component, `scripts/run-migrations.mjs` in the deploy workflow and dev, and
+       CLAUDE.md "Schema migrations";
      - `rooms.setSpectator`, the catalogue entry and the `set_spectator` tool;
      - start counts players only;
      - owner default on `rooms.create`;
@@ -349,7 +342,6 @@ worker has no deploy key, the coordinator or owner runs it. Hosted-client OAuth 
    fetch. `csp.test.ts` covers both modes.
 7. **Bundle size.** Engine pages plus the dock, SDK and grids in one bundle.
    *Proposal:* route-level `lazy()`. The home, room and configure pages don't load the dock chunk.
-8. **Strict schema vs existing data.** *Decision:* a one-off data reset on dev and production, with nothing
-   committed (§5). It needs someone with deploy keys at the PR 1 and PR 3 merges.
+8. **Strict schema vs existing data.** *Decision:* component migrations, widen → migrate → narrow (§5); no resets.
 9. **Behaviour the owner may not expect:** the 15 s auto-return disappears, and the room page no longer embeds the
    live game. Both follow from the request, and the PR descriptions say so.

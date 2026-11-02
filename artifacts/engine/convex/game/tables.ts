@@ -111,9 +111,10 @@ export const gameTables = {
     /**
      * Watches the next game instead of playing it (docs/unify-apps-plan.md §2): not dealt in, not counted toward the
      * 3 to 8 players. A preference for the next game; a running game's roster never changes. The owner starts as one;
-     * AI seats never are.
+     * AI seats never are. Optional while migrations:backfillMemberSpectator runs (absent = player); required once every
+     * deployment has run it (CLAUDE.md "Schema migrations").
      */
-    spectator: v.boolean(),
+    spectator: v.optional(v.boolean()),
     /** Humans only: the Replit subject (= godId), indexed for auth's device approval (auth/rooms.ts isRoomMember). */
     userId: v.optional(v.string()),
     aiAgent: v.optional(aiAgentSnapshot), status: v.optional(v.string()),
@@ -125,8 +126,11 @@ export const gameTables = {
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
-    /** The room's human members who watch this game: everyone not dealt in at launch, and whoever joins while it runs. */
-    spectators: v.array(v.string()),
+    /**
+     * The room's human members who watch this game: everyone not dealt in at launch, and whoever joins while it runs.
+     * Optional while migrations:backfillGameSpectators runs (absent = none); required once every deployment has run it.
+     */
+    spectators: v.optional(v.array(v.string())),
     /** The room's setup when the game started (its id and name then), so history can name it. */
     setupId: v.optional(v.id("gameSetups")), setupName: v.optional(v.string()),
     /** LEGACY (pre setups-v2; cleared by the migration). */

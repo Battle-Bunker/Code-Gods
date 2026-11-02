@@ -1,6 +1,19 @@
 /**
- * One-off data migrations, run by the deploy workflow after `setups:ensureSeeded` (.github/workflows/deploy.yml) and
- * idempotent, so every deploy may run them again (assistant-per-game is at the end of the file).
+ * Data migrations (CLAUDE.md "Schema migrations"). New ones use the official @convex-dev/migrations component:
+ * `migrations.define({ table, migrateOne })`, idempotent (a row already in the new shape is left alone), appended to
+ * `runAll`, which the deploy workflow runs after `convex deploy` (scripts/run-migrations.mjs waits for it and fails
+ * the deploy on a failed migration). The component runs them online, in batches, resumably, once per deployment.
+ * The schema change around one follows widen → migrate → narrow: the new shape is optional (or a union) while it runs,
+ * and a later PR makes it required once every deployment reports it done (`migrations:status`).
+ *
+ * Component migrations, in runAll's order:
+ *  - backfillMemberSpectator (members): `spectator: false` on rows stored before spectators existed, so every member,
+ *    a room's owner included, keeps playing exactly as before (new rooms' owners start as spectators: rooms.create).
+ *  - backfillGameSpectators (games): `spectators: []` on games stored before spectators existed (nobody watched them;
+ *    their players and the room's owner still open them once past).
+ *
+ * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
+ * component, and porting the Node action setupsV2 buys nothing):
  *
  * setups-v2 (`migrations/node:setupsV2`, which pages through `setupsV2Page`):
  *  - settings on game setups, rooms and games: `defenceRate` becomes `defenceGoals` + `excludedDefenceFamilies`, and a
@@ -22,12 +35,38 @@ import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { Migrations, type MigrationStatus } from "@convex-dev/migrations";
+import type { FunctionReference } from "convex/server";
+import { components } from "./_generated/api";
+import schema from "./schema";
 import { ASSISTANT_LOBBY } from "./ai/seats";
 import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/keys";
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { freeName, setupSummary } from "./setups";
+
+export const migrations = new Migrations(components.migrations, { schema });
+
+export const backfillMemberSpectator = migrations.define({
+  table: "members",
+  migrateOne: (_ctx, member) => (member.spectator === undefined ? { spectator: false } : undefined),
+});
+
+export const backfillGameSpectators = migrations.define({
+  table: "games",
+  migrateOne: (_ctx, game) => (game.spectators === undefined ? { spectators: [] } : undefined),
+});
+
+/** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
+// Annotated: this module's own `internal` references would otherwise make its exported types circular.
+const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators];
+export const runAll = migrations.runner(RUN_ALL);
+/** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
+export const status = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<MigrationStatus[]> => migrations.getStatus(ctx, { migrations: RUN_ALL }),
+});
 
 const PAGE = 100;
 export const PHASES = ["setups", "rooms", "games"] as const;
