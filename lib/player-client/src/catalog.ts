@@ -395,6 +395,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "Per-object series over the game of the human's net bits, the peer aggregate and payoff: which objects are rising or falling for them." },
     tools: ["get_trajectories"], palette: { label: "Open my points over time", group: "view", keywords: ["chart", "trajectories", "over time", "trend"], surfaces: P },
   },
+  "player.objectsPage": {
+    kind: "query", audience: "player",
+    human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits or the others' care." },
+    ai: { description: "A page of the human's objects ordered by payoff, their bits or the others' care (the disclosed, noisy sum while the game is live), with footer totals; the Objects panel's infinite scroll." },
+    tools: [], palette: null, why: "The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
+  },
   "player.series": {
     kind: "query", audience: "player",
     human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },

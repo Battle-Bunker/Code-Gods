@@ -10,7 +10,9 @@
  * The frame may read only the queries the SDK itself uses, always for the host's current room (BRIDGE_QUERIES
  * rewrites every argument), and submit commands through the host, which may ask the player first.
  */
-export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "rooms.get";
+import { OBJECT_FILTERS, OBJECT_PAGE_MAX, OBJECT_SORTS } from "@workspace/player-client/objects-page";
+
+export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get";
 
 const int = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.trunc(value))) : fallback;
@@ -23,6 +25,14 @@ export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, r
   "player.trajectories": (args, roomId) => typeof args.gameId === "string" && args.gameId.length <= 64
     ? { roomId, gameId: args.gameId, afterSeq: int(args.afterSeq, -1, Number.MAX_SAFE_INTEGER, -1), limit: int(args.limit, 1, 200, 200) }
     : null,
+  "player.objectsPage": (args, roomId) => {
+    const after = args.after as { key?: unknown; id?: unknown } | null | undefined;
+    return {
+      roomId, sort: OBJECT_SORTS.find(s => s === args.sort) ?? "payoff", filter: OBJECT_FILTERS.find(f => f === args.filter) ?? "all",
+      limit: int(args.limit, 1, OBJECT_PAGE_MAX, 12),
+      ...(after && typeof after.key === "number" && Number.isFinite(after.key) && typeof after.id === "string" && after.id.length <= 64 ? { after: { key: after.key, id: after.id } } : {}),
+    };
+  },
   "rooms.get": (_args, roomId) => ({ room: roomId }),
 };
 export const isQueryName = (name: unknown): name is QueryName => typeof name === "string" && Object.hasOwn(BRIDGE_QUERIES, name);

@@ -57,6 +57,24 @@ export function useObjects({ hz }: Live = {}): LiveObject[] {
   return useObservation({ hz })?.objects ?? EMPTY;
 }
 
+/**
+ * A window onto your objects for infinite scroll: the first `limit` objects in `sort` order (payoff, your bits, others' care;
+ * `filter` narrows), after the cursor `after` if given, with the next page's cursor, the counts and the footer totals.
+ * Live games order by the disclosed, noisy others-sum, as the observation shows it. Undefined while loading; the last
+ * answer is kept while the arguments change, so a list does not blank while a larger window loads.
+ */
+export type ObjectsWindow = NonNullable<FunctionReturnType<typeof api.player.objectsPage>>;
+export function useObjectsPage(
+  { sort = "payoff", filter = "all", limit = 12, hz }: Live & { sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; limit?: number } = {},
+): ObjectsWindow | undefined {
+  const { roomId } = useRoom();
+  const page = useSdkQuery("player.objectsPage", { roomId, sort, filter, limit }, hz);
+  const throttled = useThrottled(page, hz);
+  const [kept, setKept] = useState<ObjectsWindow>();
+  useEffect(() => { if (throttled && throttled !== kept) setKept(throttled); }, [throttled, kept]);
+  return throttled ?? kept;
+}
+
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
 export function useMyCard() {
   return useObservation({ hz: 0.5 })?.self.utility;

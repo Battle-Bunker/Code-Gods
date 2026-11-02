@@ -44,6 +44,8 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       eventsFromStart: await client.query(api.player.events, { roomId, after: -1, limit: 50 }),
       history: await client.query(api.player.history, { roomId, gameId: game.gameId, afterSeq: -1, limit: 50 }),
       trajectories: await client.query(api.player.trajectories, { roomId, afterSeq: -1, limit: 200 }),
+      objectsByPayoff: await client.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 300 }),
+      objectsByOthers: await client.query(api.player.objectsPage, { roomId, sort: "othersCare", limit: 300 }),
       myUtility: await client.query(api.player.myUtility, { roomId }),
       room: await client.query(api.rooms.get, { room: shortCode }),
       view: await client.query(api.games.view, { code: game.shortCode }),
@@ -54,6 +56,20 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
 
   const live = await collect(ada);
   for (const [label, result] of Object.entries(live)) await check(`live ${label}`, result);
+  {
+    // The paginated objects carry the same disclosed numbers as the observation (the others' sum with its noise), and
+    // every sort orders by them: never by an exact peer value, which the viewer is not shown.
+    const shown = new Map(live.observation.objects.map(o => [o.id, o]));
+    for (const [sort, page] of [["payoff", live.objectsByPayoff], ["othersCare", live.objectsByOthers]] as const) {
+      assert.equal(page.total, live.observation.objects.length);
+      for (const row of page.rows) {
+        const o = shown.get(row.id)!;
+        assert.deepEqual([row.peerNetBits, row.peerCare, row.payoff], [o.peerNetBits, o.peerCare, o.payoff], `${sort} page row ${row.id} = the observation's disclosed values`);
+      }
+      const keys = (page.rows as { payoff: number; peerCare: number }[]).map(r => (sort === "payoff" ? r.payoff : r.peerCare));
+      assert.deepEqual(keys, [...keys].sort((a, b) => b - a), `${sort} orders by the disclosed key`);
+    }
+  }
   // The viewer's own data is there: own descriptor, own agents with source, own and aggregate bits.
   const secret = await raw(game.gameId);
   const own = secret.deities.find((d: any) => d.godId === ada.subject);

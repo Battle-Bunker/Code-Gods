@@ -11,6 +11,7 @@ import {
   cursorAtWorld, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt,
   type KeyMoment, type Replay, type ReplayState,
 } from "@workspace/player-client/replay";
+import { pageObjects, type ObjectCursor, type ObjectFilter, type ObjectSort } from "@workspace/player-client/objects-page";
 import type { QueryName } from "@/sdk/bridge-protocol";
 import type { ReplaySource } from "@/sdk/replay-source";
 import { DEFAULT_SPEED, SPEEDS } from "./model.ts";
@@ -155,12 +156,22 @@ export class ReplayController {
     const value = name === "player.observation" ? replayObservation(this.replay, at, p.state)
       : name === "player.events" ? replayEvents(this.replay, at, typeof args.limit === "number" ? args.limit : 20)
       : name === "player.trajectories" ? replayTrajectories(this.replay, at, typeof args.afterSeq === "number" ? args.afterSeq : -1)
+      : name === "player.objectsPage" ? replayObjectsPage(this.replay, at, p.state, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
       : undefined;
     this.answers.set(key, value);
     return value;
   }
   refusal = "This is a replay of an ended game: nothing can be done in it. Go back to the room to play.";
+}
+
+/** player.objectsPage at the playhead: the replay's objects (exact, a replay is of an ended game) paged like the engine pages them. */
+function replayObjectsPage(replay: Replay, at: Parameters<typeof replayObservation>[1], state: ReplayState, args: Record<string, unknown>) {
+  const objects = replayObservation(replay, at, state).objects;
+  return pageObjects(objects, {
+    sort: args.sort as ObjectSort | undefined, filter: args.filter as ObjectFilter | undefined,
+    after: (args.after as ObjectCursor | null | undefined) ?? null, limit: typeof args.limit === "number" ? args.limit : undefined,
+  });
 }
 
 /** The controller as the SDK's replay source: answers move with the playhead and the point of view only. */

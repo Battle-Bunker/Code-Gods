@@ -64,6 +64,7 @@ export const PANELS = {
     params: z.strictObject({
       sortBy: z.enum(["payoff", "mine", "othersCare"]).default("payoff"),
       filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
+      /** Rows per page: the list opens with this many and loads this many more as the player scrolls (player.objectsPage). */
       limit: z.number().int().min(3).max(60).default(12),
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),

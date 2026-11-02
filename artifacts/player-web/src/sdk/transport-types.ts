@@ -14,6 +14,7 @@ export type QueryReturns = {
   "player.events": FunctionReturnType<typeof api.player.events>;
   "player.myUtility": FunctionReturnType<typeof api.player.myUtility>;
   "player.trajectories": FunctionReturnType<typeof api.player.trajectories>;
+  "player.objectsPage": FunctionReturnType<typeof api.player.objectsPage>;
   "rooms.get": FunctionReturnType<typeof api.rooms.get>;
 };
 
