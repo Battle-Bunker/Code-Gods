@@ -7,12 +7,12 @@
  */
 import { LANGUAGE_SPECS, codecOf, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
-import type { ActResult, ActSettings, Compiled, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
+import { compilationKey, type ActResult, type ActSettings, type Compiled, type GameRuntime, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { RETRY_AFTER_MS, notReadyMessage } from "../lib/sandboxes";
-import { haskellKey, RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
-import { HASKELL_ACT_BATCH, HASKELL_PROGRAM_REFRESH_MS } from "../lib/haskellPrograms";
+import { RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
+import { HASKELL_ACT_BATCH, PROGRAM_REFRESH_MS } from "../lib/programs";
 import type { LanguageSandbox } from "../runtime/readiness";
 export { bindRuntime, runtimeVersion } from "../runtime/node";
 
@@ -69,14 +69,20 @@ async function guarded<T>(language: Language, run: (rt: GameRuntime) => Promise<
  */
 export function inspect(ctx: ActionCtx, source: string, language: Language, settings: GameSettings): Promise<Inspection> {
   validateSettings(settings);
-  // Never this instance's Haskell pool: the compiling action prices it (runtime/haskellCompile.ts).
-  if (language === "haskell") return haskellProgram(ctx, source, settings).then(({ inspection }) => ({ ...inspection }));
+  // A compiled language is priced by the compiling action (runtime/compile.ts), never on this instance.
+  if (language !== "python") return compiledProgram(ctx, language, source, settings).then(({ inspection }) => ({ ...inspection }));
   return guarded(language, rt => rt.inspect(source, actSettings(settings, language)));
 }
 /** One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded call list. */
 export function act(ctx: ActionCtx, source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
   if (language === "haskell") return haskellAct(ctx, source, input as string | number, settings, seed.toString());
-  return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings, language), seed.toString()));
+  const room = actSettings(settings, language);
+  if (language === "typescript") {
+    // The program first (another action compiles it), then this instance's pool runs it.
+    return compiledProgram(ctx, language, source, settings)
+      .then(({ js }) => guarded(language, rt => rt.actCompiled(source, js, input as string | number, room, seed.toString())));
+  }
+  return guarded(language, rt => rt.act(source, input as string | number, room, seed.toString()));
 }
 
 type HaskellRequest = { source: string; input: string | number; seed: string; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
@@ -122,33 +128,64 @@ async function sendHaskellActs(ctx: ActionCtx, settings: GameSettings, batch: Ha
   }
 }
 
-/** This instance's compiled Haskell programs (and the agents' own compile failures), by haskellKey. */
-const haskellPrograms = new Map<string, Compiled | { error: { code: string; message: string } }>();
+type KnownProgram = Compiled | { error: { code: string; message: string } };
+/** This instance's compiled programs (and the agents' own compile failures), by compilationKey; the oldest go first. */
+const programs = new (class {
+  private map = new Map<string, { value: KnownProgram; size: number }>();
+  private bytes = 0;
+  constructor(private maxEntries: number, private maxBytes: number) {}
+  get(key: string) {
+    const item = this.map.get(key);
+    if (item) { this.map.delete(key); this.map.set(key, item); }
+    return item?.value;
+  }
+  set(key: string, value: KnownProgram, size: number) {
+    const old = this.map.get(key);
+    if (old) { this.map.delete(key); this.bytes -= old.size; }
+    if (size > this.maxBytes) return;
+    while (this.map.size && (this.map.size >= this.maxEntries || this.bytes + size > this.maxBytes)) {
+      const [oldest, item] = this.map.entries().next().value!;
+      this.map.delete(oldest); this.bytes -= item.size;
+    }
+    this.map.set(key, { value, size }); this.bytes += size;
+  }
+})(256, 16 * 1024 * 1024);
+/**
+ * `program` for this action's callers: always a promise, and a CONFIG failure of the compiling action is a server bug
+ * (as `guarded` reports for the pools), never the agent's fault. This instance's pools are not blamed for it.
+ */
+function compiledProgram(ctx: ActionCtx, language: "typescript" | "haskell", source: string, settings: GameSettings): Promise<Compiled> {
+  return Promise.resolve().then(() => program(ctx, language, source, settings)).catch(error => {
+    if ((error as { code?: string }).code === "CONFIG") {
+      console.error("Runtime configuration error (server bug)", (error as Error).message);
+      throw Object.assign(new Error("The game runtime is misconfigured"), { code: "RUNTIME_CONFIG" });
+    }
+    throw error;
+  });
+}
 /** Lookups in flight, per action (never awaited by another action, whose context could outlive this one's). */
-const haskellPending = new WeakMap<ActionCtx, Map<string, Promise<Compiled>>>();
+const pendingPrograms = new WeakMap<ActionCtx, Map<string, Promise<Compiled>>>();
 const compileFailure = (error: { code: string; message: string }) => Object.assign(new Error(error.message), { code: error.code });
 /**
- * A Haskell agent's compiled program: from this instance, else the stored one (runtime/haskellPrograms.ts), else
- * compiled by runtime/haskellCompile.ts in another action, so this action never holds the compiler beside its pools.
- * The agent's compile errors keep their codes (COMPILE, LIMIT); a host failure is never remembered.
+ * A TypeScript or Haskell agent's compiled program: from this instance, else the stored one (runtime/programs.ts), else
+ * compiled by runtime/compile.ts in another action, so this action never holds a compiler beside its pools. The agent's
+ * compile errors keep their codes (COMPILE, LIMIT); a host failure is never remembered.
  */
-export function haskellProgram(ctx: ActionCtx, source: string, settings: GameSettings): Promise<Compiled> {
-  const key = haskellKey(source, actSettings(settings, "haskell"));
-  const known = haskellPrograms.get(key);
+export function program(ctx: ActionCtx, language: "typescript" | "haskell", source: string, settings: GameSettings): Promise<Compiled> {
+  const key = compilationKey(language, source, actSettings(settings, language));
+  const known = programs.get(key);
   if (known) return "error" in known ? Promise.reject(compileFailure(known.error)) : Promise.resolve(known);
-  let pending = haskellPending.get(ctx);
-  if (!pending) haskellPending.set(ctx, pending = new Map());
+  let pending = pendingPrograms.get(ctx);
+  if (!pending) pendingPrograms.set(ctx, pending = new Map());
   let program = pending.get(key);
   if (!program) {
-    const remember = (value: Compiled | { error: { code: string; message: string } }) => {
-      if (haskellPrograms.size >= 128) haskellPrograms.delete(haskellPrograms.keys().next().value!);
-      haskellPrograms.set(key, value);
-    };
+    const remember = (value: KnownProgram) =>
+      programs.set(key, value, "error" in value ? value.error.message.length + 64 : value.js.length + JSON.stringify(value.inspection).length);
     program = (async () => {
-      const stored = await ctx.runQuery(internal.runtime.haskellPrograms.get, { key });
-      if (stored && stored.compiledAt < Date.now() - HASKELL_PROGRAM_REFRESH_MS) await ctx.runMutation(internal.runtime.haskellPrograms.touch, { key });
+      const stored = await ctx.runQuery(internal.runtime.programs.get, { key });
+      if (stored && stored.compiledAt < Date.now() - PROGRAM_REFRESH_MS) await ctx.runMutation(internal.runtime.programs.touch, { key });
       const reply = stored ? (stored.error ? { ok: false as const, ...stored.error } : { ok: true as const, inspection: stored.inspection, js: stored.js })
-        : await ctx.runAction(internal.runtime.haskellCompile.compile, { source, settings });
+        : await ctx.runAction(internal.runtime.compile.compile, { language, source, settings });
       if (!reply.ok) {
         if (AGENT_FAULTS.has(reply.code)) remember({ error: { code: reply.code, message: reply.message } });
         throw compileFailure(reply);

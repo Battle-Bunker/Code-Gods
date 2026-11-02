@@ -3,14 +3,14 @@
  * Haskell acts, in an action of their own: a Haskell execution pool does not fit beside the Python and TypeScript pools
  * in one 512 MiB Node action (runtime/node.ts closeIdleExcept). The actions that run a Haskell agent (the tick, the
  * summon examination, the readiness probe) send its acts here in batches (engine/runtime.ts act), where they run on
- * this instance's Haskell pool against the stored programs (runtime/haskellCompile.ts).
+ * this instance's Haskell pool against the stored programs (runtime/compile.ts).
  */
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import type { ActResult } from "@workspace/game-runtime";
-import { actSettings, haskellProgram } from "../engine/runtime";
+import { actSettings, program } from "../engine/runtime";
 import { bindHaskell, runtimeFor } from "./node";
-import { HASKELL_ACT_BATCH } from "../lib/haskellPrograms";
+import { HASKELL_ACT_BATCH } from "../lib/programs";
 
 export type ActReply = ({ ok: true } & ActResult) | { ok: false; code: string; message: string };
 
@@ -25,7 +25,7 @@ export const acts = internalAction({
     const replies: ActReply[] = [];
     for (const { source, input, seed } of requests) {
       try {
-        const { js } = await haskellProgram(ctx, source, settings);
+        const { js } = await program(ctx, "haskell", source, settings);
         replies.push({ ok: true, ...await runtimeFor("haskell").actCompiled(source, js, input, room, seed) });
       } catch (error) {
         replies.push({ ok: false, code: String((error as { code?: unknown }).code ?? "UNAVAILABLE"), message: String((error as Error)?.message ?? error) });
