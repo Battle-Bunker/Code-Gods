@@ -5,12 +5,15 @@
  * remounts once after a fresh connection (core-boundary-model.ts); "Try again" remounts it on request. A refused
  * credential shows how to reconnect instead.
  */
-import { Component, type ErrorInfo, type ReactNode } from "react";
-import { useConvexConnectionState } from "convex/react";
+import { Component, useCallback, useSyncExternalStore, type ErrorInfo, type ReactNode } from "react";
+import { useConvex } from "convex/react";
 import { clearsOnReconnect, coreErrorKind, type CaughtError } from "./core-boundary-model";
 
 export function CoreBoundary({ children }: { children: ReactNode }) {
-  const { connectionCount } = useConvexConnectionState();
+  // Only the count of connections made (not every in-flight request): a rise means Convex has resubscribed.
+  const convex = useConvex();
+  const subscribe = useCallback((onChange: () => void) => convex.subscribeToConnectionState(onChange), [convex]);
+  const connectionCount = useSyncExternalStore(subscribe, () => convex.connectionState().connectionCount);
   return <Boundary connectionCount={connectionCount}>{children}</Boundary>;
 }
 
@@ -23,18 +26,18 @@ class Boundary extends Component<Props, State> {
   static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
     if (!state.error) return null;
     // The connection the error happened on; then, once Convex has connected afresh, one remount to resubscribe.
-    if (!state.caught) return { caught: { kind: coreErrorKind(state.error.message), atConnection: props.connectionCount } };
+    if (!state.caught) return { caught: { kind: coreErrorKind(state.error), atConnection: props.connectionCount } };
     return clearsOnReconnect(state.caught, props.connectionCount) ? { error: null, caught: null, attempt: state.attempt + 1 } : null;
   }
   componentDidCatch(error: Error, info: ErrorInfo) { console.warn("[core]", error.message, info.componentStack); }
   private retry = () => this.setState(s => ({ error: null, caught: null, attempt: s.attempt + 1 }));
   render() {
-    const { error, attempt } = this.state;
+    const { error, caught, attempt } = this.state;
     if (!error) return <div key={attempt} className="contents">{this.props.children}</div>;
-    const credential = coreErrorKind(error.message) === "credential";
+    const credential = caught?.kind === "credential";
     return (
       <div role="alert" data-testid="banner-core-error" className="m-4 border border-primary p-4 text-sm space-y-2">
-        <p className="font-semibold">{credential ? "The engine no longer accepts this client's credential." : "Lost contact with the engine. This view comes back by itself when the connection returns."}</p>
+        <p className="font-semibold">{credential ? "The engine no longer accepts this client's credential." : "This view failed. It reloads by itself after a lost connection returns, or try again."}</p>
         <p className="font-mono text-xs opacity-70 break-words">{error.message.split("\n")[0].slice(0, 300)}</p>
         {credential
           ? <p className="opacity-80">Reconnect: sign in again (reload this page), or for a player app run <code>pnpm player connect --room CODE</code> again.</p>

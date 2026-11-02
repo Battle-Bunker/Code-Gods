@@ -5,12 +5,14 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { ConvexError } from "convex/values";
 import { coreErrorKind, clearsOnReconnect } from "../src/core/core-boundary-model.ts";
 
-test("a refused credential is told apart from losing the engine", () => {
-  assert.equal(coreErrorKind("[CONVEX Q(player:observation)] UNAUTHENTICATED: no credential"), "credential");
-  assert.equal(coreErrorKind("This credential was revoked"), "credential");
-  assert.equal(coreErrorKind("Server Error: query timed out"), "other");
+test("a refused credential (the engine's UNAUTHENTICATED) is told apart from every other error", () => {
+  assert.equal(coreErrorKind(new ConvexError({ code: "UNAUTHENTICATED", message: "This connection was revoked or has expired; reconnect" })), "credential");
+  assert.equal(coreErrorKind(new Error("[CONVEX Q(player:observation)] UNAUTHENTICATED: no credential")), "credential");
+  assert.equal(coreErrorKind(new ConvexError({ code: "NOT_FOUND", message: "Room revoked by host" })), "other", "a word in the message is not a code");
+  assert.equal(coreErrorKind(new Error("Server Error: query timed out")), "other");
 });
 
 test("an error clears only after Convex reconnects since it was caught; time alone never clears it", () => {
