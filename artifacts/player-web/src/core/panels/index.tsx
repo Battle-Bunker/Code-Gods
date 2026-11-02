@@ -1,5 +1,5 @@
 /**
- * The 14 built-in panel renderers (docs/ui-redesign.md §3), one per id of lib/player-client/src/panels.ts: a panel id
+ * The 15 built-in panel renderers (docs/ui-redesign.md §3), one per id of lib/player-client/src/panels.ts: a panel id
  * without a renderer fails the typecheck here. `PanelHost` parses the pane's parameters with the panel's schema
  * (invalid → defaults), shows a phase-aware empty state outside the panel's phases, and contains a crash to its pane.
  */
@@ -20,17 +20,18 @@ import Forge from "./forge";
 import Results from "./results";
 import Rules from "./rules";
 import CodeOutput from "./code-output";
+import Timeline from "./timeline";
 
 export const PANEL_VIEWS = {
   overview: Overview, "my-card": MyCard, objects: Objects, "others-care": OthersCare, "bits-over-time": BitsOverTime, race: Race,
-  agents: Agents, feed: Feed, "what-if": WhatIf, "public-chat": PublicChat, forge: Forge, results: Results, rules: Rules, "code-output": CodeOutput,
+  agents: Agents, feed: Feed, "what-if": WhatIf, "public-chat": PublicChat, forge: Forge, results: Results, rules: Rules, "code-output": CodeOutput, timeline: Timeline,
 } satisfies { [K in PanelId]: PanelView<K> };
 
 /**
  * Panels that are useful outside their data phases too (the editor in the lobby, results of the last game, the default
  * objects panel, whose empty state says what will appear and offers the next step).
  */
-const ALWAYS_RENDER: ReadonlySet<PanelId> = new Set(["overview", "objects", "public-chat", "rules", "results", "forge", "what-if", "code-output"]);
+const ALWAYS_RENDER: ReadonlySet<PanelId> = new Set(["overview", "objects", "public-chat", "rules", "results", "forge", "what-if", "code-output", "timeline"]);
 
 class PanelViewBoundary extends Component<{ children: ReactNode; panelId: PanelId }, { error: Error | null }> {
   state = { error: null as Error | null };

@@ -15,6 +15,7 @@ import { internalAction, type ActionCtx } from "../_generated/server";
 import { fail, messageOf } from "../lib/errors";
 import { principalV, type Principal } from "../lib/rooms";
 import { bindRuntime, scriptRuntimeFor } from "../runtime/node";
+import { sandboxGate, type NotReady } from "../engine/runtime";
 import { resolveDatasets } from "./datasets";
 import { CODE_LIMITS } from "./limits";
 import { splitRunResult } from "./keys";
@@ -34,8 +35,13 @@ export const runArgs = {
 type RunArgs = { roomId: string; language?: "python" | "typescript"; title?: string; source?: string; script?: string; datasetsJson: string;
   paramsJson?: string; cpuMs?: number; load?: string[]; saveAs?: string };
 
-/** What run_code returns to the model: bounded; the whole result is the object runs/<runId> (get_code_run, the code-output panel). */
-export type RunOutcome = {
+/**
+ * What run_code returns to the model: bounded; the whole result is the object runs/<runId> (get_code_run, the code-output
+ * panel). `not_ready`: the language's sandbox is still warming (or failed to start); nothing ran or was charged, and
+ * the same call can be made again after notReady.retryAfterMs.
+ */
+export type RunOutcome = RunDone | { status: "not_ready"; message: string; notReady: Omit<NotReady, "message"> };
+type RunDone = {
   TRUNCATED?: string;
   runId: string; status: "ok" | "error"; title: string | null;
   error?: { code: string; message: string };
@@ -58,8 +64,8 @@ async function stored(ctx: ActionCtx, key: string, valueJson: string) {
 }
 
 /** The loaded objects as the runtime's store text {scope, objects}, fetching blobs from storage. */
-async function loadStore(ctx: ActionCtx, principal: Principal, scopes: string[]): Promise<{ text: string; values: Map<string, unknown> }> {
-  const rows: { key: string; valueJson: string | null; storageId: Id<"_storage"> | null }[] = scopes.length ? await ctx.runQuery(internal.code.objects.loadAs, { principal, scopes }) : [];
+async function loadStore(ctx: ActionCtx, principal: Principal, roomId: string, scopes: string[], epoch?: string): Promise<{ text: string; values: Map<string, unknown> }> {
+  const rows: { key: string; valueJson: string | null; storageId: Id<"_storage"> | null }[] = scopes.length ? await ctx.runQuery(internal.code.objects.loadAs, { principal, roomId, scopes, ...(epoch ? { epoch } : {}) }) : [];
   const values = new Map<string, unknown>();
   for (const r of rows) {
     const text = r.valueJson ?? (r.storageId ? await (await ctx.storage.get(r.storageId))?.text() : undefined);
@@ -75,7 +81,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   let source = args.source, lang = args.language, title = args.title;
   if (args.script !== undefined) {
     if (source !== undefined) return fail("BAD_REQUEST", "Give source or script, not both");
-    const { values } = await loadStore(ctx, principal, [args.script]);
+    const { values } = await loadStore(ctx, principal, args.roomId, [args.script]);
     const saved = values.get(args.script) as { language?: string; source?: string; title?: string } | undefined;
     if (!saved || typeof saved.source !== "string" || (saved.language !== "python" && saved.language !== "typescript")) {
       return fail("NOT_FOUND", `No saved script ${JSON.stringify(args.script)} (save one with run_code saveAs)`);
@@ -83,8 +89,11 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
     source = saved.source; lang = saved.language; title ??= saved.title;
   }
   if (source === undefined || lang === undefined) return fail("BAD_REQUEST", "run_code needs a language and a source, or a saved script");
+  // The language's runtime must have booted on this deployment (the script pool shares the agents' compiled runtime).
+  const notReady = await sandboxGate(ctx, lang);
+  if (notReady) { const { message, ...rest } = notReady; return { status: "not_ready", message, notReady: rest }; }
   const scopes = args.load ?? [];
-  const { runId, cpuMs, roomId } = await ctx.runMutation(internal.code.runs.start, {
+  const { runId, cpuMs, roomId, epoch } = await ctx.runMutation(internal.code.runs.start, {
     principal, roomId: args.roomId, language: lang, source, ...(title ? { title } : {}),
     datasetsJson: args.datasetsJson, ...(args.paramsJson ? { paramsJson: args.paramsJson } : {}), objectsJson: JSON.stringify(scopes),
     cpuMs: args.cpuMs ?? CODE_LIMITS.cpuMsDefault,
@@ -92,7 +101,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   const show = `open_panel {panelId: "code-output", params: {runId: "${runId}"}} shows this run to the player`;
   const base = { runId, title: title ?? null, show };
   let inputBytes = 0;
-  const failed = async (error: { code: string; message: string }, usedMs: number): Promise<RunOutcome> => {
+  const failed = async (error: { code: string; message: string }, usedMs: number): Promise<RunDone> => {
     const wallMs = Math.round(performance.now() - started);
     await ctx.runMutation(internal.code.runs.finish, { runId, status: "error", error, cpuMs: usedMs, wallMs, inputBytes });
     return { ...base, status: "error", error, output: "", outputTruncated: false, cpuMs: usedMs, wallMs, inputBytes };
@@ -108,7 +117,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   if (inputBytes > CODE_LIMITS.inputBytes) {
     return failed({ code: "DATASETS", message: `The datasets are ${(inputBytes / 1048576).toFixed(1)} MiB of JSON; the limit is ${CODE_LIMITS.inputBytes / 1048576} MiB: ask for fewer datasets or a smaller limit` }, 0);
   }
-  try { store = (await loadStore(ctx, principal, scopes)).text; }
+  try { store = (await loadStore(ctx, principal, args.roomId, scopes, epoch)).text; }
   catch (error) { return failed({ code: "OBJECTS", message: `Loading the objects failed: ${messageOf(error)}`.slice(0, 500) }, 0); }
   if (Buffer.byteLength(store) > SCRIPT_LIMITS.storeBytes) {
     return failed({ code: "OBJECTS", message: `The objects loaded are ${(Buffer.byteLength(store) / 1048576).toFixed(2)} MiB of JSON; a run loads at most ${SCRIPT_LIMITS.storeBytes / 1048576} MiB: name fewer keys or a narrower prefix` }, 0);
@@ -128,7 +137,7 @@ export async function runCode(ctx: ActionCtx, principal: Principal, args: RunArg
   }
   // The run's store writes (UNTRUSTED guest output: the guest can tamper with its own store): parsed defensively here,
   // and every key, size and the quota checked in commitAs. Blobs uploaded for a set that is not committed are deleted.
-  let storeOutcome: RunOutcome["store"];
+  let storeOutcome: RunDone["store"];
   const uploaded: Id<"_storage">[] = [];
   try {
     let writes: { put: Map<string, unknown>; delete: string[] } | null = null;

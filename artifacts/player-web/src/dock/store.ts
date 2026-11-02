@@ -165,7 +165,8 @@ export class DockStore {
     if (this.sync.local !== before) {
       // The first server layout replaces the boot cache: not an assistant change to undo.
       this.history = observe(this.history, quiet ? null : before, this.sync.local);
-      try { localStorage.setItem(cacheKey(this.roomId), JSON.stringify(this.sync.local)); } catch { /* a boot cache only */ }
+      // A replay's dock (canWrite off) keeps its changes to itself: never the room's boot cache.
+      if (this.options.canWrite) try { localStorage.setItem(cacheKey(this.roomId), JSON.stringify(this.sync.local)); } catch { /* a boot cache only */ }
     }
     this.emit();
   }

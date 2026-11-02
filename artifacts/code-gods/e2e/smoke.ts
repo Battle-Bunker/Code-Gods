@@ -22,7 +22,7 @@
  * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
- * note shows, with its grammar and summon price, 1 s planning), saves it for
+ * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
  * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player, which asks for the AI budget in the
  * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game, the room shows its rule tables being
@@ -237,7 +237,7 @@ try {
       const members = await a.locator('[data-testid^="row-member-"]').allInnerTexts();
       assert.ok(members.some(t => /Bob Okafor/.test(t)) && members.some(t => /Carol Nguyen/.test(t)), members.join(" | "));
       // A member's primary is the player client; "Mark me ready" is a secondary link.
-      assert.equal(await b.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      assert.equal(await b.getByTestId("link-player").getAttribute("href"), `/client/rooms/${code}`);
       await b.getByTestId("button-ready").click();
       await a.getByTestId(`row-member-${bob.subject}`).getByText("ready").waitFor();
       await a.getByTestId("button-start").waitFor();   // three players: Start is the owner's one primary now
@@ -303,7 +303,7 @@ try {
       assert.equal(await a.getByTestId("select-spawnFunctionId").isDisabled(), false);
       await expand(a, "more-agents");
       await a.getByTestId("switch-commitClause").click();
-      // Int / TypeScript: Int's own arguments; the language moves its grammar and summon price, both real selects.
+      // Int / TypeScript: Int's own arguments; the languages are a multi-select that never empties.
       await a.getByTestId("choice-objectType-Int").click();
       await a.getByTestId("arg-min").waitFor();
       await a.getByTestId("arg-max").waitFor();
@@ -320,11 +320,12 @@ try {
       await a.getByTestId("switch-defenceGoals").click();
       await a.getByTestId("reason-defenceGoals").waitFor();
       assert.equal(await a.getByTestId("switch-defenceGoals").isDisabled(), true);
-      await a.getByTestId("select-language").selectOption("typescript");
-      await expand(a, "more-world");
-      assert.equal(await a.getByTestId("select-grammarId").inputValue(), "typescript-agent-v1");
-      assert.equal(await a.getByTestId("select-complexityFunctionId").inputValue(), "ts-ast-bits-v1-uniform");
-      assert.equal(await a.getByTestId("select-grammarId").isDisabled(), false);
+      assert.equal(await a.getByTestId("choice-languages-python").isDisabled(), true, "the only allowed language cannot be unticked");
+      await a.getByTestId("choice-languages-typescript").click();
+      await a.getByTestId("text-summary-languages").filter({ hasText: "Python, TypeScript" }).waitFor();
+      await a.getByTestId("choice-languages-python").click();
+      assert.equal(await a.getByTestId("choice-languages-typescript").getAttribute("aria-checked"), "true");
+      assert.equal(await a.getByTestId("choice-languages-python").getAttribute("aria-checked"), "false");
       await a.getByTestId("button-exact-planningSeconds").click();
       await a.getByTestId("input-planningSeconds").fill("1");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
@@ -357,6 +358,12 @@ try {
       await a.getByTestId("button-dialog-approve-ai").click();
       await a.locator('[data-testid^="row-member-ai:"]').waitFor();
       await b.locator('[data-testid^="row-member-ai:"]').waitFor();
+      // The seat has its own name (lib/aiNames.ts), not its template's; its row menu's tooltip stays on-screen.
+      assert.doesNotMatch(await a.locator('[data-testid^="row-member-ai:"]').first().innerText(), /Sonnet Strategist/);
+      await a.locator('[data-testid^="button-ai-menu-"]').first().hover();
+      const tip = await a.locator('[data-radix-popper-content-wrapper]:has([role="tooltip"])').first().boundingBox();
+      assert.ok(tip && tip.x >= 0 && tip.x + tip.width <= viewport.width, `the remove tooltip fits the viewport: ${JSON.stringify(tip)}`);
+      await a.mouse.move(0, 0);
       // AI spending lives in a sheet reached from Details.
       await expand(a, "details-next-game");
       await a.getByTestId("button-ai-spending").click();
@@ -398,14 +405,23 @@ try {
       // So this run's first game on the range prepares again, and deterministically: every table its deal can need is
       // claimed first (as if computing elsewhere), so the room waits until this script runs the compute actions.
       const pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
+      // The click registers in the same frame: by the next animation frame the button reads "Starting…" and refuses a
+      // second click, before the start action (a Node action) has answered.
+      await a.evaluate(() => document.querySelector('[data-testid="button-start"]')!.addEventListener("click", () => requestAnimationFrame(() => {
+        const b = document.querySelector('[data-testid="button-start"]');
+        (window as unknown as { startFrame: unknown }).startFrame = { text: b?.textContent, disabled: b?.getAttribute("aria-disabled") };
+      }), { once: true }));
       await a.getByTestId("button-start").click();
+      await a.waitForFunction(() => (window as unknown as { startFrame?: unknown }).startFrame);
+      assert.deepEqual(await a.evaluate(() => (window as unknown as { startFrame: unknown }).startFrame), { text: "Starting…", disabled: "true" });
       // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
       await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
       await a.getByTestId("panel-preparing").waitFor();
       await shot(a, `room-preparing-${name}`);
       for (const job of pending) convexRun("calibration/compute:run", job);   // the real per-table action; finished() launches the game
-      await a.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 480_000 });
-      await b.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 30_000 });
+      // Games are nested in their room's URL.
+      await a.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
+      await b.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 30_000 });
       gameCode = (await a.getByTestId("text-game-code").innerText()).trim();
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
       // The world clock and the objects move without any reload or polling (the clock is under Game details).
@@ -414,7 +430,7 @@ try {
       await a.locator('[data-testid^="row-object-"]').first().waitFor({ timeout: 30_000 });
       assert.equal(await a.locator('[data-testid^="row-standing-"]').count(), 4, "the leaderboard lists every seated player");
       assert.match(await b.getByTestId("text-viewer-seat").innerText(), /playing/);
-      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/player/?room=${code}`);
+      assert.equal(await a.getByTestId("link-player").getAttribute("href"), `/client/rooms/${code}`);
       assert.doesNotMatch(await a.locator("main").innerText(), /value function/i);
       await shot(a, `game-${name}`);
       await noHorizontalScroll(a, `${name} game`);
@@ -434,6 +450,15 @@ try {
     await check(`${name}: the room's past games show the ended game; the Setup combobox applies a setup at once, with Undo`, async () => {
       await a.getByTestId("button-back-to-room").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
+      await expand(a, "section-past-games");
+      await a.getByTestId(`link-game-${gameCode}`).waitFor();
+      assert.equal(await a.getByTestId(`link-game-${gameCode}`).getAttribute("href"), `/rooms/${code}/games/${gameCode}`);
+      // Old game links (/games/CODE, /rooms/CODE?game=CODE) redirect to the nested one.
+      for (const old of [`/games/${gameCode}`, `/rooms/${code}?game=${gameCode}`]) {
+        await a.goto(`${SITE}${old}`);
+        await a.waitForURL(new RegExp(`/rooms/${code}/games/${gameCode}$`));
+      }
+      await a.goto(`${SITE}/rooms/${code}`);
       await expand(a, "section-past-games");
       await a.getByTestId(`link-game-${gameCode}`).waitFor();
       assert.match(await a.locator('[data-testid^="text-game-winners-"]').first().innerText(), /\w/);

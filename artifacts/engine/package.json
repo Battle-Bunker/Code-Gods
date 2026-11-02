@@ -18,7 +18,7 @@
     "assistant:status": "node scripts/assistant-provider.mjs status",
     "test:assistant-live": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/assistant-live.test.ts",
     "upload-calibration": "node scripts/upload-calibration.mjs",
-    "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts",
+    "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts test/external-clients.test.ts",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts",
     "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts test/calibration-ondemand.test.ts"
   },
@@ -42,6 +42,7 @@
     "@anthropic-ai/sdk": "^0.133.0",
     "@modelcontextprotocol/client": "2.4.0",
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "esbuild": "0.28.2"
   }
 }

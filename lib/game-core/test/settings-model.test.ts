@@ -41,11 +41,28 @@ const start: GameSettings = {
   planningSeconds: 30, startingObjectCount: 12, agentEnergyPerSecond: 3, defenceGoals: false, penaltyWeight: 2, commitClause: true,
 };
 
-test("a language change sets the grammar and the summon price to the new language's only choices, and nothing else", () => {
-  const ts = applySettingsChange(start, { language: "typescript" }, domain);
-  assert.deepEqual(ts, { ...start, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" });
-  const back = applySettingsChange(ts, { language: "python" }, domain);
-  assert.deepEqual(back, start, "and back again");
+test("a change of allowed languages moves nothing else", () => {
+  const both = applySettingsChange(start, { languages: ["typescript", "python"] }, domain);
+  assert.deepEqual(both, { ...start, languages: ["typescript", "python"] });
+  assert.deepEqual(applySettingsChange(both, { languages: ["python"] }, domain), start, "and back again");
+  assert.deepEqual(applySettingsChange(start, { languages: ["python", "python", "typescript"] }, domain).languages, ["python", "typescript"],
+    "a language listed twice is listed once");
+});
+
+test("the allowed languages are a non-empty list of supported languages", () => {
+  for (const bad of [[], ["cobol"], "python", null]) {
+    assert.throws(() => applySettingsChange(start, { languages: bad as never }, domain),
+      (e: unknown) => e instanceof SettingsChangeError && e.field === "languages", JSON.stringify(bad));
+  }
+});
+
+test("a legacy single-language change still works: it allows exactly that language", () => {
+  assert.deepEqual(applySettingsChange(start, { language: "typescript" } as never, domain), { ...start, languages: ["typescript"] });
+  assert.deepEqual(applySettingsChange(start, { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" } as never, domain),
+    { ...start, languages: ["typescript"] }, "the derived ids it used to carry are ignored");
+  assert.throws(() => applySettingsChange(start, { language: "cobol" } as never, domain), /languages/);
+  assert.throws(() => applySettingsChange(start, { grammarId: "python-agent-v1" } as never, domain), /Unknown setting grammarId/,
+    "the derived ids are not settings of their own");
 });
 
 test("an object type change takes that type's default instantiation and drops the excluded families it lacks; tuned fields stay", () => {
@@ -82,14 +99,9 @@ test("a domain that accepts unlisted shapes (tables are prepared on demand) take
   assert.throws(() => applySettingsChange(start, { typeArgs: { min: 9, max: 0 } }, open), /typeArgs/, "and the type refuses invalid arguments");
 });
 
-test("the grammar, goal dealing and summon price must be among the choices of the current language and type", () => {
+test("goal dealing must be among the choices of the current type", () => {
   assert.deepEqual(applySettingsChange(start, { utilitySelectorId: "fair-aligned" }, domain), { ...start, utilitySelectorId: "fair-aligned" });
   assert.throws(() => applySettingsChange(start, { utilitySelectorId: "nope" }, domain), /utilitySelectorId/);
-  assert.throws(() => applySettingsChange(start, { grammarId: "typescript-agent-v1" }, domain), /grammarId/);
-  assert.throws(() => applySettingsChange(start, { complexityFunctionId: "ts-ast-bits-v1-uniform" }, domain), /complexityFunctionId/);
-  // With the language in the same change, the TypeScript grammar is a valid explicit choice.
-  assert.equal(applySettingsChange(start, { language: "typescript", grammarId: "typescript-agent-v1" }, domain).grammarId, "typescript-agent-v1");
-  assert.throws(() => applySettingsChange(start, { language: "cobol" as never }, domain), /language/);
 });
 
 test("excluded families are families of the object type; the list keeps only those the instantiation can deal", () => {
@@ -120,8 +132,7 @@ test("excluded defence families are the type's defence families, kept only where
 
 test("the room's settings sent back with one field edited: the stale dependent fields follow the edit", () => {
   // An assistant edits get_room_state's settings and sends them whole: the old grammar and arguments are no change.
-  assert.deepEqual(applySettingsChange(start, { ...start, language: "typescript" }, domain),
-    { ...start, language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" });
+  assert.deepEqual(applySettingsChange(start, { ...start, languages: ["typescript"] }, domain), { ...start, languages: ["typescript"] });
   assert.deepEqual(applySettingsChange(start, { ...start, objectType: "Grid" }, domain), { ...start, objectType: "Grid", typeArgs: GRID4, excludedFamilies: [] });
 });
 
@@ -142,9 +153,9 @@ test("every numeric field, the commit clause and act targeting are free: only th
 test("a whole settings object is a change of the fields that differ: re-applying a result reproduces it", () => {
   assert.deepEqual(applySettingsChange(start, { ...start }, domain), start, "no differences, no change");
   const edited = applySettingsChange(applySettingsChange(applySettingsChange(start, { objectType: "Grid" }, domain),
-    { typeArgs: GRID5, language: "typescript" }, domain), { excludedFamilies: ["ladders"], startingObjectCount: 80 }, domain);
-  assert.deepEqual(edited, { ...start, objectType: "Grid", typeArgs: GRID5, language: "typescript", grammarId: "typescript-agent-v1",
-    complexityFunctionId: "ts-ast-bits-v1-uniform", excludedFamilies: ["ladders"], startingObjectCount: 80 });
+    { typeArgs: GRID5, languages: ["typescript", "python"] }, domain), { excludedFamilies: ["ladders"], startingObjectCount: 80 }, domain);
+  assert.deepEqual(edited, { ...start, objectType: "Grid", typeArgs: GRID5, languages: ["typescript", "python"],
+    excludedFamilies: ["ladders"], startingObjectCount: 80 });
   assert.deepEqual(applySettingsChange(start, edited, domain), edited, "the page's draft, sent whole, lands the same on the server");
   assert.throws(() => applySettingsChange(start, { colour: "red" } as never, domain), /Unknown setting colour/);
   assert.ok(sameSettings(edited, Object.fromEntries(Object.entries(edited).reverse()) as GameSettings), "key order is not a difference");

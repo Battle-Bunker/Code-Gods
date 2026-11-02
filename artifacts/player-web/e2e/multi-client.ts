@@ -199,6 +199,10 @@ for (const p of PLAYERS) {
   page.on("pageerror", e => pageErrors.push(`${p}: ${e.message}`));
   await page.goto(`http://localhost:${PORTS[p]}/__codegods/launch?key=${LAUNCH_KEYS[p]}`); // the private launch link → the app
   await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
+  // A dev-server app replaces "/" with its credential's room URL (a same-document navigation, which framenavigated
+  // also counts): from here on, one navigation means the page was never reloaded.
+  await page.waitForURL(url => /^\/rooms\/[0-9A-Z]+$/.test(url.pathname), { timeout: 30_000 });
+  navigations[p] = 1;
   await page.evaluate(() => { (window as unknown as { __e2eMarker: string }).__e2eMarker = "same-document"; });
   pages[p] = page;
 }
@@ -223,10 +227,13 @@ const sameDocument = async (p: Player) => navigations[p] === 1 && await pages[p]
 
 await check("each app is connected to the shared engine as its own player, with full names", async () => {
   const names = { alice: "Alice Liddell", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
+  // The header fills in once each app's identity and room have loaded: poll, don't read once.
+  const shows = (p: Player, testId: string, text: string) =>
+    until(async () => await pages[p].textContent(`[data-testid=${testId}]`) === text, `${p} ${testId} = ${JSON.stringify(text)}`, 30_000);
   for (const p of PLAYERS) {
-    assert(await pages[p].textContent("[data-testid=text-self-label]") === names[p], `${p} label`);
-    assert(await pages[p].textContent("[data-testid=text-room]") === shortCode, `${p} room`);
-    assert(await pages[p].textContent("[data-testid=text-mode]") === "your player app", `${p} mode`);
+    await shows(p, "text-self-label", names[p]);
+    await shows(p, "text-room", shortCode);
+    await shows(p, "text-mode", "your player app");
   }
 });
 
@@ -271,7 +278,10 @@ async function summonThroughUi(p: Player, language: string, source: string) {
   const page = pages[p];
   // The forge is the Agent code panel; with nothing drafted it opens as the editor.
   await choosePanel(p, "p1", "forge");
-  await page.click(`[data-testid=button-lang-${language}]`);
+  // The game allows both languages: the forge's dropdown lists them, and this agent is written in one.
+  const offered = await page.$$eval("[data-testid=select-language] option", os => os.map(o => (o as HTMLOptionElement).value));
+  assert(offered.join() === "python,typescript", `${p} forge offers the allowed languages, got ${offered.join()}`);
+  await page.selectOption("[data-testid=select-language]", language);
   await page.fill("[data-testid=input-source]", source);
   await page.click("[data-testid=button-validate]");
   // The validation panel starts with VALID or INVALID (followed directly by the cost breakdown).
@@ -285,7 +295,7 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
   const { language, source } = AGENTS[type];
   await check(`${type} game (${language}): owner configures and starts it`, async () => {
     // A long half-life: the game must not end by its (random) lifetime in the middle of the checks.
-    await owner("settings", { settings: { objectType: type, language, planningSeconds: 2, halfLifeSeconds: 3600 } });
+    await owner("settings", { settings: { objectType: type, languages: ["python", "typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
     await start();
     for (const p of PLAYERS) await pages[p].waitForFunction(t => document.querySelector("[data-testid=text-phase]")?.textContent?.match(/planning|running/i), type, { timeout: 30_000 });
   });
@@ -424,31 +434,51 @@ export default definePanel({ title: "Test live", placement: "left", Component() 
 // ------------------------------------------------------------------------------------------------
 await check("the engine serves both frontends (static hosting with SPA fallback)", async () => {
   execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" } });
-  for (const path of ["/", `/rooms/${shortCode}`, "/player/", `/player/?room=${shortCode}`]) {
+  for (const path of ["/", `/rooms/${shortCode}`, "/client/", `/client/rooms/${shortCode}`, `/player/?room=${shortCode}`]) {
     const r = await fetch(`${SITE}${path}`);
     assert(r.ok && (r.headers.get("content-type") ?? "").includes("text/html"), `${path}: ${r.status} ${r.headers.get("content-type")}`);
   }
-  const html = await (await fetch(`${SITE}/player/`)).text();
-  const asset = html.match(/\/player\/assets\/[^"]+\.js/)?.[0];
+  const html = await (await fetch(`${SITE}/client/`)).text();
+  const asset = html.match(/\/client\/assets\/[^"]+\.js/)?.[0];
   assert(asset, "player asset link");
   const r = await fetch(`${SITE}${asset}`);
   assert(r.ok && /javascript/.test(r.headers.get("content-type") ?? ""), `asset ${asset}: ${r.status}`);
 });
-await check("the hosted player client (engine site, /player/) plays as the signed-in human", async () => {
+await check("the hosted player client (engine site, /client/) plays as the signed-in human, and opens past games read-only", async () => {
   const context = await browser.newContext();
   // carol's Better Auth session cookie (seed-players' `session` is the cookie header her sign-in produced).
   await context.addCookies(sessionOf("carol").split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
-  // An unknown code (rooms.get throws NOT_FOUND) is answered on the form, not by the page's error boundary.
+  // The hosted client is an OAuth client of its engine (docs/external-clients.md). An old invite link (/player/?room=)
+  // lands on /client/rooms/CODE; an unknown code ends on the engine's /connect page, which says so and offers the
+  // human's own rooms.
   await page.goto(`${SITE}/player/?room=NOSUCHROOM`);
-  await page.getByTestId("text-room-error").filter({ hasText: "No room NOSUCHROOM on this engine." }).waitFor({ timeout: 60_000 });
-  await page.getByTestId("input-room-id").fill(shortCode.toLowerCase());
-  await page.getByTestId("button-open-room").click();
+  await page.waitForURL(url => url.pathname === "/connect", { timeout: 60_000 });
+  await page.getByTestId("text-connect-hint-unknown").waitFor({ timeout: 60_000 });
+  // A room carol is in: /connect approves the engine's own client without a click, and the client plays there.
+  await page.goto(`${SITE}/client/rooms/${shortCode.toLowerCase()}`);
+  await page.waitForURL(url => url.pathname === `/client/rooms/${shortCode}` && !url.searchParams.has("code"), { timeout: 60_000 });
   // The label renders "—" until the viewer's identity has loaded: wait for a real name, then compare.
   await page.waitForFunction(() => { const t = document.querySelector("[data-testid=text-self-label]")?.textContent; return !!t && t !== "—"; }, null, { timeout: 60_000 }).catch(() => {});
   const label = await page.textContent("[data-testid=text-self-label]");
   assert(label === "Carol Nguyen", `hosted identity: ${JSON.stringify(label)}`);
   assert(await page.textContent("[data-testid=text-mode]") === "hosted client", "hosted mode");
+  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}`, `the room's canonical URL: ${page.url()}`);
+  // The room's past games, then one of them read-only, by in-app navigation.
+  await page.getByTestId("link-past-games").click();
+  await page.getByTestId("screen-past-games").waitFor({ timeout: 30_000 });
+  // carol played the earlier games of this room, which a later launch made past games.
+  const links = page.locator("[data-testid^=link-past-game-]");
+  await links.first().waitFor({ timeout: 30_000 });
+  const last = links.last();   // the oldest: a past game whatever the room is doing now
+  const code = (await last.getAttribute("data-testid"))!.replace("link-past-game-", "");
+  await last.click();
+  await page.getByTestId("historic-game").waitFor({ timeout: 30_000 });
+  assert(new URL(page.url()).pathname === `/client/rooms/${shortCode}/games/${code}`, `historic game URL: ${page.url()}`);
+  assert((await page.textContent("[data-testid=text-game-status]"))?.includes("read-only"), "read-only");
+  // An ended game opens as its replay in the dock (docs/replay-design.md §4): the transport, and every player's standing.
+  await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
+  assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
   await context.close();
 });
 
@@ -459,7 +489,7 @@ await check("at phone size (390×844) the same layout is stacked, the assistant 
   const scripts: string[] = [];
   page.on("request", r => { if (r.resourceType() === "script" || r.resourceType() === "stylesheet") scripts.push(r.url()); });
   page.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await page.goto(`${SITE}/player/?room=${shortCode}`);
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
   await page.waitForSelector("[data-testid=dock-stacked]", { timeout: 60_000 });
   await page.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached" });
   // carol's layout from the games: four built-in panels, each stacked with its own header.

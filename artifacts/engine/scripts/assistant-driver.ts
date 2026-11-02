@@ -12,7 +12,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { AI_MODEL_CATALOG } from "../convex/lib/aiModels.ts";
-import { SITE_, admin, api, gods, internal, roomWith, touch, waitFor } from "../test/game-helpers.ts";
+import { SITE_, admin, api, gods, internal, roomWith, startGame, touch, waitFor } from "../test/game-helpers.ts";
 
 const model = process.argv.slice(2).find(a => !a.startsWith("--")) ?? "claude-sonnet-5-5";
 const prices = AI_MODEL_CATALOG.find(m => m.id === model) as { inputUsdPerMillion: number; outputUsdPerMillion: number; cacheReadUsdPerMillion?: number; cacheWriteUsdPerMillion?: number };
@@ -25,7 +25,7 @@ const QUESTIONS = [
   "Write a simple agent for my utility and validate it; do not summon it.",
 ];
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 60, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];
@@ -35,7 +35,7 @@ await touch(members[0]);
 const { roomId } = await roomWith(members, settings);
 const [me] = members;
 await me.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 1_000_000, assistantModel: model });
-await me.c.action(api.owner.start, { roomId });
+await startGame(me, roomId); // waits out a preparing start (test/game-helpers.ts)
 
 if (process.argv.includes("--fixture") || process.argv.includes("--fixture-only")) {
   // The briefing's inputs, read over MCP as this player (a seeded device credential), like the engine reads them.

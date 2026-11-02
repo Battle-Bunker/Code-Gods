@@ -6,10 +6,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, raw, rejects, roomWith, sleep, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, gods, internal, raw, rejects, roomWith, sleep, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600,
 };
 
@@ -18,7 +18,7 @@ test("idle parking freezes running games; a human touch resumes them; safety sto
   const [host, ada] = trio;
   await touch(host);
   const { roomId } = await roomWith(trio, settings);
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.25 }, kick: true });
   await waitFor(async () => (await raw(game.gameId)).game.phase === "running", "running");
   try {
@@ -72,7 +72,7 @@ test("the owner's Resume brings back an idle-parked game", { timeout: 120000 }, 
   const [host] = trio;
   await touch(host);
   const { roomId } = await roomWith(trio, settings);
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.25 }, kick: true });
   await waitFor(async () => (await raw(game.gameId)).game.phase === "running", "running");
   try {

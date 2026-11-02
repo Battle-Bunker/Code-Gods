@@ -351,7 +351,8 @@ export function createEngine(options: LoadConfigOptions & EngineOptions = {}): E
 // ---------------------------------------------------------------------------------------------
 
 /** What `GET /__codegods/token` returns to the same-origin browser. */
-export interface BrowserToken { token: string; expiresAt: number; convexUrl: string; roomId: string; permission: Permission }
+/** `siteUrl`: the engine's site (from /api/config), so the page can link to the engine UI from another origin. */
+export interface BrowserToken { token: string; expiresAt: number; convexUrl: string; siteUrl: string; roomId: string; permission: Permission }
 
 export interface TokenHandlerOptions {
   /** The engine to use (or a factory). Default: createEngine() on first request, so the app starts unconfigured. */
@@ -398,7 +399,7 @@ export function isSameOriginRequest(req: IncomingMessage, allowedHosts?: string[
 }
 
 /**
- * Connect/Node middleware for `GET /__codegods/token` → `{token, expiresAt, convexUrl, roomId, permission}`.
+ * Connect/Node middleware for `GET /__codegods/token` → `{token, expiresAt, convexUrl, siteUrl, roomId, permission}`.
  * The player-web Vite dev server mounts it (`server.middlewares.use(tokenHandler())`), so the browser gets
  * only short JWTs and never the long-lived credential. Same-origin requests from a browser that opened the
  * private launch link (`LAUNCH_PATH`, see `launchUrl`) only; `Cache-Control: no-store`.
@@ -444,8 +445,8 @@ export function tokenHandler(options: TokenHandlerOptions = {}) {
     void (async () => {
       try {
         const current = getEngine();
-        const [{ convexUrl }, token] = await Promise.all([current.discover(), current.token()]);
-        const body: BrowserToken = { token: token.token, expiresAt: token.expiresAt, convexUrl, roomId: token.roomId, permission: token.permission };
+        const [{ convexUrl, siteUrl }, token] = await Promise.all([current.discover(), current.token()]);
+        const body: BrowserToken = { token: token.token, expiresAt: token.expiresAt, convexUrl, siteUrl, roomId: token.roomId, permission: token.permission };
         send(200, body);
       } catch (error) {
         if (error instanceof EngineError) {

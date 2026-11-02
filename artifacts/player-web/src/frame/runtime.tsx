@@ -1,5 +1,5 @@
 /**
- * panel-runtime.js: the stored-panel frame (/player/panel-frame.html, a sandboxed iframe with an opaque origin and
+ * panel-runtime.js: the stored-panel frame (/client/panel-frame.html, a sandboxed iframe with an opaque origin and
  * its own CSP, connect-src 'none'). It owns one React and one SDK (built with the bridge transport), evaluates the
  * panel's compiled CommonJS with src/frame/loader.ts and renders it inside an error boundary. Everything the panel
  * reads or does goes through the host over postMessage (src/sdk/bridge-protocol.ts).

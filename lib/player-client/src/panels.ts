@@ -9,6 +9,7 @@
  * what-if's `objectId` and `calls`, which the panel cannot show anything without.
  */
 import { z } from "zod/v4";
+import { LANGUAGES, type Language } from "@workspace/game-core";
 
 export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
 const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"];
@@ -16,7 +17,7 @@ const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"
 const WORLD: readonly Phase[] = ["running", "paused", "ended"];
 const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
 
-export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output"] as const;
+export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output", "timeline"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
 
 export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
@@ -66,12 +67,10 @@ export const PANELS = {
       limit: z.number().int().min(3).max(60).default(12),
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),
-      /** Mark what makes up each object's score: "mine" (your own utility, the default) or "none". */
-      annotate: z.enum(["mine", "none"]).default("mine"),
     }),
     summary: p => line([`Top ${p.limit} by ${{ payoff: "payoff", mine: "your bits", othersCare: "others' care" }[p.sortBy]}`,
       ...when(p.filter !== "all", ({ positive: "positive only", contested: "only ones both care about", chips: "only ones others care about" } as Record<string, string>)[p.filter] ?? p.filter),
-      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid"), ...when(p.annotate === "none", "no marks")]),
+      ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid")]),
   }),
   "others-care": def({
     id: "others-care", title: "What others care about", blurb: "Where the others' interests lie, from totals only.", phases: WORLD,
@@ -118,7 +117,7 @@ export const PANELS = {
   }),
   forge: def({
     id: "forge", title: "Agent code", blurb: "The agent being written for you and what it costs; Edit opens the editor.", phases: GAME,
-    params: z.strictObject({ language: z.enum(["python", "typescript"]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
+    params: z.strictObject({ language: z.enum(LANGUAGES as [Language, ...Language[]]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
     summary: p => line([p.agentId ? "A live agent's code" : p.source ? "A draft" : "Empty", ...when(!!p.language, p.language ?? ""), ...when(p.showHelpers, "with helpers")]),
   }),
   results: def({
@@ -141,6 +140,17 @@ export const PANELS = {
     }),
     summary: p => line([p.runId ? "One run" : "Your latest run", ...when(p.view !== "auto", p.view), ...when(p.showSource, "with source")]),
   }),
+  timeline: def({
+    id: "timeline", title: "Replay timeline",
+    blurb: "An ended game's every event: play it at any speed or step through it, with every player's score over time.", phases: GAME,
+    params: z.strictObject({
+      /** What the panel shows: the score curves with their markers, the event list, or both. */
+      show: z.enum(["both", "scores", "events"]).default("both"),
+      /** Mark this many of the largest single-event score changes. */
+      swings: z.number().int().min(0).max(30).default(8),
+    }),
+    summary: p => line([{ both: "Scores and events", scores: "Scores", events: "Events" }[p.show], ...when(p.swings !== 8, `${p.swings} swings marked`)]),
+  }),
 } satisfies { readonly [K in PanelId]: PanelDefinition };
 
 export type PanelParams<K extends PanelId> = z.output<(typeof PANELS)[K]["params"]>;
@@ -154,12 +164,20 @@ export const panel = (id: PanelId): PanelDefinition => PANELS[id] as PanelDefini
  */
 export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "objects");
 
+/** Parameters a panel used to have. Stored layouts may still carry them, and the schemas are strict, so they are dropped before parsing. */
+const RETIRED_PARAMS: Partial<Record<PanelId, readonly string[]>> = { objects: ["annotate"] };
+
 /**
- * Parse a panel's parameters: the defaults when none are given; the parsed output (defaults filled) when valid; else
+ * Parse a panel's parameters: the defaults when none are given; retired keys (RETIRED_PARAMS) ignored; the parsed output (defaults filled) when valid; else
  * `null` and the issues, so a tool can answer BAD_REQUEST and a reader can fall back to the defaults.
  */
 export function parsePanelParams(id: PanelId, params: unknown): { ok: true; params: Record<string, unknown> } | { ok: false; issues: string[] } {
-  const parsed = panel(id).params.safeParse(params ?? {});
+  let input = params ?? {};
+  const retired = RETIRED_PARAMS[id];
+  if (retired && typeof input === "object" && !Array.isArray(input)) {
+    input = Object.fromEntries(Object.entries(input).filter(([k]) => !retired.includes(k)));
+  }
+  const parsed = panel(id).params.safeParse(input);
   if (parsed.success) return { ok: true, params: parsed.data as Record<string, unknown> };
   return { ok: false, issues: parsed.error.issues.slice(0, 5).map(i => `${i.path.join(".") || "(root)"}: ${i.message}`) };
 }

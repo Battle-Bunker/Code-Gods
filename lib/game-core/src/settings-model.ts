@@ -4,14 +4,15 @@
  * page for each control, the engine for every `owner.settings` request), so a change means the same thing everywhere.
  *
  * Dependencies (the only fields a change moves besides the changed field itself):
- * - language: the grammar and the summon-price function become the language's choices (each language has one);
- * - language: also any other option (goal dealing, spawn function) the new language does not offer takes the first
- *   one it does;
+ * - languages: none. Each agent's grammar and summon price follow its own language (LANGUAGE_SPECS), so settings hold
+ *   only the set. A legacy `language` in a patch means `languages: [language]`, and its grammar and price ids are
+ *   ignored (they are derived);
  * - objectType: the type's default instantiation (else the first playable one), and excluded families (reward and
  *   defence alike) that do not exist in it are dropped;
  * - typeArgs: only a playable instantiation is accepted, and excluded families that do not exist in it are dropped.
- * Constraints checked on the changed field: the grammar, goal dealing, summon price and spawn function are among the
- * choices of the current language and object type (settingsOptionsFor); excluded reward families are reward families
+ * Constraints checked on the changed field: the allowed languages are a non-empty list of supported languages (a
+ * language listed twice is listed once); goal dealing and the spawn function are among the choices of the current
+ * object type (settingsOptionsFor); excluded reward families are reward families
  * of the object type and excluded defence families its defence families, and each list keeps only those that exist in
  * the instantiation (excluding one its board cannot deal means nothing).
  * Everything else (every number, the defence switch, the prior, the commit clause, act targeting) is free:
@@ -25,7 +26,9 @@
  */
 import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
 import type { TypeArgs } from "@workspace/game-types";
-import { DEFAULT_SETTINGS, LANGUAGES, OPTION_KEYS, settingsOptionsFor, type FamilyDomain, type FamilyRole, type GameSettings } from "./settings.ts";
+import {
+  DEFAULT_SETTINGS, OPTION_KEYS, settingsOptionsFor, upgradeLegacyLanguage, validLanguages, type FamilyDomain, type FamilyRole, type GameSettings,
+} from "./settings.ts";
 
 export interface SettingsDomain extends FamilyDomain {
   /**
@@ -96,7 +99,7 @@ const keepExisting = (s: GameSettings, domain: SettingsDomain): GameSettings => 
 function determinedOptions(s: GameSettings): GameSettings {
   const out = { ...s } as Record<string, unknown>;
   for (const key of OPTION_KEYS) {
-    const choices = settingsOptionsFor(key, s.language, s.objectType);
+    const choices = settingsOptionsFor(key, s.objectType);
     if (!choices.some(o => o.id === s[key]) && choices.length) out[key] = choices[0]!.id;
   }
   return out as unknown as GameSettings;
@@ -113,23 +116,26 @@ function withObjectType(s: GameSettings, objectType: unknown, domain: SettingsDo
   return determinedOptions(keepExisting({ ...s, objectType, typeArgs }, domain));
 }
 
-function withLanguage(s: GameSettings, language: unknown): GameSettings {
-  if (!LANGUAGES.includes(language as GameSettings["language"])) throw new SettingsChangeError("language", `Unsupported language: ${String(language)}`);
-  return determinedOptions({ ...s, language: language as GameSettings["language"] });
+function withLanguages(s: GameSettings, languages: unknown): GameSettings {
+  const unique = Array.isArray(languages) ? [...new Set(languages)] : languages;
+  if (!validLanguages(unique)) {
+    throw new SettingsChangeError("languages", `languages must list one or more supported languages: ${JSON.stringify(languages)}`);
+  }
+  return { ...s, languages: unique };
 }
 
 /**
  * The settings after an owner changes the fields in `patch`. A field equal to its value in `settings` is no change, so
  * a whole settings object may be passed (the configuration page's draft, or the room's settings with one field
- * edited: a stale grammar or type arguments then simply follow the changed language or type). Changes apply in
- * dependency order: object type, then type arguments, then language, then every other field. Throws
- * SettingsChangeError for an unknown field, an instantiation that is not playable, an option the language and type do
- * not offer, or an excluded id that is no family of that role of the object type. Numbers are not range-checked here:
+ * edited: stale type arguments then simply follow the changed type). Changes apply in dependency order: object type,
+ * then type arguments, then languages, then every other field. Throws SettingsChangeError for an unknown field, an
+ * instantiation that is not playable, an empty or unsupported language list, an option the type does not offer, or an
+ * excluded id that is no family of that role of the object type. Numbers are not range-checked here:
  * `validateSettings` does that.
  */
 export function applySettingsChange(settings: GameSettings, patch: Partial<GameSettings>, domain: SettingsDomain): GameSettings {
-  for (const key of Object.keys(patch)) if (!FIELDS.has(key)) throw new SettingsChangeError(key, `Unknown setting ${key}`);
-  const given = patch as Record<string, unknown>;
+  const given = (upgradeLegacyLanguage(patch) ?? patch) as Record<string, unknown>;
+  for (const key of Object.keys(given)) if (!FIELDS.has(key)) throw new SettingsChangeError(key, `Unknown setting ${key}`);
   let next: GameSettings = { ...settings };
   const changed = (key: keyof GameSettings) => given[key] !== undefined && !sameSettings(given[key], settings[key]);
 
@@ -139,11 +145,11 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
     if (!args || typeof args !== "object" || Array.isArray(args)) throw new SettingsChangeError("typeArgs", "typeArgs must be an object of type arguments");
     next = keepExisting({ ...next, typeArgs: playableArgs(next.objectType, args as TypeArgs, domain) }, domain);
   }
-  if (changed("language")) next = withLanguage(next, given.language);
+  if (changed("languages")) next = withLanguages(next, given.languages);
   for (const key of OPTION_KEYS) {
     if (!changed(key)) continue;
-    if (!settingsOptionsFor(key, next.language, next.objectType).some(o => o.id === given[key])) {
-      throw new SettingsChangeError(key, `Unsupported ${key} for ${next.language} and ${next.objectType}: ${String(given[key])}`);
+    if (!settingsOptionsFor(key, next.objectType).some(o => o.id === given[key])) {
+      throw new SettingsChangeError(key, `Unsupported ${key} for ${next.objectType}: ${String(given[key])}`);
     }
     next = { ...next, [key]: given[key] };
   }
@@ -156,7 +162,7 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
     if (unknown.length) throw new SettingsChangeError(field, `Not ${role} families of ${next.objectType}: ${unknown.join(", ")}`);
     next = keepExisting({ ...next, [field]: [...new Set(ids as string[])] }, domain);
   }
-  const handled = new Set<string>(["objectType", "typeArgs", "language", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
+  const handled = new Set<string>(["objectType", "typeArgs", "languages", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {
     if (!handled.has(key) && changed(key)) next = { ...next, [key]: given[key] };
   }

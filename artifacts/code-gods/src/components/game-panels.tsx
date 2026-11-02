@@ -3,6 +3,7 @@ import type { ChatMessage, InstanceInfo, ObjectTypeInfo, PublicObject, RosterEnt
 import { EmptyState, Section } from "@/components/page-parts";
 import { fmt } from "@/lib/errors";
 import { toMs } from "@/lib/time";
+import { allowedLanguages } from "@workspace/game-core";
 import { formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/lib/settings-form";
 import { Bot, Crown, Send, User } from "lucide-react";
 import { BadgeChips, ObjectView, RuleShelf, objectContext } from "@workspace/object-views";
@@ -112,20 +113,20 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
 
 /** The settings a newcomer asks about, as key/values (the full list is the configuration page). */
 const SHOWN: readonly SettingsKey[] = [
-  "language", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
+  "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
   "startingEnergy", "energyPerSecond", "agentEnergyPerSecond", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */
 export function settingsSummary(s: Settings, instance?: InstanceInfo): string {
-  return [s.language === "python" ? "Python" : "TypeScript", instance?.label ?? s.objectType, lengthLine(s), `${paceWord(s.interactionRateHz)} pace`].join(" · ");
+  return [formatValue("languages", allowedLanguages(s)), instance?.label ?? s.objectType, lengthLine(s), `${paceWord(s.interactionRateHz)} pace`].join(" · ");
 }
 
 export function SettingsList({ settings, instance }: { settings: Settings; instance?: InstanceInfo }) {
   return (
     <div className="space-y-2 text-sm" data-testid="list-settings">
       <div>
-        <p className="font-medium">{instance ? instance.label : settings.objectType} · {formatValue("language", settings.language)}</p>
+        <p className="font-medium">{instance ? instance.label : settings.objectType} · {formatValue("languages", allowedLanguages(settings))}</p>
         {instance && <div className="mt-1"><BadgeChips badges={instance.badges} /></div>}
       </div>
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">

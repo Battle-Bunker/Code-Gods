@@ -1,22 +1,23 @@
 /**
- * Objects by payoff, the default panel: the world's objects ranked by what they pay you. Each row: the rank, the object
- * (marked with what makes up your score, by default, as quiet underlines), a payoff rectangle drawn to scale (width:
+ * Objects by payoff, the default panel: the world's objects ranked by what they pay you. Each row: the rank, the object,
+ * a payoff rectangle drawn to scale (width:
  * your bits, height: what the others care, on one scale, so equal values make a square and the area is the payoff),
  * its two values labelled on their edges, `yours × others = payoff`, the relative payoff bar, and "why?" for the full
  * breakdown. Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
- * step. The assistant chooses the sort, the filter, how many, which to highlight, list or grid, and whether to mark.
+ * step. The assistant chooses the sort, the filter, how many, which to highlight, and list or grid.
  */
 import { useMemo, useState } from "react";
 import {
-  AnnotationLegend, ScoreBreakdown, annotationLegend, dimensionVar, mergeAnnotations, rampVar, relativeStrength, type Annotation,
+  ScoreBreakdown, dimensionVar, rampVar, relativeStrength,
 } from "@workspace/object-views";
-import { ObjectGrid, ObjectView, formatBits, useAnnotations, useMyCard, useObjectContext, useObjects, type LiveObject } from "@/sdk";
+import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useObjects, type LiveObject } from "@/sdk";
 import { useNow } from "@/core/game/situation";
 import { PanelEmpty, PrimaryButton, TextButton, referObject, useObjectRanks, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, payoffScale, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
+import { useReplayChanged } from "@/core/replay/parts";
 
 const FILTERS: Record<string, (o: LiveObject) => boolean> = {
   all: () => true,
@@ -27,7 +28,6 @@ const FILTERS: Record<string, (o: LiveObject) => boolean> = {
 const SORTS: Record<string, (o: LiveObject) => number> = { payoff: o => o.payoff, mine: o => o.own.netBits, othersCare: o => o.peerCare };
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
 const SIDE = 44, LABEL_W = 36, LABEL_H = 13;
-const NO_MARKS: readonly Annotation[] = [];
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
 
 /** The payoff rectangle of one row, to scale (geometry in ./payoff-geometry.ts), its edges and labels in the dimensions' colours. */
@@ -84,7 +84,7 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
   const left = phase === "planning" && until && until > now ? Math.ceil((until - now) / 1000) : null;
   const when = phase === "lobby" ? "When the game starts and the world runs" : `When the world starts${left ? ` (in ${left} s)` : ""}`;
   return (
-    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} testId="button-next-step">{step.label}</PrimaryButton>}>
+    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
       your bits and whose height is what the others care, on one scale, so its area is your payoff. Next: {step.why}
     </PanelEmpty>
@@ -92,6 +92,10 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
 }
 
 export default function Objects({ paneId, params, phase }: PanelProps<"objects">) {
+  // A replay's playhead just changed these (docs/replay-design.md §6): their rows flash and grids outline the cells that moved.
+  const changed = useReplayChanged();
+  // Only the row showing the value the change reached flashes (panels render at their own rate).
+  const flash = (o: { id: string; value: unknown }) => { const ch = changed.get(o.id); return !!ch && ch.after === o.value; };
   const objects = useObjects({ hz: 1 });
   const card = useMyCard();
   const { ctx, noun } = useObjectContext();
@@ -100,8 +104,6 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const comparative = card?.penalty?.comparative;
   const shown = useMemo(() => objects.filter(FILTERS[params.filter] ?? FILTERS.all).sort((a, b) => SORTS[params.sortBy](b) - SORTS[params.sortBy](a)).slice(0, params.limit),
     [objects, params.filter, params.sortBy, params.limit]);
-  const marks = useAnnotations(shown, { utility: params.annotate });
-  const legend = useMemo(() => annotationLegend(mergeAnnotations(...shown.map(o => marks.get(o.id)))), [shown, marks]);
   const scale = useMemo(() => payoffScale(shown.map(o => ({ own: o.own.netBits, care: o.peerCare }))), [shown]);
   const max = Math.max(1e-9, ...shown.map(o => Math.abs(o.payoff)));
   const best = Math.max(0, ...shown.map(o => o.payoff));
@@ -114,15 +116,13 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const header = (
     <header className="space-y-1">
       <PayoffKey />
-      <AnnotationLegend entries={legend} className="text-muted-foreground" testId="objects-annotation-legend" />
     </header>
   );
   if (params.layout === "grid") {
     return (
       <div className="space-y-3">
         {header}
-        <ObjectGrid objects={shown} max={params.limit} annotations={(o: LiveObject) => marks.get(o.id)}
-          badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />
+        <ObjectGrid objects={shown} max={params.limit} badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />
       </div>
     );
   }
@@ -131,11 +131,12 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
       {header}
       <ol className="divide-y divide-[hsl(var(--card-border))]">
         {shown.map(o => (
-          <li key={o.id} data-testid={`row-object-${o.id}`} className={`min-w-0 py-2 ${highlight.has(o.id) ? "bg-[hsl(var(--primary)/0.06)]" : ""}`}>
+          <li key={flash(o) ? `${o.id}:${changed.get(o.id)!.version}` : o.id} data-testid={`row-object-${o.id}`}
+            className={`min-w-0 py-2 ${highlight.has(o.id) ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${flash(o) ? "replay-changed" : ""}`}>
             <div className="flex min-w-0 items-start gap-3">
               <button type="button" onClick={() => referObject(ranks.get(o.id))} title="Ask your assistant about this object"
                 className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">#{ranks.get(o.id)}</button>
-              <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} {...ctx} showTitle annotations={marks.get(o.id) ?? NO_MARKS} /></span>
+              <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} compareTo={flash(o) ? changed.get(o.id)!.before : undefined} {...ctx} showTitle /></span>
               <PayoffRectangle o={o} scale={scale} strength={relativeStrength(o.payoff, best)} />
               <span className="min-w-0 flex-1 space-y-1">
                 <span className="block font-mono text-[12px] leading-snug text-muted-foreground" data-testid={`text-payoff-${o.id}`}>

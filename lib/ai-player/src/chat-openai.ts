@@ -28,10 +28,12 @@ export function openAIChatProvider(client: OpenAI, model: string, prices: Prices
             ...(calls.length ? { tool_calls: calls.map(c => ({ id: c.id, type: "function" as const, function: { name: c.name, arguments: JSON.stringify(c.input) } })) } : {}) });
         } else if (typeof m.content === "string") messages.push({ role: "user", content: m.content });
         else {
-          for (const b of m.content) {
-            if (b.type === "tool_result") messages.push({ role: "tool", tool_call_id: b.toolUseId, content: b.content });
-            else messages.push({ role: "user", content: b.text });
-          }
+          // Tool messages must follow the assistant's tool_calls directly; the user's text (a briefing and its
+          // question, or messages queued during the turn after a step's results) follows as one user message.
+          for (const b of m.content) if (b.type === "tool_result") messages.push({ role: "tool", tool_call_id: b.toolUseId, content: b.content });
+          const texts = m.content.flatMap(b => b.type === "text" ? [b.text] : []);
+          if (texts.length === 1) messages.push({ role: "user", content: texts[0] });
+          else if (texts.length) messages.push({ role: "user", content: texts.map(text => ({ type: "text" as const, text })) });
         }
       }
       const tools = activeTools(request);

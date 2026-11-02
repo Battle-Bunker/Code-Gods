@@ -6,7 +6,7 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { newAgentAccount, type GameSettings } from "@workspace/game-core";
+import { allowedLanguages, newAgentAccount, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -15,8 +15,12 @@ import { appendEvents } from "../engine/loop";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
+import { languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
+/** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
+export const EXAMINATIONS_PER_MINUTE = 30;
+const EXAMINATION_WINDOW_MS = 60_000;
 
 export const envelopeHash = (envelope: Envelope) => sha256(JSON.stringify(envelope));
 const receiptKey = (commandId: string) => `client:${commandId}`;
@@ -49,22 +53,24 @@ export const prepare = internalQuery({
     const command = envelope.command;
     let examine: null | { settings: GameSettings; live: (number | string)[] } = null;
     if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
-        command.language === (game.settings as GameSettings).language && game.phase !== "ended" && game.phase !== "recovery" &&
+        allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
-      examine = { settings: game.settings as GameSettings, live: live.map(o => o.value) };
+      // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
+      examine = { settings: (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
 });
 
 const examinedV = v.object({
-  gameId: v.string(), source: v.string(),
+  gameId: v.string(), source: v.string(), language: languageV,
   error: v.optional(v.string()),
   result: v.optional(v.object({
     cost: v.number(), parts: v.any(), decisionBits: v.number(), expectedActCost: v.number(),
     breakdown: v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
     randomized: v.boolean(), diagnostics: v.array(v.string()),
+    changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()),
   })),
 });
 
@@ -99,22 +105,50 @@ export const apply = internalMutation({
   },
 });
 
-type Examined = { gameId: string; source: string; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
-  breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[] } };
+/**
+ * Count one agent examination for this god in this room, before the Node action runs it, or throw RATE_LIMITED
+ * (no receipt is stored, so the identical envelope can be sent again later). Per god, not per credential: every
+ * client and agent of one human shares the cap. Old rows of this god are deleted as it goes.
+ */
+export const claimExamination = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string() },
+  handler: async (ctx, { roomId, godId }) => {
+    const now = Date.now();
+    for (const old of await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId).lt("at", now - EXAMINATION_WINDOW_MS)).take(64)) {
+      await ctx.db.delete(old._id);
+    }
+    const recent = await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId).gte("at", now - EXAMINATION_WINDOW_MS))
+      .take(EXAMINATIONS_PER_MINUTE);
+    if (recent.length >= EXAMINATIONS_PER_MINUTE) {
+      const wait = Math.max(1, Math.ceil((recent[0].at + EXAMINATION_WINDOW_MS - now) / 1000));
+      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate and summon together); try again in ${wait} s with the same command`);
+    }
+    await ctx.db.insert("examinations", { roomId, godId, at: now });
+  },
+});
+
+type Examined = { gameId: string; source: string; language: Language; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
+  breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[];
+  changeRate?: number; invalidRate?: number } };
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
   const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
   if (GAME_COMMANDS.includes(command.type) && !envelope.gameId) fail("BAD_REQUEST", "Game ID is required");
   if (envelope.gameId && envelope.gameId !== game?._id) fail("CONFLICT", "Stale game");
-  if ("language" in command && command.language !== (game?.settings as GameSettings | undefined)?.language) fail("BAD_REQUEST", "Wrong game language");
+  if ("language" in command && !(game && allowedLanguages(game.settings as GameSettings).includes(command.language))) {
+    fail("BAD_REQUEST", `This game does not allow ${command.language} agents${game ? ` (allowed: ${allowedLanguages(game.settings as GameSettings).join(", ")})` : ""}`);
+  }
 
   if (command.type === "chat") {
     const text = command.text;
     if (!text.trim() || text.length > 2000) fail("BAD_REQUEST", "Chat text must be 1–2000 characters");
     const last = await ctx.db.query("chat").withIndex("by_room_author", q => q.eq("roomId", room._id).eq("authorId", member.godId)).order("desc").first();
     if (last && now - last.timestamp < CHAT_INTERVAL_MS) fail("RATE_LIMITED", "Chat rate limit");
-    const id = await ctx.db.insert("chat", { roomId: room._id, authorId: member.godId, authorName: member.name, kind: member.kind, text, timestamp: now });
+    // Chat belongs to the room; a message sent while a game is live is stamped with that game and its world time, so
+    // the game's replay places it exactly (docs/replay-design.md §2.3).
+    const stamp = game && game._id === room.activeGameId && game.phase !== "ended" ? { gameId: game._id, world: worldNow(game, now) } : {};
+    const id = await ctx.db.insert("chat", { roomId: room._id, authorId: member.godId, authorName: member.name, kind: member.kind, text, timestamp: now, ...stamp });
     return { id };
   }
   if (command.type === "ready") {
@@ -141,23 +175,30 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     return { pauseEndsAt };
   }
   if (command.type === "validate" || command.type === "summon") {
-    if (!examined || examined.gameId !== game._id || examined.source !== command.source) fail("UNAVAILABLE", "The agent could not be examined; retry");
+    if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     const e = examined.result;
     if (command.type === "validate") {
+      const energy = godEnergy(game, deity.spent, now);
       return { valid: true, cost: e.cost, parts: e.parts, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost,
-        breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)) };
+        breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
+        ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
+        energy, affordable: energy >= e.cost };
     }
     if (godEnergy(game, deity.spent, now) < e.cost) fail("CONFLICT", "Insufficient energy");
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
-    const agentId = await ctx.db.insert("agents", {
-      gameId: game._id, ownerId: member.godId, source: command.source, createdAt: now,
+    const world = worldNow(game, now);
+    const record = {
       summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, perActFloorBits: settings.perActFloorBits,
-      breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(worldNow(game, now)), acts: 0, spent: 0,
-    });
+      breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(world),
+    };
+    const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, ...record, acts: 0, spent: 0 });
     await ctx.db.patch(deity._id, { spent: deity.spent + e.cost });
-    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1 });
+    // The summon is in the event log with the agent's whole record (its source stays its owner's), so a replay has
+    // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
+    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, ...record }], world, world);
+    await ctx.db.patch(game._id, { agentCount: (game.agentCount ?? 0) + 1, nextBatch });
     return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
   }
   if (command.type === "destroy") {
@@ -166,7 +207,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     await ctx.db.delete(agent._id);
-    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1) });
+    const world = worldNow(game, now);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world }], world, world);
+    await ctx.db.patch(game._id, { agentCount: Math.max(0, (game.agentCount ?? 1) - 1), nextBatch });
     return { destroyed: agent._id };
   }
   return fail("BAD_REQUEST", "Unknown command");

@@ -36,3 +36,14 @@ test("credential kinds have plain labels", () => {
   assert.equal(kindLabel(undefined), "player app");
   assert.equal(kindLabel("assistant"), "in-client assistant");
 });
+
+test("connect: the first choice follows the client's room hint, and lowers owner to act in a room the human does not own", async () => {
+  const { initialConnectChoice } = await import("../src/lib/device-approval.ts");
+  const rooms = [{ roomId: "r1", isOwner: true }, { roomId: "r2", isOwner: false }];
+  assert.deepEqual(initialConnectChoice({ requested: "owner", rooms, hint: { roomId: "r2", member: true, isOwner: false } }), { roomId: "r2", permission: "act" });
+  assert.deepEqual(initialConnectChoice({ requested: "owner", rooms, hint: { roomId: "r1", member: true, isOwner: true } }), { roomId: "r1", permission: "owner" });
+  assert.deepEqual(initialConnectChoice({ requested: "read", rooms, hint: { roomId: "r1", member: true, isOwner: true } }), { roomId: "r1", permission: "read" });
+  assert.deepEqual(initialConnectChoice({ requested: "act", rooms, hint: { roomId: "r9", member: false, isOwner: false } }), { roomId: "", permission: "act" }, "join first");
+  assert.deepEqual(initialConnectChoice({ requested: "act", rooms: [rooms[1]], hint: null }), { roomId: "r2", permission: "act" }, "the only room");
+  assert.deepEqual(initialConnectChoice({ requested: "owner", rooms, hint: null }), { roomId: "", permission: "owner" }, "no room chosen yet: as asked");
+});

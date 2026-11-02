@@ -35,6 +35,19 @@ export function scopeRange(scope: string): [string, string] {
 export const runResultKey = (runId: string) => `${RUNS_PREFIX}${runId}`;
 
 /**
+ * The store is partitioned per (human, game): what a game's runs write (notes, run results) is that game's, so the
+ * assistant of the next game starts from an empty store. Saved scripts (`scripts/<name>`, run_code saveAs) are the
+ * player's own tooling, like their panels, and stay in one player-wide partition across games and rooms.
+ */
+export const PLAYER_PREFIX = "scripts/";
+/** The player-wide partition's epoch. */
+export const PLAYER_PARTITION = "";
+/** The partition a key lives in, for a run of this game epoch. */
+export const partitionOf = (key: string, epoch: string) => key.startsWith(PLAYER_PREFIX) ? PLAYER_PARTITION : epoch;
+/** The code epoch of a room now: its current game (active, or the latest until the next starts), else this room's lobby. */
+export const codeEpoch = (room: { _id: string; currentGameId?: string }) => room.currentGameId ?? `lobby:${room._id}`;
+
+/**
  * A run-result object's text, {"result":<the run's exact JSON>,"output":"..."}, split back into the two texts. An
  * unescaped `,"output":` cannot occur inside the output's JSON string, so its last occurrence is where they were joined.
  * A run from before the object store kept {"result": "<JSON text>", "output": "..."} instead (`legacy`).

@@ -50,6 +50,9 @@ export async function shortCodeFor(ctx: MutationCtx, table: "rooms" | "games", g
   return fail("CONFLICT", "Could not allocate a short code");
 }
 
+/** An AI seat's status between games: on joining (rooms.ts addAi) and when a game ends (engine/loop.ts endGame). */
+export const AI_LOBBY_STATUS = "Ready; awaiting game start";
+
 export async function memberOf(ctx: Ctx, roomId: Id<"rooms">, godId: string) {
   return ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
 }
@@ -76,6 +79,20 @@ export async function requireOwnerAs(ctx: Ctx, viewer: Viewer, room: Doc<"rooms"
   const found = await requireMemberAs(ctx, viewer, room, "owner");
   if (room.ownerId !== found.viewer.subject) fail("FORBIDDEN", "Room owner access required");
   return found;
+}
+/**
+ * A game the room no longer runs: neither its active game nor its current slot (the last game, shown until the next
+ * launch). Its per-game reads are for its participants and the owner only (requireHistoricReaderAs).
+ */
+export const isHistoric = (room: Doc<"rooms">, game: Doc<"games">) => game._id !== room.currentGameId && game._id !== room.activeGameId;
+/**
+ * Read access to a historic game: a god who played in it (seated on its roster, member of the room today or not) or
+ * the room's current owner, through any scope bound to this room.
+ */
+export function requireHistoricReaderAs(viewer: Viewer, room: Doc<"rooms">, game: Doc<"games">): Viewer {
+  requireRoomPermission(viewer, room._id, "read");
+  if (room.ownerId === viewer.subject || game.roster.some(m => m.id === viewer.subject)) return viewer;
+  return fail("FORBIDDEN", "Only the gods who played in it and the room owner can open a past game");
 }
 /** Read access to a room's public state: browser humans, or a player credential bound to this room. */
 export async function requireReader(ctx: Ctx, room: Doc<"rooms">): Promise<Viewer> {

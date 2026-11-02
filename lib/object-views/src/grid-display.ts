@@ -1,12 +1,11 @@
 /**
  * Display model for Grid values: cells with glyphs, readable names, colours and a non-hue cue
- * (a per-colour pattern, or the colour letter). Framework-free so it is unit tested under Node.
+ * (the colour alone, or with its letter). Framework-free so it is unit tested under Node.
  */
 import {
   COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs,
   parseGridForDisplay, type GridColourSet, type GridTypeArgs,
 } from "@workspace/game-types";
-import { hexRgb } from "./colour-science.ts";
 
 export { contrastRatio, deltaE76, hexRgb, labHue, labOf, relativeLuminance } from "./colour-science.ts";
 import type { GridSettings, ObjectValue } from "./registry.ts";
@@ -18,6 +17,8 @@ export interface GridCellModel {
   glyph: string;
   /** Glyph for compact cells: card rank only ("10"), digits unchanged. */
   compactGlyph: string;
+  /** The glyph split for fixed-width drawing (CellGlyph): rank, suit, and whether the rank is the single-cell ten. */
+  parts: GlyphParts;
   symbolName: string;
   colourName: string;
   /** e.g. "ten of hearts, blue". */
@@ -45,10 +46,27 @@ export function symbolName(code: string): string {
   return cardNames.get(code) ?? digitNames.get(code) ?? code;
 }
 
-function compactGlyph(code: string): string {
-  const g = glyphForCode(code);
-  return cardNames.has(code) ? g.slice(0, -1) : g;
+/**
+ * A cell's glyph as the renderers draw it: the rank in one character cell and, for cards, the suit in a fixed-width
+ * box. Every rank is one character except "10", which `ten` marks: it is drawn as a custom glyph (TenGlyph) with "1"
+ * and "0" condensed into one cell, so a row with a ten is no wider than one without (columns never shift).
+ * Display only: the wire code, the names and the agent-visible text keep "10".
+ */
+export interface GlyphParts {
+  /** "7", "A", "10". */
+  rank: string;
+  /** "♥" for cards, "" for digits. */
+  suit: string;
+  /** The rank is "10", drawn by the single-cell ten glyph. */
+  ten: boolean;
 }
+
+export function glyphParts(code: string): GlyphParts {
+  const g = glyphForCode(code);
+  const rank = cardNames.has(code) ? g.slice(0, -1) : g, suit = cardNames.has(code) ? g.slice(-1) : "";
+  return { rank, suit, ten: rank === "10" };
+}
+
 
 function settingsArgs(s: GridSettings | undefined): GridTypeArgs | undefined {
   return s && isGridTypeArgs(s as Partial<GridTypeArgs>) ? (s as GridTypeArgs) : undefined;
@@ -61,15 +79,17 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
   const args = settingsArgs(settings);
   let strict = false;
   if (args) { try { decodeGrid(value as string, args); strict = true; } catch { strict = false; } }
-  const palette = args ? COLOUR_COMPONENTS[args.colours] : undefined;
-  const set = args?.colours;
+  // The colour set also applies to boards of another size (a goal card's 2×2 example), so take it from the settings
+  // whenever they name a known set.
+  const set = args?.colours ?? (settings && Object.hasOwn(COLOUR_COMPONENTS, String(settings.colours)) ? settings.colours as GridColourSet : undefined);
+  const palette = set ? COLOUR_COMPONENTS[set] : undefined;
   const rows = cells.map(row => row.map(({ code, letter }): GridCellModel => {
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
     const colourName = idx >= 0 ? palette!.names[idx] : base.name;
-    const sName = symbolName(code);
+    const sName = symbolName(code), parts = glyphParts(code);
     return {
-      code, letter, glyph: glyphForCode(code), compactGlyph: compactGlyph(code),
+      code, letter, glyph: glyphForCode(code), compactGlyph: parts.rank, parts,
       symbolName: sName, colourName, name: `${sName}, ${colourName}`,
       ...tileColours(letter, set, base),
     };
@@ -105,12 +125,18 @@ export function changedCells(a: GridModel | null, b: GridModel | null): boolean[
 // ---------------------------------------------------------------------------------------------
 // The "digits" renderer: the grid as lines of raw glyphs, each coloured by its cell's colour.
 
+/**
+ * `text`, `pad` and `glyph` are the plain-text form (monospace text, where "10" takes two characters); the renderer
+ * draws `parts` at fixed widths instead, where every cell of a grid is the same width.
+ */
 export interface DigitsCell {
   /** Leading spaces that right-align this glyph with the widest one in the grid, in the plain-text line. */
   pad: string;
   /** "7", or rank and suit for cards ("10♥"); with the letter cue, the colour letter follows ("7R"). */
   glyph: string;
   letter: string;
+  /** The cell's glyph parts, which the renderer draws at fixed widths (the plain-text `glyph` keeps "10"). */
+  parts: GlyphParts;
   /** Differs from the compared grid: drawn underlined and bold, never by colour alone. */
   changed: boolean;
 }
@@ -127,42 +153,108 @@ export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, 
   return model.rows.map((row, r) => {
     const cells = row.map((c, k): DigitsCell => {
       const g = glyph(c);
-      return { pad: " ".repeat(width - g.length), glyph: g, letter: c.letter, changed: !!changes?.[r]?.[k] };
+      return { pad: " ".repeat(width - g.length), glyph: g, letter: c.letter, parts: c.parts, changed: !!changes?.[r]?.[k] };
     });
     return { text: cells.map(c => c.pad + c.glyph).join(" "), cells };
   });
 }
 
 // ---------------------------------------------------------------------------------------------
-// Display shades. Each colour SET has its own shades, derived together (scripts/derive-palettes.ts) so the set's
-// colours are as far apart as text can make them: the smallest pairwise CIEDE2000 plus the smallest OKLab ΔE×100
-// under protanopia, deuteranopia and tritanopia (small-field tritanopia stands in for digit-size text, where a blue
-// and a green of one lightness collapse) is maximised, with every shade at 4.5:1 or better on both apps' page, card,
-// popover and muted surfaces of its scheme, inside the hue window where it still reads as its name (no set needed a
-// rename), vivid (OKLCH C ≥ 0.1) and in a lightness band that keeps it a colour. test/text-shades.test.ts holds the
-// floors. Both apps' index.css carry them as `--cg-ink-<set>-<letter>` (and rainbow6's, which covers every letter, as
-// `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
+// Display shades. Each colour SET has its own shades per scheme, derived together by scripts/derive-palettes.ts
+// from established perception science, for the real viewing condition: small digits on a monitor, seen at a distance.
+//
+// - Small-field colour (S-CIELAB, Zhang and Wandell 1996; colour-science.ts). A 19 px bold stem is about 2 arcminutes
+//   at 60 px per degree. The eye's blur keeps about 0.39 of a luminance difference there, 0.19 of a red–green one and
+//   0.14 of a blue–yellow one, so colours must differ in luminance and along red–green, not along blue–yellow alone.
+//   Shades are scored by CIEDE2000 between the S-CIELAB-filtered strokes on the page, not between large patches.
+// - Foveal tritanopia (König 1894; Willmer and Wright 1945). The central ~20 arcminutes of the fovea has no S cones;
+//   a fixated digit falls inside it, so every viewer is a tritanope for it. The objective therefore includes the
+//   tritan simulation (Machado, Oliveira and Fernandes 2009) before the blur, with deuteranopia and protanopia. This is
+//   what made the old greens and blues merge: they sat within 8 L* of each other and differed mostly blue–yellow.
+// - Blue vs green. They differ by ≥ BLUE_GREEN_MIN_DL in L* and keep ≥ BLUE_GREEN_MIN_TRITAN as fixated strokes:
+//   green is a light leaf green, blue a deep pure blue (no bluer than #0000ff, so not an indigo).
+// - Size and weight first (Ware, Information Visualization, ch. 4: colour codes for small symbols need size, high
+//   saturation and luminance contrast with the background; use few codes). The digits are 14 pt bold (DIGIT_TYPE),
+//   which nearly doubles the stroke and is WCAG 2's large text, so the light shades need 3:1 rather than 4.5:1. That
+//   frees the L* 43–54 band, which a light orange (not brown), a gold yellow and a light green need; the letter cue
+//   remains the accessibility backstop for colour-blind players.
+// - Names: each shade stays inside its SHADE_WINDOWS box, so red, orange, yellow, green, blue and violet read as
+//   themselves (orange light enough not to be brown, red a deep red).
+// - Search like Glasbey et al. (2007): maximise the smallest pairwise difference, here the small-field one. The
+//   established qualitative palettes were the yardstick: Tol's bright, vibrant, high-contrast and muted schemes,
+//   Okabe–Ito, Kelly's colours of maximum contrast and Trubetskoy's are designed for areas and lines, and none
+//   reaches even 3:1 for text on this paper; Tol's high-contrast scheme shows the principle used here, separating
+//   colours in luminance as well as in hue.
+//
+// test/text-shades.test.ts holds the floors. Both apps' index.css carry the shades as `--cg-ink-<set>-<letter>` (and
+// rainbow6's, which covers every letter, as `--cg-ink-<letter>` for grids whose set is unknown); keep the three in step.
 
 export type ShadeScheme = "light" | "dark";
 
-/** OKLCH hue windows (degrees) inside which each colour still reads as its name; the shades stay inside them. */
-export const NAME_HUES: Readonly<Record<string, readonly [number, number]>> = Object.freeze({
-  red: [18, 38], orange: [45, 68], yellow: [82, 108], green: [130, 165], blue: [240, 272], violet: [295, 330],
+/**
+ * The digits' type: 14 pt (18.67 CSS px) bold or larger is WCAG 2's "large text", which needs 3:1 rather than 4.5:1.
+ * `stemEm` is JetBrains Mono Bold's vertical stem width in em, measured from the font (semibold is 0.11).
+ */
+export const DIGIT_TYPE = Object.freeze({ px: 19, weight: 700, stemEm: 0.115 });
+/**
+ * The viewing condition the shades are designed for: 60 CSS px per degree of visual angle, a 96 dpi monitor seen from
+ * about 90 cm (or a denser laptop panel nearer): "small and distant".
+ */
+export const VIEW_PX_PER_DEGREE = 60;
+/** A digit stroke's width in degrees of visual angle under that condition. */
+export const digitStrokeDeg = (px: number = DIGIT_TYPE.px, stemEm: number = DIGIT_TYPE.stemEm, pxPerDegree = VIEW_PX_PER_DEGREE): number =>
+  (px * stemEm) / pxPerDegree;
+/** Each scheme's main page, on which the small-field model judges the shades. */
+export const PAGE: Readonly<Record<ShadeScheme, string>> = Object.freeze({ light: "#f5f1eb", dark: "#11131d" });
+/** Contrast floors on every surface: light pages, WCAG large text (DIGIT_TYPE); dark pages and tiles, 4.5:1. */
+export const MIN_CONTRAST: Readonly<Record<ShadeScheme, number>> = Object.freeze({ light: 3, dark: 4.5 });
+/** Blue and green differ by at least this much CIE L*, so the pair never depends on the blue–yellow channel. */
+export const BLUE_GREEN_MIN_DL = 15;
+/**
+ * …and, seen as a digit stroke by the tritanopic fovea (small-field CIEDE2000, tritan), by at least this much. L* alone
+ * is not enough: the eye's blur acts in linear light, so two dark shades 15 L* apart still merge into the page alike.
+ */
+export const BLUE_GREEN_MIN_TRITAN = 3;
+
+export interface ShadeWindow { hue: readonly [number, number]; L: readonly [number, number]; minChroma: number }
+/**
+ * The OKLCH box inside which each colour still reads as its name, per scheme: hue window, lightness range and a
+ * chroma floor (vivid, not dusty). On a light page orange must be light (a dark orange is brown), red a deep red
+ * (darker than the old crimson #c20d39, L 0.52), blue a blue not an indigo (hue ≤ 264, pure #0000ff, and OKLCH L ≥ 0.46:
+ * the rejected #2900df was 0.42 and read near-black), yellow a gold (a light yellow cannot reach 3:1).
+ */
+export const SHADE_WINDOWS: Readonly<Record<ShadeScheme, Readonly<Record<string, ShadeWindow>>>> = Object.freeze({
+  light: Object.freeze<Record<string, ShadeWindow>>({
+    red: { hue: [22, 34], L: [0.46, 0.5], minChroma: 0.15 },
+    orange: { hue: [46, 62], L: [0.62, 0.72], minChroma: 0.14 },
+    yellow: { hue: [86, 96], L: [0.58, 0.66], minChroma: 0.1 },
+    green: { hue: [134, 150], L: [0.4, 0.66], minChroma: 0.12 },
+    blue: { hue: [250, 264], L: [0.46, 0.56], minChroma: 0.15 },
+    violet: { hue: [300, 328], L: [0.4, 0.62], minChroma: 0.15 },
+  }),
+  dark: Object.freeze<Record<string, ShadeWindow>>({
+    red: { hue: [22, 34], L: [0.62, 0.72], minChroma: 0.15 },
+    orange: { hue: [46, 62], L: [0.68, 0.82], minChroma: 0.14 },
+    yellow: { hue: [88, 108], L: [0.82, 0.96], minChroma: 0.12 },
+    green: { hue: [134, 160], L: [0.7, 0.92], minChroma: 0.14 },
+    blue: { hue: [240, 262], L: [0.6, 0.8], minChroma: 0.1 },
+    violet: { hue: [298, 326], L: [0.62, 0.8], minChroma: 0.15 },
+  }),
 });
 type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
 
 export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
   rgb: Object.freeze({
-    light: Object.freeze({ R: "#b73305", G: "#247148", B: "#2900df" }),
-    dark: Object.freeze({ R: "#fb5422", G: "#a9fb25", B: "#129fe7" }),
+    light: Object.freeze({ R: "#a50b25", G: "#3d9406", B: "#033ffe" }),
+    dark: Object.freeze({ R: "#f7502a", G: "#b5fd83", B: "#4886fe" }),
   }),
   rgby: Object.freeze({
-    light: Object.freeze({ R: "#900f21", Y: "#7c5a03", G: "#086f4e", B: "#1707f9" }),
-    dark: Object.freeze({ R: "#f35868", Y: "#edae12", G: "#29fcb7", B: "#1c91fa" }),
+    light: Object.freeze({ R: "#ba0329", Y: "#9d7703", G: "#2a9446", B: "#0137ee" }),
+    dark: Object.freeze({ R: "#dc6561", Y: "#fffa41", G: "#5fd598", B: "#4087fd" }),
   }),
   rainbow6: Object.freeze({
-    light: Object.freeze({ R: "#c20d39", O: "#773a0e", Y: "#695f01", G: "#1d7242", B: "#0555e7", V: "#aa01bc" }),
-    dark: Object.freeze({ R: "#fb4d63", O: "#fe8c1a", Y: "#ecdc1e", G: "#31f9a9", B: "#5cbefe", V: "#cb56f9" }),
+    light: Object.freeze({ R: "#ba0329", O: "#d55d0d", Y: "#987e0c", G: "#159425", B: "#0237e5", V: "#bc30fb" }),
+    dark: Object.freeze({ R: "#fc463c", O: "#fea247", Y: "#f9f416", G: "#1ad48e", B: "#4886fe", V: "#d645fd" }),
   }),
 });
 
@@ -196,41 +288,10 @@ function tileColours(letter: string, set: GridColourSet | undefined, base: { css
 }
 
 // ---------------------------------------------------------------------------------------------
-// Non-hue colour cues. Every colour letter gets a distinct pattern, drawn in its ink colour, and
-// the letter itself is always available (shown in the detail view, or in compact cells in
-// "letter" mode). Hue is never the only cue.
-
-export type PatternId = "diagonal-up" | "dots" | "horizontal" | "grid" | "vertical" | "cross";
-
-export const COLOUR_PATTERNS: Readonly<Record<string, PatternId>> = Object.freeze({
-  R: "diagonal-up", O: "dots", Y: "horizontal", G: "grid", B: "vertical", V: "cross",
-});
-
-function rgba(hex: string, alpha: number): string {
-  const [r, g, b] = hexRgb(hex);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-/** CSS background-image (and size) drawing a colour's pattern in `ink` over its fill. */
-export function patternStyle(letter: string, ink: string, period = 5): { backgroundImage: string; backgroundSize?: string } {
-  const c = rgba(ink, 0.32);
-  const line = (deg: number) => `repeating-linear-gradient(${deg}deg, ${c} 0 1px, transparent 1px ${period}px)`;
-  switch (COLOUR_PATTERNS[letter]) {
-    case "diagonal-up": return { backgroundImage: line(45) };
-    case "dots": return { backgroundImage: `radial-gradient(${c} 0 1px, transparent 1.4px)`, backgroundSize: `${period - 1}px ${period - 1}px` };
-    case "horizontal": return { backgroundImage: line(0) };
-    case "grid": return { backgroundImage: `${line(0)}, ${line(90)}` };
-    case "vertical": return { backgroundImage: line(90) };
-    case "cross": return { backgroundImage: `${line(45)}, ${line(-45)}` };
-    default: return { backgroundImage: "none" };
-  }
-}
-
-// ---------------------------------------------------------------------------------------------
 // The viewer's choice of compact cue, remembered per browser. Storage can be unavailable
 // (private windows, blocked site data), so every access is guarded and the default still works.
 
-export type ColourCue = "pattern" | "letter";
+export type ColourCue = "colour" | "letter";
 export const COLOUR_CUE_KEY = "code-gods.object-views.colour-cue";
 let cue: ColourCue | undefined;
 const listeners = new Set<() => void>();
@@ -239,7 +300,7 @@ export function getColourCue(): ColourCue {
   if (cue) return cue;
   let stored: string | null = null;
   try { stored = globalThis.localStorage?.getItem(COLOUR_CUE_KEY) ?? null; } catch { stored = null; }
-  cue = stored === "letter" ? "letter" : "pattern";
+  cue = stored === "letter" ? "letter" : "colour";
   return cue;
 }
 export function setColourCue(next: ColourCue): void {

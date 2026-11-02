@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { codecOf, leaderboard, personalView, salience, type GameSettings } from "@workspace/game-core";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, PY, raw, roomWith, touch, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const SPECS = [
   { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 } },
@@ -27,14 +27,15 @@ for (const spec of SPECS) for (const language of languages) {
     const source = (language === "python" ? PY : TS)[spec.objectType];
     const other = language === "python" ? "typescript" : "python";
     const settings = {
-      objectType: spec.objectType, typeArgs: spec.typeArgs, language, grammarId: `${language}-agent-v1`,
-      complexityFunctionId: language === "python" ? "ast-bits-v1" : "ts-ast-bits-v1-uniform",
+      objectType: spec.objectType, typeArgs: spec.typeArgs, languages: [language],
       startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 50,
+      // Exact disclosure: this test checks the scoring arithmetic against the private scores (the noise is game-disclosure's).
+      peerNoiseBits: 0,
     };
     const { roomId } = await roomWith([host, ada, bo], settings);
     const room = await host.c.query(api.rooms.get, { room: roomId });
     assert.equal(room.objectInstance.objectType, spec.objectType);
-    const game = await host.c.action(api.owner.start, { roomId });
+    const game = await startGame(host, roomId);
 
     // Public: values and salience only.
     let view = await host.c.query(api.games.view, { code: game.shortCode });

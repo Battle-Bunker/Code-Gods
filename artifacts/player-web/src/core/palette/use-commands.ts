@@ -3,6 +3,8 @@
  * assistant, and the actions behind every command (the shared command runner, the owner functions, panels.*,
  * layout operations, hand-offs to the composer). Publishes the list for chips and the overview (registry.ts).
  */
+import { enginePageHref } from "@/core/routes";
+import { engineSite } from "@/core/connection";
 import { useEffect, useMemo } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
@@ -19,6 +21,7 @@ import { SAFE_MODE } from "@/shell/safe-mode";
 import { composer } from "@/core/chat/composer";
 import { useGameCommands, useRunner } from "@/core/game/runner";
 import { useOwnerActions } from "@/core/game/owner";
+import { useStartView } from "@/core/game/start";
 import { useSituation } from "@/core/game/situation";
 import { notify, notifyError } from "@/core/notices";
 import { playerCommands, type PaletteActions, type PaletteState } from "./commands";
@@ -48,6 +51,8 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const removePanel = useMutation(api.panels.remove);
   const rollback = useMutation(api.panels.rollback);
   const gridRenderer = useGridRenderer();
+  const start = useStartView();
+  const starting = start.phase === "idle" ? undefined : start.phase;
 
   const state = useMemo((): PaletteState => {
     const panelCount = panelPanesOf(dock.layout).length;
@@ -58,7 +63,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     }));
     const obs = s.obs;
     return {
-      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing,
+      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing, starting,
       agents: (obs?.agents ?? []).map((a, i) => ({ id: a.id, label: `agent ${i + 1} (${a.language}, ${a.acts} acts)` })),
       unknownOutcome: !!runner.unknown, busy: !!runner.busy, assistantOn: !!status?.enabled,
       roomCode: obs?.roomShortCode ?? s.room?.shortCode, gameCode: obs?.gameShortCode,
@@ -69,7 +74,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
       gridRenderer,
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),
@@ -98,9 +103,10 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     assistant: {
       cancel: () => (status?.activeTurn ? cancel({ turnId: status.activeTurn.turnId }).catch(notifyError) : Promise.resolve()),
       setAutoApprove: bits => setPrefs({ roomId: room, autoApproveSummonBits: bits }).then(() => notify(bits > 0 ? `Summons up to ${bits} bits run without a card.` : "Every summon asks you first."), notifyError),
-      threads: async () => (await convex.query(api.assistant.threads, { roomId: room })).map(t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() })),
-      openThread: id => { composer.setThread(id); composer.focus(); },
-      newThread: () => { composer.setThread("new"); composer.focus(); },
+      // The current game's conversations only; a choice is kept for that game (composer.threadIn).
+      threads: async () => status ? (await convex.query(api.assistant.threads, { roomId: room, gameId: status.game })).map(t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() })) : [],
+      openThread: id => { if (status) composer.setThread(status.game, id); composer.focus(); },
+      newThread: () => { if (status) composer.setThread(status.game, "new"); composer.focus(); },
       setPermission: p => { composer.setPermission(p); notify(p === "read" ? "Your assistant will only look, from your next message." : "Your assistant may act for you from your next message; it asks before anything public or costly."); },
       focus: () => composer.focus(),
       handoff: draft => composer.fill(draft),
@@ -110,8 +116,9 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       maximise: actions.maximise, forgeEdit: () => actions.forgeEdit(),
     },
     links: {
-      roomPage: () => `/rooms/${encodeURIComponent(state.roomCode ?? "")}`,
-      gamePage: () => (state.gameCode ? `/games/${encodeURIComponent(state.gameCode)}` : null),
+      // The engine UI lives on the engine's site, not necessarily this page's origin (a dev server, another host).
+      roomPage: () => enginePageHref(engineSite(), { room: state.roomCode ?? "" }),
+      gamePage: () => (state.gameCode && state.roomCode ? enginePageHref(engineSite(), { room: state.roomCode, game: state.gameCode }) : null),
       copyRoomLink: () => { if (state.roomCode) void copy(roomUrl(state.roomCode), "Copied the room link."); },
       safeMode: on => {
         const params = new URLSearchParams(location.search);

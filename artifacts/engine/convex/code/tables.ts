@@ -9,7 +9,8 @@ import { v } from "convex/values";
  * printed output are kept in the row as a prefix (for the panel and the model) and whole as the object `runs/<runId>`.
  *
  * codeObjects: the ONLY persistence a script has (no file system anywhere): JSON values (bytes as {"$hex"}) by key, in
- * one namespace per human (`subject`). The row holds a small value; a larger one is a file-storage blob. Keys under
+ * one namespace per human (`subject`), partitioned by game (`epoch`; code/keys.ts partitionOf): a game's runs see that
+ * game's objects and the player's saved scripts only. The row holds a small value; a larger one is a file-storage blob. Keys under
  * `runs/` are the engine's (run results) and read-only to scripts. codeObjectEvents records every write, refused ones
  * included. Every read and write goes through code/objects.ts, which checks the subject; workers keep no state.
  */
@@ -44,16 +45,21 @@ export const codeTables = {
 
   codeObjects: defineTable({
     subject: v.string(), key: v.string(),
+    /** The partition: the game epoch of the run that wrote it (codeRuns.epoch), or "" for the player-wide saved scripts.
+     * Absent only on rows from before the partitions, until the assistant-per-game migration (convex/migrations.ts). */
+    epoch: v.optional(v.string()),
     /** The value's JSON text when at most CODE_LIMITS.inlineValueChars, else in `storageId`. */
     valueJson: v.optional(v.string()), storageId: v.optional(v.id("_storage")),
     bytes: v.number(),
     /** The room and run that wrote it last (absent for engine writes outside a run). */
     roomId: v.optional(v.id("rooms")), runId: v.optional(v.id("codeRuns")),
     updatedAt: v.number(),
-  }).index("by_subject_key", ["subject", "key"]),
+  }).index("by_subject_key", ["subject", "key"]).index("by_subject_epoch_key", ["subject", "epoch", "key"]),
 
-  /** Each human's store usage (runs/ results excluded), kept by commitAs so a quota check never reads the values. */
-  codeObjectUsage: defineTable({ subject: v.string(), objects: v.number(), bytes: v.number() }).index("by_subject", ["subject"]),
+  /** Each human's store usage per partition (runs/ results excluded), kept by commitAs so a quota check never reads the
+   * values. A row without `epoch` is a total from before the partitions (the migration replaces it). */
+  codeObjectUsage: defineTable({ subject: v.string(), epoch: v.optional(v.string()), objects: v.number(), bytes: v.number(), updatedAt: v.optional(v.number()) })
+    .index("by_subject", ["subject"]).index("by_subject_epoch", ["subject", "epoch"]),
 
   codeObjectEvents: defineTable({
     subject: v.string(), roomId: v.optional(v.id("rooms")), runId: v.optional(v.id("codeRuns")),

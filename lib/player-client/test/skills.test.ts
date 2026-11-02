@@ -29,10 +29,13 @@ test("the index: kebab-case names, one-line descriptions, every skill loadable b
 
 test("bodies carry their guidance and live parts, within the limit, and survive missing or odd data", () => {
   const writing = skillBody("writing-agents", { observation });
-  for (const expected of ["validate_agent", "swapDigits(i, j) — Swap two digits", "digits(x): number[]", "def u(x): return x % 3", "Defence goal", "Room language: typescript"]) {
+  for (const expected of ["validate_agent", "swapDigits(i, j) — Swap two digits", "digits(x): number[]", "def u(x): return x % 3", "Defence goal", "Allowed languages: typescript", "Helpers in typescript:"]) {
     assert.ok(writing.includes(expected), `writing-agents has ${expected}`);
   }
-  assert.ok(!writing.includes("swap_digits"), "only the room language's helper names");
+  assert.ok(!writing.includes("swap_digits"), "only the allowed language's helper names");
+  const both = skillBody("writing-agents", { observation: { ...observation, languages: ["typescript", "python"] } });
+  assert.ok(both.includes("Allowed languages: typescript, python"), "every language the game allows");
+  assert.ok(both.includes("swapDigits(i, j)") && both.includes("swap_digits(i, j)"), "with each allowed language's helper names");
   const screen = skillBody("screen", { layout });
   assert.ok(screen.includes("objects — Objects by payoff (Ranked objects): params sortBy(payoff|mine), limit; phases running"), screen);
   assert.ok(screen.includes("Stored panels of the player (open_panel {slug}): mine"));
@@ -46,4 +49,14 @@ test("bodies carry their guidance and live parts, within the limit, and survive 
   }
   assert.match(skillBody("game-rules", {}), /call get_rules/);
   assert.match(skillBody("writing-agents", {}), /call get_observation/);
+});
+
+test("writing-agents: many long mutators never crowd out the read helpers (the 1WB8 Grid: 22 mutators, 39 read helpers)", () => {
+  const long = (n: number, group: string) => ({ group, name: { python: `${group}_${n}` }, signature: { python: `${group}_${n}(where, colour, other_way=False)` },
+    kid: "A long description of what this helper does to the grid, row by row, wrapping round the rainbow, as the Grid helpers' descriptions are.".slice(0, 140) });
+  const many = [...Array.from({ length: 22 }, (_, n) => long(n, "mutator")), ...Array.from({ length: 39 }, (_, n) => long(n, "read"))];
+  const body = skillBody("writing-agents", { observation: { ...observation, language: "python", languages: ["python"], instance: { helpers: many } } });
+  assert.ok(body.includes("mutator_21("), "every mutator");
+  assert.ok(body.includes("Read helpers:") && body.includes("read_0("), "the read helpers too");
+  assert.ok(body.includes("def u(x)"), "and the utility source");
 });

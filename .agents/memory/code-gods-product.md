@@ -14,6 +14,24 @@ Individual opponents' object utilities are not directly shared: clients receive 
 
 **How to apply:** Preserve these disclosure boundaries throughout events, snapshots, history and analytics; do not claim aggregate values prevent mathematical inference.
 
+Information hiding applies only during live games; ended games are fully transparent in replays. Once a game has ended, its replay (`player.replay`, the `get_replay` tool, `run_code`'s `replay` dataset) shows its players every god's utility (descriptor and card) and per-object net bits, whose agent made every move, every agent's code, language and price, exact scores at every event, each act's seed, the end deadline, chat and AI seats' details.
+
+**Why:** The owner (2026-11-01): "Replays should be fully transparent with no information hiding at all. Every game event should become inspectable to assistants from past games... The actual code of all agents spawned should be visible to all in the replay."
+
+**How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's players and the room owner (the past-game read rule).
+
+During a live game every transformation and spawn is public to every player as it happens (object, value before and after, world time, and the viewer's own and others' summed bits), without attribution; every deity's public score moves together every `scoreIntervalSeconds` of world time (5, 10, 20, 30 or 60; default 10), while a player's own score is live. While live, every disclosed sum of the other gods' bits carries Gaussian noise of `peerNoiseBits` (0, 2, 4, 8 or 16; default 8), a keyed function of the object's value (so a recurring value shows the same noise), stored with each version and shared by every viewer; everything built on it (care, payoff, own live score, salience, the published scoreboard, and the commit clause's decision) follows the noisy value. An ended game is fully transparent.
+
+**Why:** The owner wants the other gods' interests to be analysable in real time (possible but hard, helped by negotiation clues), without a per-transformation link to one god's score jump (2026-11-01). Replays of ended games show everything (owner ruling the same day).
+
+**How to apply:** Hide only in LIVE projections (`projectEvent(…, live)`; the replay refuses a live game): no agent id, owner, calls or cost on another god's transformation, no other god's summons or destructions, totals only from the published scoreboard (`games.scoreboard`, the batch that published it carries it as `scoreboard`). Store everything exact (`objectEvents` rows with every deity's bits; exact `tickBatches.totals`). Rival-inference tools (`fit_utility_mixture` and friends) are reads like any other. Never disclose an exact others' sum (or a number built on one) while live unless `peerNoiseBits` is 0. docs/public-log-design.md has the contract, the experiment (exact sums made rule sets easy to identify; 8 bits makes it possible but hard) and the knobs.
+
+Every object is an independent universe: an object's utility is a pure function of that object's own value, and a transformation changes only its target object.
+
+**Why:** The owner calls it an essential simplifying assumption (2026-11-01): no interdependencies or entanglements between objects. The per-object history and the rival inference rest on it.
+
+**How to apply:** Utility families take one object (the host evaluator is a function of one wire value); never add cross-object bonuses, shared state or synergy in scoring (Aligned Lottery synergy only chooses the deal). `lib/game-utilities/test/independence.test.ts` enforces it for every family on every playable shape. The one stated exception is uniqueness (below): a transformation onto a value another object holds fails, so its success depends on the other objects, but it never changes them or any utility.
+
 The user approved sandbox-compatible computational libraries for the MVP: supported Python computational modules and TypeScript's ECMAScript built-ins, with documented exclusions and no host access.
 
 **Why:** Full native standard-library compatibility would require additional isolated execution infrastructure.
@@ -108,7 +126,7 @@ Batch engine ticks: one Node action runs the agents of a tick, then one commit m
 
 **Why:** The user explicitly requested high-throughput event-system persistence alongside a configurable interaction-rate cap. Batched ticks reach that goal in Convex's transactional model.
 
-**How to apply:** Keep one commit mutation (and one `tickBatches` document) per tick, preserve opportunity order within it, and stay inside Convex's per-transaction limits. A discarded tick (a conflict or a failed action) is an uncommitted window, never a partially applied one.
+**How to apply:** Keep one commit mutation (and one `tickBatches` document) per tick, preserve opportunity order within it, and stay inside Convex's per-transaction limits. The commit also inserts one `objectEvents` row per spawn and transformation (the owner's per-object history model), inside the same mutation. A discarded tick (a conflict or a failed action) is an uncommitted window, never a partially applied one.
 
 Call them **utility functions**, never "value functions". "Value" means an object's value (the T instance).
 
@@ -175,3 +193,33 @@ An ended game stays inspectable in its frozen final state: nothing the player co
 **Why:** The owner's instruction (2026-10-31): "Do not make any information disappear when the game ends. The entire structure of the game should continue to be inspectable in frozen state after the game ends." (My agents had shown only a placeholder sentence after the end.)
 
 **How to apply:** Every built-in panel with game data lists `ended` in its phases (`lib/player-client/src/panels.ts`, linted by `test/panels.test.ts`); `results` is only the default once the game is over. Panels show the final tick (clocks stop: god energy at `endedAt`, world time at its last value) and refuse actions with a visible reason instead of hiding the panel (forge: Validate and Summon off with a line saying why). The engine never deletes or collapses an ended game's rows; reads (observation, events, trajectories, myUtility, layout, the assistant's tools) serve it until the room's next game, then by game id. The assistant briefs an ended game as its frozen final state, never as a lobby. Chat stays open after the end (it belongs to the room). Do not add a phase gate that blanks a panel or a read on `ended`.
+
+The assistant's state is per (player, game): starting a new game in the same room starts the assistant with an entirely fresh context.
+
+**Why:** The owner asked that all state associated with an assistant be scoped to a player and game combo (2026-11-01).
+
+**How to apply:** Threads (turns, briefings, messages, tool calls, cards), the allowance, code runs and stored objects carry the game's epoch (the room's current game, or the lobby before the first); launching a game ends the room's active assistant turns. An earlier game's conversation stays readable by its human for that game (replays) but is never listed, continued or loaded in the next. The player's own choices are not assistant state and stay: layout and panels, saved scripts (`scripts/`), the auto-approve preference, the room credential. New assistant state gets the same key.
+
+URLs nest games in their rooms, in both apps: `/rooms/:room` and `/rooms/:room/games/:game` (short codes) in the engine UI, and the same scheme under the player client's own base path. The engine hosts the player client at `/client/` (never "player" in the prefix; `/player/*` redirects there), and the client is a reference implementation of a separate app: it must run unchanged from any surface (a Replit or Codespaces dev server at `/`, a proxy path). A player can open the past games of a room they played in, read-only.
+
+**Why:** The owner's instruction (2026-11-01): "make the player client URL schema as rich as the platform url schema and mirror it, but with the /client/ prefix", "nest games within rooms like /rooms/<id>/games/<id> (for both platform and client apps)", "It should be possible for the player client to visit historic games within a room they participated in", and treat `/client` as "a reference implementation of a separate app that we could run from Replit dev environments (or any other surface)".
+
+**How to apply:** Build engine UI paths with `artifacts/code-gods/src/lib/routes.ts` and client paths with `artifacts/player-web/src/core/routes.ts` (relative to Vite's base, never a hard-coded prefix). Keep old links (`/games/:code`, `?game=`, `?room=`, `/player/*`) redirecting. A past game (neither the room's active nor its current game) is readable only by the gods who played in it and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone.
+
+Every player client, the hosted `/client/` one included, is an external app of the engine: it authenticates only with a room-scoped player token (OAuth + PKCE or the device flow, `@workspace/player-client/browser`), never with the engine site's session cookie, and calls only public catalogued functions.
+
+**Why:** The owner wants `/client` to be a reference implementation of an app players run from any surface (Replit, localhost, …) and change freely; any privileged shortcut of the hosted client is a design bug (2026-11-01, docs/external-clients.md).
+
+**How to apply:** The Google session is for the engine UI only (sign-in, rooms, /connect, /device, credential management). Bearer-authorized routes answer CORS `*` without credentials; cookie routes stay same-origin. A capability the hosted client needs is added for every client (a public function, an OAuth parameter), never as a same-origin or first-party exception; the only first-party difference is that /connect approves the engine's own client without a click (a member, at most act).
+
+Players never wait for agent sandboxes to boot: launches are async, and whatever needs a warm sandbox says "not ready yet".
+
+**Why:** The owner (2026-11-01): "Players should not need to wait seconds for the game to start for agent sandboxes to launch. Their launch should be async and any functions that depend on them having launched should just declare themselves unready until the agent sandbox(s) are warm." (A cold start had spent 1.1–1.6 s booting CPython-WASI before the game began.)
+
+**How to apply:** Readiness is engine state, one `runtimeReadiness` row per language (`warming | ready | failed` + reason, keyed by the runtime version); rules in `convex/lib/sandboxes.ts`, writes only through `runtime/readiness.ts ensure`/`settle`, boots only in the scheduled `runtime/warm.ts`. Never call the runtime from a start or any player-awaited path to "check" it: use `ensureSandboxes` (static: deployed and not just failed). Validate, summon and run_code answer a typed `notReady` (not receipted); AI seats wait; the tick skips unready languages' agents; planning holds past its deadline until every allowed language is ready, so world time starts for everyone at once (fairness). A new runtime needs only an entry in game-core LANGUAGE_SPECS and, if it has a stored bundle, `RUNTIME_ASSETS` in `runtime/node.ts`.
+
+The player can keep typing while their assistant works: messages queue in Convex and reach the model at the next step boundary.
+
+**Why:** The owner asked (2026-11-01) for message queuing, with queued user messages inserted as soon as the current (tool call) turn completes.
+
+**How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. It never approves a card: it declines a waiting one. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".

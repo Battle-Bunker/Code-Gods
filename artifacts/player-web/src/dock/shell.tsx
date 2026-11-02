@@ -4,10 +4,14 @@
  * (parsed), `layout.set` goes out with ifUpdatedAt; the phase and the panel registry feed parseLayout. At 768 px and
  * wider the dockview dock is loaded; below, the stacked renderer (dockview is never downloaded on phones).
  *
+ * Replay mode (`replay`, docs/replay-design.md §4): the same dock over an ended game at a replay's playhead. The SDK
+ * answers come from the replay (core/replay sets the source), the header is the replay's transport, the layout is the
+ * human's own arrangement but changes stay in this tab (never pushed), and the Timeline panel is opened.
+ *
  * Keys: Cmd/Ctrl+K opens the palette everywhere; `/` focuses the assistant's composer and `?` opens the palette when
  * no input has focus; Ctrl+` focuses the assistant.
  */
-import { lazy, Suspense, useEffect, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useRoom } from "@/sdk";
@@ -26,9 +30,10 @@ import { DockContext, DockStore, useDockStore } from "./store";
 const DesktopDock = lazy(() => import("./desktop"));
 
 /** Counts real input as human activity (at most once a minute): it keeps the engine from idle-parking. */
-function useHumanActivity() {
+function useHumanActivity(on = true) {
   const touch = useMutation(api.activity.touch);
   useEffect(() => {
+    if (!on) return;   // watching a replay is not activity in the live room
     let last = 0;
     const onInput = (event: Event) => {
       if (!event.isTrusted || Date.now() - last < 60_000) return;
@@ -37,7 +42,7 @@ function useHumanActivity() {
     };
     window.addEventListener("pointerdown", onInput); window.addEventListener("keydown", onInput);
     return () => { window.removeEventListener("pointerdown", onInput); window.removeEventListener("keydown", onInput); };
-  }, [touch]);
+  }, [touch, on]);
 }
 
 const typing = (target: EventTarget | null) => {
@@ -75,23 +80,37 @@ function useNewFilePanels(store: DockStore, fileIds: readonly string[] | undefin
   }, [store, fileIds, loaded]);
 }
 
-export function PlayerShell() {
+/** Replay mode: the header that replaces the live one (the replay's transport). */
+export type ShellReplay = { header: ReactNode };
+
+export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
   const room = useRoom();
   const panels = usePanelRegistry();
-  // The registry is published at import, so the file panels are known for the first parse.
-  const store = useMemo(() => new DockStore(room.roomId, { canWrite: !SAFE_MODE, fileIds: panels.fileIds }), [room.roomId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The registry is published at import, so the file panels are known for the first parse. A replay never writes the layout.
+  const store = useMemo(() => new DockStore(room.roomId, { canWrite: !SAFE_MODE && !replay, fileIds: panels.fileIds }), [room.roomId, !replay]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => store.dispose(), [store]);
   return (
     <DockContext.Provider value={store}>
       <PanelsProvider value={panels}>
-        <Screen panels={panels} />
+        <Screen panels={panels} replay={replay} />
       </PanelsProvider>
     </DockContext.Provider>
   );
 }
 
-function Screen({ panels }: { panels: Panels }) {
-  useHumanActivity();
+/** Replay mode opens the Timeline once the human's layout is in (unless it already has one). */
+function useTimelinePane(store: DockStore, on: boolean, loaded: boolean) {
+  const done = useRef(false);
+  useEffect(() => {
+    if (!on || !loaded || done.current) return;
+    done.current = true;
+    const panes = Object.values(store.layout.panes);
+    if (!panes.some(p => p.kind === "panel" && p.panelId === "timeline")) dockActions(store).show("timeline");
+  }, [store, on, loaded]);
+}
+
+function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
+  useHumanActivity(!replay);
   const { roomId } = useRoom();
   const store = useDockStore();
   const wide = useWide();
@@ -105,11 +124,11 @@ function Screen({ panels }: { panels: Panels }) {
   useEffect(() => { store.setPanels(SAFE_MODE ? [] : panels.stored ? panels.stored.filter(p => p.enabled).map(p => p.slug) : null, panels.fileIds); }, [store, panels.stored, panels.fileIds]);
   useEffect(() => { if (current) store.server(current.layout, current.updatedAt); }, [store, current]);
   useNewFilePanels(store, panels.fileIds, current !== undefined);
+  useTimelinePane(store, !!replay, current !== undefined);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
-      <Header />
-      <HeaderBanners />
+      {replay ? replay.header : <><Header /><HeaderBanners /></>}
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>

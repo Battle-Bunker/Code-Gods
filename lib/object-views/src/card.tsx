@@ -2,6 +2,10 @@
 import { useMemo, useState } from "react";
 import { capabilityClass } from "@workspace/game-types";
 import { familyUses, type BadgeLike } from "./catalog.ts";
+import type { GridSettings } from "./registry.ts";
+import type { GoalExplainer } from "@workspace/game-utilities";
+import { GridObject } from "./views.tsx";
+import { GoalBoard } from "./explain/GoalBoard.tsx";
 
 export interface UtilityCardLike {
   familyId: string;
@@ -11,6 +15,8 @@ export interface UtilityCardLike {
   summary: string;
   language: "python" | "typescript" | string;
   source: string;
+  /** A tiny example board (its own size) and what it scores (docs/rules-design.md §3.2). */
+  example?: { value: string; size: number; caption: string };
   penalty?: { familyId: string; emoji: string; name: string; summary: string; comparative: string; source: string };
 }
 
@@ -34,8 +40,43 @@ function Source({ text, language, testId }: { text: string; language: string; te
   );
 }
 
-/** Emoji and name, plain summary, a "uses" chip row, then the source; a defence goal follows as its own card. */
-export function UtilityCardView({ card, uses }: { card: UtilityCardLike; uses?: readonly BadgeLike[] }) {
+/** A goal card's example board: the room's tiles at the example's own size, with its caption. */
+export function CardExample({ example, grid }: { example: NonNullable<UtilityCardLike["example"]>; grid?: GridSettings }) {
+  return (
+    <figure className="mt-2 flex items-center gap-3" data-testid="utility-card-example">
+      <GridObject value={example.value} grid={grid ? { ...grid, size: example.size } : undefined} renderer="tiles" />
+      <figcaption className="text-xs leading-snug text-muted-foreground"><span className="font-medium text-foreground">For example: </span>{example.caption}</figcaption>
+    </figure>
+  );
+}
+
+/**
+ * The goal card's worked example (docs/annotations-design.md §3): a board of the room's own shape, searched to show
+ * scoring and non-scoring pieces, with its most illuminating cell focused and the annotations always shown.
+ */
+export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: GridSettings }) {
+  const example = useMemo(() => goal.example(), [goal]);
+  if (!example) return null;
+  return (
+    <figure className="mt-3 border-t pt-3" data-testid="utility-card-goal-example">
+      <figcaption className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Example</figcaption>
+      <GoalBoard goal={goal} value={example.value} grid={grid} initialFocus={example.focus} caption={example.caption} testId="goal-example-board" />
+    </figure>
+  );
+}
+
+/**
+ * Emoji and name, plain summary, an example board (the annotated one with `goal`, else the card's tiny one when the rule
+ * has one), a "uses" chip row, then the source; a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ */
+export function UtilityCardView({ card, uses, grid, goal }: {
+  card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
+  /**
+   * The player's own goal explainer: the card then shows its annotated example board (a family without a lens keeps its
+   * hand-made tiny example when it has one, else shows a searched example board with its score).
+   */
+  goal?: GoalExplainer | null;
+}) {
   const badges = useMemo(() => uses ?? familyUses(card.familyId), [uses, card.familyId]);
   const penaltyUses = useMemo(() => (card.penalty ? familyUses(card.penalty.familyId) : []), [card.penalty?.familyId]);
   return (
@@ -44,6 +85,7 @@ export function UtilityCardView({ card, uses }: { card: UtilityCardLike; uses?: 
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
         <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
+        {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" />
       </div>
@@ -63,8 +105,8 @@ export function UtilityCardView({ card, uses }: { card: UtilityCardLike; uses?: 
 // ---------------------------------------------------------------------------------------------
 
 export interface HelperDocLike {
-  name: { python: string; typescript: string };
-  signature: { python: string; typescript: string };
+  name: { python: string; typescript: string; haskell?: string };
+  signature: { python: string; typescript: string; haskell?: string };
   kid: string;
   class?: string;
   group: "read" | "mutator" | string;
@@ -73,6 +115,13 @@ export interface HelperDocLike {
 function badgeOf(cls: string | undefined): BadgeLike | undefined {
   if (!cls) return undefined;
   try { return capabilityClass(cls).badge; } catch { return undefined; }
+}
+
+/** A helper's name and signature in an agent language (Haskell: only helpers with a Haskell form; else null). */
+export function helperIn(h: HelperDocLike, language: string): { name: string; signature: string } | null {
+  if (language === "haskell") return h.name.haskell && h.signature.haskell ? { name: h.name.haskell, signature: h.signature.haskell } : null;
+  const lang = language === "typescript" ? "typescript" : "python";
+  return { name: h.name[lang], signature: h.signature[lang] };
 }
 
 /** Helpers grouped by the badge that provides them ("Everywhere" first). */
@@ -93,19 +142,19 @@ export function groupHelpers(helpers: readonly HelperDocLike[]) {
  * returns, grouped by badge, each with its signature and kid line. Clicking a name inserts it.
  */
 export function HelpersDrawer({ helpers, language, onInsert, open: initiallyOpen = false }: {
-  helpers: readonly HelperDocLike[]; language: "python" | "typescript" | string; onInsert?: (name: string) => void; open?: boolean;
+  helpers: readonly HelperDocLike[]; language: "python" | "typescript" | "haskell" | string; onInsert?: (name: string) => void; open?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const lang = language === "typescript" ? "typescript" : "python";
   const q = query.trim().toLowerCase();
-  const match = (h: HelperDocLike) => !q || h.name[lang].toLowerCase().includes(q) || h.kid.toLowerCase().includes(q);
+  const shown = helpers.filter(h => helperIn(h, language));
+  const match = (h: HelperDocLike) => !q || helperIn(h, language)!.name.toLowerCase().includes(q) || h.kid.toLowerCase().includes(q);
   const sections: [string, string, HelperDocLike[]][] = [
-    ["read", "Read the board", helpers.filter(h => h.group !== "mutator" && match(h))],
-    ["mutator", "Moves your agent can return", helpers.filter(h => h.group === "mutator" && match(h))],
+    ["read", "Read the board", shown.filter(h => h.group !== "mutator" && match(h))],
+    ["mutator", "Moves your agent can return", shown.filter(h => h.group === "mutator" && match(h))],
   ];
   return (
     <details className="border text-sm" open={initiallyOpen} data-testid="helpers-drawer">
-      <summary className="cursor-pointer px-3 py-2 font-medium">Room helpers <span className="text-xs text-muted-foreground font-normal">({helpers.length})</span></summary>
+      <summary className="cursor-pointer px-3 py-2 font-medium">Room helpers <span className="text-xs text-muted-foreground font-normal">({shown.length})</span></summary>
       <div className="px-3 pb-3 space-y-3">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a helper" aria-label="Find a helper"
           className="w-full border bg-background px-2 py-1 text-xs outline-none focus:border-primary" data-testid="input-helper-search" />
@@ -116,14 +165,17 @@ export function HelpersDrawer({ helpers, language, onInsert, open: initiallyOpen
               <div key={g.badge?.id ?? "everywhere"} className="mt-1.5">
                 {g.badge && <p className="text-[11px] text-muted-foreground" title={g.badge.kid}>{g.badge.emoji} {g.badge.label}</p>}
                 <ul className="space-y-1 max-h-64 overflow-auto">
-                  {g.items.map(h => (
-                    <li key={h.name[lang] + h.signature[lang]} className="text-xs">
-                      <button type="button" disabled={!onInsert} onClick={() => onInsert?.(h.name[lang])}
-                        className="font-mono font-semibold text-primary hover:underline disabled:text-foreground disabled:no-underline break-all text-left"
-                        title={onInsert ? "Insert into the forge" : undefined} data-testid={`helper-${h.name[lang]}`}>{h.signature[lang]}</button>
-                      <span className="block text-muted-foreground">{h.kid}</span>
-                    </li>
-                  ))}
+                  {g.items.map(h => {
+                    const { name, signature } = helperIn(h, language)!;
+                    return (
+                      <li key={name + signature} className="text-xs">
+                        <button type="button" disabled={!onInsert} onClick={() => onInsert?.(name)}
+                          className="font-mono font-semibold text-primary hover:underline disabled:text-foreground disabled:no-underline break-all text-left"
+                          title={onInsert ? "Insert into the forge" : undefined} data-testid={`helper-${name}`}>{signature}</button>
+                        <span className="block text-muted-foreground">{h.kid}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

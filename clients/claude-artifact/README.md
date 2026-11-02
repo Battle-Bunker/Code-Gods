@@ -78,7 +78,7 @@ top of the published page's script) and the `server` in the capabilities to that
 - **Actions are explicit clicks.** The page never writes on a timer. The only unattended call is the receipt
   check after an unclear failure.
 - **One room, one permission** per connector authorization. To play another room, approve the connector again.
-- For real-time play (1 Hz), use the hosted client at `/player/` or a dev container.
+- For real-time play (1 Hz), use the hosted client at `/client/` or a dev container.
 
 ## Customize it (instructions for Claude)
 

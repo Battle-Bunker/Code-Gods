@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Client as LegacyClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport as LegacyTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { admin, api, envelope, gods, internal, raw, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -27,8 +27,8 @@ const SITE = process.env.CG_TEST_SITE_URL ?? `http://127.0.0.1:${ports?.site ?? 
 const MCP = `${SITE}/mcp`;
 const MODERN = "2026-07-28";
 const LEGACY = "2025-06-18";
-const TS_INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, language: "typescript", grammarId: "typescript-agent-v1",
-  complexityFunctionId: "ts-ast-bits-v1-uniform", startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100,
+const TS_INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, languages: ["typescript"],
+  startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100,
   agentBatteryActs: 2, interactionRateHz: 20, startingEnergy: 1000 };
 const AGENT = "function agent(x) { return [add(1)]; }";
 
@@ -245,7 +245,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   const owner = await credential(host, roomId, "owner");
   const actor = await credential(ada, roomId, "act");
   const started = await call(owner.token, "start_game", { requestId: randomUUID() });
-  assert.ok(started.data?.result?.gameId, JSON.stringify(started));
+  const game = await startedGame(host, roomId, started.data?.result);
   const commandId = randomUUID();
   const first = await call(actor.token, "summon_agent", { source: AGENT, commandId });
   assert.equal(first.data.status, "received", JSON.stringify(first));
@@ -255,7 +255,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   assert.deepEqual(replay.data.receipt, first.data.receipt, "the identical call returns the stored receipt");
   const conflict = await call(actor.token, "summon_agent", { source: AGENT.replace("1", "2"), commandId });
   assert.equal(conflict.error?.code, "CONFLICT");
-  const agents = (await raw(started.data.result.gameId)).agents.filter((a: any) => a.ownerId === ada.subject);
+  const agents = (await raw(game.gameId)).agents.filter((a: any) => a.ownerId === ada.subject);
   assert.equal(agents.length, 1, "exactly one agent after the replay");
   // waitMs 0: the summon runs on the server after the call answers `pending`; get_receipt completes it.
   const later = randomUUID();
@@ -282,7 +282,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], { ...TS_INT, objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
     startingObjectCount: 12, spawnRateHz: 2, interactionRateHz: 40 });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_mcp_marker", SECRET_HOST = "host_mcp_marker";
   for (const [god, source] of [[ada, "function agent(grid) { return [slide(row(0), 1)]; }"],
@@ -294,7 +294,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   await waitFor(async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).some((e: any) => e.t === "transform" && e.ownerId === bo.subject),
     "others' transforms", 90000);
-  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
   const { token } = await credential(ada, roomId, "act");
   const objects = (await call(token, "get_observation", { objectsLimit: 200 })).data.objects;
   const reads: [string, Record<string, unknown>][] = [
@@ -302,15 +302,23 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     ["get_events", { after: -1, limit: 50 }], ["get_trajectories", { afterSeq: -1, limit: 200 }], ["list_games", {}],
     ["get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }], ["get_my_utility", {}], ["get_chat", {}],
     ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }], ["list_setups", {}],
+    // Rival inference (docs/public-log-design.md §4): the public log with own and others' summed bits, and the fit.
+    ["get_utility_series", {}], ["get_board_at", {}], ["get_board_at", { world: 0 }], ["list_utility_candidates", { paramsPerFamily: 2 }],
+    ["fit_utility_mixture", { maxObservations: 60, hints: [{ familyId: "bullseye", probability: 0.6 }] }],
   ];
+  // These enumerate (or rank) the public candidate rules, so any god's parameters can appear in them by design.
+  const PUBLIC_CANDIDATES = new Set(["list_utility_candidates", "fit_utility_mixture"]);
   // Another god's setup is shared by design (setups are one public collection): Ada lists it, as the host's.
   const hostSetup = await host.c.action(api.setups.save, { name: "Host's shared setup", settings: (await host.c.query(api.rooms.get, { room: roomId })).settings });
   for (const [name, args] of reads) {
     const result = await call(token, name, args);
     assert.ok(result && !result.error && !result.rpcError, `${name}: ${JSON.stringify(result).slice(0, 300)}`);
     assert.equal(result.untrusted, true, `${name} marks game data untrusted`);
-    await check(`mcp ${name}`, result);
+    await check(`mcp ${name}`, result, { publicParams: PUBLIC_CANDIDATES.has(name) });
   }
+  // The candidates are public: the same list for every player, so they say nothing about who holds what.
+  const { token: boToken } = await credential(bo, roomId, "read");
+  assert.deepEqual((await call(boToken, "list_utility_candidates", {})).data, (await call(token, "list_utility_candidates", {})).data, "the same candidates for every player");
   // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
   await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
   // With `place`, open_panel adds a pane (without it, it would switch the never-chosen first pane instead).
@@ -337,6 +345,58 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await check("mcp list_setups (own setup saved)", listed);
   await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
+  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum plus the
+  // version's live disclosure noise, settings.peerNoiseBits), by hand.
+  const ownOf = (net: number[]) => net[me], othersOf = (net: number[]) => net.reduce((x, n, i) => (i === me ? x : x + n), 0);
+  // Page through the whole series (each page is whole rows, cut to the result bound).
+  const series: any = { rows: 0, columns: {} };
+  for (let offset: number | null = 0; offset !== null;) {
+    const page: any = await call(token, "get_utility_series", { offset, limit: 20000 });
+    series.others = page.data.others;
+    for (const [k, v] of Object.entries(page.data.columns)) series.columns[k] = [...(series.columns[k] ?? []), ...(v as unknown[])];
+    series.rows += page.data.rows;
+    offset = page.nextCursor ?? null;
+  }
+  // The raw state after the series was read: every row the series returned is in it (the game keeps running).
+  const snap = await raw(game.gameId);
+  const roster: string[] = snap.game.roster.map((m: any) => m.id), me = roster.indexOf(ada.subject);
+  assert.equal(series.others, 2);
+  const byKey = new Map(snap.objectEvents.map((r: any) => [`${r.objectId}:${r.version}`, r]));
+  const cols = series.columns;
+  assert.ok(series.rows >= 12, "the starting objects and the transformations");
+  for (let i = 0; i < series.rows; i++) {
+    const row: any = byKey.get(`${cols.objectId[i]}:${cols.version[i]}`);
+    assert.ok(row, "every series row is a stored event");
+    assert.deepEqual([cols.value[i], cols.kind[i], cols.world[i]], [row.value, row.kind, row.world]);
+    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - (othersOf(row.net) + row.noise)) < 1e-9, "own and the noisy others' sum after");
+    assert.notEqual(row.noise, 0, "the default disclosure is noisy");
+    const prior: any = byKey.get(`${cols.objectId[i]}:${cols.version[i] - 1}`);
+    if (!prior) { assert.equal(cols.dOthers[i], null); continue; }
+    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) + row.noise - othersOf(prior.net) - prior.noise)) < 1e-9, "dOthers is the change of the disclosed others' sum");
+    assert.ok(Math.abs(cols.dOwn[i] - (ownOf(row.net) - ownOf(prior.net))) < 1e-12);
+    assert.equal(cols.mine[i], row.ownerId === ada.subject);
+    assert.equal(cols.before[i], row.before);
+  }
+  const board = (await call(token, "get_board_at", { world: 1e9 })).data;
+  for (const o of snap.objects) {
+    const b = board.objects.find((x: any) => x.objectId === o._id);
+    if (!b || b.version !== o.version) continue; // moved on since the snapshot
+    const own = o.scores.find((x: any) => x.god === ada.subject).netBits, others = o.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
+    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - (others + o.noise)) < 1e-9, "the board's own and (noisy) others' bits are the object's");
+  }
+  const atStart = (await call(token, "get_board_at", { world: 0 })).data;
+  assert.equal(atStart.objects.length, 12, "the board at world 0 is the starting objects");
+  assert.ok(atStart.objects.every((o: any) => o.version === 0));
+  const fitted = (await call(token, "fit_utility_mixture", { maxObservations: 200 })).data;
+  assert.ok(fitted.observations >= 12 && fitted.hypotheses.length > 0 && fitted.hypotheses[0].draws.length === 2, JSON.stringify(fitted).slice(0, 400));
+  // With exact observations the true pair of the other gods' rules explains them: it is in the fit (as a class).
+  const truth = snap.deities.filter((d: any) => d.godId !== ada.subject).map((d: any) => d.utility.familyId).sort();
+  // A class lists up to five aliases; families of the class are the representative's and its aliases'.
+  const holds = (h: any) => { const left = [...truth]; return h.draws.every((d: any) => { const fams = [d.familyId, ...d.aliases.map((a: any) => a.familyId)]; const i = left.findIndex(f => fams.includes(f)); if (i < 0) return false; left.splice(i, 1); return true; }); };
+  // Exact disclosure: an exact fit holds the truth. With the default disclosure noise (8 bits) and a dozen objects the
+  // fit cannot pin it (docs/public-log-design.md §5.1); it must at least never trust the data more than the noise.
+  if ((snap.game.settings.peerNoiseBits ?? 0) === 0) assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
+  else assert.ok(fitted.sigma >= snap.game.settings.peerNoiseBits, `the fit's σ (${fitted.sigma}) is at least the disclosure noise`);
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);
@@ -344,9 +404,23 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const own = secret.scores.find((s: any) => s.god === ada.subject);
     assert.ok(Math.abs(value.data.netBits - own.netBits) < 1e-9, "evaluate_value = own net bits");
   }
+  // get_replay: refused while the game is live (nothing hidden leaks through it), fully revealing once it has ended.
+  const liveReplay = await call(token, "get_replay", { gameId: game.gameId });
+  assert.ok(liveReplay.error && /opens when the game ends/.test(JSON.stringify(liveReplay)), JSON.stringify(liveReplay).slice(0, 300));
+  await check("mcp live get_replay", liveReplay);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  await check("mcp ended list_games", await call(token, "list_games", {}));
-  await check("mcp ended history", await call(token, "get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }));
+  const ended = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST]);
+  await ended("mcp ended list_games", await call(token, "list_games", {}));
+  await ended("mcp ended history", await call(token, "get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }));
+  let endedReplay = "";
+  for (let args: Record<string, unknown> = { gameId: game.gameId }, n = 0; n < 6; n++) {
+    const page = await call(token, "get_replay", args);
+    assert.ok(!page.error, JSON.stringify(page).slice(0, 300));
+    endedReplay += JSON.stringify(page);
+    if (page.nextCursor === null) break;
+    args = { gameId: game.gameId, cursor: page.nextCursor };
+  }
+  assert.ok(endedReplay.includes(SECRET_BO) && endedReplay.includes(SECRET_HOST), "an ended game's replay shows every agent's code");
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -361,8 +435,10 @@ const form = (body: Record<string, string>) => ({ method: "POST", headers: { "co
 
 /** DCR → authorize → /connect approval as `human` → complete → token. Returns tokens and the request id. */
 async function connect(human: God, roomId: string, scope: string, redirect = "http://127.0.0.1:43123/callback") {
+  // A distinct name per connection: the same metadata would get the same client back (oauthStore.registerClient).
+  const name = `Test Connector ${randomUUID().slice(0, 8)}`;
   const registered = await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Test Connector", redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }) });
+    body: JSON.stringify({ client_name: name, redirect_uris: [redirect], token_endpoint_auth_method: "none", grant_types: ["authorization_code", "refresh_token"], response_types: ["code"] }) });
   assert.equal(registered.status, 201, await registered.clone().text());
   const client = await registered.json() as any;
   const { verifier, challenge } = pkce();
@@ -376,7 +452,7 @@ async function connect(human: God, roomId: string, scope: string, redirect = "ht
   assert.equal(connectUrl.pathname, "/connect");
   const request = connectUrl.searchParams.get("request")!;
   const pending = await human.c.query(api.agent.connect.pending, { request });
-  assert.equal(pending.clientName, "Test Connector");
+  assert.equal(pending.clientName, name);
   assert.equal(pending.redirectHost, "127.0.0.1");
   assert.ok(pending.rooms.some((r: any) => r.roomId === roomId));
   // The /connect page generates the completion secret in the approving browser and passes it to /complete.
@@ -426,7 +502,7 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   // The connection is listed on the engine UI's credential list, with its client.
   const listed = (await ada.c.query(api.auth.credentials.list, {})).find((c: any) => c.credentialId === who.data.credentialId);
   assert.equal(listed?.kind, "oauth");
-  assert.equal(listed?.label, "Test Connector");
+  assert.match(listed?.label ?? "", /^Test Connector /);
 
   // Refresh rotates; the old refresh token is dead, and reusing it revokes the whole grant.
   const refresh = (token: string) => fetch(`${SITE}/api/oauth/token`, form({ grant_type: "refresh_token", refresh_token: token, client_id: client.client_id }));
@@ -504,7 +580,7 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
   const reg = await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ client_name: "Neg", redirect_uris: ["http://127.0.0.1:1/cb"] }) })).json() as any;
   const badRedirect = await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Evil", redirect_uris: ["https://evil.example/cb"] }) });
+    body: JSON.stringify({ client_name: "Evil", redirect_uris: ["http://evil.example/cb"] }) });
   assert.equal(badRedirect.status, 400);
   assert.equal((await badRedirect.json() as any).error, "invalid_redirect_uri");
   const { challenge } = pkce();
@@ -538,7 +614,7 @@ test("OAuth: authorize refuses unknown clients, unregistered redirects, plain PK
 test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used clients and old retired refresh tokens", { timeout: 120000 }, async () => {
   const { ada, roomId } = await lobby();
   const register = () => fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ client_name: "Flood", redirect_uris: ["http://127.0.0.1:1/cb"] }) });
+    body: JSON.stringify({ client_name: `Flood ${randomUUID()}`, redirect_uris: ["http://127.0.0.1:1/cb"] }) });
   // The sweep, run as if 31 days had passed. First it clears never-used clients of earlier runs from the window.
   const later = Date.now() + 31 * 24 * 3600_000;
   const sweep = () => admin.mutation(internal.agent.oauthStore.sweep, { now: later }) as Promise<Record<string, number>>;
@@ -550,7 +626,12 @@ test("OAuth tables stay bounded: DCR is rate limited, the sweep drops never-used
   // A client that holds a grant but has no usedAt (registered before usedAt existed) is kept too.
   const legacy = await connect(ada, roomId, "read");
   await admin.mutation(internal.testing.forgetClientUse, { clientId: legacy.client.client_id });
-  // Unauthenticated registration is capped globally: a flood soon gets 429.
+  // One app's browsers share one registration: the same metadata gets the same client_id, outside the limit.
+  const twice = async () => (await (await fetch(`${SITE}/api/oauth/register`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ client_name: "Same app", redirect_uris: ["https://same.example/"] }) })).json() as any).client_id;
+  const first = await twice();
+  assert.equal(await twice(), first, "same metadata, same client");
+  // Unauthenticated registration is capped globally: a flood of distinct clients soon gets 429.
   let limited: Response | undefined;
   for (let i = 0; i < 200 && !limited; i++) {
     const response = await register();

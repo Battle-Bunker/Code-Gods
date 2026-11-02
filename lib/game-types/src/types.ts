@@ -120,8 +120,9 @@ export interface Codec<V> {
 // ------------------------------------------------------------------------------------------------
 
 export interface HelperDoc {
-  readonly name: { readonly python: string; readonly typescript: string };
-  readonly signature: { readonly python: string; readonly typescript: string };
+  /** Its name per language; `haskell` when the Haskell Room module has it (haskell.ts withHaskellDocs). */
+  readonly name: { readonly python: string; readonly typescript: string; readonly haskell?: string };
+  readonly signature: { readonly python: string; readonly typescript: string; readonly haskell?: string };
   /** One kid-readable line. */
   readonly kid: string;
   /** The capability class that provides it, if any (helpers without one exist everywhere). */
@@ -144,6 +145,8 @@ export interface PreludeParts {
   readonly js: string;
   /** Declarations for the TypeScript type checker (agents and cards in TS rooms). */
   readonly dts: string;
+  /** The Haskell module `Room` every Haskell agent imports (haskell.ts). Not part of `hash`. */
+  readonly haskell: string;
   readonly helpers: readonly HelperDoc[];
   /** The game half of the summon-price tables (lib/game-runtime PricingVocab), per language. Derived from the texts. */
   readonly pricing: { readonly python: PricingVocab; readonly typescript: PricingVocab };

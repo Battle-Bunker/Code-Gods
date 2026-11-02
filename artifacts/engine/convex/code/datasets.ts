@@ -5,9 +5,11 @@
  */
 import { DATASETS, datasetName, type DatasetName, type DatasetRequest } from "@workspace/player-client/datasets";
 import { rulesText } from "@workspace/player-client/rules";
+import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
+import { gatherSeries } from "../agent/series";
 import type { ActionCtx } from "../_generated/server";
-import { fail } from "../lib/errors";
+import { fail, messageOf } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
 
 type Json = Record<string, unknown>;
@@ -31,6 +33,45 @@ async function pages(fetch: (afterSeq: number, limit: number) => Promise<Page>, 
   }
   return { events, series: [...series].map(([objectId, points]) => ({ objectId, points })) };
 }
+
+const REPLAY_DATASET_EVENTS = 50_000;
+type ReplayPage = { game: Json; gods?: unknown[]; batches: { seq: number; at: number; events: Json[] }[]; chat: unknown[]; nextCursor: number; eventOffset?: number; chatCursor: number; done: boolean };
+
+/** An ended game's full replay, flattened: header, every god, every event (tagged with its batch's seq and wall time), chat. Null while it is live. */
+async function replayDataset(ctx: ActionCtx, principal: Principal, roomId: string, gameId: string, limit: number) {
+  const pages: ReplayPage[] = [];
+  let cursor: { afterSeq: number; chatAfter: number; eventOffset?: number } | undefined, taken = 0, events = 0;
+  try {
+    // `limit` whole batches, and never more than REPLAY_DATASET_EVENTS events (the run's input has a size limit anyway).
+    while (taken < limit && events < REPLAY_DATASET_EVENTS) {
+      const n = Math.min(100, limit - taken);
+      const page = await ctx.runQuery(internal.player.replayAs, { principal, roomId, gameId, limit: n, ...cursor }) as ReplayPage;
+      pages.push(page);
+      taken += page.batches.filter(b => !(b as { from?: number }).from).length;
+      events += page.batches.reduce((x, b) => x + b.events.length, 0);
+      if (page.done || !page.batches.length) break;
+      cursor = { afterSeq: page.nextCursor, chatAfter: page.chatCursor, ...(page.eventOffset !== undefined ? { eventOffset: page.eventOffset } : {}) };
+    }
+  } catch (error) {
+    if (/opens when the game ends/.test(messageOf(error))) return null;
+    throw error;
+  }
+  return {
+    game: pages[0].game, gods: pages[0].gods ?? [],
+    events: pages.flatMap(p => p.batches.flatMap(b => b.events.map(e => ({ seq: b.seq, at: b.at, ...e })))),
+    chat: pages.flatMap(p => p.chat),
+  };
+}
+
+/**
+ * A dataset that does not exist for this player is null: no game in the room yet, or the player is not seated in it.
+ * Anything else (a wrong gameId, lost room access) still fails.
+ */
+const unseated = (error: unknown) => {
+  const message = error instanceof ConvexError ? String((error.data as { message?: string } | undefined)?.message ?? "") : "";
+  if (/no game in this room yet|not seated|You are not seated/.test(message)) return null;
+  throw error;
+};
 
 /**
  * {name: value} for every request, in request order (a name requested twice keeps the last). Throws BAD_REQUEST for a
@@ -87,6 +128,18 @@ export async function resolveDatasets(ctx: ActionCtx, principal: Principal, room
         break;
       }
       case "games": out[name] = await ctx.runQuery(internal.rooms.historyAs, { principal, room: roomId }); break;
+      case "replay": {
+        if (!options.gameId) fail("BAD_REQUEST", "replay needs a gameId (from the games dataset or list_games)");
+        out[name] = await replayDataset(ctx, principal, roomId, options.gameId!, limit);
+        break;
+      }
+      // Rival inference (docs/public-log-design.md §4): null when there is no game or the player is not seated in it.
+      case "utility_series":
+        out[name] = await gatherSeries(ctx, principal, roomId, { ...(options.gameId ? { gameId: options.gameId } : {}), limit }).catch(unseated);
+        break;
+      case "utility_candidates":
+        out[name] = await ctx.runAction(internal.agent.node.candidates, { principal, roomId }).catch(unseated);
+        break;
     }
   }
   return out;

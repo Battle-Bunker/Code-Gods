@@ -3,7 +3,8 @@ import { v } from "convex/values";
 
 /**
  * The in-client assistant (owned by convex/assistant; docs/surface-architecture.md §6). A thread is one human's
- * conversation in one room; a turn is one answer to one user message, run as a chain of scheduled model steps; each
+ * conversation in one room during one game (its `epoch`, the same key as the allowance's): a new game starts with no
+ * thread, and an earlier game's threads stay readable by their human for that game only (assistant.threads gameId). A turn is one answer to one user message, run as a chain of scheduled model steps; each
  * step writes one assistant message (its streamed text) and the tool calls the model asked for. Allowances are the
  * assistant pool per (room, human, epoch); the epoch is the room's current game id, or "lobby" before the first game.
  * One more row per (room, epoch), with subject "", counts the room's assistant USD and call rate.
@@ -28,7 +29,11 @@ export const assistantTables = {
   assistantThreads: defineTable({
     roomId: v.id("rooms"), subject: v.string(), title: v.string(), createdAt: v.number(), updatedAt: v.number(),
     activeTurnId: v.optional(v.id("assistantTurns")),
-  }).index("by_room_subject", ["roomId", "subject", "updatedAt"]),
+    /** The game the conversation belongs to: the room's current game id when it started, or "lobby" before the room's
+     * first game (ai/seats.ts assistantEpoch). Absent only on rows from before games scoped threads, until the
+     * assistant-per-game migration (convex/migrations.ts) gives them theirs; no scoped read returns such a row. */
+    epoch: v.optional(v.string()),
+  }).index("by_room_subject_epoch", ["roomId", "subject", "epoch", "updatedAt"]),
 
   assistantTurns: defineTable({
     threadId: v.id("assistantThreads"), roomId: v.id("rooms"), subject: v.string(), gameId: v.optional(v.string()),
@@ -45,12 +50,21 @@ export const assistantTables = {
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     /** The player's situation, fetched once before the turn's first model step and put in front of their message. */
     briefing: v.optional(v.string()),
+    /**
+     * Sent while the human was watching a replay (docs/replay-design.md §8): the ended game and the moment on screen,
+     * resolved at send time, for the turn's briefing.
+     */
+    replay: v.optional(v.object({
+      gameId: v.string(), shortCode: v.string(), cursor: v.number(), events: v.number(), worldSeconds: v.number(),
+      pov: v.optional(v.object({ godId: v.string(), name: v.string() })),
+    })),
     /** The first message seq of the earlier history this turn replays, fixed at its first step (rules.ts historyStart). */
     historyFromSeq: v.optional(v.number()),
     /** The output ceiling of the turn's later steps, raised after a step was cut (rules.ts outputCeiling). */
     outputCeiling: v.optional(v.number()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
-  }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"]),
+  }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"])
+    .index("by_room_status", ["roomId", "status"]),
 
   assistantMessages: defineTable({
     threadId: v.id("assistantThreads"), turnId: v.id("assistantTurns"), seq: v.number(),
@@ -93,7 +107,27 @@ export const assistantTables = {
     reservedUsd: v.optional(v.number()),
   }).index("by_key", ["roomId", "subject", "epoch"]),
 
-  /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). */
+  /**
+   * Messages the player sent while their assistant was working (docs/surface-architecture.md §6 "Queued messages"), per
+   * (room, human, game epoch) like the threads. `queued` until delivered at the turn's next step boundary (after a
+   * step's tool results, assistant/store.ts deliverQueued) or as the start of the next turn, then `delivered` with
+   * the message it became; `removed` by the player. `held`: kept through a Stop, sent only when the player sends again.
+   * `clientId` makes a retried send the same message (the commandId pattern). Its text is private like a message's.
+   */
+  assistantQueue: defineTable({
+    roomId: v.id("rooms"), subject: v.string(), epoch: v.string(), threadId: v.id("assistantThreads"),
+    clientId: v.optional(v.string()), text: v.string(),
+    status: v.union(v.literal("queued"), v.literal("delivered"), v.literal("removed")),
+    held: v.optional(v.boolean()),
+    turnId: v.optional(v.id("assistantTurns")), messageId: v.optional(v.id("assistantMessages")),
+    createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_key_status", ["roomId", "subject", "epoch", "status", "createdAt"])
+    .index("by_thread_status", ["threadId", "status", "createdAt"])
+    .index("by_room_status", ["roomId", "status"])
+    .index("by_client", ["subject", "clientId"]),
+
+  /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). A choice of
+   * the player's, like their layout, not the assistant's working state, so it is kept across the room's games. */
   assistantPrefs: defineTable({ roomId: v.id("rooms"), subject: v.string(), autoApproveSummonBits: v.number() })
     .index("by_key", ["roomId", "subject"]),
 };

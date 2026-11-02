@@ -173,7 +173,9 @@ through the disclosure checker); nothing passes through the model's context. The
   3. the script runs in the instance's script pool (`runtime/node.ts` `scriptRuntimeFor`: one engine per
      language, separate from the agents' pools; the Python pool shares their compiled reactor and snapshot);
   4. the outcome is stored.
-- **Storage** (convex/code/tables.ts `codeRuns`): per human, per room. The row holds:
+- **Storage** (convex/code/tables.ts `codeRuns`): per human, per room and game (`epoch`). Listing and the default run
+  are the current game's; the assistant's `get_code_run` reaches no earlier game's run, while the human's own
+  `code.runs.get {runId}` still opens one. The row holds:
   - the source, the datasets and objects requested, params;
   - status, error, CPU, wall time, input size, and a summary of the store writes;
   - a prefix of the result and printed text (200 KB / 64 KB).
@@ -236,7 +238,12 @@ file-storage blob.
 
 ### 5.1 Security model
 
-- **One namespace per human.** Every object row is keyed by (subject, key); the subject is never part of the key.
+- **One namespace per human, partitioned per game.** Every object row is keyed by (subject, epoch, key); neither is
+  part of the key. A run writes and loads its game's partition (its `codeRuns.epoch`), except saved scripts
+  (`scripts/…`), which live in one player-wide partition across games and rooms: the player's tooling, like their
+  panels. So the next game's assistant starts from an empty store with the player's scripts. `list_code_objects` and
+  `code.objects.list {roomId}` show the current game's objects and the scripts; `code.objects.list {}` the whole store.
+  The objects of a human's 5 latest earlier games are kept (older games' deleted at the first write of a new game).
   Every function resolves the human from the caller's credential (`viewerOf(principal)`) and touches only that
   human's rows: `loadAs`, `commitAs`, `listAs`, `eventsAs`, and the panel's `code.runs.get`. A script can name
   any key string, and it still lands in its owner's namespace. Keys are 1–128 characters of `[A-Za-z0-9_./-]`, with
@@ -249,7 +256,7 @@ file-storage blob.
   - every key, refusing writes under `runs/`;
   - each value's size (at most 1 MiB);
   - the number of keys (at most 100 per run);
-  - the quota after the writes (500 objects, 20 MiB per human; run results are not counted).
+  - the quota after the writes (500 objects, 20 MiB per human per game, saved scripts included; run results are not counted).
 
   It then applies the whole set or none.
 - **Quotas** apply per human: objects, bytes, value size and keys per run for the store; runs and CPU per game for

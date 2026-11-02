@@ -36,6 +36,7 @@ test("every engine catalogue entry is a command or a stated exclusion; every nex
 test("Start game explains what is missing and offers the fix; a member sees who can", () => {
   assert.deepEqual(avail(scope({ room: room(["ada", "bob"]) }), "owner.start"), { ok: false, reason: "Needs 3 players; 2 have joined.", fix: "rooms.addAi" });
   assert.deepEqual(avail(scope({ room: room(["ada", "bob", "ai:x"]) }), "owner.start"), { ok: true });
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob", "ai:x"]), starting: true }), "owner.start"), { ok: false, reason: "The game is already starting." }, "no double start while one is pending");
   assert.deepEqual(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob", "cy"]) }), "owner.start"), { ok: false, reason: "Only the owner, Ada Lovelace, can do this." });
   const rows = paletteRows(engineCommands(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob", "cy"]) }), act), paletteContextFor(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob", "cy"]) })), { query: "start" }).flatMap(s => s.rows);
   assert.equal(rows.find(r => r.command.id === "owner.start")?.availability.ok, false, "searched, it is listed dimmed");

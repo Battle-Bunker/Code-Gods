@@ -11,7 +11,7 @@ import { Engine, EngineError, TOKEN_PATH, devServerHosts, isSameOriginRequest, l
 import { updateEnvFile } from "../src/connect.ts";
 
 const CREDENTIAL = "cgc_" + "A".repeat(43);
-const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,utility:{familyId:"zebra",emoji:"🦓",name:"Zebra",theme:"stripes",summary:"stripes",language:"python",source:"own"}},objects:[{id:"o",value:1,own:{ordinal:1,rewardBits:1,netBits:1},peerNetBits:2,peerCare:2,payoff:2,opponentUtilities:[1,1],peerScores:{a:1}}],agents:[{id:"a",source:"def agent(x):\n    return [add(1)]",language:"python",summonCost:11,decisionBits:0.5,expectedActCost:5,breakdown:{decision:0.5,erasure:0,motion:4.5,floor:0},randomized:false,energy:-1,eligible:false,acts:2,spent:9}],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
+const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",languages:["python","typescript"],self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,utility:{familyId:"zebra",emoji:"🦓",name:"Zebra",theme:"stripes",summary:"stripes",language:"python",source:"own"}},objects:[{id:"o",value:1,own:{ordinal:1,rewardBits:1,netBits:1},peerNetBits:2,peerCare:2,payoff:2,opponentUtilities:[1,1],peerScores:{a:1}}],agents:[{id:"a",source:"def agent(x):\n    return [add(1)]",language:"python",summonCost:11,decisionBits:0.5,expectedActCost:5,breakdown:{decision:0.5,erasure:0,motion:4.5,floor:0},randomized:false,energy:-1,eligible:false,acts:2,spent:9}],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
 
 test("protocol: projection strips hidden fields and bounds commands", () => {
   const text = JSON.stringify(observationSchema.parse(raw));
@@ -165,8 +165,9 @@ test("token middleware: same-origin GET only, no-store, cached JWT, RECONNECT on
     assert.equal(ok.status, 200);
     assert.equal(ok.headers.get("cache-control"), "no-store");
     const body = await ok.json();
-    assert.deepEqual(Object.keys(body).sort(), ["convexUrl", "expiresAt", "permission", "roomId", "token"]);
+    assert.deepEqual(Object.keys(body).sort(), ["convexUrl", "expiresAt", "permission", "roomId", "siteUrl", "token"]);
     assert.equal(body.convexUrl, "https://dep-1.convex.cloud");
+    assert.equal(body.siteUrl, "https://dep-1.convex.site", "the engine site, for links to the engine UI from the dev server's page");
     assert.ok(!JSON.stringify(body).includes("cgc_"), "the browser never sees the credential");
     await get({ origin: base });
     assert.equal(state.exchanges, 1, "the JWT is cached until a minute before expiry");

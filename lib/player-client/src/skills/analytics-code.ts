@@ -7,7 +7,7 @@ import { DATASETS, DATASET_NAMES } from "../datasets.ts";
 
 const datasetLines = DATASET_NAMES.map(name => {
   const d = DATASETS[name];
-  const opts = [d.needsGameId ? "needs {name, gameId}" : d.gameId ? "optional gameId" : "", d.limit ? `limit default ${d.limit.default}, max ${d.limit.max} batches` : ""]
+  const opts = [d.needsGameId ? "needs {name, gameId}" : d.gameId ? "optional gameId" : "", d.limit ? `limit default ${d.limit.default}, max ${d.limit.max} ${d.limitUnit ?? "batches"}` : ""]
     .filter(Boolean).join("; ");
   return `- ${name}${opts ? ` (${opts})` : ""}: ${d.about}\n  data.${name}: ${d.shape}`;
 }).join("\n");

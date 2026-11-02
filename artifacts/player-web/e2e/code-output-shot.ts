@@ -39,7 +39,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
-await page.goto(`${SITE}/player/?room=${shortCode}`);
+await page.goto(`${SITE}/client/rooms/${shortCode}`);
 await page.waitForSelector("[data-testid=text-self-label]", { state: "attached", timeout: 60_000 });
 // Ask through the composer (on a phone the assistant is a sheet).
 const input = page.locator("[data-testid=input-assistant]");

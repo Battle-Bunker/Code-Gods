@@ -9,6 +9,7 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { fail } from "./lib/errors";
+import { shortCodeFor } from "./lib/rooms";
 import { seed as seedSetups } from "./setups";
 
 const dev = () => {
@@ -125,6 +126,35 @@ export const makeLegacy = internalMutation({
   },
 });
 
+/**
+ * The assistant state of one human as it was before (player, game) keys (the assistant-per-game migration's input):
+ * threads and stored objects without an epoch, one usage total, and optionally `merge`'s second thread folded into its
+ * first (a conversation continued across games, as the client once allowed).
+ */
+export const makeAssistantLegacy = internalMutation({
+  args: { subject: v.string(), merge: v.optional(v.array(v.id("assistantThreads"))) },
+  handler: async (ctx, { subject, merge }) => {
+    dev();
+    if (merge) {
+      const [keep, from] = merge;
+      for (const turn of await ctx.db.query("assistantTurns").withIndex("by_thread", q => q.eq("threadId", from)).collect()) {
+        await ctx.db.patch(turn._id, { threadId: keep });
+        for (const m of await ctx.db.query("assistantMessages").withIndex("by_turn", q => q.eq("turnId", turn._id)).collect()) await ctx.db.patch(m._id, { threadId: keep });
+        for (const c of await ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", turn._id)).collect()) await ctx.db.patch(c._id, { threadId: keep });
+      }
+      await ctx.db.delete(from);
+    }
+    for (const t of await ctx.db.query("assistantThreads").collect()) if (t.subject === subject) await ctx.db.patch(t._id, { epoch: undefined });
+    let objects = 0, bytes = 0;
+    for (const r of await ctx.db.query("codeObjects").withIndex("by_subject_key", q => q.eq("subject", subject)).collect()) {
+      await ctx.db.patch(r._id, { epoch: undefined });
+      if (!r.key.startsWith("runs/")) { objects++; bytes += r.bytes; }
+    }
+    for (const u of await ctx.db.query("codeObjectUsage").withIndex("by_subject", q => q.eq("subject", subject)).collect()) await ctx.db.delete(u._id);
+    await ctx.db.insert("codeObjectUsage", { subject, objects, bytes });
+  },
+});
+
 /** End games (all live ones when `gameIds` is omitted) so finished tests leave no loops running. */
 export const endGames = internalMutation({
   args: { gameIds: v.optional(v.array(v.id("games"))) },
@@ -151,7 +181,18 @@ export const rawGame = internalQuery({
       objects: await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       agents: await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       batches: await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect(),
+      objectEvents: await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).collect(),
     };
+  },
+});
+
+/** The latest stored Haskell compilations (runtime/haskellPrograms.ts), newest first. */
+export const haskellProgramsLatest = internalQuery({
+  args: { count: v.number() },
+  handler: async (ctx, { count }) => {
+    dev();
+    const rows = await ctx.db.query("haskellPrograms").withIndex("by_compiledAt").order("desc").take(count);
+    return rows.map(row => ({ chars: row.js.length, inspection: row.inspection, error: row.error ?? null }));
   },
 });
 
@@ -164,6 +205,16 @@ export const rawAssistantPool = internalQuery({
     const epoch = room?.currentGameId ? String(room.currentGameId) : "lobby";
     const rows = (await ctx.db.query("assistantAllowances").collect()).filter(r => r.roomId === roomId && r.epoch === epoch);
     return { rows, roomUsd: rows.find(r => r.subject === "")?.reservedUsd ?? 0 };
+  },
+});
+
+/** An assistant turn's raw row (its generation and status), to race its step mutations. */
+export const rawAssistantTurn = internalQuery({
+  args: { turnId: v.id("assistantTurns") },
+  handler: async (ctx, { turnId }) => {
+    dev();
+    const turn = await ctx.db.get(turnId);
+    return { gen: turn?.gen ?? -1, status: turn?.status ?? null };
   },
 });
 
@@ -191,5 +242,96 @@ export const seedChat = internalMutation({
   handler: async (ctx, { roomId, authorId, texts, timestamp }) => {
     dev();
     for (const text of texts) await ctx.db.insert("chat", { roomId, authorId, authorName: authorId, kind: "human", text, timestamp });
+  },
+});
+
+/**
+ * A room with a long history (test/game-perf.test.ts): `copies` copies of one of its ended games, each with the game's
+ * deities, agents, objects (object ids remapped; agent and deity references in the log still name the source game's),
+ * event log (tick batches and object events) and its chat. History for the hot queries to ignore, not a replayable
+ * game. One call writes `copies` (at most 10) × the game's rows; call it repeatedly for more. A game too big to copy
+ * whole is refused, never copied in part.
+ */
+export const cloneEndedGame = internalMutation({
+  args: { gameId: v.id("games"), copies: v.number() },
+  handler: async (ctx, { gameId, copies }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    if (game?.phase !== "ended") fail("CONFLICT", "only an ended game is cloned");
+    if (!Number.isInteger(copies) || copies < 1 || copies > 10) fail("BAD_REQUEST", "copies is 1 to 10 per call");
+    const all = <T>(rows: T[], max: number, what: string) => rows.length > max ? fail("CONFLICT", `the game has over ${max} ${what}: too big to clone`) : rows;
+    const deities = all(await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(9), 8, "deities");
+    const agents = all(await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(201), 200, "agents");
+    const objects = all(await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(501), 500, "objects");
+    const batches = all(await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).take(501), 500, "tick batches");
+    const events = all(await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(1001), 1000, "object events");
+    const chat = all(await ctx.db.query("chat").withIndex("by_room", q => q.eq("roomId", game.roomId)).take(1001), 1000, "chat messages in its room")
+      .filter(m => m.gameId === gameId);
+    const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
+    for (let i = 0; i < copies; i++) {
+      const guid = crypto.randomUUID();
+      const id = await ctx.db.insert("games", { ...strip(game), guid, ...await shortCodeFor(ctx, "games", guid) });
+      for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });
+      for (const a of agents) await ctx.db.insert("agents", { ...strip(a), gameId: id });
+      const objectIds = new Map<string, Doc<"objects">["_id"]>();
+      for (const o of objects) objectIds.set(o._id, await ctx.db.insert("objects", { ...strip(o), gameId: id }));
+      for (const b of batches) await ctx.db.insert("tickBatches", { ...strip(b), gameId: id });
+      for (const e of events) await ctx.db.insert("objectEvents", { ...strip(e), gameId: id, objectId: objectIds.get(e.objectId) ?? e.objectId });
+      for (const m of chat) await ctx.db.insert("chat", { ...strip(m), gameId: id });
+    }
+    return { games: copies, batches: batches.length, events: events.length, objects: objects.length, chat: chat.length };
+  },
+});
+
+/** Make an AI seat look as it did before seat names: named after its template, with a chat line under that name. */
+export const legacyAiSeat = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), chat: v.optional(v.string()) },
+  handler: async (ctx, { roomId, godId, chat }) => {
+    dev();
+    const seat = await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
+    if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
+    await ctx.db.patch(seat._id, { name: seat.aiAgent.name });
+    if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
+  },
+});
+
+/** `count` examinations of `godId` in `roomId`, `ageMs` ago (game/commands.ts claimExamination's window). */
+export const seedExaminations = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), count: v.number(), ageMs: v.number() },
+  handler: async (ctx, { roomId, godId, count, ageMs }) => {
+    dev();
+    for (let i = 0; i < count; i++) await ctx.db.insert("examinations", { roomId, godId, at: Date.now() - ageMs });
+  },
+});
+
+/** Move a god's recorded examinations `byMs` into the past. */
+export const ageExaminations = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), byMs: v.number() },
+  handler: async (ctx, { roomId, godId, byMs }) => {
+    dev();
+    for (const row of await ctx.db.query("examinations").withIndex("by_room_god_at", q => q.eq("roomId", roomId).eq("godId", godId)).take(500)) {
+      await ctx.db.patch(row._id, { at: row.at - byMs });
+    }
+  },
+});
+
+/** The agent sandbox readiness rows (runtime/readiness.ts), raw. */
+export const sandboxes = internalQuery({
+  args: {},
+  handler: async ctx => { dev(); return ctx.db.query("runtimeReadiness").take(16); },
+});
+
+/**
+ * Put a language's readiness row in a state (as if a boot were in flight, or had failed at `attemptAt`). Only the fields
+ * given change; the row must exist (warm it first).
+ */
+export const setSandbox = internalMutation({
+  args: { language: v.string(), patch: v.any() },
+  handler: async (ctx, { language, patch }) => {
+    dev();
+    const row = await ctx.db.query("runtimeReadiness").filter(q => q.eq(q.field("language"), language)).first();
+    if (!row) fail("NOT_FOUND", "no readiness row: warm the language first");
+    await ctx.db.patch(row._id, patch as Partial<Doc<"runtimeReadiness">>);
+    return ctx.db.get(row._id);
   },
 });

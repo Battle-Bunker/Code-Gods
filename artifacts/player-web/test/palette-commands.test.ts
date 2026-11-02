@@ -27,7 +27,7 @@ const actions: Actions = {
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
-  links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
+  links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/rooms/ABCD/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
   objects: { setGridRenderer: rec("gridRenderer") },
   notify: rec("notify"),
 };
@@ -114,6 +114,10 @@ test("owner commands need the owner and the right moment", () => {
   const as = (phase: NonNullable<State["phase"]>) => ctx({ role: "owner", phase });
   assert.ok(ok(owner("lobby"), "owner.start", as("lobby")));
   assert.ok(!ok(owner("running"), "owner.start", as("running")), "one game at a time");
+  const starting = playerCommands(state({ isOwner: true, phase: "lobby", starting: "starting" }), actions);
+  assert.match(reason(starting, "owner.start", as("lobby")), /already starting/, "no second start while one is pending");
+  const preparing = playerCommands(state({ isOwner: true, phase: "lobby", starting: "preparing" }), actions);
+  assert.match(reason(preparing, "owner.start", as("lobby")), /preparing/);
   assert.ok(ok(owner("running"), "rooms.endActiveGame", as("running")));
   assert.ok(!ok(owner("lobby"), "rooms.endActiveGame", as("lobby")));
   assert.ok(ok(owner("lobby"), "rooms.addAi", as("lobby")));
@@ -157,4 +161,15 @@ test("grids switch between coloured digits and tiles, for this viewer, from the 
   assert.equal(tiles.human.title, "Show grids as coloured digits");
   await perform(tiles);
   assert.deepEqual(calls, ['gridRenderer ["tiles"]', 'gridRenderer ["digits"]']);
+});
+
+test("assistant settings offer owner powers only to an owner holding an owner connection (the engine caps the assistant at it)", async () => {
+  const choices = async (over: Partial<State>) => {
+    const p = find(playerCommands(state(over), actions), "ui.assistant.settings").performer;
+    assert.ok(p.kind === "form" && p.page.kind === "pick");
+    return (await p.page.options()).map(o => o.id);
+  };
+  assert.deepEqual(await choices({ isOwner: true, permission: "owner" }), ["act", "read", "owner"]);
+  assert.deepEqual(await choices({ isOwner: true, permission: "act" }), ["act", "read"], "an owner on an act connection");
+  assert.deepEqual(await choices({ isOwner: false, permission: "owner" }), ["act", "read"]);
 });

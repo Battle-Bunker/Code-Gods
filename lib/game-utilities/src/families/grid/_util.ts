@@ -6,31 +6,24 @@
  * grid-lab parity test share one encoding. Names are rendered through the instantiation only in summaries
  * and cards.
  */
-import type { Constraint, ObjectValue, Rng } from "@workspace/game-types";
-import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
+import { COLOUR_COMPONENTS, type Constraint, type GridColourSet, type ObjectValue, type Rng } from "@workspace/game-types";
+import type { CardExample, FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
+import { phrasebook, type Phrasebook } from "../say.ts";
+export { RuleTextError, an as article, count, list, points, type Phrasebook } from "../say.ts";
 import type { AnalyticSurvival } from "../../analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // the instantiation, as grid-lab's GridType
 // ------------------------------------------------------------------------------------------------
 
-export const COLOUR_NAMES: Readonly<Record<string, readonly string[]>> = {
-  rgb: ["red", "green", "blue"],
-  rgby: ["red", "yellow", "green", "blue"],
-  rainbow6: ["red", "orange", "yellow", "green", "blue", "violet"],
-};
-/** Paint mixing (Mixable): [parent, parent, child] by colour name. */
-export const MIXES: Readonly<Record<string, readonly (readonly [string, string, string])[]>> = {
-  rgb: [],
-  rgby: [["yellow", "blue", "green"]],
-  rainbow6: [["red", "yellow", "orange"], ["yellow", "blue", "green"], ["red", "blue", "violet"]],
-};
+/**
+ * Colour names and paint mixes come from game-types' colour components (the tables the board view draws with), so every
+ * colour set that exists, including ones added later, is described and checked the same way (docs/rules-design.md §4.2).
+ */
+const colourSet = (id: string) => (COLOUR_COMPONENTS as Readonly<Record<string, (typeof COLOUR_COMPONENTS)[GridColourSet]>>)[id];
 export const SUIT_NAMES = ["spades", "hearts", "diamonds", "clubs"] as const;
 const RANK_CODES = "A23456789TJQK";
 const DIGIT_CODES = "0123456789ABCDEF";
-const COLOUR_LETTER: Readonly<Record<string, string>> = {
-  red: "R", orange: "O", yellow: "Y", green: "G", blue: "B", violet: "V",
-};
 
 export interface GridSpec {
   readonly N: number;
@@ -49,6 +42,8 @@ export interface GridSpec {
   readonly base: number | null;
   readonly vmin: number;
   readonly vmax: number;
+  /** How rule text names this shape's symbols, colours and counts (../say.ts): use it for every name in a summary or card. */
+  readonly say: Phrasebook;
 }
 
 const specs = new Map<string, GridSpec>();
@@ -59,7 +54,7 @@ export function gridSpec(ctx: FamilyContext): GridSpec {
   const N = Number(inst.args.size), symbols = String(inst.args.symbols), colours = String(inst.args.colours);
   const cards = symbols === "cards";
   const S = cards ? 52 : Number(symbols.slice(4));
-  const colourNames = COLOUR_NAMES[colours];
+  const colourNames = colourSet(colours)?.names;
   if (!colourNames || !(S > 0) || !(N >= 3)) throw new Error(`not a grid instantiation: ${inst.key}`);
   const idx = Array.from({ length: S }, (_, i) => i);
   const value = cards ? idx.map(i => (i % 13) + 1) : idx;
@@ -67,7 +62,7 @@ export function gridSpec(ctx: FamilyContext): GridSpec {
   s = {
     N, symbols, colours, cards, S, C: colourNames.length, colourNames, value, rank,
     ranks: cards ? 13 : S, base: cards ? null : S,
-    vmin: Math.min(...value), vmax: Math.max(...value),
+    vmin: Math.min(...value), vmax: Math.max(...value), say: phrasebook(symbols, colours),
   };
   specs.set(inst.key, s);
   return s;
@@ -85,9 +80,8 @@ export const colourIndex = (g: GridSpec, name: string) => g.colourNames.indexOf(
 export const symForValue = (g: GridSpec, v: number, suit = 0) => (g.cards ? suit * 13 + (v - 1) : v);
 /** 'card' or 'number': what a cell shows. */
 export const thing = (g: GridSpec) => (g.cards ? "card" : "number");
-/** Paint recipes as colour indices [P1, P2, M], in MIXES order (geometry._recipes). */
-export const recipes = (g: GridSpec): (readonly [number, number, number])[] =>
-  MIXES[g.colours].map(([a, b, m]) => [colourIndex(g, a), colourIndex(g, b), colourIndex(g, m)] as const);
+/** Paint recipes as colour indices [P1, P2, M] with P1 < P2, in the colour set's order (geometry._recipes). */
+export const recipes = (g: GridSpec): (readonly [number, number, number])[] => colourSet(g.colours)!.mixes.map(([a, b, m]) => [a, b, m] as const);
 
 // ------------------------------------------------------------------------------------------------
 // wire values (exemplars): canonical ASCII "7R,3G,0B/..." (architecture.md §6)
@@ -108,7 +102,7 @@ export function glyph(g: GridSpec, s: number): string {
   return g.cards ? RANK_GLYPHS[s % 13] + "♠♥♦♣"[Math.floor(s / 13)] : DIGIT_CODES[s];
 }
 export function wire(g: GridSpec, sym: Layer, col: Layer): ObjectValue {
-  return sym.map((row, r) => row.map((s, c) => symbolCode(g, s) + COLOUR_LETTER[g.colourNames[col[r][c]]]).join(",")).join("/");
+  return sym.map((row, r) => row.map((s, c) => symbolCode(g, s) + colourSet(g.colours)!.letters[col[r][c]]).join(",")).join("/");
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -122,6 +116,11 @@ export interface Requires {
   readonly parity?: "odd" | "even";
   readonly minColours?: number;
   readonly minSymbols?: number;
+  /** Cards: at least this many suits / picture-card ranks. */
+  readonly minSuits?: number;
+  readonly minFaces?: number;
+  /** An even number of colours (opposites on the colour wheel pair up). */
+  readonly evenColours?: boolean;
 }
 export function req(r: Requires = {}): readonly Constraint[] {
   const out: Constraint[] = (r.classes ?? []).map(has => ({ has }));
@@ -130,6 +129,9 @@ export function req(r: Requires = {}): readonly Constraint[] {
   if (r.parity) out.push({ term: "size", parity: r.parity });
   if (r.minColours) out.push({ term: "colours.count", op: ">=", value: r.minColours });
   if (r.minSymbols) out.push({ term: "symbols.count", op: ">=", value: r.minSymbols });
+  if (r.minSuits) out.push({ term: "suits.count", op: ">=", value: r.minSuits });
+  if (r.minFaces) out.push({ term: "faces.count", op: ">=", value: r.minFaces });
+  if (r.evenColours) out.push({ term: "colours.count", parity: "even" });
   return out;
 }
 
@@ -175,6 +177,8 @@ export function recolour<P extends Params>(p: P, keys: readonly string[]): P {
 // card rendering: ../card.ts (grid-lab rules/cards.py `card`)
 // ------------------------------------------------------------------------------------------------
 export { dedent, pyCard, tsCard, wrap, type CardText, type Const } from "../card.ts";
+/** Joins sentences, skipping empty ones (e.g. `g.say.valueKey()` on base 10). */
+export const sentences = (...parts: string[]) => parts.filter(Boolean).join(" ");
 export const an = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
 export const cap = (w: string) => w[0].toUpperCase() + w.slice(1);
 export const RANK_NAMES: Readonly<Record<number, string>> = { 1: "Ace", 11: "Jack", 12: "Queen", 13: "King" };
@@ -193,6 +197,8 @@ export interface GridFamilyDef<P extends Params> {
   readonly emoji: string;
   readonly theme: string;
   readonly requires?: Requires;
+  /** What one draw additionally needs from the shape (rules-design.md §4). */
+  readonly needs?: (p: P, g: GridSpec) => Requires;
   readonly shape: ScoreShape | ((g: GridSpec) => ScoreShape);
   readonly role?: "reward" | "penalty";
   readonly tags?: readonly string[];
@@ -205,6 +211,10 @@ export interface GridFamilyDef<P extends Params> {
   readonly python: (p: P, g: GridSpec) => string;
   readonly typescript: (p: P, g: GridSpec) => string;
   readonly exemplar?: (p: P, g: GridSpec, ctx: FamilyContext) => ObjectValue;
+  /** The best ordinal in closed form; the exemplar must reach it (test/rules.test.ts). */
+  readonly top?: (p: P, g: GridSpec) => Ordinal;
+  /** A tiny example board for the goal card: symbol and colour layers (k×k) and a caption. */
+  readonly example?: (p: P, g: GridSpec) => { readonly sym: Layer; readonly col: Layer; readonly caption: string };
   /** Penalties: "redder", "blobbier" (the ⚠️ line). */
   readonly comparative?: (p: P, g: GridSpec) => string;
   /** The analytic survival function (src/analytic.ts), or null for params/shapes it does not cover. */
@@ -226,6 +236,12 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
       typescript: (p, ctx) => d.typescript(p, gridSpec(ctx)),
     },
     ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, gridSpec(ctx), ctx) } : {}),
+    ...(d.needs ? { needs: (p: P, ctx: FamilyContext) => req(d.needs!(p, gridSpec(ctx))) } : {}),
+    ...(d.top ? { top: (p: P, ctx: FamilyContext) => d.top!(p, gridSpec(ctx)) } : {}),
+    ...(d.example ? { example: (p: P, ctx: FamilyContext): CardExample => {
+      const g = gridSpec(ctx), e = d.example!(p, g);
+      return { value: wire(g, e.sym, e.col), size: e.sym.length, caption: e.caption };
+    } } : {}),
     ...(d.comparative ? { comparative: (p: P, ctx: FamilyContext) => d.comparative!(p, gridSpec(ctx)) } : {}),
     ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, gridSpec(ctx), ctx) } : {}),
   };

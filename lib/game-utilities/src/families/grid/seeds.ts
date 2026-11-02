@@ -2,8 +2,8 @@
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
 import {
-  SCALAR, chance, cname, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
-  thing, tsCard, tuple, valueNote, valueLaw, wire,
+  SCALAR, article, chance, cname, cap, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
+  tsCard, tuple, valueNote, valueLaw, wire,
 } from "./_util.ts";
 
 // --- Seed 1: Line Painter ---------------------------------------------------------------------
@@ -14,8 +14,7 @@ const linePainter = gridFamily<LineP>({
   support: g => product<LineP>({ colour: range(g.C), diag: [false, true] }),
   sample: (rng, g) => ({ colour: rng.int(g.C), diag: chance(rng, 1, 4) }),
   canonical: p => recolour(p, ["colour"]),
-  summary: (p, g) => `Every straight line of 2 or more ${cname(g, p.colour)} cells touching in a row `
-    + `(across or down${p.diag ? ", or diagonally" : ""}) scores the sum of its numbers.`,
+  summary: (p, g) => text(p, g).about,
   python: (p, g) => pyCard(text(p, g), `
     def is_mine(cell):
         return cell is not None and cell.colour == MY_COLOUR
@@ -57,8 +56,10 @@ function text(p: LineP, g: GridSpec) {
   const dirs = p.diag ? "across, down and along both diagonals" : "across and down";
   return {
     emoji: "🖍️", name: "Line Painter", consts: [["MY_COLOUR", c]] as const,
-    about: `Your colour scores when it lines up. Each ${c} cell that touches another ${c} cell in a straight line `
-      + `(${dirs}) earns its value, once for every direction it lines up in.`,
+    about: [
+      `Your colour is ${c}. ${cap(article(c))} cell scores its value in points once for each direction in which it touches another ${c} cell.`,
+      `The directions are ${dirs}.`, g.say.valueKey(),
+    ].filter(Boolean).join(" "),
   };
 }
 
@@ -68,8 +69,7 @@ const patchwork = gridFamily<Record<string, never>>({
   theme: "Same-symbol patches with no two touching colours alike",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
   support: () => [{}],
-  summary: () => "Find groups of 2 or more touching cells with the same symbol where no two touching cells "
-    + "share a colour. Each group scores its size times its number.",
+  summary: (_, g) => patchText(g).about,
   python: (_, g) => pyCard(patchText(g), `
     def same_value(a, b):
         return a.value == b.value
@@ -112,8 +112,12 @@ const patchwork = gridFamily<Record<string, never>>({
 });
 const patchText = (g: GridSpec) => ({
   emoji: "🧩", name: "Patchwork", consts: [],
-  about: `A patch is a group of 2 or more touching cells showing the same ${g.cards ? "rank" : "number"}. `
-    + "A patch scores its size × its value, but only if no two touching cells inside it share a colour.",
+  about: [
+    `A patch is a group of 2 or more touching cells showing the same ${g.cards ? "rank (any suit)" : "number"}.`,
+    "A patch only counts if no two touching cells inside it share a colour.",
+    `A patch that counts scores its size times its ${g.cards ? "value" : "number"}, in points: 3 cells showing 4 score 12.`,
+    g.say.valueKey(),
+  ].filter(Boolean).join(" "),
 });
 
 // --- Seed 3: Green Ones -------------------------------------------------------------------------
@@ -124,8 +128,7 @@ const greenOnes = gridFamily<GreenP>({
   // grid-lab's sampler always deals green (every colour set has it) and 1 (every symbol set has it).
   support: g => [{ colour: colourIndex(g, "green"), value: 1 }],
   canonical: (_, g) => ({ colour: 0, value: g.vmin }),
-  summary: (p, g) => `Count the ${cname(g, p.colour)} ${g.cards && p.value === 1 ? "aces" : `${p.value}s`}. `
-    + "More is better; a cell with only the right colour or only the right number is a small step.",
+  summary: (p, g) => greenText(p, g).about,
   python: (p, g) => pyCard(greenText(p, g), `
     def utility(grid):
         perfect = 0
@@ -164,12 +167,12 @@ const greenOnes = gridFamily<GreenP>({
   },
 });
 function greenText(p: GreenP, g: GridSpec) {
-  const what = g.cards && p.value === 1 ? "aces" : `${p.value}s`;
   return {
     emoji: "🍀", name: "Green Ones",
     consts: [["MY_COLOUR", cname(g, p.colour)], ["MY_VALUE", p.value, valueNote(g, p.value)]] as const,
-    about: `Count the ${cname(g, p.colour)} ${what}. If that's a tie, count the cells that are halfway there: `
-      + `the right colour or the right ${thing(g)}, but not both.`,
+    about: `Count the ${cname(g, p.colour)} cells showing ${g.say.value(p.value)}. Most of those wins. `
+      + "If that's a tie, count the cells that are halfway there: "
+      + `the right colour or the right ${g.cards ? "rank" : "number"}, but not both.`,
   };
 }
 

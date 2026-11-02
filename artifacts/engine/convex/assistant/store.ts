@@ -6,54 +6,23 @@
  */
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
 import type { ChatMessage } from "@workspace/ai-player";
-import { LIMITS, buildHistory, historyStart, isActive, turnEnding, turnSizes, type TurnStatus } from "./rules";
+import { buildHistory, historyStart, turnEnding, turnSizes } from "./rules";
+import { LIMITS, isActive } from "./limits";
+import { CANCEL_GRACE_MS, INTERRUPTED, callsOf, deliverInto, denyCall, finishTurn, log, queuedIn, resume, type Ctx, type Turn } from "./turns";
 
-type Ctx = QueryCtx | MutationCtx;
-type Turn = Doc<"assistantTurns">;
-type Call = Doc<"assistantToolCalls">;
-const TERMINAL_CALL = ["ok", "error", "denied"];
-/** A call still running when its turn ended; its real outcome may still arrive (endCall then replaces this). */
-const INTERRUPTED = "Interrupted when the turn ended";
-/** A cancelled turn whose step never acknowledged is finished after this (longer than a tool call can wait). */
-export const CANCEL_GRACE_MS = LIMITS.waitMs + 30_000;
 const clipText = (text: string) => text.length > LIMITS.textChars ? text.slice(0, LIMITS.textChars) : text;
 
-/** Structured log line: ids, tools, outcomes and usage only, never message text or tool arguments. */
-export function log(event: string, fields: Record<string, string | number | boolean | undefined>) {
-  console.log(JSON.stringify({ event: `assistant.${event}`, ...fields }));
-}
-
-export async function callsOf(ctx: Ctx, turnId: Id<"assistantTurns">) {
-  return ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", turnId)).take(200);
-}
-
-/**
- * End a turn: its status and error, the thread freed, streaming messages closed, and calls that never ran marked
- * denied (a call interrupted while running is an error: its outcome is in its receipt, if any).
- */
-export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<TurnStatus, "running" | "awaiting_confirmation" | "cancelling">, error?: { code: string; message: string }) {
-  const now = Date.now();
-  await ctx.db.patch(turn._id, { status, finishedAt: now, updatedAt: now, gen: turn.gen + 1, ...(error ? { error } : {}) });
-  const thread = await ctx.db.get(turn.threadId);
-  if (thread?.activeTurnId === turn._id) await ctx.db.patch(thread._id, { activeTurnId: undefined, updatedAt: now });
-  const messageStatus = status === "cancelled" ? "cancelled" : status === "done" ? "done" : "error";
-  for (const m of await ctx.db.query("assistantMessages").withIndex("by_turn", q => q.eq("turnId", turn._id)).take(50)) {
-    if (m.status === "streaming") await ctx.db.patch(m._id, { status: messageStatus, updatedAt: now });
-  }
-  for (const c of await callsOf(ctx, turn._id)) {
-    if (TERMINAL_CALL.includes(c.status)) continue;
-    const interrupted = c.status === "running";
-    await ctx.db.patch(c._id, {
-      status: interrupted ? "error" : "denied", updatedAt: now,
-      summary: interrupted ? INTERRUPTED : "Not run: the turn ended",
-      resultJson: JSON.stringify({ error: { code: interrupted ? "INTERRUPTED" : "NOT_RUN", message: "The turn ended before this call finished" } }),
-    });
-  }
-  log("finish", { turnId: turn._id, status, code: error?.code, steps: turn.step, inputTokens: turn.usage.inputTokens, outputTokens: turn.usage.outputTokens });
-}
+/** Deliver queued messages into a live turn (step.ts calls it at the step boundary, before the next model step). */
+export const deliverQueued = internalMutation({
+  args: { turnId: v.id("assistantTurns"), gen: v.number() },
+  handler: async (ctx, { turnId, gen }) => {
+    const turn = await liveTurn(ctx, turnId, gen);
+    return { delivered: turn ? await deliverInto(ctx, turn) : 0 };
+  },
+});
 
 const addUsage = (usage: Turn["usage"], step: { inputTokens: number; outputTokens: number; billedTokens: number }): Turn["usage"] => ({
   ...usage, inputTokens: usage.inputTokens + step.inputTokens, outputTokens: usage.outputTokens + step.outputTokens,
@@ -115,11 +84,14 @@ export const context = internalQuery({
     const calls = await callsOf(ctx, turnId);
     return {
       turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject,
-        outputCeiling: turn.outputCeiling ?? null },
+        outputCeiling: turn.outputCeiling ?? null, replay: turn.replay ?? null },
       roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
       autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
-      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null })),
+      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null,
+        createdAt: c.createdAt })),
       hasBriefing: turn.briefing !== undefined,
+      /** Messages the player queued in this thread (not held): a confirmation card is declined rather than shown. */
+      queued: (await queuedIn(ctx, turn.threadId, { held: false })).length,
       historyJson: JSON.stringify(await historyOf(ctx, turn)),
     };
   },
@@ -289,22 +261,19 @@ export const awaitConfirmation = internalMutation({
   },
 });
 
-/** Resume a turn on a new generation (after a confirmation decision), with a fresh step action. */
-export async function resume(ctx: MutationCtx, turn: Turn) {
-  const gen = turn.gen + 1;
-  await ctx.db.patch(turn._id, { status: "running", gen, updatedAt: Date.now() });
-  await ctx.scheduler.runAfter(0, internal.assistant.step.run, { turnId: turn._id, gen });
-}
-
-/** Deny a call (by the player, or when its card timed out) and let the turn continue. */
-export async function denyCall(ctx: MutationCtx, call: Call, reason: "player" | "timeout") {
-  const message = reason === "player" ? "The player declined this call." : "The player did not confirm this call within two minutes.";
-  await ctx.db.patch(call._id, {
-    status: "denied", approved: false, updatedAt: Date.now(), summary: reason === "player" ? "Declined" : "Not confirmed in time",
-    resultJson: JSON.stringify({ error: { code: "DENIED", message } }),
-  });
-  log("confirm.deny", { turnId: call.turnId, callDocId: call._id, tool: call.tool, reason });
-}
+/** A call that would wait for a card while the player has a message queued: declined (never approved), and the turn goes on. */
+export const declineForMessage = internalMutation({
+  args: { turnId: v.id("assistantTurns"), gen: v.number(), callDocId: v.id("assistantToolCalls") },
+  handler: async (ctx, { turnId, gen, callDocId }) => {
+    const turn = await liveTurn(ctx, turnId, gen);
+    if (!turn) return { cancelled: true, declined: false };
+    // The message may have been removed since the step read the queue: then the card is shown as usual.
+    if (!(await queuedIn(ctx, turn.threadId, { held: false })).length) return { cancelled: false, declined: false };
+    const call = await ctx.db.get(callDocId);
+    if (call && (call.status === "pending" || call.status === "awaiting_confirmation")) await denyCall(ctx, call, "message");
+    return { cancelled: false, declined: true };
+  },
+});
 
 export const expireConfirmation = internalMutation({
   args: { callDocId: v.id("assistantToolCalls") },
@@ -319,10 +288,12 @@ export const expireConfirmation = internalMutation({
 
 /** Schedule the next step of a live turn (`delayMs` waits out a rate limit). */
 export const next = internalMutation({
-  args: { turnId: v.id("assistantTurns"), gen: v.number(), delayMs: v.optional(v.number()) },
-  handler: async (ctx, { turnId, gen, delayMs }) => {
+  /** `lastStep`: the next model step is the turn's last (the model kept repeating a call; step.ts resolveCalls). */
+  args: { turnId: v.id("assistantTurns"), gen: v.number(), delayMs: v.optional(v.number()), lastStep: v.optional(v.boolean()) },
+  handler: async (ctx, { turnId, gen, delayMs, lastStep }) => {
     const turn = await liveTurn(ctx, turnId, gen);
     if (!turn) return { cancelled: true };
+    if (lastStep) await ctx.db.patch(turn._id, { maxSteps: Math.min(turn.maxSteps, turn.step + 1) });
     await ctx.scheduler.runAfter(delayMs ?? 0, internal.assistant.step.run, { turnId, gen });
     return { cancelled: false };
   },

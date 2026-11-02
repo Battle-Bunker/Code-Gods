@@ -13,21 +13,24 @@ import { ConvexError } from "convex/values";
 import {
   DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
+import type { Language } from "@workspace/game-core";
 import { rulesText } from "@workspace/player-client/rules";
 import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
 import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
+import { assessValidation } from "@workspace/player-client/validation";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { envelopeHash } from "../game/commands";
 import { fail } from "../lib/errors";
 import type { Principal } from "../lib/rooms";
-import type { eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, trajectoriesFor } from "../player";
+import type { boardFor, eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, replayFor, trajectoriesFor } from "../player";
+import { fitRows, gatherSeries } from "./series";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
 import type { CurrentLayout, LayoutChange } from "../layout";
 import type { RunOutcome } from "../code/execute";
 import type { RunDetail } from "../code/runs";
-import { bound } from "./bound";
+import { MAX_RESULT_CHARS, bound } from "./bound";
 import { pollDelay } from "./rules";
 import type { Who } from "./store";
 
@@ -37,7 +40,7 @@ type Observation = R<typeof observationFor>;
 type RoomState = R<typeof roomFor>;
 type Job = { status: "running" | "failed"; error: { code: string; message: string } | null } | null;
 type ReceiptStatus =
-  | { status: "received"; commandId: string; receipt: CommandResult }
+  | { status: "received"; commandId: string; receipt: CommandResult; assessment?: ReturnType<typeof assessValidation> }
   | { status: "pending"; commandId: string; message: string }
   | { status: "failed"; commandId: string; error: { code: string; message: string }; message: string }
   | { status: "not_found"; commandId: string; message: string };
@@ -51,10 +54,20 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const observe = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<Observation> =>
   ctx.runQuery(internal.player.observationAs, { principal, roomId });
-const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<{ gameId?: string; language?: "python" | "typescript" }> => {
+/** The current game and its default agent language (the first allowed one: validate and summon without a language use it). */
+const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<{ gameId?: string; language?: Language }> => {
   const o = await observe(ctx, principal, roomId);
   return { gameId: o.gameId, language: o.language };
 };
+
+/**
+ * A validation's receipt with what it means (player-client validation.ts): works, fails, never changes anything or
+ * does not compile, the price against the player's energy, and the next step. Other outcomes pass unchanged.
+ */
+function assessed(status: ReceiptStatus, validation: boolean): ReceiptStatus {
+  if (status.status !== "received" || !(validation || status.receipt.validation)) return status;
+  return { ...status, assessment: assessValidation(status.receipt) };
+}
 
 /** The stored outcome of a command: its receipt, a pending or failed background run, or nothing. */
 async function receiptStatus(ctx: ActionCtx, principal: Principal, who: Who, commandId: string): Promise<ReceiptStatus> {
@@ -89,7 +102,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   if (prepared.prior) {
     // Hash the parsed envelope, as the engine does (zod fixes the key order).
     if (prepared.prior.hash !== envelopeHash(envelopeSchema.parse(envelope))) fail("CONFLICT", "Command ID was reused with different content");
-    return { data: { status: "received", commandId: envelope.commandId, receipt: prepared.prior.result } };
+    return { data: assessed({ status: "received", commandId: envelope.commandId, receipt: prepared.prior.result }, name === "validate_agent") };
   }
   const job = { roomId: who.roomId, subject: who.subject, commandId: envelope.commandId };
   const { started }: { started: boolean } = await ctx.runMutation(internal.agent.store.startJob, { credentialId: who.credentialId, ...job });
@@ -97,7 +110,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   const deadline = Date.now() + Number(args.waitMs ?? DEFAULT_WAIT_MS);
   for (let attempt = 0; ; attempt++) {
     const status = await receiptStatus(ctx, principal, who, envelope.commandId);
-    if (status.status !== "pending" && status.status !== "not_found") return { data: status };
+    if (status.status !== "pending" && status.status !== "not_found") return { data: assessed(status, name === "validate_agent") };
     const left = deadline - Date.now();
     if (left <= 0) {
       return { data: { status: "pending", commandId: envelope.commandId, message: "Still running. Call get_receipt with this commandId to get the result." } };
@@ -187,7 +200,7 @@ const CODE_EXECUTORS = {
     return { data: { runId, part, offset, text: slice, totalChars: text.length, nextOffset: next < text.length ? next : null } };
   },
   list_code_runs: async (ctx, { principal, who }, { limit }) => ({ data: await ctx.runQuery(internal.code.runs.listAs, { principal, roomId: who.roomId, limit }) }),
-  list_code_objects: async (ctx, { principal }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, ...(prefix ? { prefix } : {}), limit }) }),
+  list_code_objects: async (ctx, { principal, who }, { prefix, limit }) => ({ data: await ctx.runQuery(internal.code.objects.listAs, { principal, roomId: who.roomId, ...(prefix ? { prefix } : {}), limit }) }),
 } satisfies Pick<Executors, "run_code" | "get_code_run" | "list_code_runs" | "list_code_objects">;
 
 export const EXECUTORS: Executors = {
@@ -230,9 +243,41 @@ export const EXECUTORS: Executors = {
     const r: R<typeof gameHistoryFor> = await ctx.runQuery(internal.player.historyAs, { principal, roomId: who.roomId, ...args });
     return { data: r, nextCursor: r.nextCursor < r.latestCursor ? r.nextCursor : null };
   },
+  get_replay: async (ctx, { principal, who }, { gameId, cursor }) => {
+    // The cursor packs the query's three: "afterSeq:eventOffset:chatAfter". Pages shrink until the result fits a tool
+    // result (MAX_RESULT_CHARS): a model's context is small, and a page's size is not the caller's to tune.
+    const [afterSeq, eventOffset, chatAfter] = (cursor ?? "").split(":").map(Number);
+    const at = cursor ? { afterSeq, ...(eventOffset ? { eventOffset } : {}), chatAfter } : {};
+    let r: R<typeof replayFor> | undefined;
+    for (const [maxEvents, maxChat] of [[60, 100], [20, 20], [5, 5], [1, 1]]) {
+      r = await ctx.runQuery(internal.player.replayAs, { principal, roomId: who.roomId, gameId, ...at, limit: 20, maxEvents, maxChat });
+      if (JSON.stringify(r).length < MAX_RESULT_CHARS * 0.9) break;
+    }
+    return { data: r!, nextCursor: r!.done ? null : `${r!.nextCursor}:${r!.eventOffset ?? 0}:${r!.chatCursor}` };
+  },
   get_my_utility: async (ctx, { principal, who }) => {
     const mine: R<typeof myUtilityFor> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId: who.roomId });
     return { data: mine };
+  },
+  get_utility_series: async (ctx, { principal, who }, { gameId, objectId, fromWorld, offset, limit }) => {
+    // Whole rows up to the result bound: the next page starts at offset + rows.
+    const series = fitRows(await gatherSeries(ctx, principal, who.roomId, { gameId, objectId, fromWorld, offset, limit }), MAX_RESULT_CHARS - 2_000);
+    return { data: series, nextCursor: series.truncated ? offset + series.rows : null, ...(series.truncated ? { truncated: true } : {}) };
+  },
+  get_board_at: async (ctx, { principal, who }, args) => {
+    const board: R<typeof boardFor> = await ctx.runQuery(internal.player.boardAs, { principal, roomId: who.roomId, ...args });
+    return { data: board };
+  },
+  list_utility_candidates: async (ctx, { principal, who }, { family, paramsPerFamily }) => {
+    const list: unknown = await ctx.runAction(internal.agent.node.candidates, { principal, roomId: who.roomId, ...(family ? { family } : {}), paramsPerFamily });
+    return { data: list };
+  },
+  fit_utility_mixture: async (ctx, { principal, who }, { hints, exclude, maxObservations, top }) => {
+    const fitted: unknown = await ctx.runAction(internal.agent.node.fit, {
+      principal, roomId: who.roomId, hints: hints.map(h => ({ familyId: h.familyId, probability: h.probability, ...(h.params ? { params: h.params } : {}) })),
+      exclude, maxObservations, top,
+    });
+    return { data: fitted };
   },
   evaluate_value: async (ctx, { principal, who }, { value }) => {
     const scored: unknown = await ctx.runAction(internal.agent.node.evaluate, { principal, roomId: who.roomId, value });
@@ -243,7 +288,7 @@ export const EXECUTORS: Executors = {
       await ctx.runQuery(internal.rooms.chatHistoryAs, { principal, roomId: who.roomId, cursor, limit });
     return { data: { messages }, nextCursor };
   },
-  get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: await receiptStatus(ctx, principal, who, commandId) }),
+  get_receipt: async (ctx, { principal, who }, { commandId }) => ({ data: assessed(await receiptStatus(ctx, principal, who, commandId), false) }),
   // A skill's guidance with the live parts it reads, through the same executors as the human (a failed read is left
   // out; the body says which tool to call instead).
   load_skill: async (ctx, p, { name }) => {

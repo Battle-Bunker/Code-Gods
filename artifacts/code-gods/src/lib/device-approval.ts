@@ -29,3 +29,14 @@ export function connectBlocker(r: { status: string; expiresAt: number; now: numb
 export function kindLabel(kind: string | undefined): string {
   return kind === "oauth" ? "MCP connection" : kind === "assistant" ? "in-client assistant" : "player app";
 }
+
+/**
+ * What /connect starts with: the client's room hint when the human is in it (else the only room they are in, else
+ * none), and the requested permission, lowered from owner to act in a room the human does not own.
+ */
+export function initialConnectChoice(r: {
+  requested: Permission; rooms: { roomId: string; isOwner: boolean }[]; hint: { roomId: string; member: boolean; isOwner: boolean } | null;
+}): { roomId: string; permission: Permission } {
+  const room = r.hint ? (r.hint.member ? r.hint : null) : r.rooms.length === 1 ? r.rooms[0] : null;
+  return { roomId: room?.roomId ?? "", permission: r.requested === "owner" && room && !room.isOwner ? "act" : r.requested };
+}

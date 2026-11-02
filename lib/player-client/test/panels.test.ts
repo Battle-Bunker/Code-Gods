@@ -1,5 +1,5 @@
 /**
- * The panel catalogue (src/panels.ts): the 14 ids, parameters that always default (so a panel is useful with the
+ * The panel catalogue (src/panels.ts): the 15 ids, parameters that always default (so a panel is useful with the
  * assistant off) except what-if's required ones, strict schemas, the pane captions, the default panel per phase and
  * the JSON-Schema catalogue the layout tools hand to the model.
  */
@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { PANELS, PANEL_IDS, defaultPanelFor, defaultPanelParams, isPanelId, panelCatalog, panelSummary, parsePanelParams } from "../src/panels.ts";
 
 test("fourteen panels, each with a title, a blurb, phases and a strict parameter schema", () => {
-  assert.equal(PANEL_IDS.length, 14);
+  assert.equal(PANEL_IDS.length, 15);
   assert.deepEqual([...PANEL_IDS].sort(), Object.keys(PANELS).sort());
   for (const id of PANEL_IDS) {
     const l = PANELS[id];
@@ -33,16 +33,22 @@ test("every parameter is optional with a default, except what-if's objectId and 
   assert.ok(ok.ok && ok.params.compare === undefined);
   const bad = parsePanelParams("objects", { limit: 1000, sortBy: "nope" });
   assert.ok(!bad.ok && bad.issues.some(i => i.startsWith("limit")) && bad.issues.some(i => i.startsWith("sortBy")));
-  assert.deepEqual(parsePanelParams("objects", { limit: 5 }), { ok: true, params: { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list", annotate: "mine" } }, "partial params fill the rest with defaults");
+  assert.deepEqual(parsePanelParams("objects", { limit: 5 }), { ok: true, params: { sortBy: "payoff", filter: "all", limit: 5, highlight: [], layout: "list" } }, "partial params fill the rest with defaults");
   assert.equal(parsePanelParams("forge", { source: "x".repeat(16385) }).ok, false, "a draft is bounded like an agent source");
   assert.equal(parsePanelParams("objects", { highlight: Array.from({ length: 9 }, (_, i) => `o${i}`) }).ok, false, "≤ 8 highlighted objects");
+});
+
+test("a stored objects pane carrying the retired annotate key still parses, to the defaults without it", () => {
+  const defaults = { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" };
+  assert.deepEqual(parsePanelParams("objects", { annotate: "mine" }), { ok: true, params: defaults });
+  assert.deepEqual(parsePanelParams("objects", { annotate: "theirs", limit: 5 }), { ok: true, params: { ...defaults, limit: 5 } });
+  assert.equal(parsePanelParams("objects", { bogus: 1 }).ok, false, "other unknown keys are still refused");
 });
 
 test("summaries read as pane captions", () => {
   assert.equal(panelSummary("objects", {}), "Top 12 by payoff");
   assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "Top 5 by payoff · only ones others care about · grid");
-  assert.equal(panelSummary("objects", { annotate: "none" }), "Top 12 by payoff · no marks");
-  assert.equal(parsePanelParams("objects", { annotate: "theirs" }).ok, false, "only your own utility can be annotated");
+  assert.equal(panelSummary("objects", { annotate: "none" }), "Top 12 by payoff", "a retired key is ignored");
   assert.equal(panelSummary("race", {}), "Everyone · total payoff · last 300 s");
   assert.equal(panelSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(panelSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");

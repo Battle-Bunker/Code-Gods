@@ -3,7 +3,7 @@
  * Grid value draws the same way here as everywhere else in the game.
  */
 import type { ReactNode } from "react";
-import { ObjectView, TransformationView, objectContext, objectNoun, formatBits, type Annotation } from "@workspace/object-views";
+import { ObjectView, TransformationView, objectContext, objectNoun, formatBits } from "@workspace/object-views";
 import { useMutators } from "./hooks";
 import type { LiveObject } from "./hooks";
 
@@ -21,10 +21,9 @@ export function Obj({ value, title }: { value: LiveObject["value"]; title?: bool
   return <ObjectView value={value} {...ctx} showTitle={title} />;
 }
 
-/** A wrapping grid of objects with an optional badge (e.g. a number) under each, and optional annotations (useAnnotations). */
-export function ObjectGrid({ objects, badge, onSelect, max = 60, annotations }: {
+/** A wrapping grid of objects with an optional badge (e.g. a number) under each. */
+export function ObjectGrid({ objects, badge, onSelect, max = 60 }: {
   objects: readonly Pick<LiveObject, "id" | "value">[]; badge?: (o: any) => ReactNode; onSelect?: (id: string) => void; max?: number;
-  annotations?: (o: any) => readonly Annotation[] | undefined;
 }) {
   const { ctx } = useObjectContext();
   if (!objects.length) return <p className="text-[12px] italic opacity-60">Nothing to show.</p>;
@@ -33,7 +32,7 @@ export function ObjectGrid({ objects, badge, onSelect, max = 60, annotations }: 
       {objects.slice(0, max).map(o => (
         <button key={o.id} type="button" onClick={onSelect ? () => onSelect(o.id) : undefined} disabled={!onSelect}
           className="flex flex-col items-center gap-0.5 border border-[hsl(var(--card-border))] p-1 text-[10px] font-mono disabled:cursor-default">
-          <ObjectView value={o.value} {...ctx} annotations={annotations?.(o)} />
+          <ObjectView value={o.value} {...ctx} />
           {badge && <span>{badge(o)}</span>}
         </button>
       ))}

@@ -17,13 +17,32 @@ You have no tools or filesystem/network access. Your private utility function is
 ${GAME_PRIMER}
 
 Return ONLY a JSON object {"actions":[...]} with at most four commands.
-Allowed commands: {"type":"validate","language":"python"|"typescript","source":"..."}, {"type":"summon","language":...,"source":"..."},
+Allowed commands: {"type":"validate","language":"<one of observation.languages>","source":"..."}, {"type":"summon","language":...,"source":"..."},
 {"type":"chat","text":"public message"}, {"type":"ready","ready":true|false}, {"type":"pause"}, {"type":"destroy","agentId":"..."} (free; your own agents only).
-Use the room language. Before summoning, code is validated by the runtime (diagnostics show what it would do to sample objects and its expectedActCost) and its cost must fit your energy. Results appear on the next observation.
+Write each agent in one of observation.languages (any of them; summon in the language you validated in). Before summoning, code is validated by the runtime (diagnostics show what it would do to sample objects and its expectedActCost) and its cost must fit your energy. Results appear on the next observation.
 Prefer deliberate actions over spam. You can return an empty actions array to wait. No direct messages.`;
-/** The per-god model context: schema-filtered, bounded, and the instance trimmed to the room language. */
+/** The per-god model context: schema-filtered and bounded. */
 export function modelObservation(raw:unknown, roomId:string,godId:string):Observation {
   const o=observationSchema.parse(raw);
   if(o.roomId!==roomId || o.self.godId!==godId || !o.self.isAI) throw new Error("AI identity mismatch");
   return {...o,objects:[...o.objects].sort((a,b)=>b.payoff-a.payoff).slice(0,100),agents:o.agents.slice(-20),transformations:o.transformations.slice(-50),chat:o.chat.slice(-30)};
+}
+/**
+ * The decision as a JSON schema for structured outputs (ModelRequest.responseSchema), mirroring decisionSchema with
+ * programs limited to the game's agent languages. Length limits (four actions, source and chat sizes) stay with decisionSchema
+ * and the command schema: structured outputs do not take string or array constraints.
+ */
+export function decisionJsonSchema(languages:readonly string[]):Record<string,unknown> {
+  const command=(type:string,properties:Record<string,unknown>={})=>({
+    type:"object",additionalProperties:false,required:["type",...Object.keys(properties)],
+    properties:{type:{type:"string",const:type},...properties},
+  });
+  const program={language:{type:"string",enum:[...languages]},source:{type:"string"}};
+  return {
+    type:"object",additionalProperties:false,required:["actions"],
+    properties:{actions:{type:"array",items:{anyOf:[
+      command("validate",program),command("summon",program),command("chat",{text:{type:"string"}}),
+      command("ready",{ready:{type:"boolean"}}),command("pause"),command("destroy",{agentId:{type:"string"}}),
+    ]}}},
+  };
 }

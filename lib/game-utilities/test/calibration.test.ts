@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, objectType, seededRng, type Instantiation } from "@workspace/game-types";
-import { context, evaluator, family } from "../src/catalog.ts";
+import { available, context, evaluator, family, familiesFor } from "../src/catalog.ts";
+import { cardProgram } from "../src/families/card.ts";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -46,7 +47,7 @@ test("determinism: the same key gives a byte-identical table", () => {
   }
 });
 
-test("keys change with the card body, the prelude, the estimator, the params and the instance", () => {
+test("keys change with the card program, the prelude, the estimator, the params and the instance", () => {
   const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
   const parts = tableKeyParts("seed3_green_ones", { colour: 0, value: 0 }, inst);
   const k = keyFromParts(parts);
@@ -67,6 +68,34 @@ test("keys change with the card body, the prelude, the estimator, the params and
   assert.notEqual(tableKeyParts("seed3_green_ones", { colour: 1, value: 0 }, inst).card, parts.card);
   // And the prelude hash differs between instantiations.
   assert.notEqual(tableKeyParts("seed3_green_ones", { colour: 0, value: 0 }, instantiate("Grid", { size: 4, symbols: "base12", colours: "rgby" })).prelude, parts.prelude);
+});
+
+test("cardProgram: prose and notes never reach the key; code, strings and constants do", () => {
+  const card = [
+    "// 🐟 Go Fish Books", "// Your fish is the number A (10 in base 12).", "const MY_FISH = 10;  // A",
+    "", "function utility(grid) {", '  const s = "a // not a comment";  /* gone */', "  return MY_FISH;  // done", "}",
+  ].join("\n");
+  assert.equal(cardProgram(card), ['const MY_FISH = 10;', "function utility(grid) {", '  const s = "a // not a comment";', "  return MY_FISH;", "}"].join("\n"));
+  const reworded = card.replace("number A (10 in base 12)", "symbol A").replace("// A", "// ten");
+  assert.equal(cardProgram(reworded), cardProgram(card));
+  assert.notEqual(cardProgram(card.replace("= 10", "= 11")), cardProgram(card));
+  assert.notEqual(cardProgram(card.replace("not a comment", "not a coment")), cardProgram(card));
+});
+
+test("the host evaluates the program it keys: every card's program scores spawns exactly like its full source", () => {
+  const shapes = [instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" }), instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" }),
+    instantiate("Int", objectType("Int").defaults), instantiate("string", objectType("string").defaults)];
+  for (const inst of shapes) {
+    const ctx = context(inst), T = objectType(inst.objectType), rng = seededRng(`program:${inst.key}`), prelude = T.prelude(inst).js;
+    const boards = Array.from({ length: 4 }, () => T.codec(inst).encode(T.spawn(inst, rng)));
+    for (const f of familiesFor(inst.objectType)) {
+      if (!available(f, inst).ok) continue;
+      const p = f.support(ctx)[0], name = f.role === "penalty" ? "penalty" : "utility";
+      const full = new Function(`"use strict";\n${prelude}\n;\n${f.card.typescript(p, ctx)}\n;\nreturn (w) => ${name}(__decode(w));`)();
+      const u = evaluator({ familyId: f.id, params: p }, inst);
+      for (const b of boards) assert.deepEqual(u(b), full(b), `${f.id} on ${inst.key}`);
+    }
+  }
 });
 
 // ------------------------------------------------------------------------------------------------

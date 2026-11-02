@@ -2,8 +2,10 @@
 
 The engine is one Convex deployment (`artifacts/engine`; routes and functions in
 [`engine-api.md`](engine-api.md), design in [`convex-migration-plan.md`](convex-migration-plan.md)).
-A player client is either the hosted default client the engine serves at `/player/`, or a player's own
-copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment. Both read the same
+A player client is the hosted reference client the engine serves at `/client/` (the old `/player/` prefix
+redirects there), a player's own
+copy of this repository running `artifacts/player-web` as a Vite dev server in any dev environment, or any other
+app on any origin ([`external-clients.md`](external-clients.md); the smallest is `clients/hello`). Both read the same
 disclosure-filtered Convex queries and act through the same server functions, so a modified client can
 do no more than its human could.
 
@@ -11,12 +13,12 @@ do no more than its human could.
 
 | Package | Owns |
 |---|---|
-| `lib/player-client` | the v3 protocol types and Zod schemas (`src/protocol.ts`), `PlayerClient` (`src/client.ts`), the Node-side engine connection and `tokenHandler` (`src/engine.ts`), the device flow (`src/connect.ts`), the `pnpm player` CLI and the room assistant (`src/cli.ts`, `src/assistant.ts`, `src/state.ts`) |
+| `lib/player-client` | the v3 protocol types and Zod schemas (`src/protocol.ts`), `PlayerClient` (`src/client.ts`), browser sign-in on any origin (`src/browser.ts`: OAuth + PKCE, the device flow, token refresh), the Node-side engine connection and `tokenHandler` (`src/engine.ts`), the device flow for the CLI (`src/connect.ts`), the `pnpm player` CLI and the room assistant (`src/cli.ts`, `src/assistant.ts`, `src/state.ts`) |
 | `artifacts/player-web` | the customizable player client: core game UI, live panels and the Panel SDK ([`panels.md`](panels.md)) |
 | `lib/ai-player` | the AI-seat policy, decision schema, budgets and provider adapters, run **inside the engine** (below) |
 
 `@workspace/player-client` (the package root) exports only browser-safe and Convex-bundle-safe code:
-the protocol and `PlayerClient`. The Node tooling is `@workspace/player-client/engine`
+the protocol and `PlayerClient`; `/browser` is browser sign-in. The Node tooling is `@workspace/player-client/engine`
 (also `/assistant`, `/state`, `/connect`).
 
 ## The room credential and the secret store
@@ -102,15 +104,47 @@ The player app's Vite dev server (and its preview server) mounts `tokenHandler()
   (`RECONNECT`), 502 (`UNREACHABLE`) or 503 (not configured or malformed).
 
 It is not mounted when player-web runs in hosted-mode development (`CODE_GODS_SITE_URL` set), where
-the client signs in on the engine site instead.
+the client connects to that engine as a browser client (below) instead.
 
-### Hosted client (`/player/`)
+### Browser clients on any origin, the hosted client (`/client/`) included
 
-The engine serves the same player-web build at `https://<dep>.convex.site/player/`. There the human
-signs in on the site with Google (the same Better Auth session as the engine UI; `browser`-scope JWTs from
-`GET /api/auth/convex/token`) and enters a room
-code (or opens `/player/?room=CODE`). No credential is involved. This is the fallback for a player who
-does not duplicate the repository.
+A client that runs in a browser without a dev server of its own uses `@workspace/player-client/browser`
+(`createPlayerAuth`, [`external-clients.md`](external-clients.md)). That covers the default client the engine
+serves at `https://<dep>.convex.site/client/`, a build of player-web on another origin
+(`VITE_CODE_GODS_ENGINE_URL`), `clients/hello`, or anything else. It is an OAuth client of the engine:
+
+1. It registers itself once per browser and sends the human to `/oauth/authorize?…&room=CODE`.
+2. On the engine's `/connect` page, the human signs in with Google, joins the room if needed and approves.
+   The engine's own client is approved without a click for a member, at most `act`.
+3. Back on the client, the code becomes a 60-minute player JWT and a rotating refresh token, stored per room.
+
+Inside an iframe (Replit's webview) it uses the device flow instead: it shows a code to approve on `/device`. The
+hosted client connects with `act`. An owner action asks for an owner connection, which the owner approves with
+explicit consent. It never uses the engine site's session cookie, so it can do exactly what any external client can.
+`/player` and `/player/*` answer 308 to the same path under `/client/`, so old links and bookmarks keep working (`convex/http.ts`).
+
+### URL scheme (both modes)
+
+player-web is a reference implementation of a separate app: it never assumes where it is hosted. Its base path is
+Vite's `base` (`BASE_PATH`; `/client/` in the engine's build, `/` on a dev server), read at runtime from
+`import.meta.env.BASE_URL`, and it finds the engine from its dev server's token endpoint, `VITE_CONVEX_URL` or the
+engine site's `/api/config`. Under that base it mirrors the engine UI's scheme (`src/core/routes.ts`; the engine UI's
+is `artifacts/code-gods/src/lib/routes.ts`):
+
+| Path (under the base) | Engine UI equivalent | What |
+|---|---|---|
+| `/` | `/` | hosted: your rooms and a room code form; dev server: redirects to the credential's room |
+| `/rooms/:room` | `/rooms/:room` | play in the room: its current or next game |
+| `/rooms/:room/games` | (the room page's past games) | the room's finished games; the ones you can open are linked |
+| `/rooms/:room/games/:game` | `/rooms/:room/games/:game` | the room's current game: redirects to the room, where it is played; a past game: read-only, its final state (`player.game`) |
+| `/games/:game` | `/games/:game` | the old game link: redirects to the nested one |
+| `/?room=CODE`, `/rooms/:room/configure` | `/rooms/:room?game=CODE` | old links: canonicalise to the room |
+
+Rooms and games are named by their short codes (rooms have no names). A dev-server app plays only in its
+credential's room; another room's URL says so. **Past games are for their players:** the engine serves a game the
+room no longer runs (neither its active nor its current game) only to the gods who played in it and the room's
+owner, on every per-game read (`player.game`, `player.history`, `player.events`, `player.trajectories`; see
+`convex/lib/rooms.ts` `requireHistoricReaderAs`), whatever the client shows.
 
 ## The `pnpm player` CLI
 

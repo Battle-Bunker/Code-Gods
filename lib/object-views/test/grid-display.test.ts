@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { COLOUR_COMPONENTS, COLOUR_LETTERS } from "@workspace/game-types";
+import { COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS } from "@workspace/game-types";
 import {
   TEXT_SHADES,
-  COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
-  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines,
+  changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid,
+  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
 
@@ -25,16 +25,11 @@ test("contrast ratio matches known WCAG values", () => {
   assert.equal(contrastRatio("#777777", "#777777"), 1);
 });
 
-test("every colour has a distinct non-colour cue (letter and pattern)", () => {
+test("every colour has a distinct letter cue", () => {
   const letters = Object.keys(COLOUR_LETTERS);
   assert.equal(new Set(letters).size, letters.length);
-  const patterns = letters.map(l => COLOUR_PATTERNS[l]);
-  assert.ok(patterns.every(Boolean), "every colour letter has a pattern");
-  assert.equal(new Set(patterns).size, letters.length, "patterns are distinct");
-  const images = letters.map(l => JSON.stringify(patternStyle(l, COLOUR_LETTERS[l].ink)));
-  assert.equal(new Set(images).size, letters.length, "rendered patterns are distinct");
   for (const set of Object.values(COLOUR_COMPONENTS)) {
-    assert.equal(new Set(set.letters.map(l => COLOUR_PATTERNS[l])).size, set.count, `${set.id} cues distinct`);
+    assert.equal(new Set(set.letters).size, set.count, `${set.id} letters distinct`);
   }
 });
 
@@ -94,19 +89,19 @@ test("registry: known type wins, otherwise latest matching infer", () => {
   assert.deepEqual(r.types(), ["string", "Int", "Grid", "Tree"]);
 });
 
-test("colour cue: defaults to pattern, survives missing or throwing storage", () => {
+test("colour cue: defaults to colour only, survives missing or throwing storage", () => {
   const g = globalThis as { localStorage?: unknown };
   const had = Object.getOwnPropertyDescriptor(g, "localStorage");
   try {
     Object.defineProperty(g, "localStorage", { configurable: true, get() { throw new Error("blocked"); } });
-    assert.equal(getColourCue(), "pattern");
+    assert.equal(getColourCue(), "colour");
     let calls = 0;
     const off = subscribeColourCue(() => calls++);
     setColourCue("letter");
     assert.equal(getColourCue(), "letter");
     assert.equal(calls, 1);
     off();
-    setColourCue("pattern");
+    setColourCue("colour");
     assert.equal(calls, 1);
   } finally {
     if (had) Object.defineProperty(g, "localStorage", had); else delete g.localStorage;
@@ -134,4 +129,41 @@ test("digits: changed cells are flagged (drawn underlined and bold), and the let
   const lines = gridDigitsLines(b, changedCells(b, a));
   assert.deepEqual(lines.map(l => l.cells.map(c => c.changed)), [[false, true], [false, true]]);
   assert.deepEqual(gridDigitsLines(b, null, { letters: true }).map(l => l.text), ["1R 2B", "3B 5R"]);
+});
+
+test("a goal card's tiny example board (size 2) is drawn with the room's colour set", () => {
+  const m = gridModel("AR,AG/AB,AR", { size: 2, symbols: "base12", colours: "rgb" })!;
+  assert.equal(m.colours, "rgb");
+  assert.deepEqual(m.rows.map(r => r.map(c => `${c.glyph} ${c.colourName}`)), [["A red", "A green"], ["A blue", "A red"]]);
+  assert.equal(m.rows[0]![0]!.css, gridModel("AR,AR,AR/AR,AR,AR/AR,AR,AR", { size: 3, symbols: "base12", colours: "rgb" })!.rows[0]![0]!.css);
+});
+
+// ---------------------------------------------------------------------------------------------
+// Fixed-width glyphs: every rank (the custom ten included) is one character cell, so card grids keep their columns.
+
+test("glyph parts: card codes split into rank and suit; the ten is flagged for the single-cell glyph", () => {
+  assert.deepEqual(glyphParts("TH"), { rank: "10", suit: "♥", ten: true });
+  assert.deepEqual(glyphParts("AS"), { rank: "A", suit: "♠", ten: false });
+  assert.deepEqual(glyphParts("KC"), { rank: "K", suit: "♣", ten: false });
+  assert.deepEqual(glyphParts("7"), { rank: "7", suit: "", ten: false });
+  assert.deepEqual(glyphParts("F"), { rank: "F", suit: "", ten: false });
+  assert.equal(gridModel("THB,ASR/KCV,2DO")!.rows[0][0].parts.ten, true);
+});
+
+test("glyph parts: every symbol of every set draws its rank in exactly one character cell", () => {
+  for (const set of Object.values(SYMBOL_COMPONENTS)) {
+    for (const code of set.codes) {
+      const p = glyphParts(code);
+      assert.equal(p.suit === "", !set.suits, `${set.id} ${code}: a suit exactly for cards`);
+      // Only the ten needs the custom glyph: every other rank is already a single character.
+      assert.equal(p.ten || [...p.rank].length === 1, true, `${set.id} ${code}: ${p.rank}`);
+      assert.equal(p.ten, p.rank === "10");
+    }
+  }
+});
+
+test("digits lines carry each cell's glyph parts, for the fixed-width renderer", () => {
+  const lines = gridDigitsLines(gridModel("THB,ASR/KCV,2DO")!);
+  assert.deepEqual(lines[0].cells.map(c => c.parts), [{ rank: "10", suit: "♥", ten: true }, { rank: "A", suit: "♠", ten: false }]);
+  assert.deepEqual(gridDigitsLines(gridModel("1R,2B/3B,5R")!)[0].cells[0].parts, { rank: "1", suit: "", ten: false });
 });

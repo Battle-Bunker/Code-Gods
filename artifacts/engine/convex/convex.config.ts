@@ -5,7 +5,8 @@ import betterAuth from "@convex-dev/better-auth/convex.config";
 /**
  * Two static sites from one deployment, in the component's "app-owned root routing" mode: neither
  * instance has an httpPrefix, so convex/http.ts owns every URL. /api/* stays at stable root URLs,
- * /player/* serves the default player client and everything else the engine UI (both with SPA fallback).
+ * /client/* serves the reference player client (instance `playerSite`, a name kept from its old /player/ prefix, which
+ * now redirects) and everything else the engine UI (both with SPA fallback).
  * Uploads: scripts/deploy-static.mjs (`upload --component engineSite|playerSite`).
  * `betterAuth` holds Better Auth's users, sessions and accounts (convex/auth/betterAuth.ts).
  */

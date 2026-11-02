@@ -6,10 +6,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, touch, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT_TS = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600,
 };
 
@@ -17,7 +17,7 @@ async function runningGame(settings: Record<string, unknown> = {}) {
   const trio = await gods("Rule Host", "Rule Ada", "Rule Bo");
   await touch(trio[0]);
   const { roomId, shortCode } = await roomWith(trio, { ...INT_TS, ...settings });
-  const game = await trio[0].c.action(api.owner.start, { roomId });
+  const game = await startGame(trio[0], roomId);
   const send = (god: (typeof trio)[number], command: Record<string, unknown>, gameId: string | undefined = game.gameId) =>
     god.c.action(api.commands.submit, { roomId, envelope: envelope(command, gameId) });
   const run = () => admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });

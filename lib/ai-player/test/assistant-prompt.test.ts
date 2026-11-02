@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CORE_TOOLS, toolsFor } from "@workspace/player-client/tools";
+import { CORE_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { SKILLS } from "@workspace/player-client/skills";
 import { BRIEFING_LIMITS, GAME_PRIMER, assistantBriefing, assistantSystemPrompt } from "../src/index.ts";
 
@@ -16,7 +16,9 @@ const toolLine = (text: string, name: string) => text.split("\n").find(l => l.st
 test("the index lists every tool the grant offers beyond the core set, one short line each, and every skill; nothing else", () => {
   for (const permission of ["read", "act", "owner"] as const) {
     const text = prompt(permission);
-    const indexed = toolsFor(permission).filter(t => !(CORE_TOOLS as readonly string[]).includes(t.name));
+    const indexed = toolsFor(permission).filter(t => !(CORE_TOOLS as readonly string[]).includes(t.name) && !SKILL_LOADED_TOOLS.includes(t.name));
+    // Skill-loaded tools are reachable through their skill (load_skill loads them), never orphaned.
+    for (const name of SKILL_LOADED_TOOLS) assert.ok(SKILLS.some(k => (k.tools as readonly string[]).includes(name)), `${name} loads with a skill`);
     for (const t of indexed) assert.equal(toolLine(text, t.name)?.replace(" (confirmed)", ""), `- ${t.name}: ${t.short}`, `${permission}: ${t.name} is indexed by its short line`);
     for (const k of SKILLS) assert.equal(toolLine(text, k.name), `- ${k.name}: ${k.description}`);
     const listed = text.split("\n").filter(l => /^- [a-z_-]+:/.test(l)).map(l => l.slice(2, l.indexOf(":")));
@@ -25,7 +27,9 @@ test("the index lists every tool the grant offers beyond the core set, one short
     assert.ok(!text.includes(GAME_PRIMER), "the primer is no longer re-sent: the game-rules skill has the rules");
     assert.match(text, /briefing/i);
     assert.match(text, /load_tools \{names\}/);
+    // The always-on prompt stays lean (task how-tos are skills); the owner grant's is kept near 8 KB for headroom.
     assert.ok(text.length < 9_000, `${permission}: the prompt stays small (${text.length})`);
+    if (permission === "owner") assert.ok(text.length <= 8_000, `owner: room for other workers' lines (${text.length})`);
   }
   assert.equal(toolLine(prompt("read"), "summon_agent"), undefined);
   assert.ok(toolLine(prompt("act"), "summon_agent"));
@@ -121,6 +125,8 @@ test("the briefing is bounded and survives a lobby (no game), a failed read or u
   const lobbyView = assistantBriefing({ observation: { ...observation, phase: "lobby", self: { energy: 0, utility: null } } });
   assert.match(lobbyView, /no game is running/i);
   assert.ok(lobbyView.includes("typescript") && !lobbyView.includes("Your energy"), "the next game's language, no energy yet");
+  const both = assistantBriefing({ observation: { ...observation, languages: ["typescript", "python"] } });
+  assert.match(both, /agent languages: typescript or python/, "every allowed language, not only the default");
   const huge = { ...observation, economy: Object.fromEntries(Array.from({ length: 500 }, (_, i) => [`k${i}`, i])), self: { ...observation.self, utility: { name: "n".repeat(5000), summary: "s".repeat(5000) } } };
   assert.ok(assistantBriefing({ observation: huge, layout }).length <= BRIEFING_LIMITS.total);
   assert.doesNotThrow(() => assistantBriefing({ observation: { self: "nope", instance: { helpers: "nope" } } }));
@@ -134,4 +140,14 @@ test("in the lobby, a game preparing its rule tables is in the briefing with its
   assert.match(assistantBriefing({ observation, preparing: { ...preparing, error: "The rule table for snap {} could not be prepared." } }),
     /Starting the next game failed while preparing its rule tables: The rule table for snap \{\} could not be prepared\. The owner can start again\./);
   assert.ok(!assistantBriefing({ observation, preparing: null }).includes("preparing its rule tables"), "nothing when nothing prepares");
+});
+
+test("the briefing carries a board key, so the assistant can name the symbols and colours a goal uses", () => {
+  const grid = (symbols: string, colours: string) => assistantBriefing({ observation: { ...observation, instance: { objectType: "Grid", args: { size: 5, symbols, colours } } } })
+    .split("\n").find(l => l.startsWith("Board key:"));
+  assert.equal(grid("base12", "rgb"), "Board key: a 5×5 board. Symbols: 0 to 9, then A (10) and B (11). Colours: red, green and blue.");
+  assert.equal(grid("cards", "rgby"), "Board key: a 5×5 board. Symbols: playing cards A, 2 to 10, J, Q and K in four suits (♠ spades, ♥ hearts, ♦ diamonds, ♣ clubs); A counts 1, J 11, Q 12, K 13. Colours: red, yellow, green and blue.");
+  assert.equal(grid("base10", "rainbow6"), "Board key: a 5×5 board. Symbols: 0 to 9. Colours: red, orange, yellow, green, blue and violet.");
+  assert.equal(assistantBriefing({ observation }).includes("Board key"), false, "no key without a Grid instance");
+  assert.match(assistantSystemPrompt({ playerName: "Ann", roomCode: "R", permission: "read" }), /exact symbols and colours, with an example; never say you haven't looked/);
 });

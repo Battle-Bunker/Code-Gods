@@ -2,6 +2,7 @@
  * How to play: the 90-second explanation (docs/research/ui-redesign/onboarding-and-config.md §2), how scoring works,
  * and this room's settings, with the full rules as the assistant reads them (rulesText) one click away.
  */
+import { LANGUAGE_SPECS, allowedLanguages } from "@workspace/game-core";
 import { HowScoringWorks } from "@workspace/object-views";
 import { rulesText } from "@workspace/player-client/rules";
 import { Term } from "@workspace/ui-kit";
@@ -28,7 +29,7 @@ export default function Rules({ params }: PanelProps<"rules">) {
   const world = objectType === "Grid" || !objectType ? "usually small grids of coloured numbers" : objectType === "Int" ? "whole numbers" : "pieces of text";
   const all = params.section === "all";
   const rows: [string, unknown][] = [
-    ["Objects", objectType], ["Language", settings.language], ["Planning", settings.planningSeconds !== undefined ? `${settings.planningSeconds} s` : undefined],
+    ["Objects", objectType], ["Languages", allowedLanguages(settings).map(l => LANGUAGE_SPECS[l].label).join(", ") || undefined], ["Planning", settings.planningSeconds !== undefined ? `${settings.planningSeconds} s` : undefined],
     ["Starting energy", settings.startingEnergy !== undefined ? `${settings.startingEnergy} bits` : undefined], ["Energy per second", settings.energyPerSecond],
     ["Pause length", settings.pauseSeconds !== undefined ? `${settings.pauseSeconds} s` : undefined], ["Game half-life", settings.halfLifeSeconds !== undefined ? `${settings.halfLifeSeconds} world s` : undefined],
   ];

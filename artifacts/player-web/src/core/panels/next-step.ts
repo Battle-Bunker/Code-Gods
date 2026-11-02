@@ -3,18 +3,28 @@
  * now, why, and the single action that does it. Pure.
  */
 import type { PanelId, Phase } from "@workspace/player-client/panels";
+import type { StartView } from "@workspace/player-client/start";
 
 export type NextStepAction =
   | { kind: "panel"; panelId: PanelId }
   | { kind: "forge" }
   | { kind: "start" }
   | { kind: "palette"; command: string };
-export type NextStep = { label: string; why: string; action: NextStepAction };
-export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; members: number; agents: number };
+/** `busy`: a start is pending; the button shows a spinner and does nothing (no second start). */
+export type NextStep = { label: string; why: string; action: NextStepAction; busy?: true };
+/** `start`: the pending start (@workspace/player-client/start), so the click shows at once and progress follows. */
+export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; members: number; agents: number; start?: StartView };
 
 export function nextStep(s: NextStepContext): NextStep {
   const live = s.phase === "planning" || s.phase === "running" || s.phase === "paused";
   if (s.phase === "lobby") {
+    if (s.isOwner && s.start?.phase === "starting") {
+      const who = s.start.source === "assistant" ? "your assistant is starting it: " : "";
+      return { label: "Starting the game…", why: `${who}dealing secret goals and spawning the world; planning begins at once.`, action: { kind: "start" }, busy: true };
+    }
+    if (s.isOwner && s.start?.phase === "preparing") {
+      return { label: "Preparing the game…", why: `its rule tables are computing (${s.start.ready} of ${s.start.total} ready); it starts by itself.`, action: { kind: "start" }, busy: true };
+    }
     if (s.isOwner && s.members >= 3) return { label: "Start the game", why: `everyone here plays (${s.members} players); planning begins at once.`, action: { kind: "start" } };
     if (s.isOwner) return { label: "Add an AI player", why: `a game needs 3 players and the room has ${s.members}.`, action: { kind: "palette", command: "rooms.addAi" } };
     return { label: "Read how to play", why: "the owner starts the game; until then, learn the 90-second version.", action: { kind: "panel", panelId: "rules" } };

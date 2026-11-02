@@ -261,3 +261,21 @@ test("Anthropic's out-of-credit and overloaded answers become a player-facing re
   const other = await failure(400, { type: "invalid_request_error", message: "max_tokens: too large" });
   assert.match(other.message, /^The model call failed: .*max_tokens: too large/);
 });
+
+test("queued player text after a step's tool results is one user message: the tool_result blocks first, then the texts in order", async () => {
+  let body: any;
+  await provider(async (_u, init) => { body = JSON.parse(String(init!.body)); return stream([start(), ...text(0, "ok"), ...end("end_turn")]); }).stream(request({ messages: [
+    { role: "user", content: "Go" },
+    { role: "assistant", content: [{ type: "tool_use", id: "toolu_a", name: "get_observation", input: {} }, { type: "tool_use", id: "toolu_b", name: "get_observation", input: {} }] },
+    { role: "user", content: [
+      { type: "tool_result", toolUseId: "toolu_a", content: "{}" }, { type: "tool_result", toolUseId: "toolu_b", content: "{}", isError: true },
+      { type: "text", text: "Engine note" }, { type: "text", text: "use add(2)" }, { type: "text", text: "keep it cheap" },
+    ] },
+  ] }));
+  assert.equal(body.messages.length, 3);
+  assert.deepEqual(body.messages[2], { role: "user", content: [
+    { type: "tool_result", tool_use_id: "toolu_a", content: "{}" },
+    { type: "tool_result", tool_use_id: "toolu_b", content: "{}", is_error: true },
+    { type: "text", text: "Engine note" }, { type: "text", text: "use add(2)" }, { type: "text", text: "keep it cheap" },
+  ] });
+});

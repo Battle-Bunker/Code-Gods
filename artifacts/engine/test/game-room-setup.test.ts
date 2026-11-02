@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, touch } from "./game-helpers.ts";
+import { api, gods, roomWith, startGame, touch } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
@@ -36,7 +36,7 @@ test("a new room runs First steps and can turn the assistant on in the same call
   assert.equal(rows.find((r: any) => r.id === roomId)?.setupName, "First steps");
 });
 
-test("a settings change moves only what the game ties to it: no retuning on a new world, the language's grammar, nothing else", { timeout: 60_000 }, async () => {
+test("a settings change moves only what the game ties to it: no retuning on a new world, nothing else; a single language still works", { timeout: 60_000 }, async () => {
   const [host] = await gods("Model Host");
   await touch(host);
   const { roomId } = await roomWith([host]);
@@ -46,13 +46,18 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   let room = await host.c.query(api.rooms.get, { room: roomId });
   // Hand-derived: Int's default instantiation, the Grid families no longer exist, every tuned Grid value stays the owner's.
   assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [] });
+  await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { languages: ["typescript", "python"] } });
+  room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [],
+    languages: ["typescript", "python"] });
+  // The old single-language change (an older client) allows exactly that language.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { language: "typescript" } });
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [],
-    language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform" });
+    languages: ["typescript"] });
   // Refused: an invalid instantiation, an option the language lacks, an unknown field, a family the world lacks,
   // and defence goals in a world with no defence families (Int has none).
-  for (const settings of [{ typeArgs: { min: 5, max: 0 } }, { grammarId: "python-agent-v1" }, { colour: "red" }, { excludedFamilies: ["sudoku_scholar"] },
+  for (const settings of [{ typeArgs: { min: 5, max: 0 } }, { grammarId: "python-agent-v1" }, { languages: [] }, { languages: ["cobol"] }, { colour: "red" }, { excludedFamilies: ["sudoku_scholar"] },
     { defenceGoals: true }, { defenceRate: 0.5 }]) {
     assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: await revision(), settings })), "BAD_REQUEST", JSON.stringify(settings));
   }
@@ -108,7 +113,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
 
   // A started game snapshots the setup; the ended game's record and the public view name it.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 } });
-  const game = await host.c.action(api.owner.start, { roomId });
+  const game = await startGame(host, roomId);
   const view = await ada.c.query(api.games.view, { code: game.shortCode });
   assert.deepEqual(view.setup, { id: fromDeleted.setup.id, name: "Ada's board's copy 2" });
   await host.c.mutation(api.rooms.endActiveGame, { roomId });

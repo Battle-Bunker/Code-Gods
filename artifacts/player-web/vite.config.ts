@@ -8,7 +8,8 @@ import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
 import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
-// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/player/".
+// Defaults: dev server on port 22772 at "/"; a static build is hosted by the engine at "/client/". The app never assumes
+// its prefix (src/core/routes.ts reads Vite's base), so BASE_PATH can mount it anywhere, a dev server at "/" included.
 const rawPort = process.env.PORT || "22772";
 const port = Number(rawPort);
 
@@ -16,9 +17,12 @@ if (!Number.isInteger(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH || (isBuild ? "/player/" : "/");
+const basePath = process.env.BASE_PATH || (isBuild ? "/client/" : "/");
 
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
+// The engine a browser-mode client talks to (src/core/connection.ts engineUrl): CODE_GODS_SITE_URL in hosted-mode
+// development, else VITE_CODE_GODS_ENGINE_URL (a build served from another origin), else the page's own origin.
+if (hostedDev && !process.env.VITE_CODE_GODS_ENGINE_URL) process.env.VITE_CODE_GODS_ENGINE_URL = process.env.CODE_GODS_SITE_URL;
 function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
   // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
   // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
@@ -58,7 +62,7 @@ function framePlugin(): Plugin {
       server.watcher.on("change", file => { if (file.startsWith(src) && !file.startsWith(panelsDir)) built = undefined; });
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://x");
-        // Paths relative to the app's base ("/" by default, "/player/" with BASE_PATH), as the client requests them.
+        // Paths relative to the app's base ("/" by default, "/client/" in a build, or BASE_PATH), as the client requests them.
         const base = server.config.base;
         if (!url.pathname.startsWith(base)) { next(); return; }
         const name = url.pathname.slice(base.length);
@@ -98,7 +102,7 @@ function framePlugin(): Plugin {
   };
 }
 
-/** The page's CSP as a meta tag (vite/csp.ts): the hosted /player/ policy in a build, frame-src 'self' in a dev server. */
+/** The page's CSP as a meta tag (vite/csp.ts): the hosted /client/ policy in a build, frame-src 'self' in a dev server. */
 const pageCspPlugins = (): Plugin[] => [
   { name: "code-gods-page-csp", apply: "build", transformIndexHtml: { order: "post", handler: html => injectPageCsp(html, process.env) } },
   { name: "code-gods-dev-page-csp", apply: "serve", transformIndexHtml: { order: "post", handler: html => injectCsp(html, devPageCsp()) } },
@@ -153,14 +157,8 @@ export default defineConfig({
     allowedHosts: true,
     // One broken panel must never cover the game: panel errors show inside their own frame.
     hmr: { overlay: false },
-    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211
-    // Better Auth trusts only the engine's origin, so the proxy presents it (as artifacts/code-gods does).
-    ...(process.env.CODE_GODS_SITE_URL ? { proxy: { '/api': {
-      target: process.env.CODE_GODS_SITE_URL, changeOrigin: true,
-      configure: (proxy: { on(event: 'proxyReq', fn: (req: { getHeader(n: string): unknown; setHeader(n: string, v: string): void }) => void): void }) => {
-        proxy.on('proxyReq', req => { if (req.getHeader('origin')) req.setHeader('origin', new URL(process.env.CODE_GODS_SITE_URL!).origin); });
-      },
-    } } } : {}),
+    // Hosted-mode development against a local engine: CODE_GODS_SITE_URL=http://127.0.0.1:3211. The client is then an
+    // OAuth client of that engine from this origin (src/core/connection.ts), exactly like a client on any other origin.
     fs: {
       strict: true,
     },

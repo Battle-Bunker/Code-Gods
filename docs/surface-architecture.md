@@ -20,7 +20,8 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 
 | Surface | Reactive data | Acting | Live UI changes | Assistant |
 |---|---|---|---|---|
-| **Hosted client** (`/player/` on the deployment) | Convex WebSocket, browser session | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **Hosted client** (`/client/` on the deployment) | Convex WebSocket, a room's OAuth connection (player JWT; never the site session: docs/external-clients.md) | the client's own commands | stored panels, in sandboxed frames | in-client assistant (Convex) |
+| **Any browser client** (any origin: a Replit dev URL, localhost, a static host; `clients/hello`) | Convex WebSocket, a room's OAuth connection or device credential (`@workspace/player-client/browser`) | public Convex functions | whatever it renders | the player's own |
 | **Dev container** (any Vite environment: local, Codespaces, Gitpod, Replit, …) | Convex WebSocket, JWTs from the dev server's `/__codegods/token` after the private launch link | same | file panels (HMR, in-process) **and** stored panels | the environment's coding agent through MCP or the CLI, plus the in-client assistant |
 | **Claude** (chat, Claude Code) | MCP tool calls | MCP tools | writes stored panels through MCP; the human watches the hosted client | Claude itself |
 | **Claude artifact** (claude.ai page; `clients/claude-artifact/`) | the Code Gods connector through the page's `mcp` capability: `watchTool` on `get_observation` and `whoami` (about 30 s polling floor, paused while hidden) | `callTool` on a click: `send_chat` (confirmed in the page), `validate_agent`, `summon_agent`, `set_ready`; ambiguous failures check `get_receipt` and resend with the same `commandId` | Claude republishes the page; whether it could render stored panels is what `probe.html` checks | Claude, plus the page's `sample` ("Ask Claude") |
@@ -126,14 +127,14 @@ Type-checking against `sdk.d.ts` is phase 2.
 
 **Client (`artifacts/player-web`).**
 - The shell registry merges file panels with stored panels from `panels.list`. On an id clash the file panel wins and shows a "shadows stored vN" badge.
-- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/player/panel-frame.html`, with its own meta CSP (`connect-src 'none'`). The client page's CSP has `frame-src 'self'` (hosted and dev server alike), so a frame cannot navigate itself off-origin.
+- **Isolation:** stored panels run in a sandboxed iframe (`sandbox="allow-scripts"`, opaque origin) served as `/client/panel-frame.html`, with its own meta CSP (`connect-src 'none'`). The client page's CSP has `frame-src 'self'` (hosted and dev server alike), so a frame cannot navigate itself off-origin.
 - **Bridge:** a postMessage bridge carries the same `@sdk` API. The SDK is built twice with a swapped transport: `useQuery` on the host, bridge subscriptions in the frame. Panels keep real React hooks.
 - **Confirmations:** the host enforces a confirmation for `chat`, `summon`, `destroy` and `pause` coming from a stored panel. A per-panel "let it act" grant is set by the player and reset whenever a non-browser author writes a new version.
 - **Failure handling:** a crashing panel stays inside its frame. `?panels=off` is safe mode.
 - **File panels** stay in-process with HMR (dev containers only). A "run sandboxed" toggle proves a file panel works as a stored one.
 
 **Hosting and CLI.**
-- The production `/player/` page gets a build-time meta CSP: `connect-src` limited to the deployment, `script-src 'self' 'unsafe-eval'`, which the utility evaluator needs.
+- The production `/client/` page gets a build-time meta CSP: `connect-src` limited to the deployment, `script-src 'self' 'unsafe-eval'`, which the utility evaluator needs.
 - The CLI's `pnpm player panel push|pull <slug>` moves panels between `src/panels/` and the store, through the registry tools.
 
 ## 6. In-client assistant (Wave 2A, built)
@@ -145,7 +146,8 @@ A model served by Convex that answers one human in the player client's **Assista
 through the agent registry. API: `docs/engine-api.md` "In-client assistant"; billing: `docs/ai-player-billing.md`.
 
 **Data** (`convex/assistant/tables.ts`):
-- `assistantThreads {roomId, subject, title, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a room.
+- `assistantThreads {roomId, subject, title, epoch, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a
+  room during one game (`epoch`: the room's current game id when it started, or `lobby`; the allowance's key).
 - `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
   status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
 - `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?,
@@ -162,9 +164,10 @@ owner with explicit consent; a different choice revokes the old one and creates 
 player credential that created it. It is listed and revocable on the engine UI like any other credential; it is never a
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
-**Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/step.ts`).
-- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0; CONFLICT while the human's previous turn in the
-  room is active) inserts the user message and the turn and schedules `assistant/step:run({turnId, gen})`.
+**Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/turns.ts`, `assistant/step.ts`, `assistant/limits.ts`).
+- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0) inserts the user message and the turn and
+  schedules `assistant/step:run({turnId, gen})`; while the human's turn in this game is active it queues the message
+  instead (below).
 - One scheduled Node action per model step, chained with `gen`; a step whose `gen` or status is stale exits. A step:
   resolves the previous step's tool calls → reserves from the assistant pool → streams from the provider, flushing the
   text into the message about every 250 ms or 400 characters through a mutation that also reports cancellation →
@@ -176,6 +179,39 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
   approval or a re-run step never applies a command twice.
 - A cron (`assistant sweeper`, every minute) fails turns past their deadline, finishes cancellations whose step died
   and denies unanswered confirmations.
+
+**Queued messages** (`assistantQueue {roomId, subject, epoch, threadId, clientId?, text, status: queued|delivered|removed, held?, turnId?, messageId?}`,
+keyed by (player, game) like the threads). The composer stays usable while the assistant works:
+- A `send` while the turn is running, waiting on a card or stopping is queued for that turn's conversation (at most 5,
+  each ≤ 4,000 characters; CONFLICT for another conversation of the game, or with a change of the assistant's rights,
+  which waits until it is idle: a queued message runs with the busy turn's credential). The pane shows it as queued, editable
+  (`editQueued`) and removable (`removeQueued`) until delivered. The queue is in Convex, so it survives reloads and
+  every tab or app of the player sees it (`assistant.status` `queued`).
+- **Step boundary.** Before each model step that follows a tool step (its calls resolved and their results stored),
+  queued messages become user messages of the turn, in order (`assistant/store:deliverQueued`). The history puts them
+  in the user message that carries that step's tool results, after the results and an engine note
+  (`rules.ts QUEUED_NOTE`): for Anthropic the `tool_result` blocks then text blocks in one user message; for OpenAI the
+  `tool` messages right after the assistant's `tool_calls`, then one user message with the texts. The model reads them
+  in the same turn and can change course. Not at the step ceiling (they wait for the next turn).
+- **No tool step.** A turn that ends done (its answer, or the step limit) with messages still queued starts the next
+  turn in the same conversation at once, with all of them as its prompt. A turn that failed or ran out of allowance
+  holds them instead (the next turn would fail the same way): the player sends them once they see why.
+- **Exactly once.** Delivery marks each row `delivered` in the same mutation that inserts its message, so of two racing
+  deliveries one finds nothing (Convex mutations are serializable). `clientId` (the pane sends a UUID) makes a retried
+  send return the same row, queued or delivered, never a second message.
+- **Cards.** A queued message never approves anything. It declines a card that is waiting (the result tells the model
+  the player sent a message instead and to ask again if still wanted), and while a message is queued a call that would
+  need a card is declined the same way rather than shown, so the player's latest words decide before any card. The
+  model then reads the message beside the declined result.
+- **Stop** keeps the messages queued so far, marked `held`: they never go into the stopped turn and start nothing
+  by themselves. They go first in the player's next message's turn, or now with `sendQueued` (the conversation on
+  screen); the pane says so. A
+  message sent after Stop, while the step winds down, is not held and starts the next turn when the cancellation lands.
+  Starting the next game drops the last game's queue with its conversation (`endTurnsForNewGame`): nothing queued for
+  the old game is delivered or carried into the new one.
+- **Accounting.** A queued message costs nothing until delivered. Its text is then part of the next step's input, so
+  that step's reservation estimate (made after delivery) includes it and settles to what the step cost, as for any
+  message.
 
 **Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
 same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel`, `delete_setup` and every owner tool wait for a card:
@@ -213,6 +249,17 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
 - Logs record ids, tools, outcomes and usage, never message text or tool arguments.
 - Threads, messages and tool calls are readable only by their human (`assistant.thread(s)` check `subject`, and a
   player credential reaches its own room only); stored tool results are the human's own projections.
+- **Per (player, game).** Everything the assistant works from is keyed by human and game: threads (with their turns,
+  briefings, history window, messages, tool calls and cards), the allowance, code runs and the stored objects other
+  than saved scripts (`docs/assistant/code-execution.md` §5). Starting a game ends the room's active turns (a waiting
+  card is denied), `assistant.threads` lists only the current game's, and `assistant.send` refuses an earlier game's
+  thread (CONFLICT), so a new game begins with an empty context. An earlier game's threads stay readable by their human
+  (`assistant.threads {gameId}`, `assistant.thread`); the assistant's own tools never reach that game's runs or
+  objects. The player's choices stay: the summon auto-approve preference, the assistant credential, panels and layout.
+  The pane follows the game reactively: `assistant.status` names the current `game`, and the pane renders one
+  conversation component keyed by it, whose transcript is the query `assistant.transcript {roomId, gameId, threadId?}`
+  (that game's thread only, whatever id the client names) and whose `send` names the game (CONFLICT once another is
+  current). When the game changes, the query arguments change and the old game's state is gone, without a reload.
 
 **UI** (`artifacts/player-web/src/core/assistant/`): a core drawer behind the header's "Assistant" toggle, in hosted and
 dev-server modes: streaming messages, tool chips (expandable to the exact arguments and the outcome), confirmation cards
@@ -225,7 +272,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 ## 7. Decisions
 
 1. **Auth library: Better Auth served by Convex** (`@convex-dev/better-auth` 0.12.x with `better-auth` 1.6.x, exact pins). Convex Auth is still beta, has a v1→v2 migration ahead, and keeps tokens in localStorage.
-   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin. Both SPAs share it with no cross-domain plugin, and get Convex JWTs from `/api/auth/convex/token`.
+   - **Session and tokens:** the session lives in an HttpOnly cookie on the deployment's own origin, and the engine UI gets Convex JWTs from `/api/auth/convex/token`. Player clients, the hosted one included, never use it: they hold room-scoped player JWTs (docs/external-clients.md, 2026-11-01).
    - **Identity:** the god id is the Better Auth user id. A `users` row is kept by component triggers and stores the Google `sub` for audit.
    - **Player JWTs:** they move to their own issuer, `<site>/api/device`, so the two token kinds are told apart by issuer.
    - **Tests:** the local fake OIDC server is a `genericOAuth` provider that is enabled only under `TEST_FIXTURES`.

@@ -1,0 +1,22 @@
+{
+  "name": "@workspace/hello-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The smallest Code Gods player client: an OAuth client of the engine on any origin (docs/external-clients.md).",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/smoke.ts"
+  },
+  "dependencies": {
+    "@workspace/engine": "workspace:*",
+    "@workspace/player-client": "workspace:*",
+    "convex": "1.48.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vite": "catalog:"
+  }
+}

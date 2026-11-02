@@ -14,8 +14,14 @@ export function roomLookup<T>(code: string, result: T | Error | undefined): Room
   if (!code) return { state: "ask" };
   if (result === undefined) return { state: "loading" };
   if (!(result instanceof Error)) return { state: "found", room: result };
-  const data = result instanceof ConvexError ? result.data as { code?: string; message?: string } | string : undefined;
+  const data = result instanceof ConvexError ? result.data as { code?: string } | string : undefined;
   if (typeof data === "object" && data?.code === "NOT_FOUND") return { state: "ask", error: `No room ${code} on this engine.` };
-  const message = typeof data === "object" && data?.message ? data.message : typeof data === "string" ? data : result.message;
-  return { state: "ask", error: message.split("\n")[0] };
+  return { state: "ask", error: errorText(result) };
+}
+
+/** The first line of an engine error's message (a ConvexError's `data.message`, else the error's own). */
+export function errorText(error: Error): string {
+  const data = error instanceof ConvexError ? error.data as { message?: string } | string : undefined;
+  const message = typeof data === "object" && data?.message ? data.message : typeof data === "string" ? data : error.message;
+  return message.split("\n")[0];
 }

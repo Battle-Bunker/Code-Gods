@@ -12,22 +12,26 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowDown, ChevronDown, ChevronRight, Send, Square } from "lucide-react";
+import type { FunctionReturnType } from "convex/server";
+import { ArrowDown, ChevronDown, ChevronRight, Pencil, Send, Square, X } from "lucide-react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Phase } from "@workspace/player-client/panels";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
+import { startTracker } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
+import { replayPlayhead, useReplayController } from "@/core/replay/parts";
 import { useNow, useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
 import { runPaletteCommand } from "@/core/palette/registry";
-import { composer, useComposer, type Permission } from "./composer";
+import { composer, threadIn, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, userCount, withPending, withSteps,
+  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, queueNote, stepView, userCount, withPending, withSteps,
   type CallRow, type ChatItem, type StepTone,
 } from "./state";
+import { ToolDetail } from "./tool-detail-view";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 type Note = { at: number; key: string; text: string };
@@ -39,15 +43,31 @@ const CARD_MS = 120_000;
 /** The pane grows to this while a card waits, and returns to its size after. */
 const CARD_ROOM = { height: 320, width: 360 };
 
+type Status = FunctionReturnType<typeof api.assistant.status>;
+
+/**
+ * The pane follows the room's game reactively (assistant.status game): everything below it is ONE game's conversation,
+ * keyed by that game. When the next game starts, the old conversation's component, its local state (a message being
+ * sent, an error, phase lines) and its transcript subscription end, and the new game's start empty: no reload, and no
+ * way for one game's transcript to show in another.
+ */
 export function AssistantPane({ paneId }: { paneId: string }) {
+  const { roomId } = useRoom();
+  const status = useQuery(api.assistant.status, { roomId: roomId as Id<"rooms"> });
+  return <Conversation key={status?.game ?? ""} paneId={paneId} status={status} />;
+}
+
+function Conversation({ paneId, status }: { paneId: string; status: Status | undefined }) {
   const { roomId } = useRoom();
   const room = roomId as Id<"rooms">;
   const situation = useSituation();
-  const status = useQuery(api.assistant.status, { roomId: room });
-  const threads = useQuery(api.assistant.threads, { roomId: room });
   const c = useComposer();
-  const threadId = c.thread === "new" ? null : c.thread ?? status?.activeTurn?.threadId ?? threads?.[0]?._id ?? null;
-  const thread = useQuery(api.assistant.thread, threadId ? { threadId: threadId as Id<"assistantThreads"> } : "skip");
+  const game = status?.game ?? null;
+  const chosen = game ? threadIn(c, game) : null;
+  // The transcript is a query of (room, game): the server answers with that game's conversation only.
+  const thread = useQuery(api.assistant.transcript, game && chosen !== "new"
+    ? { roomId: room, gameId: game, ...(chosen ? { threadId: chosen as Id<"assistantThreads"> } : {}) } : "skip");
+  const threadId = thread?.thread?._id ?? null;
   const send = useMutation(api.assistant.send);
   const cancel = useMutation(api.assistant.cancel);
   /** The message just sent, and how many user messages the thread had then: shown until the server has it. */
@@ -64,6 +84,9 @@ export function AssistantPane({ paneId }: { paneId: string }) {
   const permission: Permission = c.permission ?? status?.credential?.permission ?? (status?.maxPermission === "read" ? "read" : "act");
   const blocked = permission === "owner" && !c.ownerConsent && !status?.credential;
   useEffect(() => { if (pending && userCount(timeline) > pending.users) setPending(null); }, [timeline, pending]);
+  // An approved start_game shows as the room's pending start everywhere (overview, palette), like the owner's own click.
+  const startCall = calls.findLast(call => call.tool === "start_game");
+  useEffect(() => { if (startCall) startTracker.follow(roomId, startCall._id, startCall.status); }, [roomId, startCall?._id, startCall?.status]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { composer.setStatus(!status ? "" : !enabled ? "off" : card ? "waiting for you" : active ? "thinking…" : ""); }, [status, enabled, card, active]);
 
   // Grow the pane while a card waits, so the card and the composer both fit; give the space back after.
@@ -82,16 +105,22 @@ export function AssistantPane({ paneId }: { paneId: string }) {
     }
   }, [card, paneId, store]);
 
+  // In a replay (core/replay), each message carries the moment on screen, so the assistant reads "here" as that moment.
+  const replay = useReplayController();
   const submit = async (text: string) => {
     const message = text.trim();
-    if (!message || active || !status || blocked) return;
+    if (!message || !status || blocked) return;
+    // While the assistant works the message is queued (shown in the queue, not the timeline, until it is delivered).
     // A new conversation starts from no messages.
-    setError(null); setPending({ text: message, users: threadId ? userCount(timeline) : 0 }); composer.setDraft("");
+    setError(null); if (!active) setPending({ text: message, users: threadId ? userCount(timeline) : 0 }); composer.setDraft("");
     try {
       const firstUse = !status.credential;
-      const sent = await send({ roomId: room, text: message, ...(threadId ? { threadId: threadId as Id<"assistantThreads"> } : {}),
+      const sent = await send({ roomId: room, gameId: status.game, text: message, clientId: crypto.randomUUID(), ...(threadId ? { threadId } : {}),
+        ...(replay ? { replay: replayPlayhead(replay) } : {}),
         ...(firstUse || status.credential?.permission !== permission ? { permission } : {}), ...(permission === "owner" ? { ownerConsent: c.ownerConsent } : {}) });
-      composer.setThread(sent.threadId);
+      // A fresh conversation is chosen from now on; the default (the game's active, then latest) already follows the send.
+      if (chosen === "new") composer.setThread(status.game, sent.threadId);
+      if (sent.queued) setPending(null);
     } catch (e) { setError(errorText(e)); setPending(null); composer.setDraft(message); }
   };
 
@@ -141,6 +170,8 @@ export function AssistantPane({ paneId }: { paneId: string }) {
         </div>
       )}
       {card && <ConfirmCard key={card._id} call={card} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
+      {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} card={!!card} roomId={room}
+        threadId={threadId as Id<"assistantThreads"> | null} onError={setError} />}
       {error && <p className="px-3 pb-1 text-xs text-destructive" data-testid="text-assistant-error">{error}</p>}
       {enabled
         ? <Composer active={active} onSend={() => void submit(c.draft)} onStop={() => latestTurn && void cancel({ turnId: latestTurn._id }).catch(e => setError(errorText(e)))}
@@ -217,7 +248,7 @@ function SystemLine({ children }: { children: React.ReactNode }) {
 }
 
 const TONE: Record<StepTone, string> = { ok: "text-muted-foreground", error: "text-destructive", muted: "text-muted-foreground opacity-70", busy: "text-muted-foreground beat", ask: "text-foreground" };
-/** One model step: its verbs in one line; ▸ opens the exact calls. */
+/** One model step: its verbs in one line (a summary); ▸ opens every call in it with its full detail. */
 function StepLine({ calls }: { calls: CallRow[] }) {
   const view = stepView(calls);
   const [open, setOpen] = useState(view.open);
@@ -227,21 +258,22 @@ function StepLine({ calls }: { calls: CallRow[] }) {
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className={`flex w-full min-w-0 items-center gap-1 text-left ${TONE[view.tone]}`}>
         <span aria-hidden>◦</span><span className="truncate">{view.text}</span>{open ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
       </button>
-      {open && <div className="mt-1 space-y-1 pl-3">{calls.map(call => <Chip key={call._id} call={call} />)}</div>}
+      {open && <div className="mt-1 space-y-1 pl-3">{calls.map(call => <Chip key={call._id} call={call} defaultOpen />)}</div>}
     </div>
   );
 }
 
-/** One tool call: its name, outcome and the exact arguments. */
-function Chip({ call }: { call: CallRow }) {
-  const [open, setOpen] = useState(false);
+/** One tool call: its name and outcome; expanded, everything the assistant sent and read (tool-detail.ts). */
+function Chip({ call, defaultOpen = false }: { call: CallRow; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const view = chipView(call);
   return (
     <div className={`border-l-2 pl-2 ${view.tone === "error" ? "border-destructive text-destructive" : view.tone === "ok" ? "border-[hsl(var(--accent))]" : "border-[hsl(var(--input))]"}`} data-testid={`assistant-chip-${call.tool}`} data-status={call.status}>
-      <button type="button" onClick={() => setOpen(!open)} className="flex items-center gap-1 font-mono text-[11px]" aria-expanded={open}>
-        {view.label}<span className="text-muted-foreground">· {call.status === "running" || call.status === "pending" ? "running" : view.detail || call.status}</span>
+      <button type="button" onClick={() => setOpen(!open)} className="flex items-start gap-1 text-left font-mono text-[11px]" aria-expanded={open}>
+        {open ? <ChevronDown size={11} className="mt-0.5 shrink-0" /> : <ChevronRight size={11} className="mt-0.5 shrink-0" />}
+        <span>{view.label} <span className="text-muted-foreground">· {call.status === "running" || call.status === "pending" ? "running" : view.detail || call.status}</span></span>
       </button>
-      {open && <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[10px]">{prettyArgs(call.argsJson)}</pre>}
+      {open && <ToolDetail call={call} />}
     </div>
   );
 }
@@ -289,7 +321,7 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
             className="px-3 py-1 text-xs disabled:opacity-40">Not now</button>
           <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="ml-auto text-xs text-muted-foreground">Details {details ? "▾" : "▸"}</button>
         </div>
-        {details && <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[10px]" data-testid="assistant-card-args">{prettyArgs(call.argsJson)}</pre>}
+        {details && <div className="max-h-56 overflow-auto" data-testid="assistant-card-args"><ToolDetail call={call} /></div>}
       </div>
       {left !== null && <div className="h-0.5 bg-muted" aria-hidden><div className="h-full bg-primary transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(100, (100 * left) / CARD_MS)}%` }} /></div>}
     </div>
@@ -325,7 +357,67 @@ function PermissionChoice({ permission, max, isOwner }: { permission: Permission
   );
 }
 
-/** The composer: one line growing to five; Enter sends, Shift+Enter breaks; Esc in an empty composer collapses the pane. */
+type Queued = { _id: string; threadId: string; text: string; held: boolean };
+
+/**
+ * The player's messages waiting for their assistant (assistant.status queued): each editable and removable until the
+ * assistant reads it; the ones a Stop held can be sent now (or go with the next message).
+ */
+function QueueList({ queued, active, card, roomId, threadId, onError }: {
+  queued: Queued[]; active: boolean; card: boolean; roomId: Id<"rooms">; threadId: Id<"assistantThreads"> | null; onError: (e: string) => void;
+}) {
+  const sendQueued = useMutation(api.assistant.sendQueued);
+  const note = queueNote({ count: queued.length, active, card });
+  if (!note) return null;
+  return (
+    <div className="space-y-1 border-t border-[hsl(var(--card-border))] px-3 py-2" data-testid="assistant-queue">
+      <div className="flex items-center gap-2">
+        <p className="text-[11px] text-muted-foreground" data-testid="text-assistant-queue-note">{note}</p>
+        {!active && (
+          <button type="button" data-testid="button-queue-send" onClick={() => void sendQueued({ roomId, ...(threadId ? { threadId } : {}) }).catch(e => onError(errorText(e)))}
+            className="ml-auto border border-[hsl(var(--input))] px-2 py-0.5 text-[11px] font-semibold">Send now</button>
+        )}
+      </div>
+      {queued.map(q => <QueuedItem key={q._id} item={q} onError={onError} />)}
+    </div>
+  );
+}
+
+function QueuedItem({ item, onError }: { item: Queued; onError: (e: string) => void }) {
+  const edit = useMutation(api.assistant.editQueued);
+  const remove = useMutation(api.assistant.removeQueued);
+  const [draft, setDraft] = useState<string | null>(null);
+  /** Set once an edit is saved or discarded, so the blur of the closing textarea does nothing more. */
+  const closed = useRef(false);
+  const id = item._id as Id<"assistantQueue">;
+  const open = () => { closed.current = false; setDraft(item.text); };
+  const close = (keep: boolean) => {
+    if (closed.current) return;
+    closed.current = true;
+    const text = draft?.trim();
+    setDraft(null);
+    if (!keep || !text || text === item.text) return;
+    void edit({ queueId: id, text }).then(r => { if (r.status !== "queued") onError("Your assistant had already read that message; the edit was not applied."); }, e => onError(errorText(e)));
+  };
+  return (
+    <div className="flex items-start gap-2 border border-dashed border-[hsl(var(--input))] px-2 py-1 text-sm" data-testid="assistant-queued">
+      <span className="mt-0.5 shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{item.held ? "held" : "queued"}</span>
+      {draft === null
+        ? <p className="min-w-0 flex-1 whitespace-pre-wrap break-words" data-testid="text-queued">{item.text}</p>
+        : <textarea autoFocus value={draft} maxLength={4000} rows={2} onChange={e => setDraft(e.target.value)} data-testid="input-queued"
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); close(true); } if (e.key === "Escape") { e.preventDefault(); close(false); } }} onBlur={() => close(true)}
+            className="min-w-0 flex-1 resize-none bg-transparent text-sm outline-none" />}
+      <button type="button" aria-label="Edit the queued message" data-testid="button-queued-edit" onClick={open} className="text-muted-foreground hover:text-foreground"><Pencil size={12} /></button>
+      <button type="button" aria-label="Remove the queued message" data-testid="button-queued-remove" onClick={() => void remove({ queueId: id }).catch(e => onError(errorText(e)))}
+        className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
+    </div>
+  );
+}
+
+/**
+ * The composer: one line growing to five; Enter sends, Shift+Enter breaks; Esc in an empty composer collapses the pane.
+ * While the assistant works it stays usable: Enter queues the message, and Stop sits beside Send.
+ */
 function Composer({ active, onSend, onStop, meter, blocked, paneId }: {
   active: boolean; onSend: () => void; onStop: () => void; meter: { used: number; limit: number } | null; blocked: boolean; paneId: string;
 }) {
@@ -353,19 +445,18 @@ function Composer({ active, onSend, onStop, meter, blocked, paneId }: {
       {note && <p className="px-3 pt-1.5 text-[11px] text-muted-foreground" data-testid="text-assistant-allowance">{note}</p>}
       <form className="flex items-end gap-2 p-2" onSubmit={e => { e.preventDefault(); if (!blocked) onSend(); }}>
         <textarea ref={input} data-testid="input-assistant" value={draft} onChange={e => composer.setDraft(e.target.value)} rows={1} maxLength={4000}
-          placeholder="Ask your assistant…" aria-label="Ask your assistant (private)"
+          placeholder={active ? "Add a message; your assistant reads it after this step…" : "Ask your assistant…"} aria-label="Ask your assistant (private)"
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); if (!blocked) onSend(); }
             if (e.key === "Escape" && !draft) { e.preventDefault(); input.current?.blur(); collapse(); }
           }}
           className="min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-5 outline-none" />
-        {active ? (
+        {active && (
           <button type="button" data-testid="button-assistant-stop" onClick={onStop}
             className="inline-flex items-center gap-1 border border-[hsl(var(--input))] px-3 py-2 text-xs font-semibold"><Square size={12} /> Stop</button>
-        ) : (
-          <button type="submit" data-testid="button-assistant-send" disabled={!draft.trim() || blocked} aria-label="Send to your assistant"
-            className="inline-flex items-center bg-primary px-3 py-2 text-primary-foreground disabled:opacity-40"><Send size={14} /></button>
         )}
+        <button type="submit" data-testid="button-assistant-send" disabled={!draft.trim() || blocked} aria-label={active ? "Queue for your assistant" : "Send to your assistant"}
+          className="inline-flex items-center bg-primary px-3 py-2 text-primary-foreground disabled:opacity-40"><Send size={14} /></button>
       </form>
     </div>
   );

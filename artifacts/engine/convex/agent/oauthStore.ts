@@ -31,16 +31,21 @@ export const getClient = internalQuery({
   handler: async (ctx, { clientId }) => ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", clientId)).unique(),
 });
 
-/** Register a DCR client, unless the deployment-wide rate limit is reached (then {ok: false}). */
+/**
+ * Register a DCR client, unless the deployment-wide rate limit is reached (then {ok: false}). The same metadata
+ * (`metadataHash`) returns the client already registered with it, without counting against the limit.
+ */
 export const registerClient = internalMutation({
-  args: { clientId: v.string(), clientName: v.string(), redirectUris: v.array(v.string()) },
+  args: { clientId: v.string(), clientName: v.string(), redirectUris: v.array(v.string()), metadataHash: v.string() },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const same = await ctx.db.query("oauthClients").withIndex("by_metadata", q => q.eq("metadataHash", args.metadataHash)).first();
+    if (same && same.kind === "dcr") return { ok: true as const, clientId: same.clientId, createdAt: same.createdAt };
     const recent = await ctx.db.query("oauthClients").withIndex("by_kind_created", q => q.eq("kind", "dcr").gt("createdAt", now - DCR_WINDOW_MS))
       .take(DCR_MAX_PER_WINDOW);
     if (recent.length >= DCR_MAX_PER_WINDOW) return { ok: false as const };
     await ctx.db.insert("oauthClients", { ...args, kind: "dcr", createdAt: now });
-    return { ok: true as const };
+    return { ok: true as const, clientId: args.clientId, createdAt: now };
   },
 });
 
@@ -64,7 +69,7 @@ async function sweepRequests(ctx: MutationCtx) {
 export const createRequest = internalMutation({
   args: {
     keyHash: v.string(), clientId: v.string(), clientName: v.string(), redirectUri: v.string(), state: v.optional(v.string()),
-    codeChallenge: v.string(), permission, resource: v.string(),
+    codeChallenge: v.string(), permission, resource: v.string(), roomHint: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await sweepRequests(ctx);
@@ -135,7 +140,7 @@ export const redeemCode = internalMutation({
     await ctx.db.patch(request._id, { status: "redeemed", credentialId });
     const client = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", request.clientId)).unique();
     if (client) await ctx.db.patch(client._id, { usedAt: now });
-    return { credentialId, subject, roomId, permission: granted };
+    return { credentialId, subject, roomId, roomCode: room!.shortCode, permission: granted };
   },
 });
 
@@ -153,10 +158,11 @@ export const refresh = internalMutation({
       return { error: "invalid_grant" as const };
     }
     const now = Date.now();
-    if (row.kind !== "oauth" || row.clientId !== args.clientId || credentialProblem(row, await roomOf(ctx, row.roomId), now)) return { error: "invalid_grant" as const };
+    const room = await roomOf(ctx, row.roomId);
+    if (row.kind !== "oauth" || row.clientId !== args.clientId || !room || credentialProblem(row, room, now)) return { error: "invalid_grant" as const };
     await ctx.db.insert("oauthRetiredRefresh", { hash: args.refreshHash, credentialId: row._id, retiredAt: now });
     await ctx.db.patch(row._id, { refreshHash: args.newRefreshHash, refreshExpiresAt: now + OAUTH_IDLE_TTL_MS, expiresAt: now + OAUTH_IDLE_TTL_MS, lastUsedAt: now });
-    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, permission: row.permission };
+    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, roomCode: room.shortCode, permission: row.permission };
   },
 });
 

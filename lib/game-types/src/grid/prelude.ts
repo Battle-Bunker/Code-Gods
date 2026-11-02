@@ -9,6 +9,7 @@
  */
 import { mixColours, type ColourComponent, type SymbolComponent } from "./components.ts";
 import { helper, js, jsMap, py, pyDict, type BasePrelude } from "../prelude.ts";
+import { hs } from "../haskell.ts";
 import type { HelperDoc } from "../types.ts";
 
 export function gridPrelude(size: number, s: SymbolComponent, c: ColourComponent, classes: readonly string[]): BasePrelude {
@@ -366,5 +367,185 @@ ${mixable ? "declare function mix(a: Colour, b: Colour): Colour | null;\n" : ""}
     ...(mixable ? [helper("mix", "mix(a, b) -> str | None", "mix(a: Colour, b: Colour): Colour | null",
       `The colour two paints make, or None: ${c.mixes.map(([a, b, m]) => `${c.names[a]} + ${c.names[b]} = ${c.names[m]}`).join(", ")}`, "Mixable")] : []),
   ];
-  return { python, js: jsText, dts, helpers };
+  const haskell = `
+import qualified Data.List as L
+
+cgSize :: Int
+cgSize = ${size}
+
+cgSymbols :: [String]
+cgSymbols = ${hs(s.glyphs)}
+
+cgCodes :: [String]
+cgCodes = ${hs(s.codes)}
+
+cgValues :: [Int]
+cgValues = ${hs(s.values)}
+${suited ? `
+cgSuits :: [String]
+cgSuits = ${hs(suitNames)}
+` : ""}${faced ? `
+cgPictures :: [Bool]
+cgPictures = ${hs(s.faces!)}
+` : ""}
+cgLetters :: [String]
+cgLetters = ${hs(c.letters)}
+
+-- | Every colour this kind of grid can use, in rainbow order.
+palette :: [String]
+palette = ${hs(c.names)}
+
+-- | How many cells wide (and tall) the grid is.
+gridSize :: Int
+gridSize = cgSize
+
+-- | One square of the grid. Touching cells are left, right, up, down (Nothing off the edge).
+data Cell = Cell
+  { cellRow :: Int
+  , cellCol :: Int
+  , symbol :: String
+  , value :: Int
+  , colour :: String
+${suited ? "  , suit :: String\n" : ""}${faced ? "  , isPicture :: Bool\n" : ""}  , left :: Maybe Cell
+  , right :: Maybe Cell
+  , up :: Maybe Cell
+  , down :: Maybe Cell
+  , upLeft :: Maybe Cell
+  , upRight :: Maybe Cell
+  , downLeft :: Maybe Cell
+  , downRight :: Maybe Cell
+  }
+
+instance Eq Cell where
+  a == b = cellRow a P.== cellRow b P.&& cellCol a P.== cellCol b
+
+instance Show Cell where
+  show x = "Cell(row=" P.++ P.show (cellRow x) P.++ ", col=" P.++ P.show (cellCol x) P.++ ", " P.++ symbol x P.++ " " P.++ colour x P.++ ")"
+
+-- | The grid: rows of cells, counted from 0 at the top-left.
+newtype Grid = Grid [[Cell]]
+
+type Obj = Grid
+
+-- | The 2 to 4 cells touching this one along a side.
+neighbours :: Cell -> [Cell]
+neighbours x = [c | Just c <- [left x, right x, up x, down x]]
+
+-- | The 3 to 8 cells around this one, corners included.
+surrounding :: Cell -> [Cell]
+surrounding x = [c | Just c <- [upLeft x, up x, upRight x, left x, right x, downLeft x, down x, downRight x]]
+
+-- | True for cells in the outside ring of the grid.
+onEdge :: Cell -> Bool
+onEdge x = cellRow x \`P.elem\` [0, cgSize P.- 1] P.|| cellCol x \`P.elem\` [0, cgSize P.- 1]
+
+-- | Every cell, row by row from the top-left.
+cells :: Grid -> [Cell]
+cells (Grid rs) = P.concat rs
+
+-- | The rows, top to bottom; each reads left to right.
+rows :: Grid -> [[Cell]]
+rows (Grid rs) = rs
+
+-- | The columns, left to right; each reads top to bottom.
+columns :: Grid -> [[Cell]]
+columns (Grid rs) = L.transpose rs
+
+-- | The two long diagonals.
+diagonals :: Grid -> [[Cell]]
+diagonals (Grid rs) = [P.zipWith (P.!!) rs [0 ..], P.zipWith (P.!!) rs [cgSize P.- 1, cgSize P.- 2 .. 0]]
+
+-- | The outside ring of cells.
+edgeCells :: Grid -> [Cell]
+edgeCells g = P.filter onEdge (cells g)
+
+-- | One cell: cell g 0 0 is the top-left.
+cell :: Grid -> Int -> Int -> Cell
+cell (Grid rs) r k
+  | r P.>= 0 P.&& r P.< cgSize P.&& k P.>= 0 P.&& k P.< cgSize = (rs P.!! r) P.!! k
+  | P.otherwise = P.error ("there is no cell at row " P.++ P.show r P.++ ", column " P.++ P.show k)
+
+-- | Where a cell lands when the grid turns a quarter clockwise.
+quarterTurn :: Grid -> Cell -> Cell
+quarterTurn g x = cell g (cellCol x) (cgSize P.- 1 P.- cellRow x)
+
+-- | The cells you can reach from the start cells, stepping only onto cells that pass the test.
+reachable :: Grid -> [Cell] -> (Cell -> Bool) -> [Cell]
+reachable g start through = P.filter (\\c -> c \`P.elem\` seen) (cells g)
+  where
+    seen = go [] (P.filter through start)
+    go acc [] = acc
+    go acc (c : todo)
+      | c \`P.elem\` acc = go acc todo
+      | P.otherwise = go (c : acc) (todo P.++ [n | n <- neighbours c, through n, P.not (n \`P.elem\` acc)])
+
+-- | The grid split into connected groups: neighbours a b decides whether a and b belong together.
+regions :: Grid -> (Cell -> Cell -> Bool) -> [[Cell]]
+regions g same = go [] (cells g)
+  where
+    go _ [] = []
+    go done (c : cs)
+      | c \`P.elem\` done = go done cs
+      | P.otherwise = let members = grow [c] [c] in L.sortOn (\\x -> (cellRow x, cellCol x)) members : go (members P.++ done) cs
+      where
+        grow acc [] = acc
+        grow acc (x : todo) =
+          let new = L.nub [n | n <- neighbours x, P.not (n \`P.elem\` acc), P.not (n \`P.elem\` done), same x n]
+          in grow (acc P.++ new) (todo P.++ new)
+
+-- | The next colour in the rainbow (the last wraps round to the first).
+nextColour :: String -> String
+nextColour c = case L.elemIndex c palette of
+  Just i -> palette P.!! ((i P.+ 1) \`P.mod\` P.length palette)
+  Nothing -> P.error (P.show c P.++ " is not a colour in this room")
+${mixable ? `
+-- | The colour you get by mixing paints a and b, or Nothing if they don't mix.
+mix :: String -> String -> Maybe String
+mix a b = P.lookup (a P.++ "+" P.++ b) cgMixes
+
+cgMixes :: [(String, String)]
+cgMixes = [${mixes.map(([k, v]) => `(${hs(k)}, ${hs(v)})`).join(", ")}]
+` : ""}
+-- | An area for a move: row 2, column 0, square 1 1, ... (or a cell, or a list of cells).
+newtype Area = Area J
+
+-- | Things that name one cell: a Cell, or (row, col).
+class CellRef a where cellJ :: a -> J
+instance CellRef Cell where cellJ x = JArr [toJ (cellRow x), toJ (cellCol x)]
+instance (P.Integral r, P.Integral k) => CellRef (r, k) where cellJ (r, k) = JArr [JNum (P.toInteger r), JNum (P.toInteger k)]
+
+-- | Things that name an area: an Area, a cell, or a list of cells.
+class AreaLike a where areaJ :: a -> J
+instance AreaLike Area where areaJ (Area j) = j
+instance AreaLike Cell where areaJ = cellJ
+instance (P.Integral r, P.Integral k) => AreaLike (r, k) where areaJ = cellJ
+instance CellRef c => AreaLike [c] where areaJ xs = JArr (P.map cellJ xs)
+
+cgSplit :: Char -> String -> [String]
+cgSplit sep text = case P.break (P.== sep) text of
+  (a, []) -> [a]
+  (a, _ : rest) -> a : cgSplit sep rest
+
+cgIndex :: String -> [String] -> Int
+cgIndex x xs = case L.elemIndex x xs of
+  Just i -> i
+  Nothing -> P.error "not a grid of this room"
+
+cgDecode :: String -> Obj
+cgDecode wire = Grid grid
+  where
+    texts = P.map (cgSplit ',') (cgSplit '/' wire)
+    grid = [[make r k t | (k, t) <- P.zip [0 ..] line] | (r, line) <- P.zip [0 ..] texts]
+    at r k = if r P.>= 0 P.&& r P.< cgSize P.&& k P.>= 0 P.&& k P.< cgSize then Just ((grid P.!! r) P.!! k) else Nothing
+    make r k t =
+      let s = cgIndex (P.init t) cgCodes
+          h = cgIndex [P.last t] cgLetters
+      in Cell
+        { cellRow = r, cellCol = k, symbol = cgSymbols P.!! s, value = cgValues P.!! s, colour = palette P.!! h
+${suited ? "        , suit = cgSuits P.!! s\n" : ""}${faced ? "        , isPicture = cgPictures P.!! s\n" : ""}        , left = at r (k P.- 1), right = at r (k P.+ 1), up = at (r P.- 1) k, down = at (r P.+ 1) k
+        , upLeft = at (r P.- 1) (k P.- 1), upRight = at (r P.- 1) (k P.+ 1)
+        , downLeft = at (r P.+ 1) (k P.- 1), downRight = at (r P.+ 1) (k P.+ 1)
+        }
+`;
+  return { python, js: jsText, dts, haskell, helpers };
 }

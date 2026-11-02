@@ -594,7 +594,6 @@
      "kind": "panel",
      "panelId": "objects",
      "params": {
-      "annotate": "mine",
       "filter": "all",
       "highlight": [],
       "layout": "list",
@@ -765,14 +764,6 @@
         "list",
         "grid"
        ]
-      },
-      "annotate": {
-       "default": "mine",
-       "type": "string",
-       "enum": [
-        "mine",
-        "none"
-       ]
       }
      },
      "additionalProperties": false
@@ -782,8 +773,7 @@
      "filter": "all",
      "limit": 12,
      "highlight": [],
-     "layout": "list",
-     "annotate": "mine"
+     "layout": "list"
     }
    },
    {

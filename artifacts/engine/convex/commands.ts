@@ -1,5 +1,5 @@
 "use node";
-import { bindRuntime } from "./engine/runtime";
+import { bindRuntime, sandboxGate } from "./engine/runtime";
 /**
  * The ONE command entry point: a protocol v3 envelope (lib/player-client envelopeSchema), so the default
  * client, a modded player app and the room assistant submit exactly the same thing and get the same
@@ -7,6 +7,7 @@ import { bindRuntime } from "./engine/runtime";
  * through game/commands.ts:apply, which re-checks energy, the agent cap and the phase and stores the receipt.
  */
 import { v } from "convex/values";
+import type { Language } from "@workspace/game-core";
 import { envelopeSchema, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
@@ -28,12 +29,20 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     if (prepared.prior.hash !== envelopeHash(envelope)) fail("CONFLICT", "Command ID was reused with different content");
     return prepared.prior.result;
   }
-  let examined: { gameId: string; source: string; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
+  let examined: { gameId: string; source: string; language: Language; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
   if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
+    // A cold sandbox is never waited for: the caller is told it is warming (nothing examined, claimed or receipted).
+    const notReady = await sandboxGate(ctx, command.language);
+    if (notReady) {
+      const { message, ...rest } = notReady;
+      return { commandId: envelope.commandId, accepted: false, message, notReady: rest };
+    }
+    // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
+    await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
-      const e = await examineAgent(prepared.examine.settings, command.source, prepared.examine.live);
-      examined = { gameId: envelope.gameId!, source: command.source, result: e };
+      const e = await examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
+      examined = { gameId: envelope.gameId!, source: command.source, language: command.language, result: e };
     } catch (error) {
       // The agent's own fault (it does not compile) is a final answer; a host failure (capacity, runtime
       // unavailable) is not: nothing is receipted and the identical envelope can be retried.
@@ -41,15 +50,16 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
         console.error("Agent examination failed (host)", messageOf(error));
         fail("UNAVAILABLE", "The game runtime could not examine this agent right now; retry the same command");
       }
-      examined = { gameId: envelope.gameId!, source: command.source, error: messageOf(error).slice(0, 1000) };
+      examined = { gameId: envelope.gameId!, source: command.source, language: command.language, error: messageOf(error).slice(0, 1000) };
     }
   }
   const result = examined?.result && { cost: examined.result.cost, parts: examined.result.parts, decisionBits: examined.result.decisionBits,
     expectedActCost: examined.result.expectedActCost, breakdown: examined.result.breakdown, randomized: examined.result.randomized,
+    changeRate: examined.result.changeRate, invalidRate: examined.result.invalidRate,
     diagnostics: examined.result.diagnostics };
   return ctx.runMutation(internal.game.commands.apply, {
     roomId: prepared.roomId, asAi, principal, envelope,
-    ...(examined ? { examined: { gameId: examined.gameId, source: examined.source, ...(examined.error !== undefined ? { error: examined.error } : {}), ...(result ? { result } : {}) } } : {}),
+    ...(examined ? { examined: { gameId: examined.gameId, source: examined.source, language: examined.language, ...(examined.error !== undefined ? { error: examined.error } : {}), ...(result ? { result } : {}) } } : {}),
   });
 }
 

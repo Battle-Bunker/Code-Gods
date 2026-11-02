@@ -382,8 +382,9 @@ const residueOracle = intFamily<OmenP>({
   analytic: solvedAnalytic("residue-oracle"),
   shape: SCALAR,
   support: () => OMENS.map(omens => ({ omens })),
-  summary: p => `You want ${p.omens.map(([m, r]) => `x mod ${m} = ${r}`).join(", ")} (mathematical mod, never negative). `
-    + "The more omens come true, the better; all six at once needs the Chinese remainder theorem.",
+  summary: p => `You have ${p.omens.length} omens. ${p.omens.map(([m, r], i) => `Omen ${i + 1}: x mod ${m} = ${r}.`).join(" ")} `
+    + "Here mod means the remainder after dividing, never negative. Each omen that comes true scores 1 point. "
+    + `All ${p.omens.length} at once needs the Chinese remainder theorem.`,
   python: p => pyCard(omenText(p), `
     def utility(x):
         hits = 0

@@ -125,12 +125,14 @@ export interface LeaderboardRow {
 }
 
 export function leaderboard(roster: readonly string[], objects: readonly NetByGod[]): LeaderboardRow[] {
+  return rankTotals(roster, roster.map(godId => objects.reduce((sum, netById) => sum + payoff(netById, godId), 0)));
+}
+
+/** Ranked rows of roster-ordered totals (a published scoreboard): best first, ties by id, equal totals share a rank. */
+export function rankTotals(roster: readonly string[], totals: readonly number[]): LeaderboardRow[] {
   if (new Set(roster).size !== roster.length) throw new Error("Duplicate god in roster");
-  const rows = roster.map(godId => ({
-    godId,
-    totalPayoff: objects.reduce((sum, netById) => sum + payoff(netById, godId), 0),
-    rank: 0,
-  })).sort((a, b) => b.totalPayoff - a.totalPayoff || a.godId.localeCompare(b.godId));
+  const rows = roster.map((godId, i) => ({ godId, totalPayoff: totals[i] ?? 0, rank: 0 }))
+    .sort((a, b) => b.totalPayoff - a.totalPayoff || a.godId.localeCompare(b.godId));
   for (let i = 0; i < rows.length; i++) {
     rows[i].rank = i > 0 && rows[i].totalPayoff === rows[i - 1].totalPayoff ? rows[i - 1].rank : i + 1;
   }

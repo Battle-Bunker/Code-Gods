@@ -1,12 +1,14 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { languageV } from "../lib/language";
 
 /**
  * Rooms, games, objects, agents, events, chat, receipts, AI library and budgets (owned by convex/game).
  *
  * God ids are strings: a human's Replit subject, or "ai:<uuid>" for an AI seat. Private fields (never
  * returned raw by a public function): deities.utility/card, objects.scores, agents.source (owner only),
- * games.endAtWorld, members.aiAgent.prompt, tickBatches.events[].net (per-god net bits).
+ * games.endAtWorld, members.aiAgent.prompt, tickBatches.events[].net (per-god net bits). Private while the game is LIVE:
+ * once it has ended, player.replay reveals all of it to its players (docs/replay-design.md), except the season salt.
  */
 const kind = v.union(v.literal("human"), v.literal("ai"));
 const phase = v.union(v.literal("planning"), v.literal("running"), v.literal("paused"), v.literal("recovery"), v.literal("ended"));
@@ -32,20 +34,33 @@ const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: 
 const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
 
 /**
- * One entry of the event log. `net` is every roster god's net bits of the object AFTER the event, in roster
- * order: server-private, projected per viewer to its own bits and the peer aggregate.
+ * One entry of the event log (schema EVENT_LOG_SCHEMA, lib/world.ts; docs/replay-design.md §2). `net` is every roster
+ * god's net bits of the object AFTER the event, in roster order: server-private, projected per viewer to its own bits
+ * and the peer aggregate. Together with the game document's fixed header (settings, roster, createdAt, planningEndsAt)
+ * and the chat rows stamped with the game, the log replays the game exactly by playing back recorded outcomes:
+ * nothing is re-run. `noise` (PRIVATE, settings.peerNoiseBits) is the disclosure noise on the peers' sum of this version
+ * of the object while the game is live. `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
+ * then follows from its acts' charges (lib/player-client replay.ts).
  */
 export const eventV = v.union(
-  v.object({ t: v.literal("spawn"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()) }),
+  v.object({ t: v.literal("spawn"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   v.object({
     t: v.literal("transform"), objectId: v.string(), before: wire, value: wire, version: v.number(), world: v.number(),
-    agentId: v.string(), ownerId: v.string(), calls: v.any(), cost: charge, net: v.array(v.number()),
+    agentId: v.string(), ownerId: v.string(), calls: v.any(), cost: charge, net: v.array(v.number()), noise: v.optional(v.number()),
+    /** The act's seed (decimal), derived from the secret season salt by HMAC: revealing it reveals nothing else (schema 3). */
+    seed: v.optional(v.string()),
   }),
   v.object({
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
-    reason: v.string(), cost: charge,
+    reason: v.string(), cost: charge, seed: v.optional(v.string()),
   }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
+  v.object({
+    t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
+    summonCost: v.number(), decisionBits: v.number(), expectedActCost: v.number(), perActFloorBits: v.number(),
+    breakdown, randomized: v.boolean(), account,
+  }),
+  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
 );
 
 export const gameTables = {
@@ -111,6 +126,8 @@ export const gameTables = {
     worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
+    /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
+    noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
     /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
     tick: v.object({ seq: v.number(), leaseUntil: v.number() }),
@@ -121,6 +138,13 @@ export const gameTables = {
     agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
+    /**
+     * The published scoreboard (docs/public-log-design.md §3): every roster god's total payoff, roster order, as the
+     * leaderboard shows it, published at world time `world` (wall `at`) by the first commit reaching the next multiple of
+     * settings.scoreIntervalSeconds, at the start and at the end. Public. Absent on games started before it existed
+     * (their leaderboard is live).
+     */
+    scoreboard: v.optional(v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() })),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
@@ -140,14 +164,18 @@ export const gameTables = {
     gameId: v.id("games"), value: wire, version: v.number(),
     /** PRIVATE: every god's score of the current value. */
     scores: v.array(scoreV),
-    /** Public: Σ net bits. */
+    /** Public: Σ net bits (disclosed live with `noise` added). */
     salience: v.number(),
+    /** PRIVATE: the live disclosure noise on this value's peers' sums and salience (settings.peerNoiseBits). */
+    noise: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
     /** PRIVATE to the owner. */
     source: v.string(), createdAt: v.number(),
+    /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
+    language: v.optional(languageV),
     summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_owner", ["gameId", "ownerId"]),
@@ -156,9 +184,40 @@ export const gameTables = {
   tickBatches: defineTable({
     gameId: v.id("games"), seq: v.number(), at: v.number(), worldFrom: v.number(), worldTo: v.number(),
     events: v.array(eventV),
+    /** The event schema this batch was written with (EVENT_LOG_SCHEMA); absent on batches written before schema 2. */
+    schema: v.optional(v.number()),
+    /**
+     * Every roster god's exact total payoff after this batch, in roster order, on batches that change scores (spawns,
+     * transforms) and on batches that publish the scoreboard. Server-exact: a LIVE game never projects it (a live replay
+     * shows `scoreboard` on the publishing batches instead, docs/public-log-design.md §3); an ended game's replay shows it.
+     */
+    totals: v.optional(v.array(v.number())),
+    /**
+     * Schema 3: this batch's commit published the live scoreboard, as disclosed (every god's total from the noisy peers'
+     * sums, settings.peerNoiseBits): games.scoreboard.totals. A live replay shows these, never the exact `totals`.
+     */
+    scoreboard: v.optional(v.array(v.number())),
     /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
     perf: v.optional(v.object({ acts: v.number(), window: v.number(), simulateMs: v.number(), commitMs: v.optional(v.number()) })),
   }).index("by_game_seq", ["gameId", "seq"]),
+
+  /**
+   * The per-object history (docs/public-log-design.md §2): one row per spawn and transform, written in the same commit
+   * as its tickBatches event. `net` is every roster god's net bits of the object AFTER the event, in roster order:
+   * SERVER-PRIVATE, projected per viewer to its own bits, the others' sum and the product. `agentId`, `ownerId` and
+   * `calls` are private while the game is live (only the owner sees their own). The state of any object at world time t
+   * is its last row at or before t (by_game_object_world); an object's previous row is version − 1 (by_game_object_version).
+   */
+  objectEvents: defineTable({
+    gameId: v.id("games"), objectId: v.id("objects"), seq: v.number(), world: v.number(),
+    kind: v.union(v.literal("spawn"), v.literal("transform")),
+    before: v.optional(wire), value: wire, version: v.number(),
+    calls: v.optional(v.any()), agentId: v.optional(v.string()), ownerId: v.optional(v.string()),
+    net: v.array(v.number()),
+    /** PRIVATE: the live disclosure noise on this version's others' sums (settings.peerNoiseBits). */
+    noise: v.optional(v.number()),
+  }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
+    .index("by_game_object_version", ["gameId", "objectId", "version"]),
 
   /**
    * Large, rarely written public data kept OFF the hot docs (the game doc is rewritten every tick and Convex
@@ -168,7 +227,16 @@ export const gameTables = {
 
   chat: defineTable({
     roomId: v.id("rooms"), authorId: v.string(), authorName: v.string(), kind, text: v.string(), timestamp: v.number(),
+    /** Sent while a game was live (planning to recovery): that game and its world time then, for its replay. */
+    gameId: v.optional(v.id("games")), world: v.optional(v.number()),
   }).index("by_room", ["roomId", "timestamp"]).index("by_room_author", ["roomId", "authorId", "timestamp"]),
+
+  /**
+   * Agent examinations (validate and summon run the agent a few hundred times in the sandbox) in the last minute,
+   * per human per room: the abuse cap of game/commands.ts claimExamination. Rows older than the window are deleted
+   * by the next claim of the same human.
+   */
+  examinations: defineTable({ roomId: v.id("rooms"), godId: v.string(), at: v.number() }).index("by_room_god_at", ["roomId", "godId", "at"]),
 
   receipts: defineTable({
     roomId: v.id("rooms"), actorId: v.string(), requestId: v.string(), hash: v.string(), result: v.any(), createdAt: v.number(),

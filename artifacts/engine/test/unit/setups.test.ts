@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
+import { ANNOTATED_BASICS_SEED_ID, SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -47,4 +47,29 @@ test("the server domain lists every playable shape, shipped tables or not, and t
   const typeDefence = SETTINGS_DOMAIN.typeFamilies("Grid", "defence");
   assert.equal(typeDefence.length, 8, "the eight hate_* families");
   assert.ok(typeDefence.every(id => id.startsWith("hate_")) && !SETTINGS_DOMAIN.typeFamilies("Grid", "reward").some(id => id.startsWith("hate_")));
+});
+
+test("Annotated basics deals only the families that have a lens, derived from the lens registry", async () => {
+  const { LENSES, availableFamilies, selector, applicable, family, context } = await import("@workspace/game-utilities");
+  const { instantiate, seededRng } = await import("@workspace/game-types");
+  const { seedSetupSettings } = await import("@workspace/game-core");
+  const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  assert.ok(SEED_SETUPS.some(x => x.seedId === ANNOTATED_BASICS_SEED_ID && x.summary.length <= 160), "listed among the system setups");
+  const inst = instantiate(s.objectType, s.typeArgs);
+  const annotated = new Set(LENSES.map(l => l.familyId));
+  // Every annotated family is dealable on this shape; nothing else is (a new family must be added to the exclusions).
+  const dealable = availableFamilies(inst, "reward", s.excludedFamilies).map(f => f.id).sort();
+  assert.deepEqual(dealable, [...annotated].sort());
+  for (const id of annotated) {
+    const f = family(id)!;
+    assert.ok(!f.needs || applicable(f, inst, f.sample(seededRng(1), context(inst))).ok, `${id} applicable`);
+  }
+  // Dealing with either selector never yields anything else.
+  for (const id of ["fair-aligned", "divine-lottery"]) {
+    for (let seed = 1; seed <= 20; seed++) {
+      for (const d of selector(id).select(inst, 4, seededRng(seed), { exclude: s.excludedFamilies })) {
+        assert.ok(annotated.has(d.familyId), `${id}: ${d.familyId}`);
+      }
+    }
+  }
 });

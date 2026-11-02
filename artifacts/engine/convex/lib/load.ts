@@ -1,6 +1,8 @@
 /** Loaders that gather what a projection needs (bounded reads). */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { allowedLanguages, type GameSettings } from "@workspace/game-core";
+import { sandboxViews } from "../runtime/readiness";
 import { observation } from "./projection";
 import { membersOf, recentChat } from "./rooms";
 
@@ -44,8 +46,9 @@ export async function buildObservation(ctx: QueryCtx, room: Doc<"rooms">, godId:
       });
     }
   }
+  const sandboxes = await sandboxViews(ctx, allowedLanguages((game?.settings ?? room.settings) as GameSettings));
   return observation({
-    room, game, deity, objects, agents, chat, transformations: transformations.slice(-500),
+    room, game, deity, sandboxes, objects, agents, chat, transformations: transformations.slice(-500),
     self: { godId, name: member.name, kind: member.kind, ready: member.ready },
   });
 }

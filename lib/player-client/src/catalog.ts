@@ -120,12 +120,30 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "assistant.send": {
     kind: "mutation", audience: "player",
     human: { title: "Ask the assistant", tooltip: "Sends your message; the assistant answers and acts as you with the rights you chose." },
-    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. FORBIDDEN while the owner's allowance is 0; CONFLICT while a turn is active." },
+    ai: { description: "Start an assistant turn for the human in a room (≤ 4,000 characters); the first send creates their revocable assistant credential. While a turn is active the message is queued for it (at most 5): it joins the turn after its current step's tool results, or starts the next turn; a waiting card is declined by it. clientId makes a retry the same message. FORBIDDEN while the owner's allowance is 0; CONFLICT for a thread of an earlier game (each game starts a fresh conversation) or another thread than the busy one." },
     tools: [], palette: { label: "Ask the assistant…", group: "help", keywords: ["ask", "assistant", "help", "ai"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.editQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Edit a queued message", tooltip: "Changes a message waiting for your assistant before it reads it." },
+    ai: { description: "Change the text of one of the human's queued assistant messages; a delivered one changes nothing." },
+    tools: [], palette: null, why: "Edited on the queued message in the assistant pane.",
+  },
+  "assistant.removeQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Remove a queued message", tooltip: "Takes back a message your assistant has not read yet." },
+    ai: { description: "Remove one of the human's queued assistant messages before it is delivered; a delivered one stays." },
+    tools: [], palette: null, why: "Removed on the queued message in the assistant pane.",
+  },
+  "assistant.sendQueued": {
+    kind: "mutation", audience: "player",
+    human: { title: "Send held messages", tooltip: "Sends the messages you queued before you stopped the assistant." },
+    ai: { description: "Start a turn with the human's queued messages that a Stop held (the assistant must be idle in this game)." },
+    tools: [], palette: null, why: "Sent from the held messages in the assistant pane.",
   },
   "assistant.cancel": {
     kind: "mutation", audience: "player",
-    human: { title: "Stop the assistant", tooltip: "Stops the current answer; a card waiting for you is cancelled at once." },
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer and cancels a waiting card; messages you queued stay held until you send." },
     ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
     tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: P }, why: NO_SELF_DRIVE,
   },
@@ -149,9 +167,15 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.threads": {
     kind: "query", audience: "player",
-    human: { title: "Switch conversation", tooltip: "Your assistant conversations in this room, newest first." },
-    ai: { description: "The human's assistant threads in a room (titles and times), for the conversation picker." },
+    human: { title: "Switch conversation", tooltip: "Your assistant conversations in this room's current game, newest first." },
+    ai: { description: "The human's assistant threads in a room's current game (titles and times), for the conversation picker; gameId reads an earlier game's (or \"lobby\")." },
     tools: [], palette: { label: "Switch assistant conversation…", group: "help", keywords: ["thread", "conversation", "history"], surfaces: P }, why: NO_SELF_DRIVE,
+  },
+  "assistant.transcript": {
+    kind: "query", audience: "player",
+    human: { title: "Show this game's conversation", tooltip: "Your assistant conversation in this game: a new game starts with none." },
+    ai: { description: "The assistant pane's subscription: the human's conversation in one game of the room (the named thread when it is theirs in that game, else the game's active or latest one; none when the game has none), with its turns, messages and tool calls. A thread of another game is never returned." },
+    tools: [], palette: null, why: SUBSCRIPTION,
   },
   "assistant.thread": {
     kind: "query", audience: "player",
@@ -206,19 +230,19 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "code.objects.list": {
     kind: "query", audience: "player",
     human: { title: "Show my stored objects", tooltip: "What your assistant's scripts saved for you: keys, sizes and how much of your store is used." },
-    ai: { description: "The human's object store (the only persistence a run_code script has): keys under a prefix with sizes and times (never values), the store's usage and its limits." },
+    ai: { description: "The human's object store (the only persistence a run_code script has; this game's objects and the saved scripts/, which stay across games): keys under a prefix with sizes and times (never values), the store's usage and its limits." },
     tools: ["list_code_objects"], palette: null, why: "Objects are written and read by the assistant's scripts; there is nothing to run by hand.",
   },
   "code.runs.list": {
     kind: "query", audience: "player",
-    human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this room, newest first, with this game's budget." },
-    ai: { description: "The human's recent analytics code runs in this room (runId, title, language, status, datasets, CPU and timing), newest first, and this game's run budget (runs and CPU seconds used and left)." },
+    human: { title: "Show my code runs", tooltip: "The analytics scripts your assistant ran for you in this game, newest first, with its budget." },
+    ai: { description: "The human's recent analytics code runs in this room's current game (runId, title, language, status, datasets, CPU and timing), newest first, and this game's run budget (runs and CPU seconds used and left)." },
     tools: ["list_code_runs"], palette: null, why: "The code-output panel lists and shows runs; the assistant starts them.",
   },
   "code.runs.get": {
     kind: "query", audience: "player",
     human: { title: "Show a code run", tooltip: "One analytics run's source, result table and printed output." },
-    ai: { description: "One of the human's code runs (default: the latest in this room): its source, datasets, status or error, CPU time, the result JSON and printed output (a prefix when large, with a URL of the whole)." },
+    ai: { description: "One of the human's code runs (default: the latest of this room's current game; the assistant reaches no earlier game's): its source, datasets, status or error, CPU time, the result JSON and printed output (a prefix when large, with a URL of the whole)." },
     tools: ["get_code_run"], palette: null, why: "Rendered by the code-output panel, which the assistant opens with open_panel.",
   },
   // ----- commands -----
@@ -263,6 +287,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it; list_setups lists the game setups." },
     tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: E },
   },
+  "version.current": {
+    kind: "query", audience: "infrastructure",
+    human: { title: "Show deployed versions", tooltip: "The engine UI, player client and engine functions builds now live, so open pages can update themselves." },
+    ai: { description: "Per site (engine UI, player client, functions): the live build id, when it was deployed and the recent build ids. Clients compare their own build with it to update after a deploy (lib/player-client/src/update.ts); agents need nothing from it." },
+    tools: [], palette: null,
+  },
   "calibration.node.tables": {
     kind: "action", audience: "infrastructure",
     human: { title: "Load calibration tables", tooltip: "The calibration tables of a utility and its defence goal, for scoring values in the browser." },
@@ -273,7 +303,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "owner.settings": {
     kind: "action", audience: "owner",
     human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a game setup, or changes the room's setup; running games keep theirs." },
-    ai: { description: "Owner: the next game's setup and AI token budget, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; a language moves the grammar and summon price, an object type its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
+    ai: { description: "Owner: the next game's setup and AI token budget, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; languages lists the languages agents may be written in, an object type moves its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
     tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["setup", "configuration", "settings", "world"], surfaces: BOTH },
   },
   "owner.start": {
@@ -342,15 +372,40 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.history": {
     kind: "query", audience: "player",
-    human: { title: "Replay a past game's log", tooltip: "The event log of any game of this room, finished ones included." },
-    ai: { description: "The same projected event log for any game of the room, finished games included, from a seq cursor." },
+    human: { title: "Replay a past game's log", tooltip: "The event log of a game of this room; past games open for their players." },
+    ai: { description: "The same projected event log for a game of the room, finished games included, from a seq cursor. A past game (not the room's current one) is readable only by the gods who played in it and the room owner." },
     tools: ["get_game_history"], palette: { label: "Replay a past game's log…", group: "view", keywords: ["replay", "history", "past game"], surfaces: P },
+  },
+  "player.replay": {
+    kind: "query", audience: "player",
+    human: { title: "Replay a game I played", tooltip: "Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move." },
+    ai: { description: "One page of an ENDED game's replay, fully revealed (hiding applies only while a game is live): on the first page every god's utility descriptor, card and AI seat and the end deadline; then every event in full (each god's net bits after each change, whose agent acted, every agent's source, each act's seed) and the chat. Page with afterSeq = nextCursor, chatAfter = chatCursor until done. Players of that game only; refused while it is live." },
+    tools: ["get_replay"], palette: null,
+    why: "The replay view opens from the room's game list and the results panel (docs/replay-design.md §7); there is nothing to run from the palette.",
+  },
+  "player.game": {
+    kind: "query", audience: "player",
+    human: { title: "Open a game of this room", tooltip: "One game of this room, live or as it ended; past games open for their players and the owner." },
+    ai: { description: "One game of the room by id or code: its public world (final once ended), standings, winners and chat, whether it is current and whether the human was seated." },
+    tools: [], palette: null, why: "The player client's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.",
   },
   "player.trajectories": {
     kind: "query", audience: "player",
     human: { title: "Open my points over time", tooltip: "Per-object series of your bits, the others' total and your payoff." },
     ai: { description: "Per-object series over the game of the human's net bits, the peer aggregate and payoff: which objects are rising or falling for them." },
     tools: ["get_trajectories"], palette: { label: "Open my points over time", group: "view", keywords: ["chart", "trajectories", "over time", "trend"], surfaces: P },
+  },
+  "player.series": {
+    kind: "query", audience: "player",
+    human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },
+    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation (unattributed while live; the human's own marked mine), with the value before and after, the human's own bits and the OTHER gods' summed bits before and after (noisy while live, peerNoiseBits; exact after the end). The data for inferring the other gods' rules." },
+    tools: ["get_utility_series"], palette: null, why: "An analytics feed paged by the assistant or a stored panel; the human reads it through panels, not a button.",
+  },
+  "player.board": {
+    kind: "query", audience: "player",
+    human: { title: "Board at a moment", tooltip: "Every object as it was at a world time, with your bits and the others' total." },
+    ai: { description: "The board at a world time (default now): every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
+    tools: ["get_board_at"], palette: null, why: "Takes a world time chosen during analysis; panels and the assistant call it.",
   },
   "player.myUtility": {
     kind: "query", audience: "player",

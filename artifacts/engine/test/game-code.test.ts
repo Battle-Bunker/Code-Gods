@@ -8,12 +8,12 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, roomWith, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
+  languages: ["typescript"], objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 async function errorCode(promise: Promise<unknown>): Promise<string> {
@@ -24,7 +24,7 @@ async function startedRoom(names: string[]) {
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
-  const game = await members[0].c.action(api.owner.start, { roomId });
+  const game = await startGame(members[0], roomId);
   return { members, roomId, gameId: game.gameId as string };
 }
 const credential = (god: God, roomId: string, permission: "read" | "act" = "read") =>
@@ -84,6 +84,27 @@ test("run_code: a script over datasets resolved as the player, stored for them o
   const other = await roomWith([eve]);
   const eveCred = await credential(eve, other.roomId);
   assert.equal(await errorCode(run(eveCred, roomId, { language: "python", source: RANK_PY })), "FORBIDDEN");
+  // The rival-inference datasets (docs/public-log-design.md §4): the public log with own and others' summed bits, in
+  // columns of equal length, and the public candidates (any god's parameters appear among them by design).
+  const inference = await run(cred, roomId, { language: "python",
+    source: "def main(data):\n    s = data['utility_series']\n    c = s['columns']\n    return {'rows': s['rows'], 'lengths': sorted(set(len(v) for v in c.values())), 'others': s['others'], 'families': len(data['utility_candidates']['families'])}\n",
+    datasetsJson: JSON.stringify(["utility_series", "utility_candidates"]) });
+  assert.equal(inference.status, "ok", JSON.stringify(inference.error));
+  assert.ok(inference.result.rows > 0 && inference.result.families > 0, JSON.stringify(inference.result));
+  assert.deepEqual(inference.result.lengths, [inference.result.rows], "every column has a row per event");
+  assert.equal(inference.result.others, (await raw(gameId)).game.roster.length - 1, "the number of other gods");
+  const inferred = JSON.parse((await ann.c.query(api.code.runs.get, { roomId, runId: inference.runId })).resultJson);
+  await disclosureChecker(gameId, ann.subject, [SECRET])("inference datasets", inferred);
+  // The replay dataset: null while the game is live; once it has ended, the whole game, Bob's agent's code included.
+  const replayCode = "def main(d):\n    r = d['replay']\n    return None if r is None else {'gods': len(r['gods']), 'sources': [e['source'] for e in r['events'] if e['type'] == 'agent.summoned']}\n";
+  const liveReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(liveReplay.status, "ok", JSON.stringify(liveReplay.error));
+  assert.equal(liveReplay.result, null, "a live game's replay stays closed");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const endedReplay = await run(cred, roomId, { language: "python", source: replayCode, datasetsJson: JSON.stringify([{ name: "replay", gameId }]) });
+  assert.equal(endedReplay.status, "ok", JSON.stringify(endedReplay.error));
+  assert.equal(endedReplay.result.gods, 3);
+  assert.ok(endedReplay.result.sources.some((src: string) => src.includes(SECRET)), "an ended game's replay has every agent's code");
 });
 
 test("run_code: errors are stored and explained, large results go to storage, the budget holds", { timeout: 300_000 }, async () => {

@@ -400,6 +400,65 @@
       "additionalProperties": false
     }
   },
+  "get_replay": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "cursor": {
+          "description": "The previous page's nextCursor (omit for the first page).",
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "gameId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "get_my_utility": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -610,6 +669,34 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -675,7 +762,8 @@
             "writing-agents",
             "screen",
             "game-setups",
-            "analytics-code"
+            "analytics-code",
+            "rival-inference"
           ]
         }
       },
@@ -749,11 +837,12 @@
           "maxLength": 16384
         },
         "language": {
-          "description": "Default: the game's language.",
+          "description": "The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language.",
           "type": "string",
           "enum": [
             "python",
-            "typescript"
+            "typescript",
+            "haskell"
           ]
         },
         "commandId": {
@@ -811,6 +900,34 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",
@@ -876,10 +993,12 @@
           "maxLength": 16384
         },
         "language": {
+          "description": "The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language.",
           "type": "string",
           "enum": [
             "python",
-            "typescript"
+            "typescript",
+            "haskell"
           ]
         },
         "commandId": {
@@ -938,6 +1057,34 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",
@@ -1052,6 +1199,34 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -1154,6 +1329,34 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",
@@ -1260,6 +1463,34 @@
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
             "error": {
               "type": "object",
               "properties": {
@@ -1365,6 +1596,34 @@
             },
             "receipt": {
               "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
             },
             "error": {
               "type": "object",
@@ -1570,7 +1829,7 @@
           "maximum": 9007199254740991
         },
         "settings": {
-          "description": "The settings fields to change; a language change moves the grammar and summon price, an object type its default instantiation. Not with setupId.",
+          "description": "The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId.",
           "type": "object",
           "propertyNames": {
             "type": "string"
@@ -2677,7 +2936,8 @@
             "forge",
             "results",
             "rules",
-            "code-output"
+            "code-output",
+            "timeline"
           ]
         },
         "slug": {
@@ -3084,9 +3344,9 @@
           "pattern": "^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,63}$"
         },
         "datasets": {
-          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history.",
+          "description": "Inputs, each data[name]: objects, my_utility, agents, leaderboard, observation, events, trajectories, chat, settings, rules, games, game_history, replay, utility_series, utility_candidates.",
           "default": [],
-          "maxItems": 12,
+          "maxItems": 15,
           "type": "array",
           "items": {
             "anyOf": [
@@ -3104,7 +3364,10 @@
                   "settings",
                   "rules",
                   "games",
-                  "game_history"
+                  "game_history",
+                  "replay",
+                  "utility_series",
+                  "utility_candidates"
                 ]
               },
               {
@@ -3124,20 +3387,23 @@
                       "settings",
                       "rules",
                       "games",
-                      "game_history"
+                      "game_history",
+                      "replay",
+                      "utility_series",
+                      "utility_candidates"
                     ]
                   },
                   "gameId": {
-                    "description": "events, trajectories: a game of this room (default: the current game); game_history: required (an id from the games dataset).",
+                    "description": "events, trajectories: a game of this room (default: the current game); game_history, replay: required (an id from the games dataset).",
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128
                   },
                   "limit": {
-                    "description": "events, trajectories, game_history: at most this many tick batches.",
+                    "description": "events, trajectories, game_history, replay: at most this many tick batches; utility_series: at most this many rows.",
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 2000
+                    "maximum": 20000
                   }
                 },
                 "required": [
@@ -3350,6 +3616,300 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_utility_series": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "description": "The game (default: the room's current game).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "objectId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "fromWorld": {
+          "type": "number",
+          "minimum": 0
+        },
+        "offset": {
+          "description": "Rows to skip (nextCursor).",
+          "default": 0,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "limit": {
+          "default": 500,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20000
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "get_board_at": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "description": "The game (default: the room's current game).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "world": {
+          "description": "World seconds (default: now).",
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "list_utility_candidates": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "family": {
+          "description": "Only this family (all its parameter sets).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "paramsPerFamily": {
+          "default": 20,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "fit_utility_mixture": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "hints": {
+          "default": [],
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "familyId": {
+                "description": "A family id from list_utility_candidates.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "params": {
+                "description": "Some of the family's parameters (a partial match: e.g. {symbol: 'A'}); omit for any.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "probability": {
+                "description": "How likely some OTHER god holds a matching rule, given what was said.",
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 0.99
+              }
+            },
+            "required": [
+              "familyId",
+              "probability"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "exclude": {
+          "description": "Family ids no other god holds.",
+          "default": [],
+          "maxItems": 200,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "maxObservations": {
+          "description": "Use at most this many distinct values, the latest (more is slower: about 1 s per 50 on a 5×5 grid).",
+          "default": 300,
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000
+        },
+        "top": {
+          "default": 5,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
         }
       },
       "additionalProperties": false

@@ -67,7 +67,7 @@ for (const [name, viewport, scale] of [["phone-390x844", { width: 390, height: 8
   const context = await browser.newContext({ viewport, deviceScaleFactor: scale });
   await context.addCookies(cookies);
   const page = await context.newPage();
-  await page.goto(`${SITE}/player/?room=${shortCode}`);
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
   await page.locator("[data-testid=table-code-result]").first().waitFor({ timeout: 60_000 });
   await page.locator("[data-testid=panel-code-output]").first().scrollIntoViewIfNeeded();
   const path = `${OUT}/${name}.png`;

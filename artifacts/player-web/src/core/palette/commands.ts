@@ -27,6 +27,8 @@ export type PaletteState = {
   pauseUsed: boolean;
   /** The next game is preparing its rule tables (rooms.get `preparing`); End ends the preparation. */
   preparing?: boolean;
+  /** A start is pending (@workspace/player-client/start): the click registered, the room has not shown the game yet. */
+  starting?: "starting" | "preparing";
   agents: readonly { id: string; label: string }[];
   /** A command whose outcome is unknown waits for its identical retry (the banner under the header). */
   unknownOutcome: boolean;
@@ -147,7 +149,11 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
     "owner.settings": { performer: pick("Next game's setup", () => s.setups, id => a.owner.setup(id)), available: () => betweenGames(s) },
-    "owner.start": { performer: submit(() => a.owner.start()), available: () => betweenGames(s) },
+    "owner.start": {
+      performer: submit(() => a.owner.start()),
+      available: () => (s.starting === "starting" ? no("The game is already starting.")
+        : s.starting === "preparing" ? no("The game is preparing its rule tables; it starts by itself.") : betweenGames(s)),
+    },
     "panels.list": { performer: pick("Open one of your panels", storedOptions(p => p.enabled, p => p.title), slug => a.panels.open(slug)) },
     "panels.code": {
       performer: pick("Which panel?", storedOptions(() => true, p => p.title), slug => a.assistant.handoff(`Show me the source of my panel "${slug}" and explain what it does.`)),
@@ -233,8 +239,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     s.gridRenderer === "tiles"
       ? ui("ui.objects.renderer", "Show grids as coloured digits", "Draws every grid as rows of coloured digits: compact and quick to scan. Remembered in this browser.", "view",
         local(() => a.objects.setGridRenderer("digits")), { keywords: ["grid", "digits", "numbers", "compact", "display", "colour"] })
-      : ui("ui.objects.renderer", "Show grids as tiles", "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", "view",
-        local(() => a.objects.setGridRenderer("tiles")), { keywords: ["grid", "tiles", "board", "display", "pattern", "colour"] }),
+      : ui("ui.objects.renderer", "Show grids as tiles", "Draws every grid as coloured tiles with an optional letter per colour. Remembered in this browser.", "view",
+        local(() => a.objects.setGridRenderer("tiles")), { keywords: ["grid", "tiles", "board", "display", "colour", "letter"] }),
   ];
 
   const assistantRows: Command[] = [
@@ -244,7 +250,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       pick("Your assistant may", [
         { id: "act", label: "Play for me", detail: "Asks before anything public or costly." },
         { id: "read", label: "Only look" },
-        ...(s.isOwner ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
+        // The engine caps the assistant at this client's own permission (assistant.ts maxPermission).
+        ...(s.isOwner && s.permission === "owner" ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
       ], id => a.assistant.setPermission(id as "read" | "act" | "owner")),
       { keywords: ["permission", "rights", "assistant"], ...always(() => assistantOn(s)) }),
   ];
