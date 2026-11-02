@@ -150,7 +150,19 @@ export interface RuntimeOptions {
    * 60000; 0 keeps it) and restarts on the next uncached source.
    */
   compilerIdleMs?: number;
+  /**
+   * TypeScript and Haskell worker pools. "execute" (default): QuickJS/evaluator workers fed by the pool's own compiler
+   * worker. "compile": only a compiler worker (`compile`); it stops after `compilerIdleMs` idle.
+   */
+  role?: "execute" | "compile";
+  /**
+   * An "execute" pool: "pool" (default) compiles with its own compiler worker; "external" has none, and runs only
+   * programs compiled by a separate "compile" pool (`actCompiled`; `inspect`, `act` and `compile` are CONFIG).
+   */
+  compilation?: "pool" | "external";
 }
+/** Trusted compiler output: the price and the program (JavaScript for QuickJS, or a MicroHs combinator program). */
+export interface Compiled { inspection: Inspection; js: string }
 
 export const GRAMMAR_IDS: Readonly<{ python: "python-agent-v1"; typescript: "typescript-agent-v1"; haskell: "haskell-agent-v1" }>;
 export const COMPLEXITY_IDS: Readonly<{ python: "ast-bits-v1"; typescript: "ts-ast-bits-v1-uniform"; haskell: "hs-token-bits-v1-uniform" }>;
@@ -200,6 +212,15 @@ export class GameRuntime {
    * (a 64-bit decimal or 0x-hex string): the same (source, input, settings, seed) gives the same result.
    */
   act(source: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
+  /**
+   * A compile pool (role "compile", TypeScript or Haskell): the trusted compiler output for `source`, `{inspection, js}`.
+   * (An execution pool with its own compiler also answers this, from its cache.)
+   */
+  compile(source: string, settings: ActSettings): Promise<Compiled>;
+  /** An execution pool: one act of `js`, the `compile(source, ...)` output of a compile pool (trusted, not the player's). */
+  actCompiled(source: string, js: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
+  /** Nothing queued or running: closing the pool now interrupts no request. */
+  readonly idle: boolean;
   /** inspect + one act per sample (1–32 samples, one seed each, fresh guest each); rejects on the first failure. */
   validate(source: string, samples: WireValue[], settings: ActSettings, seeds: string[]): Promise<{ inspection: Inspection; acts: ActResult[] }>;
   /**

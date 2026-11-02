@@ -61,14 +61,24 @@ test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts l
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   };
-  const validated = await validate(HS.Int);
+  // Sources new to this run (a comment), so this run compiles them and stores the newest rows.
+  const run = Date.now(), source = `${HS.Int}\n-- run ${run}\n`, notHaskell = `${TS.Int}\n// run ${run}\n`;
+  const validated = await validate(source);
   assert.equal(validated.accepted, true, validated.message);
   assert.equal(validated.validation.valid, true, JSON.stringify(validated));
   assert.match(validated.validation.diagnostics[0], /\(hs-token-bits-v1-uniform:/);
   // TypeScript source sent as Haskell does not compile.
-  assert.equal((await validate(TS.Int)).validation.valid, false);
+  const broken = await validate(notHaskell);
+  assert.equal(broken.validation.valid, false);
+  // Another action compiled both (runtime/haskellCompile.ts) and stored the outcome for every action: the program,
+  // and the agent's own compile failure, which a second validation reports the same without compiling again.
+  const [failure, stored] = await admin.query(internal.testing.haskellProgramsLatest, { count: 2 });
+  assert.ok(!stored.error && stored.chars > 1000, "the program is stored");
+  assert.equal(stored.inspection.complexityFunctionId, "hs-token-bits-v1-uniform");
+  assert.equal(failure.error?.code, "COMPILE");
+  assert.deepEqual((await validate(notHaskell)).validation, broken.validation);
 
-  const summoned = await send(ada, { type: "summon", language: "haskell", source: HS.Int });
+  const summoned = await send(ada, { type: "summon", language: "haskell", source });
   assert.equal(summoned.accepted, true, summoned.message);
   assert.equal((await send(bo, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
