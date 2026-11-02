@@ -6,6 +6,7 @@ import {
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
+import { CellGlyph, RankGlyph } from "./glyph.tsx";
 import { useGoalExplainer } from "./explain/context.tsx";
 export interface ObjectViewProps extends ObjectContext {
   /** The object's value as the public API carries it. */
@@ -88,7 +89,8 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
     width: wide ? Math.round(px * 1.5) : px, height: px,
     backgroundColor: cell.css,
     ...(showPattern ? patternStyle(cell.letter, cell.ink, detail ? 7 : 5) : {}),
-    fontSize: detail ? Math.round(px * (cell.glyph.length > 2 ? 0.34 : 0.42)) : px * (cell.compactGlyph.length > 1 ? 0.56 : 0.66),
+    // Every rank is one character cell (the ten included, CellGlyph), so every cell of a grid draws at one size.
+    fontSize: detail ? Math.round(px * 0.42) : px * 0.66,
     textShadow: showPattern ? `0 0 2px ${cell.css}, 0 0 1px ${cell.css}` : undefined,
     // Changed cells get an outline in the surrounding text colour (inherited), not a hue.
     ...(changed ? { outline: "2px solid currentColor", zIndex: 1 } : {}),
@@ -96,7 +98,7 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
   return (
     <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none" style={style} data-cell={`${cell.code}${cell.letter}`} data-changed={changed || undefined}>
       <span style={{ color: cell.ink, paddingBottom: detail ? Math.round(px * 0.12) : undefined }}>
-        {detail ? cell.glyph : cell.compactGlyph}
+        {detail ? <CellGlyph parts={cell.parts} /> : <RankGlyph parts={cell.parts} />}
         {!detail && wide && <span style={{ fontSize: "0.72em", marginLeft: 1 }}>{cell.letter}</span>}
       </span>
       {detail && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
@@ -126,8 +128,9 @@ function Cells({ model, px, cue, changes, detail, label }: {
  * (`--cg-ink-<set>-<letter>`), no tiles. Every grid size draws its digits as DIGIT_TYPE (14 pt bold, WCAG large text):
  * the light shades are only 3:1 on the paper, and their thick strokes are what keep the colours apart at a distance.
  * Changed cells are underlined and bold, never marked by colour alone.
- * Laid out as a CSS grid with right-aligned columns (not the helper's space padding), so columns stay
- * aligned even when a font draws the suit symbols wider than a digit.
+ * Laid out as a CSS grid of fixed-width cells (CellGlyph: every rank one character cell, the ten included, and every
+ * suit a fixed box), so every column is the same width in every row, with or without tens, whatever font draws the
+ * suits. Changed cells are underlined with a border: text decoration does not reach into the glyph's inline blocks.
  */
 function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
@@ -138,9 +141,9 @@ function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourC
           <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}
             style={{
               color: textShadeVar(c.letter, model.colours),
-              ...(c.changed ? { fontWeight: 800, textDecorationLine: "underline", textDecorationStyle: "solid", textDecorationColor: "currentColor", textDecorationThickness: 2, textUnderlineOffset: 2 } : {}),
+              ...(c.changed ? { fontWeight: 800, boxShadow: "0 2px 0 currentColor" } : {}),
             }}>
-            {c.glyph}
+            <CellGlyph parts={c.parts} letter={cue === "letter" ? c.letter : undefined} />
           </span>
       )))}
     </span>

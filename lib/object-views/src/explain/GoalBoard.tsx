@@ -13,6 +13,7 @@ import {
   TONE_COLOUR, TONE_DASH, TONE_MARK, arrowPath, badgePoints, boardPx, calloutOrder, cellX, cellY, centre, isStroke, litCells,
   linkPath, moveFocus, outlinePath, pillPath, signed, type BoardGeometry,
 } from "./layout.ts";
+import { CellGlyph } from "../glyph.tsx";
 
 export interface GoalBoardProps {
   goal: GoalExplainer;
@@ -61,10 +62,10 @@ function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel
     <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none"
       style={{
         width: px, height: px, backgroundColor: cell.css, ...(pattern ? patternStyle(cell.letter, cell.ink, px > 30 ? 7 : 5) : {}),
-        fontSize: Math.round(px * (cell.glyph.length > 2 ? 0.34 : 0.44)), opacity: dim ? 0.32 : 1, transition: "opacity 120ms",
+        fontSize: Math.round(px * 0.44), opacity: dim ? 0.32 : 1, transition: "opacity 120ms",
         ...(changed ? { outline: "2px solid currentColor", outlineOffset: -2 } : {}),
       }} data-changed={changed || undefined}>
-      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined }}>{cell.glyph}</span>
+      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined }}><CellGlyph parts={cell.parts} /></span>
       {px > 24 && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );
