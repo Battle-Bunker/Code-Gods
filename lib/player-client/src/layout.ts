@@ -450,14 +450,15 @@ export function resetPanelParams(layout: DockLayout): DockLayout {
 }
 
 /**
- * The first built-in panel follows the phase's default panel while nobody (neither the player nor the assistant) chose its
- * panel (`setBy: "default"`); every other pane is left alone. Part of parseLayout, so the engine's view and the client's
- * agree.
+ * The first built-in panel nobody chose (neither the player nor the assistant: `setBy: "default"`) follows the phase's
+ * default panel; every other pane is left alone. In the default dock the goal card comes first and is the player's
+ * (`human`), so the objects pane beside it becomes the results when the game ends. Part of parseLayout, so the engine's
+ * view and the client's agree.
  */
 export function followPhase(layout: DockLayout, phase: Phase): DockLayout {
-  const first = panelPanesOf(layout)[0];
+  const first = panelPanesOf(layout).find(p => p.setBy === "default");
   const panelId = defaultPanelFor(phase);
-  if (!first || first.setBy !== "default" || first.panelId === panelId) return layout;
+  if (!first || first.panelId === panelId) return layout;
   return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, panelId, params: defaultPanelParams(panelId) ?? {} } } };
 }
 
