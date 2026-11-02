@@ -158,11 +158,10 @@ export function dealerOf(settings: GameSettings): { selectorId: string; dealtAs:
 }
 /**
  * A god's own kid card: plain-language incentives first, then source in the game's default (first allowed) language, plus
- * any defence goal. Cards exist in Python and TypeScript; a Haskell-first game shows the TypeScript card (`language` says so).
+ * any defence goal.
  */
 export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) {
-  const first = allowedLanguages(settings)[0]!;
-  const language = first === "haskell" ? "typescript" : first;
+  const language = allowedLanguages(settings)[0]!;
   const c = card(utility, context(instantiationOf(settings)));
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,

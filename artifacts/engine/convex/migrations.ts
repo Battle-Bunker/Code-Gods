@@ -11,6 +11,11 @@
  *    a room's owner included, keeps playing exactly as before (new rooms' owners start as spectators: rooms.create).
  *  - backfillGameSpectators (games): `spectators: []` on games stored before spectators existed (nobody watched them;
  *    their players and the room's owner still open them once past).
+ *  - dropHaskell* (Haskell agents were retired on 2026-11-02): "haskell" leaves the stored settings' `languages` of game
+ *    setups, rooms and games (["typescript"] if nothing is left), and Haskell's runtime rows go: its readiness row, its
+ *    bundle (row and stored file), its compiled programs. Agents keep `language: "haskell"` as history (game-core
+ *    RETIRED_LANGUAGES); a game's Haskell agent sits out (engine/tick.ts). Narrowed later: runtimeReadiness's language
+ *    to supported languages, and the haskellPrograms table dropped.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -58,9 +63,40 @@ export const backfillGameSpectators = migrations.define({
   migrateOne: (_ctx, game) => (game.spectators === undefined ? { spectators: [] } : undefined),
 });
 
+/** Stored settings without Haskell in `languages` (TypeScript if nothing is left), or undefined when they never had it. */
+function withoutHaskell(settings: unknown): { settings: GameSettings } | undefined {
+  const s = settings as { languages?: unknown } | null;
+  if (!s || !Array.isArray(s.languages) || !s.languages.includes("haskell")) return undefined;
+  const languages = s.languages.filter(l => l !== "haskell");
+  return { settings: { ...s, languages: languages.length ? languages : ["typescript"] } as unknown as GameSettings };
+}
+export const dropHaskellFromSetups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellFromRooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellFromGames = migrations.define({ table: "games", migrateOne: (_ctx, row) => withoutHaskell(row.settings) });
+export const dropHaskellReadiness = migrations.define({
+  table: "runtimeReadiness",
+  migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
+});
+export const dropHaskellBundle = migrations.define({
+  table: "runtimeAssets",
+  migrateOne: async (ctx, row) => {
+    if (!row.name.startsWith("haskell-")) return;
+    await ctx.db.delete(row._id);
+    await ctx.storage.delete(row.storageId);
+  },
+});
+export const dropHaskellPrograms = migrations.define({ table: "haskellPrograms", migrateOne: async (ctx, row) => { await ctx.db.delete(row._id); } });
+export const dropHaskellCompiledPrograms = migrations.define({
+  table: "compiledPrograms",
+  migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
-const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators];
+const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
+  internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
+  internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
+  internal.migrations.dropHaskellCompiledPrograms];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
@@ -323,3 +359,4 @@ export const assistantPerGame = internalAction({
     return changed;
   },
 });
+

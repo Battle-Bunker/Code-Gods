@@ -1,4 +1,4 @@
-export type Language = "python" | "typescript" | "haskell";
+export type Language = "python" | "typescript";
 /** An object's wire value: a safe integer, or an ASCII string of at most `wireMaxLength` chars. */
 export type WireValue = number | string;
 /** One mutator call in wire form (lib/game-types MutatorCallWire). */
@@ -31,8 +31,6 @@ export interface RuntimePrelude {
   python: string;
   js: string;
   dts: string;
-  /** The Haskell `Room` module (lib/game-types haskell.ts); required by a Haskell runtime, else optional. */
-  haskell?: string;
   /** Pricing vocabulary; `typescript` defaults to `python`. Part of every cache key. */
   pricing: { python: PricingVocab; typescript?: PricingVocab };
 }
@@ -55,7 +53,7 @@ export interface ActSettings {
 
 /** A summon price, by part, in bits. The host adds the literal moves (see `inspect`). */
 export interface Inspection {
-  complexityFunctionId: "ast-bits-v1" | "ts-ast-bits-v1-uniform" | "hs-token-bits-v1-uniform";
+  complexityFunctionId: "ast-bits-v1" | "ts-ast-bits-v1-uniform";
   /** structure + names + literals + moveFlags: every bit except the literal moves'. */
   cost: number;
   /** The legacy ast-bytes-v1 price (integer), for comparison and telemetry. */
@@ -73,8 +71,7 @@ export interface ActResult {
   /** The act drew from the seeded generator (or from entropy past the proxies). */
   usedRandom: boolean;
   /**
-   * Deterministic steps used (Python: LINE + JUMP events in the player's code; JS: interrupt ticks, 10,000 granularity;
-   * Haskell: MicroHs reductions / 10, rounded up).
+   * Deterministic steps used (Python: LINE + JUMP events in the player's code; JS: interrupt ticks, 10,000 granularity).
    */
   steps: number;
 }
@@ -133,13 +130,10 @@ export interface RuntimeOptions {
    * at a time, no hard wall (the deterministic step budget and the post-execution CPU check still apply).
    */
   execution?: "worker" | "inline";
-  /**
-   * Python and Haskell: the language's runtime bundle. Default: dist/python-runtime.bin.gz or
-   * dist/haskell-runtime.bin.gz in this package (absent when the package is bundled).
-   */
+  /** Python: the runtime bundle. Default: dist/python-runtime.bin.gz in this package (absent when the package is bundled). */
   assets?: PythonAssets;
   /**
-   * TypeScript (and Haskell, whose moves QuickJS encodes): the files of `typescript` (lib/typescript.js) and `quickjs-emscripten` (its main
+   * TypeScript: the files of `typescript` (lib/typescript.js) and `quickjs-emscripten` (its main
    * module) to load. Default: `typescriptPaths()`. The runtime never imports these packages by name, so a
    * bundler cannot inline them; a Convex action passes the copies Convex installed (runtime/node.ts).
    */
@@ -151,7 +145,7 @@ export interface RuntimeOptions {
    */
   compilerIdleMs?: number;
   /**
-   * TypeScript and Haskell worker pools. "execute" (default): QuickJS/evaluator workers fed by the pool's own compiler
+   * TypeScript worker pools. "execute" (default): QuickJS workers fed by the pool's own compiler
    * worker. "compile": only a compiler worker (`compile`); it stops after `compilerIdleMs` idle.
    */
   role?: "execute" | "compile";
@@ -161,11 +155,11 @@ export interface RuntimeOptions {
    */
   compilation?: "pool" | "external";
 }
-/** Trusted compiler output: the price and the program (JavaScript for QuickJS, or a MicroHs combinator program). */
+/** Trusted compiler output: the price and the program (JavaScript for QuickJS). */
 export interface Compiled { inspection: Inspection; js: string }
 
-export const GRAMMAR_IDS: Readonly<{ python: "python-agent-v1"; typescript: "typescript-agent-v1"; haskell: "haskell-agent-v1" }>;
-export const COMPLEXITY_IDS: Readonly<{ python: "ast-bits-v1"; typescript: "ts-ast-bits-v1-uniform"; haskell: "hs-token-bits-v1-uniform" }>;
+export const GRAMMAR_IDS: Readonly<{ python: "python-agent-v1"; typescript: "typescript-agent-v1" }>;
+export const COMPLEXITY_IDS: Readonly<{ python: "ast-bits-v1"; typescript: "ts-ast-bits-v1-uniform" }>;
 /** -log2(1/8): the flag bits of a literal move, before log2(#available) + D(fields). */
 export const MOVE_FLAG_BITS: 3;
 export const STEP_BUDGET_DEFAULT: 500000;
@@ -183,12 +177,6 @@ export const PYTHON_BUNDLE_FILE: "python-runtime.bin.gz";
 export function typescriptPaths(): { typescript: string; quickjs: string };
 /** Loads, verifies and compiles the Python bundle once per `assets` source (what workers share). */
 export function loadPythonRuntime(assets?: PythonAssets): Promise<unknown>;
-/** SHA-256 of the uncompressed Haskell runtime bundle (MicroHs on WASI) this package accepts. */
-export const HASKELL_BUNDLE_SHA256: string;
-/** File name of the built Haskell bundle (in dist/; the object stored in Convex file storage). */
-export const HASKELL_BUNDLE_FILE: "haskell-runtime.bin.gz";
-/** Loads, verifies and compiles the Haskell bundle once per `assets` source (what workers share). */
-export function loadHaskellRuntime(assets?: PythonAssets): Promise<unknown>;
 
 export class GameRuntime {
   constructor(options: RuntimeOptions);
@@ -198,7 +186,7 @@ export class GameRuntime {
   readonly workers: number;
   /** Starts up to `count` engines (default: all) ahead of demand and resolves when they are ready. */
   warm(count?: number): Promise<void>;
-  readonly grammarId: "python-agent-v1" | "typescript-agent-v1" | "haskell-agent-v1";
+  readonly grammarId: "python-agent-v1" | "typescript-agent-v1";
   /**
    * Parse, shape-check and (TS) type-check against `prelude.dts`, without evaluating the player's source;
    * price it with the language's code. Summon price =
@@ -213,7 +201,7 @@ export class GameRuntime {
    */
   act(source: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
   /**
-   * A compile pool (role "compile", TypeScript or Haskell): the trusted compiler output for `source`, `{inspection, js}`.
+   * A compile pool (role "compile", TypeScript): the trusted compiler output for `source`, `{inspection, js}`.
    * (An execution pool with its own compiler also answers this, from its cache.)
    */
   compile(source: string, settings: ActSettings): Promise<Compiled>;
@@ -228,11 +216,11 @@ export class GameRuntime {
    * module, then `main(data)` with `data = JSON.parse(input)`, then its result as JSON. COMPILE: syntax (TypeScript:
    * also imports/exports; types are erased, not checked). EXECUTION: the script raised, has no main, or returned
    * something that is not JSON. LIMIT: CPU, memory, or a result over SCRIPT_LIMITS.resultBytes. DOMAIN: input not JSON
-   * text within SCRIPT_LIMITS.inputBytes. CONFIG: options, or a Haskell runtime (Haskell has no script mode).
+   * text within SCRIPT_LIMITS.inputBytes. CONFIG: options.
    */
   script(source: string, input: string, options?: ScriptOptions): Promise<ScriptResult>;
   close(): void;
 }
 export function createRuntime(options: RuntimeOptions): GameRuntime;
-/** The key a pool caches a TypeScript or Haskell compilation under, as SHA-256 hex (equal keys, equal `compile` output). */
-export function compilationKey(language: "typescript" | "haskell", source: string, settings: ActSettings): string;
+/** The key a pool caches a TypeScript compilation under, as SHA-256 hex (equal keys, equal `compile` output). */
+export function compilationKey(language: "typescript", source: string, settings: ActSettings): string;

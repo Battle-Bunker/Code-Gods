@@ -1,25 +1,29 @@
 "use node";
 /**
- * The ONE place the engine reaches agent sandboxes: the in-process runtime of convex/runtime/node.ts
- * (QuickJS for TypeScript, CPython-WASI on Node's WebAssembly for Python), whose warm workers live at
- * module scope and are reused across tick actions and summon examinations. Every action that can run
- * agent code calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
+ * The ONE place the engine reaches agent sandboxes (QuickJS for TypeScript, CPython-WASI on Node's WebAssembly for
+ * Python). A 512 MiB Node action holds one language's pools comfortably, not every language's, so the tick, summon
+ * examinations and probes hold none: `act` and `inspect` send the work to actions of the language's own
+ * (runtime/acts.ts, which run it here with `actHere`/`inspectHere` on that instance's warm pool; runtime/compile.ts for
+ * TypeScript compilation). Batches of one language go in one call, and the languages' calls run in parallel.
+ * An action that runs a pool calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { LANGUAGE_SPECS, codecOf, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, codecOf, isLanguage, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
-import { compilationKey, type ActResult, type ActSettings, type Compiled, type GameRuntime, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
+import { compilationKey, type ActResult, type ActSettings, type Compiled, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { RETRY_AFTER_MS, notReadyMessage } from "../lib/sandboxes";
+import type { StoredLanguage } from "../lib/language";
 import { RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
-import { HASKELL_ACT_BATCH, PROGRAM_REFRESH_MS } from "../lib/programs";
+import { ACT_BATCH, PROGRAM_REFRESH_MS } from "../lib/programs";
 import type { LanguageSandbox } from "../runtime/readiness";
 export { bindRuntime, runtimeVersion } from "../runtime/node";
 
-/** Acts in flight per tick wave (the runtime pools queue beyond their worker count). */
-export const WORKERS = 4;
-const unavailable = new Map<Language, string>();
-const pool = async (language: Language): Promise<GameRuntime> => runtimeFor(language);
+/**
+ * Acts in flight per tick wave: one batch per language (ACT_BATCH), each in one call to its own action
+ * (runtime/acts.ts), so a wave pays one round trip, not one per act.
+ */
+export const WORKERS = 16;
 
 /** Runtime failures caused by the agent's own code; CONFIG is a server bug, CAPACITY/UNAVAILABLE are the host's. */
 export const AGENT_FAULTS: ReadonlySet<string> = new Set(["COMPILE", "DOMAIN", "EXECUTION", "LIMIT"]);
@@ -27,20 +31,17 @@ export const isAgentFault = (error: unknown) =>
   !!error && typeof error === "object" && AGENT_FAULTS.has(String((error as { code?: unknown }).code));
 
 const actSettingsCache = new Map<string, ActSettings>();
-/**
- * The runtime's view of a room for one language: the instantiation's prelude and wire bound, never the full settings.
- * Only a Haskell runtime gets the Haskell Room module (built on first use; the others never read it).
- */
-export function actSettings(settings: GameSettings, language: Language): ActSettings {
-  const inst = instantiationOf(settings), haskell = language === "haskell";
-  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}\0${haskell}`;
+/** The runtime's view of a room: the instantiation's prelude and wire bound, never the full settings. */
+export function actSettings(settings: GameSettings): ActSettings {
+  const inst = instantiationOf(settings);
+  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}`;
   let cached = actSettingsCache.get(key);
   if (!cached) {
     const base = objectType(inst.objectType).prelude(inst), parts = settings.commitClause ? withCommitClause(base) : base;
     cached = Object.freeze({
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, ...(haskell ? { haskell: parts.haskell } : {}),
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     }) as ActSettings;
     if (actSettingsCache.size >= 64) actSettingsCache.delete(actSettingsCache.keys().next().value!);
@@ -49,83 +50,88 @@ export function actSettings(settings: GameSettings, language: Language): ActSett
   return cached;
 }
 
-async function guarded<T>(language: Language, run: (rt: GameRuntime) => Promise<T>): Promise<T> {
-  const rt = await pool(language);
-  try { return await run(rt); }
-  catch (error) {
-    const code = (error as { code?: string }).code;
-    if (code === "CONFIG") {
-      console.error("Runtime configuration error (server bug)", (error as Error).message);
-      throw Object.assign(new Error("The game runtime is misconfigured"), { code: "RUNTIME_CONFIG" });
-    }
-    if (code === "UNAVAILABLE") unavailable.set(language, (error as Error).message);
-    throw error;
+/** A CONFIG failure is a server bug, never the agent's fault: logged, and reported as RUNTIME_CONFIG. */
+function serverBug(error: unknown): never {
+  if ((error as { code?: string })?.code === "CONFIG") {
+    console.error("Runtime configuration error (server bug)", (error as Error).message);
+    throw Object.assign(new Error("The game runtime is misconfigured"), { code: "RUNTIME_CONFIG" });
   }
+  throw error;
 }
 
 /**
  * The source's description bits and literal moves, in the agent's own language (one the game allows: the caller
- * checks that). Never evaluates. `ctx`: the calling action (Haskell is compiled by another action).
+ * checks that). Never evaluates. TypeScript is priced by its compiling action (runtime/compile.ts), Python by an
+ * action with Python's pool (runtime/acts.ts); this action holds no pool.
  */
-export function inspect(ctx: ActionCtx, source: string, language: Language, settings: GameSettings): Promise<Inspection> {
+export async function inspect(ctx: ActionCtx, source: string, language: Language, settings: GameSettings): Promise<Inspection> {
   validateSettings(settings);
-  // A compiled language is priced by the compiling action (runtime/compile.ts), never on this instance.
-  if (language !== "python") return compiledProgram(ctx, language, source, settings).then(({ inspection }) => ({ ...inspection }));
-  return guarded(language, rt => rt.inspect(source, actSettings(settings, language)));
+  if (language === "typescript") return { ...(await compiledProgram(ctx, language, source, settings)).inspection };
+  const reply = await ctx.runAction(internal.runtime.acts.inspect, { source, settings });
+  if (!reply.ok) serverBug(Object.assign(new Error(reply.message), { code: reply.code }));
+  return reply.inspection;
 }
-/** One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded call list. */
-export function act(ctx: ActionCtx, source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
-  if (language === "haskell") return haskellAct(ctx, source, input as string | number, settings, seed.toString());
-  const room = actSettings(settings, language);
-  if (language === "typescript") {
-    // The program first (another action compiles it), then this instance's pool runs it.
-    return compiledProgram(ctx, language, source, settings)
-      .then(({ js }) => guarded(language, rt => rt.actCompiled(source, js, input as string | number, room, seed.toString())));
-  }
-  return guarded(language, rt => rt.act(source, input as string | number, room, seed.toString()));
+/** Python's inspection on this instance's pool (runtime/acts.ts only). */
+export function inspectHere(source: string, settings: GameSettings): Promise<Inspection> {
+  validateSettings(settings);
+  return runtimeFor("python").inspect(source, actSettings(settings)).catch(serverBug);
 }
 
-type HaskellRequest = { source: string; input: string | number; seed: string; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
-/** Haskell acts waiting to be sent, per action and room settings: the acts asked for in one turn go in one call. */
-const haskellQueues = new WeakMap<ActionCtx, Map<GameSettings, HaskellRequest[]>>();
 /**
- * A Haskell act, run by runtime/haskellAct.ts in another action (its pool does not fit beside this action's Python and
- * TypeScript pools). Acts asked for together (a tick wave, an examination's concurrent acts) share one call.
+ * One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded
+ * call list. Run by an action with that language's pool (runtime/acts.ts); acts asked for together (a tick wave, an
+ * examination's concurrent acts) go in one call per language.
  */
-function haskellAct(ctx: ActionCtx, source: string, input: string | number, settings: GameSettings, seed: string): Promise<ActResult> {
+export function act(ctx: ActionCtx, source: string, language: StoredLanguage, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
+  // A past game's agent in a retired language (lib/language.ts) fails its acts as the agent's own fault.
+  if (!isLanguage(language)) return Promise.reject(Object.assign(new Error(`${language} agents are no longer supported`), { code: "EXECUTION" }));
   return new Promise((resolve, reject) => {
-    let queues = haskellQueues.get(ctx);
-    if (!queues) haskellQueues.set(ctx, queues = new Map());
-    let queue = queues.get(settings);
+    let queues = actQueues.get(ctx);
+    if (!queues) actQueues.set(ctx, queues = new Map());
+    let byLanguage = queues.get(settings);
+    if (!byLanguage) queues.set(settings, byLanguage = new Map());
+    let queue = byLanguage.get(language);
     if (!queue) {
-      queues.set(settings, queue = []);
+      byLanguage.set(language, queue = []);
+      // Everything asked for in this turn of the event loop, then one call per batch (the languages' in parallel).
       setImmediate(() => {
-        queues!.delete(settings);
-        for (let i = 0; i < queue!.length; i += HASKELL_ACT_BATCH) void sendHaskellActs(ctx, settings, queue!.slice(i, i + HASKELL_ACT_BATCH));
+        byLanguage!.delete(language);
+        for (let i = 0; i < queue!.length; i += ACT_BATCH) void sendActs(ctx, language, settings, queue!.slice(i, i + ACT_BATCH));
       });
     }
-    queue.push({ source, input, seed, resolve, reject });
+    queue.push({ source, input: input as string | number, seed: seed.toString(), resolve, reject });
   });
 }
-async function sendHaskellActs(ctx: ActionCtx, settings: GameSettings, batch: HaskellRequest[]): Promise<void> {
+type ActRequest = { source: string; input: string | number; seed: string; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
+/** Acts waiting to be sent, per action, room settings and language. */
+const actQueues = new WeakMap<ActionCtx, Map<GameSettings, Map<Language, ActRequest[]>>>();
+async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettings, batch: ActRequest[]): Promise<void> {
+  let replies: Awaited<ReturnType<typeof ctx.runAction<typeof internal.runtime.acts.run>>>["replies"];
   try {
-    const { replies } = await ctx.runAction(internal.runtime.haskellAct.acts, { settings,
-      requests: batch.map(({ source, input, seed }) => ({ source, input, seed })) });
-    batch.forEach((request, i) => {
-      const reply = replies[i];
-      if (reply.ok) return request.resolve({ calls: reply.calls, usedRandom: reply.usedRandom, steps: reply.steps });
-      if (reply.code === "CONFIG") {
-        // As `guarded` does for the other languages: a server bug, never the agent's fault.
-        console.error("Runtime configuration error (server bug)", reply.message);
-        return request.reject(Object.assign(new Error("The game runtime is misconfigured"), { code: "RUNTIME_CONFIG" }));
-      }
-      request.reject(Object.assign(new Error(reply.message), { code: reply.code }));
-    });
+    ({ replies } = await ctx.runAction(internal.runtime.acts.run, { language, settings,
+      requests: batch.map(({ source, input, seed }) => ({ source, input, seed })) }));
   } catch (error) {
     // The call itself failed (the other action ran out of memory, or the deployment refused it): the host's failure.
-    const failure = Object.assign(new Error(`Haskell runtime unavailable: ${(error as Error)?.message ?? error}`), { code: "UNAVAILABLE" });
+    const failure = Object.assign(new Error(`The ${LANGUAGE_SPECS[language].label} runtime is unavailable: ${(error as Error)?.message ?? error}`), { code: "UNAVAILABLE" });
     for (const request of batch) request.reject(failure);
+    return;
   }
+  batch.forEach((request, i) => {
+    const reply = replies[i];
+    if (reply.ok) return request.resolve({ calls: reply.calls, usedRandom: reply.usedRandom, steps: reply.steps });
+    try { serverBug(Object.assign(new Error(reply.message), { code: reply.code })); }
+    catch (error) { request.reject(error); }
+  });
+}
+/** One act on this instance's pool of its language (runtime/acts.ts only). */
+export async function actHere(ctx: ActionCtx, source: string, language: Language, input: string | number, settings: GameSettings, seed: string): Promise<ActResult> {
+  const room = actSettings(settings);
+  if (language === "typescript") {
+    // The program first (another action compiles it), then this instance's pool runs it.
+    const { js } = await compiledProgram(ctx, language, source, settings);
+    return runtimeFor(language).actCompiled(source, js, input, room, seed).catch(serverBug);
+  }
+  return runtimeFor(language).act(source, input, room, seed).catch(serverBug);
 }
 
 type KnownProgram = Compiled | { error: { code: string; message: string } };
@@ -152,27 +158,21 @@ const programs = new (class {
 })(256, 16 * 1024 * 1024);
 /**
  * `program` for this action's callers: always a promise, and a CONFIG failure of the compiling action is a server bug
- * (as `guarded` reports for the pools), never the agent's fault. This instance's pools are not blamed for it.
+ * (`serverBug`), never the agent's fault.
  */
-function compiledProgram(ctx: ActionCtx, language: "typescript" | "haskell", source: string, settings: GameSettings): Promise<Compiled> {
-  return Promise.resolve().then(() => program(ctx, language, source, settings)).catch(error => {
-    if ((error as { code?: string }).code === "CONFIG") {
-      console.error("Runtime configuration error (server bug)", (error as Error).message);
-      throw Object.assign(new Error("The game runtime is misconfigured"), { code: "RUNTIME_CONFIG" });
-    }
-    throw error;
-  });
+function compiledProgram(ctx: ActionCtx, language: "typescript", source: string, settings: GameSettings): Promise<Compiled> {
+  return Promise.resolve().then(() => program(ctx, language, source, settings)).catch(serverBug);
 }
 /** Lookups in flight, per action (never awaited by another action, whose context could outlive this one's). */
 const pendingPrograms = new WeakMap<ActionCtx, Map<string, Promise<Compiled>>>();
 const compileFailure = (error: { code: string; message: string }) => Object.assign(new Error(error.message), { code: error.code });
 /**
- * A TypeScript or Haskell agent's compiled program: from this instance, else the stored one (runtime/programs.ts), else
+ * A TypeScript agent's compiled program: from this instance, else the stored one (runtime/programs.ts), else
  * compiled by runtime/compile.ts in another action, so this action never holds a compiler beside its pools. The agent's
  * compile errors keep their codes (COMPILE, LIMIT); a host failure is never remembered.
  */
-export function program(ctx: ActionCtx, language: "typescript" | "haskell", source: string, settings: GameSettings): Promise<Compiled> {
-  const key = compilationKey(language, source, actSettings(settings, language));
+export function program(ctx: ActionCtx, language: "typescript", source: string, settings: GameSettings): Promise<Compiled> {
+  const key = compilationKey(language, source, actSettings(settings));
   const known = programs.get(key);
   if (known) return "error" in known ? Promise.reject(compileFailure(known.error)) : Promise.resolve(known);
   let pending = pendingPrograms.get(ctx);

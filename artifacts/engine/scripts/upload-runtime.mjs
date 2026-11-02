@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Uploads the runtime bundles (lib/game-runtime/dist/python-runtime.bin.gz and haskell-runtime.bin.gz) to the
- * deployment's file storage and registers each in `runtimeAssets` (convex/runtime/assets.ts).
+ * Uploads the runtime bundle (lib/game-runtime/dist/python-runtime.bin.gz) to the deployment's file storage and
+ * registers it in `runtimeAssets` (convex/runtime/assets.ts).
  *
  *   pnpm --filter @workspace/engine upload-runtime [convex run flags, e.g. --prod]
  *
@@ -9,7 +9,7 @@
  * testing needs no manual step.
  *
  * Builds a bundle first if it is missing or stale (its SHA-256 is not the package's pin), running its setup
- * (the pinned CPython WASI download; the pinned MicroHs and wasi-sdk) when that is missing too; refuses a bundle
+ * (the pinned CPython WASI download) when that is missing too; refuses a bundle
  * that still misses the pin; and skips the upload when the deployment already has exactly these bytes (one
  * `convex run`, about a second).
  */
@@ -18,8 +18,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { HASKELL_BUNDLE_FILE, HASKELL_BUNDLE_SHA256, loadHaskellRuntime, loadPythonRuntime, PYTHON_BUNDLE_FILE,
-  PYTHON_BUNDLE_SHA256 } from "@workspace/game-runtime";
+import { loadPythonRuntime, PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256 } from "@workspace/game-runtime";
 import { convexRunner } from "./upload-calibration.mjs";
 
 const RUNTIME = fileURLToPath(new URL("../../../lib/game-runtime/", import.meta.url));
@@ -31,9 +30,6 @@ export const BUNDLES = [
   { label: "Python", file: PYTHON_BUNDLE_FILE, pin: PYTHON_BUNDLE_SHA256, load: loadPythonRuntime,
     setupDone: () => existsSync(`${CACHE}python-3.15.0/python.wasm`),
     setup: ["python3", ["python/setup.py"]], build: [process.execPath, ["scripts/build-python-bundle.mjs"]] },
-  { label: "Haskell", file: HASKELL_BUNDLE_FILE, pin: HASKELL_BUNDLE_SHA256, load: loadHaskellRuntime,
-    setupDone: () => existsSync(`${CACHE}wasi-sdk-25.0/bin/clang`) && existsSync(`${CACHE}microhs-d756fa9/generated/mhs.c`),
-    setup: [process.execPath, ["scripts/setup-haskell.mjs"]], build: [process.execPath, ["scripts/build-haskell-bundle.mjs"]] },
 ];
 const pathOf = bundle => `${RUNTIME}dist/${bundle.file}`;
 

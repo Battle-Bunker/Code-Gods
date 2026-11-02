@@ -13,6 +13,13 @@ import { updateEnvFile } from "../src/connect.ts";
 const CREDENTIAL = "cgc_" + "A".repeat(43);
 const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",languages:["python","typescript"],self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,utility:{familyId:"zebra",emoji:"🦓",name:"Zebra",theme:"stripes",summary:"stripes",language:"python",source:"own"}},objects:[{id:"o",value:1,own:{ordinal:1,rewardBits:1,netBits:1},peerNetBits:2,peerCare:2,payoff:2,opponentUtilities:[1,1],peerScores:{a:1}}],agents:[{id:"a",name:"Agent 1",source:"def agent(x):\n    return [add(1)]",language:"python",summonCost:11,decisionBits:0.5,expectedActCost:5,breakdown:{decision:0.5,erasure:0,motion:4.5,floor:0},randomized:false,energy:-1,eligible:false,acts:2,spent:9}],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
 
+test("protocol: a past game's agent in a retired language still observes; commands use only today's languages", () => {
+  const haskell = { ...raw.agents[0], language: "haskell", source: "agent :: Obj -> [Call]\nagent x = [add 1]" };
+  assert.equal(observationSchema.parse({ ...raw, agents: [haskell] }).agents[0]!.language, "haskell");
+  assert.throws(() => commandSchema.parse({ type: "validate", language: "haskell", source: haskell.source }));
+  assert.throws(() => observationSchema.parse({ ...raw, languages: ["haskell"] }), "no game allows it");
+});
+
 test("protocol: projection strips hidden fields and bounds commands", () => {
   const text = JSON.stringify(observationSchema.parse(raw));
   for (const hidden of ["NEVER", "opponentUtilities", "peerScores"]) assert.equal(text.includes(hidden), false);

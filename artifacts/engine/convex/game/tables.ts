@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { languageV } from "../lib/language";
+import { storedLanguageV } from "../lib/language";
 
 /**
  * Rooms, games, objects, agents, events, chat, receipts, AI library and budgets (owned by convex/game).
@@ -190,7 +190,7 @@ export const gameTables = {
     /** The owner's name and description for it (summon requires the name; agents from before it carry neither: lib/projection defaults the name). */
     name: v.optional(v.string()), description: v.optional(v.string()),
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
-    language: v.optional(languageV),
+    language: v.optional(storedLanguageV),
     summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_owner", ["gameId", "ownerId"]),

@@ -3,6 +3,7 @@
  * Tests seed `users` (the auth agent owns the real login flow), steer clocks and read raw private state
  * to check scoring parity and disclosure.
  */
+import { storedLanguageV } from "./lib/language";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -97,6 +98,15 @@ export const patchRoom = internalMutation({
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "no room");
     await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}), ...(aiBudget !== undefined ? { aiBudget } : {}) });
+  },
+});
+
+/** Give an agent a stored language (e.g. a retired one, as a past game's agent may carry). */
+export const patchAgentLanguage = internalMutation({
+  args: { agentId: v.id("agents"), language: storedLanguageV },
+  handler: async (ctx, { agentId, language }) => {
+    dev();
+    await ctx.db.patch(agentId, { language });
   },
 });
 

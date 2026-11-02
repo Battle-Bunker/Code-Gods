@@ -14,7 +14,7 @@ import { useRoom } from "./context";
 import { useObservation } from "./hooks";
 import { useReplaySource } from "./replay-source";
 
-export type Language = "python" | "typescript" | "haskell";
+export type Language = "python" | "typescript";
 
 export function useActions() {
   const { roomId, permission } = useRoom();
