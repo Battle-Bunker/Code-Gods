@@ -7,13 +7,15 @@
  *   - A local edit (a drag, the panel menu, the palette) is shown at once and pushed with `ifUpdatedAt` = the server
  *     version it was based on: ~800 ms after a gesture ends, sooner for a discrete action. One push at a time.
  *   - CONFLICT (the row moved in the meantime) adopts the server's version, with the panes the player closed closed
- *     again on it (then pushed): a close is never undone by someone else's change. Another failure keeps the edit and
- *     retries.
+ *     again on it (then pushed), so a close is not undone by someone else's change: once a version newer than the
+ *     edit's base is in (it may arrive after the CONFLICT), only a pane still showing what was closed, never the last
+ *     panel, and forgotten if the player brings that pane back. The rest of a conflicting edit gives way to the
+ *     server's version. Another failure keeps the edit and retries.
  *   - Nothing is pushed before the first server layout arrives, or ever in a read-only dock (safe mode, a replay),
  *     whose own edits stay on screen until the next server layout.
  */
 import type { Phase } from "@workspace/player-client/panels";
-import { closePane, followPhase, type DockLayout, type Node } from "@workspace/player-client/layout";
+import { LAYOUT_LIMITS, closePane, followPhase, openPane, panelPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -26,8 +28,8 @@ export type SyncState = {
   /** `updatedAt` of the server version `local` is based on (null: no row yet), and that version's layout. */
   base: number | null;
   baseLayout: DockLayout | null;
-  /** Panes the player closed whose push met a CONFLICT before the newer version arrived: closed again on it. */
-  closing: string[];
+  /** Panes the player closed whose push met a CONFLICT, as they were (id → canonical pane): closed again on the newer version. */
+  closing: Record<string, string>;
   /** The newest server version seen, or null before the first one. */
   latest: { layout: DockLayout; updatedAt: number | null } | null;
   gesture: boolean;
@@ -49,18 +51,29 @@ export type SyncEvent =
   | { type: "push-failed" };
 
 export const initialSync = (layout: DockLayout, { canWrite = true } = {}): SyncState =>
-  ({ local: layout, base: null, baseLayout: null, closing: [], latest: null, gesture: false, dirty: false, inFlight: false, queued: false, canWrite });
+  ({ local: layout, base: null, baseLayout: null, closing: {}, latest: null, gesture: false, dirty: false, inFlight: false, queued: false, canWrite });
 
-const adopt = (state: SyncState): SyncState =>
-  state.latest ? { ...state, local: state.latest.layout, base: state.latest.updatedAt, baseLayout: state.latest.layout, queued: false } : { ...state, queued: false };
+/** The newest server version is newer than the one `local` is based on. */
+const newer = (s: SyncState) => !!s.latest && s.latest.updatedAt !== null && (s.base === null || s.latest.updatedAt > s.base);
 
-/** `layout` without the panes in `ids` it still has. */
-const withoutPanes = (layout: DockLayout, ids: readonly string[]) => ids.reduce((l, id) => (l.panes[id] ? closePane(l, id) : l), layout);
-/** Adopt the newest server version with `closing` replayed on it: an edit to push when that changed anything. */
-function adoptClosing(state: SyncState, closing: readonly string[]): SyncState {
-  const next = adopt(state);
-  const local = withoutPanes(next.local, closing);
-  return { ...next, local, closing: [], dirty: !sameLayout(local, next.local) };
+/** `layout` with the closed panes still showing what was closed taken out (never its last panel: closePane refuses). */
+function reclose(layout: DockLayout, closing: Record<string, string>): DockLayout {
+  return Object.entries(closing).reduce((l, [id, was]) => {
+    if (!l.panes[id] || canonical(l.panes[id]) !== was) return l;
+    try { return closePane(l, id); } catch { return l; }
+  }, layout);
+}
+
+/**
+ * Show the newest server version. With closes to replay, only a version newer than the base (the CONFLICT's cause):
+ * before it arrives the player's layout stays; on it, the closes are replayed and pushed.
+ */
+function adopt(state: SyncState): SyncState {
+  if (!state.latest) return { ...state, queued: false };
+  const pending = Object.keys(state.closing).length > 0;
+  if (pending && !newer(state)) return { ...state, queued: false };
+  const local = pending ? reclose(state.latest.layout, state.closing) : state.latest.layout;
+  return { ...state, local, base: state.latest.updatedAt, baseLayout: state.latest.layout, queued: false, closing: {}, dirty: state.dirty || !sameLayout(local, state.latest.layout) };
 }
 const busy = (s: SyncState) => s.gesture || s.dirty || s.inFlight;
 
@@ -71,17 +84,20 @@ export function syncReducer(state: SyncState, event: SyncEvent): SyncState {
       const next = { ...state, latest: { layout: event.layout, updatedAt: event.updatedAt } };
       // An edit made before the first server version is rebased onto it.
       if (first && state.dirty) return { ...next, base: event.updatedAt, baseLayout: event.layout };
-      if (busy(state)) return { ...next, queued: true };
-      return state.closing.length ? adoptClosing(next, state.closing) : adopt(next);
+      return busy(state) ? { ...next, queued: true } : adopt(next);
     }
     case "gesture-start": return { ...state, gesture: true };
     case "gesture-end": {
       const next = { ...state, gesture: false };
-      if (!next.queued || next.dirty || next.inFlight) return next;
-      return next.closing.length ? adoptClosing(next, next.closing) : adopt(next);
+      return next.queued && !next.dirty && !next.inFlight ? adopt(next) : next;
     }
     // A read-only dock never pushes, so its edits are never pending: the next server layout replaces them.
-    case "edit": return sameLayout(state.local, event.layout) ? state : { ...state, local: event.layout, dirty: state.canWrite };
+    case "edit": {
+      if (sameLayout(state.local, event.layout)) return state;
+      // A pane the player brings back (same id) is no longer theirs to close.
+      const closing = Object.fromEntries(Object.entries(state.closing).filter(([id]) => !event.layout.panes[id]));
+      return { ...state, local: event.layout, dirty: state.canWrite, closing };
+    }
     case "push-start": return { ...state, inFlight: true, dirty: false };
     case "push-ok": {
       const newer = state.latest && state.latest.updatedAt !== null && state.latest.updatedAt > event.updatedAt;
@@ -92,14 +108,10 @@ export function syncReducer(state: SyncState, event: SyncEvent): SyncState {
     }
     case "push-conflict": {
       const next = { ...state, inFlight: false, dirty: false };
-      // The panes this push closed (the version it was based on had them).
-      const closed = state.baseLayout ? Object.keys(state.baseLayout.panes).filter(id => !state.local.panes[id]) : [];
-      const closing = [...new Set([...state.closing, ...closed])];
-      if (next.gesture) return { ...next, queued: true, closing };
-      if (!closing.length) return adopt(next);
-      // The version that moved the row has not arrived yet: the closes stay on screen and are replayed on it.
-      const newer = next.latest && next.latest.updatedAt !== null && (next.base === null || next.latest.updatedAt > next.base);
-      return newer ? adoptClosing(next, closing) : { ...next, closing };
+      // The panes this push closed: the version it was based on had them, as they were then.
+      const closed = Object.fromEntries(Object.entries(state.baseLayout?.panes ?? {}).filter(([id]) => !state.local.panes[id]).map(([id, pane]) => [id, canonical(pane)]));
+      const closing = { ...state.closing, ...closed };
+      return next.gesture ? { ...next, queued: true, closing } : adopt({ ...next, closing });
     }
     case "push-failed": return { ...state, inFlight: false, dirty: true };
   }
@@ -117,6 +129,16 @@ export function pushPlan(state: SyncState): { layout: DockLayout; ifUpdatedAt: n
  */
 export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
   return followPhase(layout, phase);
+}
+
+/**
+ * A replay's layout: the human's (or the assistant's) layout from the engine with a Timeline pane over it when it has
+ * none and has room for one, never a change pushed anywhere (dock/store.ts shows it until the human closes it).
+ */
+export function withTimeline(layout: DockLayout): DockLayout {
+  const panels = panelPanesOf(layout);
+  if (panels.some(p => p.panelId === "timeline") || panels.length >= LAYOUT_LIMITS.panelPanes) return layout;
+  return openPane(layout, { id: "", kind: "panel", panelId: "timeline", params: {}, setBy: "human" }).layout;
 }
 
 /** A stable JSON text (sorted keys), for comparing panes. */

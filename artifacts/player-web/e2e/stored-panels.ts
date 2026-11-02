@@ -485,7 +485,7 @@ await check("after the game ends its page turns into the replay without a reload
     throw e;
   }), "layout:set", 120_000);
   const show = (panelId: string) => {
-    let layout = defaultLayout("ended");
+    const layout = defaultLayout("ended");
     layout.panes.p1 = { id: "p1", kind: "panel", panelId: panelId as never, params: panelId === "what-if" ? whatIf : {}, setBy: "human" };
     // No Timeline pane here: the replay adds its own over each layout from the engine and still follows the next one.
     return setLayout(layout);
