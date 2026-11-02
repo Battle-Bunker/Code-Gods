@@ -9,6 +9,13 @@
  *   scope "player":  our player JWT (issuer CONVEX_SITE_URL/api/device): a player app or room assistant holding
  *                    a scoped credential for ONE room, with a permission: "read" < "act" < "owner". The
  *                    credential is checked for revocation on every call, so revocation is immediate.
+ *   scope "account": our player JWT for an account grant (OAuth `scope=account`, docs/external-clients.md): an app
+ *                    on any origin acting as its human everywhere, exactly as the browser session does, except for
+ *                    the consent surface (approving devices and connections, listing and revoking credentials) and
+ *                    admin, which stay with the browser session on the engine's own site. Revocable like any credential.
+ *
+ * Rights come from the human's identity, not from which app they run (actsAsHuman): a browser session and an account
+ * grant are the same human everywhere; a room credential is that human in one room with one permission.
  *
  * God ids in game tables are strings: a human's Better Auth user id, or "ai:<uuid>" for an AI seat.
  */
@@ -20,12 +27,14 @@ import { isAdminUser, tokenKind } from "./identity";
 import { credentialKind, credentialProblem, type CredentialKind } from "./principal";
 
 export type Permission = "read" | "act" | "owner";
+/** What a credential grants: one room with a Permission, or the human's whole account ("account"). */
+export type Grant = Permission | "account";
 export type Viewer = {
   /** The human's god id (Better Auth user id). */
   subject: string;
   /** Full verified name. */
   name: string;
-  scope: "browser" | "player";
+  scope: "browser" | "player" | "account";
   /** Player scope only: the room the credential is bound to, its permission and id. */
   roomId?: string;
   permission?: Permission;
@@ -67,6 +76,9 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
   return viewer && viewer.subject === identity.subject ? viewer : null;
 }
 
+/** The human everywhere (a browser session or an account grant), not a credential bound to one room. */
+export const actsAsHuman = (viewer: Viewer) => viewer.scope !== "player";
+
 /** Throws ConvexError {code: "UNAUTHENTICATED"} without a valid caller. */
 export async function requireViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer> {
   const viewer = await getViewer(ctx);
@@ -75,12 +87,12 @@ export async function requireViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer
 }
 
 /**
- * Throws unless the caller may use `need` on this room. Browser scope always passes (membership and
+ * Throws unless the caller may use `need` on this room. The human everywhere always passes (membership and
  * ownership are the game module's checks); player scope must be bound to `roomId` with at least `need`.
  * "owner" additionally requires the human to be the room's CURRENT owner: the game module checks that.
  */
 export function requireRoomPermission(viewer: Viewer, roomId: string, need: Permission): void {
-  if (viewer.scope === "browser") return;
+  if (actsAsHuman(viewer)) return;
   if (viewer.roomId !== roomId) throw new ConvexError({ code: "FORBIDDEN", message: "This credential is bound to a different room" });
   if (RANK[viewer.permission ?? "read"] < RANK[need]) {
     throw new ConvexError({ code: "FORBIDDEN", message: need === "act" ? "Read-only authorization cannot submit commands" : "This needs an owner grant approved by the room owner" });
@@ -102,11 +114,14 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
   const id = ctx.db.normalizeId("credentials", credentialId);
   const credential = id ? await ctx.db.get(id) : null;
   if (!credential) return null;
-  const roomId = ctx.db.normalizeId("rooms", credential.roomId);
+  const roomId = credential.roomId ? ctx.db.normalizeId("rooms", credential.roomId) : null;
   const room = roomId ? await ctx.db.get(roomId) : null;
   if (credentialProblem(credential, room, Date.now())) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();
   if (!user) return null;
+  if (credential.permission === "account") {
+    return { subject: user.subject, name: user.name, scope: "account", credentialId: credential._id, label: credential.label, isAdmin: false, credentialKind: credentialKind(credential) };
+  }
   return {
     subject: user.subject, name: user.name, scope: "player", roomId: credential.roomId, permission: credential.permission,
     credentialId: credential._id, label: credential.label, isAdmin: false, credentialKind: credentialKind(credential),

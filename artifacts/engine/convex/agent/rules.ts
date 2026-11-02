@@ -3,7 +3,7 @@
  * test/unit/agent.test.ts): which redirect URIs a client may use, the CIMD URL guard, scopes, the Origin
  * check and how a request presents its credential.
  */
-import type { Permission } from "../auth/access";
+import type { Grant, Permission } from "../auth/access";
 
 /** Claude's hosted MCP connector callbacks (claude.ai custom connectors). */
 export const CLAUDE_CALLBACKS = ["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"] as const;
@@ -106,10 +106,14 @@ export function cimdUrlProblem(clientId: string): string | null {
 }
 
 const PERMISSIONS: readonly Permission[] = ["read", "act", "owner"];
-/** The permission a scope string asks for: the strongest of read/act/owner named (default act); null for anything else. */
-export function parseScope(scope: string | null | undefined): Permission | null {
+/**
+ * The grant a scope string asks for: the strongest of read/act/owner named (default act), or "account" alone (the
+ * human everywhere, docs/external-clients.md); null for anything else, "account" mixed with a room permission included.
+ */
+export function parseScope(scope: string | null | undefined): Grant | null {
   const parts = (scope ?? "").split(/\s+/).filter(Boolean);
   if (!parts.length) return "act";
+  if (parts.includes("account")) return parts.every(p => p === "account") ? "account" : null;
   if (parts.some(p => !PERMISSIONS.includes(p as Permission))) return null;
   return PERMISSIONS.filter(p => parts.includes(p)).at(-1)!;
 }

@@ -24,7 +24,7 @@ type Call = { url: URL; method: string; body: Record<string, string>; headers: H
 /** A stand-in engine: DCR, authorize (not fetched: the browser navigates), token (code + refresh), revoke, device. */
 function fakeEngine() {
   const calls: Call[] = [];
-  const state = { clients: new Map<string, string>(), exchanges: 0, registrations: 0, refreshes: 0, refreshDelayMs: 0, refreshValid: new Set<string>(["cgr_1"]), revoked: false, deviceStatus: "pending" as string, challenge: "" };
+  const state = { clients: new Map<string, string>(), exchanges: 0, registrations: 0, refreshes: 0, refreshDelayMs: 0, refreshValid: new Set<string>(["cgr_1"]), revoked: false, deviceStatus: "pending" as string, challenge: "", account: false };
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const fetcher = async (input: string | URL | Request, init: RequestInit = {}) => {
     const url = new URL(String(input));
@@ -32,8 +32,8 @@ function fakeEngine() {
     const headers = new Headers(init.headers);
     const body = headers.get("content-type")?.includes("json") ? JSON.parse(text || "{}") : Object.fromEntries(new URLSearchParams(text));
     calls.push({ url, method: init.method ?? "GET", body, headers });
-    const tokens = (n: number) => ({ access_token: `jwt_${n}`, token_type: "Bearer", expires_in: 3600, refresh_token: `cgr_${n}`, scope: "act",
-      room_id: "room_1", room_code: "ABCD1234", credential_id: `cred_${state.exchanges}` });
+    const tokens = (n: number) => ({ access_token: `jwt_${n}`, token_type: "Bearer", expires_in: 3600, refresh_token: `cgr_${n}`,
+      ...(state.account ? { scope: "account", room_id: null, room_code: null } : { scope: "act", room_id: "room_1", room_code: "ABCD1234" }), credential_id: `cred_${state.exchanges}` });
     switch (url.pathname) {
       case "/api/config": return json({ convexUrl: "https://dep.convex.cloud", siteUrl: ENGINE, version: "x" });
       case "/api/oauth/register": {
@@ -199,6 +199,28 @@ test("a new connection for a room (an owner upgrade) revokes the one it replaces
   await new Promise(r => setTimeout(r, 0));
   const revoke = s.engine.calls.find(c => c.url.pathname === "/api/oauth/revoke");
   assert.deepEqual(revoke?.body, { token: first.refreshToken, client_id: "cgo_1" }, "the replaced connection is revoked on the engine");
+});
+
+test("an account grant: no room hint, stored apart from the room sessions, refreshed and signed out on its own", async () => {
+  const s = setup();
+  s.engine.state.account = true;
+  await s.auth.signInWithRedirect({ room: "ABCD1234", permission: "account", returnTo: "/" });
+  const url = new URL(s.assigned()!);
+  assert.equal(url.searchParams.get("scope"), "account");
+  assert.equal(url.searchParams.get("room"), null, "an account grant names no room");
+  s.engine.state.challenge = url.searchParams.get("code_challenge")!;
+  const back = new URL(APP);
+  for (const [k, v] of [["code", "the-code"], ["state", url.searchParams.get("state")!], ["iss", ENGINE]]) back.searchParams.set(k, v);
+  const done = (await s.auth.completeSignIn(back.toString()))!;
+  assert.equal(done.session.permission, "account");
+  assert.equal(s.auth.account()?.credentialId, "cred_1");
+  // Catches: the account session filed as a room session (it would shadow a room, or be offered as one).
+  assert.deepEqual(s.auth.sessions(), []);
+  assert.equal(s.auth.session("ABCD1234"), null);
+  assert.equal(await s.auth.fetchToken(done.session)({ forceRefreshToken: true }), "jwt_2", "refreshed under its own key");
+  assert.equal(s.auth.account()?.refreshToken, "cgr_2");
+  await s.auth.signOut(done.session);
+  assert.equal(s.auth.account(), null);
 });
 
 test("signOut revokes the connection and forgets it", async () => {

@@ -162,6 +162,76 @@ for (const origin of ORIGINS) {
   });
 }
 
+test("an account grant: the app acts as its human in every room, never on the consent surface or MCP", { timeout: 120_000 }, async t => {
+  const { host, ada, roomId, shortCode } = await lobby();
+  const redirectUri = `${FOREIGN}/`;
+  const flow = await startOAuth(FOREIGN, redirectUri, shortCode, "account");
+  const pending = await ada.c.query(api.agent.connect.pending, { request: flow.request });
+  assert.equal(pending.permission, "account");
+  assert.equal(pending.autoApprove, null, "never approved without a click");
+  assert.equal(pending.roomHint, null, "an account grant names no room: the hint is dropped");
+  // Catches: an MCP client minting an account grant /mcp would then refuse.
+  const mcpAsk = new URL(`${SITE}/oauth/authorize`);
+  for (const [k, v] of Object.entries({ response_type: "code", client_id: flow.clientId, redirect_uri: redirectUri, code_challenge: "x".repeat(43),
+    code_challenge_method: "S256", state: "s", scope: "account", resource: `${SITE}/mcp` })) mcpAsk.searchParams.set(k, v);
+  const refused = await fetch(mcpAsk, { redirect: "manual" });
+  assert.equal(new URL(refused.headers.get("location")!).searchParams.get("error"), "invalid_scope");
+  const completion = randomBytes(32).toString("base64url");
+  // Catches: an account grant approved without explicit consent, or turned into a room grant (or the reverse).
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: flow.request, permission: "account", completion }), /consent/i);
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: flow.request, roomId, permission: "act", completion }), /every room/);
+  const roomFlow = await startOAuth(FOREIGN, redirectUri, shortCode, "act");
+  await assert.rejects(ada.c.mutation(api.agent.connect.approve, { request: roomFlow.request, permission: "account", completion, accountConsent: true }), /every room/);
+
+  await ada.c.mutation(api.agent.connect.approve, { request: flow.request, permission: "account", completion, accountConsent: true });
+  const complete = await fetch(`${SITE}/oauth/authorize/complete?request=${encodeURIComponent(flow.request)}&completion=${encodeURIComponent(completion)}`, { redirect: "manual" });
+  const back = new URL(complete.headers.get("location")!);
+  const exchanged = await fetch(`${SITE}/api/oauth/token`, from(FOREIGN, form({ grant_type: "authorization_code", code: back.searchParams.get("code")!,
+    code_verifier: flow.verifier, client_id: flow.clientId, redirect_uri: redirectUri, resource: SITE })));
+  assert.equal(exchanged.status, 200, await exchanged.clone().text());
+  const tokens = await exchanged.json() as Record<string, any>;
+  assert.deepEqual([tokens.scope, tokens.room_id, tokens.room_code], ["account", null, null]);
+
+  const convex = new ConvexClient(URL_);
+  t.after(() => convex.close());
+  let token = tokens.access_token as string;
+  convex.setAuth(async () => token);
+  // Ada, everywhere: her rooms, a new room, joining another, playing in any of them.
+  assert.ok((await convex.query(api.rooms.list, {})).some((r: any) => r.id === roomId), "lists the human's rooms");
+  const created = await convex.mutation(api.rooms.create, {});
+  const [cara] = await gods("Ext Cara");
+  const elsewhere = await cara.c.mutation(api.rooms.create, {});
+  await convex.mutation(api.rooms.join, { room: elsewhere.shortCode });
+  assert.equal((await convex.query(api.player.observation, { roomId: elsewhere.roomId })).self.godId, ada.subject);
+  assert.equal((await convex.query(api.player.observation, { roomId: created.roomId })).self.godId, ada.subject);
+  await convex.mutation(api.rooms.setSpectator, { roomId: created.roomId, spectator: false });   // her own room: owner rights
+  await assert.rejects(convex.mutation(api.rooms.endActiveGame, { roomId }), /owner/i, "still not the owner of a room she does not own");
+  // Catches: the consent surface or admin reachable from an app.
+  await assert.rejects(convex.query(api.auth.credentials.list, {}), /browser/);
+  await assert.rejects(convex.mutation(api.auth.credentials.revoke, { credentialId: tokens.credential_id }), /browser/);
+  const another = await startOAuth(FOREIGN, redirectUri, shortCode, "act");
+  await assert.rejects(convex.mutation(api.agent.connect.approve, { request: another.request, roomId, permission: "act", completion: "d".repeat(43) }), /browser/);
+  assert.equal((await convex.query(api.auth.user.me, {}))?.isAdmin, false);
+  // Catches: an account token accepted by MCP (agents act per room).
+  const mcp = await fetch(`${SITE}/mcp`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
+  assert.equal(mcp.status, 401);
+
+  // Refresh rotates; revoked by the human, it stops at once and cannot refresh.
+  const refreshed = await fetch(`${SITE}/api/oauth/token`, from(FOREIGN, form({ grant_type: "refresh_token", refresh_token: tokens.refresh_token, client_id: flow.clientId })));
+  assert.equal(refreshed.status, 200);
+  const rotated = await refreshed.json() as Record<string, any>;
+  assert.equal(rotated.scope, "account");
+  token = rotated.access_token;
+  const row = (await ada.c.query(api.auth.credentials.list, {}) as any[]).find(c => c.credentialId === tokens.credential_id);
+  assert.deepEqual([row.permission, row.roomId, row.roomCode], ["account", null, null]);
+  await ada.c.mutation(api.auth.credentials.revoke, { credentialId: row.credentialId });
+  await assert.rejects(convex.query(api.rooms.list, {}), /UNAUTHENTICATED|sign in|reconnect/i);
+  const dead = await fetch(`${SITE}/api/oauth/token`, from(FOREIGN, form({ grant_type: "refresh_token", refresh_token: rotated.refresh_token, client_id: flow.clientId })));
+  assert.equal(dead.status, 400);
+  void host;
+});
+
 test("a client on a foreign origin uses the device flow (iframes, CLIs) and revokes itself", { timeout: 60_000 }, async t => {
   const { ada, roomId, shortCode } = await lobby();
   const post = (path: string, body: unknown) => fetch(`${SITE}${path}`, from(FOREIGN, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }));

@@ -30,7 +30,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { touchActivity } from "./activity";
-import type { Permission, Viewer } from "./auth/access";
+import { actsAsHuman, type Permission, type Viewer } from "./auth/access";
 import { credentialProblem } from "./auth/principal";
 import { ASSISTANT_LOBBY as LOBBY, allowanceOf, assistantEpoch } from "./ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
@@ -47,7 +47,7 @@ export const ASSISTANT_LABEL = "In-client assistant";
 
 /** The strongest assistant permission this viewer may grant in this room. */
 function maxPermission(viewer: Viewer, room: Doc<"rooms">): Permission {
-  const own: Permission = viewer.scope === "browser" ? "owner" : viewer.permission ?? "read";
+  const own: Permission = actsAsHuman(viewer) ? "owner" : viewer.permission ?? "read";
   const capped = own === "owner" && room.ownerId !== viewer.subject ? "act" : own;
   return capped;
 }
@@ -55,7 +55,7 @@ function maxPermission(viewer: Viewer, room: Doc<"rooms">): Permission {
 async function activeAssistantCredential(ctx: Ctx, subject: string, room: Doc<"rooms">) {
   const now = Date.now();
   const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", subject)).order("desc").take(200);
-  return rows.filter(r => r.kind === "assistant" && r.roomId === room._id && !credentialProblem(r, room, now));
+  return rows.filter((r): r is typeof r & { permission: Permission } => r.kind === "assistant" && r.permission !== "account" && r.roomId === room._id && !credentialProblem(r, room, now));
 }
 
 /**

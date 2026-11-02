@@ -15,7 +15,7 @@ export const me = query({
       subject: viewer.subject, name: viewer.name, scope: viewer.scope, isAdmin: viewer.isAdmin,
       ...(viewer.scope === "player"
         ? { roomId: viewer.roomId, permission: viewer.permission, credentialId: viewer.credentialId, label: viewer.label }
-        : {}),
+        : viewer.scope === "account" ? { credentialId: viewer.credentialId, label: viewer.label } : {}),
     };
   },
 });

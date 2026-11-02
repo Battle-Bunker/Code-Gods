@@ -37,7 +37,7 @@ export default function Connect() {
   // The first choice, once: later updates of the request (a join, another room's change) never undo the human's picks.
   const initialised = useRef(false);
   useEffect(() => {
-    if (!d || initialised.current) return;
+    if (!d || initialised.current || d.permission === "account") return;
     initialised.current = true;
     const first = initialConnectChoice({ requested: d.permission, rooms: d.rooms, hint: d.roomHint });
     setRoomId(first.roomId);
@@ -45,7 +45,8 @@ export default function Connect() {
   }, [d]);
   useEffect(() => { setOwnerConsent(false); }, [roomId, permission]);
   const room = d?.rooms.find(r => r.roomId === roomId);
-  const chosen = permission ?? d?.permission ?? "read";
+  const requested: Permission = d && d.permission !== "account" ? d.permission : "read";
+  const chosen = permission ?? requested;
   const blocker = d ? connectBlocker({ status: d.status, expiresAt: d.expiresAt, now, roomId, permission: chosen, isRoomOwner: !!room?.isOwner, ownerConsent }) : null;
   // The code is released only with this one-time secret, so only this browser can collect it (agent/connect.ts).
   const [completion] = useState(() => completionSecret((() => { try { return window.sessionStorage; } catch { return null; } })(), request));
@@ -67,7 +68,7 @@ export default function Connect() {
     const hinted = d.roomHint.roomId;
     join({ room: hinted }).then(() => {
       setRoomId(hinted);
-      if (d.permission === "owner" && !d.roomHint!.isOwner) setPermission("act");
+      if (requested === "owner" && !d.roomHint!.isOwner) setPermission("act");
       setJoining(false);
     }, e => { setError(e); setJoining(false); });
   };
@@ -83,12 +84,17 @@ export default function Connect() {
     <Page crumbs={[{ label: "Approve a connection" }]}>
       <div className="mx-auto max-w-lg px-4 py-14 rise">
         <h1 className="font-display text-5xl">Approve a connection</h1>
-        <p className="text-muted-foreground mt-3">An app (Claude, a player client, a coding agent) asks to play as you in one room. Approve only if you started this from that app.</p>
+        <p className="text-muted-foreground mt-3">{d?.permission === "account" ? "An app asks to act as you in every room." : "An app (Claude, a player client, a coding agent) asks to play as you in one room."} Approve only if you started this from that app.</p>
         {!request ? <div className="mt-8"><ErrorLine message="This page needs a connection request. Start again from your app." /></div>
         : isLoading ? null
         : !isAuthenticated ? <SignIn testId="button-login-connect" />
         : details.isLoading ? <p className="mt-8 text-sm text-muted-foreground">Loading the request…</p>
         : d === null ? <p role="alert" className="mt-8 text-sm text-destructive" data-testid="text-connect-unknown">No connection request is waiting for you here. It may have expired or been decided; start again from your app.</p>
+        : d?.permission === "account" ? <AccountRequest d={d} pending={pending} decide={consent => {
+            if (pending) return;
+            setPending(true); setError(null);
+            (consent === null ? deny({ request }) : approve({ request, permission: "account", completion, accountConsent: consent })).then(finish, e => { setError(e); setPending(false); });
+          }} now={now} />
         : d?.autoApprove && !autoFailed ? <p className="mt-8 text-sm text-muted-foreground" data-testid="text-connect-auto">Opening room {d.roomHint?.shortCode} in your player client…</p>
         : d ? (
           <div className="mt-8 border bg-card p-5 space-y-4 text-sm" data-testid="panel-connect-details">
@@ -112,12 +118,12 @@ export default function Connect() {
               </select>
             </label>
             <p data-testid="text-connect-requested">It may: {permissionDescription(chosen)}</p>
-            {permissionChoices(d.permission).length > 1 && (
+            {permissionChoices(requested).length > 1 && (
               <details>
                 <summary className="cursor-pointer">Change permission</summary>
                 <fieldset className="mt-2 space-y-2">
                   <legend className="sr-only">Permission (you may lower it)</legend>
-                  {permissionChoices(d.permission).map(p => (
+                  {permissionChoices(requested).map(p => (
                     <label key={p} className="flex items-start gap-3">
                       <input type="radio" name="connect-permission" checked={chosen === p} disabled={pending} onChange={() => setPermission(p)} className="mt-1" data-testid={`radio-connect-${p}`} />
                       <span>{permissionDescription(p)}</span>
@@ -152,5 +158,47 @@ export default function Connect() {
         {!!error && <div className="mt-4"><ErrorLine message={errMsg(error)} /></div>}
       </div>
     </Page>
+  );
+}
+
+/**
+ * An account request (scope=account, docs/external-clients.md): the app asks to act as the human in every room. It is
+ * approved as asked (explicit consent, never without a click) or denied; there is no room or permission to choose.
+ */
+function AccountRequest({ d, pending, decide, now }: {
+  d: { clientName: string; clientId: string; redirectHost: string; redirectUri: string; status: string; expiresAt: number };
+  /** The human's answer: the consent checkbox's state to approve (the engine refuses without it), null to deny. */
+  pending: boolean; decide: (consent: boolean | null) => void; now: number;
+}) {
+  const [consent, setConsent] = useState(false);
+  const open = d.status === "pending" && d.expiresAt > now;
+  return (
+    <div className="mt-8 border bg-card p-5 space-y-4 text-sm" data-testid="panel-connect-account">
+      <dl className="space-y-3">
+        <div><dt className="label-mono">App (self-reported)</dt><dd className="break-words" data-testid="text-connect-client">{d.clientName}</dd></div>
+        <div><dt className="label-mono">Returns to</dt><dd className="font-mono break-all" data-testid="text-connect-redirect">{d.redirectHost}</dd></div>
+      </dl>
+      <p className="border-2 border-accent p-3" data-testid="text-connect-account">
+        This app asks to act as you <b>in every room</b>: it can see your rooms, create and join rooms, play, chat and run the rooms you own,
+        exactly as you can on this site. It cannot approve other apps, see or revoke your connections, or use admin pages.
+        It runs on <span className="font-mono">{d.redirectHost}</span>. Approve only if you started it and trust that app.
+      </p>
+      <label className="flex items-start gap-3">
+        <input type="checkbox" checked={consent} disabled={pending || !open} onChange={e => setConsent(e.target.checked)} className="mt-1" data-testid="checkbox-connect-account-consent" />
+        <span>I allow this app to act as me in every room.</span>
+      </label>
+      <p className="text-muted-foreground">Listed under Connected apps; revoke it there any time. It expires after 7 days without use.</p>
+      {!open && <p className="text-muted-foreground" data-testid="text-connect-blocker">This request is no longer waiting; start again from your app.</p>}
+      <div className="flex gap-3">
+        <button type="button" onClick={() => decide(consent)} disabled={!consent || pending || !open} className="flex-1 bg-primary text-primary-foreground py-3 disabled:opacity-50" data-testid="button-approve-connect">{pending ? "Working…" : "Allow"}</button>
+        <button type="button" onClick={() => decide(null)} disabled={pending || d.status !== "pending"} className="flex-1 border py-3 disabled:opacity-50" data-testid="button-deny-connect">Deny</button>
+      </div>
+      <details className="text-muted-foreground"><summary className="cursor-pointer">Details</summary>
+        <dl className="mt-2 space-y-2">
+          {d.clientId.startsWith("https://") && <div><dt className="label-mono">Client metadata</dt><dd className="font-mono text-xs break-all">{d.clientId}</dd></div>}
+          <div><dt className="label-mono">Full return address</dt><dd className="font-mono text-xs break-all">{d.redirectUri}</dd></div>
+          <div><dt className="label-mono">Request expires</dt><dd>{new Date(d.expiresAt).toLocaleString()}</dd></div>
+        </dl></details>
+    </div>
   );
 }
