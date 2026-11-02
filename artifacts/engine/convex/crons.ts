@@ -10,4 +10,5 @@ crons.interval("assistant sweeper", { minutes: 1 }, internal.assistant.store.swe
 crons.interval("oauth sweep", { hours: 1 }, internal.agent.oauthStore.sweep, {});
 /** Drop on-demand calibration tables unused for 90 days (calibration/cache.ts prune; they are recomputed if needed). */
 crons.daily("calibration cache prune", { hourUTC: 4, minuteUTC: 17 }, internal.calibration.cache.prune, {});
+crons.daily("haskell programs prune", { hourUTC: 4, minuteUTC: 41 }, internal.runtime.haskellPrograms.prune, {});
 export default crons;

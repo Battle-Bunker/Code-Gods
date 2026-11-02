@@ -215,6 +215,8 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
           for language in python typescript haskell; do npx convex run runtime/probe:smoke "{\"language\":\"$language\"}"; done
+          # A three-language game's pools busy at once on one instance, within the Node action's memory (Haskell compiled apart).
+          npx convex run runtime/probe:concurrent '{}'
           # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
           npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}},"refresh":true}' \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r));if(!r.key||!r.tables)process.exit(1)})'

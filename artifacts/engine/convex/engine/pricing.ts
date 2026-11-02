@@ -12,6 +12,7 @@ import type { Inspection } from "@workspace/game-runtime";
 import {
   availableMutators, measureAgent, parseAct, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
 } from "@workspace/game-types";
+import type { ActionCtx } from "../_generated/server";
 import { act, inspect, isAgentFault } from "./runtime";
 import { seasonCommitment, seasonSalt } from "./node";
 
@@ -65,10 +66,10 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
 export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
-export async function examineAgent(settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
+export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
   const inst = instantiationOf(settings);
   let inspection: Inspection;
-  try { inspection = await inspect(source, language, settings); }
+  try { inspection = await inspect(ctx, source, language, settings); }
   catch (error) {
     if (!isAgentFault(error)) throw error;
     throw new AgentFault((error as Error).message.slice(0, 1000));
@@ -82,7 +83,7 @@ export async function examineAgent(settings: GameSettings, language: Language, s
   const measured = await measureAgent(async (value, seed, at) => {
     runs++;
     try {
-      const result = await act(source, language, value, settings, seed);
+      const result = await act(ctx, source, language, value, settings, seed);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps };

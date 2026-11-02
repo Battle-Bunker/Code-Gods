@@ -186,6 +186,16 @@ export const rawGame = internalQuery({
   },
 });
 
+/** The latest stored Haskell compilations (runtime/haskellPrograms.ts), newest first. */
+export const haskellProgramsLatest = internalQuery({
+  args: { count: v.number() },
+  handler: async (ctx, { count }) => {
+    dev();
+    const rows = await ctx.db.query("haskellPrograms").withIndex("by_compiledAt").order("desc").take(count);
+    return rows.map(row => ({ chars: row.js.length, inspection: row.inspection, error: row.error ?? null }));
+  },
+});
+
 /** The assistant pool rows of a room (per human and the room's own row, subject ""). */
 export const rawAssistantPool = internalQuery({
   args: { roomId: v.id("rooms") },

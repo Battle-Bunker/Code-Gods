@@ -146,7 +146,7 @@ export const run = internalAction({
     };
     const flush = async () => {
       const results = await Promise.all(wave.map(async (p): Promise<ActResult | null> => {
-        try { return { calls: (await act(p.agent.source, p.agent.language, p.before, settings, p.seed)).calls }; }
+        try { return { calls: (await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed)).calls }; }
         catch (error) {
           if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };
           console.warn(`act skipped (host): ${(error as Error).message}`);

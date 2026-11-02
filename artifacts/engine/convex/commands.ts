@@ -41,7 +41,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
     await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
-      const e = await examineAgent(prepared.examine.settings, command.language, command.source, prepared.examine.live);
+      const e = await examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, result: e };
     } catch (error) {
       // The agent's own fault (it does not compile) is a final answer; a host failure (capacity, runtime

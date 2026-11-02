@@ -7,11 +7,12 @@
  */
 import { LANGUAGE_SPECS, codecOf, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
-import type { ActResult, ActSettings, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
+import type { ActResult, ActSettings, Compiled, GameRuntime, Inspection, Language, PricingVocab } from "@workspace/game-runtime";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
 import { RETRY_AFTER_MS, notReadyMessage } from "../lib/sandboxes";
-import { RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
+import { haskellKey, RUNTIME_ASSETS, runtimeFor, runtimeVersion } from "../runtime/node";
+import { HASKELL_PROGRAM_REFRESH_MS } from "../lib/haskellPrograms";
 import type { LanguageSandbox } from "../runtime/readiness";
 export { bindRuntime, runtimeVersion } from "../runtime/node";
 
@@ -64,15 +65,66 @@ async function guarded<T>(language: Language, run: (rt: GameRuntime) => Promise<
 
 /**
  * The source's description bits and literal moves, in the agent's own language (one the game allows: the caller
- * checks that). Never evaluates.
+ * checks that). Never evaluates. `ctx`: the calling action (Haskell is compiled by another action).
  */
-export function inspect(source: string, language: Language, settings: GameSettings): Promise<Inspection> {
+export function inspect(ctx: ActionCtx, source: string, language: Language, settings: GameSettings): Promise<Inspection> {
   validateSettings(settings);
+  if (language === "haskell") return guarded(language, async () => ({ ...(await haskellProgram(ctx, source, settings)).inspection }));
   return guarded(language, rt => rt.inspect(source, actSettings(settings, language)));
 }
 /** One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded call list. */
-export function act(source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
-  return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings, language), seed.toString()));
+export function act(ctx: ActionCtx, source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
+  const room = actSettings(settings, language);
+  if (language === "haskell") {
+    // The program first: compiling may close this instance's idle pools (runtime/node.ts closeIdle), so the pool is taken after.
+    return guarded(language, async () => {
+      const { js } = await haskellProgram(ctx, source, settings);
+      return (await pool(language)).actCompiled(source, js, input as string | number, room, seed.toString());
+    });
+  }
+  return guarded(language, rt => rt.act(source, input as string | number, room, seed.toString()));
+}
+
+/** This instance's compiled Haskell programs (and the agents' own compile failures), by haskellKey. */
+const haskellPrograms = new Map<string, Compiled | { error: { code: string; message: string } }>();
+/** Lookups in flight, per action (never awaited by another action, whose context could outlive this one's). */
+const haskellPending = new WeakMap<ActionCtx, Map<string, Promise<Compiled>>>();
+const compileFailure = (error: { code: string; message: string }) => Object.assign(new Error(error.message), { code: error.code });
+/**
+ * A Haskell agent's compiled program: from this instance, else the stored one (runtime/haskellPrograms.ts), else
+ * compiled by runtime/haskellCompile.ts in another action, so this action never holds the compiler beside its pools.
+ * The agent's compile errors keep their codes (COMPILE, LIMIT); a host failure is never remembered.
+ */
+export function haskellProgram(ctx: ActionCtx, source: string, settings: GameSettings): Promise<Compiled> {
+  const key = haskellKey(source, actSettings(settings, "haskell"));
+  const known = haskellPrograms.get(key);
+  if (known) return "error" in known ? Promise.reject(compileFailure(known.error)) : Promise.resolve(known);
+  let pending = haskellPending.get(ctx);
+  if (!pending) haskellPending.set(ctx, pending = new Map());
+  let program = pending.get(key);
+  if (!program) {
+    const remember = (value: Compiled | { error: { code: string; message: string } }) => {
+      if (haskellPrograms.size >= 128) haskellPrograms.delete(haskellPrograms.keys().next().value!);
+      haskellPrograms.set(key, value);
+    };
+    program = (async () => {
+      const stored = await ctx.runQuery(internal.runtime.haskellPrograms.get, { key });
+      if (stored && stored.compiledAt < Date.now() - HASKELL_PROGRAM_REFRESH_MS) await ctx.runMutation(internal.runtime.haskellPrograms.touch, { key });
+      const reply = stored ? (stored.error ? { ok: false as const, ...stored.error } : { ok: true as const, inspection: stored.inspection, js: stored.js })
+        : await ctx.runAction(internal.runtime.haskellCompile.compile, { source, settings });
+      if (!reply.ok) {
+        if (AGENT_FAULTS.has(reply.code)) remember({ error: { code: reply.code, message: reply.message } });
+        throw compileFailure(reply);
+      }
+      const compiled = { inspection: reply.inspection, js: reply.js };
+      remember(compiled);
+      return compiled;
+    })();
+    pending.set(key, program);
+    const settle = () => pending!.delete(key);
+    program.then(settle, settle);
+  }
+  return program;
 }
 
 /**
@@ -80,7 +132,7 @@ export function act(source: string, language: Language, input: ObjectValue, sett
  * A success is remembered for the instance's life; a failure reports why and is retried by the next call.
  */
 const probes = new Map<Language, Promise<{ ok: true } | { ok: false; reason: string }>>();
-export function probeLanguage(language: Language): Promise<{ ok: true } | { ok: false; reason: string }> {
+export function probeLanguage(ctx: ActionCtx, language: Language): Promise<{ ok: true } | { ok: false; reason: string }> {
   let p = probes.get(language);
   if (!p) {
     p = (async () => {
@@ -89,7 +141,7 @@ export function probeLanguage(language: Language): Promise<{ ok: true } | { ok: 
         const inst = instantiationOf(settings), T = objectType(inst.objectType);
         const { seededRng } = await import("@workspace/game-types");
         const value = T.codec(inst).encode(T.spawn(inst, seededRng(`code-gods:probe:${inst.key}`)));
-        const result = await act(LANGUAGE_SPECS[language].emptyAgent, language, value, settings, 0n);
+        const result = await act(ctx, LANGUAGE_SPECS[language].emptyAgent, language, value, settings, 0n);
         if (result.calls !== "[]") throw new Error(`the probe agent returned ${result.calls.slice(0, 100)}`);
         return { ok: true as const };
       } catch (error) {

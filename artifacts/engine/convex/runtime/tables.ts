@@ -34,4 +34,19 @@ export const runtimeTables = {
     /** The latest boot's wall time (diagnostics). */
     bootMs: v.optional(v.number()),
   }).index("by_language", ["language"]),
+  /**
+   * Compiled Haskell agents (runtime/haskellCompile.ts), so no other action compiles them: the compiler needs about
+   * 250 MiB, kept out of the actions that run the agent pools. `key`: runtime/node.ts haskellKey (the bundle pin, the
+   * room's prelude, the source). Rows unused for HASKELL_PROGRAM_TTL_MS (`compiledAt`, refreshed daily by use) are pruned (runtime/haskellPrograms.ts).
+   */
+  haskellPrograms: defineTable({
+    key: v.string(),
+    /** The MicroHs combinator program (trusted compiler output); empty when the source does not compile. */
+    js: v.string(),
+    /** The compiler's Inspection (the summon price's parts); null when the source does not compile. */
+    inspection: v.any(),
+    /** The agent's own compile failure (COMPILE or LIMIT), the same for every later request of this key. */
+    error: v.optional(v.object({ code: v.string(), message: v.string() })),
+    compiledAt: v.number(),
+  }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]),
 };

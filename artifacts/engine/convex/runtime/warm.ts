@@ -19,7 +19,7 @@ export const run = internalAction({
     let reason: string | undefined;
     try {
       await bindRuntime(ctx);
-      const probe = await probeLanguage(language);
+      const probe = await probeLanguage(ctx, language);
       if (!probe.ok) reason = probe.reason;
     } catch (error) { reason = messageOf(error); }
     const bootMs = Math.round(performance.now() - started);
