@@ -1,7 +1,8 @@
 /**
  * The game page (palette-and-pages.md §3.4): "Game G9TQ" with its room, one status sentence, then Leaderboard (with
  * the roster), Objects and Public chat; settings, utility functions and timings under "Game details". The owner's
- * actions live in a ⋯ menu (End game asks in a modal). After the end: the results and "Back to room".
+ * actions live in a ⋯ menu (End game asks in a modal). After the end: the results, "Watch the replay" (the player
+ * client's replay page of the game) and "Back to room".
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
@@ -98,7 +99,8 @@ function Results({ game, returnIn, onStay }: { game: GameView; returnIn: number 
       </div>
       {game.roomShortCode && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <StepAction id="ui.nav.room" primary roomCode={game.roomShortCode} />
+          <StepAction id="ui.nav.replay" primary roomCode={game.roomShortCode} gameCode={game.shortCode} />
+          <StepAction id="ui.nav.room" roomCode={game.roomShortCode} />
           {returnIn !== null && (
             <span className="text-sm" role="status" data-testid="status-auto-return">
               Returning to the room in <b className="tabular-nums">{returnIn}</b> s · <button type="button" onClick={onStay} className="underline underline-offset-4" data-testid="button-stay-results">Stay here</button>

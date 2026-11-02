@@ -10,7 +10,7 @@ import type { StartView } from "@workspace/player-client/start";
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
   "ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
-  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create",
+  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create", "ui.nav.replay",
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 
@@ -91,10 +91,10 @@ export interface StepGame {
   roster: readonly { id: string }[];
 }
 
-/** The game page's next step: seated players play; spectators watch (no button); after the end, back to the room. */
+/** The game page's next step: seated players play; spectators watch (no button); after the end, its replay (or back to the room). */
 export function gameStep(viewerId: string | null | undefined, game: StepGame): NextStep {
   const active = game.status === "active";
-  if (!active) return { status: "This game has ended.", primary: game.roomShortCode ? "ui.nav.room" : null, secondary: [] };
+  if (!active) return { status: "This game has ended.", primary: game.roomShortCode ? "ui.nav.replay" : null, secondary: game.roomShortCode ? ["ui.nav.room"] : [] };
   const owner = !!viewerId && game.ownerId === viewerId;
   const seated = !!viewerId && game.roster.some(r => r.id === viewerId);
   if (game.phase === "recovery" && owner) return { status: "Paused for safety.", primary: "rooms.resume", secondary: seated ? ["ui.nav.playerClient"] : [] };

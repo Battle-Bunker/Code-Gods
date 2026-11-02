@@ -29,6 +29,7 @@ const actions: Actions = {
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
   links: { roomPage: () => "/rooms/ABCD", gamePage: () => "/rooms/ABCD/games/WXYZ", copyRoomLink: rec("copyRoomLink"), safeMode: rec("safeMode") },
   objects: { setGridRenderer: rec("gridRenderer") },
+  replay: { watch: rec("watchReplay"), toggle: rec("replayToggle"), start: rec("replayStart"), end: rec("replayEnd") },
   notify: rec("notify"),
 };
 const state = (over: Partial<State> = {}): State => ({
@@ -174,4 +175,28 @@ test("assistant settings offer owner powers only to an owner holding an owner co
   assert.deepEqual(await choices({ isOwner: true, permission: "owner" }), ["act", "read", "owner"]);
   assert.deepEqual(await choices({ isOwner: true, permission: "act" }), ["act", "read"], "an owner on an act connection");
   assert.deepEqual(await choices({ isOwner: false, permission: "owner" }), ["act", "read"]);
+});
+
+test("a completed game: the room page offers its replay; in the replay, play/pause and jump to the start or the end", async () => {
+  const ended = state({ phase: "ended" });
+  const endedCtx = ctx({ phase: "ended" });
+  let commands = playerCommands(ended, actions);
+  assert.ok(ok(commands, "ui.replay.watch", endedCtx), "the ended room offers its replay");
+  assert.ok((find(commands, "ui.replay.watch").defaultScore ?? 0) >= 8, "and leads the empty palette");
+  calls.length = 0;
+  await perform(find(commands, "ui.replay.watch"));
+  assert.deepEqual(calls, ["watchReplay"]);
+  for (const id of ["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]) assert.ok(!ok(commands, id, endedCtx), `${id}: only in the replay`);
+  assert.ok(!ok(playerCommands(state(), actions), "ui.replay.watch"), "a live game has no replay");
+  assert.ok(!ok(playerCommands(state({ phase: "ended", gameCode: undefined }), actions), "ui.replay.watch", endedCtx), "no game to replay");
+
+  commands = playerCommands(state({ phase: "ended", replay: { playing: false, atStart: false, atEnd: true } }), actions);
+  assert.ok(!ok(commands, "ui.replay.watch", endedCtx), "already watching it");
+  assert.equal(find(commands, "ui.replay.toggle").human.title, "Play the replay");
+  assert.equal(find(playerCommands(state({ phase: "ended", replay: { playing: true, atStart: false, atEnd: false } }), actions), "ui.replay.toggle").human.title, "Pause the replay");
+  assert.ok(ok(commands, "ui.replay.start", endedCtx));
+  assert.equal(reason(commands, "ui.replay.end", endedCtx), "The replay is at its end.");
+  calls.length = 0;
+  for (const id of ["ui.replay.toggle", "ui.replay.start"]) await perform(find(commands, id));
+  assert.deepEqual(calls, ["replayToggle", "replayStart"]);
 });

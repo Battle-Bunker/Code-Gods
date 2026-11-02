@@ -48,6 +48,8 @@ export type PaletteState = {
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
   gridRenderer: GridRendererId;
+  /** In a replay (an ended game's page, docs/replay-design.md): the playhead's state. Absent in the live room. */
+  replay?: { playing: boolean; atStart: boolean; atEnd: boolean };
 };
 
 export type PaletteActions = {
@@ -85,6 +87,8 @@ export type PaletteActions = {
   links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
   objects: { setGridRenderer(id: GridRendererId): void };
+  /** `watch` opens the ended game's replay (its page); the others drive the replay on screen. */
+  replay: { watch(): void; toggle(): void; start(): void; end(): void };
   notify(text: string): void;
 };
 
@@ -277,6 +281,20 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       { keywords: ["chat", "message", "public", "negotiate"], ...always(() => gameplay(s)) }),
   ];
 
+  // ----- the replay of a completed game (docs/replay-design.md §7) -----
+  const inReplay = (): Availability => (s.replay ? OK : no("Only in a game's replay.", undefined, true));
+  const replayRows: Command[] = [
+    ui("ui.replay.watch", "Watch the replay", "This game's replay: scrub through every move, play it at ¼× to 64×, and see every player's goal, agents and code.", "play",
+      local(() => a.replay.watch()), { keywords: ["replay", "timeline", "scrub", "playback", "rewatch"], defaultScore: 9,
+        ...always(() => (s.replay ? no("You are watching it.", undefined, true) : s.phase === "ended" && s.gameCode && s.roomCode ? OK : no("The replay opens when the game ends.", undefined, true))) }),
+    ui("ui.replay.toggle", s.replay?.playing ? "Pause the replay" : "Play the replay", "Plays the replay from the playhead at the chosen speed, or pauses it (Space).", "play",
+      local(() => a.replay.toggle()), { keywords: ["replay", "play", "pause", "resume"], defaultScore: 8, ...always(inReplay) }),
+    ui("ui.replay.start", "Replay: jump to the start", "Moves the replay's playhead to the game's first event (Home).", "play",
+      local(() => a.replay.start()), { keywords: ["replay", "start", "beginning", "rewind", "home"], ...always(() => both(inReplay(), s.replay?.atStart ? no("The replay is at its start.") : OK)) }),
+    ui("ui.replay.end", "Replay: jump to the end", "Moves the replay's playhead to the game's last event (End).", "play",
+      local(() => a.replay.end()), { keywords: ["replay", "end", "final", "last"], ...always(() => both(inReplay(), s.replay?.atEnd ? no("The replay is at its end.") : OK)) }),
+  ];
+
   const linkRows: Command[] = [
     ui("ui.room.copy-link", "Copy room link", "The room page's link, to invite people.", "room", local(() => a.links.copyRoomLink()),
       { keywords: ["invite", "share", "url"], ...always(() => (s.roomCode ? OK : no("Waiting for the room."))) }),
@@ -301,5 +319,5 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       local(() => a.panels.openFile(id)), { keywords: ["panel", "file", id] })),
   ];
 
-  return [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...linkRows, ...ownPanelRows];
+  return [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...replayRows, ...linkRows, ...ownPanelRows];
 }

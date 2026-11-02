@@ -136,3 +136,24 @@ test("the palette lists the same commands however it was opened: one list per co
     assert.ok(wanted.length > 3, name);
   }
 });
+
+test("an ended game offers its replay (the player client's replay page); a live one does not", () => {
+  const opened: string[] = [];
+  const tabAct: EngineActions = { ...act, openTab: (href: string) => { opened.push(href); } };
+  const game = (status: "active" | "ended") => ({ shortCode: "7A8P", roomShortCode: "K7QX", status });
+  const ended = scope({ game: game("ended") });
+  const run = (s: EngineScope, id: string) => {
+    const c = engineCommands(s, tabAct).find(x => x.id === id)!;
+    assert.deepEqual(c.available(paletteContextFor(s)), { ok: true }, `${id} is available on an ended game`);
+    assert.equal(c.performer.kind, "local");
+    (c.performer as { run: () => void }).run();
+  };
+  run(ended, "ui.nav.replay");
+  run(ended, "ui.nav.replayFromStart");
+  assert.deepEqual(opened, ["/client/rooms/K7QX/games/7A8P", "/client/rooms/K7QX/games/7A8P?e=0&play=1"]);
+  assert.ok((find(ended, "ui.nav.replay").defaultScore ?? 0) >= 8, "Watch the replay leads the ended game's palette");
+  for (const id of ["ui.nav.replay", "ui.nav.replayFromStart"]) {
+    assert.equal((avail(scope({ game: game("active") }), id) as { hidden?: boolean }).hidden, true, `${id}: a live game has no replay`);
+    assert.equal((avail(scope({ room: room(["ada"]) }), id) as { hidden?: boolean }).hidden, true, `${id}: no game here`);
+  }
+});
