@@ -15,6 +15,7 @@ import { startTracker, startView, trackStart, type StartView } from "@workspace/
 import { useAuth } from "@/site/hooks/use-auth";
 import { engineSite } from "@/core/connection";
 import { useManifest } from "@/site/hooks/use-manifest";
+import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
@@ -81,11 +82,11 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
 
 // The palette's lists: each is a live subscription through the shared useLive hook, held by the pick page that shows it.
 function useTemplates(): Live<readonly Template[]> {
-  const r = useLive(api.aiTemplates.catalog, {});
+  const r = useAgentOptions();
   return { data: r.data?.agents, error: r.error };
 }
 function useAdminTemplates(): Live<readonly Template[]> {
-  const r = useLive(api.aiTemplates.adminList, {});
+  const r = useAdminAgents();
   return { data: useMemo(() => r.data?.agents.map(a => ({ id: a.id, name: a.name, provider: a.provider, model: a.model })), [r.data]), error: r.error };
 }
 /** The room's finished games: the page's own list when it has one (the room page), else this room's subscription. */
@@ -117,7 +118,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const creating = useRef(false);
   const [pendingAi, setPendingAi] = useState<{ templateId: string; busy?: boolean } | null>(null);
   // The approval dialog names the template from the same catalog subscription the palette's pick page holds.
-  const pendingTemplate = useLive(api.aiTemplates.catalog, pendingAi ? {} : "skip").data?.agents.find(a => a.id === pendingAi?.templateId);
+  const pendingTemplate = useAgentOptions(!!pendingAi).data?.agents.find(a => a.id === pendingAi?.templateId);
 
   const create = useMutation(api.rooms.create);
   const join = useMutation(api.rooms.join);

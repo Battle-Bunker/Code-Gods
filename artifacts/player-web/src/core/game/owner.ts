@@ -9,20 +9,20 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { START_TIMEOUT_MS, startTracker, trackStart } from "@workspace/player-client/start";
 import { liveOptions } from "@workspace/ui-kit";
 import { useRoom, useRoomInfo } from "@/sdk";
-import { useLive } from "@/site/lib/convex";
+import { useAgentOptions } from "@/site/hooks/use-agents";
 import { noticeStore, notify, notifyError } from "@/core/notices";
 import { saveSetup } from "./save-setup";
 
 /** The AI templates an owner can seat, live while the component calling it (the palette's pick page) is mounted. */
 function useAiCatalog() {
-  const catalog = useLive(api.aiTemplates.catalog, {});
+  const catalog = useAgentOptions();
   return liveOptions({ data: catalog.data?.agents, error: catalog.error }, r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
 }
 
 export function useOwnerActions() {
   const { roomId } = useRoom();
   // The room as this owner sees it: its revision guards the settings write (a stale view gets CONFLICT).
-  const seen = useRoomInfo();
+  const seen = useRoomInfo()?.revision;
   const start = useAction(api.owner.start);
   const settings = useAction(api.owner.settings);
   const addAi = useMutation(api.rooms.addAi);
@@ -56,7 +56,7 @@ export function useOwnerActions() {
       removeAi: (godId: string) => done("AI player removed.")(removeAi({ roomId: room, godId })),
       setup: async (setupId: string) => {
         try {
-          await saveSetup(settings, roomId, seen, setupId);
+          await saveSetup(settings, roomId, seen === undefined ? undefined : { revision: seen }, setupId);
           notify("The next game's setup is saved.");
         } catch (error) { notifyError(error); }
       },

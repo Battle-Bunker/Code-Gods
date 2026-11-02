@@ -47,8 +47,9 @@ function useReceipt(roomId: string, commandId: string): readonly string[] {
   return [receipt ? `${receipt.accepted ? "Accepted" : "Refused"}: ${receipt.message ?? ""}` : "The engine has no receipt for that command (yet): this page updates if one arrives."];
 }
 
-/** The current game's assistant conversations, live while the palette's pick page is open. */
-function useThreads(roomId: Id<"rooms">, gameId: string | undefined): LiveOptions {
+/** The current game's assistant conversations, live while the palette's pick page is open (and across a new game). */
+function useThreads(roomId: Id<"rooms">): LiveOptions {
+  const gameId = useLive(api.assistant.status, { roomId }).data?.game;
   const r = useLive(api.assistant.threads, gameId ? { roomId, gameId } : "skip");
   if (!gameId) return { options: [] };
   return liveOptions(r, t => ({ id: t._id, label: t.title, detail: new Date(t.updatedAt).toLocaleString() }));
@@ -128,7 +129,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       cancel: () => (status?.activeTurn ? cancel({ turnId: status.activeTurn.turnId }).catch(notifyError) : Promise.resolve()),
       setAutoApprove: bits => setPrefs({ roomId: room, autoApproveSummonBits: bits }).then(() => notify(bits > 0 ? `Summons up to ${bits} bits run without a card.` : "Every summon asks you first."), notifyError),
       // The current game's conversations only; a choice is kept for that game (composer.threadIn).
-      useThreads: () => useThreads(room, status?.game),
+      useThreads: () => useThreads(room),
       openThread: id => { if (status) composer.setThread(status.game, id); composer.focus(); },
       newThread: () => { if (status) composer.setThread(status.game, "new"); composer.focus(); },
       setPermission: p => { composer.setPermission(p); notify(p === "read" ? "Your assistant will only look, from your next message." : "Your assistant may act for you from your next message; it asks before anything public or costly."); },
