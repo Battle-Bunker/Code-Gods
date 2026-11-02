@@ -48,15 +48,13 @@ const live = (phase: Phase | undefined) => phase === "planning" || phase === "ru
 export function deriveAffordances(c: AffordanceContext): Affordances {
   const readOnlyReason = c.replay ? REPLAY_REASON : c.permission === "read" ? READ_CREDENTIAL_REASON : null;
   const ro = readOnlyReason ? hide(readOnlyReason) : null;
-  const transient = first(
-    c.hasObservation ? null : off("Waiting for the game to load."),
-    c.unknownOutcome ? off("A command's outcome is unknown: retry it or dismiss it first, under the header.") : null,
-    c.busy ? off("Another command is still running.") : null,
-  );
-  const examine = first(
+  const loading = c.hasObservation ? null : off("Waiting for the game to load.");
+  const unknown = c.unknownOutcome ? off("A command's outcome is unknown: retry it or dismiss it first, under the header.") : null;
+  const transient = first(loading, unknown, c.busy ? off("Another command is still running.") : null);
+  const examine = (verb: string) => first(
     ro,
     transient,
-    c.phase === "ended" ? off("The game is over: nothing can be summoned. Your code stays for the next game.") : null,
+    c.phase === "ended" ? off(`The game is over: nothing can be ${verb}. Your code stays for the next game.`) : null,
     c.phase === "lobby" ? off("The game hasn't started yet.") : null,
     !c.seated ? off("You're watching this game; you play in the next one.") : null,
     c.sandbox && !c.sandbox.ready ? off(c.sandbox.text ?? "The agent sandbox isn't ready yet.") : null,
@@ -66,8 +64,8 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
     readOnlyReason,
     can: {
       editCode: first(ro),
-      validate: examine,
-      summon: examine,
+      validate: examine("validated"),
+      summon: examine("summoned"),
       destroy: first(
         ro,
         c.phase === "ended" ? hide("The game is over: its agents can no longer be destroyed.") : null,
@@ -75,7 +73,8 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
         c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
         transient,
       ),
-      chat: first(ro, transient),
+      // Not off while another command runs: typing goes on (the send button waits for the runner).
+      chat: first(ro, loading, unknown),
       // Approving is the assistant's own permission (assistant.confirm), not the room credential's: only a replay stops it.
       approve: c.replay ? hide("This is a replay: approve your assistant's requests from the live room.") : OK,
       roomStep: first(ro),

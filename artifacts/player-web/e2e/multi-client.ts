@@ -480,9 +480,12 @@ await check("the hosted player client (engine site, /client/) plays as the signe
   await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
   assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
   // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge, approvals.
-  await page.locator("[data-testid^=row-agent-], [data-testid=text-chat-closed], [data-testid=panel-forge-readonly], [data-testid=panel-forge]").first().waitFor({ timeout: 30_000 });
+  // Carol's layout has My agents and public chat: wait for the chat's closed line, then let the other panes settle.
+  await page.getByTestId("text-chat-closed").waitFor({ timeout: 30_000 });
+  await sleep(1000);
   for (const sel of ["[data-testid^=button-load-agent-]", "[data-testid^=button-destroy-agent-]", "[data-testid=input-chat]", "[data-testid=button-send-chat]",
-    "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]", "[data-testid=button-confirm-approve]"]) {
+    "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]", "[data-testid=button-confirm-approve]",
+    "[data-testid=button-confirm-deny]", "[data-testid^=button-confirm-destroy-]"]) {
     assert(await page.locator(sel).count() === 0, `a read-only replay shows ${sel}`);
   }
   await context.close();

@@ -45,7 +45,7 @@ test("after the end of a live game: Destroy goes; Validate and Summon stay visib
   const a = deriveAffordances({ ...live, phase: "ended" });
   assert.ok(!a.can.destroy.ok && a.can.destroy.hidden);
   assert.ok(!a.can.summon.ok && !a.can.summon.hidden && /over/.test(a.can.summon.reason));
-  assert.ok(!a.can.validate.ok && !a.can.validate.hidden);
+  assert.ok(!a.can.validate.ok && !a.can.validate.hidden && /validated/.test(a.can.validate.reason));
   assert.deepEqual(a.can.editCode, { ok: true }, "the code can be kept for the next game");
   assert.deepEqual(a.can.chat, { ok: true }, "room chat continues after a game");
 });
@@ -53,6 +53,7 @@ test("after the end of a live game: Destroy goes; Validate and Summon stay visib
 test("transient states disable (never hide) and say why: busy, unknown outcome, no observation, sandbox warming, spectating", () => {
   const busy = deriveAffordances({ ...live, busy: true });
   assert.ok(!busy.can.destroy.ok && !busy.can.destroy.hidden && /running/.test(busy.can.destroy.reason));
+  assert.deepEqual(busy.can.chat, { ok: true }, "typing in chat goes on while a command runs");
   const unknown = deriveAffordances({ ...live, unknownOutcome: true });
   assert.ok(!unknown.can.chat.ok && !unknown.can.chat.hidden && /unknown/.test(unknown.can.chat.reason));
   const loading = deriveAffordances({ ...live, hasObservation: false, phase: undefined });

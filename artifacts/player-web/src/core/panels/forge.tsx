@@ -29,22 +29,19 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
   const language: Lang = forgeLanguage(allowed, state.draft.language, params.language);
   const can = useAffordances();
   // Read-only (a replay, a read-only credential): the code can be read, never edited, so there is no editor.
-  if (!can.can.editCode.ok) {
-    return shown
-      ? <div className="space-y-3" data-testid="panel-forge"><pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre></div>
-      : <PanelEmpty testId="panel-forge-readonly">{can.can.editCode.reason} Open an agent's code from {can.whose} agents.</PanelEmpty>;
-  }
+  const readOnly = !can.can.editCode.ok;
+  if (readOnly && !shown) return <PanelEmpty testId="panel-forge-readonly">{!can.can.editCode.ok && can.can.editCode.reason} Open an agent's code from {can.whose} agents.</PanelEmpty>;
   // Nothing to look at: the pane is the editor straight away.
-  const editing = state.editing || !shown;
+  const editing = !readOnly && (state.editing || !shown);
 
   if (!editing) {
     const lang = live?.language ?? forgeLanguage(allowed, params.language);
     return (
       <div className="space-y-3" data-testid="panel-forge">
-        <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? "The code of one of your agents, as it ran until the end." : "The code of one of your live agents.") : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
+        <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? `The code of one of ${can.whose} agents, as it ran until the end.` : `The code of one of ${can.whose} live agents.`) : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
-          <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>
+          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, lang)}>Edit</GhostButton>}
           <span className="font-mono text-xs text-muted-foreground">{lang} · {bytes(shown!)} bytes</span>
         </div>
       </div>
