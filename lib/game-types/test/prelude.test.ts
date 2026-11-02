@@ -134,7 +134,7 @@ test("parity fixture (consumed by test/parity.py)", () => {
   writeFileSync(new URL("prelude-parity.json", dir), JSON.stringify(fixture));
 });
 
-// The derived fields (pricing vocabulary, hash) are computed on first read (prelude.ts withDerived, so describing an
+// The derived fields (pricing vocabulary, hash, Haskell module) are computed on first read (prelude.ts withDerived, so describing an
 // instance stays cheap); every way of reading them sees the same frozen values, as when they were plain fields.
 test("a prelude's hash and pricing read the same, frozen, through every access path", () => {
   for (const type of OBJECT_TYPES) {
@@ -146,7 +146,7 @@ test("a prelude's hash and pricing read the same, frozen, through every access p
       const plain = JSON.parse(JSON.stringify(p));
       assert.equal(plain.hash, p.hash);
       assert.deepEqual(plain.pricing, JSON.parse(JSON.stringify(p.pricing)));
-      assert.deepEqual(Object.keys({ ...p }).sort(), ["dts", "hash", "helpers", "js", "pricing", "python"]);
+      assert.deepEqual(Object.keys({ ...p }).sort(), ["dts", "hash", "haskell", "helpers", "js", "pricing", "python"]);
       assert.equal(Object.fromEntries(Object.entries(p)).hash, p.hash);
     }
     assert.ok(withCommitClause(type.prelude(inst)).pricing.typescript.api.includes("onlyIfBetter"), "the clause adds its name");

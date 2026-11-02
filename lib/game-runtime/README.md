@@ -1,10 +1,11 @@
 # Isolated computational runtime adapters
 
 This package owns no server, database, authentication, transport or game rules.
-Both languages run in WebAssembly on Node's own V8, with no child processes:
+All three languages run in WebAssembly on Node's own V8, with no child processes:
 Python is CPython 3.15 (WASI) hosted by `engine/python.mjs`, TypeScript is
 QuickJS (`engine/quickjs.mjs`) behind the TypeScript 5.9.3 compiler
-(`engine/typescript.mjs`). `GameRuntime` (index.mjs) is the asynchronous,
+(`engine/typescript.mjs`), and Haskell is MicroHs (WASI) hosted by
+`engine/haskell.mjs` (see "Haskell" below). `GameRuntime` (index.mjs) is the asynchronous,
 bounded pool to use from a request handler or a Convex action; the engines
 themselves are synchronous and have no admission queue.
 
@@ -17,6 +18,8 @@ other compiler version). Python needs one build artifact, the **runtime bundle**
 ```
 pnpm --filter @workspace/game-runtime setup:python    # pinned CPython WASI download (python3, stdlib only)
 pnpm --filter @workspace/game-runtime build:python    # dist/python-runtime.bin.gz, checked against its pin
+pnpm --filter @workspace/game-runtime setup:haskell   # pinned MicroHs commit (git) + wasi-sdk 25 (curl, tar)
+pnpm --filter @workspace/game-runtime build:haskell   # dist/haskell-runtime.bin.gz (about 30 s), checked against its pin
 pnpm --filter @workspace/game-runtime test
 pnpm --filter @workspace/game-runtime benchmark
 ```
@@ -176,6 +179,64 @@ prelude's `dts` and a trusted check `__encode_calls(agent(__decode(wire)))`, so
 accepts. An unannotated first parameter of `agent` is typed as
 `ReturnType<typeof __decode>` (other unannotated parameters are strict-mode
 errors). Types are then erased and QuickJS runs the JavaScript.
+
+**haskell-agent-v1.** A module body without a `module` header: optional
+`import` lines, then declarations, one of them `agent :: Obj -> [Call]` (or an
+unannotated `agent` of that type). The engine compiles it as module `Agent`
+after `import Room` (the room's generated helpers, lib/game-types `haskell.ts`)
+and `import Prelude hiding (...)` for the Prelude names the room redefines
+(String's `reverse`, `truncate`), so the room's names win; `Prelude.reverse` and
+`Data.List` stay reachable qualified. `Obj` is the room's object (`Int`,
+`String`, or `Grid` with `Cell` records); `Call` is a move. Diagnostics give the
+player's own line and column.
+
+## Haskell (MicroHs on WASI)
+
+**Bundle.** `setup:haskell` fetches MicroHs (Apache-2.0) at a pinned commit
+(`git`, then SHA-256 of the files the build reads) and wasi-sdk 25 (SHA-256 of
+the release archive) into `.cache/code-gods`; `build:haskell` compiles MicroHs's
+evaluator twice for `wasm32-wasip1` (with the compiler's combinator image, and
+alone) and packs both with the precompiled `base` package into
+`dist/haskell-runtime.bin.gz` (1.2 MB gzip), pinned by
+`HASKELL_BUNDLE_SHA256` (engine/haskell-bundle.mjs). `wasi/config.h` and
+`wasi/extra.c` replace MicroHs's unix platform files (no terminal, signals,
+sockets, directories or processes; sleeping returns at once). eval.c is patched
+at build time (`patchEval`): a reduction budget checked every 10,000 reductions
+(the scheduler slice), exit code 86 when it is spent, and two exports for the host.
+
+**Compile** (one compiler worker, output cached by the pool like TypeScript's):
+the player's `Agent`, the room's `Room` and a fixed `Main` (`getContents`,
+`cgDecode`, `agent`, `cgEncode`, `putStr`) become one self-contained combinator
+program, in about 2.5–4 s on V8 (8M-cell heap, about 125 MiB of wasm memory;
+the compiler has a 2·10⁹-reduction ceiling and the pool's preparation wall).
+
+**Act** (execution workers): a fresh evaluator instance runs that program with
+the wire value on stdin (the number in decimal, or the text) and a 2M-cell heap;
+its stdout is the moves as JSON (`[["slide", [{"__hs": "row", "args": [2]}]]]`,
+or `{"commit": "if-improves", "calls": [...]}`). The room's trusted JavaScript
+constructors, in QuickJS, turn each move into the wire call exactly as a
+TypeScript agent's call would (`movesProgram`): only the room's move helpers and
+area helpers may be named. A Haskell agent's calls equal a TypeScript agent's for
+the same moves (test/haskell.test.mjs).
+
+**Determinism and steps.** Single-threaded graph reduction with a fixed heap is
+deterministic; the WASI host (engine/haskell-wasi.mjs) answers only the virtual
+clock and the act's seeded byte stream, a read-only tree, stdin/stdout/stderr and
+writes under `/out/`. One step is 10 reductions; the budget is checked every
+10,000 reductions and exactly at the end. Running out of heap (or the Haskell
+stack) is `LIMIT`; an uncaught exception is `EXECUTION`. Node's own `node:wasi`
+is not used (its fast path crashes on these modules).
+
+**Price: hs-token-bits-v1-uniform.** Over the token stream of the player's
+source (engine/hs-token-bits.mjs): a token kind (log2 7), then keyword/special
+class, line breaks by indentation (Elias gamma), names alpha-equivalent with
+standard Haskell names (`hs-standard-names.json`) and the room's names as
+externals, literals by the universal codes, and the move flag per use of a move
+helper. The grammar's own signature line `agent :: Obj -> [Call]` is free. No
+literal moves (Haskell moves are coded like other expressions). Uniform and
+approximate like ts-ast-bits, and not calibrated against Python: a one-move agent
+costs about 52 bits (TypeScript 47, Python 30, before their literal moves); the
+realistic Grid agent of benchmark.mjs about 1,800 (TypeScript 1,760, Python 760).
 
 ## Summon price: ast-bits-v1 (Python) and ts-ast-bits-v1-uniform (TypeScript)
 

@@ -156,9 +156,13 @@ export function dealerOf(settings: GameSettings): { selectorId: string; dealtAs:
   if (selectorId !== fairAligned.id || synergyFor(instantiationOf(settings), settings.priorId)) return { selectorId, dealtAs: selectorId };
   return { selectorId, dealtAs: divineLottery.id, note: `No synergy has been measured for ${instantiationOf(settings).key}: the ${fairAligned.name} deals like the ${divineLottery.name}` };
 }
-/** A god's own kid card: plain-language incentives first, then source in the game's default (first allowed) language, plus any defence goal. */
+/**
+ * A god's own kid card: plain-language incentives first, then source in the game's default (first allowed) language, plus
+ * any defence goal. Cards exist in Python and TypeScript; a Haskell-first game shows the TypeScript card (`language` says so).
+ */
 export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) {
-  const language = allowedLanguages(settings)[0]!;
+  const first = allowedLanguages(settings)[0]!;
+  const language = first === "haskell" ? "typescript" : first;
   const c = card(utility, context(instantiationOf(settings)));
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,

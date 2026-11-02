@@ -29,6 +29,11 @@ export const LANGUAGE_SPECS = Object.freeze({
     grammarLabel: "function agent(obj) returns mutator calls",
     emptyAgent: "function agent(x) { return []; }",
   }),
+  haskell: Object.freeze({
+    label: "Haskell", grammarId: "haskell-agent-v1", complexityFunctionId: "hs-token-bits-v1-uniform",
+    grammarLabel: "agent :: Obj -> [Call] returns mutator calls",
+    emptyAgent: "agent :: Obj -> [Call]\nagent x = []",
+  }),
 } as const);
 export type Language = keyof typeof LANGUAGE_SPECS;
 export const LANGUAGES: readonly Language[] = Object.freeze(Object.keys(LANGUAGE_SPECS) as Language[]);

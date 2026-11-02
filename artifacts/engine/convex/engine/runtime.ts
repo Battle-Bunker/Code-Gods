@@ -26,17 +26,20 @@ export const isAgentFault = (error: unknown) =>
   !!error && typeof error === "object" && AGENT_FAULTS.has(String((error as { code?: unknown }).code));
 
 const actSettingsCache = new Map<string, ActSettings>();
-/** The runtime's view of a room: the instantiation's prelude and wire bound, never the full settings. */
-export function actSettings(settings: GameSettings): ActSettings {
-  const inst = instantiationOf(settings);
-  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}`;
+/**
+ * The runtime's view of a room for one language: the instantiation's prelude and wire bound, never the full settings.
+ * Only a Haskell runtime gets the Haskell Room module (built on first use; the others never read it).
+ */
+export function actSettings(settings: GameSettings, language: Language): ActSettings {
+  const inst = instantiationOf(settings), haskell = language === "haskell";
+  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}\0${haskell}`;
   let cached = actSettingsCache.get(key);
   if (!cached) {
     const base = objectType(inst.objectType).prelude(inst), parts = settings.commitClause ? withCommitClause(base) : base;
     cached = Object.freeze({
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, ...(haskell ? { haskell: parts.haskell } : {}),
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     }) as ActSettings;
     if (actSettingsCache.size >= 64) actSettingsCache.delete(actSettingsCache.keys().next().value!);
@@ -65,11 +68,11 @@ async function guarded<T>(language: Language, run: (rt: GameRuntime) => Promise<
  */
 export function inspect(source: string, language: Language, settings: GameSettings): Promise<Inspection> {
   validateSettings(settings);
-  return guarded(language, rt => rt.inspect(source, actSettings(settings)));
+  return guarded(language, rt => rt.inspect(source, actSettings(settings, language)));
 }
 /** One deterministic act (frozen clock, `random` seeded with `seed`) of an agent in `language`: the UNTRUSTED encoded call list. */
 export function act(source: string, language: Language, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
-  return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings), seed.toString()));
+  return guarded(language, rt => rt.act(source, input as string | number, actSettings(settings, language), seed.toString()));
 }
 
 /**

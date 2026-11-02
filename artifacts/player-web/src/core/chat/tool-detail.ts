@@ -214,20 +214,21 @@ export function toolDetail(call: DetailCall): Section[] {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Syntax highlighting (agent and analytics code: Python and TypeScript)
+// Syntax highlighting (agent and analytics code: Python, TypeScript and Haskell)
 // ---------------------------------------------------------------------------------------------
 
 export type Token = { text: string; kind: "keyword" | "string" | "comment" | "number" | "plain" };
 const KEYWORDS: Record<string, Set<string>> = {
   python: new Set("and as assert async await break class continue def del elif else except False finally for from global if import in is lambda None nonlocal not or pass raise return True try while with yield".split(" ")),
   typescript: new Set("as async await break case catch class const continue default delete do else export extends false finally for from function if import in instanceof let new null of return switch this throw true try type typeof undefined var void while yield".split(" ")),
+  haskell: new Set("case class data deriving do else if import in instance let module newtype of then type where qualified as hiding True False Nothing Just".split(" ")),
 };
 
-/** Tokens of a Python or TypeScript source, for colouring only: strings, comments, numbers and keywords. */
+/** Tokens of a Python, TypeScript or Haskell source, for colouring only: strings, comments, numbers and keywords. */
 export function highlight(code: string, language: string): Token[] {
-  const lang = language === "typescript" || language === "javascript" ? "typescript" : "python";
-  const comment = lang === "python" ? "#[^\\n]*" : "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
-  const strings = lang === "python" ? `"""[\\s\\S]*?"""|'''[\\s\\S]*?'''|"(?:\\\\.|[^"\\\\\\n])*"|'(?:\\\\.|[^'\\\\\\n])*'` : "`(?:\\\\.|[^`\\\\])*`|\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n])*'";
+  const lang = language === "typescript" || language === "javascript" ? "typescript" : language === "haskell" ? "haskell" : "python";
+  const comment = lang === "python" ? "#[^\\n]*" : lang === "haskell" ? "--[^\\n]*|\\{-[\\s\\S]*?-\\}" : "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+  const strings = lang === "haskell" ? `"(?:\\\\.|[^"\\\\\\n])*"` : lang === "python" ? `"""[\\s\\S]*?"""|'''[\\s\\S]*?'''|"(?:\\\\.|[^"\\\\\\n])*"|'(?:\\\\.|[^'\\\\\\n])*'` : "`(?:\\\\.|[^`\\\\])*`|\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n])*'";
   const pattern = new RegExp(`(${comment})|(${strings})|(\\b\\d+(?:\\.\\d+)?\\b)|([A-Za-z_][A-Za-z0-9_]*)`, "g");
   const out: Token[] = [];
   let at = 0;

@@ -16,7 +16,7 @@ import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { loadPythonRuntime, type Language } from "@workspace/game-runtime";
 import { unpack } from "@workspace/game-runtime/bundle";
-import { assetLoad, bindRuntime, pythonBundle, scriptRuntimeFor } from "./node";
+import { assetLoad, bindRuntime, pythonBundle, scriptRuntimeFor, type ScriptLanguage } from "./node";
 
 const moduleLoadedAt = Date.now();
 const since = (t: number) => Math.round(performance.now() - t);
@@ -30,7 +30,7 @@ const stats = (times: number[]) => {
 /** The benchmark inputs and scripts, the same in every engine (the container numbers use the same ones). */
 export const OBJECTS = JSON.stringify(Array.from({ length: 80 }, (_, i) => ({ id: `o${i}`, mine: (i * 37) % 101, theirs: [(i * 13) % 50, (i * 29) % 70] })));
 export const ROWS = JSON.stringify(Array.from({ length: 1000 }, (_, i) => ({ x: i, y: (i * 7919) % 1000 + i / 3 })));
-const SCRIPTS: Record<Language, { rank: string; corr: string }> = {
+const SCRIPTS: Record<ScriptLanguage, { rank: string; corr: string }> = {
   python: {
     rank: "def main(d):\n    for o in d['objects']:\n        o['score'] = o['mine'] - sum(o['theirs']) / len(o['theirs'])\n    return sorted(d['objects'], key=lambda o: -o['score'])[:5]\n",
     corr: "import statistics\ndef main(d):\n    return statistics.correlation([r['x'] for r in d['rows']], [r['y'] for r in d['rows']])\n",

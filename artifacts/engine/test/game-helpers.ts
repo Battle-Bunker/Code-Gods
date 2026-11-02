@@ -160,3 +160,8 @@ export const PY = {
   string: "def agent(s):\n    return [rotate(1)]",
   Grid: "def agent(grid):\n    return [slide(row(0), 1)]",
 } as const;
+export const HS = {
+  Int: "agent :: Obj -> [Call]\nagent x = [add 1]",
+  string: "agent :: Obj -> [Call]\nagent s = [rotate' 1]",
+  Grid: "agent :: Obj -> [Call]\nagent grid = [slide' (row 0) 1 \"both\"]",
+} as const;

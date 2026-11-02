@@ -109,4 +109,9 @@ test("highlighting finds keywords, strings, comments and numbers, and loses no c
   const ts = highlight("const x = `a${1}`; // done\nreturn x", "typescript");
   assert.deepEqual(ts.filter(t => t.kind === "keyword").map(t => t.text), ["const", "return"]);
   assert.deepEqual(ts.filter(t => t.kind === "comment").map(t => t.text), ["// done"]);
+  const hsCode = "agent :: Obj -> [Call]\nagent x = [write 0 \"a\"] -- one move\n{- block -}";
+  const hs = highlight(hsCode, "haskell");
+  assert.equal(hs.map(t => t.text).join(""), hsCode);
+  assert.deepEqual(hs.filter(t => t.kind === "comment").map(t => t.text), ["-- one move", "{- block -}"]);
+  assert.deepEqual(hs.filter(t => t.kind === "string").map(t => t.text), ['"a"']);
 });

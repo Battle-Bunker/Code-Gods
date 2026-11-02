@@ -153,8 +153,31 @@ declare function digits(x: number): number[];
 declare function fromDigits(ds: readonly number[]): number;
 declare function __decode(wire: number): number;
 `;
+  const haskell = `
+-- | An object of this room: a whole number.
+type Obj = Int
+
+-- | The smallest number in this room.
+lowest :: Int
+lowest = ${min}
+
+-- | The biggest number in this room.
+highest :: Int
+highest = ${max}
+
+-- | The decimal digits of a whole number, biggest first: digits (-305) == [3, 0, 5].
+digits :: Int -> [Int]
+digits x = P.map (\\c -> P.fromEnum c P.- 48) (P.show (P.abs (P.toInteger x)))
+
+-- | The number some digits make: fromDigits [3, 0, 5] == 305.
+fromDigits :: [Int] -> Int
+fromDigits = P.foldl (\\n d -> n P.* 10 P.+ d) 0
+
+cgDecode :: String -> Obj
+cgDecode = P.read
+`;
   return assemblePrelude(inst, {
-    python, js, dts, helpers: [
+    python, js, dts, haskell, helpers: [
       helper("LOWEST", "LOWEST -> int", "LOWEST: number", `The smallest number in this room (${min})`),
       helper("HIGHEST", "HIGHEST -> int", "HIGHEST: number", `The biggest number in this room (${max})`),
       helper("digits", "digits(x) -> list[int]", "digits(x: number): number[]", "The digits of a number, biggest first: digits(305) is [3, 0, 5]"),

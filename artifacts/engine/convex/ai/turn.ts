@@ -23,9 +23,12 @@ import type { Reservation } from "./seats";
 
 /** A simple valid agent for each object type, in each language (a language without one here is never the mock's pick). */
 export const SIMPLE_AGENTS: Record<string, Partial<Record<Language, string>>> = {
-  Int: { python: "def agent(x):\n    return [add(1)]", typescript: "function agent(x) { return [add(1)]; }" },
-  string: { python: "def agent(s):\n    return [rotate(1)]", typescript: "function agent(s) { return [rotate(1)]; }" },
-  Grid: { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }" },
+  Int: { python: "def agent(x):\n    return [add(1)]", typescript: "function agent(x) { return [add(1)]; }",
+    haskell: "agent :: Obj -> [Call]\nagent x = [add 1]" },
+  string: { python: "def agent(s):\n    return [rotate(1)]", typescript: "function agent(s) { return [rotate(1)]; }",
+    haskell: "agent :: Obj -> [Call]\nagent s = [rotate' 1]" },
+  Grid: { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }",
+    haskell: "agent :: Obj -> [Call]\nagent grid = [slide' (row 0) 1 \"both\"]" },
 };
 
 /**

@@ -1,4 +1,4 @@
-# Deploys the engine (functions, Python runtime bundle, both static sites) to Convex.
+# Deploys the engine (functions, the Python and Haskell runtime bundles, both static sites) to Convex.
 #   push to develop → GitHub Environment "development" → the dev deployment
 #   push to main    → GitHub Environment "production"  → the production deployment
 # Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
@@ -55,10 +55,11 @@ jobs:
         id: cpython
         with:
           path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+          key: runtime-inputs-${{ hashFiles('lib/game-runtime/python/setup.py', 'lib/game-runtime/scripts/setup-haskell.mjs') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
+        run: pnpm --filter @workspace/game-runtime setup:python && pnpm --filter @workspace/game-runtime setup:haskell
       - run: pnpm --filter @workspace/game-runtime build:python
+      - run: pnpm --filter @workspace/game-runtime build:haskell
       - run: pnpm --filter @workspace/game-runtime test
 
   deploy:
@@ -101,15 +102,16 @@ jobs:
       - if: github.ref_name == 'main'
         run: pnpm --filter @workspace/game-utilities calibrate --check
 
-      # ---- the pinned Python runtime bundle ----
+      # ---- the pinned runtime bundles (Python, Haskell) ----
       - uses: actions/cache@v4
         id: cpython
         with:
           path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+          key: runtime-inputs-${{ hashFiles('lib/game-runtime/python/setup.py', 'lib/game-runtime/scripts/setup-haskell.mjs') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
+        run: pnpm --filter @workspace/game-runtime setup:python && pnpm --filter @workspace/game-runtime setup:haskell
       - run: pnpm --filter @workspace/game-runtime build:python
+      - run: pnpm --filter @workspace/game-runtime build:haskell
       - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
         working-directory: lib/game-runtime
         run: node scripts/build-worker.mjs --check
@@ -192,7 +194,7 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run migrations:assistantPerGame
 
-      - name: Upload the Python runtime bundle
+      - name: Upload the runtime bundles (Python, Haskell)
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: pnpm --filter @workspace/engine upload-runtime

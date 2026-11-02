@@ -40,8 +40,8 @@ const ordinal = z.union([finite, z.array(finite).max(16)]);
 const shape = z.union([z.object({ kind: z.literal("scalar") }), z.object({ kind: z.literal("tuple"), arity: z.number().int().min(1).max(16) })]);
 const badge = z.object({ id: z.string().max(64), emoji: z.string().max(16), label: z.string().max(128), kid: z.string().max(300) });
 const helper = z.object({
-  name: z.object({ python: z.string().max(64), typescript: z.string().max(64) }),
-  signature: z.object({ python: z.string().max(300), typescript: z.string().max(300) }),
+  name: z.object({ python: z.string().max(64), typescript: z.string().max(64), haskell: z.string().max(64).optional() }),
+  signature: z.object({ python: z.string().max(300), typescript: z.string().max(300), haskell: z.string().max(300).optional() }),
   kid: z.string().max(500), class: z.string().max(64).optional(), group: z.enum(["read", "mutator"]),
 });
 /** The fully applied object type of the game (game-types InstanceInfo): its display tables, mutators and prelude helpers. */

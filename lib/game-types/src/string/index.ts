@@ -140,6 +140,17 @@ type Score = number | number[];
 declare const MAX_LENGTH: ${L};
 declare function __decode(wire: string): string;
 `,
+    haskell: `
+-- | An object of this room: a text of ASCII characters.
+type Obj = String
+
+-- | The longest text allowed in this room.
+maxLength :: Int
+maxLength = ${L}
+
+cgDecode :: String -> Obj
+cgDecode s = s
+`,
     helpers: [helper("MAX_LENGTH", "MAX_LENGTH -> int", "MAX_LENGTH: number", `The longest text allowed in this room (${L} characters)`)],
   }, STRING_MUTATORS);
 });

@@ -13,7 +13,7 @@ import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope
 import { useRoom } from "./context";
 import { useObservation } from "./hooks";
 
-export type Language = "python" | "typescript";
+export type Language = "python" | "typescript" | "haskell";
 
 export function useActions() {
   const { roomId, permission } = useRoom();
