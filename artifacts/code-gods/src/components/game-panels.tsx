@@ -79,9 +79,10 @@ export function Objects({ objects, instance, emptyBody = "Objects appear once th
 }
 
 /** Public chat: the only free-text input on the engine UI's pages. */
-export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public chat" }: {
+/** `closed`: why nobody can post here (e.g. the game is over); the composer is replaced by that line. */
+export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public chat", closed }: {
   messages: readonly ChatMessage[]; canPost: boolean; placeholder: string; pending: boolean;
-  onSend: (text: string, done: () => void) => void; title?: string;
+  onSend: (text: string, done: () => void) => void; title?: string; closed?: string;
 }) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
@@ -102,11 +103,12 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
         ))}
         <div ref={end} />
       </div>
+      {closed ? <p className="border-t px-4 py-3 text-sm text-muted-foreground" data-testid="text-chat-closed">{closed}</p> : (
       <form className="border-t flex" onSubmit={e => { e.preventDefault(); const t = text.trim(); if (t) onSend(t.slice(0, 4000), () => setText("")); }}>
         <input disabled={!canPost} value={text} onChange={e => setText(e.target.value)} maxLength={4000} placeholder={placeholder} aria-label="Message to everyone"
           className="flex-1 min-w-0 bg-transparent px-4 py-3 text-sm outline-none disabled:opacity-50" data-testid="input-chat" />
         <button type="submit" disabled={!canPost || !text.trim() || pending} className="px-4 border-l text-primary disabled:opacity-40" data-testid="button-send-chat" aria-label="Send to everyone"><Send className="h-4 w-4" /></button>
-      </form>
+      </form>)}
     </Section>
   );
 }

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Globe, Send } from "lucide-react";
 import { useChat, useGame } from "@/sdk";
 import { useGameCommands, useRunner } from "@/core/game/runner";
+import { useAffordances } from "@/core/use-affordances";
 import { PanelEmpty, type PanelProps } from "./kit";
 
 function marked(text: string, terms: readonly string[]): ReactNode {
@@ -19,7 +20,8 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
   const chat = useChat({ hz: 2 });
   const game = useGame({ hz: 1 });
   const commands = useGameCommands();
-  const { busy, unknown } = useRunner();
+  const { busy } = useRunner();
+  const { can } = useAffordances();
   const [text, setText] = useState("");
   const list = useRef<HTMLUListElement>(null);
   const me = game?.self;
@@ -27,7 +29,7 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
   const mentionsMe = (t: string) => !!first && t.toLowerCase().includes(first.toLowerCase());
   const shown = chat.filter(c => params.filter === "all" || (params.filter === "humans" ? !c.isAI : params.filter === "ai" ? c.isAI : mentionsMe(c.text)));
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight }); }, [shown.length]);
-  const canSend = !!game && commands.canAct && !unknown;
+  const canSend = can.chat.ok;
   const send = async () => {
     const t = text.trim();
     if (!t || busy) return;
@@ -45,13 +47,14 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
           </li>
         ))}
       </ul>
+      {!can.chat.ok && can.chat.hidden ? <p data-testid="text-chat-closed" className="border-t-2 border-[hsl(var(--input))] pt-2 text-xs text-muted-foreground">Chat closed: {can.chat.reason}</p> : (
       <form className="flex items-center gap-2 border-t-2 border-primary pt-2" onSubmit={e => { e.preventDefault(); void send(); }}>
         <Globe size={14} className="shrink-0 text-muted-foreground" aria-hidden />
         <input data-testid="input-chat" value={text} onChange={e => setText(e.target.value)} maxLength={2000} disabled={!canSend} placeholder="Say to everyone…"
           aria-label="Say to everyone (public)" className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none disabled:opacity-40" />
         <button type="submit" data-testid="button-send-chat" disabled={!canSend || !text.trim() || !!busy} aria-label="Send to everyone"
           className="inline-flex items-center bg-primary px-3 py-1.5 text-primary-foreground disabled:opacity-35"><Send size={14} /></button>
-      </form>
+      </form>)}
     </div>
   );
 }

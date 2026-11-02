@@ -10,7 +10,7 @@ import { useSituation } from "@/core/game/situation";
 import { useStartView } from "@/core/game/start";
 import { paletteStore } from "@/core/palette/store";
 import { nextStep } from "./next-step";
-import { useReplaySource } from "@/sdk/replay-source";
+import { useAffordances } from "@/core/use-affordances";
 
 export function useNextStep(paneId: string, phase: Phase) {
   const situation = useSituation();
@@ -19,16 +19,16 @@ export function useNextStep(paneId: string, phase: Phase) {
   const owner = useOwnerActions();
   const start = useStartView();
   const step = nextStep({ phase, seated: situation.seated, isOwner: situation.isOwner, members: situation.members, agents: agents.length, start });
-  const replay = useReplaySource();
+  // Read-only (a replay, a read-only credential): only a step that opens a panel is offered; one that acts is not shown.
+  const { can } = useAffordances();
+  const offered = step.action.kind === "panel" || can.roomStep.ok;
   const go = () => {
-    if (step.busy) return;
-    // A replay acts on nothing: its next steps may open panels, never start or act on the live room.
-    if (replay && step.action.kind !== "panel") return;
+    if (step.busy || !offered) return;
     const action = step.action;
     if (action.kind === "panel") dock.show(action.panelId);
     else if (action.kind === "forge") dock.forgeEdit();
     else if (action.kind === "start") void owner.start();
     else paletteStore.open(paneId, step.label);
   };
-  return { step, go, situation, agents };
+  return { step, go, offered, situation, agents };
 }

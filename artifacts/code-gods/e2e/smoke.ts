@@ -469,6 +469,12 @@ try {
       await b.getByTestId("panel-final-results").waitFor({ timeout: 30_000 });
       assert.equal(await a.getByTestId("text-game-status").innerText(), "ENDED");
       assert.match(await a.getByTestId("text-end-reason").textContent(), /ended by owner/);
+      // Nothing on the ended game's page offers an action it no longer has: no chat box, no owner menu, no next step.
+      for (const page of [a, b]) {
+        await page.getByTestId("text-chat-closed").waitFor();
+        assert.equal(await page.getByTestId("input-chat").count(), 0, "the ended game's chat has no input");
+        assert.equal(await page.getByTestId("button-owner-menu").count(), 0, "no End game menu after the end");
+      }
       await shot(a, `game-${name}-ended`);
     });
 
