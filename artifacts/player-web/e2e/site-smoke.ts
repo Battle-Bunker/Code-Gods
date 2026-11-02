@@ -464,6 +464,10 @@ try {
         throw new Error(`${error.message}\n${b.url()}\n${(await b.locator("body").innerText()).slice(0, 1500)}\nconsole errors:\n${((b as unknown as { consoleErrors?: string[] }).consoleErrors ?? []).slice(-5).join("\n")}`);
       });
       assert.equal(await b.getByTestId("text-game-code").count(), 0, "a player gets the player view, not the spectator view");
+      await a.getByTestId("text-game-status").waitFor({ timeout: 30_000 }).catch(async (error: Error) => {
+        await shot(a, `game-spectator-${name}-failed`);
+        throw new Error(`${error.message}\n${a.url()}\n${(await a.locator("body").innerText()).slice(0, 1500)}\nconsole errors:\n${((a as unknown as { consoleErrors?: string[] }).consoleErrors ?? []).slice(-5).join("\n")}`);
+      });
       assert.equal(await a.getByTestId("text-game-status").innerText(), "LIVE");
       // The world clock and the objects move without any reload or polling (the clock is under Game details).
       const t0 = Number((await a.getByTestId("text-world-t").textContent()).replace(/[^\d.]/g, ""));
