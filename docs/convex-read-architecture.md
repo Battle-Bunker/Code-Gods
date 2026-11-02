@@ -491,11 +491,12 @@ A query error is shown. If it is a limit error, it is a bug in the query.
 **R8. Budgets are tested** (`artifacts/engine/test/game-query-cost.test.ts`, §6 PR 1). In a 1,000-object running
 game:
 - every public query a page subscribes to reads **≤ 100 documents and ≤ 64 KiB**;
-- every such query runs in **≤ 50 ms** of server time (median of 10 sequential uncached runs on the idle local
-  backend);
+- every such query runs in **≤ 50 ms** of user-code time (`userExecutionTime`: median of 10 sequential uncached runs on
+  the local backend while the game runs);
 - every **cold** query (room, layout, my utility, past games, header) is **not invalidated by a tick**: an `onUpdate`
   subscription receives no update across 5 commits;
-- every query refuses an unauthenticated caller (sign-in is required everywhere, owner decision 2026-11-02).
+- every query refuses an unauthenticated caller (sign-in is required everywhere, owner decision 2026-11-02), except
+  the two decided open: `version.current` (the deploy auto-update) and `auth/user.me` (null when signed out).
 
 **R9. Every write path is checked for invalidation fan-out.**
 - When adding a field to a document, ask who reads that document. If it is written often, R3 applies.

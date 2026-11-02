@@ -196,6 +196,16 @@ export const rawGame = internalQuery({
   },
 });
 
+/** A game's engine counters (the query-cost gate waits for tick commits with it): one small read, unlike rawGame. */
+export const gameCounters = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    return game && { phase: game.phase, worldSeconds: game.worldSeconds, objectCount: game.objectCount, commits: game.stats.commits };
+  },
+});
+
 /** The latest stored compilations (runtime/programs.ts), newest first. */
 export const compiledProgramsLatest = internalQuery({
   args: { count: v.number() },
