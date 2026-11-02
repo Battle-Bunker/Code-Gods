@@ -116,8 +116,8 @@ async function check(name: string, fn: () => Promise<void>) {
       const body = await page.locator("body").innerText({ timeout: 2000 }).catch(() => "(unreadable)");
       views.push(`--- ${who} at ${page.url()}\n${body.slice(0, 800)}\nconsole errors:\n${consoleErrors.slice(-5).join("\n")}`);
     }
-    if (error instanceof Error) error.message += `\n${views.join("\n")}`;
-    throw error;
+    // A new error: Node prints the stack, which holds the message as it was when the error was made.
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\n${views.join("\n")}`, { cause: error });
   }
   results.push(name);
   console.log(`ok - ${name}`);

@@ -9,7 +9,7 @@
  * - Real user input (pointer/keyboard) calls `activity.touch` at most once a minute, which keeps the
  *   engine out of idle parking and resumes parked games. Nothing else pings: no polling, no heartbeats.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, useQueries } from "convex/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
@@ -18,6 +18,7 @@ import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
+import { retryDelay, transientQueryError } from "@/lib/live-retry";
 
 export { api };
 
@@ -128,12 +129,32 @@ export type Result<T> = { data: T | undefined; error: Error | null; isLoading: b
  */
 export function useLive<Q extends FunctionReference<"query">>(query: Q, args: FunctionArgs<Q> | "skip"): Result<FunctionReturnType<Q>> {
   const { isAuthenticated } = useConvexAuth();
-  const skip = args === "skip" || !isAuthenticated;
+  // A transient failure is retried by dropping the subscription for a moment (Convex then runs the query afresh).
+  const [resubscribing, setResubscribing] = useState(false);
+  const skip = args === "skip" || !isAuthenticated || resubscribing;
   // useQueries needs a stable request object; key it like convex's own useQuery does.
   const key = skip ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const request = useMemo((): Parameters<typeof useQueries>[0] => (skip ? {} : { q: { query, args: args as FunctionArgs<Q> } }), [key]);
   const r = useQueries(request).q as FunctionReturnType<Q> | Error | undefined;
-  if (r instanceof Error) return { data: undefined, error: r, isLoading: false };
+  // The last answer for these args stays on screen while a retry is under way.
+  const last = useRef<{ key: string; data: FunctionReturnType<Q> } | null>(null);
+  const attempts = useRef(0);
+  const argsKey = args === "skip" ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
+  if (r !== undefined && !(r instanceof Error)) { last.current = { key: argsKey, data: r }; attempts.current = 0; }
+  const transient = transientQueryError(r);
+  useEffect(() => {
+    if (!transient) return;
+    const t = setTimeout(() => setResubscribing(true), retryDelay(attempts.current++));
+    return () => clearTimeout(t);
+  }, [transient, r]);
+  useEffect(() => {
+    if (!resubscribing) return;
+    const t = setTimeout(() => setResubscribing(false), 0);
+    return () => clearTimeout(t);
+  }, [resubscribing]);
+  const kept = last.current?.key === argsKey ? last.current.data : undefined;
+  if (r instanceof Error) return kept !== undefined && transient ? { data: kept, error: null, isLoading: false } : { data: undefined, error: r, isLoading: false };
+  if (r === undefined && kept !== undefined) return { data: kept, error: null, isLoading: false };
   return { data: r, error: null, isLoading: args !== "skip" && r === undefined };
 }

@@ -20,6 +20,7 @@ import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
+import { retryDelay, transientQueryError } from "@/lib/live-retry";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
 
@@ -35,7 +36,17 @@ export function useReplayPages(roomId: string, gameId: string): Load {
       let cursor: { afterSeq: number; chatAfter: number; eventOffset?: number } | undefined;
       try {
         for (;;) {
-          const page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
+          let page: ReplayPage | undefined;
+          // A page that fails transiently (a timeout under load) is fetched again before the replay gives up.
+          for (let attempt = 0; !page; attempt++) {
+            try {
+              page = await convex.query(api.player.replay, { roomId, gameId, ...cursor }) as unknown as ReplayPage;
+            } catch (error) {
+              if (!live) return;
+              if (attempt >= 4 || !transientQueryError(error)) throw error;
+              await new Promise(r => setTimeout(r, retryDelay(attempt)));
+            }
+          }
           if (!live) return;
           pages.push(page);
           setLoad({ pages: [...pages], done: page.done });
