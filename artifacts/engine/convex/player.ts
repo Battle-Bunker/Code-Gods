@@ -13,7 +13,8 @@ import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
-import { buildObservation, currentGame, deityOf, objectsOf } from "./lib/load";
+import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
+import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
 import { pageObjects } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
@@ -101,7 +102,8 @@ export const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: s
     const batches = after === undefined
       ? (await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").take(limit)).reverse()
       : await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    const latestCursor = game.nextBatch - 1;
+    // The newest batches include the latest; a cursor read looks the latest up.
+    const latestCursor = after === undefined ? batches.at(-1)?.seq ?? -1 : await latestBatchSeq(ctx, game._id);
     return {
       gameId: game._id, events: projectBatches(batches, viewer.subject, index, game.phase !== "ended"),
       nextCursor: batches.at(-1)?.seq ?? after ?? latestCursor, latestCursor,
@@ -121,7 +123,7 @@ export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: 
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game!._id).gt("seq", after)).take(limit);
-    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game!.nextBatch - 1 };
+    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game!._id) };
 };
 
 /** The replay API's version (docs/replay-design.md §3): bump it when the shape of player.replay changes. 2: transparent. */
@@ -152,8 +154,10 @@ export const replayAs = internalQuery({
   handler: async (ctx, { principal, ...args }) => replayFor(ctx, await viewerOf(ctx, principal), args),
 });
 export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number }) {
-  const { room, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
-  if (!game) return fail("NOT_FOUND", "Game not found in this room");
+  const found = await gameFor(ctx, caller, args.roomId, args.gameId);
+  const { room, index } = found;
+  if (!found.game) return fail("NOT_FOUND", "Game not found in this room");
+  const game = await withClock(ctx, found.game);
   // As for every past game (lib/rooms requireHistoricReaderAs): its players, its spectators and the room's owner.
   if (index < 0) requireHistoricReaderAs(caller, room, game);
   // The boundary of the transparency: nothing of a live game is revealed (its live reads keep hiding as before).
@@ -178,7 +182,7 @@ export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
     batches.push({ ...b, events: b.events.slice(from), from }); events += left;
     if (batches.length >= limit) break;
   }
-  const latestCursor = game.nextBatch - 1;
+  const latestCursor = await latestBatchSeq(ctx, game._id);
   const nextCursor = eventOffset !== undefined ? batches.at(-1)!.seq - 1 : batches.at(-1)?.seq ?? after;
   const first = after < 0 && !args.eventOffset;
   const logDone = nextCursor >= latestCursor;
@@ -203,7 +207,7 @@ export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
       endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, worldSeconds: game.worldSeconds, endAtWorld: game.endAtWorld,
       settings, setup: game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null,
       roster: game.roster.map(({ id, name, kind }) => ({ id, name, kind })), objectInstance: objectInstance(settings),
-      seasonCommitment: game.seasonCommitment, stats: game.stats,
+      seasonCommitment: game.seasonCommitment,
       // On the first page, the log's schema (its first batch's): below EVENT_LOG_SCHEMA it predates some records
       // (summons, totals and chat stamps below 2; act seeds below 3), wholly or up to a deploy during the game.
       ...(first ? { logSchema: batches[0]?.schema ?? 1, currentLogSchema: EVENT_LOG_SCHEMA } : {}),
@@ -237,11 +241,11 @@ export const trajectoriesAs = internalQuery({
 });
 export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
     const { game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
-    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? game.nextBatch - 1 : -1 };
+    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? await latestBatchSeq(ctx, game._id) : -1 };
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game._id) };
 };
 
 /**
@@ -401,7 +405,7 @@ export const boardAs = internalQuery({
 });
 export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number }) {
   const { game, index } = await seatedGame(ctx, caller, args.roomId, args.gameId);
-  const world = args.world ?? game.worldSeconds;
+  const world = args.world ?? (await withClock(ctx, game)).worldSeconds;
   const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(2100);
   const rows = await Promise.all(objects.map(o => ctx.db.query("objectEvents")
     .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", o._id).lte("world", world)).order("desc").first()));

@@ -64,15 +64,18 @@ before(async () => {
 
   const game = await startGame(ada, roomId);
   gameId = game.gameId;
+  let commandId = "";
   for (const god of [ada, bo, cy]) {
-    const summoned = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Gate agent", language: "typescript", source: TS.Int }, gameId) });
+    const summon = envelope({ type: "summon", name: "Gate agent", language: "typescript", source: TS.Int }, gameId);
+    const summoned = await god.c.action(api.commands.submit, { roomId, envelope: summon });
     assert.equal(summoned.accepted, true, `${god.name} summons: ${summoned.message}`);
+    if (god === ada) commandId = summon.commandId;
   }
   await waitFor(async () => {
     const c = await admin.query(internal.testing.gameCounters, { gameId });
     return c?.phase === "running" && c.objectCount >= 1000 && c.worldSeconds > 2;
   }, "the game runs with 1,000 objects", 120_000, 500);
-  fixture = { roomId, roomCode: shortCode, gameId, gameCode: game.shortCode, setupId: room.setup.id, panelSlug: "gate", userCode };
+  fixture = { roomId, roomCode: shortCode, gameId, gameCode: game.shortCode, setupId: room.setup.id, panelSlug: "gate", userCode, commandId };
 });
 
 type Measured = { budget: Budget; docs: number; bytes: number; ms: number; runs: Execution[] };

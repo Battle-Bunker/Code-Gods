@@ -187,7 +187,7 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 ### Rooms (`rooms`)
 - `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room runs the system's First steps setup (`setup {id, name, deleted: false}`); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
 - `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode, setupName|null}]`
-- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, setup|null, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, preparing|null, serverTime}`.
+- `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, setup|null, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, preparing|null}`.
   `preparing` is `{instance, ready, total, startedAt, estimateSeconds, dealtAs, dealerNote?, error?}` while the next game computes rule tables nobody had for its shape (`owner.start` below): progress only, never the deal. `error` says why it could not finish; the owner starts again or ends it with `endActiveGame`.
   `setup` is `{id, name, deleted}`: the game setup the room runs (a room always runs one; there is no "custom" state). `settings` is that setup's settings as they were when it was applied; `name` is its current name, or its name then once it is `deleted` (null only on rooms stored before the setups-v2 migration).
 - `join({room})`, `leave({roomId})`, `setReady({roomId, ready})` mutations
@@ -394,7 +394,7 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
 - Internal: `version.record({site, build})` (deploys only).
 
 ### Other modules
-- `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, stats, roomActiveGame). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
+- `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, roomActiveGame, serverTime). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
 - `manifest.get()` action: object types with their `playable` instantiations (every combination of the type's parameter choices, minus retired shapes; each with `prepare: {toCompute, seconds}|null`, the first game's preparation on this server, and `synergy`, whether the Aligned Lottery has measured synergy there), `offered` (diagnostics: the shapes whose every table is shipped), options, runtimes and AI funding status.
