@@ -15,34 +15,14 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ADMIN_KEY, URL_, admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, TS, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, TS, waitFor, type God } from "./game-helpers.ts";
+import { executionsOf } from "./execution-log.ts";
 
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
   halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000,
 };
-
-/** A query's execution as the backend logged it. */
-type Execution = { identifier: string; cachedResult: boolean; executionTime: number; usageStats: { databaseReadDocuments: number; databaseReadBytes: number } };
-async function logPage(cursor: number): Promise<{ entries: Execution[]; newCursor: number }> {
-  const response = await fetch(`${URL_}/api/stream_function_logs?cursor=${cursor}`, { headers: { Authorization: `Convex ${ADMIN_KEY}` } });
-  assert.equal(response.status, 200, "the admin log stream answers");
-  return response.json();
-}
-/** The uncached executions of `queries` (identifiers like "rooms:get") while `run` runs, one per query. */
-async function executionsOf(queries: string[], run: () => Promise<unknown>): Promise<Map<string, Execution>> {
-  let { newCursor: cursor } = await logPage(0);
-  await run();
-  const found = new Map<string, Execution>();
-  await waitFor(async () => {
-    const page = await logPage(cursor);
-    cursor = page.newCursor;
-    for (const e of page.entries) if (queries.includes(e.identifier) && !e.cachedResult && !found.has(e.identifier)) found.set(e.identifier, e);
-    return found.size === queries.length;
-  }, `the execution log shows ${queries.join(", ")}`, 30_000, 250);
-  return found;
-}
 
 /** Each hot query of a player's client, once, as `god` in `roomId` (a fresh room and args: never a cached result). */
 const HOT: Record<string, (god: God, roomId: string, gameId: string) => Promise<unknown>> = {
