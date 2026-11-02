@@ -1,7 +1,7 @@
 /**
  * An ended game's page, {base}rooms/:room/games/:game (docs/replay-design.md §4): the player client's own dock in
  * replay mode. Every built-in and stored panel shows the game at the replay's playhead (the SDK's answers come from
- * the replay: sdk/replay-source.ts), the header is the replay's transport, the Timeline panel drives the playhead, and
+ * the replay: sdk/replay-source.ts), the replay bar at the bottom drives the playhead (so does the Timeline panel), and
  * nothing acts. Deep links: `?e=<event>` or `?t=<world seconds>`, `&speed=`, `&play=1`, `&as=<god id>`; the URL
  * follows the playhead whenever it stops. If the replay cannot load, the game's final state (history/historic-game)
  * is shown instead.
@@ -18,7 +18,7 @@ import { CoreBoundary } from "@/core/core-boundary";
 import { Link, hrefTo } from "../navigation";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
-import { AgentCode, AgentCodeContext, ReplayControllerContext, Transport, useReplayKeys } from "./parts";
+import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
 
@@ -99,9 +99,9 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <span className="label" data-testid="text-game-status">ended · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}
       </div>
-      <Transport controller={controller} exitHref={exit} />
     </div>
   );
+  const footer = <ReplayBar controller={controller} exitHref={exit} />;
   return (
     <RoomProvider room={sdkRoom}>
       <ReplaySourceContext.Provider value={source}>
@@ -110,7 +110,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
             <CoreBoundary>
               {/* The point-of-view god's goal explains every grid, as the live client's own goal does (sdk/goal.tsx). */}
               <MyGoalProvider>
-                <PlayerShell replay={{ header }} />
+                <PlayerShell replay={{ header, footer }} />
               </MyGoalProvider>
             </CoreBoundary>
             {agent && <AgentCode controller={controller} agentId={agent} onClose={() => setAgent(null)} />}

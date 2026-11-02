@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, describeEvent, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, cursorAtFraction, describeEvent, endedGameReplay, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -35,4 +35,23 @@ test("event sentences name the god behind every move and what changed", () => {
   assert.equal(describeEvent({ type: "phase", phase: "paused", worldSeconds: 3, reason: "paused by Bo" }, names), "Paused: paused by Bo");
   assert.equal(describeEvent({ type: "object.spawned", objectId: "obj7777", value: 5, version: 0, worldSeconds: 2, net: [0, 0] }, names), "Object 7777 appeared");
   assert.equal(describeEvent({ type: "agent.destroyed", agentId: "aaaa1234", ownerId: "g1", worldSeconds: 4 }, names), "Ada destroyed agent 1234");
+});
+
+test("the scrub track maps a pointer's position to an event: clamped to the log, rounded to the nearest event", () => {
+  assert.equal(cursorAtFraction(0, 120), 0);
+  assert.equal(cursorAtFraction(1, 120), 120);
+  assert.equal(cursorAtFraction(0.5, 120), 60);
+  assert.equal(cursorAtFraction(0.504, 120), 60);
+  assert.equal(cursorAtFraction(-0.3, 120), 0, "left of the track is the start");
+  assert.equal(cursorAtFraction(1.7, 120), 120, "right of the track is the end");
+  assert.equal(cursorAtFraction(Number.NaN, 120), 0);
+  assert.equal(cursorAtFraction(0.5, 0), 0, "an empty log has one position");
+});
+
+test("the room page offers the replay of its game once that game has ended, and only then", () => {
+  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }), { game: "G7KQ" });
+  assert.equal(endedGameReplay({ phase: "running", gameShortCode: "G7KQ" }), null, "a live game has no replay");
+  assert.equal(endedGameReplay({ phase: "lobby" }), null, "a room that never played");
+  assert.equal(endedGameReplay({ phase: "ended" }), null, "no game to open");
+  assert.equal(endedGameReplay(undefined), null, "still connecting");
 });

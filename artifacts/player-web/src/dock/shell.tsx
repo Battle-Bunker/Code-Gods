@@ -22,6 +22,7 @@ import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
 import { useWide } from "@/core/use-wide";
+import { EndedGameBar } from "@/core/replay/ended-bar";
 import { dockActions } from "./actions";
 import { PanelsProvider, usePanelRegistry, type Panels } from "./panels";
 import StackedDock from "./stacked";
@@ -80,8 +81,8 @@ function useNewFilePanels(store: DockStore, fileIds: readonly string[] | undefin
   }, [store, fileIds, loaded]);
 }
 
-/** Replay mode: the header that replaces the live one (the replay's transport). */
-export type ShellReplay = { header: ReactNode };
+/** Replay mode: the header that replaces the live one, and the replay bar anchored under the dock. */
+export type ShellReplay = { header: ReactNode; footer: ReactNode };
 
 export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
   const room = useRoom();
@@ -96,6 +97,24 @@ export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
       </PanelsProvider>
     </DockContext.Provider>
   );
+}
+
+/**
+ * The bar under the dock (the replay bar, or the room's "Watch the replay"): its height is published as
+ * `--cg-footer-h`, so the phone's assistant sheet (fixed to the screen's bottom) sits above it rather than over it.
+ */
+function ShellFooter({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current, root = document.documentElement;
+    if (!el) return;
+    const publish = () => root.style.setProperty("--cg-footer-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => { observer.disconnect(); root.style.removeProperty("--cg-footer-h"); };
+  }, []);
+  return <div ref={ref} className="relative z-50 shrink-0" data-testid="shell-footer">{children}</div>;
 }
 
 /** Replay mode opens the Timeline once the human's layout is in (unless it already has one). */
@@ -132,6 +151,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>
+      <ShellFooter>{replay ? replay.footer : <EndedGameBar />}</ShellFooter>
       <Confirmations entries={panels.entries} />
     </div>
   );

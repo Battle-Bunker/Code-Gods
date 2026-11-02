@@ -164,7 +164,7 @@ above its final state. An ended game opens there, the room's latest one included
 live game still plays on the room's screen. The page is the owner's "timeline of events that plays at configurable
 speed or event by event", fully revealed:
 
-- **Transport strip** (sticky): previous/next key moment, previous/next event, play/pause, speed (¼× to 64× world
+- **Transport strip** (now the bottom replay bar, below): previous/next key moment, previous/next event, play/pause, speed (¼× to 64× world
   seconds per second; quiet stretches longer than two seconds of playback are skipped), the world clock, the event
   counter, a scrubber over events with key-moment ticks, and Link. Keys: Space, ←/→, Shift+←/→, Home/End, `[`/`]`.
 - **Board**: every object at the playhead, ranked by the payoff of the god chosen in "seen as" (default: you), with
@@ -200,6 +200,25 @@ panel** (`timeline`, a built-in panel; opened when the replay opens) holds the s
 objects panel **animates** each change the playhead crosses (the row flashes and slides, a grid outlines the cells
 that moved). The layout is the human's own arrangement; changes in a replay stay in that tab. The log records net
 bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits.
+
+**The replay bar (PR after #125, the owner's report "I can't find a timeline scrubber"):** the room page kept the
+live dock after "Game over" and nothing on it led to the replay; the only way in was the header's small "past games"
+link, then a game code. Now:
+
+- The room page, once its game has ended, shows a bar under the dock with **Watch the replay** (`core/replay/ended-bar.tsx`).
+  The room stays live above it (results, chat, the owner's next game).
+- The replay's transport is **one bar anchored to the bottom of the screen**, like a video player's (`ReplayBar` in
+  `core/replay/parts.tsx`; the shell's `replay.footer`), independent of the dock's layout. It has a wide scrub track:
+  drag or click it; hovering shows the time, the event and its sentence; key moments are marked on the track; with
+  focus, the arrows step and Page Up/Down jump a tenth. Under it: start, step back, play/pause, step forward, end,
+  previous/next key moment, the time (`1:23 / 5:00`), the event counter, the speed (¼× to 64×), "seen as", Link and
+  Exit replay. The page keys (Space, ←/→, Shift+←/→, Home/End, `[`/`]`) work anywhere outside a text field.
+- `e2e:replay` starts as the owner did: from the room page right after the game ends, without typing a URL, it
+  finds the bar, drags to the middle, plays at 4×, pauses and steps, and checks that the board changes.
+
+| The room page after the game | The replay bar, mid-game |
+|---|---|
+| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) |
 
 **The assistant receives the playhead (§8):** in replay mode, the chat pane sends each message with the moment on
 screen (`assistant.send`'s `replay`: the game, the event cursor, the world time, the point-of-view god). The engine

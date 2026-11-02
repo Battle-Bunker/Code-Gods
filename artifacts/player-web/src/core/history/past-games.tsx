@@ -27,6 +27,7 @@ export function PastGames({ room, meId }: { room: { id: string; shortCode: strin
               <span className="text-muted-foreground">ended {when(g.endedAt)}</span>
               <span className="min-w-0 flex-1">{g.winners ? `won by ${g.winners}` : "no winner"}</span>
               <span className="label">{g.played ? "you played" : "you did not play"}</span>
+              {g.canOpen && <Link to={{ kind: "game", room: room.shortCode, game: g.shortCode }} className="bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground" data-testid={`link-replay-${g.shortCode}`}>▶︎ Watch the replay</Link>}
             </li>
           ))}
         </ul>

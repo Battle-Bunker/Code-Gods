@@ -2,11 +2,11 @@
  * The replay's own pieces (docs/replay-design.md §5–§6), driven by a ReplayController: the transport strip (shell
  * chrome in replay mode), the score chart and the event list of the Timeline panel, and the agent-code dialog.
  */
-import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { TransformationView, type ObjectContext } from "@workspace/object-views";
 import { godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
 import { SERIES } from "@/sdk/charts";
-import { SPEEDS, describeEvent, shortId } from "./model";
+import { SPEEDS, cursorAtFraction, describeEvent, shortId } from "./model";
 import { useReplay, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -38,44 +38,103 @@ export const AgentCodeContext = createContext<(agentId: string) => void>(() => {
 // the transport strip
 // ------------------------------------------------------------------------------------------------
 
-export function Transport({ controller: c, exitHref }: { controller: ReplayController; exitHref: string }) {
+/**
+ * The replay bar: one transport anchored to the bottom of the screen, like a video player's. A wide scrub track
+ * (drag, click, or focus it and use the keys) with every key moment marked on it and a tooltip naming the moment under
+ * the pointer; under it start, step back, play/pause, step forward and end, the previous/next key moment, the time
+ * and the event counter, the speed, whose view the panels show, a link to this moment and the way back to the room.
+ */
+export function ReplayBar({ controller: c, exitHref }: { controller: ReplayController; exitHref: string }) {
   const v = useReplay(c);
   const [copied, setCopied] = useState(false);
-  const button = "inline-flex h-7 min-w-7 items-center justify-center border border-[hsl(var(--card-border))] bg-card px-2 text-xs hover:bg-[hsl(var(--muted))]";
+  const button = "inline-flex h-8 min-w-8 items-center justify-center border border-[hsl(var(--card-border))] bg-card px-2 text-sm hover:bg-[hsl(var(--muted))]";
   const roster = c.replay.game.roster;
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[hsl(var(--card-border))] bg-card px-3 py-1.5" data-testid="replay-transport" data-cursor={v.cursor} data-events={c.end} data-pov={v.pov}>
-      <button type="button" className={button} title="Previous key moment (Shift+←)" onClick={() => c.jump(-1)} data-testid="button-replay-prev-moment">⏮</button>
-      <button type="button" className={button} title="Previous event (←)" onClick={() => c.step(-1)} data-testid="button-replay-prev">◂</button>
-      <button type="button" className={`${button} bg-primary text-primary-foreground`} title="Play or pause (Space)" onClick={() => c.toggle()} data-testid="button-replay-play">{v.playing ? "❚❚" : "▶"}</button>
-      <button type="button" className={button} title="Next event (→)" onClick={() => c.step(1)} data-testid="button-replay-next">▸</button>
-      <button type="button" className={button} title="Next key moment (Shift+→)" onClick={() => c.jump(1)} data-testid="button-replay-next-moment">⏭</button>
-      <select className={button} value={v.speed} onChange={e => c.setSpeed(Number(e.target.value))} title="Speed: world seconds per second ([ and ])" data-testid="select-replay-speed">
-        {SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}
-      </select>
-      <span className="font-mono text-xs tabular-nums" data-testid="text-replay-clock">{clock(v.state.world)} <span className="text-muted-foreground">/ {clock(c.replay.endWorld)}</span></span>
-      <span className="font-mono text-xs text-muted-foreground tabular-nums" data-testid="text-replay-event">event {v.cursor} of {c.end}</span>
-      <span className="label hidden md:inline" data-testid="text-replay-phase">{v.state.phase}</span>
-      <div className="relative min-w-[10rem] flex-1">
-        <input type="range" min={0} max={c.end} step={1} value={v.cursor} onChange={e => c.seek(Number(e.target.value))} className="w-full accent-[hsl(var(--primary))]"
-          aria-label="Playhead (event)" data-testid="input-replay-scrub" />
-        <div className="pointer-events-none absolute inset-x-0 -bottom-1 h-1.5">
-          {c.moments.map((m, i) => (
-            <span key={i} className="absolute top-0 h-1.5 w-0.5" style={{ left: `${(m.cursor / Math.max(1, c.end)) * 100}%`,
-              background: m.kind === "swing" ? "hsl(var(--chart-4))" : m.kind === "lead" ? "hsl(var(--foreground))" : m.kind === "summon" ? godColour(m.god ?? 0) : "hsl(var(--muted-foreground))" }} />
-          ))}
-        </div>
+    <div role="region" aria-label="Replay controls" className="shrink-0 border-t-2 border-[hsl(var(--primary))] bg-card px-3 pb-2 pt-1 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]"
+      data-testid="replay-transport" data-cursor={v.cursor} data-events={c.end} data-pov={v.pov} data-playing={v.playing ? "1" : "0"}>
+      <ScrubTrack controller={c} cursor={v.cursor} />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button type="button" className={button} title="Jump to the start (Home)" aria-label="Jump to the start" onClick={() => c.seek(0)} data-testid="button-replay-start">⏮</button>
+        <button type="button" className={button} title="Step back one event (←)" aria-label="Step back one event" onClick={() => c.step(-1)} data-testid="button-replay-prev">◀︎</button>
+        <button type="button" className={`${button} h-9 min-w-12 bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90`} title="Play or pause (Space)"
+          aria-label={v.playing ? "Pause" : "Play"} onClick={() => c.toggle()} data-testid="button-replay-play">{v.playing ? "❚❚" : "▶︎"}</button>
+        <button type="button" className={button} title="Step forward one event (→)" aria-label="Step forward one event" onClick={() => c.step(1)} data-testid="button-replay-next">▶︎</button>
+        <button type="button" className={button} title="Jump to the end (End)" aria-label="Jump to the end" onClick={() => c.seek(c.end)} data-testid="button-replay-end">⏭</button>
+        <span className="mx-1 h-5 w-px bg-[hsl(var(--card-border))]" aria-hidden />
+        <button type="button" className={`${button} text-xs`} title="Previous key moment (Shift+←)" onClick={() => c.jump(-1)} data-testid="button-replay-prev-moment">◆ prev</button>
+        <button type="button" className={`${button} text-xs`} title="Next key moment (Shift+→)" onClick={() => c.jump(1)} data-testid="button-replay-next-moment">next ◆</button>
+        <span className="ml-1 font-mono text-sm tabular-nums" data-testid="text-replay-clock">{clock(v.state.world)} <span className="text-muted-foreground">/ {clock(c.replay.endWorld)}</span></span>
+        <span className="hidden font-mono text-xs text-muted-foreground tabular-nums sm:inline" data-testid="text-replay-event">event {v.cursor} of {c.end}</span>
+        <span className="label hidden md:inline" data-testid="text-replay-phase">{v.state.phase}</span>
+        <span className="flex-1" />
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">speed
+          <select className={`${button} text-xs`} value={v.speed} onChange={e => c.setSpeed(Number(e.target.value))} title="Playback speed: world seconds per second ([ and ])" data-testid="select-replay-speed">
+            {SPEEDS.map(s => <option key={s} value={s}>{s}×</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground">seen as
+          <select className={`${button} max-w-[9rem] text-xs`} value={v.pov} onChange={e => c.setPov(Number(e.target.value))} data-testid="select-replay-pov">
+            {roster.map((g, i) => <option key={g.id} value={i}>{g.name}{i === c.replay.viewer.index ? " (you)" : ""}</option>)}
+          </select>
+        </label>
+        <button type="button" className={`${button} text-xs`} title="Copy a link to this moment" data-testid="button-replay-link"
+          onClick={() => { void navigator.clipboard?.writeText(location.href).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
+          {copied ? "Copied" : "Link"}
+        </button>
+        <a className={`${button} text-xs`} href={exitHref} data-testid="link-replay-exit">Exit replay</a>
       </div>
-      <label className="text-xs text-muted-foreground">seen as{" "}
-        <select className="border border-[hsl(var(--input))] bg-card px-1 py-0.5 text-xs" value={v.pov} onChange={e => c.setPov(Number(e.target.value))} data-testid="select-replay-pov">
-          {roster.map((g, i) => <option key={g.id} value={i}>{g.name}{i === c.replay.viewer.index ? " (you)" : ""}</option>)}
-        </select>
-      </label>
-      <button type="button" className={button} title="Copy a link to this moment" data-testid="button-replay-link"
-        onClick={() => { void navigator.clipboard?.writeText(location.href).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>
-        {copied ? "Copied" : "Link"}
-      </button>
-      <a className={button} href={exitHref} data-testid="link-replay-exit">Exit replay</a>
+    </div>
+  );
+}
+
+const momentColour = (m: ReplayController["moments"][number]) =>
+  m.kind === "swing" ? "hsl(var(--chart-4))" : m.kind === "lead" ? "hsl(var(--foreground))" : m.kind === "summon" ? godColour(m.god ?? 0) : "hsl(var(--muted-foreground))";
+
+/** The scrub track: drag or click to seek; hovering names the moment under the pointer; a slider for the keyboard. */
+function ScrubTrack({ controller: c, cursor }: { controller: ReplayController; cursor: number }) {
+  const track = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<{ x: number; cursor: number } | null>(null);
+  const names = useMemo(() => new Map(c.replay.game.roster.map(g => [g.id, g.name])), [c]);
+  const at = (clientX: number) => {
+    const r = track.current!.getBoundingClientRect();
+    return { x: clientX - r.left, cursor: cursorAtFraction((clientX - r.left) / Math.max(1, r.width), c.end) };
+  };
+  const pct = (n: number) => `${(n / Math.max(1, c.end)) * 100}%`;
+  const hovered = hover && hover.cursor > 0 ? c.replay.log[hover.cursor - 1] : undefined;
+  return (
+    <div className="relative py-2">
+      <div ref={track} role="slider" tabIndex={0} aria-label="Replay position (event)" aria-valuemin={0} aria-valuemax={c.end} aria-valuenow={cursor}
+        aria-valuetext={`event ${cursor} of ${c.end}`} data-testid="input-replay-scrub"
+        className="group relative h-5 cursor-pointer touch-none outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+        onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); c.seek(at(e.clientX).cursor); }}
+        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) c.seek(h.cursor); }}
+        onPointerLeave={() => setHover(null)}
+        onKeyDown={e => {
+          // The bar's own keys: arrows step, Page keys jump a tenth, Home/End. (Space and the rest are the page's: useReplayKeys.)
+          const tenth = Math.max(1, Math.round(c.end / 10));
+          const to = e.key === "ArrowRight" || e.key === "ArrowUp" ? cursor + 1 : e.key === "ArrowLeft" || e.key === "ArrowDown" ? cursor - 1
+            : e.key === "PageUp" ? cursor + tenth : e.key === "PageDown" ? cursor - tenth : e.key === "Home" ? 0 : e.key === "End" ? c.end : null;
+          if (to === null || e.shiftKey) return;
+          e.preventDefault(); e.stopPropagation();
+          c.seek(to);
+        }}>
+        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 bg-[hsl(var(--muted))] transition-[height] group-hover:h-2.5">
+          <div className="h-full bg-[hsl(var(--primary))]" style={{ width: pct(cursor) }} />
+          {hover && <div className="pointer-events-none absolute inset-y-0 left-0 bg-[hsl(var(--primary)/0.25)]" style={{ width: pct(hover.cursor) }} />}
+        </div>
+        {c.moments.map((m, i) => (
+          <span key={i} aria-hidden className="pointer-events-none absolute top-0 h-1.5 w-1 -translate-x-1/2" style={{ left: pct(m.cursor), background: momentColour(m) }} data-testid="replay-marker" />
+        ))}
+        <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[hsl(var(--primary))] shadow"
+          style={{ left: pct(cursor) }} data-testid="replay-playhead" />
+      </div>
+      {hover && (
+        <div className="pointer-events-none absolute bottom-full z-50 mb-1 max-w-[22rem] -translate-x-1/2 border border-[hsl(var(--card-border))] bg-popover px-2 py-1 text-xs text-popover-foreground shadow"
+          style={{ left: Math.max(80, Math.min(hover.x, (track.current?.clientWidth ?? 0) - 80)) }} data-testid="replay-scrub-tooltip">
+          <span className="font-mono tabular-nums">{clock(hovered?.world ?? 0)}</span> · event {hover.cursor}
+          {hovered && <span className="block truncate text-muted-foreground">{describeEvent(hovered.event, names)}</span>}
+        </div>
+      )}
     </div>
   );
 }
