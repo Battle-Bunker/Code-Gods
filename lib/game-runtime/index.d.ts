@@ -234,3 +234,5 @@ export class GameRuntime {
   close(): void;
 }
 export function createRuntime(options: RuntimeOptions): GameRuntime;
+/** The key a pool caches a TypeScript or Haskell compilation under, as SHA-256 hex (equal keys, equal `compile` output). */
+export function compilationKey(language: "typescript" | "haskell", source: string, settings: ActSettings): string;

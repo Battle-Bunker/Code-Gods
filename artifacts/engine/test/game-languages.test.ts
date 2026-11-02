@@ -27,6 +27,10 @@ test("each agent is written in one of the game's languages, priced and run in it
   assert.match(validated.validation.diagnostics[0], /\(ast-bits-v1:/);
   const tsValidated = await send(bo, { type: "validate", language: "typescript", source: TS.Int });
   assert.match(tsValidated.validation.diagnostics[0], /\(ts-ast-bits-v1-uniform:/);
+  // TypeScript is compiled by another action (runtime/compile.ts), and the program stored for every action.
+  const [tsProgram] = await admin.query(internal.testing.compiledProgramsLatest, { count: 1 });
+  assert.equal(tsProgram.inspection?.complexityFunctionId, "ts-ast-bits-v1-uniform");
+  assert.ok(tsProgram.chars > 0 && !tsProgram.error);
   // Python source sent as TypeScript does not compile: the language decides the sandbox.
   assert.equal((await send(ada, { type: "validate", language: "typescript", source: PY.Int })).validation.valid, false);
 
@@ -70,9 +74,9 @@ test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts l
   // TypeScript source sent as Haskell does not compile.
   const broken = await validate(notHaskell);
   assert.equal(broken.validation.valid, false);
-  // Another action compiled both (runtime/haskellCompile.ts) and stored the outcome for every action: the program,
+  // Another action compiled both (runtime/compile.ts) and stored the outcome for every action: the program,
   // and the agent's own compile failure, which a second validation reports the same without compiling again.
-  const [failure, stored] = await admin.query(internal.testing.haskellProgramsLatest, { count: 2 });
+  const [failure, stored] = await admin.query(internal.testing.compiledProgramsLatest, { count: 2 });
   assert.ok(!stored.error && stored.chars > 1000, "the program is stored");
   assert.equal(stored.inspection.complexityFunctionId, "hs-token-bits-v1-uniform");
   assert.equal(failure.error?.code, "COMPILE");
