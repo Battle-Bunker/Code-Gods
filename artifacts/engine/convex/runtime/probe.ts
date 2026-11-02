@@ -148,8 +148,8 @@ export const concurrent = internalAction({
  * the instance's memory footprint, and the combined throughput with both languages in flight.
  */
 export const footprint = internalAction({
-  args: { acts: v.optional(v.number()) },
-  handler: async (ctx, { acts = 200 }) => {
+  args: { acts: v.optional(v.number()), idleMs: v.optional(v.number()) },
+  handler: async (ctx, { acts = 200, idleMs = 0 }) => {
     await bindRuntime(ctx);
     const out: Record<string, unknown> = { rssBeforeMiB: rssMiB() };
     const work = (["python", "typescript"] as const).map(lang => ({ lang, runtime: runtimeFor(lang), ...room(lang) }));
@@ -168,6 +168,8 @@ export const footprint = internalAction({
     out.combined = { python: done.python, typescript: done.typescript, seconds: Math.round(seconds * 100) / 100,
       actsPerSecond: Math.round((done.python + done.typescript) / seconds) };
     out.rssAfterMiB = rssMiB();
+    // After the idle TypeScript compiler stops (RUNTIME_OPTIONS compilerIdleMs): the pools' steady state between compiles.
+    if (idleMs > 0) { await new Promise(resolve => setTimeout(resolve, Math.min(idleMs, 60_000))); out.rssIdleMiB = rssMiB(); }
     out.memory = process.memoryUsage();
     return out;
   },

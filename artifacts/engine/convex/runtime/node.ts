@@ -120,7 +120,11 @@ const typescriptFiles = () => ({
  */
 export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
   python: { language: "python", workers: 1, queueLimit: 64, assets: pythonBundle },
-  get typescript(): RuntimeOptions { return { language: "typescript", workers: 1, queueLimit: 64, typescriptFiles: typescriptFiles() }; },
+  // The compiler worker (about 80–140 MiB once it has type-checked) stops 10 s after its last compilation: compiled
+  // agents stay cached in the pool, so only a new source starts it again.
+  get typescript(): RuntimeOptions {
+    return { language: "typescript", workers: 1, queueLimit: 64, compilerIdleMs: 10_000, typescriptFiles: typescriptFiles() };
+  },
   get haskell(): RuntimeOptions {
     return { language: "haskell", workers: 1, queueLimit: 64, compilation: "external", assets: HASKELL.hook, typescriptFiles: typescriptFiles() };
   },
@@ -189,13 +193,13 @@ export function haskellKey(source: string, settings: ActSettings): string {
  * Analytics scripts (run_code; docs/assistant/code-execution.md §2): pools of their own, so a ten-second script never
  * delays an agent's act. One engine each. The Python pool shares the agents' compiled reactor and initialized snapshot
  * (same `assets` hook, so no second bootstrap: about 100 ms to start a worker); the TypeScript pool has one QuickJS
- * executor and a compiler worker that only transpiles and stops after 60 s idle.
+ * executor and a compiler worker that only transpiles and stops after 10 s idle.
  */
 export type ScriptLanguage = "python" | "typescript";
 /** Haskell has no script mode (lib/game-runtime). */
 export const SCRIPT_OPTIONS: Record<ScriptLanguage, RuntimeOptions> = {
   python: { language: "python", workers: 1, queueLimit: 8, assets: pythonBundle },
-  get typescript(): RuntimeOptions { return { language: "typescript", workers: 1, queueLimit: 8, typescriptFiles: typescriptFiles() }; },
+  get typescript(): RuntimeOptions { return { language: "typescript", workers: 1, queueLimit: 8, compilerIdleMs: 10_000, typescriptFiles: typescriptFiles() }; },
 };
 const scriptRuntimes: Partial<Record<ScriptLanguage, GameRuntime>> = {};
 export function scriptRuntimeFor(language: ScriptLanguage): GameRuntime {
