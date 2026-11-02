@@ -2,11 +2,12 @@
 
 Date: 2026-11-01.
 
-**Outcome.** Rust was dropped. Haskell was built as planned with MicroHs on WASI: see `lib/game-runtime/README.md`
-("Haskell"). Measured: the bundle is 1.2 MB gzip; compiling an agent took 2.5–4 s on V8 at first, about 1.3–1.8 s with the per-room compilation cache (about 95 MiB of wasm memory);
-an act takes milliseconds. Where the build differs from the plan below: the mutator constructors are generated from the
-TypeScript declarations, and the room's JavaScript constructors encode the moves; the price is token-level
-(`hs-token-bits-v1-uniform`), not AST-level. The phase-1 study follows unchanged. Question from the owner: can Haskell and Rust become agent languages beside Python and
+**Outcome.** Rust was dropped. Haskell was built with MicroHs on WASI (PRs #115–#119) and then **removed on
+2026-11-02**: on Convex's cloud Node actions (512 MiB, a fraction of a vCPU) a room's first compilation took about 37 s
+(about 10 s with the room's compilation cache warm), an act about 150 ms (about 7 acts/s per instance), and the compiler
+(about 250 MiB) and evaluator pool did not fit beside the Python and TypeScript pools, so each needed actions of its own.
+Making that comfortable (a prebuilt snapshot, a faster evaluator) was more than modest work. Stored settings dropped
+Haskell (`convex/migrations.ts` retire-haskell); past games' Haskell agents keep their language as history. The phase-1 study follows unchanged. Question from the owner: can Haskell and Rust become agent languages beside Python and
 TypeScript, with our tooling, and how hard is each?
 
 ## Constraints any language must meet

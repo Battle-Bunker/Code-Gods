@@ -1,6 +1,7 @@
 import { defineApp } from "convex/server";
 import staticHosting from "@convex-dev/static-hosting/convex.config";
 import betterAuth from "@convex-dev/better-auth/convex.config";
+import migrations from "@convex-dev/migrations/convex.config";
 
 /**
  * The app (artifacts/player-web) as one static site of the deployment, in the component's "app-owned root routing"
@@ -11,5 +12,7 @@ import betterAuth from "@convex-dev/better-auth/convex.config";
 const app = defineApp();
 app.use(staticHosting, { name: "engineSite" });
 app.use(betterAuth);
+// Schema migrations (convex/migrations.ts; CLAUDE.md "Schema migrations").
+app.use(migrations);
 
 export default app;

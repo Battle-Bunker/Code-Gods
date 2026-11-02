@@ -182,7 +182,7 @@ export const ACT_TOOLS = [
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
-  def({ name: "set_spectator", short: "Watch or play the room's next game.", title: "Watch or play", functions: ["rooms.setSpectator"], permission: "act", annotations: acts,
+  def({ name: "set_spectator", short: "Watch or play games.", title: "Watch or play", functions: ["rooms.setSpectator"], permission: "act", annotations: acts,
     note: "Applies from the next game; a running game's players never change. Another member's choice (deityId from get_room_state) is the owner's to set.",
     input: obj({ spectator: z.boolean().describe("true to watch the next game, false to play it."),
       deityId: id.optional().describe("Another human member's id (owner only); omit for the player themselves.") }), output: result(anyData) }),

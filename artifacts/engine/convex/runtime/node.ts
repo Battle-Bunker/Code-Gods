@@ -4,19 +4,18 @@
  *
  *   import { bindRuntime, runtimeFor } from "../runtime/node";
  *   export const tick = internalAction({ handler: async ctx => {
- *     await bindRuntime(ctx);                             // loads the Python and Haskell bundles from storage once
- *     const result = await runtimeFor(language).act(source, input, actSettings(settings, language), seed);
+ *     await bindRuntime(ctx);                             // loads the Python bundle from storage once
+ *     const result = await runtimeFor(language).act(source, input, actSettings(settings), seed);
  *   } });
  *
  * Runtimes live at module scope, so a warm Node instance keeps its workers, compiled reactor,
- * initialized snapshot and compile caches across actions. The Python and Haskell bundles are fetched from file
+ * initialized snapshot and compile caches across actions. The Python bundle is fetched from file
  * storage once per instance into /tmp (or read back from there), and the package verifies their SHA-256
- * (PYTHON_BUNDLE_SHA256, HASKELL_BUNDLE_SHA256) before using them.
+ * (PYTHON_BUNDLE_SHA256) before using it.
  */
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { COMPLEXITY_IDS, createRuntime, GRAMMAR_IDS, HASKELL_BUNDLE_FILE, HASKELL_BUNDLE_SHA256, PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256, type ActSettings,
+import { createRuntime, PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256,
   type GameRuntime, type Language, type RuntimeOptions } from "@workspace/game-runtime";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -79,20 +78,14 @@ class StoredBundle {
 }
 
 const PYTHON = new StoredBundle("Python", PYTHON_BUNDLE_FILE, PYTHON_BUNDLE_SHA256, assetLoad);
-const HASKELL = new StoredBundle("Haskell", HASKELL_BUNDLE_FILE, HASKELL_BUNDLE_SHA256);
 
 /**
- * Every action that may run agent code awaits this first. The first one on an instance loads the runtime bundles
- * (Python's and Haskell's, concurrently) with ITS OWN context and awaits them; concurrent actions await the same
- * loads; later ones return at once. A failed load (e.g. a bundle not uploaded) is logged once and retried a minute
- * later; meanwhile only that language's requests fail.
+ * Every action that may run agent code awaits this first. The first one on an instance loads the Python runtime bundle
+ * with ITS OWN context and awaits it; concurrent actions await the same load; later ones return at once. A failed load
+ * (e.g. the bundle not uploaded) is logged once and retried a minute later; meanwhile only Python's requests fail.
  */
 export async function bindRuntime(ctx: ActionCtx): Promise<void> {
-  await Promise.all([PYTHON.bind(ctx), HASKELL.bind(ctx)]);
-}
-/** The Haskell bundle alone (runtime/haskellCompile.ts: the compiler's instance needs nothing else). */
-export async function bindHaskell(ctx: ActionCtx): Promise<void> {
-  await HASKELL.bind(ctx);
+  await PYTHON.bind(ctx);
 }
 
 /** The Python `assets` hook (probes compile the bundle through it). */
@@ -113,20 +106,13 @@ const typescriptFiles = () => ({
 /**
  * Pool sizes for a 512 MiB Node action with a fraction of a vCPU (measured on the dev deployment, runtime/probe:bench
  * and footprint): one execution worker per language. A second worker added no throughput there (TypeScript 49 vs 48
- * acts/s, Python about 45) but about 80 MiB each, and Python 2 + TypeScript 2 warm held 489 of the 512 MiB. TypeScript
- * also has its compiler worker (stopped when idle); Haskell's evaluator worker (QuickJS encodes its moves) runs on
- * instances of its own (closeIdleExcept), on programs another action compiles (haskellCompilePool). Pools start
- * lazily, on demand.
+ * acts/s, Python about 45) but about 80 MiB each. TypeScript compiles nothing here: another action does
+ * (runtime/compile.ts, compilePool), and its pool runs the stored programs. Pools start lazily, on demand.
  */
 export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
   python: { language: "python", workers: 1, queueLimit: 64, assets: pythonBundle },
-  // The compiler worker (about 80–140 MiB once it has type-checked) stops 10 s after its last compilation: compiled
-  // agents stay cached in the pool, so only a new source starts it again.
   get typescript(): RuntimeOptions {
-    return { language: "typescript", workers: 1, queueLimit: 64, compilerIdleMs: 10_000, typescriptFiles: typescriptFiles() };
-  },
-  get haskell(): RuntimeOptions {
-    return { language: "haskell", workers: 1, queueLimit: 64, compilation: "external", assets: HASKELL.hook, typescriptFiles: typescriptFiles() };
+    return { language: "typescript", workers: 1, queueLimit: 64, compilation: "external", typescriptFiles: typescriptFiles() };
   },
 };
 /**
@@ -135,58 +121,43 @@ export const RUNTIME_OPTIONS: Record<Language, RuntimeOptions> = {
  */
 export const RUNTIME_ASSETS: Partial<Record<Language, { name: string; sha256: string }>> = {
   python: { name: PYTHON_BUNDLE_FILE, sha256: PYTHON_BUNDLE_SHA256 },
-  haskell: { name: HASKELL_BUNDLE_FILE, sha256: HASKELL_BUNDLE_SHA256 },
 };
 export const runtimeVersion = (language: Language): string => RUNTIME_ASSETS[language]?.sha256 ?? `builtin:${language}`;
 
 const runtimes: Partial<Record<Language, GameRuntime>> = {};
 /**
- * The instance's warm runtime for a language (created lazily; workers start on demand or via `warm()`). The Haskell
- * pool is only for runtime/haskellAct.ts: other actions send Haskell acts there (engine/runtime.ts act).
+ * The instance's warm runtime for a language (created lazily; workers start on demand or via `warm()`): only in the
+ * actions that run that language (runtime/acts.ts, probes).
  */
 export function runtimeFor(language: Language): GameRuntime {
-  closeIdleExcept(language === "haskell" ? "haskell" : "agents");
+  closeIdleExcept(language);
   return (runtimes[language] ??= createRuntime(RUNTIME_OPTIONS[language]));
 }
 
 /**
- * The Haskell compiler (runtime/haskellCompile.ts only): a compile-only pool. A cold compilation takes about 40 s on a
- * cloud Node action (a room's first: it writes the room's compilation cache), so its wall is the longest allowed. It
- * stays warm for HASKELL_COMPILER_KEEP_MS (its room caches with it) unless other pools are needed on this instance.
+ * The TypeScript compiler (runtime/compile.ts only): a compile-only pool, kept warm for COMPILER_KEEP_MS unless another
+ * group's pools are needed on this instance.
  */
-export const HASKELL_COMPILER_KEEP_MS = 5 * 60_000;
-let haskellCompiler: GameRuntime | undefined;
-export function haskellCompilePool(): GameRuntime {
+export const COMPILER_KEEP_MS = 5 * 60_000;
+let compiler: GameRuntime | undefined;
+export function compilePool(): GameRuntime {
   closeIdleExcept("compiler");
-  return (haskellCompiler ??= createRuntime({ language: "haskell", role: "compile", startupMs: 120_000, prepareMs: 120_000,
-    compilerIdleMs: HASKELL_COMPILER_KEEP_MS, assets: HASKELL.hook }));
+  return (compiler ??= createRuntime({ language: "typescript", role: "compile", compilerIdleMs: COMPILER_KEEP_MS, typescriptFiles: typescriptFiles() }));
 }
 /**
- * The pools an instance holds belong to one group at a time, as measured on a cloud action (512 MiB; the process alone
- * is about 214 MiB): "agents" (Python and TypeScript, about 280 MiB warm), "haskell" (Haskell's execution pool) or
- * "compiler" (MicroHs's compiler, about 250 MiB). Whichever group is about to be used closes the others' idle pools
- * (an instance runs one action at a time, so they are idle between actions); the next use starts them again. A game's
- * Haskell acts and compilations therefore run in actions of their own (haskellAct.ts, haskellCompile.ts).
+ * The pools an instance holds belong to one group at a time: a language's agent pool, the TypeScript compiler, or a
+ * language's analytics-script pool. On a cloud action (512 MiB; the process alone is about 100–200 MiB) one group fits
+ * comfortably, several did not (Python and TypeScript warm with the compiler held about 450 MiB). Whichever group is
+ * about to be used closes the others' idle pools (an instance runs one action at a time, so they are idle between
+ * actions, and Convex may reuse a process for any function); the next use starts them again.
  */
-function closeIdleExcept(group: "agents" | "haskell" | "compiler"): void {
-  if (group !== "compiler" && haskellCompiler?.idle) { haskellCompiler.close(); haskellCompiler = undefined; }
-  const pools: [Partial<Record<string, GameRuntime>>, string, "agents" | "haskell"][] = [
-    ...Object.keys(runtimes).map(language => [runtimes, language, language === "haskell" ? "haskell" : "agents"] as [Partial<Record<string, GameRuntime>>, string, "agents" | "haskell"]),
-    ...Object.keys(scriptRuntimes).map(language => [scriptRuntimes, language, "agents"] as [Partial<Record<string, GameRuntime>>, string, "agents" | "haskell"]),
-  ];
-  for (const [registry, language, owner] of pools) {
-    const runtime = registry[language];
-    if (owner !== group && runtime?.idle) { runtime.close(); delete registry[language]; }
+function closeIdleExcept(group: Language | "compiler" | `script-${ScriptLanguage}`): void {
+  if (group !== "compiler" && compiler?.idle) { compiler.close(); compiler = undefined; }
+  for (const [registry, prefix] of [[runtimes, ""], [scriptRuntimes, "script-"]] as [Partial<Record<string, GameRuntime>>, string][]) {
+    for (const [language, runtime] of Object.entries(registry)) {
+      if (`${prefix}${language}` !== group && runtime?.idle) { runtime.close(); delete registry[language]; }
+    }
   }
-}
-/**
- * The key of a compiled Haskell program (runtime/haskellPrograms.ts), as the package keys its own compilations: the
- * grammar and price function, the bundle, the room's prelude, the source.
- */
-export function haskellKey(source: string, settings: ActSettings): string {
-  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
-  return sha(JSON.stringify([GRAMMAR_IDS.haskell, COMPLEXITY_IDS.haskell, HASKELL_BUNDLE_SHA256, settings.objectType, settings.prelude.key,
-    sha(settings.prelude.haskell ?? ""), sha(source)]));
 }
 
 /**
@@ -196,13 +167,12 @@ export function haskellKey(source: string, settings: ActSettings): string {
  * executor and a compiler worker that only transpiles and stops after 10 s idle.
  */
 export type ScriptLanguage = "python" | "typescript";
-/** Haskell has no script mode (lib/game-runtime). */
 export const SCRIPT_OPTIONS: Record<ScriptLanguage, RuntimeOptions> = {
   python: { language: "python", workers: 1, queueLimit: 8, assets: pythonBundle },
   get typescript(): RuntimeOptions { return { language: "typescript", workers: 1, queueLimit: 8, compilerIdleMs: 10_000, typescriptFiles: typescriptFiles() }; },
 };
 const scriptRuntimes: Partial<Record<ScriptLanguage, GameRuntime>> = {};
 export function scriptRuntimeFor(language: ScriptLanguage): GameRuntime {
-  closeIdleExcept("agents");
+  closeIdleExcept(`script-${language}`);
   return (scriptRuntimes[language] ??= createRuntime(SCRIPT_OPTIONS[language]));
 }

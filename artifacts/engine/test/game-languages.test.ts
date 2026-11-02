@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, HS, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
   agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
@@ -47,50 +47,24 @@ test("each agent is written in one of the game's languages, priced and run in it
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 
-test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts like the others", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Hs Host", "Hs Ada", "Hs Bo");
+test("a TypeScript agent is compiled by another action; its program and its compile failure are stored for every action", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("Ts Host", "Ts Ada", "Ts Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["haskell", "typescript"] });
+  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
   const game = await startGame(host, roomId);
-  const send = (god: typeof host, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  // The sandbox boots on first use (a warming answer is retried, as the forge does).
-  const validate = async (source: string) => {
-    for (;;) {
-      const reply = await send(ada, { type: "validate", language: "haskell", source });
-      if (reply.accepted || !/warming/i.test(String(reply.message))) return reply;
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    }
-  };
+  const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   // Sources new to this run (a comment), so this run compiles them and stores the newest rows.
-  const run = Date.now(), source = `${HS.Int}\n-- run ${run}\n`, notHaskell = `${TS.Int}\n// run ${run}\n`;
-  const validated = await validate(source);
-  assert.equal(validated.accepted, true, validated.message);
+  const run = Date.now(), source = `${TS.Int}\n// run ${run}\n`, broken = `function agent(x) { return [add(x +]; }\n// run ${run}\n`;
+  const validated = await send({ type: "validate", language: "typescript", source });
   assert.equal(validated.validation.valid, true, JSON.stringify(validated));
-  assert.match(validated.validation.diagnostics[0], /\(hs-token-bits-v1-uniform:/);
-  // TypeScript source sent as Haskell does not compile.
-  const broken = await validate(notHaskell);
-  assert.equal(broken.validation.valid, false);
-  // Another action compiled both (runtime/haskellCompile.ts) and stored the outcome for every action: the program,
-  // and the agent's own compile failure, which a second validation reports the same without compiling again.
-  const [failure, stored] = await admin.query(internal.testing.haskellProgramsLatest, { count: 2 });
-  assert.ok(!stored.error && stored.chars > 1000, "the program is stored");
-  assert.equal(stored.inspection.complexityFunctionId, "hs-token-bits-v1-uniform");
+  const failed = await send({ type: "validate", language: "typescript", source: broken });
+  assert.equal(failed.validation.valid, false);
+  // runtime/compile.ts stored both outcomes; a second validation of the broken source reports the same, without compiling.
+  const [failure, stored] = await admin.query(internal.testing.compiledProgramsLatest, { count: 2 });
+  assert.ok(!stored.error && stored.chars > 0, "the program is stored");
+  assert.equal(stored.inspection.complexityFunctionId, "ts-ast-bits-v1-uniform");
   assert.equal(failure.error?.code, "COMPILE");
-  assert.deepEqual((await validate(notHaskell)).validation, broken.validation);
-
-  const summoned = await send(ada, { type: "summon", name: "Test agent", language: "haskell", source });
-  assert.equal(summoned.accepted, true, summoned.message);
-  assert.equal((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
-  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
-  await waitFor(async () => {
-    const { agents } = await raw(game.gameId);
-    return agents.length === 2 && agents.every((a: any) => a.acts >= 2) || undefined;
-  }, "both agents act", 120_000);
-  const { batches, agents } = await raw(game.gameId);
-  const haskell = agents.find((a: any) => a.language === "haskell");
-  const failed = batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "fail" && e.agentId === haskell._id
-    && !/already has this value|no change/.test(e.reason));
-  assert.deepEqual(failed, [], "the Haskell agent's moves apply");
+  assert.deepEqual((await send({ type: "validate", language: "typescript", source: broken })).validation, failed.validation);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 
@@ -106,5 +80,25 @@ test("a language the game does not allow is refused at validate and summon", { t
     assert.match(refused.message, /does not allow python agents \(allowed: typescript\)/, type);
   }
   assert.equal((await raw(game.gameId)).agents.length, 0);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+test("Haskell is retired: a game's Haskell agent sits out and still observes", { timeout: 180_000 }, async () => {
+  const [host, ada, bo] = await gods("Old Host", "Old Ada", "Old Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
+  const game = await startGame(host, roomId);
+  const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  assert.equal((await send({ type: "summon", name: "Old agent", language: "typescript", source: TS.Int })).accepted, true);
+  const [agent] = (await raw(game.gameId)).agents;
+  // As if summoned in Haskell before it was retired (its stored language is history).
+  await admin.mutation(internal.testing.patchAgentLanguage, { agentId: agent._id, language: "haskell" });
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  await new Promise(resolve => setTimeout(resolve, 8000));
+  const after = await raw(game.gameId);
+  assert.equal(after.agents[0].acts, 0, "it never acts, and is never charged");
+  assert.deepEqual(after.batches.flatMap((b: any) => b.events).filter((e: any) => e.agentId === agent._id && (e.t === "transform" || e.t === "fail")), []);
+  const obs = await ada.c.query(api.player.observation, { roomId });
+  assert.equal(obs.agents[0].language, "haskell", "the player still sees their agent, as it was");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });

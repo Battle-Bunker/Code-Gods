@@ -149,6 +149,9 @@ importers:
       '@convex-dev/better-auth':
         specifier: 0.12.6
         version: 0.12.6(@standard-schema/spec@1.1.0)(better-auth@1.6.33(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(convex@1.48.0(react@19.1.0))(hono@4.13.14)(react@19.1.0)(typescript@5.9.3)
+      '@convex-dev/migrations':
+        specifier: 0.3.7
+        version: 0.3.7(convex-helpers@0.1.132(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.1.0))(hono@4.13.14)(react@19.1.0)(typescript@5.9.3)(zod@4.6.7))(convex@1.48.0(react@19.1.0))
       '@convex-dev/static-hosting':
         specifier: 0.2.1
         version: 0.2.1(convex@1.48.0(react@19.1.0))(react@19.1.0)
@@ -741,6 +744,12 @@ packages:
       better-auth: '>=1.6.11 <1.7.0'
       convex: ^1.25.0
       react: ^18.3.1 || ^19.0.0
+
+  '@convex-dev/migrations@0.3.7':
+    resolution: {integrity: sha512-B5psv+FhfFLu2ttusIMcWiHS2fpxOiqWrvHl9wOjgcCwTy1Lqhvn2rY7LBQ8O6hVF5dPm8uoEbaNKPSHxkiD7A==}
+    peerDependencies:
+      convex: ^1.42.0
+      convex-helpers: ^0.1.115
 
   '@convex-dev/static-hosting@0.2.1':
     resolution: {integrity: sha512-QMcfKUOB8dHeLa81xzk2GEIn7LzhEvtdgYhfFpIFer6uE/+xMStDxHAZsX5h1qsttYi7wNbEKAMf7MfOQ7ZrMw==}
@@ -2850,6 +2859,11 @@ snapshots:
       - '@standard-schema/spec'
       - hono
       - typescript
+
+  '@convex-dev/migrations@0.3.7(convex-helpers@0.1.132(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.1.0))(hono@4.13.14)(react@19.1.0)(typescript@5.9.3)(zod@4.6.7))(convex@1.48.0(react@19.1.0))':
+    dependencies:
+      convex: 1.48.0(react@19.1.0)
+      convex-helpers: 0.1.132(@standard-schema/spec@1.1.0)(convex@1.48.0(react@19.1.0))(hono@4.13.14)(react@19.1.0)(typescript@5.9.3)(zod@4.6.7)
 
   '@convex-dev/static-hosting@0.2.1(convex@1.48.0(react@19.1.0))(react@19.1.0)':
     dependencies:

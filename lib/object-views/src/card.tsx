@@ -105,8 +105,8 @@ export function UtilityCardView({ card, uses, grid, goal }: {
 // ---------------------------------------------------------------------------------------------
 
 export interface HelperDocLike {
-  name: { python: string; typescript: string; haskell?: string };
-  signature: { python: string; typescript: string; haskell?: string };
+  name: { python: string; typescript: string };
+  signature: { python: string; typescript: string };
   kid: string;
   class?: string;
   group: "read" | "mutator" | string;
@@ -117,9 +117,8 @@ function badgeOf(cls: string | undefined): BadgeLike | undefined {
   try { return capabilityClass(cls).badge; } catch { return undefined; }
 }
 
-/** A helper's name and signature in an agent language (Haskell: only helpers with a Haskell form; else null). */
-export function helperIn(h: HelperDocLike, language: string): { name: string; signature: string } | null {
-  if (language === "haskell") return h.name.haskell && h.signature.haskell ? { name: h.name.haskell, signature: h.signature.haskell } : null;
+/** A helper's name and signature in an agent language. */
+export function helperIn(h: HelperDocLike, language: string): { name: string; signature: string } {
   const lang = language === "typescript" ? "typescript" : "python";
   return { name: h.name[lang], signature: h.signature[lang] };
 }
@@ -142,19 +141,18 @@ export function groupHelpers(helpers: readonly HelperDocLike[]) {
  * returns, grouped by badge, each with its signature and kid line. Clicking a name inserts it.
  */
 export function HelpersDrawer({ helpers, language, onInsert, open: initiallyOpen = false }: {
-  helpers: readonly HelperDocLike[]; language: "python" | "typescript" | "haskell" | string; onInsert?: (name: string) => void; open?: boolean;
+  helpers: readonly HelperDocLike[]; language: "python" | "typescript" | string; onInsert?: (name: string) => void; open?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
-  const shown = helpers.filter(h => helperIn(h, language));
-  const match = (h: HelperDocLike) => !q || helperIn(h, language)!.name.toLowerCase().includes(q) || h.kid.toLowerCase().includes(q);
+  const match = (h: HelperDocLike) => !q || helperIn(h, language).name.toLowerCase().includes(q) || h.kid.toLowerCase().includes(q);
   const sections: [string, string, HelperDocLike[]][] = [
-    ["read", "Read the board", shown.filter(h => h.group !== "mutator" && match(h))],
-    ["mutator", "Moves your agent can return", shown.filter(h => h.group === "mutator" && match(h))],
+    ["read", "Read the board", helpers.filter(h => h.group !== "mutator" && match(h))],
+    ["mutator", "Moves your agent can return", helpers.filter(h => h.group === "mutator" && match(h))],
   ];
   return (
     <details className="border text-sm" open={initiallyOpen} data-testid="helpers-drawer">
-      <summary className="cursor-pointer px-3 py-2 font-medium">Room helpers <span className="text-xs text-muted-foreground font-normal">({shown.length})</span></summary>
+      <summary className="cursor-pointer px-3 py-2 font-medium">Room helpers <span className="text-xs text-muted-foreground font-normal">({helpers.length})</span></summary>
       <div className="px-3 pb-3 space-y-3">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a helper" aria-label="Find a helper"
           className="w-full border bg-background px-2 py-1 text-xs outline-none focus:border-primary" data-testid="input-helper-search" />
@@ -166,7 +164,7 @@ export function HelpersDrawer({ helpers, language, onInsert, open: initiallyOpen
                 {g.badge && <p className="text-[11px] text-muted-foreground" title={g.badge.kid}>{g.badge.emoji} {g.badge.label}</p>}
                 <ul className="space-y-1 max-h-64 overflow-auto">
                   {g.items.map(h => {
-                    const { name, signature } = helperIn(h, language)!;
+                    const { name, signature } = helperIn(h, language);
                     return (
                       <li key={name + signature} className="text-xs">
                         <button type="button" disabled={!onInsert} onClick={() => onInsert?.(name)}
