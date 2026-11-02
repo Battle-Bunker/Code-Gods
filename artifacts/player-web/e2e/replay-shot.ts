@@ -6,7 +6,9 @@
  * an ended game opens in the dock's replay mode at its end with the Timeline and the built-in panels; the deep link
  * reopens the same event; a step onto a change animates it on the board; the URL follows; an agent's code opens from
  * the timeline; the point of view switches; play moves the playhead (and starts over from the end); other pages'
- * links carry no replay position.
+ * links carry no replay position. First, as a player finds it: from the room page right after the game ends, with no
+ * typed URL, "Watch the replay" opens the replay bar at the bottom of the screen; scrubbing to the middle, playing at
+ * 4× and stepping each move the playhead, and the board changes with it.
  * Usage: node --experimental-transform-types e2e/replay-shot.ts <out-dir>
  */
 import "../../engine/scripts/local-only.mjs";
@@ -69,6 +71,64 @@ const open = async (width: number, height: number, query: string) => {
   await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
   return { page, context };
 };
+
+const boardText = (page: import("playwright").Page) => page.locator("[data-testid^=row-object-]").allTextContents().then(t => t.join("|"));
+{
+  // The owner's journey: the room page right after "Game over". No URL is typed: the bar under the dock offers the replay.
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  const page = await context.newPage();
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
+  await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
+  await sleep(1500);
+  await page.screenshot({ path: `${OUT}/replay-room-ended.png` });
+  await page.click("[data-testid=link-watch-replay]");
+  await page.waitForSelector(T, { timeout: 60_000 });
+  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the replay is the game's page");
+  // One bar, anchored to the bottom of the screen, with a track wider than half the screen.
+  const bar = (await page.locator(T).boundingBox())!;
+  assert.ok(Math.abs(bar.y + bar.height - 900) <= 2, `the replay bar sits at the bottom (${bar.y}+${bar.height})`);
+  const track = (await page.locator("[data-testid=input-replay-scrub]").boundingBox())!;
+  assert.ok(track.width > 720, `the scrub track is wide (${track.width})`);
+  const total = Number(await page.getAttribute(T, "data-events"));
+  assert.equal(await cursorOf(page), total, "it opens at the end");
+  assert.ok(await page.locator("[data-testid=replay-marker]").count() > 0, "key moments are marked on the track");
+  // Scrub to the middle: hover names the moment, a click seeks there, and the board shows the game at that moment.
+  await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2);
+  await page.waitForSelector("[data-testid=replay-scrub-tooltip]");
+  assert.match(await page.textContent("[data-testid=replay-scrub-tooltip]") ?? "", /\d+:\d\d · event \d+/);
+  await page.mouse.down();
+  await page.mouse.move(track.x + track.width * 0.45, track.y + track.height / 2, { steps: 4 });
+  await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2, { steps: 4 });
+  await page.mouse.up();
+  const middle = await cursorOf(page);
+  assert.ok(Math.abs(middle - total / 2) <= Math.max(2, total * 0.02), `dragging to the middle seeks there (${middle} of ${total})`);
+  await page.waitForSelector("[data-testid^=row-object-]", { timeout: 15_000 });
+  await page.screenshot({ path: `${OUT}/replay-bar-middle.png` });
+  const atMiddle = await boardText(page);
+  // Play at 4×: the playhead moves on and the board with it.
+  await page.selectOption("[data-testid=select-replay-speed]", "4");
+  await page.click("[data-testid=button-replay-play]");
+  await page.waitForFunction(m => Number(document.querySelector("[data-testid=replay-transport]")?.getAttribute("data-cursor")) > m + 3, middle, { timeout: 15_000 });
+  await page.click("[data-testid=button-replay-play]");
+  assert.equal(await page.getAttribute(T, "data-playing"), "0", "pause stops playback");
+  const played = await cursorOf(page);
+  await page.waitForFunction(b => [...document.querySelectorAll("[data-testid^=row-object-]")].map(e => e.textContent).join("|") !== b, atMiddle, { timeout: 5_000 });
+  // Step forward and back by one event; the keys step too.
+  await page.click("[data-testid=button-replay-next]");
+  assert.equal(await cursorOf(page), played + 1, "step forward moves one event");
+  await page.click("[data-testid=button-replay-prev]");
+  await page.click("[data-testid=button-replay-prev]");
+  assert.equal(await cursorOf(page), played - 1, "step back moves one event");
+  await page.locator("body").press("ArrowRight");
+  assert.equal(await cursorOf(page), played, "→ steps forward");
+  await page.locator("body").press("Home");
+  assert.equal(await cursorOf(page), 0, "Home jumps to the start");
+  await page.click("[data-testid=button-replay-end]");
+  assert.equal(await cursorOf(page), total, "the end button jumps to the end");
+  await context.close();
+}
 
 let events = 0;
 {
@@ -139,6 +199,13 @@ const mid = Math.floor(events * 0.6);
 }
 {
   const { page, context } = await open(390, 844, `?e=${mid}`);
+  // On a phone the bar stays at the bottom, above the assistant's sheet.
+  const bar = (await page.locator(T).boundingBox())!;
+  assert.ok(Math.abs(bar.y + bar.height - 844) <= 2, `the phone's replay bar sits at the bottom (${bar.y}+${bar.height})`);
+  const sheet = await page.locator(".cg-sheet").boundingBox();
+  assert.ok(!sheet || sheet.y + sheet.height <= bar.y + 1, "the assistant's sheet sits above the bar");
+  const play = (await page.locator("[data-testid=button-replay-play]").boundingBox())!;
+  assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid=button-replay-play]") !== null, [play.x + play.width / 2, play.y + play.height / 2]), true, "play is not covered");
   await page.screenshot({ path: `${OUT}/replay-phone.png` });
   await context.close();
 }

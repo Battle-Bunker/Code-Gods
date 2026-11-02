@@ -63,3 +63,14 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     case "agent.destroyed": return `${god(ev.ownerId)} destroyed agent ${shortId(ev.agentId)}`;
   }
 }
+
+/** The event a point of the scrub track stands for: `fraction` of the way along a log of `end` events (clamped, nearest). */
+export function cursorAtFraction(fraction: number, end: number): number {
+  if (!Number.isFinite(fraction) || end <= 0) return 0;
+  return Math.round(Math.max(0, Math.min(1, fraction)) * end);
+}
+
+/** The room page's way into the replay: its game, once that game has ended (the live observation's phase and code). */
+export function endedGameReplay(obs: { phase?: string; gameShortCode?: string | null } | undefined): { game: string } | null {
+  return obs?.phase === "ended" && obs.gameShortCode ? { game: obs.gameShortCode } : null;
+}
