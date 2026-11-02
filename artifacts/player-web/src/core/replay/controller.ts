@@ -22,7 +22,11 @@ export type Changed = { version: number; after: number | string; before?: number
 const CHANGE_MS = 1200;
 /** While playing, SDK answers move at most this often (each answer re-renders every panel). */
 const ANSWER_MS = 125;
-export type ReplayView = { cursor: number; playing: boolean; speed: number; pov: number; state: ReplayState; version: number };
+/**
+ * `world`: the playhead, a continuous world time (the clock and the scrub thumb); `cursor`: the events applied, exactly
+ * those at or before it (stepping lands `world` on an event's time). `scrubbing`: a drag of the track is in progress.
+ */
+export type ReplayView = { cursor: number; world: number; playing: boolean; scrubbing: boolean; speed: number; pov: number; state: ReplayState; version: number };
 
 export class ReplayController {
   readonly end: number;
@@ -36,8 +40,8 @@ export class ReplayController {
   private published: { cursor: number; pov: number; state: ReplayState };
   private answerTimer: ReturnType<typeof setTimeout> | undefined;
   private answerAt = 0;
-  private world = 0;
   private frame = 0;
+  private last = 0;
   private answers = new Map<string, unknown>();
   /** Objects changed by recent forward moves of the playhead (the last CHANGE_MS): version reached, value before (board animation). */
   changed: ReadonlyMap<string, Changed> = new Map();
@@ -45,16 +49,17 @@ export class ReplayController {
   readonly replay: Replay;
   readonly room: { roomId: string; roomShortCode?: string };
 
-  constructor(replay: Replay, room: { roomId: string; roomShortCode?: string }, start: { cursor: number; speed?: number; pov?: number }) {
+  constructor(replay: Replay, room: { roomId: string; roomShortCode?: string }, start: { cursor: number; world?: number; speed?: number; pov?: number }) {
     this.replay = replay;
     this.room = room;
     this.end = replay.log.length;
     this.moments = keyMoments(replay);
     this.series = scoreSeries(replay);
-    const cursor = Math.max(0, Math.min(this.end, start.cursor));
+    const world = start.world !== undefined ? this.clampWorld(start.world) : undefined;
+    const cursor = world !== undefined ? cursorAtWorld(replay, world) : Math.max(0, Math.min(this.end, start.cursor));
     const state = stateAt(replay, cursor);
-    this.view = { cursor, playing: false, speed: start.speed ?? DEFAULT_SPEED, pov: start.pov ?? Math.max(0, replay.viewer.index), state, version: 0 };
-    this.world = state.world;
+    this.view = { cursor, world: world ?? this.worldOf(cursor), playing: false, scrubbing: false, speed: start.speed ?? DEFAULT_SPEED,
+      pov: start.pov ?? Math.max(0, replay.viewer.index), state, version: 0 };
     this.published = { cursor, pov: this.view.pov, state };
     this.answerKey = `${cursor}|${this.view.pov}`;
   }
@@ -76,15 +81,30 @@ export class ReplayController {
       this.answers.clear();
       for (const l of this.answerListeners) l();
     };
-    if (!this.view.playing) { clearTimeout(this.answerTimer); publish(); }
+    if (!this.view.playing && !this.view.scrubbing) { clearTimeout(this.answerTimer); publish(); }
     else if (!this.answerTimer) this.answerTimer = setTimeout(publish, Math.max(0, this.answerAt + ANSWER_MS - performance.now()));
   }
 
   // ----- the playhead -----
-  seek(cursor: number, { keepPlaying = false } = {}) {
+  /** The game's last moment: its end, or its last event if that is later. */
+  get endWorld() { return Math.max(this.replay.endWorld, this.end ? this.replay.worldMax[this.end - 1] : 0); }
+  private clampWorld(world: number) { return Number.isNaN(world) ? 0 : Math.max(0, Math.min(this.endWorld, world)); }
+  /** The time of the last event applied at `cursor` (the start for none). */
+  private worldOf(cursor: number) { return cursor > 0 ? this.replay.worldMax[cursor - 1] : 0; }
+
+  /** Move to an exact event (stepping, key moments, the event list): the playhead lands on that event's time. */
+  seek(cursor: number, opts: { keepPlaying?: boolean } = {}) {
     const c = Math.max(0, Math.min(this.end, Math.floor(cursor)));
+    this.moveTo(c, this.worldOf(c), opts);
+  }
+  /** Move to a world time: exactly the events at or before it are applied. */
+  seekWorld(world: number, opts: { keepPlaying?: boolean } = {}) {
+    const w = this.clampWorld(world);
+    this.moveTo(cursorAtWorld(this.replay, w), w, opts);
+  }
+  private moveTo(c: number, world: number, { keepPlaying = false }: { keepPlaying?: boolean }) {
     if (!keepPlaying && this.view.playing) this.stop();
-    if (c === this.view.cursor) return;
+    if (c === this.view.cursor) { if (world !== this.view.world) this.set({ world }); return; }
     // Forward moves add their changes to the recent ones (a panel rendering at its own rate still sees each); any other
     // move clears them.
     const now = performance.now();
@@ -98,9 +118,7 @@ export class ReplayController {
       }
     }
     this.changed = changed;
-    const state = stateAt(this.replay, c);
-    if (!this.view.playing) this.world = state.world;
-    this.set({ cursor: c, state });
+    this.set({ cursor: c, world, state: stateAt(this.replay, c) });
   }
   step(dir: 1 | -1) { this.seek(this.view.cursor + dir); }
   jump(dir: 1 | -1) {
@@ -108,36 +126,44 @@ export class ReplayController {
     const target = dir > 0 ? this.moments.find(m => m.cursor > c) : [...this.moments].reverse().find(m => m.cursor < c);
     this.seek(target ? target.cursor : dir > 0 ? this.end : 0);
   }
-  seekWorld(world: number) { this.seek(cursorAtWorld(this.replay, world)); }
   setSpeed(speed: number) { if ((SPEEDS as readonly number[]).includes(speed)) this.set({ speed }); }
   setPov(pov: number) { if (pov >= 0 && pov < this.replay.game.roster.length && pov !== this.view.pov) this.set({ pov }); }
 
-  // ----- playback: the playhead advances `speed` world seconds per second; quiet stretches over 2 s of playback are skipped -----
+  /** A drag of the scrub track: the thumb and the clock follow every move; the panels' answers at most every 125 ms. */
+  beginScrub() { if (this.view.playing) this.stop(); if (!this.view.scrubbing) this.set({ scrubbing: true }); }
+  endScrub() {
+    if (!this.view.scrubbing) return;
+    this.set({ scrubbing: false });
+    // Land the answers exactly on the playhead now (a throttled publish may be pending).
+    clearTimeout(this.answerTimer);
+    this.answerTimer = undefined;
+    this.answerKey = "";
+    this.set({});
+  }
+
+  // ----- playback: the playhead advances `speed` world seconds per second of real time; each event applies as it is crossed -----
   toggle() { if (this.view.playing) this.stop(); else this.play(); }
   play() {
     if (this.view.playing) return;
-    if (this.view.cursor >= this.end) this.seek(0);
-    this.world = this.view.state.world;
-    this.set({ playing: true });
-    let last = performance.now();
+    if (this.view.world >= this.endWorld && this.view.cursor >= this.end) this.seekWorld(0);
+    this.set({ playing: true, scrubbing: false });
+    this.last = performance.now();
     const tick = () => {
       if (!this.view.playing) return;
       // Measured here: a frame's timestamp can precede a performance.now() taken before it was requested.
       const now = performance.now();
-      this.world += Math.max(0, now - last) / 1000 * this.view.speed;
-      last = now;
-      const at = this.view.cursor;
-      let next = Math.max(at, cursorAtWorld(this.replay, this.world));
-      const upcoming = this.replay.log[next];
-      if (next === at && upcoming && upcoming.world - this.world > 2 * this.view.speed) {
-        this.world = this.replay.worldMax[next];
-        next = Math.max(at, cursorAtWorld(this.replay, this.world));
-      }
-      if (next !== at) this.seek(next, { keepPlaying: true });
-      if (next >= this.end) { this.stop(); return; }
-      this.frame = requestAnimationFrame(tick);
+      this.advance(Math.max(0, now - this.last));
+      this.last = now;
+      if (this.view.playing) this.frame = requestAnimationFrame(tick);
     };
     this.frame = requestAnimationFrame(tick);
+  }
+  /** Moves a playing clock on by `ms` of real time (one animation frame's worth; tests call it directly). */
+  advance(ms: number) {
+    if (!this.view.playing) return;
+    const world = this.clampWorld(this.view.world + ms / 1000 * this.view.speed);
+    this.seekWorld(world, { keepPlaying: true });
+    if (world >= this.endWorld) this.stop();
   }
   stop() {
     cancelAnimationFrame(this.frame);

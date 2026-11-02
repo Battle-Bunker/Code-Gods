@@ -85,3 +85,78 @@ test("player.objectsPage is answered from the replay at the playhead, exactly, i
   c.seek(0);
   assert.equal(page().total, 0, "before the first spawn there is nothing to scroll");
 });
+
+// ----- the clock: a continuous playhead in world time (events at world 0, 0, 2, 3 and 5) -----
+// No browser frames here: play() asks for one if it can, and advance(ms) moves the clock as a frame would.
+(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame ??= () => 0;
+(globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame ??= () => {};
+const applied = (t: number) => [0, 0, 2, 3, 5].filter(w => w <= t).length;
+
+test("the clock: at world time t the playhead has applied exactly the events at or before t, at any speed", () => {
+  for (const speed of [0.5, 1, 4]) {
+    const c = controller(0);
+    c.setSpeed(speed);
+    c.play();
+    let t = 0;
+    for (const ms of [250, 400, 900, 1300, 700, 2000]) {
+      c.advance(ms);
+      t = Math.min(5, t + ms / 1000 * speed);
+      assert.ok(Math.abs(c.get().world - t) < 1e-9, `speed ${speed}: the playhead moves speed × real time (${c.get().world} vs ${t})`);
+      assert.equal(c.get().cursor, applied(t), `speed ${speed} at ${t}: exactly the events at or before it`);
+    }
+  }
+});
+
+test("the clock: quiet stretches pass in scaled real time (no skipping); playback stops at the game's end", () => {
+  const c = controller(0);
+  c.setSpeed(1);
+  c.play();
+  c.advance(2500);
+  assert.equal(c.get().world, 2.5, "no jump over the quiet stretch from 3 to 5");
+  assert.equal(c.get().cursor, 3);
+  c.advance(10_000);
+  assert.deepEqual([c.get().world, c.get().cursor, c.get().playing], [5, 5, false], "stops at the end");
+});
+
+test("the clock: pause holds the time, resume continues from it, seeking lands between events, stepping lands on them", () => {
+  const c = controller(0);
+  c.setSpeed(1);
+  c.play();
+  c.advance(1500);
+  c.stop();
+  c.advance(5000);
+  assert.deepEqual([c.get().world, c.get().cursor], [1.5, 2], "paused: time stands still");
+  c.play();
+  c.advance(1000);
+  assert.deepEqual([c.get().world, c.get().cursor], [2.5, 3], "resumed from where it paused");
+  c.seekWorld(2.9);
+  assert.deepEqual([c.get().world, c.get().cursor, c.get().playing], [2.9, 3, false], "a seek stops playback, between events");
+  c.seekWorld(1);
+  assert.equal(c.get().cursor, applied(1), "backwards too");
+  c.step(1);
+  assert.deepEqual([c.get().cursor, c.get().world], [3, 2], "a step lands on the next event's time");
+  c.step(-1);
+  assert.deepEqual([c.get().cursor, c.get().world], [2, 0]);
+  c.seekWorld(99);
+  assert.deepEqual([c.get().world, c.get().cursor], [5, 5], "clamped to the game's end");
+  const opened = new ReplayController(buildReplay([page]), { roomId: "r" }, { cursor: 0, world: Infinity });
+  assert.deepEqual([opened.get().world, opened.get().cursor], [5, 5], "a page opened at the end (world: Infinity) is at the end");
+  assert.deepEqual([new ReplayController(buildReplay([page]), { roomId: "r" }, { cursor: 0, world: 2.5 }).get().cursor], [3], "?t= opens between events");
+  c.play();
+  assert.deepEqual([c.get().world, c.get().cursor], [0, applied(0)], "play at the end starts over (the events at time 0 included)");
+});
+
+test("scrubbing: the board's answers move at most every 125 ms while dragging, and land exactly on release", () => {
+  const c = controller(0);
+  const at = () => (c.answer("player.observation", { roomId: "r" }) as { economy: { worldSeconds: number } }).economy.worldSeconds;
+  c.beginScrub();
+  c.seekWorld(2);
+  const first = at();
+  c.seekWorld(3);
+  c.seekWorld(4);
+  assert.ok(c.get().scrubbing && c.get().world === 4, "the thumb and the clock follow every move");
+  assert.equal(at(), first, "the panels are not re-rendered on every drag frame");
+  c.endScrub();
+  assert.equal(c.get().scrubbing, false);
+  assert.equal(at(), 3, "on release the answers are exactly at the playhead (its last event's time)");
+});

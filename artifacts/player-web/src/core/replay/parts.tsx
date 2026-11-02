@@ -4,9 +4,9 @@
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { TransformationView, type ObjectContext } from "@workspace/object-views";
-import { godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
+import { cursorAtWorld, godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
 import { SERIES } from "@/sdk/charts";
-import { SPEEDS, cursorAtFraction, describeEvent, shortId } from "./model";
+import { SPEEDS, describeEvent, shortId, worldAtFraction } from "./model";
 import { useReplay, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -28,7 +28,7 @@ export function useReplayChanged(): ReadonlyMap<string, Changed> {
 /** The playhead as assistant.send takes it (docs/replay-design.md §8): the game, the moment and the point of view. */
 export function replayPlayhead(c: ReplayController) {
   const v = c.get();
-  return { gameId: c.replay.game.id, cursor: v.cursor, events: c.end, worldSeconds: v.state.world, povGodId: c.replay.game.roster[v.pov]?.id };
+  return { gameId: c.replay.game.id, cursor: v.cursor, events: c.end, worldSeconds: v.world, povGodId: c.replay.game.roster[v.pov]?.id };
 }
 
 /** The agent whose code is open (one dialog for every place that opens one). */
@@ -52,18 +52,18 @@ export function ReplayBar({ controller: c, exitHref }: { controller: ReplayContr
   return (
     <div role="region" aria-label="Replay controls" className="shrink-0 border-t-2 border-[hsl(var(--primary))] bg-card px-3 pb-2 pt-1 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]"
       data-testid="replay-transport" data-cursor={v.cursor} data-events={c.end} data-pov={v.pov} data-playing={v.playing ? "1" : "0"}>
-      <ScrubTrack controller={c} cursor={v.cursor} />
+      <ScrubTrack controller={c} world={v.world} cursor={v.cursor} />
       <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" className={button} title="Jump to the start (Home)" aria-label="Jump to the start" onClick={() => c.seek(0)} data-testid="button-replay-start">⏮</button>
         <button type="button" className={button} title="Step back one event (←)" aria-label="Step back one event" onClick={() => c.step(-1)} data-testid="button-replay-prev">◀︎</button>
         <button type="button" className={`${button} h-9 min-w-12 bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90`} title="Play or pause (Space)"
           aria-label={v.playing ? "Pause" : "Play"} onClick={() => c.toggle()} data-testid="button-replay-play">{v.playing ? "❚❚" : "▶︎"}</button>
         <button type="button" className={button} title="Step forward one event (→)" aria-label="Step forward one event" onClick={() => c.step(1)} data-testid="button-replay-next">▶︎</button>
-        <button type="button" className={button} title="Jump to the end (End)" aria-label="Jump to the end" onClick={() => c.seek(c.end)} data-testid="button-replay-end">⏭</button>
+        <button type="button" className={button} title="Jump to the end (End)" aria-label="Jump to the end" onClick={() => c.seekWorld(c.endWorld)} data-testid="button-replay-end">⏭</button>
         <span className="mx-1 h-5 w-px bg-[hsl(var(--card-border))]" aria-hidden />
         <button type="button" className={`${button} text-xs`} title="Previous key moment (Shift+←)" onClick={() => c.jump(-1)} data-testid="button-replay-prev-moment">◆ prev</button>
         <button type="button" className={`${button} text-xs`} title="Next key moment (Shift+→)" onClick={() => c.jump(1)} data-testid="button-replay-next-moment">next ◆</button>
-        <span className="ml-1 font-mono text-sm tabular-nums" data-testid="text-replay-clock">{clock(v.state.world)} <span className="text-muted-foreground">/ {clock(c.replay.endWorld)}</span></span>
+        <span className="ml-1 font-mono text-sm tabular-nums" data-testid="text-replay-clock">{clock(v.world)} <span className="text-muted-foreground">/ {clock(c.endWorld)}</span></span>
         <span className="hidden font-mono text-xs text-muted-foreground tabular-nums sm:inline" data-testid="text-replay-event">event {v.cursor} of {c.end}</span>
         <span className="label hidden md:inline" data-testid="text-replay-phase">{v.state.phase}</span>
         <span className="flex-1" />
@@ -90,55 +90,73 @@ export function ReplayBar({ controller: c, exitHref }: { controller: ReplayContr
 const momentColour = (m: ReplayController["moments"][number]) =>
   m.kind === "swing" ? "hsl(var(--chart-4))" : m.kind === "lead" ? "hsl(var(--foreground))" : m.kind === "summon" ? godColour(m.god ?? 0) : "hsl(var(--muted-foreground))";
 
-/** The scrub track: drag or click to seek; hovering names the moment under the pointer; a slider for the keyboard. */
-function ScrubTrack({ controller: c, cursor }: { controller: ReplayController; cursor: number }) {
+/**
+ * The scrub track, laid out in world time like a video's: drag (mouse, pen or touch) or click to move the playhead
+ * continuously, and the board follows; hovering names the time and the event last crossed there; key moments sit at
+ * their times. A slider for the keyboard (Up/Down step an event, Page Up/Down a tenth of the game).
+ */
+function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayController; world: number; cursor: number }) {
   const track = useRef<HTMLDivElement | null>(null);
-  const [hover, setHover] = useState<{ x: number; cursor: number } | null>(null);
+  const [hover, setHover] = useState<{ x: number; world: number } | null>(null);
   const names = useMemo(() => new Map(c.replay.game.roster.map(g => [g.id, g.name])), [c]);
+  const end = c.endWorld;
   const at = (clientX: number) => {
     const r = track.current!.getBoundingClientRect();
-    return { x: clientX - r.left, cursor: cursorAtFraction((clientX - r.left) / Math.max(1, r.width), c.end) };
+    return { x: clientX - r.left, world: worldAtFraction((clientX - r.left) / Math.max(1, r.width), end) };
   };
-  // A drag seeks at most once a frame: each seek refolds the state and re-renders every panel.
-  const pending = useRef<{ cursor: number; frame: number } | null>(null);
+  const pct = (w: number) => `${(w / Math.max(1e-9, end)) * 100}%`;
+  // A drag seeks at most once a frame (the thumb and the clock move every frame; the panels at most every 125 ms).
+  const pending = useRef<{ world: number; frame: number } | null>(null);
   const dragTo = (to: number) => {
-    if (pending.current) { pending.current.cursor = to; return; }
-    pending.current = { cursor: to, frame: requestAnimationFrame(() => { const p = pending.current; pending.current = null; if (p) c.seek(p.cursor); }) };
+    if (pending.current) { pending.current.world = to; return; }
+    pending.current = { world: to, frame: requestAnimationFrame(() => { const p = pending.current; pending.current = null; if (p) c.seekWorld(p.world); }) };
+  };
+  const release = () => {
+    const p = pending.current;
+    if (p) { cancelAnimationFrame(p.frame); pending.current = null; c.seekWorld(p.world); }
+    c.endScrub();
   };
   useEffect(() => () => { if (pending.current) cancelAnimationFrame(pending.current.frame); }, []);
-  const pct = (n: number) => `${(n / Math.max(1, c.end)) * 100}%`;
-  const hovered = hover && hover.cursor > 0 ? c.replay.log[hover.cursor - 1] : undefined;
+  const hoveredCursor = hover ? cursorAtWorld(c.replay, hover.world) : 0;
+  const hovered = hoveredCursor > 0 ? c.replay.log[hoveredCursor - 1] : undefined;
   return (
     <div className="relative py-2">
-      <div ref={track} role="slider" tabIndex={0} aria-label="Replay position (event)" aria-valuemin={0} aria-valuemax={c.end} aria-valuenow={cursor}
-        aria-valuetext={`event ${cursor} of ${c.end}`} data-testid="input-replay-scrub"
-        className="group relative h-5 cursor-pointer touch-none outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
-        onPointerDown={e => { if (e.button !== 0) return; e.currentTarget.setPointerCapture(e.pointerId); c.seek(at(e.clientX).cursor); }}
-        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) dragTo(h.cursor); }}
-        onPointerUp={() => { const p = pending.current; if (p) { cancelAnimationFrame(p.frame); pending.current = null; c.seek(p.cursor); } }}
+      <div ref={track} role="slider" tabIndex={0} aria-label="Replay position (world time)" aria-valuemin={0} aria-valuemax={Math.round(end * 10) / 10} aria-valuenow={Math.round(world * 10) / 10}
+        aria-valuetext={`${clock(world)} of ${clock(end)}, event ${cursor} of ${c.end}`} data-testid="input-replay-scrub" data-world={world.toFixed(3)}
+        className="group relative h-6 cursor-pointer touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
+        onPointerDown={e => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          c.beginScrub();
+          c.seekWorld(at(e.clientX).world);
+        }}
+        onPointerMove={e => { const h = at(e.clientX); setHover(h); if (e.currentTarget.hasPointerCapture(e.pointerId)) dragTo(h.world); }}
+        onPointerUp={release}
+        onLostPointerCapture={release}
+        onPointerCancel={release}
         onPointerLeave={() => setHover(null)}
         onKeyDown={e => {
           // A slider's extra keys: Up/Down step, Page keys jump a tenth. Left/Right, Home/End and Space are the page's (useReplayKeys).
-          const tenth = Math.max(1, Math.round(c.end / 10));
-          const to = e.key === "ArrowUp" ? cursor + 1 : e.key === "ArrowDown" ? cursor - 1 : e.key === "PageUp" ? cursor + tenth : e.key === "PageDown" ? cursor - tenth : null;
-          if (to === null || e.shiftKey) return;
-          e.preventDefault(); e.stopPropagation();
-          c.seek(to);
+          if (e.shiftKey) return;
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); e.stopPropagation(); c.step(e.key === "ArrowUp" ? 1 : -1); }
+          else if (e.key === "PageUp" || e.key === "PageDown") { e.preventDefault(); e.stopPropagation(); c.seekWorld(world + (e.key === "PageUp" ? 1 : -1) * end / 10); }
         }}>
         <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 bg-[hsl(var(--muted))] transition-[height] group-hover:h-2.5">
-          <div className="h-full bg-[hsl(var(--primary))]" style={{ width: pct(cursor) }} />
-          {hover && <div className="pointer-events-none absolute inset-y-0 left-0 bg-[hsl(var(--primary)/0.25)]" style={{ width: pct(hover.cursor) }} />}
+          <div className="h-full bg-[hsl(var(--primary))]" style={{ width: pct(world) }} />
+          {hover && <div className="pointer-events-none absolute inset-y-0 left-0 bg-[hsl(var(--primary)/0.25)]" style={{ width: pct(hover.world) }} />}
         </div>
         {c.moments.map((m, i) => (
-          <span key={i} aria-hidden className="pointer-events-none absolute top-0 h-1.5 w-1 -translate-x-1/2" style={{ left: pct(m.cursor), background: momentColour(m) }} data-testid="replay-marker" />
+          <span key={i} aria-hidden className="pointer-events-none absolute top-0 h-1.5 w-1 -translate-x-1/2"
+            style={{ left: pct(m.cursor > 0 ? c.replay.worldMax[m.cursor - 1] : 0), background: momentColour(m) }} data-testid="replay-marker" />
         ))}
-        <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[hsl(var(--primary))] shadow"
-          style={{ left: pct(cursor) }} data-testid="replay-playhead" />
+        <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[hsl(var(--primary))] shadow group-active:h-5 group-active:w-5"
+          style={{ left: pct(world) }} data-testid="replay-playhead" />
       </div>
       {hover && (
         <div className="pointer-events-none absolute bottom-full z-50 mb-1 max-w-[22rem] -translate-x-1/2 border border-[hsl(var(--card-border))] bg-popover px-2 py-1 text-xs text-popover-foreground shadow"
           style={{ left: Math.max(80, Math.min(hover.x, (track.current?.clientWidth ?? 0) - 80)) }} data-testid="replay-scrub-tooltip">
-          <span className="font-mono tabular-nums">{clock(hovered?.world ?? 0)}</span> · event {hover.cursor}
+          <span className="font-mono tabular-nums">{clock(hover.world)}</span> · event {hoveredCursor}
           {hovered && <span className="block truncate text-muted-foreground">{describeEvent(hovered.event, names)}</span>}
         </div>
       )}
@@ -158,7 +176,9 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
   const lo = Math.min(0, ...all), hi = Math.max(0, ...all), span = hi - lo || 1;
   const maxWorld = Math.max(replay.endWorld, 1e-9);
   const X = (w: number) => m.l + (w / maxWorld) * (W - m.l - m.r), Y = (val: number) => m.t + (1 - (val - lo) / span) * (H - m.t - m.b);
-  const path = (god: number) => series.world.map((w, i) => `${i ? "L" : "M"}${X(w).toFixed(1)},${Y(series.totals[god][i]).toFixed(1)}`).join("");
+  // The curves depend on the game only: built once, not on every frame of playback.
+  const paths = useMemo(() => replay.game.roster.map((_, god) => series.world.map((w, i) => `${i ? "L" : "M"}${X(w).toFixed(1)},${Y(series.totals[god][i]).toFixed(1)}`).join("")),
+    [replay, series]); // eslint-disable-line react-hooks/exhaustive-deps
   const svg = useRef<SVGSVGElement | null>(null);
   const marked = [...c.moments.filter(k => k.kind === "swing")].sort((a, b) => Math.abs(b.delta!) - Math.abs(a.delta!)).slice(0, swings);
   const ranked = replay.game.roster.map((g, i) => ({ g, i, total: v.state.totals[i] })).sort((a, b) => b.total - a.total);
@@ -174,9 +194,9 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
         <text x={m.l - 4} y={Y(lo)} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">{num(lo)}</text>
         {c.moments.filter(k => k.kind === "lead").map((k, i) => <line key={`l${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeDasharray="2 3" opacity="0.3" />)}
         {c.moments.filter(k => k.kind === "phase" && (k.phase === "paused" || k.phase === "recovery")).map((k, i) => <line key={`p${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeWidth="3" opacity="0.15" />)}
-        {replay.game.roster.map((_, god) => <path key={god} d={path(god)} fill="none" stroke={godColour(god)} strokeWidth={god === v.pov ? 2.2 : 1.2} opacity={god === v.pov ? 1 : 0.75} />)}
+        {replay.game.roster.map((_, god) => <path key={god} d={paths[god]} fill="none" stroke={godColour(god)} strokeWidth={god === v.pov ? 2.2 : 1.2} opacity={god === v.pov ? 1 : 0.75} />)}
         {marked.map((k, i) => <path key={`s${i}`} d={`M${X(k.world)},${Y(series.totals[k.god!][Math.min(series.world.length - 1, Math.max(0, series.cursor.findIndex(x => x >= k.cursor)))]) - 6}l3,-5h-6z`} fill="hsl(var(--chart-4))" />)}
-        <line x1={X(v.state.world)} x2={X(v.state.world)} y1={0} y2={H - m.b} stroke="hsl(var(--primary))" strokeWidth="1.5" />
+        <line x1={X(v.world)} x2={X(v.world)} y1={0} y2={H - m.b} stroke="hsl(var(--primary))" strokeWidth="1.5" />
         <text x={W - m.r} y={H - 4} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">world {clock(maxWorld)} · click to go there</text>
       </svg>
       <table className="w-full text-xs" data-testid="replay-standings">
@@ -286,7 +306,7 @@ export function useReplayKeys(c: ReplayController) {
       else if (e.key === "ArrowRight") { e.preventDefault(); e.shiftKey ? c.jump(1) : c.step(1); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); e.shiftKey ? c.jump(-1) : c.step(-1); }
       else if (e.key === "Home") { e.preventDefault(); c.seek(0); }
-      else if (e.key === "End") { e.preventDefault(); c.seek(c.end); }
+      else if (e.key === "End") { e.preventDefault(); c.seekWorld(c.endWorld); }
       else if (e.key === "[" || e.key === "]") {
         const i = SPEEDS.indexOf(v.speed as typeof SPEEDS[number]);
         c.setSpeed(SPEEDS[Math.max(0, Math.min(SPEEDS.length - 1, i + (e.key === "]" ? 1 : -1)))]);
