@@ -23,8 +23,8 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 | Player CLI, assistant, token middleware | unit + live | `lib/player-client/test` | `pnpm --filter @workspace/player-client test` (reuses `CG_TEST_SITE_URL`) |
 | Claude artifact client (`clients/claude-artifact`): view model, error codes, commandId/receipt retry, manifest ⊆ registry, build | unit, `node --test`, no backend | `clients/claude-artifact/core.test.js` | `pnpm run test:artifact` |
 | Claude artifact page in a browser against a stand-in runtime (`dev/claude-stub.js`), and `probe.html` | browser smoke (Playwright, about 10 s) | `clients/claude-artifact/smoke.mjs` | `pnpm run smoke:artifact` |
-| Engine UI pure logic (`artifacts/code-gods/src/lib`: settings form rules, time, device approval) | unit, `node --test` | `artifacts/code-gods/test` | `pnpm --filter @workspace/code-gods test` |
-| Engine UI flows | browser e2e (Playwright) | `artifacts/code-gods/e2e/smoke.ts` | `pnpm --filter @workspace/code-gods e2e` |
+| The app's pure logic (`artifacts/player-web/src`: routes, next steps, palette commands, settings form rules, time, device approval, the dock's models) | unit, `node --test` | `artifacts/player-web/test` | `pnpm --filter @workspace/player-web test` |
+| The app's site pages (home, room, configure, the game's spectator view and replay, /connect, /device, admin) | browser e2e (Playwright) | `artifacts/player-web/e2e/site-smoke.ts` | `pnpm --filter @workspace/player-web e2e:site` |
 | Several player apps, panels and HMR, assistant, static hosting | multi-client browser e2e (slow: about 20 minutes) | `artifacts/player-web/e2e/multi-client.ts` | commit first (the apps are worktrees of HEAD), then `pnpm --filter @workspace/player-web e2e` |
 
 **Choosing a layer.** A rule belongs in a unit test of the library that owns it. A Convex function is tested
