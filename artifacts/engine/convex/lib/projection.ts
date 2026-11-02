@@ -10,7 +10,7 @@ import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSe
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
-import type { ClockedGame } from "../game/state";
+import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
@@ -27,7 +27,7 @@ export type Standing = { deityId: string; name: string; kind: "human" | "ai"; to
  * The public leaderboard: the published scoreboard (docs/public-log-design.md §3), which changes for everyone at once
  * every scoreIntervalSeconds of world time; live totals only for a game started before scoreboards existed.
  */
-export function standings(game: Pick<Game, "roster"> & { scoreboard?: Game["scoreboard"] }, objects: readonly Pick<Obj, "scores">[]): Standing[] {
+export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard }, objects: readonly Pick<Obj, "scores">[]): Standing[] {
   const member = new Map(game.roster.map(m => [m.id, m]));
   const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));
   return rows.map(row => ({
@@ -40,7 +40,6 @@ export function objectInstance(settings: GameSettings): InstanceInfo {
   const info = instanceInfo(instantiationOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
-
 
 const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 
